@@ -7,3 +7,7 @@
 
 GitHub Pages:
 Settings → Pages → Build and deployment → Deploy from a branch → main → /(root) → Save.
+
+## Анатомические иллюстрации
+
+В тренажёре используются шесть иллюстраций из *Gray's Anatomy* (1918), находящихся в общественном достоянии. Источник каждой иллюстрации указан прямо под изображением и ведёт на страницу файла в Wikimedia Commons.
