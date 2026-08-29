@@ -1206,7 +1206,7 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
     bottom: max(8px, env(safe-area-inset-bottom));
     left: 10px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 4px;
     padding: 5px;
     border: 1px solid var(--border);
@@ -1264,10 +1264,430 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
   }
 }
 
+/* v23: stable settings, exact palettes and the built-in reference assistant. */
+.mobiletabbar {
+  display: none;
+}
+
+#settingsScreen,
+.settingspanels,
+.settingspanel,
+.settingshead > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settingshead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+}
+
+.settingshead > .btn {
+  align-self: start;
+  white-space: nowrap;
+}
+
+.settingsnav {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+
+.settingspanel select,
+.settingspanel input,
+.settingspanel textarea {
+  max-width: 100%;
+}
+
+.paletteheading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 24px 0 10px;
+}
+
+.paletteheading h4,
+.paletteheading p {
+  margin: 0;
+}
+
+.paletteheading output {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.palettegrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.palettechoice {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.palettechoice:hover {
+  border-color: var(--text);
+}
+
+.palettechoice.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent-soft);
+}
+
+.paletteswatch {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgb(255 255 255 / .34);
+  border-radius: 8px;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .08);
+}
+
+.palettechoice > span:last-child {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.customtheme {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.customtheme > summary {
+  min-height: 46px;
+  padding: 13px 0;
+  color: var(--text);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.customtheme .huefield {
+  margin-bottom: 12px;
+}
+
+.preview-vivid {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 28%, #07131b), var(--accent));
+}
+
+html[data-theme="vivid"] {
+  color-scheme: dark;
+  --bg: color-mix(in srgb, var(--accent) 8%, #071219);
+  --card: color-mix(in srgb, var(--accent) 13%, #0d1a22);
+  --card2: color-mix(in srgb, var(--accent) 18%, #10202a);
+  --surface: color-mix(in srgb, var(--accent) 12%, #10202a);
+  --surface2: color-mix(in srgb, var(--accent) 20%, #142731);
+  --answer: color-mix(in srgb, var(--accent) 15%, #14242f);
+  --feedback: color-mix(in srgb, var(--accent) 11%, #0d1b24);
+  --text: #f8fbfc;
+  --muted: #c3d2d8;
+  --border: color-mix(in srgb, var(--accent) 38%, #50616a);
+  --blue: color-mix(in srgb, var(--accent) 54%, #dff7ff);
+  --page-bg: var(--bg);
+  --card-bg: var(--card);
+}
+
+.primary,
+.primarycta {
+  color: var(--accent-ink, #07131b);
+}
+
+.assistantpanel {
+  margin: 0 0 24px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+
+.assistanthead,
+.assistanthead > div,
+.assistantactions {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.assistanthead {
+  justify-content: space-between;
+}
+
+.assistanthead h3,
+.assistanthead p,
+.assistantlead {
+  margin: 0;
+}
+
+.assistanthead p,
+.assistantlead,
+#assistantStatus {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.assistanticon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-ink, #07131b);
+  font-size: 20px;
+}
+
+.localbadge {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.assistantlead {
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.assistantprompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0;
+}
+
+.assistantprompts button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.assistantinput {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.assistantinput textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  resize: vertical;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+}
+
+.assistantactions {
+  margin-top: 10px;
+}
+
+.assistantanswer {
+  min-height: 70px;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.referenceask {
+  width: 100%;
+  margin-top: 12px;
+}
+
+@media (max-width: 1050px) {
+  .palettegrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .settingshead {
+    grid-template-columns: 1fr;
+  }
+
+  .settingshead > .btn {
+    width: 100%;
+  }
+
+  .palettegrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .paletteheading,
+  .assistanthead,
+  .assistantactions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paletteheading output,
+  .localbadge {
+    align-self: flex-start;
+  }
+
+  .assistantactions .btn {
+    width: 100%;
+  }
+
+  .mobiletabbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mobiletabbar button {
+    min-width: 0;
+    padding-inline: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .regioncard,
   .primarycta,
   .modechips button {
     transition: none;
+  }
+}
+
+/* v24: a second explanation level with visual and Russian video resources. */
+.deeperactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.deeperactions .btn {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface2));
+}
+
+.learnmorepanel {
+  margin-top: 12px;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  overflow-wrap: anywhere;
+}
+
+.learnmorepanel > h4:first-child {
+  margin-top: 0;
+}
+
+.memoryline {
+  margin: 12px 0;
+  padding: 11px 12px;
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.learnmedia {
+  display: grid;
+  grid-template-columns: minmax(220px, .9fr) minmax(240px, 1.1fr);
+  gap: 14px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.learnmedia figure {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #f6f3ed;
+}
+
+.learnmedia img {
+  display: block;
+  width: 100%;
+  height: 210px;
+  object-fit: contain;
+}
+
+.learnmedia figcaption {
+  padding: 8px 10px;
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.learnmedia h4,
+.learnmedia p {
+  margin-top: 0;
+}
+
+.learnmedia > div {
+  min-width: 0;
+}
+
+.learnmedia .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 6px 0 0;
+  text-decoration: none;
+}
+
+.videolink {
+  border: 1px solid color-mix(in srgb, #ff3b30 52%, var(--border));
+}
+
+html[data-images="hidden"] .learnmedia {
+  grid-template-columns: 1fr;
+}
+
+html[data-images="hidden"] .learnmedia figure {
+  display: none;
+}
+
+@media (max-width: 650px) {
+  .learnmedia {
+    grid-template-columns: 1fr;
+  }
+
+  .learnmedia .btn,
+  .deeperactions .btn {
+    width: 100%;
+  }
+
+  .learnmedia .btn {
+    margin-right: 0;
   }
 }
