@@ -1,0 +1,722 @@
+/* Minimal home redesign. Load this file after the embedded styles in index.html. */
+
+:root {
+  --radius: 12px;
+  --page-bg: var(--bg);
+  --card-bg: var(--card);
+  --shadow: none;
+  --content-width: 980px;
+  --home-width: 760px;
+  --control-height: 46px;
+  --section-gap: 24px;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+.wrap {
+  width: min(100%, var(--content-width));
+  padding: 20px;
+}
+
+.card {
+  border-radius: var(--radius);
+  box-shadow: none;
+}
+
+#menu {
+  width: min(100%, var(--home-width));
+  margin-inline: auto;
+  padding: clamp(18px, 4vw, 32px);
+}
+
+button,
+select,
+input,
+summary {
+  font: inherit;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
+}
+
+button:disabled,
+select:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.btn,
+.language,
+.settingcheck,
+.primarycta {
+  min-height: 44px;
+}
+
+/* Quiet application header */
+.appnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(100%, var(--home-width));
+  margin: 0 auto 16px;
+  padding: 4px 2px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.appnav h1,
+.appnav h2,
+.appnav p {
+  margin: 0;
+}
+
+.appnav h1 {
+  font-size: clamp(20px, 4vw, 26px);
+  letter-spacing: -.02em;
+}
+
+.appnav .badges {
+  justify-content: flex-end;
+}
+
+.appnav .badge {
+  padding: 6px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.brand {
+  min-width: 0;
+}
+
+.brand .muted {
+  max-width: 46ch;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.navlinks {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.navbutton,
+.textbutton {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.navbutton:hover,
+.textbutton:hover {
+  background: var(--surface2);
+  text-decoration-color: currentColor;
+}
+
+.homestats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+/* Home hierarchy */
+.homehero {
+  margin: 0 0 26px;
+}
+
+.homehero h1,
+.homehero h2 {
+  max-width: 22ch;
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: clamp(28px, 6vw, 42px);
+  line-height: 1.12;
+  letter-spacing: -.035em;
+}
+
+.homehero p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(15px, 2.8vw, 18px);
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.continuecard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin: 0 0 var(--section-gap);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.continuecard h2,
+.continuecard h3,
+.continuecard p {
+  margin-top: 0;
+}
+
+.continuecard h2,
+.continuecard h3 {
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+
+.continuecard p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.setupflow {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.setupstep {
+  min-width: 0;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+
+.setupstep:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.setupstep > h2,
+.setupstep > h3,
+.setupstep > strong:first-child {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.setupstep > p {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.steptitle {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.steptitle > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.steptitle strong,
+.steptitle small {
+  display: block;
+}
+
+.steptitle strong {
+  color: var(--text);
+  font-size: 17px;
+}
+
+.steptitle small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.selectfield {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.selectfield select {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Region selection */
+.regiongrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.regioncard {
+  display: flex;
+  min-width: 0;
+  min-height: 64px;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.regioncard:hover {
+  background: var(--surface2);
+}
+
+.regioncard.active,
+.regioncard[aria-pressed="true"],
+.subject.active,
+.language.active,
+.themechoice.active {
+  border-color: var(--text);
+}
+
+.regioncard.active,
+.regioncard[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.regioncard b,
+.regioncard strong {
+  display: block;
+  color: var(--text);
+}
+
+.regioncard small,
+.regioncard .muted {
+  color: var(--muted);
+}
+
+/* Mode selection uses compact chips instead of another card grid. */
+.modechips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modechips .mode,
+.modechips button {
+  width: auto;
+  min-height: 44px;
+  padding: 9px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  transform: none;
+}
+
+.modechips .mode b,
+.modechips button b {
+  display: inline;
+  margin: 0;
+  font-size: inherit;
+}
+
+.modechips .mode span,
+.modechips button span {
+  display: none;
+}
+
+.modechips .active,
+.modechips [aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--surface2);
+  font-weight: 800;
+}
+
+.modechoice {
+  cursor: pointer;
+}
+
+.homeactions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.primarycta {
+  display: inline-flex;
+  flex: 1 1 260px;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 13px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #000;
+  font-weight: 850;
+  text-align: center;
+  cursor: pointer;
+}
+
+.homeactions .secondary,
+.homeactions .danger {
+  min-height: 52px;
+}
+
+.trustnote {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Settings stay available but no longer compete with the learning flow. */
+.compactsettings {
+  margin: 22px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.compactsettings > summary {
+  min-height: 48px;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.compactsettings > summary::after {
+  color: var(--text);
+}
+
+.compactsettings .settingscontent {
+  padding: 0 0 4px;
+}
+
+.compactsettings .settinggrid {
+  gap: 10px;
+}
+
+.compactsettings .settingfield,
+.compactsettings .settingcheck,
+.compactsettings .huefield {
+  color: var(--text);
+}
+
+.settingssection {
+  padding: 18px 0;
+  border-top: 1px solid var(--border);
+}
+
+.settingssection:first-child {
+  border-top: 0;
+}
+
+.settingssection > h3 {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.dangerzone {
+  margin-top: 8px;
+}
+
+.dangerzone .danger {
+  width: auto;
+}
+
+.sourcespanel {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.sourcespanel h3,
+.sourcespanel p {
+  margin-top: 0;
+}
+
+.sourcespanel ul {
+  padding-left: 20px;
+}
+
+.sourcespanel li + li {
+  margin-top: 9px;
+}
+
+.sourcespanel a,
+.questiontrust a {
+  color: var(--text);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* Question-first layout: the illustration is useful context, not a barrier. */
+.qvisualdetails {
+  margin: 14px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.qvisualdetails > summary {
+  min-height: 44px;
+  padding: 11px 14px;
+  color: var(--text);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.qvisualdetails .qvisual {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.questiontrust {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.quizactions {
+  justify-content: space-between;
+  margin-top: 18px;
+}
+
+/* Flatten legacy blocks when they are placed inside the redesigned home. */
+#menu .languagebox,
+#menu .voicebox {
+  margin: 0;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#menu .languagebox:first-child,
+#menu .voicebox:first-child {
+  border-top: 0;
+}
+
+#menu .language,
+#menu .voiceoption,
+#menu .settingcheck,
+#menu .huefield {
+  border-radius: var(--radius);
+}
+
+#menu .language,
+#menu .voiceoption {
+  background: var(--surface);
+}
+
+#menu .voiceoption select {
+  background: var(--card);
+}
+
+/* The three core themes are deliberately neutral. Other themes keep their
+   palette, but inherit the same restrained layout and flat surfaces. */
+html[data-theme="light"],
+html[data-theme="minimal"] {
+  --page-bg: var(--bg);
+  --card-bg: var(--card);
+  --shadow: none;
+}
+
+html[data-theme="dark"] {
+  --page-bg: var(--bg);
+  --card-bg: var(--card);
+  --shadow: none;
+}
+
+html[data-theme="atlas"],
+html[data-theme="vivid"] {
+  --page-bg: var(--bg);
+  --card-bg: var(--card);
+  --shadow: none;
+}
+
+html[data-theme="atlas"][data-accent="mint"] .primarycta {
+  color: #fffaf2;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-theme="auto"] {
+    color-scheme: light;
+    --page-bg: var(--bg);
+    --card-bg: var(--card);
+    --shadow: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme="auto"] {
+    color-scheme: dark;
+    --page-bg: var(--bg);
+    --card-bg: var(--card);
+    --shadow: none;
+  }
+}
+
+@media (max-width: 650px) {
+  :root {
+    --section-gap: 20px;
+  }
+
+  .wrap {
+    padding: 12px;
+  }
+
+  #menu {
+    padding: 18px 15px;
+  }
+
+  .appnav {
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .appnav .badges {
+    gap: 4px;
+  }
+
+  .homehero {
+    margin-bottom: 22px;
+  }
+
+  .continuecard {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 15px;
+  }
+
+  .regiongrid {
+    grid-template-columns: 1fr;
+  }
+
+  .homeactions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primarycta,
+  .homeactions .btn {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .modechips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .modechips .mode,
+  .modechips button {
+    width: 100%;
+  }
+
+  .compactsettings .settinggrid,
+  .compactsettings .themepicker {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 380px) {
+  .wrap {
+    padding: 8px;
+  }
+
+  #menu {
+    padding: 16px 12px;
+  }
+
+  .appnav {
+    display: block;
+  }
+
+  .appnav .badges {
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+
+  .homehero h1,
+  .homehero h2 {
+    font-size: 28px;
+  }
+
+  .modechips {
+    grid-template-columns: 1fr;
+  }
+
+  .regioncard {
+    min-height: 58px;
+    padding: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .regioncard,
+  .primarycta,
+  .modechips button {
+    transition: none;
+  }
+}
