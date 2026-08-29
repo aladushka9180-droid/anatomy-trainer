@@ -2126,6 +2126,273 @@ html[data-images="hidden"] .learnmedia figure {
   display: none;
 }
 
+/* Local learning profiles. */
+.profileswitcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 190px;
+}
+
+.profileswitcher [data-current-profile-name] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileswitchavatar,
+.profileavatar {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--profile-color, var(--accent)) 24%, var(--card));
+  border: 2px solid color-mix(in srgb, var(--profile-color, var(--accent)) 65%, var(--border));
+  font-family: system-ui, sans-serif;
+  font-size: 22px;
+}
+
+.profileswitchavatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+.profiledialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  overflow-y: auto;
+  background: color-mix(in srgb, #061019 72%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+body.profilemodalopen {
+  overflow: hidden;
+}
+
+.profiledialogcard {
+  position: relative;
+  width: min(100%, 660px);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+}
+
+.profiledialogcard h2 {
+  margin: 5px 44px 6px 0;
+  font-size: clamp(24px, 5vw, 32px);
+}
+
+.profileclose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.profilelist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0 14px;
+}
+
+.profilechoice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.profilechoice:hover,
+.profilechoice:focus-visible,
+.profilechoice.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.profilechoice strong,
+.profilechoice small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.profilechoice small {
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.profilecheck {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.profilecreatebutton {
+  width: 100%;
+}
+
+.profilenote {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.profilecreateform {
+  display: grid;
+  gap: 17px;
+}
+
+.profilecreateform fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.profilecreateform legend {
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+
+.profilecreateform .settingfield input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.avatarchoices,
+.colorchoices {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.avatarchoices label,
+.colorchoices label {
+  position: relative;
+  cursor: pointer;
+}
+
+.avatarchoices input,
+.colorchoices input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.avatarchoices span,
+.colorchoices span {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+  font-family: system-ui, sans-serif;
+  font-size: 24px;
+}
+
+.colorchoices span {
+  background: var(--profile-color);
+  border: 4px solid var(--card);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.avatarchoices input:checked + span,
+.colorchoices input:checked + span,
+.avatarchoices input:focus-visible + span,
+.colorchoices input:focus-visible + span {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.profileformactions,
+.profiledataactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.formerror {
+  min-height: 20px;
+  margin: 0;
+  color: #c24141;
+}
+
+.profiledatacard {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.profiledatasummary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profiledatasummary strong,
+.profiledatasummary small {
+  display: block;
+}
+
+.profiledatasummary small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.importprofile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.importprofile input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
 @media (max-width: 650px) {
   .learnmedia {
     grid-template-columns: 1fr;
@@ -2200,6 +2467,7 @@ html[data-images="hidden"] .learnmedia figure {
 
 /* v32: mobile polish and clearer access to settings. */
 .mobile-settings-btn,
+.mobile-profile-btn,
 .palettetoggle,
 .referencefilterhint {
   display: none;
@@ -2210,15 +2478,42 @@ html[data-images="hidden"] .learnmedia figure {
     grid-template-columns: 1fr;
   }
 
-  .appnav {
-    position: relative;
-    padding-right: 52px;
+  .profiledialog {
+    align-items: end;
+    padding: 8px;
   }
 
-  .mobile-settings-btn {
+  .profiledialogcard {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 22px 16px;
+    border-radius: 22px 22px 16px 16px;
+  }
+
+  .profilelist {
+    grid-template-columns: 1fr;
+  }
+
+  .profilechoice {
+    min-height: 72px;
+  }
+
+  .profileformactions .btn,
+  .profiledataactions .btn,
+  .profiledataactions .importprofile {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .appnav {
+    position: relative;
+    padding-right: 108px;
+  }
+
+  .mobile-settings-btn,
+  .mobile-profile-btn {
     position: absolute;
     top: 0;
-    right: 0;
     display: grid;
     place-items: center;
     width: 44px;
@@ -2231,6 +2526,23 @@ html[data-images="hidden"] .learnmedia figure {
     color: var(--text);
     font-size: 21px;
     cursor: pointer;
+  }
+
+  .mobile-settings-btn {
+    right: 0;
+  }
+
+  .mobile-profile-btn {
+    right: 52px;
+  }
+
+  .mobile-profile-btn span {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    font-family: system-ui, sans-serif;
+    font-size: 20px;
   }
 
   .settingsnav {

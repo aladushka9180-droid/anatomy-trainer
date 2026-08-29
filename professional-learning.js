@@ -2,6 +2,7 @@
   'use strict';
 
   const STORAGE_KEY = 'anatomy_professional_learning_v1';
+  const profileStorage = window.ProfileManager?.storage || window.localStorage;
   const techniques = Array.isArray(window.MASSAGE_TECHNIQUES) ? window.MASSAGE_TECHNIQUES : [];
   const curriculum = window.PRACTICE_CURRICULUM && typeof window.PRACTICE_CURRICULUM === 'object'
     ? window.PRACTICE_CURRICULUM
@@ -179,7 +180,7 @@
 
   function loadState() {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      const saved = JSON.parse(profileStorage.getItem(STORAGE_KEY) || 'null');
       if (!isRecord(saved)) return defaultState();
       return {
         techniqueChecks: normalizedChecks(saved.techniqueChecks),
@@ -207,7 +208,7 @@
   function saveState() {
     let saved = false;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      profileStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       saved = true;
     } catch (error) {
       console.warn('Не удалось сохранить прогресс практического обучения.', error);
@@ -630,7 +631,7 @@
     $('#clearProfessionalData')?.addEventListener('click', () => {
       if (!confirm('Удалить журнал, отметки чек-листов и ответы на практические ситуации с этого устройства? Это действие нельзя отменить.')) return;
       try {
-        localStorage.removeItem(STORAGE_KEY);
+        profileStorage.removeItem(STORAGE_KEY);
         state = defaultState();
         journalMessage = 'Все данные практики удалены с этого устройства.';
         renderProfessionalProgress();
