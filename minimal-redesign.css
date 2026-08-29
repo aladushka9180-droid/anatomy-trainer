@@ -2865,3 +2865,189 @@ html[data-custom-bg="on"] .appnav {
     padding-right: 58px;
   }
 }
+
+/* First-lesson route: one obvious action for a new learner. */
+.beginnerstart {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  margin: 18px 0 24px;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 10%, var(--card)), var(--card));
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.beginnerstart h3,
+.beginnerstart p {
+  margin: 0;
+}
+
+.beginnerstart p {
+  max-width: 68ch;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.recommendlabel {
+  width: max-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quickplansummary {
+  display: grid;
+  gap: 5px;
+  width: min(100%, 680px);
+  padding: 15px 17px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.quickplansummary span,
+.resultnextchoice span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.beginneractions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.beginneractions .btn {
+  min-height: 52px;
+}
+
+.setupflow {
+  scroll-margin-top: 18px;
+}
+
+.guidedtarget {
+  outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 5px;
+}
+
+.selectionsummary {
+  width: min(100%, 760px);
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.modelockedhint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.resultnext {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.resultnext h3,
+.resultnext p {
+  margin: 0;
+}
+
+.resultnextactions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.resultnextchoice {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  min-height: 108px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.resultnextchoice:hover,
+.resultnextchoice:focus-visible {
+  border-color: var(--accent);
+}
+
+.resultnextchoice.primarychoice {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
+.resultmenu {
+  margin-top: 12px;
+}
+
+body.firstvisit .homestats,
+body.firstvisit #continueCard {
+  display: none !important;
+}
+
+@media (max-width: 650px) {
+  .beginnerstart {
+    gap: 14px;
+    margin-top: 12px;
+    padding: 18px;
+  }
+
+  .beginneractions,
+  .beginneractions .btn,
+  .resultnextactions,
+  .resultnextchoice {
+    width: 100%;
+  }
+
+  .beginneractions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .resultnextactions {
+    grid-template-columns: 1fr;
+  }
+
+  .resultnextchoice {
+    min-height: 76px;
+  }
+}
+
+@media (max-width: 360px) {
+  .beginnerstart {
+    padding: 15px;
+  }
+
+  .quickplansummary,
+  .selectionsummary,
+  .resultnextchoice {
+    padding: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guidedtarget {
+    scroll-behavior: auto;
+  }
+}

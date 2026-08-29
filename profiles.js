@@ -16,6 +16,7 @@
     'anatomy_trainer_mode_v1',
     'anatomy_trainer_stage_v1',
     'anatomy_trainer_onboarding_v1',
+    'anatomy_trainer_beginner_v1',
     'anatomy_professional_learning_v1'
   ];
   const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#64748b'];
