@@ -1047,6 +1047,29 @@ select:disabled {
 .preset-graphite > span { background: linear-gradient(135deg, #0f172a, #475569 60%, #22d3ee); }
 .preset-vivid > span { background: linear-gradient(135deg, #7c3aed, #d946ef 55%, #fb7185); }
 
+.appearanceaccessibility {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.subsectionheading h4,
+.subsectionheading p {
+  margin: 0;
+}
+
+.subsectionheading p {
+  margin-top: 4px;
+}
+
+.appearanceaccessibility .settingchecks {
+  margin-block: 14px;
+}
+
+.appearanceaccessibility > .settingfield {
+  max-width: 360px;
+}
+
 .appearance-reset {
   width: 100%;
   margin-top: 18px;
@@ -1141,7 +1164,7 @@ select:disabled {
 
 .settingsnav {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
   margin-bottom: 18px;
   padding: 5px;
@@ -2215,7 +2238,7 @@ html[data-images="hidden"] .learnmedia figure {
   }
 
   .settingsnav button:last-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .palettegrid:not(.expanded) .palettechoice:nth-child(n + 7) {
