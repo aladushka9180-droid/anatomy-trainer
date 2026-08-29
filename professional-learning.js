@@ -14,6 +14,26 @@
     petrissage: Object.freeze({ videoId: 'VrpDK1aRBN0', index: 4, title: 'Разминание', duration: '11:05' }),
     vibration: Object.freeze({ videoId: 'ZuDxo4LRQPM', index: 5, title: 'Вибрация', duration: '6:23' })
   });
+  const TECHNIQUE_ILLUSTRATIONS = Object.freeze({
+    compression: Object.freeze({
+      src: './practice-compression.png',
+      alt: 'Массажист выполняет широкую мягкую компрессию ладонями по обе стороны от позвоночника',
+      title: 'Компрессия и статическое давление',
+      description: 'Широкие ладони и нейтральные запястья помогают распределять давление по мышечной области, не перенося его на позвоночник.'
+    }),
+    percussion: Object.freeze({
+      src: './practice-percussion.png',
+      alt: 'Массажист показывает лёгкие ударные приёмы расслабленными кистями над мышцами спины',
+      title: 'Ударные приёмы',
+      description: 'Кисти остаются расслабленными, движение — лёгким и ритмичным, а рабочая зона располагается в стороне от позвоночника.'
+    }),
+    'passive-movement-stretch': Object.freeze({
+      src: './practice-passive-stretch.png',
+      alt: 'Массажист поддерживает колено и голеностоп во время мягкого пассивного движения ноги',
+      title: 'Мягкие пассивные движения и растяжение',
+      description: 'Сустав ведут двумя руками только в комфортном диапазоне: без рывков, продавливания и попытки дойти до предела.'
+    })
+  });
 
   const $ = selector => document.querySelector(selector);
   const $$ = selector => Array.from(document.querySelectorAll(selector));
@@ -86,10 +106,26 @@
     </article>`;
   }
 
+  function illustrationCard(illustration) {
+    return `<article class="technique-illustration-card">
+      <figure class="technique-illustration">
+        <img src="${esc(illustration.src)}" alt="${esc(illustration.alt)}" loading="lazy" decoding="async">
+        <figcaption>Учебная иллюстрация положения рук и опоры</figcaption>
+      </figure>
+      <div class="video-lesson-copy"><h4>${esc(illustration.title)}</h4><p>${esc(illustration.description)}</p>
+        <p class="illustration-cue"><b>Проверь себя:</b> можешь назвать опору, рабочую область и сигнал, при котором движение нужно остановить?</p>
+      </div>
+    </article>`;
+  }
+
   function techniqueLesson(item) {
     const lesson = TECHNIQUE_LESSONS[item.id];
-    if (!lesson) return '';
-    return `<section class="technique-media" aria-labelledby="techniqueVideoTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядный урок</span><h4 id="techniqueVideoTitle">Посмотри технику перед отработкой</h4></div><a href="https://www.youtube.com/playlist?list=${LESSON_PLAYLIST_ID}" target="_blank" rel="noopener noreferrer">Весь плейлист</a></div>${lessonCard(lesson)}<p class="video-safety-note"><b>Важно:</b> видео помогает увидеть движение, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
+    const illustration = TECHNIQUE_ILLUSTRATIONS[item.id];
+    if (!lesson && !illustration) return '';
+    if (lesson) {
+      return `<section class="technique-media" aria-labelledby="techniqueMediaTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядный урок</span><h4 id="techniqueMediaTitle">Посмотри технику перед отработкой</h4></div><a href="https://www.youtube.com/playlist?list=${LESSON_PLAYLIST_ID}" target="_blank" rel="noopener noreferrer">Весь плейлист</a></div>${lessonCard(lesson)}<p class="video-safety-note"><b>Важно:</b> видео помогает увидеть движение, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
+    }
+    return `<section class="technique-media" aria-labelledby="techniqueMediaTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядная опора</span><h4 id="techniqueMediaTitle">Посмотри положение рук перед отработкой</h4></div></div>${illustrationCard(illustration)}<p class="video-safety-note"><b>Важно:</b> иллюстрация показывает общий принцип, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
   }
 
   function lessonLibrary() {

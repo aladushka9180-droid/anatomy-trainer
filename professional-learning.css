@@ -32,6 +32,11 @@
 .technique-media-head h4,.video-library-head h3{margin:4px 0 0}
 .technique-media-head>a,.video-lesson-copy>a{color:var(--professional-accent-strong);font-weight:800}
 .video-lesson-card{display:grid;grid-template-columns:minmax(220px,.9fr) minmax(0,1.1fr);gap:14px;align-items:center;min-width:0;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.technique-illustration-card{display:grid;grid-template-columns:minmax(220px,.9fr) minmax(0,1.1fr);gap:14px;align-items:center;min-width:0;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.technique-illustration{position:relative;min-width:0;margin:0;border-radius:10px;overflow:hidden;background:var(--surface2)}
+.technique-illustration img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.technique-illustration figcaption{padding:8px 10px;color:var(--muted);font-size:.78em;line-height:1.35}
+.illustration-cue{padding-top:8px;border-top:1px solid var(--border);font-size:.88em}
 .video-poster{position:relative;width:100%;min-width:0;aspect-ratio:16/9;border:0;border-radius:10px;overflow:hidden;background:#101522}
 .video-poster{display:block;padding:0;cursor:pointer;color:#fff}
 .video-poster img{display:block;width:100%;height:100%;object-fit:cover}
@@ -163,7 +168,7 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .technique-media,.video-library{padding:12px}
   .technique-media-head,.video-library-head{display:grid}
   .technique-media-head>a,.video-library-head .btn{justify-self:start}
-  .video-lesson-card,.video-lesson-card.compact{grid-template-columns:1fr}
+  .video-lesson-card,.video-lesson-card.compact,.technique-illustration-card{grid-template-columns:1fr}
   .video-lesson-copy p{font-size:.92em}
   #journalEntries{max-height:none;overflow:visible}
   .practice-card summary{align-items:flex-start}
