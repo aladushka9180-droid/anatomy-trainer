@@ -906,6 +906,195 @@ select:disabled {
   }
 }
 
+/* Independent background color and ready-made palettes. */
+.backgroundcustomizer {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.backgroundheading,
+.colorfield {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.backgroundheading h4,
+.backgroundheading p {
+  margin: 0;
+}
+
+.backgroundheading p {
+  margin-top: 4px;
+}
+
+.switchlabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.switchlabel input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.backgroundcontrols {
+  display: grid;
+  grid-template-columns: minmax(180px, .75fr) minmax(240px, 1.25fr);
+  gap: 12px;
+  margin-top: 14px;
+  transition: opacity .2s ease;
+}
+
+.colorfield,
+.strengthfield {
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.colorfield input[type="color"] {
+  width: 52px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.colorfield output {
+  min-width: 72px;
+  color: var(--muted);
+  font: 700 12px/1.2 ui-monospace, Consolas, monospace;
+}
+
+.strengthfield input {
+  width: 100%;
+  accent-color: var(--custom-background, var(--accent));
+}
+
+.stylepresets {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.stylepreset {
+  min-width: 0;
+  min-height: 104px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.stylepreset > span,
+.stylepreset > strong,
+.stylepreset > small {
+  display: block;
+}
+
+.stylepreset > span {
+  height: 34px;
+  margin-bottom: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 9px;
+}
+
+.stylepreset > strong,
+.stylepreset > small {
+  overflow-wrap: anywhere;
+}
+
+.stylepreset > small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.stylepreset.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 -3px 0 var(--accent), 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.preset-clinic > span { background: linear-gradient(135deg, #f8fffe 0 50%, #14b8a6 50%); }
+.preset-ocean > span { background: linear-gradient(135deg, #dff6ff, #38bdf8 55%, #2563eb); }
+.preset-mint > span { background: linear-gradient(135deg, #effff4, #86efac 60%, #10b981); }
+.preset-lavender > span { background: linear-gradient(135deg, #f7f2ff, #c4b5fd 60%, #8b5cf6); }
+.preset-sakura > span { background: linear-gradient(135deg, #fff1f7, #f9a8d4 60%, #ec4899); }
+.preset-amber > span { background: linear-gradient(135deg, #fff9e8, #fbbf24 60%, #f59e0b); }
+.preset-graphite > span { background: linear-gradient(135deg, #0f172a, #475569 60%, #22d3ee); }
+.preset-vivid > span { background: linear-gradient(135deg, #7c3aed, #d946ef 55%, #fb7185); }
+
+.appearance-reset {
+  width: 100%;
+  margin-top: 18px;
+}
+
+@media (max-width: 760px) {
+  .stylepresets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .backgroundcontrols {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .backgroundheading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .switchlabel {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .simplethemes,
+  .presetthemes {
+    grid-template-columns: 1fr;
+  }
+
+  .simplethemes .themechoice,
+  .presetthemes .themechoice {
+    min-width: 0;
+    min-height: 76px;
+    overflow-wrap: anywhere;
+  }
+
+  .colorfield {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .colorfield output {
+    grid-column: 1 / -1;
+  }
+}
+
 .questiontrust {
   margin-top: 14px;
   color: var(--muted);
@@ -2029,7 +2218,7 @@ html[data-images="hidden"] .learnmedia figure {
     grid-column: 1 / -1;
   }
 
-  .palettegrid:not(.expanded) .palettechoice:nth-child(n + 9) {
+  .palettegrid:not(.expanded) .palettechoice:nth-child(n + 7) {
     display: none;
   }
 
@@ -2075,19 +2264,24 @@ html[data-images="hidden"] .learnmedia figure {
   }
 
   .palettegrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .palettechoice {
-    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-columns: 26px minmax(0, 1fr);
     min-height: 54px;
+    gap: 6px;
+    padding-inline: 7px;
+  }
+
+  .paletteswatch {
+    width: 26px;
+    height: 26px;
   }
 
   .palettechoice > span:last-child {
-    font-size: 13px;
-    overflow-wrap: normal;
-    word-break: normal;
-    hyphens: none;
+    font-size: 12px;
+    overflow-wrap: anywhere;
   }
 
   .visualcontrols {
@@ -2281,5 +2475,48 @@ html[data-images="hidden"] .learnmedia figure {
 
   .voicefallback > div {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Keep the chosen page color stronger than optional card tint rules above. */
+html[data-custom-bg="on"][data-theme="dark"] {
+  --page-bg: radial-gradient(circle at top, color-mix(in srgb, var(--custom-background) var(--background-strength), #1b2848), color-mix(in srgb, var(--custom-background) var(--background-strength), #0b1020) 62%);
+}
+
+html[data-custom-bg="on"][data-theme="light"],
+html[data-custom-bg="on"][data-theme="minimal"],
+html[data-custom-bg="on"][data-theme="atlas"] {
+  --page-bg: linear-gradient(155deg, color-mix(in srgb, var(--custom-background) var(--background-strength), #ffffff), color-mix(in srgb, var(--custom-background) var(--background-strength), #e7eef2));
+}
+
+html[data-custom-bg="on"][data-theme="auto"] {
+  --page-bg: radial-gradient(circle at top, color-mix(in srgb, var(--custom-background) var(--background-strength), #1b2848), color-mix(in srgb, var(--custom-background) var(--background-strength), #0b1020) 62%);
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-custom-bg="on"][data-theme="auto"] {
+    --page-bg: linear-gradient(155deg, color-mix(in srgb, var(--custom-background) var(--background-strength), #ffffff), color-mix(in srgb, var(--custom-background) var(--background-strength), #e7eef2));
+  }
+}
+
+html,
+body {
+  background: var(--page-bg);
+}
+
+body {
+  background-attachment: fixed;
+}
+
+html[data-custom-bg="on"] .appnav {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+@media (max-width: 650px) {
+  html[data-custom-bg="on"] .appnav {
+    padding-right: 58px;
   }
 }
