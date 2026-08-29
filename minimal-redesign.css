@@ -2089,3 +2089,152 @@ html[data-images="hidden"] .learnmedia figure {
     grid-column: 2;
   }
 }
+
+/* v41: one clear, consistent block for training language and mode. */
+.trainingsettings {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.trainingoptions {
+  display: grid;
+  width: min(100%, 760px);
+  gap: 18px;
+}
+
+.trainingfield {
+  display: grid;
+  gap: 8px;
+}
+
+.traininglabel {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.trainingsettings .languagetabs,
+.trainingsettings .modechips {
+  display: grid;
+  gap: 8px;
+}
+
+.trainingsettings .languagetabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.trainingsettings .modechips {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trainingsettings .language,
+.trainingsettings .modechoice {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in srgb, var(--text) 28%, var(--border));
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.trainingsettings .choicecheck {
+  display: inline-block;
+  width: 1em;
+  flex: 0 0 1em;
+  opacity: 0;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.trainingsettings .modechoice > span:last-child {
+  display: inline;
+}
+
+.trainingsettings :is(.language.active, .modechoice.active, .modechoice[aria-pressed="true"]) {
+  border: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  font-weight: 850;
+}
+
+.trainingsettings :is(.language.active, .modechoice.active, .modechoice[aria-pressed="true"]) .choicecheck {
+  opacity: 1;
+}
+
+.trainingsettings .languagehelp {
+  margin: 0;
+  color: color-mix(in srgb, var(--text) 72%, var(--surface));
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.trainingsettings .steptitle small,
+#baseNote,
+.trustnote {
+  color: color-mix(in srgb, var(--text) 72%, var(--surface));
+}
+
+#startTraining {
+  width: min(100%, 760px);
+  min-height: 56px;
+  justify-self: start;
+  margin-top: 4px;
+  padding-block: 12px;
+}
+
+#baseNote {
+  width: min(100%, 760px);
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.homeactions {
+  margin-top: 16px;
+}
+
+.trustnote {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.trustnote > .sourcespanel {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 650px) {
+  .trainingoptions,
+  .trainingsettings .languagetabs,
+  .trainingsettings .modechips {
+    grid-template-columns: 1fr;
+  }
+
+  .trainingsettings .language,
+  .trainingsettings .modechoice {
+    justify-content: flex-start;
+  }
+
+  #startTraining {
+    width: 100%;
+  }
+
+  .trustnote {
+    grid-template-columns: 1fr;
+  }
+
+  .trustnote > .textbutton {
+    justify-self: start;
+  }
+}
