@@ -1,5 +1,5 @@
-const CACHE='anatomy-v26';
-const ASSETS=['./','./index.html','./minimal-redesign.css?v=26','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js','./ai-assistant.js?v=24','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg'];
+const CACHE='anatomy-v27';
+const ASSETS=['./','./index.html','./minimal-redesign.css?v=27','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js','./ai-assistant.js?v=24','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('anatomy-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
 self.addEventListener('fetch',e=>{

@@ -1736,3 +1736,60 @@ html[data-images="hidden"] .learnmedia figure {
     margin-right: 0;
   }
 }
+
+/* v27: the selected palette controls all non-semantic actions and highlights. */
+.secondary {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface2));
+}
+
+.questiontools .voicebtn,
+.questiontools .hintbtn,
+.questiontools .simplebtn {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+}
+
+.questiontools .voicebtn {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface2));
+}
+
+.questiontools .hintbtn {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface2));
+}
+
+.questiontools .simplebtn {
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface2));
+}
+
+.subject.active,
+.language.active,
+.themechoice.active,
+.modechips .active,
+.modechips [aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface2));
+}
+
+.progress div {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 58%, var(--surface2)), var(--accent));
+}
+
+.qvisual a,
+.feedback .term {
+  color: color-mix(in srgb, var(--accent) 72%, var(--text));
+}
+
+.answerstep {
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--feedback));
+}
+
+.statrow .bar i {
+  background: var(--accent);
+}
+
+.voicestatus.active {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 62%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
