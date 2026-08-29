@@ -794,7 +794,77 @@ select:disabled {
   margin: 0;
   border: 0;
   border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.visualcontrols {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+.visualnav {
+  min-width: 112px;
+  white-space: nowrap;
+}
+
+.visualchoices {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 3px;
+  scrollbar-width: thin;
+}
+
+.visualchoice {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.visualchoice.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--card));
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.visualstatus {
+  margin: 0;
+  padding: 0 14px 12px;
   border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 650px) {
+  .visualcontrols {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .visualchoices {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: flex-start;
+  }
+
+  .visualnav {
+    min-width: 0;
+  }
 }
 
 .questiontrust {
@@ -929,14 +999,14 @@ select:disabled {
 
 .simplethemes {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 16px;
 }
 
 .simplethemes .themechoice,
 .presetthemes .themechoice {
-  min-height: 76px;
+  min-height: 96px;
   padding: 9px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -958,6 +1028,22 @@ select:disabled {
   margin-bottom: 7px;
   border: 1px solid var(--border);
   border-radius: 7px;
+}
+
+.simplethemes .themechoice > strong,
+.simplethemes .themechoice > small {
+  display: block;
+}
+
+.simplethemes .themechoice > strong {
+  line-height: 1.25;
+}
+
+.simplethemes .themechoice > small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .customtheme {
@@ -1086,8 +1172,7 @@ html[data-theme="dark"] {
   --shadow: none;
 }
 
-html[data-theme="atlas"],
-html[data-theme="vivid"] {
+html[data-theme="atlas"] {
   --page-bg: var(--bg);
   --card-bg: var(--card);
   --shadow: none;
@@ -1432,25 +1517,87 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
   margin-bottom: 12px;
 }
 
-.preview-vivid {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 28%, #07131b), var(--accent));
+.backgroundtint {
+  margin-top: 12px;
+  align-items: flex-start !important;
 }
 
-html[data-theme="vivid"] {
-  color-scheme: dark;
-  --bg: color-mix(in srgb, var(--accent) 8%, #071219);
-  --card: color-mix(in srgb, var(--accent) 13%, #0d1a22);
-  --card2: color-mix(in srgb, var(--accent) 18%, #10202a);
-  --surface: color-mix(in srgb, var(--accent) 12%, #10202a);
-  --surface2: color-mix(in srgb, var(--accent) 20%, #142731);
-  --answer: color-mix(in srgb, var(--accent) 15%, #14242f);
-  --feedback: color-mix(in srgb, var(--accent) 11%, #0d1b24);
-  --text: #f8fbfc;
-  --muted: #c3d2d8;
-  --border: color-mix(in srgb, var(--accent) 38%, #50616a);
-  --blue: color-mix(in srgb, var(--accent) 54%, #dff7ff);
-  --page-bg: var(--bg);
+.backgroundtint > span {
+  display: grid;
+  gap: 3px;
+}
+
+.backgroundtint small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* Background brightness and accent are independent. Tinting only adds a
+   restrained accent cast and never changes the selected light/dark mode. */
+html[data-tint="on"][data-theme="light"],
+html[data-tint="on"][data-theme="minimal"] {
+  --bg: color-mix(in srgb, var(--accent) 4%, #edf4f8);
+  --card: color-mix(in srgb, var(--accent) 3%, #ffffff);
+  --card2: color-mix(in srgb, var(--accent) 6%, #f4f8fa);
+  --surface: color-mix(in srgb, var(--accent) 4%, #f7fafc);
+  --surface2: color-mix(in srgb, var(--accent) 7%, #edf4f8);
+  --answer: color-mix(in srgb, var(--accent) 5%, #f5f8fa);
+  --feedback: color-mix(in srgb, var(--accent) 6%, #f7fbfc);
+  --page-bg: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, #f8fbfd), var(--bg));
   --card-bg: var(--card);
+}
+
+html[data-tint="on"][data-theme="dark"] {
+  --bg: color-mix(in srgb, var(--accent) 5%, #0b1020);
+  --card: color-mix(in srgb, var(--accent) 6%, #151c30);
+  --card2: color-mix(in srgb, var(--accent) 9%, #1b2848);
+  --surface: color-mix(in srgb, var(--accent) 7%, #121a2c);
+  --surface2: color-mix(in srgb, var(--accent) 10%, #1b2848);
+  --answer: color-mix(in srgb, var(--accent) 8%, #17233d);
+  --feedback: color-mix(in srgb, var(--accent) 7%, #111a2e);
+  --page-bg: radial-gradient(circle at top, color-mix(in srgb, var(--accent) 13%, #1b2848), var(--bg) 58%);
+  --card-bg: var(--card);
+}
+
+html[data-tint="on"][data-theme="atlas"] {
+  --bg: color-mix(in srgb, var(--accent) 3%, #efe5d1);
+  --card: color-mix(in srgb, var(--accent) 3%, #fffaf0);
+  --card2: color-mix(in srgb, var(--accent) 5%, #f5ead5);
+  --surface: color-mix(in srgb, var(--accent) 4%, #f8efdf);
+  --surface2: color-mix(in srgb, var(--accent) 7%, #efe1c8);
+  --answer: color-mix(in srgb, var(--accent) 5%, #fbf2e3);
+  --feedback: color-mix(in srgb, var(--accent) 5%, #fff8ec);
+  --page-bg: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, #f8f0df), var(--bg));
+  --card-bg: var(--card);
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-tint="on"][data-theme="auto"] {
+    --bg: color-mix(in srgb, var(--accent) 4%, #edf4f8);
+    --card: color-mix(in srgb, var(--accent) 3%, #ffffff);
+    --card2: color-mix(in srgb, var(--accent) 6%, #f4f8fa);
+    --surface: color-mix(in srgb, var(--accent) 4%, #f7fafc);
+    --surface2: color-mix(in srgb, var(--accent) 7%, #edf4f8);
+    --answer: color-mix(in srgb, var(--accent) 5%, #f5f8fa);
+    --feedback: color-mix(in srgb, var(--accent) 6%, #f7fbfc);
+    --page-bg: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, #f8fbfd), var(--bg));
+    --card-bg: var(--card);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-tint="on"][data-theme="auto"] {
+    --bg: color-mix(in srgb, var(--accent) 5%, #0b1020);
+    --card: color-mix(in srgb, var(--accent) 6%, #151c30);
+    --card2: color-mix(in srgb, var(--accent) 9%, #1b2848);
+    --surface: color-mix(in srgb, var(--accent) 7%, #121a2c);
+    --surface2: color-mix(in srgb, var(--accent) 10%, #1b2848);
+    --answer: color-mix(in srgb, var(--accent) 8%, #17233d);
+    --feedback: color-mix(in srgb, var(--accent) 7%, #111a2e);
+    --page-bg: radial-gradient(circle at top, color-mix(in srgb, var(--accent) 13%, #1b2848), var(--bg) 58%);
+    --card-bg: var(--card);
+  }
 }
 
 .primary,
