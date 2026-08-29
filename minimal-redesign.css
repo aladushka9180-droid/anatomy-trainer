@@ -342,6 +342,95 @@ select:disabled {
   color: var(--muted);
 }
 
+/* A route is a short course, not just a question filter. */
+.stagelist {
+  display: grid;
+  gap: 8px;
+}
+
+.stagecard {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.stagecard:hover:not(:disabled) {
+  background: var(--surface2);
+}
+
+.stagecard.active {
+  border-color: var(--text);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.stagecard:disabled {
+  background: color-mix(in srgb, var(--surface) 82%, var(--bg));
+  color: var(--muted);
+  opacity: 1;
+}
+
+.stagecard.complete .stageindex {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+}
+
+.stageindex {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.stagebody,
+.stagebody strong,
+.stagebody small {
+  display: block;
+  min-width: 0;
+}
+
+.stagebody strong {
+  color: inherit;
+  font-size: 15px;
+}
+
+.stagebody small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stagebar {
+  display: block;
+  height: 3px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--border);
+}
+
+.stagebar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
 /* Mode selection uses compact chips instead of another card grid. */
 .modechips {
   display: flex;
@@ -504,6 +593,116 @@ select:disabled {
   color: var(--text);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
+}
+
+.skillstats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.skillcard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.skillcard strong,
+.skillcard span {
+  display: block;
+}
+
+.skillcard span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.skillcard > b {
+  color: var(--text);
+  font-size: 20px;
+}
+
+.skillcard .bar {
+  grid-column: 1 / -1;
+}
+
+/* Three-step introduction shown only once on a device. */
+.onboarding {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(7 13 24 / .68);
+  backdrop-filter: blur(4px);
+}
+
+.onboardingcard {
+  width: min(100%, 520px);
+  padding: clamp(22px, 5vw, 34px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 22px 60px rgb(0 0 0 / .22);
+}
+
+.onboardingcard h2 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: clamp(25px, 6vw, 34px);
+  line-height: 1.14;
+}
+
+.onboardingcard p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.onboardingprogress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.onboardingprogress i {
+  width: 30px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--border);
+}
+
+.onboardingprogress i.active {
+  background: var(--accent);
+}
+
+.onboardingexample {
+  margin-top: 22px;
+  padding: 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 750;
+}
+
+.onboardingactions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.onboardingactions .primary {
+  min-width: 140px;
 }
 
 /* Question-first layout: the illustration is useful context, not a barrier. */
@@ -676,6 +875,10 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
 
   .compactsettings .settinggrid,
   .compactsettings .themepicker {
+    grid-template-columns: 1fr;
+  }
+
+  .skillstats {
     grid-template-columns: 1fr;
   }
 }
