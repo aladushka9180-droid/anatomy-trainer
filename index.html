@@ -79,12 +79,27 @@ function load(){try{const old=JSON.parse(localStorage.getItem(KEY)||'null'),base
 let state=load(),session=null; function save(){localStorage.setItem(KEY,JSON.stringify(state));mini()} function gp(q){return state.prog[q.key]}
 function weight(q){const p=gp(q);if(p.seen===0)return 2.6;return Math.max(.18,1+p.wrong*2.7-p.correct*.18-p.streak*.4-p.level*.32)}
 const STOPWORDS=new Set(['мышца','мышцы','мышце','бедра','плеча','стопы','кости','сустава','через','часть','поверхность','отростки','головка','также','свою','слабое']);
+const GROUPS=[
+['deltoid','biceps','triceps','brachioradialis','coracobrachialis'],
+['supraspinatus','infraspinatus','teres_minor','teres_major','subscapularis'],
+['levator','rhomboid_major','rhomboid_minor','trapezius','serratus_anterior','subclavius'],
+['rectus_femoris','vastus_lateralis','vastus_medialis','sartorius'],
+['biceps_femoris','semitendinosus','semimembranosus','gracilis'],
+['gastrocnemius','soleus','tibialis_anterior','extensor_digitorum','fibularis_longus','fibularis_brevis','fibularis_tertius'],
+['gluteus_maximus','gluteus_medius','gluteus_minimus','tfl'],
+['piriformis','superior_gemellus','inferior_gemellus','obturator_internus','obturator_externus','quadratus_femoris'],
+['adductor_magnus','adductor_longus','adductor_brevis','pectineus'],
+['erector_spinae','quadratus_lumborum','serratus_post_inf','serratus_post_sup','latissimus','iliopsoas'],
+['scm','splenius_cervicis','splenius_capitis','semispinalis_capitis'],
+['anterior_scalene','middle_scalene','posterior_scalene','longus_capitis','longus_colli'],
+['platysma','digastric','geniohyoid','thyrohyoid']
+];
 function words(text){return new Set(text.toLowerCase().replace(/[^а-яёa-z0-9]+/g,' ').split(' ').filter(x=>x.length>3&&!STOPWORDS.has(x)))}
-function similarity(a,b){const aw=words(a),bw=words(b);let common=0;aw.forEach(x=>{if(bw.has(x))common++});const union=new Set([...aw,...bw]).size||1;const start=a.toLowerCase().split(/[,.]/)[0],sameStart=b.toLowerCase().includes(start.split(' ')[0])?1:0;return common/union*12+sameStart*1.5-Math.abs(a.length-b.length)/180+Math.random()*.35}
-function makeOptions(correct,primary,fallback=primary){const preferred=new Set(primary);const candidates=[...new Set([...primary,...fallback].filter(x=>x!==correct))].map(x=>({x,score:similarity(correct,x)+(preferred.has(x)?7:0)})).sort((a,b)=>b.score-a.score);const close=candidates.slice(0,Math.min(7,candidates.length));const others=shuffle(close).slice(0,3).map(x=>x.x);if(others.length<3)others.push(...candidates.filter(x=>!others.includes(x.x)).slice(0,3-others.length).map(x=>x.x));return shuffle([correct,...others])}
-function build(it,type,src){const same=src.filter(x=>x.cat===it.cat),near=same.length>=4?same:src;if(type==='function')return {key:qkey(it,type),type,item:it,cat:it.cat,label:'Функция',text:`Какая функция соответствует мышце «${it.name}»?`,correct:it.function,options:makeOptions(it.function,near.map(x=>x.function),src.map(x=>x.function)),explain:`${it.name} — ${it.function}`};
-if(type==='attachment')return {key:qkey(it,type),type,item:it,cat:it.cat,label:'Крепление',text:`Какое крепление соответствует мышце «${it.name}»?`,correct:it.attach,options:makeOptions(it.attach,near.map(x=>x.attach),src.map(x=>x.attach)),explain:`Крепление: ${it.attach}`};
-return {key:qkey(it,type),type,item:it,cat:it.cat,label:'Узнать мышцу',text:`Какая мышца соответствует описанию? Функция: «${it.function}» Крепление: «${it.attach}»`,correct:it.name,options:makeOptions(it.name,near.map(x=>x.name),src.map(x=>x.name)),explain:`Правильный ответ: ${it.name}. ${it.function} Крепление: ${it.attach}`}}
+function similarity(a,b){const aw=words(a),bw=words(b);let common=0;aw.forEach(x=>{if(bw.has(x))common++});const union=new Set([...aw,...bw]).size||1,arrows=(a.match(/→/g)||[]).length,barrows=(b.match(/→/g)||[]).length,semis=(a.match(/;/g)||[]).length,bsemis=(b.match(/;/g)||[]).length;const first=a.toLowerCase().split(/[,.]/)[0].split(' ')[0],sameStart=b.toLowerCase().startsWith(first)?1:0;return common/union*15+sameStart*2+(arrows===barrows?2:0)+(semis===bsemis?1:0)-Math.abs(a.length-b.length)/110+Math.random()*.2}
+function makeOptions(correct,tiers){const priority=new Map();tiers.forEach((tier,i)=>tier.forEach(x=>{if(!priority.has(x))priority.set(x,(tiers.length-i)*12)}));const candidates=[...priority.keys()].filter(x=>x!==correct).map(x=>({x,score:similarity(correct,x)+(priority.get(x)||0)})).sort((a,b)=>b.score-a.score);const close=candidates.slice(0,Math.min(5,candidates.length));const others=shuffle(close).slice(0,3).map(x=>x.x);if(others.length<3)others.push(...candidates.filter(x=>!others.includes(x.x)).slice(0,3-others.length).map(x=>x.x));return shuffle([correct,...others])}
+function build(it,type,src){const same=src.filter(x=>x.cat===it.cat),group=GROUPS.find(g=>g.includes(it.id))||[],closest=src.filter(x=>group.includes(x.id));const tiers=field=>{const close=closest.map(x=>x[field]),sameCat=same.map(x=>x[field]),all=src.map(x=>x[field]);return [...new Set(close)].filter(x=>x!==it[field]).length>=3?[close]:[sameCat,all]};if(type==='function')return {key:qkey(it,type),type,item:it,cat:it.cat,label:'Функция',text:`Какая функция соответствует мышце «${it.name}»?`,correct:it.function,options:makeOptions(it.function,tiers('function')),explain:`${it.name} — ${it.function}`};
+if(type==='attachment')return {key:qkey(it,type),type,item:it,cat:it.cat,label:'Крепление',text:`Какое крепление соответствует мышце «${it.name}»?`,correct:it.attach,options:makeOptions(it.attach,tiers('attach')),explain:`Крепление: ${it.attach}`};
+return {key:qkey(it,type),type,item:it,cat:it.cat,label:'Узнать мышцу',text:`Какая мышца соответствует описанию? Функция: «${it.function}» Крепление: «${it.attach}»`,correct:it.name,options:makeOptions(it.name,tiers('name')),explain:`Правильный ответ: ${it.name}. ${it.function} Крепление: ${it.attach}`}}
 const SIMPLE_TERMS=[
 [/отведен/i,'Отведение','часть тела движется в сторону, дальше от средней линии тела.'],
 [/приведен/i,'Приведение','часть тела движется обратно к средней линии тела.'],

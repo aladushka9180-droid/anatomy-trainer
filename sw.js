@@ -1,4 +1,4 @@
-const CACHE='anatomy-v5';
+const CACHE='anatomy-v7';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
