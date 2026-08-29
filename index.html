@@ -53,7 +53,7 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 <body>
 <div class="wrap">
 <header class="top appnav"><div class="brand"><h1>Анатомия массажиста</h1><div class="muted">Структура → движение → пальпация → безопасное решение</div></div><button type="button" id="mobileSettingsShortcut" class="mobile-settings-btn" aria-label="Открыть настройки" title="Настройки">⚙</button>
-<div class="navlinks"><button type="button" id="referenceShortcut" class="navbutton">Справочник</button><button type="button" id="statsShortcut" class="navbutton">Прогресс</button><button type="button" id="settingsShortcut" class="navbutton">Настройки</button></div><div class="badges homestats" aria-label="Краткий прогресс"><span class="badge">Ответов <b id="all">0</b></span><span class="badge">Точность <b id="acc">0%</b></span><span class="badge">Слабых <b id="weak">0</b></span></div></header>
+<div class="navlinks"><button type="button" id="referenceShortcut" class="navbutton">Справочник</button><button type="button" id="statsShortcut" class="navbutton">Прогресс</button><button type="button" id="settingsShortcut" class="navbutton">Настройки</button></div><div class="badges homestats" aria-label="Краткий прогресс"><span class="badge">Ответов <b id="all">0</b></span><span class="badge">Точность <b id="acc">0%</b></span><span class="badge">Повторить <b id="weak">0</b></span></div></header>
 <main>
 
 <section id="menu" class="card screen" tabindex="-1" aria-labelledby="menuTitle"><h2 id="menuTitle" class="sr-only">Настройка тренировки</h2>
@@ -91,7 +91,7 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 </section>
 
 <section id="settingsScreen" class="card screen settingsscreen hidden" tabindex="-1" aria-labelledby="settingsTitle">
-<div class="settingshead"><div><span class="eyebrow">Настройки</span><h2 id="settingsTitle">Настрой тренажёр под себя</h2><p>Основные параметры находятся на виду, дополнительные не мешают обучению.</p></div><button type="button" class="btn secondary" data-go="menu">Готово</button></div>
+<div class="settingshead"><div><span class="eyebrow">Настройки</span><h2 id="settingsTitle">Настрой тренажёр под себя</h2><p>Основные параметры находятся на виду, дополнительные не мешают обучению.</p></div><button type="button" class="btn secondary" data-go="menu">На главную</button></div>
 <nav class="settingsnav" role="tablist" aria-label="Разделы настроек"><button type="button" class="active" data-settings-tab="learning" role="tab" aria-selected="true">Обучение</button><button type="button" data-settings-tab="voice" role="tab" aria-selected="false">Озвучка</button><button type="button" data-settings-tab="appearance" role="tab" aria-selected="false">Оформление</button><button type="button" data-settings-tab="accessibility" role="tab" aria-selected="false">Доступность</button><button type="button" data-settings-tab="data" role="tab" aria-selected="false">Данные</button></nav>
 <div class="settingspanels">
 <section class="settingspanel" data-settings-panel="learning"><h3>Обучение</h3><p class="muted">Эти параметры меняют подачу вопросов, но не удаляют прогресс.</p><div class="settinggrid"><label class="settingfield">Язык вопросов<select id="settingsLanguage"><option value="simple">Простой язык</option><option value="study">Учебные термины</option></select></label><label class="settingfield">Режим по умолчанию<select id="defaultMode"><option value="learn">Обучение</option><option value="mistakes">Повторение</option><option value="exam">Экзамен</option></select></label></div></section>
@@ -444,6 +444,6 @@ if('speechSynthesis' in window)window.speechSynthesis.addEventListener('voicesch
 matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if(appearance.theme==='auto')applyAppearance()});
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
-<script src="./professional-learning.js?v=39"></script>
+<script src="./professional-learning.js?v=43"></script>
 <script src="./ai-assistant.js?v=38"></script>
 </body></html>

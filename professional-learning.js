@@ -313,7 +313,7 @@
       <section id="professionalScreen" class="card screen professional-screen hidden" tabindex="-1" aria-labelledby="professionalTitle">
         <div class="professional-head">
           <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">От знания к уверенной работе руками</h2><p>Приёмы, практические чек-листы, разбор ситуаций и журнал отработки. Материал не заменяет очное обучение, не присваивает квалификацию и не даёт допуска к медицинской деятельности.</p></div>
-          <button type="button" class="btn secondary" data-go="menu">Готово</button>
+          <button type="button" class="btn secondary" data-go="menu">На главную</button>
         </div>
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
         <nav class="professional-tabs" role="tablist" aria-label="Разделы практического обучения">
@@ -359,9 +359,9 @@
     }).length;
     const competencyLevels = list(first(curriculum, ['competencyLevels']));
     host.innerHTML = `
-      <div><span>Приёмы с отмеченными чек-листами</span><strong>${techniquesReady}/${techniques.length}</strong><small>Отмечено шагов: ${techniqueDone}/${techniqueTotal}</small></div>
-      <div><span>Чек-листы по областям тела</span><strong>${checklistsReady}/${allChecklists().length}</strong><small>Отмечено шагов: ${checklistDone}/${checklistTotal}</small></div>
-      <div><span>Разобранные ситуации</span><strong>${scenariosDone}/${totalScenarios}</strong><small>Записей в журнале: ${state.journal.length}</small></div>
+      <div><span>Приёмы с отмеченными чек-листами</span><strong>Выполнено: ${techniquesReady} из ${techniques.length}</strong><small>Отмечено шагов: ${techniqueDone} из ${techniqueTotal}</small></div>
+      <div><span>Чек-листы по областям тела</span><strong>Выполнено: ${checklistsReady} из ${allChecklists().length}</strong><small>Отмечено шагов: ${checklistDone} из ${checklistTotal}</small></div>
+      <div><span>Разобранные ситуации</span><strong>Выполнено: ${scenariosDone} из ${totalScenarios}</strong><small>Записей в журнале: ${state.journal.length}</small></div>
       <div class="competency-route"><b>Маршрут освоения:</b>${competencyLevels.length
         ? competencyLevels.map((level, index) => `<span><i>${index + 1}</i>${esc(first(level, ['title']))}</span>`).join('')
         : '<span><i>1</i>Знаю</span><span><i>2</i>Объясняю</span><span><i>3</i>Показываю</span><span><i>4</i>Проверено</span>'}</div>
