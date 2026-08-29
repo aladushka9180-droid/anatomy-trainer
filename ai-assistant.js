@@ -120,8 +120,26 @@
     return [...new Set(expanded)];
   }
 
+  function focusQuery(value) {
+    const original = normalize(cleanText(value, MAX_QUERY_LENGTH));
+    if (!original) return "";
+    const focused = original
+      .replace(/^(?:пожалуйста\s+)?(?:объясни|объясните|расскажи|расскажите|покажи|покажите)(?:\s+мне)?(?:\s+(?:совсем\s+)?прост(?:о|ыми\s+словами)|\s+понятно|\s+подробнее)?\s*/iu, "")
+      .replace(/^(?:что\s+такое|что\s+значит|кто\s+такой|кто\s+такая)\s+/iu, "")
+      .replace(/^(?:где\s+находится|как\s+найти|как\s+прощупать|что\s+делает|как\s+работает|где\s+крепится|куда\s+крепится)\s+/iu, "")
+      .replace(/^(?:про|о|об)\s+/iu, "")
+      .replace(/\s+при\s+пальпаци(?:и|я)\s*$/iu, "")
+      .replace(/^[\s:;,.-]+|[\s:;,?.!-]+$/gu, "")
+      .trim();
+    return focused || original;
+  }
+
   function slug(value) {
     return normalize(value).replace(/[^a-zа-я0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 72) || "entry";
+  }
+
+  function titleKey(value) {
+    return normalize(value).split(" ").filter((token) => token && !STOP_WORDS.has(token)).map(stem).join(" ");
   }
 
   function cleanText(value, limit) {
@@ -316,6 +334,7 @@
     let score = 0;
     if (!query) return entry.type === "term" ? 1 : 0.5;
     if (title === query) score += 30;
+    if (titleKey(title) === titleKey(query)) score += 40;
     if (title.startsWith(query)) score += 18;
     if (title.includes(query)) score += 12;
     if (entry.haystack.includes(query)) score += 7;
@@ -329,6 +348,15 @@
     if (entry.type === "term" && /значит|термин|простыми|что такое/i.test(query)) score += 4;
     if (entry.type === "technique" && /прием|приём|поглаж|растира|размина|вибрац|компресс|ударн/i.test(query)) score += 4;
     if ((entry.type === "practice" || entry.type === "tip") && /практик|чек.?лист|лайфхак|план|последовательн/i.test(query)) score += 3;
+    const meaningful = queryTokens.filter((token) => token.length >= 3);
+    if (meaningful.length) {
+      const matched = meaningful.filter((token) => entry.tokens.includes(token)
+        || entry.tokens.some((candidate) => candidate.startsWith(token) || token.startsWith(candidate))).length;
+      const coverage = matched / meaningful.length;
+      if (coverage === 1) score += 10;
+      else if (coverage >= 0.66) score += 5;
+      else if (coverage < 0.5) score -= 5;
+    }
     return score;
   }
 
@@ -336,12 +364,13 @@
     if (!knowledge.length) buildKnowledge();
     const opts = options || {};
     const query = cleanText(rawQuery, MAX_QUERY_LENGTH);
-    const queryTokens = tokenize(query);
+    const focusedQuery = focusQuery(query);
+    const queryTokens = tokenize(focusedQuery);
     const types = Array.isArray(opts.types) && opts.types.length ? new Set(opts.types) : null;
     const limit = Math.max(1, Math.min(50, Number(opts.limit) || 12));
     return knowledge
       .filter((entry) => !types || types.has(entry.type))
-      .map((entry) => ({entry, score: scoreEntry(entry, query, queryTokens)}))
+      .map((entry) => ({entry, score: scoreEntry(entry, focusedQuery, queryTokens)}))
       .filter((match) => query ? match.score > 0 : true)
       .sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title, "ru"))
       .slice(0, limit)
@@ -351,7 +380,7 @@
   function inferIntent(query) {
     const text = normalize(query);
     if (/как.{0,14}запомн|ассоциац|мнемон/i.test(text)) return "memorize";
-    if (/безопас|опас|можно ли массаж|нельзя|красн.{0,5}флаг/i.test(text)) return "safety";
+    if (/безопас|опас|можно ли массаж|нельзя|красн.{0,5}флаг|(?:останов|прекрат).{0,18}массаж|массаж.{0,18}(?:останов|прекрат)/i.test(text)) return "safety";
     if (/где|креп|прикреп|начина|заканчива/i.test(text)) return "attachment";
     if (/движ|функц|что делает|как работает/i.test(text)) return "function";
     if (/проще|что значит|что такое|объясн/i.test(text)) return "explain";
@@ -362,8 +391,36 @@
     return URGENT_PATTERNS.some((pattern) => pattern.test(query));
   }
 
+  function asksWhenToStopMassage(query) {
+    const text = normalize(query);
+    return /(?:когда|в каких случаях|при чем|при чём)?.{0,20}(?:останов|прекрат).{0,18}массаж|массаж.{0,18}(?:останов|прекрат)/iu.test(text);
+  }
+
   function compactSource(entry) {
     return {id: entry.id, title: entry.title};
+  }
+
+  function confidentMatch(matches, query) {
+    if (!matches.length) return false;
+    const focused = focusQuery(query);
+    const title = normalize(matches[0].title);
+    if (title === focused || title.startsWith(focused) || focused.startsWith(title)) return true;
+    const directTokens = normalize(focused).split(" ").filter((token) => token && !STOP_WORDS.has(token)).map(stem);
+    const directTitleTokens = title.split(" ").filter((token) => token && !STOP_WORDS.has(token)).map(stem);
+    if (directTokens.length === directTitleTokens.length && directTokens.every((token, index) => token === directTitleTokens[index])) return true;
+    const tokens = tokenize(focused).filter((token) => token.length >= 3);
+    const matched = tokens.filter((token) => matches[0].tokens.includes(token)
+      || matches[0].tokens.some((candidate) => candidate.startsWith(token) || token.startsWith(candidate))).length;
+    const coverage = tokens.length ? matched / tokens.length : 0;
+    const titleTokens = tokenize(matches[0].title).filter((token) => token.length >= 3);
+    const titleMatched = tokens.filter((token) => titleTokens.includes(token)
+      || titleTokens.some((candidate) => candidate.startsWith(token) || token.startsWith(candidate))).length;
+    const strongTitleMatch = tokens.length === 1
+      ? titleTokens.length === 1 && titleMatched === 1
+      : titleMatched >= 2 && titleMatched / tokens.length >= 0.66;
+    if (matches[0].score >= 12 && strongTitleMatch) return true;
+    const margin = matches.length > 1 ? matches[0].score - matches[1].score : matches[0].score;
+    return matches[0].score >= 10 && coverage >= 0.66 && margin >= 2;
   }
 
   function explainLocal(rawQuery, options) {
@@ -411,9 +468,22 @@
       };
     }
 
+    if (asksWhenToStopMassage(query)) {
+      return {
+        schemaVersion: SCHEMA_VERSION,
+        mode: "local",
+        intent: "safety",
+        answer: "Массаж сразу прекращают, если человек просит остановиться, появилась резкая или нарастающая боль, онемение, ощущение тока, головокружение, тошнота, одышка, боль в груди, внезапная слабость, нарушение речи или резко ухудшилось самочувствие. При признаках угрозы жизни вызывают экстренную помощь по номеру 112 или 103 и действуют только в пределах своей подготовки.",
+        sources: [],
+        warnings,
+        matches: [],
+        remoteAllowed: false
+      };
+    }
+
     const matches = search(query, {limit: (options && options.limit) || DEFAULT_CONTEXT_LIMIT, types: options && options.types});
 
-    if (!matches.length) {
+    if (!matches.length || !confidentMatch(matches, query)) {
       return {schemaVersion: SCHEMA_VERSION, mode: "local", intent, answer: "В материалах тренажёра пока нет точного ответа. Попробуйте написать название структуры или движения короче, например: «атлант», «отведение плеча» или «икроножная мышца».", sources: [], warnings, matches: []};
     }
 

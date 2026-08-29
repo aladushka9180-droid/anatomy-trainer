@@ -47,8 +47,8 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 .mobiletabbar{display:none}
 @media(max-width:650px){.grid,.metrics,.voicegrid,.themepicker,.settinggrid{grid-template-columns:1fr}.subjecttabs{grid-template-columns:1fr 1fr}.subject:last-child{grid-column:1/-1}.statrow{grid-template-columns:minmax(95px,1.25fr) minmax(70px,2fr) 45px;gap:7px}.wrap{padding:11px}.card{padding:15px;border-radius:16px}.qvisual figcaption{flex-direction:column;align-items:flex-start}.questiontools .btn,.toolbar .btn{flex:1 1 145px}.voiceoption select{max-width:66%}.question{font-size:clamp(20px,6vw,25px)}.answer{padding:13px}.badge select{max-width:100%}}
 </style>
-<link rel="stylesheet" href="./minimal-redesign.css?v=33">
-<link rel="stylesheet" href="./professional-learning.css?v=33">
+<link rel="stylesheet" href="./minimal-redesign.css?v=38">
+<link rel="stylesheet" href="./professional-learning.css?v=38">
 </head>
 <body>
 <div class="wrap">
@@ -119,8 +119,8 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 <script src="./learning-paths.js"></script>
 <script src="./learning-sources.js"></script>
 <script src="./reference-data.js"></script>
-<script src="./massage-techniques.js?v=33"></script>
-<script src="./practice-curriculum.js?v=33"></script>
+<script src="./massage-techniques.js?v=38"></script>
+<script src="./practice-curriculum.js?v=38"></script>
 <script>
 const VISUALS={
 "Руки / плечевой пояс":{src:"./anatomy-upper-limb.png",alt:"Мышцы плеча и плечевого пояса",caption:"Плечо и плечевой пояс",source:"https://commons.wikimedia.org/wiki/File:Arm_shoulder_gray.png"},
@@ -433,6 +433,6 @@ if('speechSynthesis' in window)window.speechSynthesis.addEventListener('voicesch
 matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if(appearance.theme==='auto')applyAppearance()});
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
-<script src="./professional-learning.js?v=33"></script>
-<script src="./ai-assistant.js?v=33"></script>
+<script src="./professional-learning.js?v=38"></script>
+<script src="./ai-assistant.js?v=38"></script>
 </body></html>
