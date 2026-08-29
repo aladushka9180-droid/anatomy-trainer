@@ -48,7 +48,7 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 .mobiletabbar{display:none}
 @media(max-width:650px){.grid,.metrics,.voicegrid,.themepicker,.settinggrid{grid-template-columns:1fr}.subjecttabs{grid-template-columns:1fr 1fr}.subject:last-child{grid-column:1/-1}.statrow{grid-template-columns:minmax(95px,1.25fr) minmax(70px,2fr) 45px;gap:7px}.wrap{padding:11px}.card{padding:15px;border-radius:16px}.qvisual figcaption{flex-direction:column;align-items:flex-start}.questiontools .btn,.toolbar .btn{flex:1 1 145px}.voiceoption select{max-width:66%}.question{font-size:clamp(20px,6vw,25px)}.answer{padding:13px}.badge select{max-width:100%}}
 </style>
-<link rel="stylesheet" href="./minimal-redesign.css?v=24">
+<link rel="stylesheet" href="./minimal-redesign.css?v=26">
 </head>
 <body>
 <div class="wrap">
@@ -58,7 +58,7 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 
 <section id="menu" class="card screen" tabindex="-1" aria-labelledby="menuTitle"><h2 id="menuTitle" class="sr-only">Настройка тренировки</h2>
 <div class="homehero"><span class="eyebrow">Прикладной тренажёр</span><h2>Понимай анатомию руками</h2><p>Научись находить ориентиры, связывать мышцы с движением и вовремя замечать ситуации, когда массаж проводить нельзя.</p></div>
-<div id="continueCard" class="continuecard hidden"><div><span class="eyebrow">Продолжить</span><strong id="continueTitle">Последняя тренировка</strong><span id="continueMeta" class="muted"></span></div><button type="button" id="continueTraining" class="btn primary">Продолжить</button></div>
+<div id="continueCard" class="continuecard hidden"><div><span class="eyebrow">Продолжить</span><strong id="continueTitle">Последняя тренировка</strong> <span id="continueMeta" class="muted"></span></div><button type="button" id="continueTraining" class="btn primary">Продолжить</button></div>
 <div class="setupflow">
 <section class="setupstep"><div class="steptitle"><span>1</span><div><strong>Что изучаем?</strong><small>Основной маршрут объединяет анатомию и практику массажиста.</small></div></div><div class="subjecttabs" role="group" aria-label="Учебный раздел"><button type="button" class="subject" data-subject="massage">Для массажистов</button><button type="button" class="subject" data-subject="muscle">Мышцы</button><button type="button" class="subject" data-subject="bone">Кости и позвонки</button></div></section>
 <section id="pathStep" class="setupstep"><div class="steptitle"><span>2</span><div><strong>Область тела</strong><small>Пройди путь от ориентиров до безопасного практического решения.</small></div></div><div id="regionGrid" class="regiongrid" role="group" aria-label="Учебный маршрут по области тела"></div></section>
@@ -68,7 +68,7 @@ html[data-accent="blue"]{--accent:#4dabf7}html[data-accent="violet"]{--accent:#b
 <button type="button" id="startTraining" class="btn primary primarycta">Начать тренировку</button><div id="baseNote" class="note"></div>
 </div>
 <div class="homeactions"><button type="button" id="statsHome" class="textbutton">Посмотреть подробный прогресс</button><button type="button" id="openSettings" class="textbutton">Настройки тренажёра</button></div>
-<div id="trustNote" class="trustnote"><strong>Проверяемый учебный материал</strong><span>Источники и дата проверки показываются в тренажёре. Сайт не заменяет очное обучение и медицинскую диагностику.</span><button type="button" id="showSources" class="textbutton" aria-controls="sourcesPanel" aria-expanded="false">Источники и границы материала</button><div id="sourcesPanel" class="sourcespanel hidden"></div></div>
+<div id="trustNote" class="trustnote"><strong>Проверяемый учебный материал</strong> <span>Источники и дата проверки показываются в тренажёре. Сайт не заменяет очное обучение и медицинскую диагностику.</span> <button type="button" id="showSources" class="textbutton" aria-controls="sourcesPanel" aria-expanded="false">Источники и границы материала</button><div id="sourcesPanel" class="sourcespanel hidden"></div></div>
 </section>
 
 <section id="quiz" class="card screen hidden" tabindex="-1" aria-labelledby="modeName">

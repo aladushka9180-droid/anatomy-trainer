@@ -186,6 +186,22 @@ select:disabled {
   background: var(--surface);
 }
 
+.continuecard > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.continuecard > div > strong,
+.continuecard > div > .muted {
+  display: block;
+  line-height: 1.35;
+}
+
+.continuecard .eyebrow {
+  margin-bottom: 1px;
+}
+
 .continuecard h2,
 .continuecard h3,
 .continuecard p {
@@ -346,8 +362,8 @@ select:disabled {
 .stagelist {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(112px, 1fr);
-  gap: 6px;
+  grid-auto-columns: minmax(198px, 1fr);
+  gap: 10px;
   overflow-x: auto;
   padding: 2px 2px 8px;
   scrollbar-width: thin;
@@ -359,8 +375,8 @@ select:disabled {
   align-items: center;
   gap: 11px;
   width: 100%;
-  min-height: 58px;
-  padding: 8px 9px;
+  min-height: 82px;
+  padding: 11px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -413,6 +429,8 @@ select:disabled {
   color: inherit;
   font-size: 13px;
   line-height: 1.2;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .stagebody small {
@@ -460,6 +478,11 @@ select:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.languagehelp {
+  margin: 12px 0 15px;
+  line-height: 1.55;
 }
 
 .modechips .mode,
@@ -527,10 +550,32 @@ select:disabled {
 }
 
 .trustnote {
+  display: grid;
+  gap: 8px;
   margin: 16px 0 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.55;
+}
+
+.trustnote > strong {
+  display: block;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.trustnote > span {
+  display: block;
+  max-width: 78ch;
+}
+
+.trustnote > .textbutton {
+  justify-self: start;
+  margin: 0;
+}
+
+.trustnote > .sourcespanel {
+  width: 100%;
 }
 
 /* Settings stay available but no longer compete with the learning flow. */
@@ -1141,7 +1186,7 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
   }
 
   .stagelist {
-    grid-auto-columns: 122px;
+    grid-auto-columns: 184px;
     margin-inline: -4px;
   }
 
