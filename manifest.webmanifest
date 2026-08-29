@@ -1,9 +1,13 @@
 {
   "name": "Анатомия — умный тренажёр",
   "short_name": "Анатомия",
+  "id": "./",
+  "lang": "ru",
+  "description": "Тренажёр по анатомии мышц, костей и практической анатомии для массажистов.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "categories": ["education", "medical"],
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
   "icons": [
