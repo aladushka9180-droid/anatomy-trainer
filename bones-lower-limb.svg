@@ -418,7 +418,7 @@
     <g>
       <title>femur</title>
       <line style="fill:none;stroke:#ff0000;stroke-width:0.546" id="line3125" y2="177" x2="155" y1="177" x1="-30" marker-end="url(#mark)"/>
-      <switch class="Q176503" transform="translate(-30,173)"><text id="trsvg40-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg8-ks-arab">فیمَر</tspan></text>
+      <switch class="Q176503" transform="translate(-30,173)"><text systemLanguage="ru"><tspan>Бедренная кость</tspan></text><text id="trsvg40-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg8-ks-arab">فیمَر</tspan></text>
         <text systemLanguage="en" id="trsvg33"><tspan id="trsvg1">Femur</tspan></text>
         <text systemLanguage="bn" id="trsvg34"><tspan id="trsvg2">ফিমার</tspan></text>
         <text systemLanguage="bs" id="trsvg35"><tspan id="trsvg3">Bedrena kost</tspan></text>
@@ -427,13 +427,13 @@
         <text systemLanguage="ro" id="trsvg38"><tspan id="trsvg6">Femur</tspan></text>
         <text systemLanguage="sh" id="trsvg39"><tspan id="trsvg7">Bedrena kost</tspan></text>
         
-      <text id="trsvg40-fr" systemLanguage="fr"><tspan id="trsvg8-fr">fémur</tspan></text><text id="trsvg40-br" systemLanguage="br"><tspan id="trsvg8-br">Askorn morzhed</tspan></text><text id="trsvg40"><tspan id="trsvg8">Femur</tspan></text></switch>
+      <text id="trsvg40-fr" systemLanguage="fr"><tspan id="trsvg8-fr">fémur</tspan></text><text id="trsvg40-br" systemLanguage="br"><tspan id="trsvg8-br">Askorn morzhed</tspan></text><text id="trsvg40"><tspan id="trsvg8">Бедренная кость</tspan></text></switch>
     </g>
   
     <g>
       <title>patella</title>
       <line style="fill:none;stroke:#ff0000;stroke-width:0.546" id="line3129" y2="283" x2="169" y1="283" x1="-30" marker-end="url(#mark)"/>
-      <switch class="Q229081" transform="translate(-30,279)"><text id="trsvg48-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg16-ks-arab">پَٹیلا</tspan></text>
+      <switch class="Q229081" transform="translate(-30,279)"><text systemLanguage="ru"><tspan>Надколенник</tspan></text><text id="trsvg48-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg16-ks-arab">پَٹیلا</tspan></text>
         <text systemLanguage="en" id="trsvg41"><tspan id="trsvg9">Patella</tspan></text>
         <text systemLanguage="bn" id="trsvg42"><tspan id="trsvg10">প্যাটেলা</tspan></text>
         <text systemLanguage="bs" id="trsvg43"><tspan id="trsvg11">Čašica</tspan></text>
@@ -442,13 +442,13 @@
         <text systemLanguage="ro" id="trsvg46"><tspan id="trsvg14">Patelă</tspan></text>
         <text systemLanguage="sh" id="trsvg47"><tspan id="trsvg15">Iver</tspan></text>
         
-      <text id="trsvg48-fr" systemLanguage="fr"><tspan id="trsvg16-fr">rotule</tspan></text><text id="trsvg48-br" systemLanguage="br"><tspan id="trsvg16-br">Padelleg</tspan></text><text id="trsvg48"><tspan id="trsvg16">Patella</tspan></text></switch>
+      <text id="trsvg48-fr" systemLanguage="fr"><tspan id="trsvg16-fr">rotule</tspan></text><text id="trsvg48-br" systemLanguage="br"><tspan id="trsvg16-br">Padelleg</tspan></text><text id="trsvg48"><tspan id="trsvg16">Надколенник</tspan></text></switch>
     </g>
   
     <g>
       <title>tibia</title>
       <line style="fill:none;stroke:#ff0000;stroke-width:0.546" id="line3133" y2="340" x2="177" y1="340" x1="-30" marker-end="url(#mark)"/>
-      <switch class="Q178366" transform="translate(-30,336)"><text id="trsvg56-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg24-ks-arab">ٹِبیا</tspan></text>
+      <switch class="Q178366" transform="translate(-30,336)"><text systemLanguage="ru"><tspan>Большеберцовая кость</tspan></text><text id="trsvg56-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg24-ks-arab">ٹِبیا</tspan></text>
         <text systemLanguage="en" id="trsvg49"><tspan id="trsvg17">Tibia</tspan></text>
         <text systemLanguage="bn" id="trsvg50"><tspan id="trsvg18">টিবিয়া</tspan></text>
         <text systemLanguage="bs" id="trsvg51"><tspan id="trsvg19">Cjevanica</tspan></text>
@@ -457,13 +457,13 @@
         <text systemLanguage="ro" id="trsvg54"><tspan id="trsvg22">Tibie</tspan></text>
         <text systemLanguage="sh" id="trsvg55"><tspan id="trsvg23">Goljenična kost</tspan></text>
         
-      <text id="trsvg56-fr" systemLanguage="fr"><tspan id="trsvg24-fr">tibia</tspan></text><text id="trsvg56-br" systemLanguage="br"><tspan id="trsvg24-br">Skin</tspan></text><text id="trsvg56"><tspan id="trsvg24">Tibia</tspan></text></switch>
+      <text id="trsvg56-fr" systemLanguage="fr"><tspan id="trsvg24-fr">tibia</tspan></text><text id="trsvg56-br" systemLanguage="br"><tspan id="trsvg24-br">Skin</tspan></text><text id="trsvg56"><tspan id="trsvg24">Большеберцовая кость</tspan></text></switch>
     </g>
   
     <g>
       <title>fibula</title>
       <line style="fill:none;stroke:#ff0000;stroke-width:0.546" id="line3137" y2="380" x2="165" y1="380" x1="-30" marker-end="url(#mark)"/>
-      <switch class="Q302896" transform="translate(-30,376)"><text id="trsvg64-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg32-ks-arab">فِبیولا</tspan></text>
+      <switch class="Q302896" transform="translate(-30,376)"><text systemLanguage="ru"><tspan>Малоберцовая кость</tspan></text><text id="trsvg64-ks-arab" systemLanguage="ks-arab"><tspan id="trsvg32-ks-arab">فِبیولا</tspan></text>
         <text systemLanguage="en" id="trsvg57"><tspan id="trsvg25">Fibula</tspan></text>
         <text systemLanguage="bn" id="trsvg58"><tspan id="trsvg26">ফিবুলা</tspan></text>
         <text systemLanguage="bs" id="trsvg59"><tspan id="trsvg27">Lisna kost</tspan></text>
@@ -472,7 +472,7 @@
         <text systemLanguage="ro" id="trsvg62"><tspan id="trsvg30">Fibulă</tspan></text>
         <text systemLanguage="sh" id="trsvg63"><tspan id="trsvg31">Lisna kost</tspan></text>
         
-      <text id="trsvg64-fr" systemLanguage="fr"><tspan id="trsvg32-fr">péroné</tspan></text><text id="trsvg64-br" systemLanguage="br"><tspan id="trsvg32-br">Spilhenn</tspan></text><text id="trsvg64"><tspan id="trsvg32">Fibula</tspan></text></switch>
+      <text id="trsvg64-fr" systemLanguage="fr"><tspan id="trsvg32-fr">péroné</tspan></text><text id="trsvg64-br" systemLanguage="br"><tspan id="trsvg32-br">Spilhenn</tspan></text><text id="trsvg64"><tspan id="trsvg32">Малоберцовая кость</tspan></text></switch>
     </g>
   </g>
 </svg>

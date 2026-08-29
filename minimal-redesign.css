@@ -3051,3 +3051,59 @@ body.firstvisit #continueCard {
     scroll-behavior: auto;
   }
 }
+
+.visuallabels {
+  display: grid;
+  gap: 9px;
+  margin: 10px 0 14px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+
+.visuallabels:empty {
+  display: none;
+}
+
+.visuallabels > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.visuallabels span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+@media (max-width: 650px) {
+  .visuallabels {
+    padding: 12px;
+  }
+
+  .visuallabels > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .visuallabels span {
+    border-radius: 10px;
+  }
+
+  .questiontools #readQuestion,
+  .questiontools #readAnswers,
+  .questiontools #stopQuestionVoice {
+    flex-basis: calc(50% - 5px);
+    min-width: 0;
+  }
+}

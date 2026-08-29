@@ -10,10 +10,10 @@
    id="Layer_1"
    version="1.1">
   
-  <title>Human arm bones diagram</title>
+  <title>Кости плечевого пояса и верхней конечности</title>
   
   <style type="text/css">
-    text {fill: darkblue; font-family:Arial, sans-serif; font-weight: normal; font-size:18px;}    
+    text {fill: darkblue; font-family:Arial, sans-serif; font-weight: normal; font-size:16px;}
     .leader {fill: none; stroke: #FF0000; }
   </style>
   
@@ -2800,7 +2800,7 @@
 </g>
   
   <g>
-    <text x="220" y="50" text-anchor="end" class="Q16343">Clavicle</text>
+    <text x="220" y="50" text-anchor="end" class="Q16343">Ключица</text>
     <line class="leader"
      id="line3730"
      y2="76.919"
@@ -2810,7 +2810,7 @@
   </g>
   
   <g>
-    <text x="160" y="110" text-anchor="end" class="Q16336">Scapula</text>
+    <text x="160" y="110" text-anchor="end" class="Q16336">Лопатка</text>
     <line class="leader"
      id="line3732"
      y2="105"
@@ -2820,7 +2820,7 @@
   </g>
   
   <g>
-    <text x="130" y="235" text-anchor="end" class="Q162595">Humerus</text>
+    <text x="130" y="235" text-anchor="end" class="Q162595">Плечевая кость</text>
     <line class="leader"
      id="line3734"
      y2="230"
@@ -2830,7 +2830,7 @@
   </g>
   
   <g>
-    <text x="100" y="445" text-anchor="end" class="Q178492">Radius</text>
+    <text x="100" y="445" text-anchor="end" class="Q178492">Лучевая кость</text>
     <line class="leader"
      id="line3736"
      y2="440"
@@ -2840,7 +2840,7 @@
   </g>
   
   <g>
-    <text x="100" y="485" text-anchor="end" class="Q199507">Ulna</text>
+    <text x="100" y="485" text-anchor="end" class="Q199507">Локтевая кость</text>
     <line class="leader"
      id="line3738"
      y2="480"
@@ -2850,7 +2850,7 @@
   </g>
   
   <g>
-    <text x="100" y="600" text-anchor="end" class="Q232377">Carpus</text>
+    <text x="100" y="600" text-anchor="end" class="Q232377">Кости запястья</text>
     <line class="leader"
      id="line4426"
      y2="595"
@@ -2860,7 +2860,7 @@
   </g>
   
   <g>
-    <text x="100" y="640" text-anchor="end" class="Q237229">Metacarpus</text>
+    <text x="100" y="640" text-anchor="end" class="Q237229">Пястные кости</text>
     <line class="leader"
      id="line4428"
      y2="635"
@@ -2870,7 +2870,7 @@
   </g>
   
   <g>
-    <text x="100" y="680" text-anchor="end" class="Q468140">Phalanges</text>
+    <text x="100" y="680" text-anchor="end" class="Q468140">Фаланги пальцев</text>
     <line class="leader"
      id="line4430"
      y2="675"
@@ -2880,7 +2880,7 @@
   </g>
   
   <g>
-    <text x="615" y="55" class="Q615414">Scapular Acromion</text>
+    <text x="615" y="55" class="Q615414">Акромион лопатки</text>
     <line class="leader"
      id="line3688"
      y2="50"
@@ -2890,7 +2890,7 @@
   </g>
   
   <g>
-    <text x="615" y="90" class="Q905716">Scapular Coracoid process</text>
+    <text x="615" y="90" class="Q905716">Клювовидный отросток</text>
     <line class="leader"
      id="line3686"
      y2="85"
@@ -2900,7 +2900,7 @@
   </g>
   
   <g>
-    <text x="615" y="130" class="Q897631">Humeral Greater tubercle</text>
+    <text x="615" y="130" class="Q897631">Большой бугорок</text>
     <line class="leader"
      id="line3682"
      y2="125"
@@ -2910,7 +2910,7 @@
   </g>
   
   <g>
-    <text x="615" y="170">Humeral head</text>
+    <text x="615" y="170">Головка плечевой кости</text>
     <line class="leader"
      id="line3690"
      y2="165"
@@ -2920,7 +2920,7 @@
   </g>
 
   <g>
-    <text x="615" y="210" class="Q897486">Humeral Lesser tubercle</text>
+    <text x="615" y="210" class="Q897486">Малый бугорок</text>
     <line class="leader"
      id="line3684"
      y2="205"
@@ -2930,7 +2930,7 @@
   </g>
   
   <g>
-    <text x="645" y="270" class="Q724544">Humeral Coronoid fossa</text>
+    <text x="645" y="270" class="Q724544">Венечная ямка</text>
     <line class="leader"
      id="line3694"
      y2="365.997"
@@ -2940,7 +2940,7 @@
   </g>
   
   <g>
-    <text x="645" y="310" class="Q836589">Humeral Radial fossa</text>
+    <text x="645" y="310" class="Q836589">Лучевая ямка</text>
     <line class="leader"
      id="line3692"
      y2="305"
@@ -2950,7 +2950,7 @@
   </g>
   
   <g>
-    <text x="645" y="350" class="Q388431">Humeral Lateral epicondyle</text>
+    <text x="645" y="350" class="Q388431">Латеральный надмыщелок</text>
     <line class="leader"
      id="line3702"
      y2="345"
@@ -2960,7 +2960,7 @@
   </g>
   
   <g>
-    <text x="665" y="390" class="Q718149">Humeral Capitulum</text>
+    <text x="665" y="390" class="Q718149">Головочка плечевой кости</text>
     <line class="leader"
      id="line3700"
      y2="385"
@@ -2970,7 +2970,7 @@
   </g>
   
   <g>
-    <text x="665" y="430" class="Q3331828">Radius head</text>
+    <text x="665" y="430" class="Q3331828">Головка лучевой кости</text>
     <line class="leader"
      id="line4890"
      y2="425"
@@ -2981,7 +2981,7 @@
   
   
   <g>
-    <text x="500" y="390" text-anchor="end" class="Q792532">Humeral Medial epicondyle</text>
+    <text x="500" y="390" text-anchor="end" class="Q792532">Медиальный надмыщелок</text>
     <line class="leader"
      id="line3696"
      y2="385"
@@ -2991,7 +2991,7 @@
   </g>
   
   <g>
-    <text x="500" y="430" text-anchor="end" class="Q834751">Humeral Trochlea</text>
+    <text x="500" y="430" text-anchor="end" class="Q834751">Блок плечевой кости</text>
     <line class="leader"
      id="line3698"
      y2="425"
@@ -3001,7 +3001,7 @@
   </g>
   
   <g>
-    <text x="500" y="470" text-anchor="end">Flexor digitorum sublimis</text>
+    <text x="500" y="470" text-anchor="end">Поверхностный сгибатель пальцев</text>
     <line class="leader"
      id="line4990"
      y2="392.816"
@@ -3011,14 +3011,14 @@
   </g>
 
   <g>
-    <text x="500" y="510" text-anchor="end" class="Q524064">Supinator</text>
+    <text x="500" y="510" text-anchor="end" class="Q524064">Супинатор</text>
     <polyline class="leader"
        id="polyline3726"
        points="602.848,412.156 505,505 609.487,413.156 " />
   </g>
   
   <g>
-    <text x="500" y="550" text-anchor="end" class="Q719219 Q1240490">Styloid Process</text>
+    <text x="500" y="550" text-anchor="end" class="Q719219 Q1240490">Шиловидный отросток</text>
     <polyline class="leader"
        id="polyline3728"
        points="628.562,570.027 505,545 671.564,559.903 " />
