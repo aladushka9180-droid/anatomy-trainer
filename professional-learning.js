@@ -7,6 +7,13 @@
     ? window.PRACTICE_CURRICULUM
     : {};
   const techniqueSources = Array.isArray(window.TECHNIQUE_SOURCES) ? window.TECHNIQUE_SOURCES : [];
+  const LESSON_PLAYLIST_ID = 'PL0QWH2rvIdsjtNyejciphmxdJR2PhS5I0';
+  const TECHNIQUE_LESSONS = Object.freeze({
+    effleurage: Object.freeze({ videoId: 'CZabcOzYZBI', index: 1, title: 'Поглаживание', duration: '7:59' }),
+    friction: Object.freeze({ videoId: 'wdyDpeUqUpc', index: 3, title: 'Растирание', duration: '7:40' }),
+    petrissage: Object.freeze({ videoId: 'VrpDK1aRBN0', index: 4, title: 'Разминание', duration: '11:05' }),
+    vibration: Object.freeze({ videoId: 'ZuDxo4LRQPM', index: 5, title: 'Вибрация', duration: '6:23' })
+  });
 
   const $ = selector => document.querySelector(selector);
   const $$ = selector => Array.from(document.querySelectorAll(selector));
@@ -60,6 +67,33 @@
       const title = esc(source.title || source.organization || 'Источник');
       return `<li>${url !== '#' ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${title}</a>` : title}${source.organization ? `<small>${esc(source.organization)}</small>` : ''}</li>`;
     }).join('')}</ul><p>Источники подтверждают границы учебного материала и общие правила безопасности. Конкретный приём, силу и длительность воздействия определяют очная методика, состояние человека, назначение и локальный протокол; ссылки не подтверждают освоение навыка.</p></div></details>`;
+  }
+
+  function lessonWatchUrl(lesson) {
+    return `https://www.youtube.com/watch?v=${lesson.videoId}&list=${LESSON_PLAYLIST_ID}&index=${lesson.index}`;
+  }
+
+  function lessonCard(lesson, compact = false) {
+    const title = `${lesson.title}. Уроки классического массажа`;
+    return `<article class="video-lesson-card ${compact ? 'compact' : ''}">
+      <a class="video-poster" href="${esc(lessonWatchUrl(lesson))}" target="_blank" rel="noopener noreferrer" aria-label="Смотреть на YouTube: ${esc(title)}">
+        <img src="https://i.ytimg.com/vi/${esc(lesson.videoId)}/hqdefault.jpg" alt="Обложка видеоурока «${esc(lesson.title)}»" loading="lazy" decoding="async">
+        <span class="video-play" aria-hidden="true">▶</span><span class="video-duration">${esc(lesson.duration)}</span>
+      </a>
+      <div class="video-lesson-copy"><h4>${esc(lesson.title)}</h4><p>${compact ? 'Наглядный показ базового приёма.' : 'Сначала посмотри движение целиком, затем повторяй медленно под наблюдением преподавателя или подготовленного партнёра.'}</p>
+        <a href="${esc(lessonWatchUrl(lesson))}" target="_blank" rel="noopener noreferrer">Открыть на YouTube</a>
+      </div>
+    </article>`;
+  }
+
+  function techniqueLesson(item) {
+    const lesson = TECHNIQUE_LESSONS[item.id];
+    if (!lesson) return '';
+    return `<section class="technique-media" aria-labelledby="techniqueVideoTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядный урок</span><h4 id="techniqueVideoTitle">Посмотри технику перед отработкой</h4></div><a href="https://www.youtube.com/playlist?list=${LESSON_PLAYLIST_ID}" target="_blank" rel="noopener noreferrer">Весь плейлист</a></div>${lessonCard(lesson)}<p class="video-safety-note"><b>Важно:</b> видео помогает увидеть движение, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
+  }
+
+  function lessonLibrary() {
+    return `<section class="video-library" aria-labelledby="videoLibraryTitle"><div class="video-library-head"><div><span class="eyebrow">Видео и наглядные примеры</span><h3 id="videoLibraryTitle">Базовые приёмы классического массажа</h3><p>Выбери приём: на обложке видно положение рук, а видео откроется на YouTube — на телефоне его можно смотреть в приложении.</p></div><a class="btn secondary" href="https://www.youtube.com/playlist?list=${LESSON_PLAYLIST_ID}" target="_blank" rel="noopener noreferrer">Все уроки на YouTube</a></div><div class="video-lesson-grid">${Object.values(TECHNIQUE_LESSONS).map(lesson => lessonCard(lesson, true)).join('')}</div><p class="video-safety-note"><b>Учебный порядок:</b> посмотри → назови цель и стоп-сигналы → повтори медленно → попроси обратную связь. Не копируй силу воздействия без очного обучения.</p></section>`;
   }
 
   function defaultState() {
@@ -329,6 +363,7 @@
           <span class="eyebrow">${esc(first(item, ['level', 'difficulty'], 'Базовый уровень'))}</span>
           <h3>${esc(first(item, ['title', 'name']))}</h3>
           <p class="lead">${esc(first(item, ['summary', 'description', 'goal']))}</p>
+          ${techniqueLesson(item)}
           <div class="skill-facts">${fields.map(([title, value]) => { const rows = textRows(value); return `<section><h4>${esc(title)}</h4>${rows.length > 1 ? `<ul>${rows.map(v => `<li>${esc(v)}</li>`).join('')}</ul>` : `<p>${esc(rows[0])}</p>`}</section>`; }).join('')}</div>
           ${titledList('Стоп-сигналы', first(item, ['stopSignals', 'stopSigns', 'redFlags']), 'warning')}
           ${titledList('Где требуется осторожность', first(item, ['limitations', 'restrictedAreas', 'restrictedZones', 'contraindications']), 'caution')}
@@ -423,6 +458,7 @@
   function renderPractice() {
     const host = $('#professionalContent');
     host.innerHTML = `
+      ${lessonLibrary()}
       <div class="practice-switch" role="group" aria-label="Вид практической отработки">
         <button type="button" data-practice-mode="checklists" class="${practiceMode === 'checklists' ? 'active' : ''}" aria-pressed="${practiceMode === 'checklists'}">Чек-листы по областям</button>
         <button type="button" data-practice-mode="scenarios" class="${practiceMode === 'scenarios' ? 'active' : ''}" aria-pressed="${practiceMode === 'scenarios'}">Построение сеанса</button>

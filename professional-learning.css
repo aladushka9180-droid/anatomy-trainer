@@ -27,6 +27,23 @@
 .technique-detail{min-width:0;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
 .technique-detail h3{margin:5px 0 8px;font-size:clamp(1.5em,3vw,2em)}
 .technique-detail .lead{color:var(--muted);line-height:1.6}
+.technique-media,.video-library{margin:16px 0;padding:15px;border:1px solid var(--border);border-radius:14px;background:color-mix(in srgb,var(--accent) 5%,var(--surface2))}
+.technique-media-head,.video-library-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px}
+.technique-media-head h4,.video-library-head h3{margin:4px 0 0}
+.technique-media-head>a,.video-lesson-copy>a{color:var(--professional-accent-strong);font-weight:800}
+.video-lesson-card{display:grid;grid-template-columns:minmax(220px,.9fr) minmax(0,1.1fr);gap:14px;align-items:center;min-width:0;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.video-poster{position:relative;width:100%;min-width:0;aspect-ratio:16/9;border:0;border-radius:10px;overflow:hidden;background:#101522}
+.video-poster{display:block;padding:0;cursor:pointer;color:#fff}
+.video-poster img{display:block;width:100%;height:100%;object-fit:cover}
+.video-poster::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(0,0,0,.58))}
+.video-play{position:absolute;z-index:1;inset:50% auto auto 50%;display:grid;place-items:center;width:54px;height:40px;border-radius:12px;background:#e62117;color:#fff;transform:translate(-50%,-50%);box-shadow:0 5px 18px rgba(0,0,0,.28)}
+.video-duration{position:absolute;z-index:1;right:8px;bottom:7px;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.78);font-size:.78em;font-weight:800;color:#fff}
+.video-lesson-copy h4{margin:0 0 6px}.video-lesson-copy p{margin:0 0 8px;color:var(--muted);line-height:1.5}
+.video-safety-note{margin:11px 0 0;color:var(--muted);font-size:.86em;line-height:1.45}
+.video-library{margin:0 0 18px}.video-library-head p{max-width:720px;margin:7px 0 0;color:var(--muted);line-height:1.5}
+.video-lesson-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.video-lesson-card.compact{grid-template-columns:minmax(130px,.8fr) minmax(0,1fr);padding:8px}
+.video-lesson-card.compact .video-lesson-copy p{font-size:.86em}
 .skill-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}
 .skill-facts section,.skilldetailsection{padding:13px;border:1px solid var(--border);border-radius:12px;background:var(--surface2)}
 .skill-facts h4,.skilldetailsection h4,.practice-checklist h4{margin:0 0 7px;font-size:.96em}
@@ -125,6 +142,7 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .technique-layout,.journal-layout{grid-template-columns:1fr}
   .technique-list{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}
   .scenario-grid{grid-template-columns:1fr}
+  .video-lesson-grid{grid-template-columns:1fr}
 }
 @media(max-width:650px){
   .navlinks{display:none!important}
@@ -142,6 +160,11 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .practice-switch{grid-template-columns:1fr}
   .professional-screen{gap:14px}
   .technique-detail,.journal-form,.journal-history{padding:14px}
+  .technique-media,.video-library{padding:12px}
+  .technique-media-head,.video-library-head{display:grid}
+  .technique-media-head>a,.video-library-head .btn{justify-self:start}
+  .video-lesson-card,.video-lesson-card.compact{grid-template-columns:1fr}
+  .video-lesson-copy p{font-size:.92em}
   #journalEntries{max-height:none;overflow:visible}
   .practice-card summary{align-items:flex-start}
   .practice-card summary b{flex:0 0 auto;color:var(--text)}
