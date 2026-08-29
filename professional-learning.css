@@ -129,7 +129,7 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
 @media(max-width:650px){
   .navlinks{display:none!important}
   .mobiletabbar{grid-template-columns:repeat(5,minmax(0,1fr))!important}
-  .mobiletabbar button{min-width:0;padding-inline:2px!important;font-size:clamp(10px,3vw,12px)!important;white-space:nowrap}
+  .mobiletabbar button{min-width:0;padding-inline:1px!important;font-size:clamp(11px,3vw,12px)!important;letter-spacing:-.02em;white-space:nowrap}
   .professional-head{display:grid}
   .professional-head .btn{justify-self:start}
   .professional-progress{grid-template-columns:1fr 1fr}
