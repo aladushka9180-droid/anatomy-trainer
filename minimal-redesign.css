@@ -345,17 +345,22 @@ select:disabled {
 /* A route is a short course, not just a question filter. */
 .stagelist {
   display: grid;
-  gap: 8px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(112px, 1fr);
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
 }
 
 .stagecard {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 11px;
   width: 100%;
-  min-height: 64px;
-  padding: 10px 12px;
+  min-height: 58px;
+  padding: 8px 9px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -387,8 +392,8 @@ select:disabled {
 
 .stageindex {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -406,13 +411,14 @@ select:disabled {
 
 .stagebody strong {
   color: inherit;
-  font-size: 15px;
+  font-size: 13px;
+  line-height: 1.2;
 }
 
 .stagebody small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .stagebar {
@@ -429,6 +435,24 @@ select:disabled {
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
+}
+
+.stagesummary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 11px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.stagesummary span {
+  color: var(--muted);
+  text-align: right;
 }
 
 /* Mode selection uses compact chips instead of another card grid. */
@@ -740,6 +764,236 @@ select:disabled {
   margin-top: 18px;
 }
 
+/* Dedicated settings screen */
+.settingsscreen {
+  width: min(100%, var(--home-width));
+  margin-inline: auto;
+  padding: clamp(18px, 4vw, 30px);
+}
+
+.settingshead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.settingshead h2,
+.settingshead p {
+  margin-top: 0;
+}
+
+.settingshead h2 {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: clamp(25px, 5vw, 34px);
+}
+
+.settingshead p {
+  max-width: 54ch;
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.settingsnav {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.settingsnav button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.settingsnav button.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.settingspanel {
+  min-height: 300px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.settingspanel > h3 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 20px;
+}
+
+.settingspanel .settinggrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.settingspanel .settingfield {
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.settingspanel .settingfield select {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.settingspanel .settingchecks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.settingspanel .settingchecks.vertical {
+  grid-template-columns: 1fr;
+}
+
+.settingspanel .settingcheck {
+  min-height: 50px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+}
+
+.simplethemes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.simplethemes .themechoice,
+.presetthemes .themechoice {
+  min-height: 76px;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.simplethemes .themechoice.active,
+.presetthemes .themechoice.active {
+  border-color: var(--text);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.simplethemes .themepreview {
+  display: block;
+  height: 28px;
+  margin-bottom: 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.customtheme {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.advancedsettings {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.advancedsettings > summary {
+  min-height: 46px;
+  padding: 13px 0;
+  color: var(--text);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.advancedsettings .settingscontent {
+  padding: 4px 0 0;
+}
+
+.presetthemes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.resetlist {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.resetlist > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.resetlist strong,
+.resetlist span {
+  display: block;
+  grid-column: 1;
+}
+
+.resetlist span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.resetlist .btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.mobiletabbar {
+  display: none;
+}
+
+html[data-controls="large"] button,
+html[data-controls="large"] select,
+html[data-controls="large"] .settingcheck,
+html[data-controls="large"] summary {
+  min-height: 54px;
+}
+
+html[data-images="hidden"] .qvisualdetails {
+  display: none;
+}
+
 /* Flatten legacy blocks when they are placed inside the redesigned home. */
 #menu .languagebox,
 #menu .voicebox {
@@ -821,6 +1075,10 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
     --section-gap: 20px;
   }
 
+  body {
+    padding-bottom: 74px;
+  }
+
   .wrap {
     padding: 12px;
   }
@@ -880,6 +1138,96 @@ html[data-theme="atlas"][data-accent="mint"] .primarycta {
 
   .skillstats {
     grid-template-columns: 1fr;
+  }
+
+  .stagelist {
+    grid-auto-columns: 122px;
+    margin-inline: -4px;
+  }
+
+  .stagesummary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stagesummary span {
+    text-align: left;
+  }
+
+  .settingsscreen {
+    padding: 18px 14px;
+  }
+
+  .settingshead {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settingsnav {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .settingsnav button {
+    min-width: 104px;
+  }
+
+  .settingspanel {
+    min-height: 0;
+    padding: 15px;
+  }
+
+  .settingspanel .settinggrid,
+  .settingspanel .settingchecks,
+  .simplethemes {
+    grid-template-columns: 1fr;
+  }
+
+  .simplethemes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .resetlist > div {
+    grid-template-columns: 1fr;
+  }
+
+  .resetlist .btn {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: 8px;
+  }
+
+  .mobiletabbar {
+    position: fixed;
+    z-index: 900;
+    right: 10px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    box-shadow: 0 8px 28px rgb(0 0 0 / .16);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobiletabbar button {
+    min-height: 48px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 750;
+  }
+
+  .mobiletabbar button.active {
+    background: var(--surface2);
+    color: var(--text);
   }
 }
 
