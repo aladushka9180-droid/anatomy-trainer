@@ -220,7 +220,7 @@
     });
 
     sourceArray("MASSAGE_QUESTIONS").forEach((item, index) => {
-      const type = /безопас|красн|противопоказ|практич/i.test(`${item.cat || ""} ${item.label || ""}`) ? "safety" : "palpation";
+      const type = /безопас|красн|противопоказ|практич|топограф|зон.{0,12}осторож/i.test(`${item.cat || ""} ${item.label || ""}`) ? "safety" : "palpation";
       entries.push(makeEntry({
         id: item.key || `massage:${index}`,
         type,
@@ -404,7 +404,9 @@
     if (!matches.length) return false;
     const focused = focusQuery(query);
     const title = normalize(matches[0].title);
+    const category = normalize(matches[0].category);
     if (title === focused || title.startsWith(focused) || focused.startsWith(title)) return true;
+    if (category === focused || titleKey(category) === titleKey(focused)) return true;
     const directTokens = normalize(focused).split(" ").filter((token) => token && !STOP_WORDS.has(token)).map(stem);
     const directTitleTokens = title.split(" ").filter((token) => token && !STOP_WORDS.has(token)).map(stem);
     if (directTokens.length === directTitleTokens.length && directTokens.every((token, index) => token === directTitleTokens[index])) return true;
@@ -421,6 +423,54 @@
     if (matches[0].score >= 12 && strongTitleMatch) return true;
     const margin = matches.length > 1 ? matches[0].score - matches[1].score : matches[0].score;
     return matches[0].score >= 10 && coverage >= 0.66 && margin >= 2;
+  }
+
+  function categoryMatches(rawQuery, options) {
+    if (!knowledge.length) buildKnowledge();
+    const focused = focusQuery(rawQuery);
+    const focusedKey = titleKey(focused);
+    const types = options && Array.isArray(options.types) && options.types.length ? new Set(options.types) : null;
+    let available = knowledge.filter((entry) => !types || types.has(entry.type));
+    const exact = available.filter((entry) => titleKey(entry.category) === focusedKey);
+    if (exact.length) return exact;
+
+    const categoryRequest = normalize(focused).match(/^(безопас[а-яё]*|пальпац[а-яё]*|движен[а-яё]*)\s+(.+)$/iu);
+    let categoryTopic = focused;
+    if (categoryRequest) {
+      categoryTopic = categoryRequest[2];
+      if (categoryRequest[1].startsWith("безопас")) available = available.filter((entry) => entry.type === "safety");
+      else if (categoryRequest[1].startsWith("пальпац")) available = available.filter((entry) => /пальпатор|пальпац/i.test(entry.category));
+      else if (categoryRequest[1].startsWith("движен")) available = available.filter((entry) => /кинезиолог|движен/i.test(entry.category));
+    }
+    const queryTokens = tokenize(categoryTopic).filter((token) => token.length >= 3);
+    if (!queryTokens.length) return [];
+    const groups = new Map();
+    available.forEach((entry) => {
+      const key = titleKey(entry.category);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(entry);
+    });
+    const ranked = [...groups.values()].map((entries) => {
+      const categoryTokens = tokenize(entries[0].category).filter((token) => token.length >= 3);
+      const matched = queryTokens.filter((token) => categoryTokens.includes(token)
+        || categoryTokens.some((candidate) => candidate.startsWith(token) || token.startsWith(candidate))).length;
+      return {entries, coverage: matched / queryTokens.length, extra: Math.max(0, categoryTokens.length - matched)};
+    }).filter((group) => group.coverage === 1 && (queryTokens.length > 1 || group.extra <= (categoryRequest ? 5 : 2)));
+    ranked.sort((a, b) => a.extra - b.extra || b.entries.length - a.entries.length);
+    return ranked[0] ? ranked[0].entries : [];
+  }
+
+  function explainCategory(entries) {
+    if (!entries.length) return "";
+    const unique = (values) => [...new Set(values.map((value) => cleanText(value, 1600)).filter(Boolean))];
+    const category = cleanText(entries[0].category, 220).replace(/\s*·\s*/g, " — ");
+    const summaries = unique(entries.map((entry) => entry.summary)).slice(0, 3);
+    const actions = unique(entries.map((entry) => entry.details && entry.details.replace(/^Правильное действие:\s*/iu, ""))).slice(0, 2);
+    const safety = unique(entries.map((entry) => entry.safety)).slice(0, 2);
+    let answer = `${category}. ${summaries.join(" ")}`.trim();
+    if (actions.length) answer += ` Главное: ${actions.join(" ")}`;
+    if (safety.length) answer += ` Важно: ${safety.join(" ")}`;
+    return cleanText(answer, MAX_ANSWER_LENGTH);
   }
 
   function explainLocal(rawQuery, options) {
@@ -479,6 +529,13 @@
         matches: [],
         remoteAllowed: false
       };
+    }
+
+    const categoryEntries = categoryMatches(query, options);
+    if (categoryEntries.length) {
+      const categoryLimit = (options && options.limit) || DEFAULT_CONTEXT_LIMIT;
+      const matches = categoryEntries.slice(0, categoryLimit).map((entry) => ({...entry, score: 50}));
+      return {schemaVersion: SCHEMA_VERSION, mode: "local", intent, answer: explainCategory(categoryEntries), sources: matches.slice(0, 3).map(compactSource), warnings, matches};
     }
 
     const matches = search(query, {limit: (options && options.limit) || DEFAULT_CONTEXT_LIMIT, types: options && options.types});
