@@ -558,13 +558,18 @@ select:disabled {
   line-height: 1.55;
 }
 
-.trustnote > strong {
-  display: block;
+.trustcopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.trustcopy > strong {
   color: var(--text);
   line-height: 1.35;
 }
 
-.trustnote > span {
+.trustcopy > span {
   display: block;
   max-width: 78ch;
 }
@@ -2201,7 +2206,7 @@ html[data-images="hidden"] .learnmedia figure {
 }
 
 .trustnote {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px 16px;
   padding: 14px 16px;
@@ -2235,6 +2240,8 @@ html[data-images="hidden"] .learnmedia figure {
   }
 
   .trustnote > .textbutton {
-    justify-self: start;
+    width: 100%;
+    justify-self: stretch;
+    justify-content: flex-start;
   }
 }
