@@ -1066,8 +1066,14 @@ select:disabled {
   margin-block: 14px;
 }
 
-.appearanceaccessibility > .settingfield {
-  max-width: 360px;
+.textcontrolsgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.appearanceaccessibility .textcontrolsgrid > .settingfield {
+  min-width: 0;
 }
 
 .appearance-reset {
@@ -2200,6 +2206,10 @@ html[data-images="hidden"] .learnmedia figure {
 }
 
 @media (max-width: 650px) {
+  .textcontrolsgrid {
+    grid-template-columns: 1fr;
+  }
+
   .appnav {
     position: relative;
     padding-right: 52px;
