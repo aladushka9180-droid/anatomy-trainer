@@ -1002,11 +1002,11 @@ document.addEventListener('click', async event => {
     notify('Услуга обновлена');
     await loadOwnServices();
   }
-  if (remove && confirm('Удалить услугу? Если по ней есть записи, она будет только скрыта.')) {
-    const { error } = await db.from('services').delete().eq('id', remove.dataset.deleteService);
-    if (error) await db.from('services').update({ active: false }).eq('id', remove.dataset.deleteService);
-    notify(error ? 'Услуга скрыта: по ней есть записи' : 'Услуга удалена');
-    await loadOwnServices();
+  if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
+    const { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
+    if (error) notify('Не удалось удалить услугу');
+    else notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
+    await Promise.all([loadOwnServices(), loadBookings()]);
   }
   if (removeDayOff) {
     const { error } = await db.from('provider_days_off').delete().eq('id', removeDayOff.dataset.deleteDayOff);
