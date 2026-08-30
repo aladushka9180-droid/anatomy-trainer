@@ -409,7 +409,9 @@ async function loadNewBookingSlots() {
   }
   newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5));
   newBookingHour = newBookingSlots[0].slice(0, 2);
+  newBookingTime = newBookingSlots[0];
   renderNewBookingTimePicker();
+  clearFormError('#newBookingError');
 }
 
 function renderNewBookingTimePicker() {
@@ -420,7 +422,7 @@ function renderNewBookingTimePicker() {
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
   holder.innerHTML = `<div class="booking-time-guide"><strong>1. Выберите час</strong><span>Шаг записи — 5 минут</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
-    <div class="booking-time-guide"><strong>2. Выберите точное время</strong><span>${hourSlots.length} свободных вариантов</span></div>
+    <div class="booking-time-guide"><strong>2. Точное время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${hourSlots.length} свободных вариантов`}</span></div>
     <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
 }
 
@@ -959,11 +961,13 @@ document.addEventListener('click', async event => {
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
+    clearFormError('#newBookingError');
   }
   if (newHour) {
     newBookingHour = newHour.dataset.newBookingHour;
-    if (newBookingTime && !newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = '';
+    if (!newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || '';
     renderNewBookingTimePicker();
+    clearFormError('#newBookingError');
   }
   if (closeSheet) closeBookingSheet();
   if (editService) openServiceEditor(editService.dataset.editService);
