@@ -177,6 +177,46 @@ async function addService(event) {
   await loadOwnServices();
 }
 
+async function changePassword(event) {
+  event.preventDefault();
+  clearFormError('#passwordError');
+  const currentPassword = $('#currentPassword').value;
+  const newPassword = $('#newPassword').value;
+  const confirmPassword = $('#confirmPassword').value;
+  if (newPassword.length < 8) {
+    showFormError('#passwordError', 'Новый пароль должен содержать не менее 8 символов.');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    showFormError('#passwordError', 'Новые пароли не совпадают.');
+    return;
+  }
+  if (currentPassword === newPassword) {
+    showFormError('#passwordError', 'Новый пароль должен отличаться от текущего.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Проверяем…';
+  const { error: signInError } = await db.auth.signInWithPassword({ email: currentUser.email, password: currentPassword });
+  if (signInError) {
+    button.disabled = false;
+    button.textContent = 'Сохранить новый пароль';
+    showFormError('#passwordError', 'Текущий пароль указан неверно.');
+    return;
+  }
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.auth.updateUser({ password: newPassword });
+  button.disabled = false;
+  button.textContent = 'Сохранить новый пароль';
+  if (error) {
+    showFormError('#passwordError', 'Не удалось сменить пароль. Попробуйте другой пароль.');
+    return;
+  }
+  event.target.reset();
+  notify('Пароль успешно изменён');
+}
+
 async function loadOwnServices() {
   const list = $('#serviceManageList');
   list.innerHTML = '<div class="loading-state"><i></i><span>Загружаем…</span></div>';
@@ -244,6 +284,7 @@ document.addEventListener('click', async event => {
 $('#loginForm').addEventListener('submit', login);
 $('#signupForm').addEventListener('submit', signup);
 $('#serviceForm').addEventListener('submit', addService);
+$('#passwordForm').addEventListener('submit', changePassword);
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());
 $('#refreshBookings').addEventListener('click', loadBookings);
 db.auth.onAuthStateChange((_event, session) => setTimeout(() => handleSession(session), 0));

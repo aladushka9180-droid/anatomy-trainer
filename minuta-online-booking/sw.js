@@ -1,5 +1,5 @@
-const CACHE = 'minuta-v3';
-const ASSETS = ['./', './index.html', './provider.html', './styles.css?v=3', './config.js?v=3', './app.js?v=3', './provider.js?v=3', './manifest.webmanifest', './icon.svg'];
+const CACHE = 'minuta-v4';
+const ASSETS = ['./', './index.html', './provider.html', './styles.css?v=4', './config.js?v=4', './app.js?v=4', './provider.js?v=4', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

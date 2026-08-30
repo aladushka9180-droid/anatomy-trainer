@@ -7,7 +7,7 @@
   <meta name="description" content="Удобный кабинет исполнителя онлайн-записи «Минута».">
   <title>Кабинет исполнителя — Минута</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -39,6 +39,7 @@
         <nav class="provider-nav" aria-label="Разделы кабинета">
           <button class="active" type="button" data-provider-view="bookings"><span aria-hidden="true">▣</span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
           <button type="button" data-provider-view="services"><span aria-hidden="true">✦</span><span>Услуги</span><b id="servicesBadge">0</b></button>
+          <button type="button" data-provider-view="settings"><span aria-hidden="true">⚙</span><span>Настройки</span></button>
         </nav>
         <div class="sidebar-bottom">
           <a href="index.html"><span aria-hidden="true">↗</span> Страница клиента</a>
@@ -80,18 +81,37 @@
             <section class="panel service-catalog"><div class="panel-head"><div><small>В онлайн-записи</small><h3>Список услуг</h3></div></div><div class="service-manage-list" id="serviceManageList"></div></section>
           </div>
         </section>
+
+        <section class="provider-view" data-provider-panel="settings" hidden>
+          <div class="view-title"><div><span>Безопасность</span><h2>Настройки</h2></div></div>
+          <div class="settings-layout">
+            <section class="panel settings-card">
+              <div class="settings-icon" aria-hidden="true">●</div>
+              <div class="settings-heading"><small>Аккаунт исполнителя</small><h3>Сменить пароль</h3><p>После сохранения используйте новый пароль при следующем входе.</p></div>
+              <form id="passwordForm" class="password-form">
+                <label>Текущий пароль<input id="currentPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Введите текущий пароль" required></label>
+                <label>Новый пароль<input id="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required></label>
+                <label>Повторите новый пароль<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Введите новый пароль ещё раз" required></label>
+                <p class="password-hint">Пароль должен содержать не менее 8 символов.</p>
+                <p class="form-error" id="passwordError" hidden></p>
+                <button class="primary" type="submit">Сохранить новый пароль</button>
+              </form>
+            </section>
+            <aside class="settings-note"><span aria-hidden="true">✓</span><div><strong>Пароль хранится защищённо</strong><p>Мы проверим текущий пароль перед изменением. Никому не сообщайте его.</p></div></aside>
+          </div>
+        </section>
       </div>
 
       <nav class="provider-mobile-nav" aria-label="Разделы кабинета">
         <button class="active" type="button" data-provider-view="bookings"><span>▣</span>Записи</button>
         <button type="button" data-provider-view="services"><span>✦</span>Услуги</button>
-        <a href="index.html"><span>↗</span>Клиентам</a>
+        <button type="button" data-provider-view="settings"><span>⚙</span>Настройки</button>
       </nav>
     </section>
   </main>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=3"></script>
-  <script src="provider.js?v=3" defer></script>
+  <script src="config.js?v=4"></script>
+  <script src="provider.js?v=4" defer></script>
 </body>
 </html>

@@ -201,11 +201,25 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .service-dot { display:grid!important; place-items:center; width:38px; height:38px; border-radius:11px; background:#e9f4ed; color:#337455!important; font-size:15px!important; }
 .provider-empty small { color:var(--muted); font-size:11px; }
 .provider-mobile-nav { display:none; }
+.settings-layout { display:grid; grid-template-columns:minmax(420px,680px) minmax(240px,320px); gap:16px; margin-top:22px; align-items:start; }
+.settings-card { display:grid; grid-template-columns:48px minmax(0,1fr); gap:0 15px; border:1px solid #e0e8e2; border-radius:20px; background:#fff; box-shadow:0 14px 45px rgba(27,63,45,.06); }
+.settings-icon { display:grid; place-items:center; width:48px; height:48px; border-radius:14px; background:#e8f3ec; color:#2f7654; font-size:13px; box-shadow:inset 0 0 0 1px #d9e9df; }
+.settings-heading small { color:#6c8378; font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
+.settings-heading h3 { margin:5px 0 0; font-size:22px; letter-spacing:-.04em; }
+.settings-heading p { margin:8px 0 0; color:var(--muted); font-size:12px; line-height:1.55; }
+.password-form { grid-column:1/-1; margin-top:24px; padding-top:22px; border-top:1px solid #e8eee9; }
+.password-form label:first-child { margin-top:0; }
+.password-form .primary { width:100%; margin-top:18px; }
+.password-hint { margin:10px 0 0; color:#74847b; font-size:10px; }
+.settings-note { display:flex; align-items:flex-start; gap:12px; padding:18px; border:1px solid #dfe9e2; border-radius:18px; background:#edf7f0; }
+.settings-note>span { display:grid; place-items:center; flex:0 0 auto; width:30px; height:30px; border-radius:10px; background:#fff; color:#2b7650; font-size:13px; font-weight:900; }
+.settings-note strong { font-size:12px; }.settings-note p { margin:6px 0 0; color:#63766b; font-size:10px; line-height:1.55; }
 
 @media (max-width:980px) {
   .provider-app { grid-template-columns:210px minmax(0,1fr); }
   .provider-workspace { padding:0 24px 60px; }
   .services-layout { grid-template-columns:1fr; }
+  .settings-layout { grid-template-columns:1fr; }
 }
 
 @media (max-width:760px) {
@@ -232,6 +246,8 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .schedule-list .booking-actions button { flex:1; min-width:0; }
   .schedule-list .provider-booking p { flex-direction:column; gap:4px; }
   .services-layout { grid-template-columns:1fr; }
+  .settings-card { grid-template-columns:42px minmax(0,1fr); }
+  .settings-icon { width:42px; height:42px; }
   .provider-mobile-nav { position:fixed; z-index:20; left:10px; right:10px; bottom:max(10px,env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(3,1fr); padding:7px; border:1px solid rgba(224,232,226,.9); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 12px 45px rgba(24,52,39,.18); backdrop-filter:blur(18px); }
   .provider-mobile-nav button,.provider-mobile-nav a { display:grid; justify-items:center; gap:3px; padding:6px 4px; border:0; border-radius:12px; background:transparent; color:#718077; text-decoration:none; font-size:9px; font-weight:800; }
   .provider-mobile-nav span { font-size:16px; }
