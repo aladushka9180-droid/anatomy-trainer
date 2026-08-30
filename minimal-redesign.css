@@ -5764,19 +5764,21 @@ html[data-motion-style="ios"][data-nav-direction="switch"]::view-transition-new(
 }
 
 html[data-motion-style="standard"]::view-transition-group(app-screen) {
-  animation-duration: 240ms;
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
 }
 
 html[data-motion-style="standard"]::view-transition-old(app-screen) {
-  animation: 140ms ease-out both app-screen-standard-out;
+  animation: 110ms ease-out both app-screen-standard-out;
 }
 
 html[data-motion-style="standard"]::view-transition-new(app-screen) {
-  animation: 240ms var(--motion-soft) both app-screen-standard-in;
+  animation: 200ms ease-out both app-screen-standard-in;
 }
 
 html[data-motion-style="soft"]::view-transition-group(app-screen) {
   animation-duration: 360ms;
+  animation-timing-function: var(--motion-soft);
 }
 
 html[data-motion-style="soft"]::view-transition-old(app-screen) {
@@ -5792,8 +5794,8 @@ html[data-motion-style="soft"]::view-transition-new(app-screen) {
 }
 
 @keyframes app-screen-standard-in {
-  from { opacity: 0; transform: translate3d(0, 4px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes app-screen-soft-out {
@@ -5820,29 +5822,90 @@ html[data-motion-style="soft"]::view-transition-new(app-screen) {
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
-#quiz.question-enter .question {
+@keyframes app-content-standard-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes app-content-soft-in {
+  from { opacity: 0; transform: translate3d(0, 5px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes app-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes app-dialog-standard-in {
+  from { opacity: 0; transform: translate3d(0, 2px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes app-dialog-soft-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0) scale(.992); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+html[data-motion-style="standard"] #quiz.question-enter .question,
+html[data-motion-style="standard"] #quiz.question-enter .answer,
+html[data-motion-style="standard"] #feedback:not(.hidden),
+html[data-motion-style="standard"] .hintbox:not(.hidden),
+html[data-motion-style="standard"] .settingspanel:not(.hidden) {
+  animation: app-content-standard-in 180ms ease-out both;
+}
+
+html[data-motion-style="standard"] .profiledialog:not(.hidden),
+html[data-motion-style="standard"] .onboarding:not(.hidden) {
+  animation: app-backdrop-fade-in 140ms ease-out both;
+}
+
+html[data-motion-style="standard"] .profiledialog:not(.hidden) .profiledialogcard,
+html[data-motion-style="standard"] .onboarding:not(.hidden) .onboardingcard {
+  animation: app-dialog-standard-in 190ms ease-out both;
+}
+
+html[data-motion-style="ios"] #quiz.question-enter .question {
   animation: ios-content-rise 300ms var(--motion-spring) both;
 }
 
-#quiz.question-enter .answer {
+html[data-motion-style="ios"] #quiz.question-enter .answer {
   animation: ios-content-rise 320ms var(--motion-spring) both;
   animation-delay: calc(30ms + var(--answer-index, 0) * 26ms);
 }
 
-#feedback:not(.hidden),
-.hintbox:not(.hidden),
-.settingspanel:not(.hidden) {
+html[data-motion-style="ios"] #feedback:not(.hidden),
+html[data-motion-style="ios"] .hintbox:not(.hidden),
+html[data-motion-style="ios"] .settingspanel:not(.hidden) {
   animation: ios-content-rise 280ms var(--motion-spring) both;
 }
 
-.profiledialog:not(.hidden),
-.onboarding:not(.hidden) {
+html[data-motion-style="ios"] .profiledialog:not(.hidden),
+html[data-motion-style="ios"] .onboarding:not(.hidden) {
   animation: ios-backdrop-in 220ms ease-out both;
 }
 
-.profiledialog:not(.hidden) .profiledialogcard,
-.onboarding:not(.hidden) .onboardingcard {
+html[data-motion-style="ios"] .profiledialog:not(.hidden) .profiledialogcard,
+html[data-motion-style="ios"] .onboarding:not(.hidden) .onboardingcard {
   animation: ios-dialog-in 350ms var(--motion-spring) both;
+}
+
+html[data-motion-style="soft"] #quiz.question-enter .question,
+html[data-motion-style="soft"] #quiz.question-enter .answer,
+html[data-motion-style="soft"] #feedback:not(.hidden),
+html[data-motion-style="soft"] .hintbox:not(.hidden),
+html[data-motion-style="soft"] .settingspanel:not(.hidden) {
+  animation: app-content-soft-in 300ms var(--motion-soft) both;
+}
+
+html[data-motion-style="soft"] .profiledialog:not(.hidden),
+html[data-motion-style="soft"] .onboarding:not(.hidden) {
+  animation: app-backdrop-fade-in 210ms ease both;
+}
+
+html[data-motion-style="soft"] .profiledialog:not(.hidden) .profiledialogcard,
+html[data-motion-style="soft"] .onboarding:not(.hidden) .onboardingcard {
+  animation: app-dialog-soft-in 300ms var(--motion-soft) both;
 }
 
 .btn,
@@ -5903,15 +5966,19 @@ details.details-animating {
 }
 
 @media (max-width: 650px) {
-  ::view-transition-group(app-screen) {
-    animation-duration: 320ms;
-  }
-
   html[data-motion-style="ios"][data-nav-direction="forward"]::view-transition-new(app-screen) {
     animation-duration: 320ms;
   }
 
-  #quiz.question-enter .answer {
+  html[data-motion-style="standard"]::view-transition-group(app-screen) {
+    animation-duration: 200ms;
+  }
+
+  html[data-motion-style="soft"]::view-transition-group(app-screen) {
+    animation-duration: 320ms;
+  }
+
+  html[data-motion-style="ios"] #quiz.question-enter .answer {
     animation-delay: calc(24ms + var(--answer-index, 0) * 22ms);
   }
 }
@@ -5933,5 +6000,98 @@ details.details-animating {
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation-duration: .001ms !important;
+  }
+}
+
+/* v73: aligned motion controls and truly distinct animation styles. */
+.appearanceaccessibility .textcontrolsgrid {
+  align-items: start;
+  gap: 16px;
+}
+
+.appearanceaccessibility .textcontrolsgrid > .settingfield {
+  display: grid;
+  grid-template-rows: auto 56px;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.appearanceaccessibility .textcontrolsgrid select {
+  width: 100%;
+  height: 56px;
+  min-height: 56px;
+  margin: 0;
+  padding-block: 0;
+  border-color: color-mix(in srgb, var(--border) 84%, transparent);
+  border-radius: 14px;
+  background-color: var(--surface);
+  font-size: 15px;
+  outline: 0;
+  box-shadow: none;
+}
+
+.appearanceaccessibility .textcontrolsgrid select:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.motionstylehint {
+  max-width: none;
+  margin: 9px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+html[data-motion-style="standard"] .btn,
+html[data-motion-style="standard"] .navbutton,
+html[data-motion-style="standard"] .answer,
+html[data-motion-style="standard"] .learnchoice,
+html[data-motion-style="standard"] .subject,
+html[data-motion-style="standard"] .modechoice,
+html[data-motion-style="standard"] .language,
+html[data-motion-style="standard"] .regionchoice,
+html[data-motion-style="standard"] .stagechoice,
+html[data-motion-style="standard"] .resultnextchoice,
+html[data-motion-style="standard"] .mobiletabbar button {
+  transition-timing-function: ease-out;
+}
+
+html[data-motion-style="soft"] .btn,
+html[data-motion-style="soft"] .navbutton,
+html[data-motion-style="soft"] .answer,
+html[data-motion-style="soft"] .learnchoice,
+html[data-motion-style="soft"] .subject,
+html[data-motion-style="soft"] .modechoice,
+html[data-motion-style="soft"] .language,
+html[data-motion-style="soft"] .regionchoice,
+html[data-motion-style="soft"] .stagechoice,
+html[data-motion-style="soft"] .resultnextchoice,
+html[data-motion-style="soft"] .mobiletabbar button {
+  transition-timing-function: var(--motion-soft);
+}
+
+html[data-motion-style="standard"] .progress > div,
+html[data-motion-style="standard"] .onboardingprogress i,
+html[data-motion-style="standard"] .mobiletabbar button::before,
+html[data-motion-style="standard"] .navbutton::after {
+  transition-duration: 200ms;
+  transition-timing-function: ease-out;
+}
+
+html[data-motion-style="soft"] .progress > div,
+html[data-motion-style="soft"] .onboardingprogress i,
+html[data-motion-style="soft"] .mobiletabbar button::before,
+html[data-motion-style="soft"] .navbutton::after {
+  transition-duration: 280ms;
+  transition-timing-function: var(--motion-soft);
+}
+
+@media (max-width: 650px) {
+  .appearanceaccessibility .textcontrolsgrid {
+    gap: 13px;
   }
 }
