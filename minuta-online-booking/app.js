@@ -120,8 +120,10 @@ async function loadAvailability() {
 
 async function showStep(step) {
   state.step = step;
+  const titles = { 1: 'Выберите услугу', 2: 'Выберите дату и время', 3: 'Ваши контактные данные' };
   $$('.step').forEach(item => item.classList.toggle('active', Number(item.dataset.step) === step));
   $$('.progress i').forEach((item, index) => item.classList.toggle('active', index < step));
+  $('#bookingTitle').textContent = titles[step];
   $('#stepLabel').textContent = `Шаг ${step} из 3`;
   if (step === 2) await loadAvailability();
   if (step === 3) renderSummary();
@@ -195,4 +197,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=11'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=12'));
