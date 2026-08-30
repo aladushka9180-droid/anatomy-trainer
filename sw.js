@@ -1,4 +1,4 @@
-const CACHE='anatomy-v78';
+const CACHE='anatomy-v79';
 const MOTION_IDS=['abduction','elbow','hip','knee','foot','head'];
 const MOTION_PRIMARY=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v8/${id}.mp4?v=blender-v1`,`./anatomy-motion-v8/${id}.webp?v=blender-v1`]);
 const MOTION_LEGACY=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v6/${id}.mp4?v=2`,`./anatomy-motion-v5/${id}/frame-${id==='abduction'?'07':'08'}.webp`]);
