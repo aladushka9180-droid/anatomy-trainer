@@ -91,27 +91,19 @@
 
 .motion-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: center; }
 .motion-card-detailed { display: block; padding: 18px; }
-.motion-summary { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 18px; align-items: center; }
+.motion-summary { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 22px; align-items: center; }
 .motion-summary h4 { margin-bottom: 6px; font-size: clamp(21px, 3vw, 26px); }
 .motion-joint { color: var(--muted); }
-.motion-demo { display: grid; place-items: center; min-height: 150px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 9%, var(--surface2)); color: var(--text); overflow: hidden; }
-.motion-demo svg { width: 140px; height: 140px; }
-.motion-demo .bodyline { fill: none; stroke: currentColor; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
-.motion-demo .joint { fill: var(--accent); stroke: var(--text); stroke-width: 2; }
-.motion-demo .guide { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 5 5; opacity: .65; }
-.motion-demo .move-abduction { transform-origin: 71px 55px; animation: motion-abduction 2.4s ease-in-out infinite alternate; }
-.motion-demo .move-elbow { transform-origin: 96px 79px; animation: motion-elbow 2.1s ease-in-out infinite alternate; }
-.motion-demo .move-hip { transform-origin: 70px 86px; animation: motion-hip 2.3s ease-in-out infinite alternate; }
-.motion-demo .move-knee { transform-origin: 84px 104px; animation: motion-knee 2.2s ease-in-out infinite alternate; }
-.motion-demo .move-foot { transform-origin: 83px 119px; animation: motion-foot 1.8s ease-in-out infinite alternate; }
-.motion-demo .move-head { transform-origin: 70px 30px; animation: motion-head 2s ease-in-out infinite alternate; }
-@keyframes motion-abduction { to { transform: rotate(-92deg); } }
-@keyframes motion-elbow { to { transform: rotate(-88deg); } }
-@keyframes motion-hip { to { transform: rotate(-55deg); } }
-@keyframes motion-knee { from { transform: rotate(65deg); } to { transform: rotate(0); } }
-@keyframes motion-foot { to { transform: rotate(28deg); } }
-@keyframes motion-head { from { transform: scaleX(.72); } to { transform: scaleX(1.08); } }
-
+.motion-demo { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; min-height: 240px; border: 1px solid var(--border); border-radius: 14px; background: radial-gradient(circle at 50% 42%, var(--surface) 0 34%, color-mix(in srgb, var(--accent) 8%, var(--surface2)) 100%); color: var(--text); overflow: hidden; }
+.motion-realistic { position: absolute; inset: 8px; }
+.motion-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+.motion-frame-start { opacity: 1; animation: realistic-frame-start 4.8s ease-in-out infinite; }
+.motion-frame-end { opacity: 0; animation: realistic-frame-end 4.8s ease-in-out infinite; }
+.motion-cycle { position: absolute; left: 16%; right: 16%; bottom: 3px; height: 3px; border-radius: 999px; background: color-mix(in srgb, var(--text) 18%, transparent); overflow: hidden; }
+.motion-cycle i { display: block; width: 28%; height: 100%; border-radius: inherit; background: var(--accent); animation: realistic-motion-cycle 2.4s ease-in-out infinite alternate; }
+@keyframes realistic-frame-start { 0%, 38%, 100% { opacity: 1; } 52%, 88% { opacity: 0; } }
+@keyframes realistic-frame-end { 0%, 38%, 100% { opacity: 0; } 52%, 88% { opacity: 1; } }
+@keyframes realistic-motion-cycle { from { transform: translateX(0); } to { transform: translateX(257%); } }
 .muscle-function-primer {
   max-width: 900px;
   margin-bottom: 14px;
@@ -249,9 +241,8 @@
   .anatomy-image-grid { grid-template-columns: 1fr; }
   .motion-card { grid-template-columns: 112px minmax(0, 1fr); padding: 12px; }
   .motion-card-detailed { display: block; }
-  .motion-summary { grid-template-columns: 112px minmax(0, 1fr); gap: 12px; }
-  .motion-demo { min-height: 120px; }
-  .motion-demo svg { width: 112px; height: 112px; }
+  .motion-summary { grid-template-columns: 190px minmax(0, 1fr); gap: 14px; }
+  .motion-demo { min-height: 180px; }
   .muscle-role-grid,
   .contraction-grid,
   .motion-core,
@@ -269,9 +260,23 @@
   .adaptivereview { display: flex; }
 }
 
+@media (max-width: 520px) {
+  .motion-summary { grid-template-columns: 1fr; }
+  .motion-demo { width: min(100%, 320px); min-height: 220px; margin-inline: auto; }
+}
+
 @media (max-width: 380px) {
   .motion-card { grid-template-columns: 1fr; }
   .motion-summary { grid-template-columns: 1fr; }
   .motion-demo { min-height: 150px; }
-  .motion-demo svg { width: 140px; height: 140px; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-frame-start { opacity: 0; animation: none; }
+  .motion-frame-end { opacity: 1; animation: none; }
+  .motion-cycle i { animation: none; transform: translateX(257%); }
+}
+
+html[data-motion="off"] .motion-frame-start { opacity: 0; animation: none; }
+html[data-motion="off"] .motion-frame-end { opacity: 1; animation: none; }
+html[data-motion="off"] .motion-cycle i { animation: none; transform: translateX(257%); }
