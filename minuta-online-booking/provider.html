@@ -13,7 +13,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Минута</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -95,7 +95,11 @@
           <p class="view-description">Клиенты увидят только свободные интервалы внутри выбранных рабочих часов.</p>
           <div class="schedule-settings-layout">
             <section class="panel weekly-schedule-panel">
-              <div class="panel-head"><div><small>Обычная неделя</small><h3>Рабочие дни и перерывы</h3></div><label class="slot-step-label">Шаг записи<select id="slotInterval"><option value="15">15 мин</option><option value="30" selected>30 мин</option><option value="45">45 мин</option><option value="60">60 мин</option></select></label></div>
+              <div class="panel-head"><div><small>Обычная неделя</small><h3>Рабочие дни и перерывы</h3></div></div>
+              <div class="booking-step-setting">
+                <div><strong>Шаг записи</strong><small>Через какой интервал клиенту показывать начало записи</small></div>
+                <label class="slot-step-label"><span class="sr-only">Шаг записи</span><select id="slotInterval" aria-label="Шаг записи"><option value="15">15 мин</option><option value="30" selected>30 мин</option><option value="45">45 мин</option><option value="60">60 мин</option></select></label>
+              </div>
               <div class="weekly-schedule" id="weeklySchedule"><div class="loading-state"><i></i><span>Загружаем расписание…</span></div></div>
               <p class="form-error" id="scheduleError" hidden></p>
             </section>
@@ -158,7 +162,7 @@
   </main>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=6"></script>
-  <script src="provider.js?v=6" defer></script>
+  <script src="config.js?v=7"></script>
+  <script src="provider.js?v=7" defer></script>
 </body>
 </html>
