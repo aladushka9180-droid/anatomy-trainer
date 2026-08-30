@@ -7,7 +7,10 @@ let currentUser = null;
 let currentFilter = 'day';
 let selectedDate = localIsoDate(new Date());
 let allBookings = [];
+let scheduleRows = [];
+let daysOff = [];
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
+const weekdayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
 function localIsoDate(date) {
   const year = date.getFullYear();
@@ -168,7 +171,7 @@ async function handleSession(session) {
   $('#accountEmail').textContent = currentUser.email || '';
   $('#todayLabel').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   renderDateStrip();
-  await Promise.all([loadOwnServices(), loadBookings()]);
+  await Promise.all([loadOwnServices(), loadBookings(), loadSchedule(), loadDaysOff()]);
 }
 
 async function login(event) {
@@ -315,6 +318,105 @@ async function changePassword(event) {
   notify('Пароль успешно изменён');
 }
 
+function shortTime(value, fallback) { return value ? String(value).slice(0, 5) : fallback; }
+
+function renderSchedule() {
+  const holder = $('#weeklySchedule');
+  holder.innerHTML = scheduleRows.map(row => {
+    const enabled = Boolean(row.enabled);
+    const hasBreak = Boolean(row.break_start && row.break_end);
+    return `<article class="schedule-day ${enabled ? '' : 'disabled'}" data-schedule-day="${row.weekday}">
+      <label class="day-toggle"><input type="checkbox" data-schedule-enabled ${enabled ? 'checked' : ''}><span></span><strong>${weekdayNames[row.weekday - 1]}</strong></label>
+      <div class="day-hours"><label>С<input type="time" data-schedule-start value="${shortTime(row.start_time, '09:00')}" ${enabled ? '' : 'disabled'}></label><label>До<input type="time" data-schedule-end value="${shortTime(row.end_time, '19:00')}" ${enabled ? '' : 'disabled'}></label></div>
+      <label class="break-toggle"><input type="checkbox" data-schedule-break ${hasBreak ? 'checked' : ''} ${enabled ? '' : 'disabled'}><span>Перерыв</span></label>
+      <div class="break-hours" ${hasBreak && enabled ? '' : 'hidden'}><input type="time" data-break-start value="${shortTime(row.break_start, '13:00')}"><span>—</span><input type="time" data-break-end value="${shortTime(row.break_end, '14:00')}"></div>
+      <small class="day-off-label" ${enabled ? 'hidden' : ''}>Выходной</small>
+    </article>`;
+  }).join('');
+}
+
+async function loadSchedule() {
+  const { data, error } = await db.from('provider_schedule').select('*').eq('performer_id', currentUser.id).order('weekday');
+  if (error) {
+    $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Обновите страницу после настройки базы.</small></div>';
+    return;
+  }
+  scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index < 5, start_time: '09:00', end_time: '19:00', break_start: null, break_end: null, slot_interval_minutes: 30 }));
+  $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 30);
+  renderSchedule();
+}
+
+async function saveSchedule() {
+  clearFormError('#scheduleError');
+  const interval = Number($('#slotInterval').value);
+  const rows = $$('[data-schedule-day]').map(card => {
+    const enabled = card.querySelector('[data-schedule-enabled]').checked;
+    const hasBreak = enabled && card.querySelector('[data-schedule-break]').checked;
+    return {
+      performer_id: currentUser.id,
+      weekday: Number(card.dataset.scheduleDay),
+      enabled,
+      start_time: card.querySelector('[data-schedule-start]').value,
+      end_time: card.querySelector('[data-schedule-end]').value,
+      break_start: hasBreak ? card.querySelector('[data-break-start]').value : null,
+      break_end: hasBreak ? card.querySelector('[data-break-end]').value : null,
+      slot_interval_minutes: interval
+    };
+  });
+  const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
+  if (invalid) { showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
+  const button = $('#saveSchedule');
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
+  button.disabled = false;
+  button.textContent = 'Сохранить';
+  if (error) { showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
+  scheduleRows = rows;
+  notify('Расписание сохранено');
+}
+
+function renderDaysOff() {
+  const holder = $('#daysOffList');
+  if (!daysOff.length) {
+    holder.innerHTML = '<div class="provider-empty compact-empty"><span>✓</span><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div>';
+    return;
+  }
+  holder.innerHTML = daysOff.map(item => {
+    const date = new Date(`${item.off_date}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
+    const period = item.all_day ? 'Весь день' : `${shortTime(item.start_time, '')}–${shortTime(item.end_time, '')}`;
+    return `<article class="day-off-item"><div><strong>${date}</strong><span>${period}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</span></div><button type="button" data-delete-day-off="${item.id}" aria-label="Удалить исключение">×</button></article>`;
+  }).join('');
+}
+
+async function loadDaysOff() {
+  const { data, error } = await db.from('provider_days_off').select('*').eq('performer_id', currentUser.id).gte('off_date', localIsoDate(new Date())).order('off_date');
+  if (error) { $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>'; return; }
+  daysOff = data || [];
+  renderDaysOff();
+}
+
+async function addDayOff(event) {
+  event.preventDefault();
+  clearFormError('#dayOffError');
+  const allDay = $('#dayOffAllDay').checked;
+  const date = $('#dayOffDate').value;
+  const start = $('#dayOffStart').value;
+  const end = $('#dayOffEnd').value;
+  if (!date || (!allDay && (!start || !end || end <= start))) { showFormError('#dayOffError', 'Укажите корректную дату и время.'); return; }
+  const button = event.submitter;
+  button.disabled = true;
+  const { error } = await db.from('provider_days_off').insert({ performer_id: currentUser.id, off_date: date, all_day: allDay, start_time: allDay ? null : start, end_time: allDay ? null : end, note: $('#dayOffNote').value.trim() });
+  button.disabled = false;
+  if (error) { showFormError('#dayOffError', 'Не удалось закрыть выбранное время.'); return; }
+  event.target.reset();
+  $('#dayOffAllDay').checked = true;
+  $('#dayOffTime').hidden = true;
+  $('#dayOffDate').min = localIsoDate(new Date());
+  notify('Исключение добавлено');
+  await loadDaysOff();
+}
+
 async function loadOwnServices() {
   const list = $('#serviceManageList');
   list.innerHTML = '<div class="loading-state"><i></i><span>Загружаем…</span></div>';
@@ -352,6 +454,7 @@ document.addEventListener('click', async event => {
   const date = event.target.closest('[data-booking-date]');
   const toggle = event.target.closest('[data-toggle-service]');
   const remove = event.target.closest('[data-delete-service]');
+  const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) setProviderView(view.dataset.providerView);
@@ -372,6 +475,11 @@ document.addEventListener('click', async event => {
     notify(error ? 'Услуга скрыта: по ней есть записи' : 'Услуга удалена');
     await loadOwnServices();
   }
+  if (removeDayOff) {
+    const { error } = await db.from('provider_days_off').delete().eq('id', removeDayOff.dataset.deleteDayOff);
+    if (error) notify('Не удалось удалить исключение');
+    else { notify('Исключение удалено'); await loadDaysOff(); }
+  }
   if (booking) {
     await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId);
     notify('Статус записи обновлён');
@@ -384,11 +492,27 @@ $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
 $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
+$('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());
 $('#refreshBookings').addEventListener('click', loadBookings);
+$('#saveSchedule').addEventListener('click', saveSchedule);
+$('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
+$('#dayOffDate').min = localIsoDate(new Date());
+$('#weeklySchedule').addEventListener('change', event => {
+  const card = event.target.closest('[data-schedule-day]');
+  if (!card) return;
+  if (event.target.matches('[data-schedule-enabled]')) {
+    const enabled = event.target.checked;
+    card.classList.toggle('disabled', !enabled);
+    card.querySelectorAll('input[type="time"], [data-schedule-break]').forEach(input => { input.disabled = !enabled; });
+    card.querySelector('.day-off-label').hidden = enabled;
+    card.querySelector('.break-hours').hidden = !enabled || !card.querySelector('[data-schedule-break]').checked;
+  }
+  if (event.target.matches('[data-schedule-break]')) card.querySelector('.break-hours').hidden = !event.target.checked;
+});
 db.auth.onAuthStateChange((event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     recoveryMode = true;
