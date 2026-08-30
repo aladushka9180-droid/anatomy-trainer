@@ -1,0 +1,40 @@
+{
+  "pipeline": "Blender 4.5.13 LTS / Eevee Next / one rig",
+  "model": "volumetric procedural female mannequin",
+  "resolution": [
+    640,
+    640
+  ],
+  "fps": 30,
+  "frames": 96,
+  "duration_seconds": 3.2,
+  "camera": "single fixed perspective camera, 62 mm",
+  "lighting": "three fixed area lights plus static world light",
+  "interpolation": "Bezier Auto Clamped; no overshoot",
+  "clips": {
+    "knee.mp4": {
+      "bytes": 54301,
+      "sha256": "0749d2c0568f8b620b418c1b6484f19caae450a0cfa56da7fb5090b7dd1be22d"
+    },
+    "abduction.mp4": {
+      "bytes": 58718,
+      "sha256": "78b18b2a8bde7b3977afaa389166d3aa59ba08fd2feb1fafee527588c85f48e3"
+    },
+    "elbow.mp4": {
+      "bytes": 56246,
+      "sha256": "427ad153f406abfee246d0a32e64b8636126cda4213ae7b52912bfc9b2e0ce18"
+    },
+    "hip.mp4": {
+      "bytes": 59446,
+      "sha256": "57d44e0221c23447735f0dc2d3d8c228a4f8ef2c85c50571b58ceda1ae4f0602"
+    },
+    "foot.mp4": {
+      "bytes": 54823,
+      "sha256": "0da79cd9c6db487846404a5d437e8114ef6843c571e2d386facbe268848e74cc"
+    },
+    "head.mp4": {
+      "bytes": 54310,
+      "sha256": "16ad59a422b71d2f7eb6017a4591f61bfb787cb205f9171b77dd40522639c89d"
+    }
+  }
+}

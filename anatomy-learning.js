@@ -54,12 +54,34 @@
   const save = () => { API.storage.setItem('anatomy_course_viewed_v1', JSON.stringify([...viewed])); API.storage.setItem('anatomy_course_passed_v1', JSON.stringify([...passed])); };
   let motionCleanup = () => {};
 
-  function motionFrames(id, title) {
+  const MOTION_MEDIA = {
+    version: 'blender-v1',
+    root: './anatomy-motion-v8',
+    legacyVersion: '2',
+    legacyRoot: './anatomy-motion-v6',
+    legacyPosterRoot: './anatomy-motion-v5'
+  };
+
+  function motionAssets(id) {
     const safeId = encodeURIComponent(id);
-    const video = `./anatomy-motion-v6/${safeId}.mp4?v=2`;
-    const posterFrame = id === 'abduction' ? '07' : '08';
-    const poster = `./anatomy-motion-v5/${safeId}/frame-${posterFrame}.webp`;
-    return `<div class="motion-realistic" data-motion-player data-motion-poster="${poster}"><div class="motion-stage" role="img" aria-label="${esc(title)}: видео анатомического движения"><video class="motion-video" autoplay loop muted playsinline webkit-playsinline preload="auto" poster="${poster}" aria-hidden="true"><source src="${video}" type="video/mp4"></video><img class="motion-video-fallback" src="${poster}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
+    const legacyPosterFrame = id === 'abduction' ? '07' : '08';
+    return {
+      videos: [
+        `${MOTION_MEDIA.root}/${safeId}.mp4?v=${MOTION_MEDIA.version}`,
+        `${MOTION_MEDIA.legacyRoot}/${safeId}.mp4?v=${MOTION_MEDIA.legacyVersion}`
+      ],
+      posters: [
+        `${MOTION_MEDIA.root}/${safeId}.webp?v=${MOTION_MEDIA.version}`,
+        `${MOTION_MEDIA.legacyPosterRoot}/${safeId}/frame-${legacyPosterFrame}.webp`
+      ]
+    };
+  }
+
+  function motionFrames(id, title) {
+    const assets = motionAssets(id);
+    const videos = esc(assets.videos.join('|'));
+    const posters = esc(assets.posters.join('|'));
+    return `<div class="motion-realistic" data-motion-player><div class="motion-stage" role="img" aria-label="${esc(title)}: видео анатомического движения"><video class="motion-video" src="${esc(assets.videos[0])}" data-motion-sources="${videos}" autoplay loop muted playsinline webkit-playsinline preload="auto" poster="${esc(assets.posters[0])}" aria-hidden="true" disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"></video><img class="motion-video-fallback" src="${esc(assets.posters[0])}" data-motion-posters="${posters}" alt="" aria-hidden="true" decoding="async" fetchpriority="high"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
   }
 
   function initMotionPlayer() {
@@ -67,14 +89,17 @@
     const player = host.querySelector('[data-motion-player]');
     if (!player) { motionCleanup = () => {}; return; }
     const video = player.querySelector('.motion-video');
-    const source = video.querySelector('source');
     const poster = player.querySelector('.motion-video-fallback');
     const toggle = player.querySelector('[data-motion-toggle]');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const videoSources = (video.dataset.motionSources || video.currentSrc || video.src).split('|').filter(Boolean);
+    const posterSources = (poster.dataset.motionPosters || poster.src).split('|').filter(Boolean);
     let userPaused = false;
     let inView = !('IntersectionObserver' in window);
     let fallbackShown = false;
     let playAttempt = 0;
+    let videoSourceIndex = Math.max(0, videoSources.indexOf(video.getAttribute('src')));
+    let posterSourceIndex = Math.max(0, posterSources.indexOf(poster.getAttribute('src')));
 
     const motionDisabled = () => reduced.matches || document.documentElement.dataset.motion === 'off';
     const updateProgress = () => {
@@ -118,7 +143,6 @@
         if (attempt === playAttempt && !video.paused && video.readyState >= 3) onPlaying();
       }).catch(() => {
         if (attempt !== playAttempt || fallbackShown || motionDisabled() || userPaused || !inView || document.hidden) return;
-        if (video.error) { onError(); return; }
         userPaused = true;
         syncToggle();
       });
@@ -146,6 +170,26 @@
       showPoster();
       toggle.hidden = true;
     };
+    const onVideoError = () => {
+      if (videoSourceIndex + 1 >= videoSources.length) { onError(); return; }
+      videoSourceIndex += 1;
+      playAttempt += 1;
+      video.pause();
+      video.src = videoSources[videoSourceIndex];
+      video.load();
+      fallbackShown = false;
+      sync();
+    };
+    const onPosterError = () => {
+      if (posterSourceIndex + 1 >= posterSources.length) {
+        poster.hidden = true;
+        video.removeAttribute('poster');
+        return;
+      }
+      posterSourceIndex += 1;
+      poster.src = posterSources[posterSourceIndex];
+      video.poster = posterSources[posterSourceIndex];
+    };
     const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
       inView = Boolean(entries[0]?.isIntersecting);
       sync();
@@ -154,8 +198,8 @@
     const settingsObserver = new MutationObserver(sync);
     settingsObserver.observe(document.documentElement, {attributes:true, attributeFilter:['data-motion']});
     toggle.addEventListener('click', onToggle);
-    video.addEventListener('error', onError);
-    source.addEventListener('error', onError);
+    video.addEventListener('error', onVideoError);
+    poster.addEventListener('error', onPosterError);
     video.addEventListener('playing', onPlaying);
     video.addEventListener('waiting', onBuffering);
     video.addEventListener('stalled', onBuffering);
@@ -167,15 +211,16 @@
     video.defaultMuted = true;
     video.playsInline = true;
     video.preload = 'auto';
-    sync();
+    if (poster.complete && !poster.naturalWidth) onPosterError();
+    if (video.error) onVideoError(); else sync();
 
     motionCleanup = () => {
       video.pause();
       observer?.disconnect();
       settingsObserver.disconnect();
       toggle.removeEventListener('click', onToggle);
-      video.removeEventListener('error', onError);
-      source.removeEventListener('error', onError);
+      video.removeEventListener('error', onVideoError);
+      poster.removeEventListener('error', onPosterError);
       video.removeEventListener('playing', onPlaying);
       video.removeEventListener('waiting', onBuffering);
       video.removeEventListener('stalled', onBuffering);

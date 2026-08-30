@@ -1,8 +1,12 @@
-const CACHE='anatomy-v69';
+const CACHE='anatomy-v70';
 const MOTION_IDS=['abduction','elbow','hip','knee','foot','head'];
-const MOTION_ASSETS=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v6/${id}.mp4?v=2`,`./anatomy-motion-v5/${id}/frame-${id==='abduction'?'07':'08'}.webp`]);
-const ASSETS=['./','./index.html','./minimal-redesign.css?v=54','./professional-learning.css?v=40','./anatomy-learning.css?v=10','./profiles.js?v=4','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js?v=2','./massage-techniques.js?v=38','./practice-curriculum.js?v=38','./professional-learning.js?v=44','./ai-assistant.js?v=42','./anatomy-learning.js?v=11','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg?v=2','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg?v=2','./practice-compression.png','./practice-percussion.png','./practice-passive-stretch.png',...MOTION_ASSETS];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
+const MOTION_PRIMARY=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v8/${id}.mp4?v=blender-v1`,`./anatomy-motion-v8/${id}.webp?v=blender-v1`]);
+const MOTION_LEGACY=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v6/${id}.mp4?v=2`,`./anatomy-motion-v5/${id}/frame-${id==='abduction'?'07':'08'}.webp`]);
+const ASSETS=['./','./index.html','./minimal-redesign.css?v=54','./professional-learning.css?v=40','./anatomy-learning.css?v=10','./profiles.js?v=4','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js?v=2','./massage-techniques.js?v=38','./practice-curriculum.js?v=38','./professional-learning.js?v=44','./ai-assistant.js?v=42','./anatomy-learning.js?v=12','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg?v=2','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg?v=2','./practice-compression.png','./practice-percussion.png','./practice-passive-stretch.png',...MOTION_LEGACY];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(async cache=>{
+  await cache.addAll(ASSETS);
+  await Promise.all(MOTION_PRIMARY.map(asset=>cache.add(asset).catch(()=>undefined)));
+}).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('anatomy-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
 
 function parseRange(header,size){
@@ -24,7 +28,7 @@ function parseRange(header,size){
 
 async function cachedRangeResponse(request){
   const cache=await caches.open(CACHE);
-  const cached=await cache.match(new Request(request.url));
+  const cached=await cache.match(request.url,{ignoreVary:true});
   if(!cached||cached.status!==200)return null;
   const buffer=await cached.arrayBuffer();
   const range=parseRange(request.headers.get('range'),buffer.byteLength);
@@ -41,7 +45,7 @@ async function cachedRangeResponse(request){
 self.addEventListener('fetch',e=>{
   const request=e.request,url=new URL(request.url);
   if(request.method!=='GET'||url.origin!==self.location.origin)return;
-  if(request.headers.has('range')&&url.pathname.endsWith('.mp4')){
+  if(request.headers.has('range')&&url.pathname.toLowerCase().endsWith('.mp4')){
     e.respondWith(cachedRangeResponse(request).then(response=>response||fetch(request)));
     return;
   }

@@ -1,0 +1,66 @@
+{
+  "passed": true,
+  "criteria": {
+    "frames": 96,
+    "size": [
+      640,
+      640
+    ]
+  },
+  "clips": {
+    "abduction": {
+      "passed": true,
+      "decoded_frames": 96,
+      "loop_seam_mae": 0.2233,
+      "peak_motion_mae": 0.6603,
+      "start_hold_max_mae": 0.0317,
+      "end_hold_max_mae": 0.19,
+      "max_adjacent_frame_mae": 0.3956
+    },
+    "elbow": {
+      "passed": true,
+      "decoded_frames": 96,
+      "loop_seam_mae": 0.2169,
+      "peak_motion_mae": 0.4562,
+      "start_hold_max_mae": 0.033,
+      "end_hold_max_mae": 0.1477,
+      "max_adjacent_frame_mae": 0.299
+    },
+    "hip": {
+      "passed": true,
+      "decoded_frames": 96,
+      "loop_seam_mae": 0.2048,
+      "peak_motion_mae": 1.0184,
+      "start_hold_max_mae": 0.0298,
+      "end_hold_max_mae": 0.1541,
+      "max_adjacent_frame_mae": 0.3577
+    },
+    "knee": {
+      "passed": true,
+      "decoded_frames": 96,
+      "loop_seam_mae": 0.2118,
+      "peak_motion_mae": 0.5398,
+      "start_hold_max_mae": 0.0242,
+      "end_hold_max_mae": 0.1265,
+      "max_adjacent_frame_mae": 0.3038
+    },
+    "foot": {
+      "passed": true,
+      "decoded_frames": 96,
+      "loop_seam_mae": 0.2115,
+      "peak_motion_mae": 0.3912,
+      "start_hold_max_mae": 0.0221,
+      "end_hold_max_mae": 0.1289,
+      "max_adjacent_frame_mae": 0.2862
+    },
+    "head": {
+      "passed": true,
+      "decoded_frames": 96,
+      "loop_seam_mae": 0.2116,
+      "peak_motion_mae": 0.5228,
+      "start_hold_max_mae": 0.0299,
+      "end_hold_max_mae": 0.1594,
+      "max_adjacent_frame_mae": 0.2787
+    }
+  }
+}
