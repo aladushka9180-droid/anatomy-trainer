@@ -93,36 +93,15 @@
 
   function lessonCard(lesson, compact = false) {
     const title = `${lesson.title}. Уроки классического массажа`;
+    const pageOrigin = window.location.origin;
+    const pageReferrer = window.location.href.split('#')[0];
+    const embedUrl = `https://www.youtube.com/embed/${lesson.videoId}?rel=0&playsinline=1&origin=${encodeURIComponent(pageOrigin)}&widget_referrer=${encodeURIComponent(pageReferrer)}`;
     return `<article class="video-lesson-card ${compact ? 'compact' : ''}">
-      <button type="button" class="video-poster" data-inline-video="${esc(lesson.videoId)}" data-video-title="${esc(title)}" aria-label="Воспроизвести на этой странице: ${esc(title)}">
-        <img src="https://i.ytimg.com/vi/${esc(lesson.videoId)}/hqdefault.jpg" alt="Обложка видеоурока «${esc(lesson.title)}»" loading="lazy" decoding="async">
-        <span class="video-play" aria-hidden="true">▶</span><span class="video-duration">${esc(lesson.duration)}</span>
-      </button>
+      <iframe class="video-embed" src="${esc(embedUrl)}" title="${esc(title)}" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" sandbox="allow-scripts allow-same-origin allow-presentation" allowfullscreen></iframe>
       <div class="video-lesson-copy"><h4>${esc(lesson.title)}</h4><p>${compact ? 'Наглядный показ базового приёма.' : 'Сначала посмотри движение целиком, затем повторяй медленно под наблюдением преподавателя или подготовленного партнёра.'}</p>
-        <button type="button" class="textbutton inline-video-button" data-inline-video="${esc(lesson.videoId)}" data-video-title="${esc(title)}">Смотреть здесь</button>
+        <span class="video-duration-inline">Урок ${esc(lesson.duration)} · запускается здесь</span>
       </div>
     </article>`;
-  }
-
-  function playInlineVideo(trigger) {
-    const card = trigger.closest('.video-lesson-card');
-    if (!card || card.classList.contains('playing')) return;
-    const videoId = String(trigger.dataset.inlineVideo || '');
-    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return;
-    const title = trigger.dataset.videoTitle || 'Учебный видеоурок';
-    const frame = document.createElement('iframe');
-    frame.className = 'video-embed';
-    frame.title = title;
-    frame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&playsinline=1`;
-    frame.loading = 'eager';
-    frame.referrerPolicy = 'strict-origin-when-cross-origin';
-    frame.allow = 'autoplay; encrypted-media; picture-in-picture';
-    frame.sandbox = 'allow-scripts allow-same-origin allow-presentation';
-    frame.allowFullscreen = true;
-    card.querySelector('.video-poster')?.replaceWith(frame);
-    card.classList.add('playing');
-    card.querySelectorAll('[data-inline-video]').forEach(button => { button.disabled = true; button.textContent = 'Видео открыто выше'; });
-    requestAnimationFrame(() => frame.focus());
   }
 
   function illustrationCard(illustration) {
@@ -861,9 +840,5 @@
     tabs[next].click();
   });
   $('#professionalScreen [data-go="menu"]')?.addEventListener('click', () => window.show?.('menu'));
-  $('#professionalScreen')?.addEventListener('click', event => {
-    const trigger = event.target.closest('[data-inline-video]');
-    if (trigger) playInlineVideo(trigger);
-  });
   window.ProfessionalLearning = { open: openProfessional, getProgress: () => JSON.parse(JSON.stringify(state)) };
 })();
