@@ -195,8 +195,8 @@
       .referencefilters button{flex:0 0 auto;min-height:42px;padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text);font-weight:750;cursor:pointer}
       .referencefilters button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--surface));box-shadow:inset 0 0 0 1px var(--accent)}
       .referencestatus{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 2px 12px;color:var(--muted);font-size:14px}
-      .referenceresults{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-      .referencecard{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+      .referenceresults{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:10px}
+      .referencecard{align-self:start;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
       .referencecard summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;min-height:94px;padding:15px;cursor:pointer;list-style:none}
       .referencecard summary::-webkit-details-marker{display:none}.referencecard strong{min-width:0;font-size:17px;line-height:1.3;overflow-wrap:anywhere}.referencecard small{grid-column:1;min-width:0;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
       .referencecardaction{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent);font-size:13px;font-weight:850;white-space:nowrap}
