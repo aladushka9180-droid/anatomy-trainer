@@ -4563,6 +4563,113 @@ body.firstvisit #continueCard {
   display: none;
 }
 
+/* Dedicated additional-training screen: one decision at a time. */
+.training-setup-screen{
+  width:min(100%,920px);
+  margin-inline:auto;
+}
+.training-setup-head{
+  margin-bottom:8px;
+  padding-bottom:22px;
+  border-bottom:1px solid var(--border);
+}
+.training-setup-head h2{
+  margin-bottom:8px;
+}
+.training-setup-head p{
+  max-width:640px;
+  margin:0;
+  color:var(--muted);
+  line-height:1.55;
+}
+#trainingSetupMount .setupflow{
+  max-width:760px;
+  margin:0 auto;
+}
+#trainingSetupMount .setupstep{
+  min-height:260px;
+  padding:26px 0 18px;
+  border:0;
+}
+#trainingSetupMount .setupstep:focus{
+  outline:none;
+}
+#trainingSetupMount .steptitle{
+  margin-bottom:18px;
+}
+#trainingSetupMount .steptitle>span{
+  border-color:color-mix(in srgb,var(--accent) 48%,var(--border));
+  background:color-mix(in srgb,var(--accent) 10%,var(--surface));
+  color:var(--text);
+}
+#trainingSetupMount .subjecttabs{
+  gap:10px;
+}
+#trainingSetupMount .subject,
+#trainingSetupMount .language,
+#trainingSetupMount .modechoice{
+  box-shadow:none;
+}
+#trainingSetupMount .setupsticky{
+  position:static;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  margin-top:8px;
+  padding:14px 0 0;
+  border:0;
+  border-top:1px solid var(--border);
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+#trainingSetupMount .selectionsummary{
+  width:auto;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font-size:14px;
+  font-weight:650;
+}
+#trainingSetupMount .setupback{
+  min-width:96px;
+  border:1px solid var(--border);
+  background:var(--surface);
+}
+#trainingSetupMount #startTraining{
+  min-width:190px;
+}
+#trainingSetupMount #baseNote{
+  grid-column:1/-1;
+  padding-top:2px;
+}
+
+@media(max-width:650px){
+  .training-setup-head{
+    display:grid;
+    gap:14px;
+    padding-bottom:18px;
+  }
+  .training-setup-head .btn{
+    width:fit-content;
+  }
+  #trainingSetupMount .setupstep{
+    min-height:0;
+    padding:20px 0 14px;
+  }
+  #trainingSetupMount .setupsticky{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  #trainingSetupMount .selectionsummary{
+    order:-1;
+  }
+  #trainingSetupMount .setupback,
+  #trainingSetupMount #startTraining{
+    width:100%;
+  }
+}
+
 .visuallabels > div {
   display: flex;
   flex-wrap: wrap;
