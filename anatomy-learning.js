@@ -16,6 +16,44 @@
 
   const ATTACHMENT_CARD_LIMIT = 6;
   const RECOMMENDED_ATTACHMENT_REGION = 'Руки / плечевой пояс';
+  const SHOULDER_DISCOVERY_STEPS = [
+    {
+      id:'acromion',
+      title:'Найдите акромион',
+      instruction:'Это верхний наружный выступ лопатки — твёрдая «крыша» над плечевым суставом.',
+      success:'Верно. Акромион образует верхнюю точку плеча и продолжается в ость лопатки.',
+      hint:'Пока нет. Ищите самый верхний наружный край лопатки рядом с головкой плечевой кости.',
+      choices:[
+        {id:'acromion',marker:'А',x:48,y:8,label:'Отмеченная область А вверху у плечевого сустава'},
+        {id:'scapula-lower',marker:'Б',x:86,y:49,label:'Отмеченная область Б у нижнего края лопатки'},
+        {id:'arm-middle',marker:'В',x:34,y:49,label:'Отмеченная область В на середине плеча'}
+      ]
+    },
+    {
+      id:'scapular-spine',
+      title:'Проследите ость лопатки',
+      instruction:'Ость лопатки — заметный костный гребень на задней поверхности. Он идёт к акромиону.',
+      success:'Верно. Ость проходит поперёк задней поверхности лопатки и снаружи переходит в акромион.',
+      hint:'Пока нет. Найдите длинный выступающий гребень в верхней части лопатки.',
+      choices:[
+        {id:'arm-middle',marker:'А',x:34,y:49,label:'Отмеченная область А на середине плеча'},
+        {id:'scapular-spine',marker:'Б',x:72,y:14,label:'Отмеченная область Б на верхнем костном гребне лопатки'},
+        {id:'scapula-lower',marker:'В',x:86,y:49,label:'Отмеченная область В у нижнего края лопатки'}
+      ]
+    },
+    {
+      id:'abduction-direction',
+      title:'Покажите направление отведения',
+      instruction:'При отведении рука уходит от туловища в сторону. Выберите стрелку, направленную от лопатки вдоль руки.',
+      success:'Верно. Отведение — движение руки от туловища в сторону. Плечевая кость движется, а лопатка помогает ей поворотом.',
+      hint:'Пока нет. Ориентируйтесь от лопатки справа к свободной руке слева.',
+      choices:[
+        {id:'toward-body',marker:'А',symbol:'↘',x:60,y:27,label:'Стрелка А направлена к лопатке и туловищу',direction:true},
+        {id:'abduction-direction',marker:'Б',symbol:'↖',x:35,y:25,label:'Стрелка Б направлена от лопатки в сторону руки',direction:true},
+        {id:'down-arm',marker:'В',symbol:'↓',x:49,y:58,label:'Стрелка В направлена вниз вдоль плеча',direction:true}
+      ]
+    }
+  ];
 
   const joints = [
     {title:'Плечевой сустав',type:'Шаровидный, многоосный',bones:'Головка плечевой кости + суставная впадина лопатки',moves:'Сгибание, разгибание, отведение, приведение и вращение',stability:'Капсула, связки, суставная губа и мышцы ротаторной манжеты; движение руки связано с движением лопатки.',why:'Большая подвижность требует согласованной работы плечевой кости и лопатки.',caution:'Не тянуть руку через боль и не пытаться «вправлять» сустав.'},
@@ -47,6 +85,8 @@
   let active = 'joints';
   const topicIndex = {joints:0,ligaments:0,functions:0};
   let attachmentVisibleLimit = ATTACHMENT_CARD_LIMIT;
+  let shoulderExerciseStep = 0;
+  let shoulderExerciseSolved = false;
   let viewed;
   try { viewed = new Set(JSON.parse(API.storage.getItem('anatomy_course_viewed_v1') || '[]')); }
   catch { viewed = new Set(); }
@@ -284,7 +324,45 @@
 
   function imagesMarkup() {
     const visuals = typeof VISUALS !== 'undefined' ? VISUALS : {};
-    return `<section class="anatomy-image-guide"><strong>Как работать со схемой</strong><ol><li>Сначала определите вид: спереди, сзади или сбоку.</li><li>Найдите два крупных костных ориентира.</li><li>Проследите структуру между ними и назовите её по-русски.</li></ol><span>Нажмите на изображение — откроется крупный вид и список основных русских названий.</span></section><div id="anatomyImageFocus"></div><div class="anatomy-image-grid">${Object.entries(visuals).map(([key,value]) => `<button type="button" class="anatomy-image-card" data-anatomy-image="${esc(key)}"><img src="${esc(value.src)}" alt="${esc(value.alt)}" loading="lazy" decoding="async"><span>${esc(value.caption || key)}</span></button>`).join('')}</div>`;
+    const otherVisuals = Object.entries(visuals).filter(([key]) => key !== RECOMMENDED_ATTACHMENT_REGION);
+    return `<div id="shoulderDiscovery"></div><div id="anatomyImageFocus"></div><section class="anatomy-image-guide"><strong>Как работать с другими схемами</strong><ol><li>Сначала определите вид: спереди, сзади или сбоку.</li><li>Найдите два крупных костных ориентира.</li><li>Проследите структуру между ними и назовите её по-русски.</li></ol><span>Нажмите на изображение — откроется крупный вид и список основных русских названий.</span></section><h4 class="anatomy-image-list-title">Остальные схемы</h4><div class="anatomy-image-grid">${otherVisuals.map(([key,value]) => `<button type="button" class="anatomy-image-card" data-anatomy-image="${esc(key)}"><img src="${esc(value.src)}" alt="${esc(value.alt)}" loading="lazy" decoding="async"><span>${esc(value.caption || key)}</span></button>`).join('')}</div>`;
+  }
+
+  function renderShoulderExercise(focusPrompt = false) {
+    const target = document.getElementById('shoulderDiscovery');
+    if (!target) return;
+    const visual = typeof VISUALS !== 'undefined' ? VISUALS[RECOMMENDED_ATTACHMENT_REGION] : null;
+    if (shoulderExerciseStep >= SHOULDER_DISCOVERY_STEPS.length) {
+      target.innerHTML = `<section class="shoulder-discovery complete" aria-labelledby="shoulderDiscoveryTitle"><span class="eyebrow">Первое упражнение завершено</span><h4 id="shoulderDiscoveryTitle" tabindex="-1">Вы нашли маршрут плечевого пояса</h4><p><strong>Акромион → ость лопатки → движение руки в сторону.</strong></p><p>Теперь на других схемах сначала ищите крупный костный ориентир, затем прослеживайте структуру и только после этого называйте движение.</p><div class="shoulder-actions"><button type="button" class="btn secondary" data-shoulder-restart>Повторить упражнение</button><button type="button" class="textbutton" data-anatomy-image="${esc(RECOMMENDED_ATTACHMENT_REGION)}">Открыть схему без меток →</button></div></section>`;
+      if (focusPrompt) requestAnimationFrame(() => target.querySelector('#shoulderDiscoveryTitle')?.focus({preventScroll:true}));
+      return;
+    }
+    const step = SHOULDER_DISCOVERY_STEPS[shoulderExerciseStep];
+    const dots = SHOULDER_DISCOVERY_STEPS.map((_,index) => `<span class="${index<shoulderExerciseStep?'done':index===shoulderExerciseStep?'current':''}">${index+1}</span>`).join('');
+    const choices = step.choices.map(choice => `<button type="button" class="shoulder-hotspot${choice.direction?' direction':''}" style="--hotspot-x:${choice.x}%;--hotspot-y:${choice.y}%" data-shoulder-choice="${esc(choice.id)}" aria-label="${esc(choice.label)}" aria-describedby="shoulderExercisePrompt"><span aria-hidden="true">${esc(choice.symbol || '•')}</span><small aria-hidden="true">${esc(choice.marker)}</small></button>`).join('');
+    target.innerHTML = `<section class="shoulder-discovery" aria-labelledby="shoulderDiscoveryTitle"><div class="shoulder-discovery-head"><div><span class="eyebrow">Первое упражнение · плечевой пояс</span><h4 id="shoulderDiscoveryTitle">Три ориентира без зубрёжки</h4><p>Нажимайте отмеченные зоны по порядку. Ошибка не влияет на прогресс — можно пробовать ещё.</p></div><div class="shoulder-step-dots" aria-label="Шаг ${shoulderExerciseStep+1} из ${SHOULDER_DISCOVERY_STEPS.length}">${dots}</div></div><div class="shoulder-exercise-main"><figure class="shoulder-board"><div class="shoulder-board-image"><img src="${esc(visual?.src || './anatomy-upper-limb.png')}" alt="Задняя поверхность правой лопатки и плеча; интерактивные зоны отмечены буквами"><div class="shoulder-hotspots">${choices}</div></div><figcaption>Вид сзади. Лопатка находится справа, свободная рука направлена влево и вниз.</figcaption></figure><div class="shoulder-instruction"><span class="eyebrow">Шаг ${shoulderExerciseStep+1} из ${SHOULDER_DISCOVERY_STEPS.length}</span><h4 id="shoulderExercisePrompt" tabindex="-1">${esc(step.title)}</h4><p>${esc(step.instruction)}</p><div id="shoulderExerciseFeedback" class="shoulder-feedback" role="status" aria-live="polite">Выберите одну из отмеченных зон на схеме.</div><button type="button" class="btn primary shoulder-next" data-shoulder-next hidden>${shoulderExerciseStep===SHOULDER_DISCOVERY_STEPS.length-1?'Завершить упражнение':'Следующий ориентир'}</button></div></div><button type="button" class="textbutton shoulder-plain-image" data-anatomy-image="${esc(RECOMMENDED_ATTACHMENT_REGION)}">Открыть схему крупно без меток →</button></section>`;
+    if (focusPrompt) requestAnimationFrame(() => document.getElementById('shoulderExercisePrompt')?.focus({preventScroll:true}));
+  }
+
+  function answerShoulderExercise(button) {
+    const step = SHOULDER_DISCOVERY_STEPS[shoulderExerciseStep];
+    const feedback = document.getElementById('shoulderExerciseFeedback');
+    if (!step || !feedback || shoulderExerciseSolved) return;
+    if (button.dataset.shoulderChoice !== step.id) {
+      button.classList.add('wrong');
+      button.disabled = true;
+      button.setAttribute('aria-invalid','true');
+      feedback.className = 'shoulder-feedback wrong';
+      feedback.textContent = step.hint;
+      return;
+    }
+    shoulderExerciseSolved = true;
+    button.classList.add('correct');
+    host.querySelectorAll('[data-shoulder-choice]').forEach(choice => { choice.disabled = true; });
+    feedback.className = 'shoulder-feedback correct';
+    feedback.textContent = step.success;
+    const next = host.querySelector('[data-shoulder-next]');
+    if (next) { next.hidden = false; next.focus(); }
   }
 
   function focusImage(key) {
@@ -331,6 +409,7 @@
       document.getElementById('attachmentSearch')?.addEventListener('input', resetAttachmentList);
       document.getElementById('attachmentRegion')?.addEventListener('change', resetAttachmentList);
     }
+    if (active === 'images') renderShoulderExercise();
     if (active === 'functions') initMotionPlayer();
     syncTabs();
   }
@@ -375,6 +454,10 @@
     const image = event.target.closest('[data-anatomy-image]');
     if (image) { focusImage(image.dataset.anatomyImage); return; }
     if (event.target.closest('[data-close-anatomy-image]')) { document.getElementById('anatomyImageFocus').replaceChildren(); return; }
+    const shoulderChoice = event.target.closest('[data-shoulder-choice]');
+    if (shoulderChoice) { answerShoulderExercise(shoulderChoice); return; }
+    if (event.target.closest('[data-shoulder-next]')) { shoulderExerciseStep += 1; shoulderExerciseSolved = false; renderShoulderExercise(true); return; }
+    if (event.target.closest('[data-shoulder-restart]')) { shoulderExerciseStep = 0; shoulderExerciseSolved = false; renderShoulderExercise(true); return; }
     if (event.target.closest('[data-attachment-more]')) { attachmentVisibleLimit += ATTACHMENT_CARD_LIMIT; renderAttachmentsList(); return; }
     const test = event.target.closest('[data-anatomy-test]');
     if (test) { viewed.add(test.dataset.anatomyTest); save(); API.startTest(test.dataset.anatomyTest, `Анатомия · ${test.dataset.testTitle}`, 5); }

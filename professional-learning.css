@@ -177,14 +177,15 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
 
 /* Compact practice workspace: one clear action at a time. */
 .professional-progress{display:grid;grid-template-columns:1fr;gap:8px}
-.professional-progress-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
-.professional-progress-summary>div{min-width:0;padding:11px 13px;border-right:1px solid var(--border)}
-.professional-progress-summary>div:last-of-type{border-right:0}
-.professional-progress-summary span,.professional-progress-summary small{display:block;color:var(--muted)}
-.professional-progress-summary span{font-size:.8em;font-weight:800}
-.professional-progress-summary strong{display:block;margin:2px 0;font-size:1.2em}
-.professional-progress-summary small{font-size:.76em;line-height:1.35}
-.professional-progress-summary>p{grid-column:1/-1;margin:0;padding:9px 13px;border:0;border-top:1px solid var(--border);border-radius:0;background:color-mix(in srgb,var(--accent) 5%,var(--surface2));color:var(--muted);font-size:.84em;line-height:1.4}
+.professional-next-step{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 18px;align-items:center;padding:16px;border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border));border-radius:14px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.professional-next-copy{min-width:0}
+.professional-next-copy .eyebrow{color:var(--professional-accent-strong);font-size:.76em;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
+.professional-next-copy h3{margin:4px 0 8px;font-size:clamp(1.08rem,2vw,1.3rem)}
+.professional-next-copy p{margin:4px 0;padding:0;border:0;border-radius:0;background:transparent;color:var(--muted);font-size:.88em;line-height:1.45}
+.professional-next-copy p b{color:var(--text)}
+.professional-next-step>.btn{min-width:190px;justify-self:end}
+.professional-next-step .professional-boundary{grid-column:1/-1;margin:0;padding:9px 11px;border:0;border-left:3px solid var(--professional-accent-strong);border-radius:8px;background:var(--surface2);color:var(--muted);font-size:.8em;line-height:1.4}
+.professional-boundary b{color:var(--text)}
 .competency-help{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
 .competency-help>summary{padding:10px 13px;cursor:pointer;font-weight:800;list-style:none}
 .competency-help>summary::-webkit-details-marker{display:none}
@@ -243,42 +244,19 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .technique-toolbar{grid-template-columns:1fr}
   .technique-picker{display:grid}
   .technique-nav{display:none}
-  .professional-progress-summary{grid-template-columns:1fr 1fr}
-  .professional-progress-summary>div{border-bottom:1px solid var(--border)}
-  .professional-progress-summary>div:nth-child(2){border-right:0}
-  .professional-progress-summary>div:nth-child(3){grid-column:1/-1;border-right:0;border-bottom:0}
+  .professional-next-step{grid-template-columns:1fr}
+  .professional-next-step>.btn{width:100%;min-width:0;justify-self:stretch}
 }
 
 @media(max-width:480px){
-  .professional-progress-summary{grid-template-columns:1fr}
-  .professional-progress-summary>div{border-right:0}
-  .professional-progress-summary>div:nth-child(3){grid-column:auto}
   .journal-history-head{display:grid}
   .journal-history-head .btn{width:100%}
   .technique-detail{padding:13px}
   .technique-section-body{padding:10px}
 }
-.professional-verification-note {
-  margin: 0 0 12px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.professional-verification-note b {
-  color: var(--text);
-}
 
 @media(max-width:480px){
-  .professional-progress-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .professional-progress-summary>div,.professional-progress-summary>div:nth-child(3){grid-column:auto;padding:9px 7px;border-right:1px solid var(--border);border-bottom:0;text-align:center}
-  .professional-progress-summary>div:last-of-type{border-right:0}
-  .professional-progress-summary span{font-size:.68em;line-height:1.2}
-  .professional-progress-summary strong{font-size:1.05em}
-  .professional-progress-summary small{display:none}
-  .professional-progress-summary>p{display:none}
-  .professional-verification-note{font-size:.82em;padding:10px 11px}
+  .professional-next-step{padding:13px;gap:10px}
+  .professional-next-copy p{font-size:.84em}
+  .professional-next-step .professional-boundary{font-size:.76em}
 }

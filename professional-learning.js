@@ -340,47 +340,94 @@
   function renderProfessionalProgress() {
     const host = $('#professionalProgress');
     if (!host) return;
-    const techniqueTotal = techniques.reduce((sum, item) => sum + techniqueChecklist(item).length, 0);
-    const techniqueDone = techniques.reduce((sum, item) => {
-      const rows = state.techniqueChecks[item.id] || {};
-      return sum + techniqueChecklist(item).filter((_, index) => rows[index] === true).length;
-    }, 0);
-    const checklistTotal = allChecklists().reduce((sum, item) => sum + list(first(item, ['steps', 'checklist', 'items'])).length, 0);
-    const checklistDone = allChecklists().reduce((sum, item) => {
-      const rows = state.checklistChecks[item.id] || {};
-      const steps = list(first(item, ['steps', 'checklist', 'items']));
-      return sum + steps.filter((_, index) => rows[index] === true).length;
-    }, 0);
-    const scenarios = allScenarios();
-    const scenariosDone = scenarios.filter(item => {
-      const progress = state.scenarios[item.id];
-      return progress?.reviewed === true && scenarioCanComplete(item, progress);
-    }).length;
-    const totalScenarios = scenarios.length;
-    const techniquesReady = techniques.filter(item => {
+    const techniqueRows = techniques.map(item => {
       const steps = techniqueChecklist(item);
       const checked = state.techniqueChecks[item.id] || {};
-      return steps.length > 0 && steps.every((_, index) => checked[index] === true);
-    }).length;
-    const checklistsReady = allChecklists().filter(item => {
+      const done = steps.filter((_, index) => checked[index] === true).length;
+      return { item, done, ready: steps.length > 0 && done === steps.length };
+    });
+    const techniqueDone = techniqueRows.reduce((sum, row) => sum + row.done, 0);
+    const checklistRows = allChecklists().map(item => {
       const steps = list(first(item, ['steps', 'checklist', 'items']));
       const checked = state.checklistChecks[item.id] || {};
+      const done = steps.filter((_, index) => checked[index] === true).length;
       const required = Number(first(first(item, ['pass'], {}), ['requiredSteps'], steps.length));
-      return steps.filter((_, index) => checked[index] === true).length >= required;
-    }).length;
+      return { item, done, ready: done >= required };
+    });
+    const checklistDone = checklistRows.reduce((sum, row) => sum + row.done, 0);
+    const scenarios = allScenarios();
+    const scenarioRows = scenarios.map(item => {
+      const progress = state.scenarios[item.id];
+      const ready = progress?.reviewed === true && scenarioCanComplete(item, progress);
+      const started = Boolean(String(progress?.draft || '').trim() || progress?.open || Object.keys(progress?.rubric || {}).length);
+      return { item, ready, started };
+    });
+    const scenariosDone = scenarioRows.filter(row => row.ready).length;
+    const techniquesReady = techniqueRows.filter(row => row.ready).length;
+    const checklistsReady = checklistRows.filter(row => row.ready).length;
     const competencyLevels = list(first(curriculum, ['competencyLevels']));
-    const noProgress = techniquesReady + checklistsReady + scenariosDone === 0;
+    const startedTechnique = techniqueRows.find(row => row.done > 0 && !row.ready);
+    const startedChecklist = checklistRows.find(row => row.done > 0 && !row.ready);
+    const startedScenario = scenarioRows.find(row => row.started && !row.ready);
+    let nextAction;
+    if (startedTechnique) {
+      nextAction = { type: 'technique', item: startedTechnique.item, title: 'Продолжи начатый приём', description: `Вернись к «${first(startedTechnique.item, ['name', 'title'])}» и заверши оставшиеся шаги безопасной отработки.`, button: 'Продолжить приём' };
+    } else if (startedChecklist) {
+      nextAction = { type: 'checklist', item: startedChecklist.item, title: 'Продолжи чек-лист по области', description: `Вернись к «${first(startedChecklist.item, ['title', 'name'])}». Отмечай только реально выполненные шаги.`, button: 'Продолжить чек-лист' };
+    } else if (startedScenario) {
+      nextAction = { type: 'scenario', item: startedScenario.item, title: 'Заверши разбор ситуации', description: `Продолжи «${first(startedScenario.item, ['title', 'name'])}»: сначала свой план, затем сверка с учебным разбором.`, button: 'Продолжить ситуацию' };
+    } else if (techniquesReady === 0 && techniqueRows.length) {
+      nextAction = { type: 'technique', item: techniqueRows[0].item, title: 'Начни с одного базового приёма', description: `Разбери «${first(techniqueRows[0].item, ['name', 'title'])}»: цель, положение рук и ситуации, когда нужно остановиться.`, button: 'Начать первый приём' };
+    } else if (checklistsReady === 0 && checklistRows.length) {
+      nextAction = { type: 'checklist', item: checklistRows[0].item, title: 'Закрепи приём на одной области', description: `Открой «${first(checklistRows[0].item, ['title', 'name'])}» и пройди его на учебном партнёре с правом немедленно остановить практику.`, button: 'Открыть чек-лист' };
+    } else if (scenariosDone === 0 && scenarioRows.length) {
+      nextAction = { type: 'scenario', item: scenarioRows[0].item, title: 'Проверь безопасное решение', description: `Разбери «${first(scenarioRows[0].item, ['title', 'name'])}» и объясни решение своими словами.`, button: 'Разобрать ситуацию' };
+    } else if (state.journal.length === 0) {
+      nextAction = { type: 'journal', title: 'Зафиксируй первую отработку', description: 'Добавь короткую запись о реально выполненной практике и полученной обратной связи — без персональных и медицинских данных.', button: 'Добавить запись' };
+    } else {
+      const nextTechnique = techniqueRows.find(row => !row.ready);
+      const nextChecklist = checklistRows.find(row => !row.ready);
+      const nextScenario = scenarioRows.find(row => !row.ready);
+      nextAction = nextTechnique
+        ? { type: 'technique', item: nextTechnique.item, title: 'Возьми следующий приём', description: `Продолжи самостоятельную отработку с приёма «${first(nextTechnique.item, ['name', 'title'])}».`, button: 'Открыть следующий приём' }
+        : nextChecklist
+          ? { type: 'checklist', item: nextChecklist.item, title: 'Возьми следующую область', description: `Продолжи с чек-листом «${first(nextChecklist.item, ['title', 'name'])}».`, button: 'Открыть следующий чек-лист' }
+          : nextScenario
+            ? { type: 'scenario', item: nextScenario.item, title: 'Разбери следующую ситуацию', description: `Следующий безопасный шаг — «${first(nextScenario.item, ['title', 'name'])}».`, button: 'Открыть ситуацию' }
+            : { type: 'journal', title: 'Подведи итог отработки', description: 'Добавь запись о последней реальной практике и реши, что повторить в другой день.', button: 'Добавить запись' };
+    }
+    const completedText = techniquesReady + checklistsReady + scenariosDone === 0
+      ? (techniqueDone + checklistDone > 0 ? `Начатых шагов: ${techniqueDone + checklistDone}. Завершённых блоков пока нет.` : 'Завершённых блоков пока нет — начни с одного небольшого шага.')
+      : `По шагам разобрано приёмов: ${techniquesReady}; отработано областей: ${checklistsReady}; разобрано ситуаций: ${scenariosDone}.`;
     host.innerHTML = `
-      <p class="professional-verification-note"><b>Это журнал самостоятельной отработки.</b> Отметки ниже помогают планировать повторение, но не подтверждают владение приёмом. Подтвердить навык может преподаватель после очной демонстрации.</p>
-      <section class="professional-progress-summary">
-        <div><span>Самоотработка приёмов</span><strong>${techniquesReady}/${techniques.length}</strong><small>${techniqueDone} из ${techniqueTotal} шагов</small></div>
-        <div><span>Самоотработка областей</span><strong>${checklistsReady}/${allChecklists().length}</strong><small>${checklistDone} из ${checklistTotal} шагов</small></div>
-        <div><span>Ситуации</span><strong>${scenariosDone}/${totalScenarios}</strong><small>${state.journal.length} записей в журнале</small></div>
-        ${noProgress ? '<p>Начни с одного приёма или чек-листа по знакомой области — все показатели будут обновляться здесь.</p>' : ''}
+      <section class="professional-next-step" aria-labelledby="professionalNextTitle">
+        <div class="professional-next-copy"><span class="eyebrow">Твой следующий шаг</span><h3 id="professionalNextTitle">${esc(nextAction.title)}</h3>
+          <p><b>Уже сделано:</b> ${esc(completedText)}</p><p><b>Лучше сделать сейчас:</b> ${esc(nextAction.description)}</p></div>
+        <button type="button" id="professionalNextAction" class="btn primary">${esc(nextAction.button)}</button>
+        <p class="professional-boundary"><b>Важно:</b> это самоотработка, а не подтверждение навыка. Отметку о владении приёмом может дать только преподаватель после очного показа.</p>
       </section>
       <details class="competency-help"><summary>Как устроен путь освоения</summary><div class="competency-route">${competencyLevels.length
         ? competencyLevels.map((level, index) => `<span><i>${index + 1}</i>${esc(first(level, ['title']))}</span>`).join('')
         : '<span><i>1</i>Знаю</span><span><i>2</i>Объясняю</span><span><i>3</i>Показываю</span><span><i>4</i>Проверено</span>'}</div><p><b>Важно:</b> отметки показывают выполненную тренировку, а не подтверждённое владение приёмом. Уровень «Проверено» может отметить только квалифицированный преподаватель после очной демонстрации.</p></details>`;
+    $('#professionalNextAction')?.addEventListener('click', () => {
+      if (nextAction.type === 'technique') {
+        activeTechnique = nextAction.item.id;
+        activeTab = 'techniques';
+      } else if (nextAction.type === 'checklist') {
+        activeChecklist = nextAction.item.id;
+        practiceMode = 'checklists';
+        activeTab = 'practice';
+      } else if (nextAction.type === 'scenario') {
+        activeScenario = nextAction.item.id;
+        practiceMode = 'scenarios';
+        activeTab = 'practice';
+      } else {
+        journalFormOpen = true;
+        activeTab = 'journal';
+      }
+      renderActiveTab();
+      requestAnimationFrame(() => $('#professionalContent')?.focus({ preventScroll: true }));
+    });
     wireDetails('details.competency-help');
   }
 

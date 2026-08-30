@@ -127,7 +127,7 @@
     if (!original) return "";
     const focused = original
       .replace(/^(?:пожалуйста\s+)?(?:объясни|объясните|расскажи|расскажите|покажи|покажите)(?:\s+мне)?(?:\s+(?:совсем\s+)?прост(?:о|ыми\s+словами)|\s+понятно|\s+подробнее)?\s*/iu, "")
-      .replace(/^(?:что\s+такое|что\s+значит|кто\s+такой|кто\s+такая)\s+/iu, "")
+      .replace(/^(?:что\s+такое|что\s+значит|что\s+означает|кто\s+такой|кто\s+такая)\s+/iu, "")
       .replace(/^(?:где\s+находится|как\s+(?:найти|нащупать|прощупать|пальпировать)|что\s+делает|как\s+работает|где\s+крепится|куда\s+крепится)\s+/iu, "")
       .replace(/^(?:пальпац(?:ия|ию|ии)|пальпировать)\s+/iu, "")
       .replace(/^(?:про|о|об)\s+/iu, "")
@@ -387,7 +387,7 @@
     if (/(?:как|где).{0,18}(?:найти|нащупать|прощупать|пальпир)|(?:найти|нащупать|прощупать|пальпац|пальпир).{0,18}(?:мышц|кост|структур|ориентир)|пальпац.{0,24}[а-яё]{4,}/i.test(text)) return "palpation";
     if (/где|креп|прикреп|начина|заканчива/i.test(text)) return "attachment";
     if (/движ|функц|что делает|как работает/i.test(text)) return "function";
-    if (/проще|что значит|что такое|объясн/i.test(text)) return "explain";
+    if (/проще|что значит|что такое|что означает|объясн/i.test(text)) return "explain";
     return "search";
   }
 
@@ -465,6 +465,139 @@
     const numbered = steps.map((step, index) => `${index + 1}) ${cleanText(step, 1800)}`).join("\n");
     const safety = "Безопасность: не пальпируйте повреждённую кожу, свежую травму или заметный отёк. Сразу остановитесь при резкой или нарастающей боли, онемении, слабости, головокружении либо ощущении электрического тока. Пальпация здесь — учебный поиск ориентира, а не диагностика.";
     return `${title}.\n${numbered}\n\n${safety}`.slice(0, MAX_ANSWER_LENGTH);
+  }
+
+  const TERM_GUIDES = Object.freeze([
+    Object.freeze({
+      term: "Акромион",
+      aliases: ["акромион", "акромион лопатки", "акромиальный отросток"],
+      simple: "Верхний наружный костный выступ лопатки, который образует вершину плеча",
+      next: "Найдите его на схеме лопатки над плечевым суставом"
+    }),
+    Object.freeze({
+      term: "Клювовидный отросток",
+      aliases: ["клювовидный отросток"],
+      simple: "Небольшой выступ лопатки спереди, похожий по форме на согнутый клюв",
+      next: "Сначала найдите его на схеме, не пытаясь глубоко прощупывать спереди"
+    }),
+    Object.freeze({
+      term: "Суставная впадина лопатки",
+      aliases: ["суставная впадина", "гленоидальная впадина", "гленоид"],
+      simple: "Неглубокое углубление лопатки, в котором располагается головка плечевой кости",
+      next: "Посмотрите на схеме, как оно образует плечевой сустав"
+    }),
+    Object.freeze({
+      term: "Ость лопатки",
+      aliases: ["ость лопатки"],
+      simple: "Твёрдый поперечный гребень на задней поверхности лопатки",
+      next: "Проследите его на схеме от внутреннего края к плечу"
+    }),
+    Object.freeze({
+      term: "Фасция",
+      aliases: ["фасция"],
+      simple: "Слой соединительной ткани, который окружает и связывает мышцы и другие структуры",
+      next: "Найдите на схеме, какую область покрывает эта ткань"
+    }),
+    Object.freeze({
+      term: "Сухожилие",
+      aliases: ["сухожилие"],
+      simple: "Прочная часть, через которую мышца передаёт усилие к кости",
+      next: "На схеме проследите переход от мышцы к кости"
+    }),
+    Object.freeze({
+      term: "Латеральный",
+      aliases: ["латеральный"],
+      simple: "Расположенный ближе к наружной стороне тела и дальше от его середины",
+      next: "Сравните наружную и внутреннюю стороны одной руки"
+    }),
+    Object.freeze({
+      term: "Медиальный",
+      aliases: ["медиальный"],
+      simple: "Расположенный ближе к середине тела",
+      next: "Сравните внутреннюю и наружную стороны одной ноги"
+    }),
+    Object.freeze({
+      term: "Проксимальный",
+      aliases: ["проксимальный"],
+      simple: "Расположенный ближе к туловищу или к началу конечности",
+      next: "Сравните плечо и кисть относительно туловища"
+    }),
+    Object.freeze({
+      term: "Дистальный",
+      aliases: ["дистальный"],
+      simple: "Расположенный дальше от туловища или начала конечности",
+      next: "Сравните кисть и плечо относительно туловища"
+    }),
+    Object.freeze({
+      term: "Супинация",
+      aliases: ["супинация"],
+      simple: "Поворот предплечья, при котором ладонь смотрит вверх или вперёд",
+      next: "Покажите это движение медленно, не напрягая руку"
+    }),
+    Object.freeze({
+      term: "Пронация",
+      aliases: ["пронация"],
+      simple: "Поворот предплечья, при котором ладонь смотрит вниз или назад",
+      next: "Покажите это движение медленно, не напрягая руку"
+    }),
+    Object.freeze({
+      term: "Сагиттальная плоскость",
+      aliases: ["сагиттальная плоскость"],
+      simple: "Воображаемая вертикальная плоскость, которая делит тело на правую и левую части",
+      next: "Представьте в этой плоскости сгибание руки или ноги"
+    }),
+    Object.freeze({
+      term: "Фронтальная плоскость",
+      aliases: ["фронтальная плоскость"],
+      simple: "Воображаемая вертикальная плоскость, которая делит тело на переднюю и заднюю части",
+      next: "Представьте в этой плоскости подъём руки точно в сторону"
+    }),
+    Object.freeze({
+      term: "Поперечная плоскость",
+      aliases: ["поперечная плоскость", "горизонтальная плоскость"],
+      simple: "Воображаемая горизонтальная плоскость, которая делит тело на верхнюю и нижнюю части",
+      next: "Представьте поворот туловища вокруг вертикальной оси"
+    }),
+    Object.freeze({
+      term: "Начало мышцы",
+      aliases: ["начало мышцы"],
+      simple: "Место, от которого условно начинают описывать путь мышцы",
+      next: "На схеме проследите мышцу от начала к другому месту крепления"
+    }),
+    Object.freeze({
+      term: "Прикрепление мышцы",
+      aliases: ["прикрепление мышцы", "место прикрепления мышцы"],
+      simple: "Место, где другой конец мышцы через сухожилие соединяется с костью или тканью",
+      next: "На схеме проследите весь путь мышцы между двумя креплениями"
+    })
+  ]);
+
+  function directTokens(value) {
+    const requestWords = new Set(["термин", "анатомический", "анатомия", "простыми", "словами"]);
+    return normalize(value).split(" ").filter((token) => token && !STOP_WORDS.has(token) && !requestWords.has(token)).map(stem);
+  }
+
+  function findTermGuide(value) {
+    const queryTokens = directTokens(focusQuery(value));
+    if (!queryTokens.length) return null;
+    const candidates = [];
+    TERM_GUIDES.forEach((guide) => guide.aliases.forEach((alias) => {
+      const aliasTokens = directTokens(alias);
+      const matches = aliasTokens.length === queryTokens.length && aliasTokens.every((token) => queryTokens.some((candidate) => candidate === token));
+      if (matches) candidates.push({guide, length: aliasTokens.length});
+    }));
+    candidates.sort((a, b) => b.length - a.length);
+    return candidates[0] ? candidates[0].guide : null;
+  }
+
+  function simpleTermAnswer(title, summary, next) {
+    const explanation = cleanText(summary, 1200).replace(/[.!?]+$/u, "");
+    const term = cleanText(title, 220).toLocaleLowerCase("ru-RU");
+    let answer = `${explanation.charAt(0).toLocaleUpperCase("ru-RU")}${explanation.slice(1)} (${term}).`;
+    const nextStep = cleanText(next, 260).replace(/[.!?]+$/u, "");
+    const readableStep = `${nextStep.charAt(0).toLocaleLowerCase("ru-RU")}${nextStep.slice(1)}`;
+    if (readableStep) answer += `\nСледующий шаг: ${readableStep}.`;
+    return answer.slice(0, MAX_ANSWER_LENGTH);
   }
 
   function confidentMatch(matches, query) {
@@ -598,6 +731,20 @@
       };
     }
 
+    const termGuide = (intent === "explain" || intent === "search") ? findTermGuide(query) : null;
+    if (termGuide) {
+      return {
+        schemaVersion: SCHEMA_VERSION,
+        mode: "local",
+        intent: "explain",
+        answer: simpleTermAnswer(termGuide.term, termGuide.simple, termGuide.next),
+        sources: [],
+        warnings,
+        matches: [],
+        remoteAllowed: false
+      };
+    }
+
     const categoryEntries = categoryMatches(query, options);
     if (categoryEntries.length) {
       const categoryLimit = (options && options.limit) || DEFAULT_CONTEXT_LIMIT;
@@ -612,6 +759,20 @@
     }
 
     const top = matches[0];
+    if (top.type === "term" && (intent === "explain" || intent === "search")) {
+      const movement = /сгиб|разгиб|отвед|привед|ротац|вращен|пронац|супинац|эверс|инверс|протрак|ретрак|наклон|подъ[её]м|опускан/i.test(top.title);
+      const next = movement ? "Покажите это движение медленно и без усилия" : "Найдите этот ориентир на анатомической схеме";
+      return {
+        schemaVersion: SCHEMA_VERSION,
+        mode: "local",
+        intent: "explain",
+        answer: simpleTermAnswer(top.title, top.summary, next),
+        sources: [compactSource(top)],
+        warnings,
+        matches,
+        remoteAllowed: false
+      };
+    }
     if (intent === "palpation") {
       return {
         schemaVersion: SCHEMA_VERSION,

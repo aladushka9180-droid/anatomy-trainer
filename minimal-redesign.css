@@ -1170,6 +1170,76 @@ select:disabled {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+/* One recommended action at a time keeps the next step obvious. */
+.continuecard #continueRecommendation {
+  margin: 8px 0 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.resultprimaryaction {
+  margin-top: 14px;
+}
+
+.resultprimaryaction .resultnextchoice {
+  width: 100%;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast, #071211);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.resultprimaryaction .resultnextchoice span {
+  color: inherit;
+  opacity: .82;
+}
+
+.resultmoreactions {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.resultmoreactions > summary {
+  padding: 12px 14px;
+  color: var(--muted);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.resultmoreactions .resultnextactions {
+  padding: 0 12px 12px;
+}
+
+.statscoach {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 44%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.statscoach h3 {
+  margin: 7px 0 4px;
+}
+
+.statscoach p {
+  margin: 0 0 14px;
+  color: var(--muted);
+}
+
+@media (max-width: 650px) {
+  .resultmoreactions .resultnextactions {
+    grid-template-columns: 1fr;
+  }
+
+  .statscoach .btn {
+    width: 100%;
+  }
+}
+
 /* One primary route; optional learning tools stay quiet until requested. */
 .homeextras,
 .questionhelp,
