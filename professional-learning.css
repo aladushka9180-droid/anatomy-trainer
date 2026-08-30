@@ -268,3 +268,25 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .professional-next-copy p{font-size:.84em}
   .professional-next-step .professional-boundary{font-size:.76em}
 }
+
+/* Minimal focus pass: keep the next action visible and move secondary material aside. */
+.professional-screen{gap:14px}
+.professional-head{padding-bottom:16px;border-bottom:1px solid var(--border)}
+.professional-head>.btn{border-color:transparent;background:transparent}
+.professional-next-step{padding:18px 0;border:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:0;background:transparent;box-shadow:none}
+.professional-next-step .professional-boundary{background:transparent}
+.competency-help{display:none}
+.professional-tabs{grid-template-columns:repeat(3,minmax(0,1fr));padding:0;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent}
+.professional-tabs button{border:0;border-radius:0;box-shadow:none}
+.technique-toolbar{padding:0 0 12px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent}
+.technique-detail{padding:12px 0 0;border:0;border-radius:0;background:transparent}
+.technique-accordions{gap:0}
+.technique-section{border:0;border-top:1px solid var(--border);border-radius:0;background:transparent}
+.technique-section:last-child{border-bottom:1px solid var(--border)}
+.technique-section-body{padding:12px 0 16px;border-top:0}
+.practice-video-library{border-radius:10px;box-shadow:none}
+
+@media(max-width:600px){
+  .professional-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}
+  .professional-tabs button{min-width:0;padding-inline:5px;font-size:.78em}
+}

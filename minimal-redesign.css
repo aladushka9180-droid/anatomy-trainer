@@ -1170,6 +1170,314 @@ select:disabled {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+/* Minimal focus pass: one clear action, fewer nested cards, calmer navigation. */
+.wrap {
+  max-width: 1180px;
+}
+
+.appnav {
+  width: min(100%, 1180px);
+  min-height: 72px;
+  margin: 0 auto 14px;
+  padding: 12px 18px;
+  flex-wrap: nowrap;
+  gap: 18px;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.appnav .brand {
+  flex: 0 0 auto;
+}
+
+.appnav .brand .muted,
+.appnav .homestats {
+  display: none;
+}
+
+.appnav h1 {
+  margin: 0;
+  font-size: 22px;
+  white-space: nowrap;
+}
+
+.navlinks {
+  flex: 1;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.navprimary .navbutton {
+  min-height: 40px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-weight: 700;
+}
+
+.navtools {
+  padding-left: 10px;
+}
+
+.settingsshortcut {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  font-size: 18px;
+}
+
+.profileswitcher {
+  max-width: 185px;
+}
+
+.card.screen {
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.btn {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.btn.secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+#menu {
+  max-width: 1040px;
+  padding: clamp(24px, 4vw, 44px);
+}
+
+.homehero {
+  margin-bottom: 20px;
+}
+
+.homehero h2 {
+  max-width: 26ch;
+  margin-bottom: 10px;
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1.05;
+}
+
+.homehero p {
+  max-width: 690px;
+  margin: 0;
+  font-size: clamp(17px, 2vw, 20px);
+}
+
+.beginnerstart {
+  gap: 12px;
+  margin: 22px 0 0;
+  padding: 22px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.recommendlabel {
+  width: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.quickplansummary {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#customizeTraining,
+#customizeReturningTraining {
+  min-height: 44px;
+  padding-inline: 6px;
+  border-color: transparent;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--muted) 45%, transparent);
+  text-underline-offset: 4px;
+}
+
+.homeactions {
+  display: none;
+}
+
+.homeextras {
+  margin-top: 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.homeextras > summary {
+  padding-inline: 0;
+}
+
+.homeextras > div {
+  padding-inline: 0;
+}
+
+.trustnote {
+  margin-top: 22px;
+  padding: 15px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.trustcopy span {
+  font-size: 13px;
+}
+
+#quiz {
+  max-width: 980px;
+}
+
+#quiz .progress {
+  height: 6px;
+}
+
+#qtext {
+  max-width: 30ch;
+  margin: 22px 0 18px;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+#quiz .tag {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.answers {
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.answer {
+  min-height: 58px;
+  padding: 16px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.answer:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.questionmaterials {
+  margin: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.questionmaterials > summary {
+  min-height: 48px;
+  padding: 12px 0;
+}
+
+.questionmaterialsbody {
+  padding: 0 0 12px;
+}
+
+.questionmaterials .questionterms,
+.questionmaterials .qvisualdetails,
+.questionmaterials .questionhelp {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.questionmaterials .questionterms {
+  border: 0;
+  background: transparent;
+}
+
+.questionmaterials .questionterms > details {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.questiontrust {
+  font-size: 12px;
+}
+
+.questionreport {
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.settingspanel,
+.settingsgroup {
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .appnav {
+    flex-wrap: wrap;
+  }
+
+  .appnav .brand .muted {
+    display: block;
+  }
+
+  .navlinks {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 650px) {
+  .appnav {
+    width: calc(100% - 20px);
+    margin-bottom: 10px;
+    padding: 12px;
+  }
+
+  .appnav .brand .muted {
+    display: none;
+  }
+
+  #menu {
+    padding: 22px 18px;
+  }
+
+  .homehero h2 {
+    font-size: 34px;
+  }
+
+  .beginneractions {
+    display: grid;
+  }
+
+  #customizeTraining,
+  #customizeReturningTraining {
+    width: 100%;
+  }
+}
+
 /* One recommended action at a time keeps the next step obvious. */
 .continuecard #continueRecommendation {
   margin: 8px 0 0;

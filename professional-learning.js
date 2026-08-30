@@ -320,7 +320,7 @@
     main.insertAdjacentHTML('beforeend', `
       <section id="professionalScreen" class="card screen professional-screen hidden" tabindex="-1" aria-labelledby="professionalTitle">
         <div class="professional-head">
-          <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">Самостоятельная отработка</h2><p>Выбери один приём или одну учебную ситуацию. Отметки помогают планировать повторение, а владение навыком подтверждает преподаватель.</p></div>
+          <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">Практика по одному шагу</h2><p>Выбери один приём или одну учебную ситуацию. Отметки помогают планировать повторение, а владение навыком подтверждает преподаватель.</p></div>
           <button type="button" class="btn secondary" data-go="menu">На главную</button>
         </div>
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
@@ -328,7 +328,6 @@
           <button type="button" id="professionalTabTechniques" class="active" data-professional-tab="techniques" role="tab" aria-controls="professionalContent" aria-selected="true" tabindex="0">Приёмы</button>
           <button type="button" id="professionalTabPractice" data-professional-tab="practice" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Сценарии</button>
           <button type="button" id="professionalTabJournal" data-professional-tab="journal" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Журнал</button>
-          <button type="button" id="professionalTabMyths" data-professional-tab="myths" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Миф или факт</button>
         </nav>
         <div id="professionalContent" role="tabpanel" aria-labelledby="professionalTabTechniques" tabindex="0"></div>
       </section>`);
@@ -814,7 +813,14 @@
       button.tabIndex = active ? 0 : -1;
     });
     const activeButton = $(`[data-professional-tab="${activeTab}"]`);
-    $('#professionalContent')?.setAttribute('aria-labelledby', activeButton?.id || 'professionalTabTechniques');
+    const content = $('#professionalContent');
+    if (activeButton) {
+      content?.setAttribute('aria-labelledby', activeButton.id);
+      content?.removeAttribute('aria-label');
+    } else {
+      content?.removeAttribute('aria-labelledby');
+      content?.setAttribute('aria-label', 'Миф или факт');
+    }
     if (activeTab === 'techniques') renderTechniques();
     else if (activeTab === 'practice') renderPractice();
     else if (activeTab === 'journal') renderJournal();

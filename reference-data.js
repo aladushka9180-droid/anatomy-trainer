@@ -28,6 +28,7 @@
   };
 
   const PAGE_SIZE=12;
+  const POPULAR_SIZE=6;
   const POPULAR_HINTS=[
     'лопатка','дельтовидная','трапециевидная','атлант','позвоночник','плечевой сустав',
     'седалищный нерв','икроножная','пальпация','красные флаги','боль','осанка'
@@ -208,9 +209,9 @@
       .referencefilters button{flex:0 0 auto;min-height:42px;padding:8px 13px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--text);font-weight:750;cursor:pointer}
       .referencefilters button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--surface));box-shadow:inset 0 0 0 1px var(--accent)}
       .referencestatus{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 2px 12px;color:var(--muted);font-size:14px}
-      .referenceresults{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:10px}
-      .referencecard{align-self:start;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
-      .referencecard summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;min-height:94px;padding:15px;cursor:pointer;list-style:none}
+      .referenceresults{display:grid;grid-template-columns:1fr;align-items:start;gap:0;border-top:1px solid var(--border)}
+      .referencecard{align-self:start;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;overflow:hidden}
+      .referencecard summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;min-height:72px;padding:14px 4px;cursor:pointer;list-style:none}
       .referencecard summary::-webkit-details-marker{display:none}.referencecard strong{min-width:0;font-size:17px;line-height:1.3;overflow-wrap:anywhere}.referencecard small{grid-column:1;min-width:0;color:var(--muted);line-height:1.35;overflow-wrap:anywhere}
       .referencecardaction{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent);font-size:13px;font-weight:850;white-space:nowrap}
       .referencecategory{display:inline-flex;align-items:center;width:max-content;margin-bottom:8px;padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 13%,var(--surface2));color:var(--text);font-size:12px;font-weight:750}
@@ -219,7 +220,7 @@
       .referenceempty{grid-column:1/-1;padding:36px 18px;border:1px dashed var(--border);border-radius:14px;text-align:center;color:var(--muted)}
       .referencemore{display:block;width:min(100%,360px);min-height:46px;margin:14px auto 0;padding:10px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-weight:800;cursor:pointer}
       .referencemore:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
-      @media(max-width:700px){.referencehead{flex-direction:column}.referencehead .btn{width:100%}.referenceresults{grid-template-columns:1fr}.referencetabs{margin-inline:-2px}.referencetab{flex-basis:160px}.referencecard summary{min-height:84px;padding:14px}.referencecardaction{font-size:12px}}
+      @media(max-width:700px){.referencehead{flex-direction:column}.referencehead .btn{width:100%}.referenceresults{grid-template-columns:1fr}.referencetabs{margin-inline:-2px}.referencetab{flex-basis:160px}.referencecard summary{min-height:72px;padding:13px 2px}.referencecardaction{font-size:12px}}
     `;
     document.head.appendChild(style);
   }
@@ -344,9 +345,9 @@
       const categories=['muscles','bones','movements','palpation','safety','terms'];
       categories.forEach(category=>add(candidates.find(entry=>entry.category===category&&!used.has(entry.id))));
       [...candidates].sort((a,b)=>a.title.localeCompare(b.title,'ru')).forEach(entry=>{
-        if(selected.length<PAGE_SIZE)add(entry);
+        if(selected.length<POPULAR_SIZE)add(entry);
       });
-      return selected.slice(0,PAGE_SIZE);
+      return selected.slice(0,POPULAR_SIZE);
     }
 
     function syncFilterButtons(){
