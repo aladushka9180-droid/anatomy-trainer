@@ -129,6 +129,14 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .auth-card h1 { font-size:clamp(38px,6vw,52px); }
 .back-to-booking { display:block; margin-top:22px; color:var(--muted); text-align:center; text-decoration:none; font-size:12px; font-weight:750; }
 .back-to-booking:hover { color:var(--green); }
+.forgot-password-button { display:block; margin:11px 0 0 auto; padding:0; border:0; background:transparent; color:#347258; cursor:pointer; font-size:11px; font-weight:800; }
+.forgot-password-button:hover { text-decoration:underline; }
+.auth-back-button { width:100%; margin-top:12px; padding:10px; border:0; background:transparent; color:#687a71; cursor:pointer; font-size:11px; font-weight:800; }
+.recovery-note { margin:12px 0 0; color:#718178; font-size:11px; line-height:1.55; }
+.recovery-sent { display:grid; justify-items:center; gap:9px; margin-top:24px; padding:25px 18px; border:1px solid #dbe9df; border-radius:18px; background:#f1f8f3; text-align:center; }
+.recovery-sent>span { display:grid; place-items:center; width:46px; height:46px; border-radius:50%; background:#dff2e6; color:#2c7650; font-size:21px; font-weight:900; }
+.recovery-sent strong { font-size:16px; }.recovery-sent p { margin:0; color:#66786e; font-size:11px; line-height:1.55; }
+.recovery-sent .auth-back-button { margin-top:2px; }
 
 .provider-app { min-height:100vh; display:grid; grid-template-columns:248px minmax(0,1fr); background:#f4f7f5; }
 .provider-sidebar { position:sticky; top:0; display:flex; flex-direction:column; min-height:100vh; padding:26px 18px 18px; border-right:1px solid #e2e9e4; background:#fff; }

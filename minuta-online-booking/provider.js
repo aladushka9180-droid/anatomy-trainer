@@ -7,6 +7,7 @@ let currentUser = null;
 let currentFilter = 'day';
 let selectedDate = localIsoDate(new Date());
 let allBookings = [];
+let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 
 function localIsoDate(date) {
   const year = date.getFullYear();
@@ -28,9 +29,56 @@ function notify(message) {
   notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
 }
 function setAuthTab(tab) {
+  recoveryMode = false;
+  $('#authTabs').hidden = false;
+  $('#recoveryForm').hidden = true;
+  $('#resetPasswordForm').hidden = true;
+  $('#recoverySent').hidden = true;
   $$('[data-auth-tab]').forEach(button => button.classList.toggle('active', button.dataset.authTab === tab));
   $('#loginForm').hidden = tab !== 'login';
   $('#signupForm').hidden = tab !== 'signup';
+  $('#authBadge').innerHTML = '<i></i> Личный кабинет';
+  $('#authTitle').textContent = tab === 'login' ? 'Все записи под рукой.' : 'Создайте свой кабинет.';
+  $('#authDescription').textContent = tab === 'login'
+    ? 'Войдите или зарегистрируйтесь, чтобы управлять расписанием и услугами.'
+    : 'Укажите данные исполнителя — после подтверждения почты можно принимать записи.';
+}
+function showRecoveryRequest() {
+  recoveryMode = false;
+  $('#authCard').hidden = false;
+  $('#dashboard').hidden = true;
+  $('#authTabs').hidden = true;
+  $('#loginForm').hidden = true;
+  $('#signupForm').hidden = true;
+  $('#resetPasswordForm').hidden = true;
+  $('#recoverySent').hidden = true;
+  $('#recoveryForm').hidden = false;
+  $('#authBadge').innerHTML = '<i></i> Восстановление доступа';
+  $('#authTitle').textContent = 'Задайте новый пароль.';
+  $('#authDescription').textContent = 'Введите email, с которым зарегистрирован кабинет исполнителя.';
+  $('#recoveryEmail').value = $('#loginEmail').value.trim();
+  setTimeout(() => $('#recoveryEmail').focus(), 0);
+}
+function showRecoveryReset() {
+  recoveryMode = true;
+  $('#authCard').hidden = false;
+  $('#dashboard').hidden = true;
+  $('#authTabs').hidden = true;
+  $('#loginForm').hidden = true;
+  $('#signupForm').hidden = true;
+  $('#recoveryForm').hidden = true;
+  $('#recoverySent').hidden = true;
+  $('#resetPasswordForm').hidden = false;
+  $('#authBadge').innerHTML = '<i></i> Новый пароль';
+  $('#authTitle').textContent = 'Придумайте новый пароль.';
+  $('#authDescription').textContent = 'Ссылка подтверждена. Осталось сохранить новый пароль для кабинета.';
+  setTimeout(() => $('#recoveryNewPassword').focus(), 0);
+}
+function showRecoverySent() {
+  $('#recoveryForm').hidden = true;
+  $('#recoverySent').hidden = false;
+  $('#authTitle').textContent = 'Проверьте почту.';
+  $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
 function setProviderView(view) {
   $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
@@ -108,6 +156,7 @@ function renderBookings() {
 
 async function handleSession(session) {
   currentUser = session?.user || null;
+  if (recoveryMode) { showRecoveryReset(); return; }
   $('#authCard').hidden = Boolean(currentUser);
   $('#dashboard').hidden = !currentUser;
   if (!currentUser) return;
@@ -154,6 +203,55 @@ async function signup(event) {
     return;
   }
   if (!data.session) { notify('Проверьте почту и подтвердите регистрацию'); setAuthTab('login'); }
+}
+
+async function requestPasswordReset(event) {
+  event.preventDefault();
+  clearFormError('#recoveryError');
+  const email = $('#recoveryEmail').value.trim();
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Отправляем…';
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: new URL('provider.html', location.href).href
+  });
+  button.disabled = false;
+  button.textContent = 'Отправить ссылку';
+  if (error) {
+    showFormError('#recoveryError', 'Не удалось отправить письмо. Подождите немного и попробуйте снова.');
+    return;
+  }
+  showRecoverySent();
+}
+
+async function completePasswordRecovery(event) {
+  event.preventDefault();
+  clearFormError('#resetPasswordError');
+  const password = $('#recoveryNewPassword').value;
+  const confirmation = $('#recoveryConfirmPassword').value;
+  if (password.length < 8) {
+    showFormError('#resetPasswordError', 'Пароль должен содержать не менее 8 символов.');
+    return;
+  }
+  if (password !== confirmation) {
+    showFormError('#resetPasswordError', 'Пароли не совпадают.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.auth.updateUser({ password });
+  button.disabled = false;
+  button.textContent = 'Сохранить новый пароль';
+  if (error) {
+    showFormError('#resetPasswordError', 'Ссылка устарела или пароль не удалось сохранить. Запросите новое письмо.');
+    return;
+  }
+  recoveryMode = false;
+  await db.auth.signOut();
+  history.replaceState({}, '', 'provider.html');
+  setAuthTab('login');
+  notify('Пароль изменён — войдите с новым паролем');
 }
 
 async function addService(event) {
@@ -283,9 +381,20 @@ document.addEventListener('click', async event => {
 
 $('#loginForm').addEventListener('submit', login);
 $('#signupForm').addEventListener('submit', signup);
+$('#recoveryForm').addEventListener('submit', requestPasswordReset);
+$('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
 $('#passwordForm').addEventListener('submit', changePassword);
+$('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
+$$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());
 $('#refreshBookings').addEventListener('click', loadBookings);
-db.auth.onAuthStateChange((_event, session) => setTimeout(() => handleSession(session), 0));
-db.auth.getSession().then(({ data }) => handleSession(data.session));
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    recoveryMode = true;
+    setTimeout(showRecoveryReset, 0);
+    return;
+  }
+  setTimeout(() => handleSession(session), 0);
+});
+db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
