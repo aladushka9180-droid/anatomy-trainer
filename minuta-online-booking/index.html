@@ -16,7 +16,7 @@
   <title>Минута — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -45,7 +45,10 @@
         </div>
         <div class="step" data-step="2">
           <h3><span class="mini-icon" aria-hidden="true">▣</span> Дата</h3><div class="date-grid" id="dates"></div>
-          <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◷</span> Свободное время</h3><div class="time-grid" id="times"></div>
+          <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◷</span> Свободное время</h3>
+          <div class="time-periods" id="timePeriods" aria-label="Период дня"></div>
+          <div class="time-hour-grid" id="timeHours" aria-label="Выберите час"></div>
+          <section class="minute-picker" id="minutePicker" hidden><div class="minute-picker-head"><span>Точное время</span><strong id="selectedHourLabel">—</strong></div><div class="time-grid" id="times"></div></section>
           <p class="no-times" id="noTimes" hidden>На эту дату всё занято. Выберите другой день.</p>
           <div class="actions"><button class="back" type="button" data-back="1" aria-label="Назад">←</button><button class="primary" id="continueBooking" type="button" data-next="3">Продолжить <span>→</span></button></div>
         </div>
@@ -67,6 +70,6 @@
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=10"></script><script src="app.js?v=10" defer></script>
+  <script src="config.js?v=11"></script><script src="app.js?v=11" defer></script>
 </body>
 </html>
