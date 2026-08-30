@@ -56,8 +56,9 @@
 
   function motionFrames(id, title) {
     const safeId = encodeURIComponent(id);
-    const video = `./anatomy-motion-v6/${safeId}.mp4`;
-    const poster = `./anatomy-motion-v5/${safeId}/frame-08.webp`;
+    const video = `./anatomy-motion-v6/${safeId}.mp4?v=2`;
+    const posterFrame = id === 'abduction' ? '07' : '08';
+    const poster = `./anatomy-motion-v5/${safeId}/frame-${posterFrame}.webp`;
     return `<div class="motion-realistic" data-motion-player data-motion-poster="${poster}"><div class="motion-stage" role="img" aria-label="${esc(title)}: видео анатомического движения"><video class="motion-video" autoplay loop muted playsinline webkit-playsinline preload="auto" poster="${poster}" aria-hidden="true"><source src="${video}" type="video/mp4"></video><img class="motion-video-fallback" src="${poster}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
   }
 
