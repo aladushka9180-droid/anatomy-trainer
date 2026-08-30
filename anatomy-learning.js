@@ -57,19 +57,20 @@
   function motionFrames(id, title) {
     const safeId = encodeURIComponent(id);
     const frames = Array.from({length:8}, (_, index) => `./anatomy-motion-v4/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
-    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp"><div class="motion-stage" role="img" aria-label="${esc(title)}: покадровая анатомическая демонстрация движения"><img class="motion-frame" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
+    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp"><div class="motion-stage" role="img" aria-label="${esc(title)}: плавная анатомическая демонстрация движения"><img class="motion-frame motion-frame-base" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"><img class="motion-frame motion-frame-fade" src="${frames[1]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
   }
 
   function initMotionPlayer() {
     motionCleanup();
     const player = host.querySelector('[data-motion-player]');
     if (!player) { motionCleanup = () => {}; return; }
-    const image = player.querySelector('.motion-frame');
+    const baseImage = player.querySelector('.motion-frame-base');
+    const fadeImage = player.querySelector('.motion-frame-fade');
     const toggle = player.querySelector('[data-motion-toggle]');
     const frames = (player.dataset.motionFrames || '').split('|').filter(Boolean);
     const sequence = [...frames.keys(), ...Array.from({length:Math.max(0, frames.length - 2)}, (_, index) => frames.length - index - 2)];
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const frameInterval = 1000 / 10;
+    const phaseDuration = 180;
     let position = 0;
     let animationFrame = 0;
     let lastTimestamp = 0;
@@ -85,23 +86,40 @@
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       animationFrame = 0;
       lastTimestamp = 0;
-      accumulator = 0;
     };
-    const showFrame = frameIndex => {
+    const setSource = (image, src) => {
+      if (image.dataset.motionSrc === src) return;
+      image.dataset.motionSrc = src;
+      image.src = src;
+    };
+    const showStaticFrame = frameIndex => {
       if (!frames[frameIndex]) return;
-      image.src = frames[frameIndex];
+      setSource(baseImage, frames[frameIndex]);
+      setSource(fadeImage, frames[frameIndex]);
+      baseImage.style.opacity = '1';
+      fadeImage.style.opacity = '0';
       player.style.setProperty('--motion-progress', `${Math.round(frameIndex / (frames.length - 1) * 100)}%`);
     };
-    const tick = () => { position = (position + 1) % sequence.length; showFrame(sequence[position]); };
+    const showBlend = progress => {
+      const fromIndex = sequence[position];
+      const toIndex = sequence[(position + 1) % sequence.length];
+      setSource(baseImage, frames[fromIndex]);
+      setSource(fadeImage, frames[toIndex]);
+      baseImage.style.opacity = '1';
+      fadeImage.style.opacity = String(progress);
+      const visualFrame = fromIndex + (toIndex - fromIndex) * progress;
+      player.style.setProperty('--motion-progress', `${visualFrame / (frames.length - 1) * 100}%`);
+    };
     const animate = timestamp => {
       if (!animationFrame || fallbackShown) return;
       if (!lastTimestamp) lastTimestamp = timestamp;
       accumulator += timestamp - lastTimestamp;
       lastTimestamp = timestamp;
-      while (accumulator >= frameInterval) {
-        tick();
-        accumulator -= frameInterval;
+      while (accumulator >= phaseDuration) {
+        position = (position + 1) % sequence.length;
+        accumulator -= phaseDuration;
       }
+      showBlend(accumulator / phaseDuration);
       animationFrame = window.requestAnimationFrame(animate);
     };
     const start = () => {
@@ -113,7 +131,8 @@
       if (fallbackShown) return;
       if (motionDisabled()) {
         position = frames.length - 1;
-        showFrame(sequence[position]);
+        accumulator = 0;
+        showStaticFrame(sequence[position]);
         toggle.disabled = true;
         toggle.textContent = 'Без движения';
         toggle.setAttribute('aria-pressed', 'true');
@@ -131,7 +150,11 @@
       if (fallbackShown) return;
       fallbackShown = true;
       stop();
-      image.src = player.dataset.motionFallback || '';
+      const fallback = player.dataset.motionFallback || '';
+      setSource(baseImage, fallback);
+      setSource(fadeImage, fallback);
+      baseImage.style.opacity = '1';
+      fadeImage.style.opacity = '0';
       player.style.setProperty('--motion-progress', '100%');
       toggle.hidden = true;
     };
@@ -143,10 +166,11 @@
     const settingsObserver = new MutationObserver(sync);
     settingsObserver.observe(document.documentElement, {attributes:true, attributeFilter:['data-motion']});
     toggle.addEventListener('click', onToggle);
-    image.addEventListener('error', onError);
+    baseImage.addEventListener('error', onError);
+    fadeImage.addEventListener('error', onError);
     document.addEventListener('visibilitychange', onVisibility);
     if (reduced.addEventListener) reduced.addEventListener('change', onReduced); else reduced.addListener(onReduced);
-    showFrame(0);
+    showBlend(0);
     sync();
 
     motionCleanup = () => {
@@ -154,7 +178,8 @@
       observer?.disconnect();
       settingsObserver.disconnect();
       toggle.removeEventListener('click', onToggle);
-      image.removeEventListener('error', onError);
+      baseImage.removeEventListener('error', onError);
+      fadeImage.removeEventListener('error', onError);
       document.removeEventListener('visibilitychange', onVisibility);
       if (reduced.removeEventListener) reduced.removeEventListener('change', onReduced); else reduced.removeListener(onReduced);
     };
