@@ -1,27 +1,97 @@
-<!doctype html><html lang="ru"><head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#183427"><meta name="description" content="Кабинет исполнителя онлайн-записи «Минута»."><title>Кабинет исполнителя — Минута</title>
-  <link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
-</head><body class="provider-body">
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#153c2c">
+  <meta name="description" content="Удобный кабинет исполнителя онлайн-записи «Минута».">
+  <title>Кабинет исполнителя — Минута</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
-  <header class="site-header provider-header"><a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Минута</strong><small>кабинет исполнителя</small></span></a><a class="provider-link" href="index.html">← К записи клиента</a></header>
+
   <main class="provider-main">
     <section class="auth-card" id="authCard">
-      <span class="status"><i></i> Кабинет исполнителя</span><h1>Ваши услуги и записи — в одном месте.</h1><p>Войдите или зарегистрируйтесь. После входа вы сможете добавить услуги и видеть заявки клиентов.</p>
+      <a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Минута</strong><small>кабинет исполнителя</small></span></a>
+      <span class="status"><i></i> Личный кабинет</span>
+      <h1>Все записи под рукой.</h1>
+      <p>Войдите или зарегистрируйтесь, чтобы управлять расписанием и услугами.</p>
       <div class="auth-tabs"><button class="active" type="button" data-auth-tab="login">Вход</button><button type="button" data-auth-tab="signup">Регистрация</button></div>
-      <form id="loginForm" class="auth-form"><label>Email<input id="loginEmail" type="email" autocomplete="email" placeholder="name@example.com" required></label><label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" minlength="6" required></label><p class="form-error" id="loginError" hidden></p><button class="primary" type="submit">Войти</button></form>
-      <form id="signupForm" class="auth-form" hidden><label>Ваше имя<input id="signupName" autocomplete="name" placeholder="Например, Анна" maxlength="80" required></label><label>Email<input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" required></label><label>Пароль<input id="signupPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Минимум 6 символов" required></label><p class="form-error" id="signupError" hidden></p><button class="primary" type="submit">Создать кабинет</button></form>
+      <form id="loginForm" class="auth-form">
+        <label>Email<input id="loginEmail" type="email" autocomplete="email" placeholder="name@example.com" required></label>
+        <label>Пароль<input id="loginPassword" type="password" autocomplete="current-password" minlength="6" required></label>
+        <p class="form-error" id="loginError" hidden></p><button class="primary" type="submit">Войти</button>
+      </form>
+      <form id="signupForm" class="auth-form" hidden>
+        <label>Ваше имя<input id="signupName" autocomplete="name" placeholder="Например, Анна" maxlength="80" required></label>
+        <label>Email<input id="signupEmail" type="email" autocomplete="email" placeholder="name@example.com" required></label>
+        <label>Пароль<input id="signupPassword" type="password" autocomplete="new-password" minlength="6" placeholder="Минимум 6 символов" required></label>
+        <p class="form-error" id="signupError" hidden></p><button class="primary" type="submit">Создать кабинет</button>
+      </form>
+      <a class="back-to-booking" href="index.html">← Вернуться к записи клиента</a>
     </section>
-    <section class="dashboard" id="dashboard" hidden>
-      <div class="dashboard-top"><div><small>Кабинет исполнителя</small><h1 id="welcomeName">Здравствуйте!</h1><p id="accountEmail"></p></div><button class="outline-button" id="logoutButton" type="button">Выйти</button></div>
-      <div class="dashboard-grid">
-        <section class="panel services-panel"><div class="panel-head"><div><small>Настройка</small><h2>Мои услуги</h2></div><span class="panel-count" id="servicesCount">0</span></div>
-          <form id="serviceForm" class="service-form"><label>Название услуги<input id="serviceName" placeholder="Например, Маникюр" maxlength="120" required></label><div class="form-row"><label>Длительность<select id="serviceDuration"><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>60 мин</option><option value="90">90 мин</option><option value="120">120 мин</option></select></label><label>Цена, ₽<input id="servicePrice" type="number" min="0" max="1000000" step="50" placeholder="2500" required></label></div><p class="form-error" id="serviceError" hidden></p><button class="primary" type="submit">＋ Добавить услугу</button></form>
-          <div class="service-manage-list" id="serviceManageList"></div>
+
+    <section class="provider-app" id="dashboard" hidden>
+      <aside class="provider-sidebar">
+        <a class="brand provider-brand" href="index.html"><span class="brand-mark">М</span><span><strong>Минута</strong><small>для исполнителя</small></span></a>
+        <nav class="provider-nav" aria-label="Разделы кабинета">
+          <button class="active" type="button" data-provider-view="bookings"><span aria-hidden="true">▣</span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
+          <button type="button" data-provider-view="services"><span aria-hidden="true">✦</span><span>Услуги</span><b id="servicesBadge">0</b></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <a href="index.html"><span aria-hidden="true">↗</span> Страница клиента</a>
+          <div class="provider-user"><span class="user-avatar" id="userAvatar">М</span><div><strong id="sidebarName">Исполнитель</strong><small id="accountEmail"></small></div></div>
+          <button class="logout-button" id="logoutButton" type="button">Выйти</button>
+        </div>
+      </aside>
+
+      <div class="provider-workspace">
+        <header class="provider-topbar">
+          <div><small id="todayLabel">Сегодня</small><h1 id="welcomeName">Здравствуйте!</h1></div>
+          <a class="topbar-client-link" href="index.html">Открыть онлайн-запись ↗</a>
+        </header>
+
+        <section class="provider-view active" data-provider-panel="bookings">
+          <div class="view-title"><div><span>Журнал записей</span><h2>Расписание</h2></div><button class="refresh-button" id="refreshBookings" type="button" aria-label="Обновить записи">↻</button></div>
+          <div class="stat-grid">
+            <article><span class="stat-icon green">▣</span><div><strong id="todayBookingsCount">0</strong><small>записей сегодня</small></div></article>
+            <article><span class="stat-icon amber">●</span><div><strong id="newBookingsCount">0</strong><small>ждут подтверждения</small></div></article>
+            <article><span class="stat-icon violet">✦</span><div><strong id="activeServicesCount">0</strong><small>активных услуг</small></div></article>
+          </div>
+          <section class="schedule-card">
+            <div class="date-strip" id="dateStrip" aria-label="Выбор даты"></div>
+            <div class="schedule-toolbar"><div><strong id="selectedDateTitle">Сегодня</strong><span id="selectedDateSummary">Записей нет</span></div><div class="booking-filters"><button class="active" type="button" data-filter="day">День</button><button type="button" data-filter="upcoming">Будущие</button><button type="button" data-filter="all">Все</button></div></div>
+            <div class="provider-bookings schedule-list" id="providerBookings"></div>
+          </section>
         </section>
-        <section class="panel bookings-panel"><div class="panel-head"><div><small>Клиенты</small><h2>Ближайшие записи</h2></div><button class="refresh-button" id="refreshBookings" type="button" aria-label="Обновить">↻</button></div><div class="booking-filters"><button class="active" type="button" data-filter="active">Актуальные</button><button type="button" data-filter="all">Все</button></div><div class="provider-bookings" id="providerBookings"></div></section>
+
+        <section class="provider-view" data-provider-panel="services" hidden>
+          <div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><span class="panel-count" id="servicesCount">0</span></div>
+          <div class="services-layout">
+            <section class="panel service-editor"><div class="panel-head"><div><small>Новая услуга</small><h3>Добавить в запись</h3></div></div>
+              <form id="serviceForm" class="service-form">
+                <label>Название услуги<input id="serviceName" placeholder="Например, Маникюр" maxlength="120" required></label>
+                <div class="form-row"><label>Длительность<select id="serviceDuration"><option value="30">30 мин</option><option value="45">45 мин</option><option value="60" selected>60 мин</option><option value="90">90 мин</option><option value="120">120 мин</option></select></label><label>Цена, ₽<input id="servicePrice" type="number" min="0" max="1000000" step="50" placeholder="2500" required></label></div>
+                <p class="form-error" id="serviceError" hidden></p><button class="primary" type="submit">＋ Добавить услугу</button>
+              </form>
+            </section>
+            <section class="panel service-catalog"><div class="panel-head"><div><small>В онлайн-записи</small><h3>Список услуг</h3></div></div><div class="service-manage-list" id="serviceManageList"></div></section>
+          </div>
+        </section>
       </div>
+
+      <nav class="provider-mobile-nav" aria-label="Разделы кабинета">
+        <button class="active" type="button" data-provider-view="bookings"><span>▣</span>Записи</button>
+        <button type="button" data-provider-view="services"><span>✦</span>Услуги</button>
+        <a href="index.html"><span>↗</span>Клиентам</a>
+      </nav>
     </section>
   </main>
   <div class="toast" id="toast" hidden></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="config.js"></script><script src="provider.js" defer></script>
-</body></html>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js?v=3"></script>
+  <script src="provider.js?v=3" defer></script>
+</body>
+</html>
