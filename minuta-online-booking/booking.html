@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#183427">
+  <meta name="description" content="Управление записью клиента в «Минута».">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Моя запись — Минута</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=9">
+</head>
+<body class="manage-body">
+  <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
+  <header class="site-header manage-header">
+    <a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Минута</strong><small>моя запись</small></span></a>
+    <a class="provider-link" href="index.html">＋ Новая запись</a>
+  </header>
+  <main class="manage-layout">
+    <section class="manage-card">
+      <div class="loading-state manage-loading" id="manageLoading"><i></i><span>Загружаем запись…</span></div>
+      <div class="manage-error" id="manageError" hidden><span>!</span><h1>Запись не найдена</h1><p>Ссылка могла быть повреждена. Проверьте её или создайте новую запись.</p><a class="primary" href="index.html">Перейти к онлайн-записи</a></div>
+      <div id="manageContent" hidden>
+        <div class="manage-title"><div><small>Ваша запись</small><h1 id="manageService">Услуга</h1></div><span class="manage-status" id="manageStatus">Новая</span></div>
+        <div class="manage-appointment">
+          <div class="manage-date-mark"><strong id="manageDay">—</strong><span id="manageMonth">—</span></div>
+          <div><strong id="manageDate">—</strong><span id="manageTime">—</span></div>
+        </div>
+        <dl class="manage-details">
+          <div><dt>Исполнитель</dt><dd id="managePerformer">—</dd></div>
+          <div><dt>Длительность</dt><dd id="manageDuration">—</dd></div>
+          <div><dt>Стоимость</dt><dd id="managePrice">—</dd></div>
+          <div><dt>Номер записи</dt><dd id="manageCode">—</dd></div>
+        </dl>
+        <div class="manage-actions" id="manageActions">
+          <button class="primary" id="openReschedule" type="button">Перенести запись</button>
+          <button class="manage-secondary" id="addCalendar" type="button">Добавить в календарь</button>
+          <button class="manage-danger" id="cancelBooking" type="button">Отменить запись</button>
+        </div>
+        <section class="reschedule-panel" id="reschedulePanel" hidden>
+          <div class="reschedule-head"><div><small>Перенос записи</small><h2>Выберите новое время</h2></div><button id="closeReschedule" type="button" aria-label="Закрыть">×</button></div>
+          <h3>Дата</h3><div class="date-grid manage-dates" id="manageDates"></div>
+          <h3>Свободное время</h3><div class="time-grid manage-times" id="manageTimes"></div>
+          <p class="no-times" id="manageNoTimes" hidden>На эту дату свободного времени нет.</p>
+          <p class="form-error" id="manageFormError" hidden></p>
+          <button class="primary" id="confirmReschedule" type="button" disabled>Сохранить новое время</button>
+        </section>
+        <p class="manage-note">Ссылка на эту страницу личная. Не отправляйте её посторонним.</p>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast" hidden></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js?v=9"></script><script src="booking.js?v=9" defer></script>
+</body>
+</html>

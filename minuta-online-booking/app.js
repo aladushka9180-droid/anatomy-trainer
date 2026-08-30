@@ -131,15 +131,22 @@ async function submitBooking(event) {
     return;
   }
   const code = data?.[0]?.booking_code || 'создан';
+  const manageToken = data?.[0]?.manage_token;
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
   $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
   $('#successDetails').innerHTML = `${escapeHtml(service.name)} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label} в ${state.time}`;
   $('#successCode').innerHTML = `Номер записи: <strong>${escapeHtml(code)}</strong>`;
+  if (manageToken) {
+    const manageUrl = new URL('booking.html', location.href);
+    manageUrl.searchParams.set('token', manageToken);
+    $('#manageBooking').href = manageUrl.href;
+    $('#manageBooking').hidden = false;
+  }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -158,4 +165,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=9'));

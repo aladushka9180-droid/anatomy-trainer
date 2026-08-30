@@ -16,7 +16,7 @@
   <title>Минута — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -61,11 +61,12 @@
       <div class="success" id="success" hidden aria-live="polite">
         <span class="success-mark">✓</span><small>Запись отправлена исполнителю</small><h2 id="successTitle">До встречи!</h2><p id="successDetails"></p><div class="code" id="successCode"></div>
         <p class="local-note">Сохраните номер записи. Исполнитель увидит заявку в своём кабинете.</p>
-        <button class="primary" type="button" id="newBooking">Создать ещё одну запись</button>
+        <a class="primary manage-booking-link" id="manageBooking" href="booking.html" hidden>Управлять записью</a>
+        <button class="manage-secondary" type="button" id="newBooking">Создать ещё одну запись</button>
       </div>
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=8"></script><script src="app.js?v=8" defer></script>
+  <script src="config.js?v=9"></script><script src="app.js?v=9" defer></script>
 </body>
 </html>
