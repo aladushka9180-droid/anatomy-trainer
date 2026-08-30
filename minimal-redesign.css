@@ -5003,3 +5003,142 @@ body.firstvisit #continueCard {
     height: 42px;
   }
 }
+
+/* v63: one clear route for beginners and a quieter, icon-led mobile shell. */
+.homeextras > .homeextrasbody {
+  display: grid;
+  gap: 12px;
+}
+
+.homeextras > .homeextrasbody > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.homeextras .homeactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+}
+
+.homeextras .trustnote {
+  margin-top: 4px;
+}
+
+@media (max-width: 650px) {
+  html {
+    scroll-padding-bottom: 84px;
+  }
+
+  body .appnav .homestats {
+    gap: 0;
+    padding-top: 7px;
+  }
+
+  body .appnav .homestats .badge {
+    min-height: 30px;
+    padding: 1px 6px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  body .appnav .homestats .badge b {
+    margin-left: 3px;
+    color: var(--text);
+    font-size: 13px;
+  }
+
+  #menu .homehero {
+    gap: 8px;
+  }
+
+  #menu .homehero p {
+    max-width: 34ch;
+    margin-top: 0;
+  }
+
+  #menu .beginneractions,
+  #menu .continueactions {
+    gap: 5px;
+  }
+
+  #menu .beginneractions .secondary,
+  #menu .continueactions .secondary {
+    min-height: 40px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  #menu .homeextras {
+    margin-top: 14px;
+    border-radius: 11px;
+    background: transparent;
+  }
+
+  #menu .homeextras > summary {
+    min-height: 46px;
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  #menu .homeextras > .homeextrasbody {
+    gap: 10px;
+    padding: 2px 12px 12px;
+  }
+
+  #menu .homeextras .trustnote {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  #menu .homeextras .trustcopy span {
+    font-size: 12px;
+  }
+
+  body .mobiletabbar {
+    gap: 0;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--card);
+    box-shadow: 0 8px 24px rgb(15 23 42 / .14);
+    backdrop-filter: none;
+  }
+
+  body .mobiletabbar button {
+    display: grid;
+    grid-template-rows: 18px auto;
+    place-items: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 5px 1px 4px !important;
+    border-radius: 8px;
+    font-size: 10px !important;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.1;
+  }
+
+  body .mobiletabbar button svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  body .mobiletabbar button.active {
+    background: transparent;
+    color: var(--text);
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+}
