@@ -52,10 +52,86 @@
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const save = () => { API.storage.setItem('anatomy_course_viewed_v1', JSON.stringify([...viewed])); API.storage.setItem('anatomy_course_passed_v1', JSON.stringify([...passed])); };
+  let motionCleanup = () => {};
 
   function motionFrames(id, title) {
-    const base = `./anatomy-motion-v2/${encodeURIComponent(id)}`;
-    return `<div class="motion-realistic" role="img" aria-label="${esc(title)}: исходное и конечное положение"><img class="motion-frame motion-frame-start" src="${base}-start.webp" alt="" aria-hidden="true" decoding="async"><img class="motion-frame motion-frame-end" src="${base}-end.webp" alt="" aria-hidden="true" decoding="async"><span class="motion-cycle" aria-hidden="true"><i></i></span></div>`;
+    const safeId = encodeURIComponent(id);
+    const frames = Array.from({length:4}, (_, index) => `./anatomy-motion-v3/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
+    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp" role="img" aria-label="${esc(title)}: покадровая анатомическая демонстрация движения"><div class="motion-stage"><img class="motion-frame" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
+  }
+
+  function initMotionPlayer() {
+    motionCleanup();
+    const player = host.querySelector('[data-motion-player]');
+    if (!player) { motionCleanup = () => {}; return; }
+    const image = player.querySelector('.motion-frame');
+    const toggle = player.querySelector('[data-motion-toggle]');
+    const frames = (player.dataset.motionFrames || '').split('|').filter(Boolean);
+    const sequence = [0, 1, 2, 3, 2, 1];
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let position = 0;
+    let timer = 0;
+    let userPaused = false;
+    let inView = true;
+    let fallbackShown = false;
+
+    frames.slice(1).forEach(src => { const preload = new Image(); preload.decoding = 'async'; preload.src = src; });
+
+    const motionDisabled = () => reduced.matches || document.documentElement.dataset.motion === 'off';
+    const stop = () => { if (timer) { window.clearInterval(timer); timer = 0; } };
+    const showFrame = frameIndex => {
+      if (!frames[frameIndex]) return;
+      image.src = frames[frameIndex];
+      player.style.setProperty('--motion-progress', `${Math.round(frameIndex / (frames.length - 1) * 100)}%`);
+    };
+    const tick = () => { position = (position + 1) % sequence.length; showFrame(sequence[position]); };
+    const sync = () => {
+      stop();
+      if (motionDisabled()) {
+        showFrame(frames.length - 1);
+        toggle.disabled = true;
+        toggle.textContent = 'Без движения';
+        toggle.setAttribute('aria-pressed', 'true');
+        return;
+      }
+      toggle.disabled = false;
+      toggle.textContent = userPaused ? 'Продолжить' : 'Пауза';
+      toggle.setAttribute('aria-pressed', String(userPaused));
+      if (!userPaused && inView && !document.hidden) timer = window.setInterval(tick, 260);
+    };
+    const onToggle = () => { userPaused = !userPaused; sync(); };
+    const onVisibility = () => sync();
+    const onReduced = () => sync();
+    const onError = () => {
+      if (fallbackShown) return;
+      fallbackShown = true;
+      stop();
+      image.src = player.dataset.motionFallback || '';
+      toggle.hidden = true;
+    };
+    const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+      inView = entries[0]?.isIntersecting !== false;
+      sync();
+    }, {rootMargin:'80px'}) : null;
+    observer?.observe(player);
+    const settingsObserver = new MutationObserver(sync);
+    settingsObserver.observe(document.documentElement, {attributes:true, attributeFilter:['data-motion']});
+    toggle.addEventListener('click', onToggle);
+    image.addEventListener('error', onError);
+    document.addEventListener('visibilitychange', onVisibility);
+    if (reduced.addEventListener) reduced.addEventListener('change', onReduced); else reduced.addListener(onReduced);
+    showFrame(0);
+    sync();
+
+    motionCleanup = () => {
+      stop();
+      observer?.disconnect();
+      settingsObserver.disconnect();
+      toggle.removeEventListener('click', onToggle);
+      image.removeEventListener('error', onError);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (reduced.removeEventListener) reduced.removeEventListener('change', onReduced); else reduced.removeListener(onReduced);
+    };
   }
 
   function infoCards(rows, type) {
@@ -119,6 +195,8 @@
   };
 
   function renderContent() {
+    motionCleanup();
+    motionCleanup = () => {};
     const [title,lead] = descriptions[active];
     const target = document.getElementById('anatomyContent');
     let body = '';
@@ -135,6 +213,7 @@
       document.getElementById('attachmentSearch')?.addEventListener('input', renderAttachmentsList);
       document.getElementById('attachmentRegion')?.addEventListener('change', renderAttachmentsList);
     }
+    if (active === 'functions') initMotionPlayer();
     syncTabs();
   }
 

@@ -94,16 +94,17 @@
 .motion-summary { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 22px; align-items: center; }
 .motion-summary h4 { margin-bottom: 6px; font-size: clamp(21px, 3vw, 26px); }
 .motion-joint { color: var(--muted); }
-.motion-demo { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; min-height: 240px; border: 1px solid var(--border); border-radius: 14px; background: radial-gradient(circle at 50% 42%, var(--surface) 0 34%, color-mix(in srgb, var(--accent) 8%, var(--surface2)) 100%); color: var(--text); overflow: hidden; }
-.motion-realistic { position: absolute; inset: 8px; }
-.motion-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; }
-.motion-frame-start { opacity: 1; animation: realistic-frame-start 4.8s ease-in-out infinite; }
-.motion-frame-end { opacity: 0; animation: realistic-frame-end 4.8s ease-in-out infinite; }
-.motion-cycle { position: absolute; left: 16%; right: 16%; bottom: 3px; height: 3px; border-radius: 999px; background: color-mix(in srgb, var(--text) 18%, transparent); overflow: hidden; }
-.motion-cycle i { display: block; width: 28%; height: 100%; border-radius: inherit; background: var(--accent); animation: realistic-motion-cycle 2.4s ease-in-out infinite alternate; }
-@keyframes realistic-frame-start { 0%, 38%, 100% { opacity: 1; } 52%, 88% { opacity: 0; } }
-@keyframes realistic-frame-end { 0%, 38%, 100% { opacity: 0; } 52%, 88% { opacity: 1; } }
-@keyframes realistic-motion-cycle { from { transform: translateX(0); } to { transform: translateX(257%); } }
+.motion-demo { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; min-height: 240px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--accent) 8%, var(--surface2)); color: var(--text); overflow: hidden; }
+.motion-realistic { position: absolute; inset: 8px; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 6px; }
+.motion-stage { min-width: 0; min-height: 0; overflow: hidden; border-radius: 10px; background: #dff4f1; }
+.motion-frame { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+.motion-playback { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 44px; }
+.motion-toggle { min-width: 96px; min-height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.motion-toggle:hover:not(:disabled) { border-color: var(--accent); }
+.motion-toggle:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+.motion-toggle:disabled { cursor: default; color: var(--muted); }
+.motion-cycle { display: block; width: 100%; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--text) 18%, transparent); overflow: hidden; }
+.motion-cycle i { display: block; width: var(--motion-progress, 0%); height: 100%; border-radius: inherit; background: var(--accent); transition: width 180ms linear; }
 .muscle-function-primer {
   max-width: 900px;
   margin-bottom: 14px;
@@ -271,12 +272,5 @@
   .motion-demo { min-height: 150px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .motion-frame-start { opacity: 0; animation: none; }
-  .motion-frame-end { opacity: 1; animation: none; }
-  .motion-cycle i { animation: none; transform: translateX(257%); }
-}
-
-html[data-motion="off"] .motion-frame-start { opacity: 0; animation: none; }
-html[data-motion="off"] .motion-frame-end { opacity: 1; animation: none; }
-html[data-motion="off"] .motion-cycle i { animation: none; transform: translateX(257%); }
+@media (prefers-reduced-motion: reduce) { .motion-cycle i { transition: none; } }
+html[data-motion="off"] .motion-cycle i { transition: none; }
