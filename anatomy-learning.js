@@ -56,8 +56,8 @@
 
   function motionFrames(id, title) {
     const safeId = encodeURIComponent(id);
-    const frames = Array.from({length:4}, (_, index) => `./anatomy-motion-v3/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
-    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp" role="img" aria-label="${esc(title)}: покадровая анатомическая демонстрация движения"><div class="motion-stage"><img class="motion-frame" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
+    const frames = Array.from({length:8}, (_, index) => `./anatomy-motion-v4/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
+    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp"><div class="motion-stage" role="img" aria-label="${esc(title)}: покадровая анатомическая демонстрация движения"><img class="motion-frame" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
   }
 
   function initMotionPlayer() {
@@ -67,28 +67,53 @@
     const image = player.querySelector('.motion-frame');
     const toggle = player.querySelector('[data-motion-toggle]');
     const frames = (player.dataset.motionFrames || '').split('|').filter(Boolean);
-    const sequence = [0, 1, 2, 3, 2, 1];
+    const sequence = [...frames.keys(), ...Array.from({length:Math.max(0, frames.length - 2)}, (_, index) => frames.length - index - 2)];
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const frameInterval = 1000 / 10;
     let position = 0;
-    let timer = 0;
+    let animationFrame = 0;
+    let lastTimestamp = 0;
+    let accumulator = 0;
     let userPaused = false;
-    let inView = true;
+    let inView = !('IntersectionObserver' in window);
     let fallbackShown = false;
 
     frames.slice(1).forEach(src => { const preload = new Image(); preload.decoding = 'async'; preload.src = src; });
 
     const motionDisabled = () => reduced.matches || document.documentElement.dataset.motion === 'off';
-    const stop = () => { if (timer) { window.clearInterval(timer); timer = 0; } };
+    const stop = () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      lastTimestamp = 0;
+      accumulator = 0;
+    };
     const showFrame = frameIndex => {
       if (!frames[frameIndex]) return;
       image.src = frames[frameIndex];
       player.style.setProperty('--motion-progress', `${Math.round(frameIndex / (frames.length - 1) * 100)}%`);
     };
     const tick = () => { position = (position + 1) % sequence.length; showFrame(sequence[position]); };
+    const animate = timestamp => {
+      if (!animationFrame || fallbackShown) return;
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      accumulator += timestamp - lastTimestamp;
+      lastTimestamp = timestamp;
+      while (accumulator >= frameInterval) {
+        tick();
+        accumulator -= frameInterval;
+      }
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+    const start = () => {
+      if (animationFrame || fallbackShown) return;
+      animationFrame = window.requestAnimationFrame(animate);
+    };
     const sync = () => {
       stop();
+      if (fallbackShown) return;
       if (motionDisabled()) {
-        showFrame(frames.length - 1);
+        position = frames.length - 1;
+        showFrame(sequence[position]);
         toggle.disabled = true;
         toggle.textContent = 'Без движения';
         toggle.setAttribute('aria-pressed', 'true');
@@ -97,7 +122,7 @@
       toggle.disabled = false;
       toggle.textContent = userPaused ? 'Продолжить' : 'Пауза';
       toggle.setAttribute('aria-pressed', String(userPaused));
-      if (!userPaused && inView && !document.hidden) timer = window.setInterval(tick, 260);
+      if (!userPaused && inView && !document.hidden) start();
     };
     const onToggle = () => { userPaused = !userPaused; sync(); };
     const onVisibility = () => sync();
@@ -107,12 +132,13 @@
       fallbackShown = true;
       stop();
       image.src = player.dataset.motionFallback || '';
+      player.style.setProperty('--motion-progress', '100%');
       toggle.hidden = true;
     };
     const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
-      inView = entries[0]?.isIntersecting !== false;
+      inView = Boolean(entries[0]?.isIntersecting);
       sync();
-    }, {rootMargin:'80px'}) : null;
+    }, {threshold:0.01}) : null;
     observer?.observe(player);
     const settingsObserver = new MutationObserver(sync);
     settingsObserver.observe(document.documentElement, {attributes:true, attributeFilter:['data-motion']});
