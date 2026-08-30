@@ -341,8 +341,8 @@ async function loadSchedule() {
     $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Обновите страницу после настройки базы.</small></div>';
     return;
   }
-  scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index < 5, start_time: '09:00', end_time: '19:00', break_start: null, break_end: null, slot_interval_minutes: 30 }));
-  $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 30);
+  scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index < 5, start_time: '09:00', end_time: '19:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
+  $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
   renderSchedule();
 }
 

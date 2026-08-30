@@ -158,4 +158,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=6'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=8'));
