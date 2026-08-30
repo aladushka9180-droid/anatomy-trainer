@@ -5338,7 +5338,7 @@ body.firstvisit #continueCard {
   }
 }
 
-/* v70: restrained iOS-like motion. The interface keeps its quiet visual style. */
+/* v71: calm app-like motion without blurring or resizing the interface. */
 :root {
   --motion-spring: cubic-bezier(.22, 1, .36, 1);
   --motion-soft: cubic-bezier(.2, .8, .2, 1);
@@ -5348,8 +5348,32 @@ body.firstvisit #continueCard {
   view-transition-name: app-screen;
 }
 
+.appnav {
+  view-transition-name: app-header;
+}
+
+.mobiletabbar {
+  view-transition-name: app-tabs;
+}
+
+::view-transition-old(root) {
+  opacity: 0;
+}
+
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-group(app-header),
+::view-transition-old(app-header),
+::view-transition-new(app-header),
+::view-transition-group(app-tabs),
+::view-transition-old(app-tabs),
+::view-transition-new(app-tabs) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
 ::view-transition-group(app-screen) {
-  animation-duration: 440ms;
+  animation-duration: 340ms;
   animation-timing-function: var(--motion-spring);
 }
 
@@ -5359,60 +5383,102 @@ body.firstvisit #continueCard {
   backface-visibility: hidden;
 }
 
-html[data-nav-direction="forward"]::view-transition-old(app-screen) {
-  animation: 310ms var(--motion-soft) both ios-screen-old-forward;
+html[data-motion-style="ios"][data-nav-direction="forward"]::view-transition-old(app-screen) {
+  animation: 210ms var(--motion-soft) both ios-screen-old-forward;
 }
 
-html[data-nav-direction="forward"]::view-transition-new(app-screen) {
-  animation: 440ms var(--motion-spring) both ios-screen-new-forward;
+html[data-motion-style="ios"][data-nav-direction="forward"]::view-transition-new(app-screen) {
+  animation: 340ms var(--motion-spring) both ios-screen-new-forward;
 }
 
-html[data-nav-direction="back"]::view-transition-old(app-screen) {
-  animation: 310ms var(--motion-soft) both ios-screen-old-back;
+html[data-motion-style="ios"][data-nav-direction="back"]::view-transition-old(app-screen) {
+  animation: 210ms var(--motion-soft) both ios-screen-old-back;
 }
 
-html[data-nav-direction="back"]::view-transition-new(app-screen) {
-  animation: 440ms var(--motion-spring) both ios-screen-new-back;
+html[data-motion-style="ios"][data-nav-direction="back"]::view-transition-new(app-screen) {
+  animation: 340ms var(--motion-spring) both ios-screen-new-back;
 }
 
-html[data-nav-direction="switch"]::view-transition-old(app-screen) {
-  animation: 220ms ease both ios-screen-fade-out;
+html[data-motion-style="ios"][data-nav-direction="switch"]::view-transition-old(app-screen) {
+  animation: 160ms ease both ios-screen-fade-out;
 }
 
-html[data-nav-direction="switch"]::view-transition-new(app-screen) {
-  animation: 380ms var(--motion-spring) both ios-screen-fade-in;
+html[data-motion-style="ios"][data-nav-direction="switch"]::view-transition-new(app-screen) {
+  animation: 270ms var(--motion-spring) both ios-screen-fade-in;
 }
 
 @keyframes ios-screen-old-forward {
-  to { opacity: 0; transform: translate3d(-18px, 0, 0) scale(.985); filter: blur(1.5px); }
+  to { opacity: .18; transform: translate3d(-14px, 0, 0); }
 }
 
 @keyframes ios-screen-new-forward {
-  from { opacity: .12; transform: translate3d(30px, 0, 0) scale(.985); filter: blur(2px); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+  from { opacity: .22; transform: translate3d(22px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes ios-screen-old-back {
-  to { opacity: 0; transform: translate3d(18px, 0, 0) scale(.988); filter: blur(1.5px); }
+  to { opacity: .18; transform: translate3d(14px, 0, 0); }
 }
 
 @keyframes ios-screen-new-back {
-  from { opacity: .12; transform: translate3d(-28px, 0, 0) scale(.985); filter: blur(2px); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+  from { opacity: .22; transform: translate3d(-22px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes ios-screen-fade-out {
-  to { opacity: 0; transform: scale(.992); }
+  to { opacity: 0; transform: translate3d(0, -3px, 0); }
 }
 
 @keyframes ios-screen-fade-in {
-  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.992); }
+  from { opacity: 0; transform: translate3d(0, 7px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+html[data-motion-style="standard"]::view-transition-group(app-screen) {
+  animation-duration: 240ms;
+}
+
+html[data-motion-style="standard"]::view-transition-old(app-screen) {
+  animation: 140ms ease-out both app-screen-standard-out;
+}
+
+html[data-motion-style="standard"]::view-transition-new(app-screen) {
+  animation: 240ms var(--motion-soft) both app-screen-standard-in;
+}
+
+html[data-motion-style="soft"]::view-transition-group(app-screen) {
+  animation-duration: 360ms;
+}
+
+html[data-motion-style="soft"]::view-transition-old(app-screen) {
+  animation: 220ms ease both app-screen-soft-out;
+}
+
+html[data-motion-style="soft"]::view-transition-new(app-screen) {
+  animation: 360ms var(--motion-spring) both app-screen-soft-in;
+}
+
+@keyframes app-screen-standard-out {
+  to { opacity: 0; }
+}
+
+@keyframes app-screen-standard-in {
+  from { opacity: 0; transform: translate3d(0, 4px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes app-screen-soft-out {
+  to { opacity: 0; transform: scale(.997); }
+}
+
+@keyframes app-screen-soft-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.997); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 @keyframes ios-content-rise {
-  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.992); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes ios-backdrop-in {
@@ -5421,33 +5487,33 @@ html[data-nav-direction="switch"]::view-transition-new(app-screen) {
 }
 
 @keyframes ios-dialog-in {
-  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.955); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.97); }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 #quiz.question-enter .question {
-  animation: ios-content-rise 420ms var(--motion-spring) both;
+  animation: ios-content-rise 300ms var(--motion-spring) both;
 }
 
 #quiz.question-enter .answer {
-  animation: ios-content-rise 440ms var(--motion-spring) both;
-  animation-delay: calc(55ms + var(--answer-index, 0) * 42ms);
+  animation: ios-content-rise 320ms var(--motion-spring) both;
+  animation-delay: calc(30ms + var(--answer-index, 0) * 26ms);
 }
 
 #feedback:not(.hidden),
 .hintbox:not(.hidden),
 .settingspanel:not(.hidden) {
-  animation: ios-content-rise 360ms var(--motion-spring) both;
+  animation: ios-content-rise 280ms var(--motion-spring) both;
 }
 
 .profiledialog:not(.hidden),
 .onboarding:not(.hidden) {
-  animation: ios-backdrop-in 260ms ease-out both;
+  animation: ios-backdrop-in 220ms ease-out both;
 }
 
 .profiledialog:not(.hidden) .profiledialogcard,
 .onboarding:not(.hidden) .onboardingcard {
-  animation: ios-dialog-in 460ms var(--motion-spring) both;
+  animation: ios-dialog-in 350ms var(--motion-spring) both;
 }
 
 .btn,
@@ -5461,12 +5527,12 @@ html[data-nav-direction="switch"]::view-transition-new(app-screen) {
 .stagechoice,
 .resultnextchoice,
 .mobiletabbar button {
-  transition: transform 180ms var(--motion-spring),
-              box-shadow 220ms ease,
-              border-color 220ms ease,
-              background-color 220ms ease,
-              color 180ms ease,
-              opacity 180ms ease;
+  transition: transform 140ms var(--motion-spring),
+              box-shadow 180ms ease,
+              border-color 180ms ease,
+              background-color 180ms ease,
+              color 140ms ease,
+              opacity 140ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -5481,7 +5547,7 @@ html[data-nav-direction="switch"]::view-transition-new(app-screen) {
 .stagechoice:active,
 .resultnextchoice:active,
 .mobiletabbar button:active {
-  transform: scale(.975);
+  transform: scale(.985);
   transition-duration: 80ms;
 }
 
@@ -5490,7 +5556,7 @@ html[data-nav-direction="switch"]::view-transition-new(app-screen) {
 .mobiletabbar button::before,
 .navbutton::after {
   transition-timing-function: var(--motion-spring);
-  transition-duration: 420ms;
+  transition-duration: 320ms;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -5502,37 +5568,22 @@ html[data-nav-direction="switch"]::view-transition-new(app-screen) {
   }
 }
 
-@supports selector(details::details-content) {
-  :root {
-    interpolate-size: allow-keywords;
-  }
-
-  details::details-content {
-    block-size: 0;
-    overflow: clip;
-    opacity: 0;
-    transition: block-size 380ms var(--motion-spring),
-                content-visibility 380ms allow-discrete,
-                opacity 220ms ease;
-  }
-
-  details[open]::details-content {
-    block-size: auto;
-    opacity: 1;
-  }
+details.details-animating {
+  overflow: clip !important;
+  will-change: height;
 }
 
 @media (max-width: 650px) {
   ::view-transition-group(app-screen) {
-    animation-duration: 400ms;
+    animation-duration: 320ms;
   }
 
-  html[data-nav-direction="forward"]::view-transition-new(app-screen) {
-    animation-duration: 400ms;
+  html[data-motion-style="ios"][data-nav-direction="forward"]::view-transition-new(app-screen) {
+    animation-duration: 320ms;
   }
 
   #quiz.question-enter .answer {
-    animation-delay: calc(35ms + var(--answer-index, 0) * 34ms);
+    animation-delay: calc(24ms + var(--answer-index, 0) * 22ms);
   }
 }
 
@@ -5547,10 +5598,6 @@ html[data-nav-direction="switch"]::view-transition-new(app-screen) {
   .profiledialog:not(.hidden) .profiledialogcard,
   .onboarding:not(.hidden) .onboardingcard {
     animation: none;
-  }
-
-  details::details-content {
-    transition: none;
   }
 
   ::view-transition-group(*),

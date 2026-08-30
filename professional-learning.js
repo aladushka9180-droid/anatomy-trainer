@@ -281,7 +281,8 @@
       summary.addEventListener('keydown', event => {
         if (!['Enter', ' '].includes(event.key)) return;
         event.preventDefault();
-        details.open = !details.open;
+        if (typeof window.toggleAppDetails === 'function') window.toggleAppDetails(details, !details.open);
+        else details.open = !details.open;
       });
     });
   }
