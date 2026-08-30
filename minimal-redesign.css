@@ -3619,6 +3619,10 @@ html[data-images="hidden"] .learnmedia figure {
   display: none;
 }
 
+.learnmedia--text {
+  grid-template-columns: 1fr;
+}
+
 /* Local learning profiles. */
 .profileswitcher {
   display: inline-flex;

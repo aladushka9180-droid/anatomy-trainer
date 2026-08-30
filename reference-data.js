@@ -175,18 +175,65 @@
       .map(row=>({...row,searchText:normalize([row.title,row.subtitle,row.lead,row.keywords,...row.sections.flatMap(section=>[section.label,section.text])].join(' '))}));
   }
 
+  const VERIFIED_MUSCLE_VISUALS={
+    deltoid:['./anatomy-deltoid.png','Дельтовидная мышца: передний, средний и задний пучки',true],
+    triceps:['./anatomy-upper-limb.png','Трёхглавая мышца плеча на задней поверхности плеча'],
+    supraspinatus:['./anatomy-upper-limb.png','Надостная мышца над остью лопатки'],
+    infraspinatus:['./anatomy-upper-limb.png','Подостная мышца на задней поверхности лопатки'],
+    teres_minor:['./anatomy-upper-limb.png','Малая круглая мышца у латерального края лопатки'],
+    teres_major:['./anatomy-upper-limb.png','Большая круглая мышца у нижнего угла лопатки'],
+    levator:['./anatomy-neck.png','Мышца, поднимающая лопатку, на боковой поверхности шеи'],
+    rhomboid_major:['./anatomy-back.png','Большая ромбовидная мышца между позвоночником и лопаткой'],
+    rhomboid_minor:['./anatomy-back.png','Малая ромбовидная мышца у медиального края лопатки'],
+    trapezius:['./anatomy-back.png','Трапециевидная мышца на задней поверхности шеи и спины'],
+    rectus_femoris:['./anatomy-leg.png','Прямая мышца бедра на передней поверхности бедра'],
+    vastus_lateralis:['./anatomy-leg.png','Латеральная широкая мышца бедра'],
+    vastus_medialis:['./anatomy-leg.png','Медиальная широкая мышца бедра'],
+    sartorius:['./anatomy-leg.png','Портняжная мышца на передней поверхности бедра'],
+    biceps_femoris:['./anatomy-gluteal.png','Двуглавая мышца бедра на задней поверхности бедра'],
+    semitendinosus:['./anatomy-gluteal.png','Полусухожильная мышца на задней поверхности бедра'],
+    semimembranosus:['./anatomy-gluteal.png','Полуперепончатая мышца на задней поверхности бедра'],
+    gracilis:['./anatomy-adductors.png','Тонкая мышца на медиальной поверхности бедра'],
+    gastrocnemius:['./anatomy-calf.png','Икроножная мышца на задней поверхности голени'],
+    soleus:['./anatomy-calf.png','Камбаловидная мышца на задней поверхности голени'],
+    gluteus_medius:['./anatomy-gluteal.png','Средняя ягодичная мышца на наружной поверхности таза'],
+    gluteus_minimus:['./anatomy-gluteal.png','Малая ягодичная мышца под средней ягодичной мышцей'],
+    piriformis:['./anatomy-gluteal.png','Грушевидная мышца глубокой ягодичной области'],
+    superior_gemellus:['./anatomy-gluteal.png','Верхняя близнецовая мышца глубокой ягодичной области'],
+    inferior_gemellus:['./anatomy-gluteal.png','Нижняя близнецовая мышца глубокой ягодичной области'],
+    obturator_internus:['./anatomy-gluteal.png','Внутренняя запирательная мышца глубокой ягодичной области'],
+    quadratus_femoris:['./anatomy-gluteal.png','Квадратная мышца бедра глубокой ягодичной области'],
+    tfl:['./anatomy-leg.png','Напрягатель широкой фасции у переднебоковой поверхности таза'],
+    adductor_magnus:['./anatomy-adductors.png','Большая приводящая мышца на медиальной поверхности бедра'],
+    adductor_longus:['./anatomy-adductors.png','Длинная приводящая мышца на медиальной поверхности бедра'],
+    adductor_brevis:['./anatomy-adductors.png','Короткая приводящая мышца на медиальной поверхности бедра'],
+    pectineus:['./anatomy-adductors.png','Гребенчатая мышца в верхней медиальной части бедра'],
+    erector_spinae:['./anatomy-back.png','Мышца, выпрямляющая позвоночник, вдоль позвоночного столба'],
+    serratus_post_inf:['./anatomy-back.png','Нижняя задняя зубчатая мышца у нижних рёбер'],
+    latissimus:['./anatomy-back.png','Широчайшая мышца спины'],
+    iliopsoas:['./anatomy-leg.png','Подвздошно-поясничная мышца у передней поверхности таза'],
+    scm:['./anatomy-neck.png','Грудино-ключично-сосцевидная мышца на боковой поверхности шеи'],
+    anterior_scalene:['./anatomy-neck.png','Передняя лестничная мышца на боковой поверхности шеи'],
+    middle_scalene:['./anatomy-neck.png','Средняя лестничная мышца на боковой поверхности шеи'],
+    posterior_scalene:['./anatomy-neck.png','Задняя лестничная мышца на боковой поверхности шеи'],
+    digastric:['./anatomy-neck.png','Двубрюшная мышца в поднижнечелюстной области']
+  };
+
+  const BONE_VISUALS={
+    'Кости черепа':['./bones-skull.svg','Кости черепа, вид сбоку'],
+    'Кости верхней конечности':['./bones-upper-limb.svg?v=2','Кости плечевого пояса и верхней конечности с русскими подписями'],
+    'Позвоночник / грудная клетка':['./bones-spine.png','Позвоночный столб и его отделы'],
+    'Позвонки':['./bones-vertebrae.png','Атлант, осевой и типичные шейные позвонки'],
+    'Кости таза / нижней конечности':['./bones-lower-limb.svg?v=2','Кости таза и нижней конечности с русскими подписями']
+  };
+
   function visualForEntry(entry){
-    if(!entry||['terms','safety'].includes(entry.category))return null;
-    const text=normalize(`${entry.title} ${entry.subtitle} ${entry.keywords||''}`);
-    if(/дельтовид/.test(text))return{src:'./anatomy-deltoid.png',alt:'Дельтовидная мышца: передний, средний и задний пучки',detail:true};
-    if(/череп|лиц|голов|ше(я|и)|шей|атлант|осев|c1|c2/.test(text))return{src:'./anatomy-neck.png',alt:'Анатомическая схема мышц и ориентиров головы и шеи'};
-    if(/плеч|лопат|ключиц|рук|локт|предплеч|кист|пальц|дельтовид|двуглав|трехглав|трёхглав/.test(text))return{src:'./anatomy-upper-limb.png',alt:'Анатомическая схема плечевого пояса и верхней конечности'};
-    if(/таз|ягод|крестц|тазобедр/.test(text))return{src:'./anatomy-gluteal.png',alt:'Анатомическая схема таза и ягодичной области'};
-    if(/приводящ|медиальн.*бедр|внутренн.*бедр/.test(text))return{src:'./anatomy-adductors.png',alt:'Анатомическая схема приводящих мышц бедра'};
-    if(/голен|икронож|камбал|ахилл|стоп|лодыж/.test(text))return{src:'./anatomy-calf.png',alt:'Анатомическая схема голени и стопы'};
-    if(/бедр|колен|надколен|нога|нижн.*конеч/.test(text))return{src:'./anatomy-leg.png',alt:'Анатомическая схема бедра и колена'};
-    if(/спин|позвон|позвоноч|груд|пояснич|ребр|туловищ/.test(text))return{src:'./anatomy-back.png',alt:'Анатомическая схема спины и туловища'};
-    return null;
+    if(!entry||['terms','safety','palpation'].includes(entry.category))return null;
+    const id=String(entry.id||'').split(':').at(-1);
+    const row=entry.category==='bones'?BONE_VISUALS[entry.subtitle]:VERIFIED_MUSCLE_VISUALS[id];
+    if(!row)return null;
+    const name=String(entry.title||'').replace(/^Движения:\s*/i,'');
+    return{src:row[0],alt:row[1],detail:!!row[2],caption:row[2]?'Дельтовидная мышца: три пучка, функции и места прикрепления':`Проверенная схема: ${name}`};
   }
 
   function injectStyles(){
@@ -378,7 +425,7 @@
       badge.textContent=CATEGORY_LABELS[entry.category];
       body.appendChild(badge);
       const visual=visualForEntry(entry);
-      if(visual){const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');figure.className=visual.detail?'referencevisual referencevisual--detail':'referencevisual';image.src=visual.src;image.alt=visual.alt;image.loading='lazy';image.decoding='async';caption.textContent=visual.detail?'Дельтовидная мышца: три пучка, функции и места прикрепления':`Схема области: ${entry.subtitle||entry.title}`;figure.append(image,caption);body.appendChild(figure)}
+      if(visual){const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');figure.className=visual.detail?'referencevisual referencevisual--detail':'referencevisual';image.src=visual.src;image.alt=visual.alt;image.loading='lazy';image.decoding='async';caption.textContent=visual.caption;figure.append(image,caption);body.appendChild(figure)}
       if(entry.lead){const lead=document.createElement('p');lead.textContent=entry.lead;body.appendChild(lead)}
       if(entry.sections.length){
         const list=document.createElement('dl');
