@@ -159,10 +159,10 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
 }
 @media(max-width:650px){
   .navlinks{display:none!important}
-  .mobiletabbar{grid-template-columns:repeat(5,minmax(0,1fr))!important}
-  .mobiletabbar button{min-width:0;padding-inline:1px!important;font-size:clamp(11px,3vw,12px)!important;letter-spacing:-.02em;white-space:nowrap}
+  .mobiletabbar{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .mobiletabbar button{min-width:0;padding-inline:1px!important;font-size:10px!important;letter-spacing:-.025em;white-space:nowrap}
   .professional-head{display:grid}
-  .professional-head .btn{justify-self:start}
+  .professional-head>.btn{display:none}
   .professional-progress{grid-template-columns:1fr 1fr}
   .professional-progress>div:last-of-type{grid-column:1/-1}
   .professional-tabs{grid-template-columns:1fr 1fr}
