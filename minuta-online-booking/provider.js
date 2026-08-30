@@ -12,6 +12,8 @@ let ownServices = [];
 let clientNotes = new Map();
 let selectedClientPhone = '';
 let repeatTime = '';
+let bookingEditTime = '';
+let newBookingTime = '';
 let scheduleRows = [];
 let daysOff = [];
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
@@ -33,6 +35,18 @@ function escapeHtml(value) {
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
+function bookingIsCompleted(item) {
+  if (item.status !== 'confirmed') return false;
+  const start = new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`);
+  return new Date(start.getTime() + Number(item.duration_minutes || item.services?.duration_minutes || 60) * 60000) < new Date();
+}
+function bookingStatus(item, long = false) {
+  if (item.status === 'cancelled') return long ? 'Запись отменена' : 'Отменена';
+  if (bookingIsCompleted(item)) return 'Завершена';
+  if (item.status === 'confirmed') return 'Подтверждена';
+  return long ? 'Новая запись' : 'Новая';
+}
+function bookingStatusClass(item) { return bookingIsCompleted(item) ? 'completed' : item.status; }
 function showFormError(id, message) { const element = $(id); element.textContent = message; element.hidden = false; }
 function clearFormError(id) { $(id).hidden = true; }
 function notify(message) {
@@ -167,7 +181,7 @@ function timelineBounds(items) {
   let end = schedule?.enabled === false ? 20 * 60 : minutesFromTime(schedule?.end_time || '20:00');
   items.forEach(item => {
     const itemStart = minutesFromTime(item.booking_time);
-    const itemEnd = itemStart + Number(item.services?.duration_minutes || 60);
+    const itemEnd = itemStart + Number(item.duration_minutes || item.services?.duration_minutes || 60);
     start = Math.min(start, Math.floor(itemStart / 60) * 60);
     end = Math.max(end, Math.ceil(itemEnd / 60) * 60);
   });
@@ -190,12 +204,13 @@ function renderTimeline(items) {
   }
   const cards = items.map(item => {
     const itemStart = minutesFromTime(item.booking_time);
-    const duration = Number(item.services?.duration_minutes || 60);
+    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
     const top = ((itemStart - start) / 60) * hourHeight;
     const height = Math.max(36, (duration / 60) * hourHeight - 4);
-    const statusText = item.status === 'new' ? 'Новая' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
+    const statusText = bookingStatus(item);
+    const statusClass = bookingStatusClass(item);
     const compact = height < 54 ? ' compact' : '';
-    return `<button class="timeline-booking status-${item.status}${compact}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}">
+    return `<button class="timeline-booking status-${statusClass}${compact}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
       <span class="timeline-booking-copy"><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${escapeHtml(item.client_name)} · ${duration} мин</small></span>
       <span class="timeline-booking-status">${statusText}</span>
@@ -216,14 +231,15 @@ function renderBookingList(items) {
   holder.innerHTML = items.map(item => {
     const itemDate = new Date(`${item.booking_date}T12:00:00`);
     const time = String(item.booking_time).slice(0, 5);
-    const statusText = item.status === 'new' ? 'Новая' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
+    const statusText = bookingStatus(item);
+    const statusClass = bookingStatusClass(item);
     const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
-    return `<article class="provider-booking status-${item.status}">
+    return `<article class="provider-booking status-${statusClass}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
       <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small></div>
-      ${item.status !== 'cancelled' ? `<div class="booking-actions">${item.status === 'new' ? `<button type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
+      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${item.status === 'new' ? `<button type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
     </article>`;
   }).join('');
 }
@@ -232,17 +248,167 @@ function openBookingSheet(id) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item) return;
   const date = new Date(`${item.booking_date}T12:00:00`);
-  const duration = Number(item.services?.duration_minutes || 60);
-  const statusText = item.status === 'new' ? 'Новая запись' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
+  const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+  const statusText = bookingStatus(item, true);
+  const statusClass = bookingStatusClass(item);
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
+  const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
-    <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${item.status}">${statusText}</span></div>
+    <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
     <div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div>
     <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
-    ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
+    ${note ? `<div class="booking-sheet-note"><small>Заметка о клиенте</small><p>${escapeHtml(note)}</p></div>` : ''}
+    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+}
+
+function serviceOptions(selectedId, activeOnly = false) {
+  const services = activeOnly ? ownServices.filter(item => item.active) : ownServices;
+  return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${item.duration_minutes} мин · ${money(item.price_rub)}</option>`).join('');
+}
+
+async function loadBookingEditSlots(id, preserveCurrent = false) {
+  const item = allBookings.find(booking => booking.id === id);
+  const service = $('#editBookingService')?.value;
+  const date = $('#editBookingDate')?.value;
+  const holder = $('#editBookingTimes');
+  if (!item || !service || !date || !holder) return;
+  if (!preserveCurrent) bookingEditTime = '';
+  holder.innerHTML = '<span>Ищем свободное время…</span>';
+  const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date, p_ignore_booking: item.id });
+  if (error || !data?.length) {
+    holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
+    return;
+  }
+  const times = data.map(slot => String(slot.booking_time).slice(0, 5));
+  if (preserveCurrent && service === item.service_id && date === item.booking_date && times.includes(String(item.booking_time).slice(0, 5))) bookingEditTime = String(item.booking_time).slice(0, 5);
+  holder.innerHTML = times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" data-edit-booking-time="${time}">${time}</button>`).join('');
+}
+
+function openBookingEditor(id) {
+  const item = allBookings.find(booking => booking.id === id);
+  if (!item) return;
+  bookingEditTime = String(item.booking_time).slice(0, 5);
+  const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
+  $('#bookingSheetContent').innerHTML = `<button class="booking-editor-back" type="button" data-back-booking="${item.id}">← К записи</button>
+    <small class="booking-sheet-kicker">Изменение записи</small><h2 id="bookingSheetTitle">Перенести или изменить</h2>
+    <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
+      <label>Услуга<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
+      <label>Новая дата<input id="editBookingDate" type="date" min="${localIsoDate(new Date())}" value="${item.booking_date}" required></label>
+      <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
+      <label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="3" placeholder="Пожелания, особенности или важная информация">${escapeHtml(note)}</textarea></label>
+      <p class="form-error" id="bookingEditError" hidden></p>
+      <button class="primary" type="submit">Сохранить изменения</button>
+    </form>`;
+  $('#editBookingService').addEventListener('change', () => loadBookingEditSlots(id));
+  $('#editBookingDate').addEventListener('change', () => loadBookingEditSlots(id));
+  $('#bookingEditForm').addEventListener('submit', saveBookingChanges);
+  loadBookingEditSlots(id, true);
+}
+
+async function saveBookingChanges(event) {
+  event.preventDefault();
+  const id = event.currentTarget.dataset.bookingId;
+  const item = allBookings.find(booking => booking.id === id);
+  const service = ownServices.find(entry => entry.id === $('#editBookingService').value);
+  const date = $('#editBookingDate').value;
+  if (!item || !service || !date || !bookingEditTime) {
+    showFormError('#bookingEditError', 'Выберите услугу, дату и свободное время.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('bookings').update({ service_id: service.id, duration_minutes: service.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` }).eq('id', id).eq('performer_id', currentUser.id);
+  if (error) {
+    button.disabled = false;
+    button.textContent = 'Сохранить изменения';
+    showFormError('#bookingEditError', 'Это время уже занято. Выберите другой вариант.');
+    await loadBookingEditSlots(id);
+    return;
+  }
+  const phone = normalizePhone(item.client_phone);
+  const note = $('#editBookingNote').value.trim();
+  await db.from('client_notes').upsert({ performer_id: currentUser.id, client_phone: phone, note, updated_at: new Date().toISOString() });
+  clientNotes.set(phone, note);
+  selectedDate = date;
+  renderDateStrip();
+  await loadBookings();
+  notify('Запись обновлена');
+  openBookingSheet(id);
+}
+
+async function loadNewBookingSlots() {
+  const service = $('#newBookingService')?.value;
+  const date = $('#newBookingDate')?.value;
+  const holder = $('#newBookingTimes');
+  if (!service || !date || !holder) return;
+  newBookingTime = '';
+  holder.innerHTML = '<span>Ищем свободное время…</span>';
+  const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date });
+  if (error || !data?.length) {
+    holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
+    return;
+  }
+  holder.innerHTML = data.map(slot => { const time = String(slot.booking_time).slice(0, 5); return `<button type="button" data-new-booking-time="${time}">${time}</button>`; }).join('');
+}
+
+function openNewBookingSheet() {
+  const services = ownServices.filter(item => item.active);
+  const date = selectedDate < localIsoDate(new Date()) ? localIsoDate(new Date()) : selectedDate;
+  newBookingTime = '';
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручная запись</small><h2 id="bookingSheetTitle">Новый клиент</h2>
+    ${services.length ? `<form class="booking-editor-form" id="newBookingForm">
+      <div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div>
+      <label>Услуга<select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
+      <label>Дата<input id="newBookingDate" type="date" min="${localIsoDate(new Date())}" value="${date}" required></label>
+      <label>Свободное время<div class="repeat-times booking-editor-times" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
+      <label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Необязательно"></textarea></label>
+      <p class="form-error" id="newBookingError" hidden></p><button class="primary" type="submit">Создать запись</button>
+    </form>` : '<div class="provider-empty booking-sheet-empty"><span>＋</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>'}`;
+  $('#bookingSheet').hidden = false;
+  document.body.classList.add('booking-sheet-open');
+  if (!services.length) return;
+  $('#newBookingService').addEventListener('change', loadNewBookingSlots);
+  $('#newBookingDate').addEventListener('change', loadNewBookingSlots);
+  $('#newBookingForm').addEventListener('submit', createNewBooking);
+  loadNewBookingSlots();
+}
+
+async function createNewBooking(event) {
+  event.preventDefault();
+  const name = $('#newBookingName').value.trim();
+  const phone = $('#newBookingPhone').value.trim();
+  const service = $('#newBookingService').value;
+  const date = $('#newBookingDate').value;
+  if (name.length < 2 || normalizePhone(phone).length < 10 || !service || !date || !newBookingTime) {
+    showFormError('#newBookingError', 'Укажите имя, телефон и выберите свободное время.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Создаём…';
+  const { error } = await db.rpc('provider_book_appointment', { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone });
+  if (error) {
+    button.disabled = false;
+    button.textContent = 'Создать запись';
+    showFormError('#newBookingError', 'Это время уже занято. Выберите другое.');
+    await loadNewBookingSlots();
+    return;
+  }
+  const note = $('#newBookingNote').value.trim();
+  const normalizedPhone = normalizePhone(phone);
+  if (note) {
+    await db.from('client_notes').upsert({ performer_id: currentUser.id, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
+    clientNotes.set(normalizedPhone, note);
+  }
+  selectedDate = date;
+  renderDateStrip();
+  closeBookingSheet();
+  await loadBookings();
+  notify('Новая запись создана');
 }
 
 function closeBookingSheet() {
@@ -327,8 +493,8 @@ function renderClientDetail(phone) {
   loadRepeatSlots();
   const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
   $('#clientHistory').innerHTML = history.map(item => {
-    const status = item.status === 'new' ? 'Новая' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
-    return `<article class="client-history-item status-${item.status}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
+    const status = bookingStatus(item);
+    return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
   }).join('');
 }
 
@@ -662,7 +828,7 @@ async function loadBookings() {
   const holder = $('#providerBookings');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   const { data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,status,services(name,price_rub,duration_minutes)')
+    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,services(name,price_rub,duration_minutes)')
     .eq('performer_id', currentUser.id)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
@@ -681,6 +847,10 @@ document.addEventListener('click', async event => {
   const journalView = event.target.closest('[data-journal-mode]');
   const date = event.target.closest('[data-booking-date]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const editBooking = event.target.closest('[data-edit-booking]');
+  const backBooking = event.target.closest('[data-back-booking]');
+  const editTime = event.target.closest('[data-edit-booking-time]');
+  const newTime = event.target.closest('[data-new-booking-time]');
   const closeSheet = event.target.closest('[data-close-booking-sheet]');
   const toggle = event.target.closest('[data-toggle-service]');
   const remove = event.target.closest('[data-delete-service]');
@@ -698,6 +868,16 @@ document.addEventListener('click', async event => {
     setFilter('day');
   }
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
+  if (backBooking) openBookingSheet(backBooking.dataset.backBooking);
+  if (editTime) {
+    bookingEditTime = editTime.dataset.editBookingTime;
+    $$('[data-edit-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.editBookingTime === bookingEditTime));
+  }
+  if (newTime) {
+    newBookingTime = newTime.dataset.newBookingTime;
+    $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
+  }
   if (closeSheet) closeBookingSheet();
   if (client) renderClientDetail(client.dataset.clientPhone);
   if (repeat) {
@@ -721,7 +901,8 @@ document.addEventListener('click', async event => {
     else { notify('Исключение удалено'); await loadDaysOff(); }
   }
   if (booking) {
-    await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId);
+    const { error } = await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId).eq('performer_id', currentUser.id);
+    if (error) { notify('Не удалось обновить запись'); return; }
     closeBookingSheet();
     notify('Статус записи обновлён');
     await loadBookings();
@@ -747,6 +928,7 @@ $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());
 $('#refreshBookings').addEventListener('click', loadBookings);
+$('#newBookingButton').addEventListener('click', openNewBookingSheet);
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#dayOffDate').min = localIsoDate(new Date());
