@@ -9,7 +9,7 @@
   --home-width: 760px;
   --control-height: 46px;
   --section-gap: 24px;
-  --primary-action: color-mix(in srgb, var(--accent) 62%, #3f5263);
+  --primary-action: color-mix(in srgb, var(--accent) 65%, #8a8a8a);
 }
 
 html {
