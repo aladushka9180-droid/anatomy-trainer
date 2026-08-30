@@ -5,6 +5,7 @@ const state = { booking: null, dates: [], availability: new Map(), date: '', tim
 
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
+function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
 
@@ -20,7 +21,7 @@ function renderBooking() {
   const item = state.booking;
   const date = new Date(`${item.booking_date}T12:00:00`);
   const statusMap = { new: 'Новая', confirmed: 'Подтверждена', cancelled: 'Отменена' };
-  $('#manageService').textContent = item.service_name;
+  $('#manageService').textContent = serviceName(item.service_name);
   $('#manageStatus').textContent = statusMap[item.status] || item.status;
   $('#manageStatus').className = `manage-status status-${item.status}`;
   $('#manageDay').textContent = String(date.getDate());

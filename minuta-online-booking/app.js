@@ -23,6 +23,7 @@ function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} 
 function selectedService() { return state.services.find(item => item.id === state.serviceId); }
 function selectedDate() { return dates.find(item => item.iso === state.date); }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
+function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 
 async function loadServices() {
   const holder = $('#services');
@@ -42,7 +43,7 @@ function renderServices() {
     return;
   }
   $('#toDate').disabled = false;
-  holder.innerHTML = state.services.map((item, index) => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="service-symbol service-${(index % 3) + 1}">${['✦', '◇', '⌁'][index % 3]}</span><span class="option-main"><strong>${escapeHtml(item.name)}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span><span class="chevron">›</span></button>`).join('');
+  holder.innerHTML = state.services.map((item, index) => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="service-symbol service-${(index % 3) + 1}">${['✦', '◇', '⌁'][index % 3]}</span><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span><span class="chevron">›</span></button>`).join('');
 }
 
 function renderDates() {
@@ -132,7 +133,7 @@ async function showStep(step) {
 
 function renderSummary() {
   const service = selectedService();
-  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(service.name)} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label} в ${state.time}</span>`;
+  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label} в ${state.time}</span>`;
 }
 function formatPhone(value) { let digits = value.replace(/\D/g, '').slice(0, 11); if (!digits) return ''; if (digits[0] === '8') digits = `7${digits.slice(1)}`; if (digits[0] !== '7') digits = `7${digits}`.slice(0, 11); const p = digits.slice(1); return `+7${p.length ? ` (${p.slice(0, 3)}` : ''}${p.length >= 3 ? ')' : ''}${p.length > 3 ? ` ${p.slice(3, 6)}` : ''}${p.length > 6 ? `-${p.slice(6, 8)}` : ''}${p.length > 8 ? `-${p.slice(8, 10)}` : ''}`; }
 function showError(message) { $('#formError').textContent = message; $('#formError').hidden = false; }
@@ -163,7 +164,7 @@ async function submitBooking(event) {
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
   $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
-  $('#successDetails').innerHTML = `${escapeHtml(service.name)} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label} в ${state.time}`;
+  $('#successDetails').innerHTML = `${escapeHtml(serviceName(service.name))} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label} в ${state.time}`;
   $('#successCode').innerHTML = `Номер записи: <strong>${escapeHtml(code)}</strong>`;
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
@@ -197,4 +198,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=14'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=15'));

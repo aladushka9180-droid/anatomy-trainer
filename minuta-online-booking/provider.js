@@ -31,6 +31,7 @@ function escapeHtml(value) {
   return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
+function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function showFormError(id, message) { const element = $(id); element.textContent = message; element.hidden = false; }
 function clearFormError(id) { $(id).hidden = true; }
 function notify(message) {
@@ -158,7 +159,7 @@ function renderBookings() {
     const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
     return `<article class="provider-booking status-${item.status}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
-      <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(item.services?.name || 'Услуга')}</h3><span class="booking-status">${statusText}</span></div>
+      <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
       <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small></div>
       ${item.status !== 'cancelled' ? `<div class="booking-actions">${item.status === 'new' ? `<button type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
@@ -231,7 +232,7 @@ function renderClientDetail(phone) {
   const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
   $('#clientHistory').innerHTML = history.map(item => {
     const status = item.status === 'new' ? 'Новая' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
-    return `<article class="client-history-item status-${item.status}"><div><strong>${escapeHtml(item.services?.name || 'Услуга')}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
+    return `<article class="client-history-item status-${item.status}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
   }).join('');
 }
 
@@ -239,7 +240,7 @@ function populateRepeatServices() {
   const select = $('#repeatService');
   const active = ownServices.filter(item => item.active);
   const previous = select.value;
-  select.innerHTML = active.length ? active.map(item => `<option value="${item.id}">${escapeHtml(item.name)} · ${item.duration_minutes} мин</option>`).join('') : '<option value="">Сначала добавьте услугу</option>';
+  select.innerHTML = active.length ? active.map(item => `<option value="${item.id}">${escapeHtml(serviceName(item.name))} · ${item.duration_minutes} мин</option>`).join('') : '<option value="">Сначала добавьте услугу</option>';
   if (active.some(item => item.id === previous)) select.value = previous;
 }
 
@@ -557,7 +558,7 @@ async function loadOwnServices() {
     list.innerHTML = '<div class="provider-empty"><span>＋</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>';
     return;
   }
-  list.innerHTML = data.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(item.name)}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)}</small></div></div><div class="manage-actions"><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
+  list.innerHTML = data.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)}</small></div></div><div class="manage-actions"><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
 }
 
 async function loadBookings() {
