@@ -20,13 +20,24 @@
     'anatomy_professional_learning_v1'
   ];
   const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#64748b'];
-  const AVATARS = ['👐', '🌿', '🧠', '💪', '🦴', '⭐'];
+  const AVATARS = ['care', 'balance', 'anatomy', 'motion', 'study', 'focus'];
+  const LEGACY_AVATARS = {'👐': 'care', '🌿': 'balance', '🧠': 'anatomy', '💪': 'motion', '🦴': 'study', '⭐': 'focus'};
+  const AVATAR_ICONS = {
+    care: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c2.5 0 4.2 1.1 5.5 3.5 1.3-2.4 3-3.5 5.5-3.5 2.7 0 4.5 1.7 5 4.5-2.8 1.8-5.5 2.7-8 2.7S6.8 19.8 4 18c.5-2.8 2.3-4.5 5-4.5"/><path d="M12 16c-2.7-1.6-4.2-3.6-4.2-5.7A2.8 2.8 0 0 1 12 7.9a2.8 2.8 0 0 1 4.2 2.4c0 2.1-1.5 4.1-4.2 5.7Z"/></svg>',
+    balance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20c-4.7 0-8-2.2-8-5.5 3.7-.2 6.4 1.2 8 4.2 1.6-3 4.3-4.4 8-4.2 0 3.3-3.3 5.5-8 5.5Z"/><path d="M12 18.5c-2.5-2.1-3.7-4.4-3.7-6.8S9.5 7.1 12 4c2.5 3.1 3.7 5.3 3.7 7.7S14.5 16.4 12 18.5Z"/></svg>',
+    anatomy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7-4.1-7-10.1A4.1 4.1 0 0 1 12 7.5a4.1 4.1 0 0 1 7 2.9c0 6-7 10.1-7 10.1Z"/><path d="M4.7 13h4l1.5-3 2.5 6 1.6-3H20"/></svg>',
+    motion: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><path d="m8 21 2-6-3-3 3-3 4 2 3-2"/><path d="m10 9 2 4 4 2 2 5"/></svg>',
+    study: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5c2.8-.8 5.5-.3 8 1.5v13c-2.5-1.8-5.2-2.3-8-1.5Z"/><path d="M20 5.5c-2.8-.8-5.5-.3-8 1.5v13c2.5-1.8 5.2-2.3 8-1.5Z"/></svg>',
+    focus: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>',
+    guest: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 20c.5-4 2.7-6 6.5-6s6 2 6.5 6"/></svg>'
+  };
   const guestMemory = new Map();
 
   const makeId = () => `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   const cleanName = (value) => String(value || '').trim().replace(/\s+/g, ' ').slice(0, 30);
   const safeColor = (value) => COLORS.includes(value) ? value : COLORS[0];
-  const safeAvatar = (value) => AVATARS.includes(value) ? value : AVATARS[0];
+  const safeAvatar = (value) => AVATARS.includes(value) ? value : (LEGACY_AVATARS[value] || AVATARS[0]);
+  const avatarMarkup = (value) => AVATAR_ICONS[value === 'guest' ? 'guest' : safeAvatar(value)];
   const storageKey = (profileId, key) => `${PREFIX}${profileId}__${key}`;
   const readRegistry = () => {
     try {
@@ -79,8 +90,8 @@
   migrateLegacyData();
 
   const currentProfile = () => registry.activeId === GUEST_ID
-    ? {id: GUEST_ID, name: 'Гость', color: '#94a3b8', avatar: '👤', guest: true}
-    : (registry.profiles.find((item) => item.id === registry.activeId) || registry.profiles[0] || {id: GUEST_ID, name: 'Гость', color: '#94a3b8', avatar: '👤', guest: true});
+    ? {id: GUEST_ID, name: 'Гость', color: '#94a3b8', avatar: 'guest', guest: true}
+    : (registry.profiles.find((item) => item.id === registry.activeId) || registry.profiles[0] || {id: GUEST_ID, name: 'Гость', color: '#94a3b8', avatar: 'guest', guest: true});
 
   const storage = {
     getItem(key) {
@@ -222,10 +233,10 @@
     const list = document.querySelector('#profileList');
     if (!list) return;
     const active = currentProfile();
-    const profiles = [...registry.profiles, {id: GUEST_ID, name: 'Гость', color: '#94a3b8', avatar: '👤', guest: true}];
+    const profiles = [...registry.profiles, {id: GUEST_ID, name: 'Гость', color: '#94a3b8', avatar: 'guest', guest: true}];
     list.innerHTML = profiles.map((profile) => `
       <button type="button" class="profilechoice${active.id === profile.id ? ' active' : ''}" data-profile-id="${profile.id}" aria-pressed="${active.id === profile.id}">
-        <span class="profileavatar" style="--profile-color:${profile.color}" aria-hidden="true">${profile.avatar}</span>
+        <span class="profileavatar" style="--profile-color:${profile.color}" aria-hidden="true">${avatarMarkup(profile.avatar)}</span>
         <span><strong>${escapeHtml(profile.name)}</strong><small>${profile.guest ? 'Без сохранения результатов' : active.id === profile.id ? 'Сейчас занимается' : 'Прогресс хранится отдельно'}</small></span>
         <span class="profilecheck" aria-hidden="true">${active.id === profile.id ? '✓' : '→'}</span>
       </button>`).join('');
@@ -240,7 +251,7 @@
     const profile = currentProfile();
     document.querySelectorAll('[data-current-profile-name]').forEach((element) => { element.textContent = profile.name; });
     document.querySelectorAll('[data-current-profile-avatar]').forEach((element) => {
-      element.textContent = profile.avatar;
+      element.innerHTML = avatarMarkup(profile.avatar);
       element.style.setProperty('--profile-color', profile.color);
     });
     const note = document.querySelector('#profileDataNote');
