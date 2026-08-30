@@ -345,6 +345,7 @@ function openBookingEditor(id) {
   if (!item) return;
   bookingEditTime = String(item.booking_time).slice(0, 5);
   const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
+  $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<button class="booking-editor-back" type="button" data-back-booking="${item.id}">← К записи</button>
     <small class="booking-sheet-kicker">Изменение записи</small><h2 id="bookingSheetTitle">Перенести или изменить</h2>
     <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
@@ -355,6 +356,8 @@ function openBookingEditor(id) {
       <p class="form-error" id="bookingEditError" hidden></p>
       <button class="primary" type="submit">Сохранить изменения</button>
     </form>`;
+  $('#bookingSheet').hidden = false;
+  document.body.classList.add('booking-sheet-open');
   $('#editBookingService').addEventListener('change', () => loadBookingEditSlots(id));
   $('#editBookingDate').addEventListener('change', () => loadBookingEditSlots(id));
   $('#bookingEditForm').addEventListener('submit', saveBookingChanges);
