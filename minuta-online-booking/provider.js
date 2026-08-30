@@ -473,7 +473,15 @@ async function createNewBooking(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Создаём…';
-  const { error } = await db.rpc('provider_book_appointment', { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone });
+  const bookingParams = { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone };
+  let { error } = await db.rpc('provider_book_appointment', bookingParams);
+  const technicalProviderError = error && (
+    ['42501', '42883', 'PGRST202'].includes(String(error.code || ''))
+    || /permission denied|could not find the function|does not exist/i.test(String(error.message || ''))
+  );
+  if (technicalProviderError) {
+    ({ error } = await db.rpc('book_appointment', bookingParams));
+  }
   if (error) {
     button.disabled = false;
     button.textContent = 'Создать запись';
