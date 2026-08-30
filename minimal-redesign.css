@@ -4885,3 +4885,121 @@ body.firstvisit #continueCard {
     display: none;
   }
 }
+
+/* v62: mobile header and home screen keep clear spacing at every text size. */
+@media (max-width: 650px) {
+  body .appnav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+    align-items: center;
+    gap: 8px;
+    width: calc(100% - 20px);
+    min-height: 0;
+    padding: 11px 12px;
+  }
+
+  body .appnav .brand {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  body .appnav h1 {
+    min-width: 0;
+    font-size: 21px;
+    line-height: 1.2;
+    white-space: normal;
+  }
+
+  body .appnav .brandlink {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow-wrap: normal;
+  }
+
+  body .mobile-profile-btn,
+  body .mobile-settings-btn {
+    position: static;
+    top: auto;
+    right: auto;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 10px;
+  }
+
+  body .mobile-profile-btn {
+    grid-column: 2;
+  }
+
+  body .mobile-settings-btn {
+    grid-column: 3;
+  }
+
+  body .appnav .homestats {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  body .appnav .homestats .badge {
+    padding-block: 2px;
+  }
+
+  #menu .homehero h2 {
+    max-width: 18ch;
+    font-size: clamp(29px, 8vw, 32px);
+    line-height: 1.1;
+  }
+
+  #menu .homehero p {
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  #menu .continuecard,
+  #menu .beginnerstart {
+    padding: 16px;
+  }
+
+  #menu .beginnerstart > p,
+  #menu .continuecard #continueMeta {
+    display: none;
+  }
+
+  #menu .continuecard {
+    gap: 8px;
+  }
+
+  body .mobiletabbar {
+    padding: 4px;
+    border-radius: 12px;
+  }
+
+  body .mobiletabbar button {
+    min-height: 46px;
+    border-radius: 9px;
+  }
+}
+
+@media (max-width: 370px) {
+  body .appnav {
+    grid-template-columns: minmax(0, 1fr) 42px 42px;
+    gap: 6px;
+    width: calc(100% - 12px);
+    padding-inline: 10px;
+  }
+
+  body .appnav h1 {
+    font-size: 19px;
+  }
+
+  body .mobile-profile-btn,
+  body .mobile-settings-btn {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+  }
+}
