@@ -464,6 +464,8 @@ async function createNewBooking(event) {
   const phone = $('#newBookingPhone').value.trim();
   const service = $('#newBookingService').value;
   const date = $('#newBookingDate').value;
+  const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
+  newBookingTime = newBookingTime || selectedButtonTime || newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || newBookingSlots[0] || '';
   if (name.length < 2 || normalizePhone(phone).length < 10 || !service || !date || !newBookingTime) {
     showFormError('#newBookingError', 'Укажите имя, телефон и выберите свободное время.');
     return;
@@ -475,8 +477,16 @@ async function createNewBooking(event) {
   if (error) {
     button.disabled = false;
     button.textContent = 'Создать запись';
-    showFormError('#newBookingError', 'Это время уже занято. Выберите другое.');
+    const reason = String(error.message || '');
+    const message = reason.includes('slot_unavailable')
+      ? 'Это время уже занято. Выберите другое.'
+      : reason.includes('service_unavailable')
+        ? 'Услуга недоступна для записи. Обновите список услуг.'
+        : reason.includes('invalid_client_data')
+          ? 'Проверьте имя и номер телефона клиента.'
+          : 'Не удалось создать запись. Обновите страницу и попробуйте ещё раз.';
     await loadNewBookingSlots();
+    showFormError('#newBookingError', message);
     return;
   }
   const note = $('#newBookingNote').value.trim();
