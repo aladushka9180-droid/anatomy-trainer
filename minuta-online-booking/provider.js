@@ -5,6 +5,7 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 let currentUser = null;
 let currentFilter = 'day';
+let journalMode = localStorage.getItem('massage-journal-mode') || 'timeline';
 let selectedDate = localIsoDate(new Date());
 let allBookings = [];
 let ownServices = [];
@@ -104,8 +105,23 @@ function setProviderView(view) {
 }
 function setFilter(filter) {
   currentFilter = filter;
+  if (filter !== 'day' && journalMode === 'timeline') journalMode = 'list';
   $$('[data-filter]').forEach(button => button.classList.toggle('active', button.dataset.filter === filter));
+  updateJournalModeButtons();
   renderBookings();
+}
+
+function setJournalMode(mode) {
+  journalMode = mode === 'list' ? 'list' : 'timeline';
+  if (journalMode === 'timeline') currentFilter = 'day';
+  localStorage.setItem('massage-journal-mode', journalMode);
+  $$('[data-filter]').forEach(button => button.classList.toggle('active', button.dataset.filter === currentFilter));
+  updateJournalModeButtons();
+  renderBookings();
+}
+
+function updateJournalModeButtons() {
+  $$('[data-journal-mode]').forEach(button => button.classList.toggle('active', button.dataset.journalMode === journalMode));
 }
 
 function renderDateStrip() {
@@ -138,15 +154,60 @@ function filteredBookings() {
   return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date === selectedDate);
 }
 
-function renderBookings() {
-  const holder = $('#providerBookings');
-  const items = filteredBookings();
+function minutesFromTime(value) {
+  const [hours, minutes] = String(value || '00:00').slice(0, 5).split(':').map(Number);
+  return (hours * 60) + minutes;
+}
+
+function timelineBounds(items) {
   const date = new Date(`${selectedDate}T12:00:00`);
-  const today = localIsoDate(new Date());
-  $('#selectedDateTitle').textContent = selectedDate === today ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
-  $('#selectedDateSummary').textContent = currentFilter === 'day'
-    ? (items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : 'Свободный день')
-    : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
+  const weekday = ((date.getDay() + 6) % 7) + 1;
+  const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+  let start = schedule?.enabled === false ? 10 * 60 : minutesFromTime(schedule?.start_time || '10:00');
+  let end = schedule?.enabled === false ? 20 * 60 : minutesFromTime(schedule?.end_time || '20:00');
+  items.forEach(item => {
+    const itemStart = minutesFromTime(item.booking_time);
+    const itemEnd = itemStart + Number(item.services?.duration_minutes || 60);
+    start = Math.min(start, Math.floor(itemStart / 60) * 60);
+    end = Math.max(end, Math.ceil(itemEnd / 60) * 60);
+  });
+  if (end <= start) end = start + 60;
+  return { start, end };
+}
+
+function renderTimeline(items) {
+  const holder = $('#providerBookings');
+  const { start, end } = timelineBounds(items);
+  const hourHeight = window.matchMedia('(max-width: 760px)').matches ? 56 : 64;
+  const totalHeight = ((end - start) / 60) * hourHeight;
+  const labels = [];
+  const lines = [];
+  for (let minute = start; minute <= end; minute += 60) {
+    const label = `${String(Math.floor(minute / 60)).padStart(2, '0')}:00`;
+    const top = ((minute - start) / 60) * hourHeight;
+    labels.push(`<span class="timeline-hour" style="top:${top}px">${label}</span>`);
+    lines.push(`<i class="timeline-grid-line" style="top:${top}px" aria-hidden="true"></i>`);
+  }
+  const cards = items.map(item => {
+    const itemStart = minutesFromTime(item.booking_time);
+    const duration = Number(item.services?.duration_minutes || 60);
+    const top = ((itemStart - start) / 60) * hourHeight;
+    const height = Math.max(36, (duration / 60) * hourHeight - 4);
+    const statusText = item.status === 'new' ? 'Новая' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
+    const compact = height < 54 ? ' compact' : '';
+    return `<button class="timeline-booking status-${item.status}${compact}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}">
+      <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
+      <span class="timeline-booking-copy"><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${escapeHtml(item.client_name)} · ${duration} мин</small></span>
+      <span class="timeline-booking-status">${statusText}</span>
+    </button>`;
+  }).join('');
+  holder.className = 'provider-bookings timeline-view';
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage">${lines.join('')}${cards || '<div class="timeline-empty-state"><span>✓</span><strong>День свободен</strong><small>Новых записей пока нет</small></div>'}</div></div>`;
+}
+
+function renderBookingList(items) {
+  const holder = $('#providerBookings');
+  holder.className = 'provider-bookings schedule-list';
   if (!items.length) {
     holder.innerHTML = '<div class="provider-empty schedule-empty"><span>✓</span><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>';
     return;
@@ -165,6 +226,41 @@ function renderBookings() {
       ${item.status !== 'cancelled' ? `<div class="booking-actions">${item.status === 'new' ? `<button type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
     </article>`;
   }).join('');
+}
+
+function openBookingSheet(id) {
+  const item = allBookings.find(booking => booking.id === id);
+  if (!item) return;
+  const date = new Date(`${item.booking_date}T12:00:00`);
+  const duration = Number(item.services?.duration_minutes || 60);
+  const statusText = item.status === 'new' ? 'Новая запись' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
+  const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
+    <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
+    <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${item.status}">${statusText}</span></div>
+    <div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div>
+    <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
+    ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
+  $('#bookingSheet').hidden = false;
+  document.body.classList.add('booking-sheet-open');
+}
+
+function closeBookingSheet() {
+  $('#bookingSheet').hidden = true;
+  document.body.classList.remove('booking-sheet-open');
+}
+
+function renderBookings() {
+  const holder = $('#providerBookings');
+  const items = filteredBookings();
+  const date = new Date(`${selectedDate}T12:00:00`);
+  const today = localIsoDate(new Date());
+  $('#selectedDateTitle').textContent = selectedDate === today ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+  $('#selectedDateSummary').textContent = currentFilter === 'day'
+    ? (items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : 'Свободный день')
+    : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
+  if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
+  else renderBookingList(items);
 }
 
 function buildClients() {
@@ -470,6 +566,7 @@ async function loadSchedule() {
   scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index > 0, start_time: '10:00', end_time: '20:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
   $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
   renderSchedule();
+  renderBookings();
 }
 
 async function saveSchedule() {
@@ -581,7 +678,10 @@ document.addEventListener('click', async event => {
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
   const filter = event.target.closest('[data-filter]');
+  const journalView = event.target.closest('[data-journal-mode]');
   const date = event.target.closest('[data-booking-date]');
+  const openBooking = event.target.closest('[data-open-booking]');
+  const closeSheet = event.target.closest('[data-close-booking-sheet]');
   const toggle = event.target.closest('[data-toggle-service]');
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
@@ -591,11 +691,14 @@ document.addEventListener('click', async event => {
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) setProviderView(view.dataset.providerView);
   if (filter) setFilter(filter.dataset.filter);
+  if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (date) {
     selectedDate = date.dataset.bookingDate;
     renderDateStrip();
     setFilter('day');
   }
+  if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (closeSheet) closeBookingSheet();
   if (client) renderClientDetail(client.dataset.clientPhone);
   if (repeat) {
     repeatTime = repeat.dataset.repeatTime;
@@ -619,10 +722,14 @@ document.addEventListener('click', async event => {
   }
   if (booking) {
     await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId);
+    closeBookingSheet();
     notify('Статус записи обновлён');
     await loadBookings();
   }
 });
+
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#bookingSheet').hidden) closeBookingSheet(); });
+updateJournalModeButtons();
 
 $('#loginForm').addEventListener('submit', login);
 $('#signupForm').addEventListener('submit', signup);

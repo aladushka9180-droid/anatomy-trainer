@@ -13,7 +13,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -86,7 +86,13 @@
           </div>
           <section class="schedule-card">
             <div class="date-strip" id="dateStrip" aria-label="Выбор даты"></div>
-            <div class="schedule-toolbar"><div><strong id="selectedDateTitle">Сегодня</strong><span id="selectedDateSummary">Записей нет</span></div><div class="booking-filters"><button class="active" type="button" data-filter="day">День</button><button type="button" data-filter="upcoming">Будущие</button><button type="button" data-filter="all">Все</button></div></div>
+            <div class="schedule-toolbar">
+              <div><strong id="selectedDateTitle">Сегодня</strong><span id="selectedDateSummary">Записей нет</span></div>
+              <div class="schedule-controls">
+                <div class="journal-mode-toggle" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline"><span aria-hidden="true">◷</span> Лента</button><button type="button" data-journal-mode="list"><span aria-hidden="true">☷</span> Список</button></div>
+                <div class="booking-filters"><button class="active" type="button" data-filter="day">День</button><button type="button" data-filter="upcoming">Будущие</button><button type="button" data-filter="all">Все</button></div>
+              </div>
+            </div>
             <div class="provider-bookings schedule-list" id="providerBookings"></div>
           </section>
         </section>
@@ -192,9 +198,17 @@
       </nav>
     </section>
   </main>
+  <div class="booking-sheet" id="bookingSheet" hidden>
+    <button class="booking-sheet-backdrop" type="button" data-close-booking-sheet aria-label="Закрыть карточку записи"></button>
+    <section class="booking-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bookingSheetTitle">
+      <div class="booking-sheet-handle" aria-hidden="true"></div>
+      <button class="booking-sheet-close" type="button" data-close-booking-sheet aria-label="Закрыть">×</button>
+      <div id="bookingSheetContent"></div>
+    </section>
+  </div>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=15"></script>
-  <script src="provider.js?v=15" defer></script>
+  <script src="config.js?v=16"></script>
+  <script src="provider.js?v=16" defer></script>
 </body>
 </html>
