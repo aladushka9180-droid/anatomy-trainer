@@ -275,10 +275,20 @@
     };
   }
 
+  function contextVisual(title='') {
+    const text=String(title).toLowerCase();
+    if(/плеч|локт|лучезап|лопат|ключиц/.test(text))return{src:'./anatomy-upper-limb.png',alt:'Схема плечевого пояса и верхней конечности'};
+    if(/тазобедр|таз|ягод/.test(text))return{src:'./anatomy-gluteal.png',alt:'Схема таза и ягодичной области'};
+    if(/колен|бедр/.test(text))return{src:'./anatomy-leg.png',alt:'Схема бедра и колена'};
+    if(/голеностоп|стоп|голен/.test(text))return{src:'./anatomy-calf.png',alt:'Схема голени и стопы'};
+    if(/шей|атлант|голов/.test(text))return{src:'./anatomy-neck.png',alt:'Схема головы и шеи'};
+    return{src:'./anatomy-back.png',alt:'Схема спины и туловища'};
+  }
+
   function infoCards(rows, type) {
-    return `<div class="anatomy-grid${rows.length===1?' single':''}">${rows.map(row => `<article class="anatomy-info-card"><h4>${esc(row.title)}</h4><dl>${type === 'joint'
+    return `<div class="anatomy-grid${rows.length===1?' single':''}">${rows.map(row => {const visual=contextVisual(row.title);return `<article class="anatomy-info-card"><figure class="anatomy-context-visual"><img src="${esc(visual.src)}" alt="${esc(visual.alt)}" loading="lazy" decoding="async"><figcaption>Сначала найдите область на схеме, затем прочитайте признаки ниже.</figcaption></figure><h4>${esc(row.title)}</h4><dl>${type === 'joint'
       ? `<dt>Тип сустава</dt><dd>${esc(row.type)}</dd><dt>Что соединяется</dt><dd>${esc(row.bones)}</dd><dt>Движения</dt><dd>${esc(row.moves)}</dd><dt>Что обеспечивает устойчивость</dt><dd>${esc(row.stability)}</dd><dt>Зачем массажисту</dt><dd>${esc(row.why)}</dd><dt>Безопасность</dt><dd class="anatomy-note">${esc(row.caution)}</dd>`
-      : `<dt>Где находится</dt><dd>${esc(row.where)}</dd><dt>Что делает</dt><dd>${esc(row.role)}</dd><dt>Какое движение ограничивает</dt><dd>${esc(row.limits)}</dd><dt>Практический смысл</dt><dd>${esc(row.practice)}</dd><dt>Как запомнить</dt><dd class="anatomy-note">${esc(row.remember)}</dd>`}</dl><button type="button" class="textbutton" data-anatomy-reference="${esc(row.title)}">Найти в справочнике →</button></article>`).join('')}</div>`;
+      : `<dt>Где находится</dt><dd>${esc(row.where)}</dd><dt>Что делает</dt><dd>${esc(row.role)}</dd><dt>Какое движение ограничивает</dt><dd>${esc(row.limits)}</dd><dt>Практический смысл</dt><dd>${esc(row.practice)}</dd><dt>Как запомнить</dt><dd class="anatomy-note">${esc(row.remember)}</dd>`}</dl><button type="button" class="textbutton" data-anatomy-reference="${esc(row.title)}">Найти в справочнике →</button></article>`}).join('')}</div>`;
   }
 
   function topicSelector(rows,label) {
@@ -478,5 +488,5 @@
   window.addEventListener('anatomy-course-test-finished',event=>{const kind=event.detail?.kind,pct=Number(event.detail?.pct)||0;if(kind&&pct>=80){passed.add(kind);viewed.add(kind);save();syncTabs();if(active===kind)renderContent();}});
 
   activate(active);
-  window.AnatomyLearning = { open(){ syncTabs(); } };
+  window.AnatomyLearning = { open(moduleId=''){ if (moduleId && modules.some(row => row[0] === moduleId)) activate(moduleId); else syncTabs(); } };
 })();

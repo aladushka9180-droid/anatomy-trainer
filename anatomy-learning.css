@@ -87,6 +87,9 @@
 .anatomy-info-card dl { margin: 0; }
 .anatomy-info-card dt { margin-top: 9px; color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; }
 .anatomy-info-card dd { margin: 2px 0 0; }
+.anatomy-context-visual { margin: -15px -15px 14px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+.anatomy-context-visual img { display: block; width: 100%; height: 210px; object-fit: contain; }
+.anatomy-context-visual figcaption { padding: 8px 12px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .anatomy-note { padding: 10px 12px; border-left: 4px solid var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 10%, var(--surface2)); }
 
 .motion-card { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; align-items: center; }

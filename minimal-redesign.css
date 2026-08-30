@@ -2478,6 +2478,129 @@ html[data-tint="on"][data-theme="atlas"] {
   white-space: pre-line;
 }
 
+.assistant-answer-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.assistant-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.assistant-next-actions .btn {
+  min-height: 42px;
+}
+
+.installappcard {
+  display: grid;
+  gap: 12px;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+.installappcard h3,
+.installappcard p {
+  margin: 4px 0 0;
+}
+
+.installinstructions {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface2);
+}
+
+.materialfeedbackcount {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.questionreport {
+  margin: 10px 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.questionreport > summary {
+  padding: 11px 13px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.questionreport form {
+  display: grid;
+  gap: 10px;
+  padding: 0 13px 13px;
+}
+
+.questionreport label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.questionreport textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  resize: vertical;
+  background: var(--surface2);
+  color: var(--text);
+  font: inherit;
+}
+
+.questionreport form > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.questionreport form > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reviewfacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.reviewfacts > div {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface2);
+}
+
+.reviewfacts span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reviewdisclosure {
+  padding: 10px 12px;
+  border-left: 4px solid #c98500;
+  border-radius: 8px;
+  background: color-mix(in srgb, #f5c451 12%, var(--surface));
+}
+
 .referenceask {
   width: 100%;
   margin-top: 12px;
@@ -2515,6 +2638,15 @@ html[data-tint="on"][data-theme="atlas"] {
   }
 
   .assistantactions .btn {
+    width: 100%;
+  }
+
+  .assistant-next-actions,
+  .reviewfacts {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-next-actions .btn {
     width: 100%;
   }
 

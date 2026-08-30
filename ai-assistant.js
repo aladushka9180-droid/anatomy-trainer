@@ -919,6 +919,35 @@
     if (element) element.textContent = value || "";
   }
 
+  function renderAssistantResponse(container, text, result, query) {
+    if (!container) return;
+    container.replaceChildren();
+    const answer = document.createElement('p');
+    answer.className = 'assistant-answer-text';
+    answer.textContent = text || '';
+    container.append(answer);
+    if (result.blockedReason === 'personal_data' || result.blockedReason === 'urgent_signal') return;
+    const topic = result.sources?.[0]?.title || result.matches?.[0]?.title || query;
+    if (!topic) return;
+    const actions = document.createElement('div');
+    actions.className = 'assistant-next-actions';
+    const reference = document.createElement('button');
+    reference.type = 'button';
+    reference.className = 'btn secondary';
+    reference.dataset.assistantOpenReference = topic;
+    reference.textContent = result.intent === 'safety' ? 'Открыть правила безопасности' : 'Открыть в справочнике';
+    actions.append(reference);
+    if (!['safety', 'clinical'].includes(result.intent)) {
+      const anatomy = document.createElement('button');
+      anatomy.type = 'button';
+      anatomy.className = 'btn secondary';
+      anatomy.dataset.assistantOpenAnatomy = topic;
+      anatomy.textContent = 'Показать на анатомической схеме';
+      actions.append(anatomy);
+    }
+    container.append(actions);
+  }
+
   function renderReferenceResults(container, matches) {
     if (!container) return;
     container.replaceChildren();
@@ -994,7 +1023,7 @@
       setText(assistantStatus, config.endpoint ? "Ищу в справочнике и уточняю объяснение…" : "Ищу объяснение в справочнике…");
       const result = await ask(query);
       const urgent = (result.warnings || []).filter((warning) => warning !== GENERIC_SAFETY);
-      setText(assistantAnswer, [...urgent, result.answer].filter(Boolean).join("\n\n"));
+      renderAssistantResponse(assistantAnswer, [...urgent, result.answer].filter(Boolean).join("\n\n"), result, query);
       setText(assistantMode, result.mode === "remote" ? "ИИ-объяснение · проверено по справочнику" : "Локальное объяснение · работает без интернета");
       if (result.blockedReason === "personal_data") {
         assistantInput.value = "";
@@ -1030,10 +1059,21 @@
       refreshSearch();
     }));
     scope.addEventListener("click", (event) => {
+      const openReference = event.target.closest('[data-assistant-open-reference]');
+      if (openReference) {
+        window.dispatchEvent(new CustomEvent('anatomy-reference-open-query', {detail: {query: openReference.dataset.assistantOpenReference || ''}}));
+        return;
+      }
+      const openAnatomy = event.target.closest('[data-assistant-open-anatomy]');
+      if (openAnatomy) {
+        window.dispatchEvent(new CustomEvent('anatomy-open-course', {detail: {query: openAnatomy.dataset.assistantOpenAnatomy || ''}}));
+        return;
+      }
       const target = event.target.closest("[data-assistant-query],[data-ai-prompt]");
       if (!target || !assistantInput) return;
       assistantInput.value = target.dataset.assistantQuery || target.dataset.aiPrompt || "";
       assistantInput.focus();
+      if (target.matches('[data-ai-prompt]')) submitAssistant();
     });
     return {refreshSearch, submitAssistant};
   }

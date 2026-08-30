@@ -131,7 +131,12 @@
   }
 
   function defaultState() {
-    return { techniqueChecks: {}, checklistChecks: {}, scenarios: {}, journal: [] };
+    return { techniqueChecks: {}, mentorConfirmations: {}, checklistChecks: {}, scenarios: {}, journal: [] };
+  }
+
+  function normalizedFlags(value) {
+    if (!isRecord(value)) return {};
+    return Object.fromEntries(Object.entries(value).filter(([, checked]) => checked === true));
   }
 
   function normalizedChecks(value) {
@@ -181,6 +186,7 @@
       if (!isRecord(saved)) return defaultState();
       return {
         techniqueChecks: normalizedChecks(saved.techniqueChecks),
+        mentorConfirmations: normalizedFlags(saved.mentorConfirmations),
         checklistChecks: normalizedChecks(saved.checklistChecks),
         scenarios: normalizedScenarios(saved.scenarios),
         journal: normalizedJournal(saved.journal)
@@ -303,11 +309,11 @@
   function injectInterface() {
     const nav = $('.navlinks');
     if (nav && !$('#professionalShortcut')) {
-      nav.insertAdjacentHTML('afterbegin', '<button type="button" id="professionalShortcut" class="navbutton">Отработка</button>');
+      nav.insertAdjacentHTML('afterbegin', '<button type="button" id="professionalShortcut" class="navbutton">Практика</button>');
     }
     const mobile = $('.mobiletabbar');
     if (mobile && !$('#mobileProfessional')) {
-      mobile.insertAdjacentHTML('beforeend', '<button type="button" id="mobileProfessional">Отработка</button>');
+      mobile.insertAdjacentHTML('beforeend', '<button type="button" id="mobileProfessional">Практика</button>');
     }
     const main = $('main');
     if (!main || $('#professionalScreen')) return;
@@ -320,7 +326,7 @@
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
         <nav class="professional-tabs" role="tablist" aria-label="Разделы практического обучения">
           <button type="button" id="professionalTabTechniques" class="active" data-professional-tab="techniques" role="tab" aria-controls="professionalContent" aria-selected="true" tabindex="0">Приёмы</button>
-          <button type="button" id="professionalTabPractice" data-professional-tab="practice" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Отработка</button>
+          <button type="button" id="professionalTabPractice" data-professional-tab="practice" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Сценарии</button>
           <button type="button" id="professionalTabJournal" data-professional-tab="journal" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Журнал</button>
           <button type="button" id="professionalTabMyths" data-professional-tab="myths" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Миф или факт</button>
         </nav>
@@ -359,6 +365,7 @@
     });
     const scenariosDone = scenarioRows.filter(row => row.ready).length;
     const techniquesReady = techniqueRows.filter(row => row.ready).length;
+    const mentorConfirmed = techniqueRows.filter(row => row.ready && state.mentorConfirmations[row.item.id] === true).length;
     const checklistsReady = checklistRows.filter(row => row.ready).length;
     const competencyLevels = list(first(curriculum, ['competencyLevels']));
     const startedTechnique = techniqueRows.find(row => row.done > 0 && !row.ready);
@@ -393,7 +400,7 @@
     }
     const completedText = techniquesReady + checklistsReady + scenariosDone === 0
       ? (techniqueDone + checklistDone > 0 ? `Начатых шагов: ${techniqueDone + checklistDone}. Завершённых блоков пока нет.` : 'Завершённых блоков пока нет — начни с одного небольшого шага.')
-      : `По шагам разобрано приёмов: ${techniquesReady}; отработано областей: ${checklistsReady}; разобрано ситуаций: ${scenariosDone}.`;
+      : `По шагам разобрано приёмов: ${techniquesReady}; наставник наблюдал: ${mentorConfirmed}; отработано областей: ${checklistsReady}; разобрано ситуаций: ${scenariosDone}.`;
     host.innerHTML = `
       <section class="professional-next-step" aria-labelledby="professionalNextTitle">
         <div class="professional-next-copy"><span class="eyebrow">Твой следующий шаг</span><h3 id="professionalNextTitle">${esc(nextAction.title)}</h3>
@@ -436,6 +443,8 @@
     const item = techniques.find(row => row.id === activeTechnique) || techniques[0];
     const checklist = techniqueChecklist(item);
     const checked = state.techniqueChecks[item.id] || {};
+    const checklistComplete = checklist.length > 0 && checklist.every((_, index) => checked[index] === true);
+    const mentorConfirmed = checklistComplete && state.mentorConfirmations[item.id] === true;
     const fields = [
       ['Цель приёма', first(item, ['goal', 'purpose', 'summary'])],
       ['Положение клиента', first(item, ['clientPosition', 'startingPosition', 'startPosition', 'position'])],
@@ -470,7 +479,8 @@
             ${mistakes ? `<details class="technique-section"><summary><span>Ошибки и подсказки</span><small>Что чаще всего мешает качеству</small></summary><div class="technique-section-body">${mistakes}</div></details>` : ''}
             <details class="technique-section"><summary><span>Чек-лист отработки</span><small>${checklist.filter((_, index) => checked[index] === true).length}/${checklist.length} отмечено</small></summary><div class="technique-section-body"><section class="practice-checklist"><p>Отмечай пункт только после реальной отработки на учебном партнёре.</p>
               ${checklist.map((step, index) => `<label><input type="checkbox" data-technique-check="${index}" ${checked[index] === true ? 'checked' : ''}><span>${esc(typeof step === 'string' ? step : first(step, ['text', 'label', 'title']))}</span></label>`).join('')}
-              <div class="practice-ready technique-next-step ${checklist.length && checklist.every((_, index) => checked[index] === true) ? '' : 'hidden'}"><strong>Все пункты самостоятельной отработки отмечены.</strong><span>Следующий шаг — повторить приём в другой день и показать преподавателю очно.</span></div>
+              <div class="practice-ready technique-next-step ${checklistComplete ? '' : 'hidden'}"><strong>Все пункты самостоятельной отработки отмечены.</strong><span>Следующий шаг — повторить приём в другой день и показать преподавателю очно.</span></div>
+              <div class="mentor-confirmation"><strong>Подтверждение наблюдения</strong><label class="${checklistComplete ? '' : 'not-ready'}"><input type="checkbox" data-technique-mentor ${mentorConfirmed ? 'checked' : ''} ${checklistComplete ? '' : 'disabled'}><span>Наставник или преподаватель лично наблюдал выполнение этого приёма.</span></label><small>Это локальная отметка ученика, а не сертификат и не автоматическое подтверждение квалификации.</small></div>
             </section></div></details>
           </div>
           <p class="source-note">Проверка материала: ${esc(first(item, ['reviewDate', 'checkedAt', 'reviewedAt'], curriculum.reviewDate || '2026-08-29'))}. Практику выполняют только в пределах своей подготовки и компетенции.</p>
@@ -497,7 +507,14 @@
       const counter = input.closest('details')?.querySelector('summary small');
       if (counter) counter.textContent = `${techniqueInputs.filter(row => row.checked).length}/${techniqueInputs.length} отмечено`;
       $('.technique-next-step')?.classList.toggle('hidden', !complete);
+      const mentor=$('[data-technique-mentor]');
+      if(mentor){mentor.disabled=!complete;mentor.closest('label')?.classList.toggle('not-ready',!complete);if(!complete&&mentor.checked){mentor.checked=false;delete state.mentorConfirmations[item.id];saveState()}}
     }));
+    $('[data-technique-mentor]')?.addEventListener('change', event => {
+      if (event.currentTarget.checked) state.mentorConfirmations[item.id] = true;
+      else delete state.mentorConfirmations[item.id];
+      saveState();
+    });
   }
 
   function renderChecklistCards() {
