@@ -1,14 +1,52 @@
-const CACHE='anatomy-v66';
+const CACHE='anatomy-v68';
 const MOTION_IDS=['abduction','elbow','hip','knee','foot','head'];
-const MOTION_ASSETS=MOTION_IDS.flatMap(id=>Array.from({length:8},(_,index)=>`./anatomy-motion-v5/${id}/frame-${String(index+1).padStart(2,'0')}.webp`));
-const ASSETS=['./','./index.html','./minimal-redesign.css?v=54','./professional-learning.css?v=40','./anatomy-learning.css?v=8','./profiles.js?v=4','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js?v=2','./massage-techniques.js?v=38','./practice-curriculum.js?v=38','./professional-learning.js?v=44','./ai-assistant.js?v=42','./anatomy-learning.js?v=8','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg?v=2','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg?v=2','./practice-compression.png','./practice-percussion.png','./practice-passive-stretch.png','./anatomy-motion-v2/abduction-end.webp','./anatomy-motion-v2/elbow-end.webp','./anatomy-motion-v2/hip-end.webp','./anatomy-motion-v2/knee-end.webp','./anatomy-motion-v2/foot-end.webp','./anatomy-motion-v2/head-end.webp',...MOTION_ASSETS];
+const MOTION_ASSETS=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v6/${id}.mp4`,`./anatomy-motion-v5/${id}/frame-08.webp`]);
+const ASSETS=['./','./index.html','./minimal-redesign.css?v=54','./professional-learning.css?v=40','./anatomy-learning.css?v=10','./profiles.js?v=4','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js?v=2','./massage-techniques.js?v=38','./practice-curriculum.js?v=38','./professional-learning.js?v=44','./ai-assistant.js?v=42','./anatomy-learning.js?v=10','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg?v=2','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg?v=2','./practice-compression.png','./practice-percussion.png','./practice-passive-stretch.png',...MOTION_ASSETS];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('anatomy-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
+
+function parseRange(header,size){
+  const match=/^bytes=(\d*)-(\d*)$/.exec((header||'').trim());
+  if(!match||(!match[1]&&!match[2]))return null;
+  let start,end;
+  if(match[1]){
+    start=Number(match[1]);
+    end=match[2]?Number(match[2]):size-1;
+  }else{
+    const suffix=Number(match[2]);
+    if(!Number.isSafeInteger(suffix)||suffix<=0)return null;
+    start=Math.max(0,size-suffix);
+    end=size-1;
+  }
+  if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||start>=size)return null;
+  return {start,end:Math.min(end,size-1)};
+}
+
+async function cachedRangeResponse(request){
+  const cache=await caches.open(CACHE);
+  const cached=await cache.match(new Request(request.url));
+  if(!cached||cached.status!==200)return null;
+  const buffer=await cached.arrayBuffer();
+  const range=parseRange(request.headers.get('range'),buffer.byteLength);
+  if(!range)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${buffer.byteLength}`,'Accept-Ranges':'bytes'}});
+  const headers=new Headers(cached.headers);
+  headers.delete('content-encoding');
+  headers.set('Accept-Ranges','bytes');
+  headers.set('Content-Range',`bytes ${range.start}-${range.end}/${buffer.byteLength}`);
+  headers.set('Content-Length',String(range.end-range.start+1));
+  if(!headers.has('Content-Type'))headers.set('Content-Type','video/mp4');
+  return new Response(buffer.slice(range.start,range.end+1),{status:206,statusText:'Partial Content',headers});
+}
+
 self.addEventListener('fetch',e=>{
   const request=e.request,url=new URL(request.url);
   if(request.method!=='GET'||url.origin!==self.location.origin)return;
+  if(request.headers.has('range')&&url.pathname.endsWith('.mp4')){
+    e.respondWith(cachedRangeResponse(request).then(response=>response||fetch(request)));
+    return;
+  }
   e.respondWith(fetch(request).then(response=>{
-    if(response.ok){const copy=response.clone();e.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)));}
+    if(response.ok&&response.status===200){const copy=response.clone();e.waitUntil(caches.open(CACHE).then(cache=>cache.put(request,copy)));}
     return response;
   }).catch(()=>caches.match(request).then(cached=>cached||(request.mode==='navigate'?caches.match('./index.html'):undefined))));
 });

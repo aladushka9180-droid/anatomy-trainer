@@ -56,84 +56,85 @@
 
   function motionFrames(id, title) {
     const safeId = encodeURIComponent(id);
-    const frames = Array.from({length:8}, (_, index) => `./anatomy-motion-v5/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
-    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp"><div class="motion-stage" role="img" aria-label="${esc(title)}: покадровая анатомическая демонстрация движения"><img class="motion-frame" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
+    const video = `./anatomy-motion-v6/${safeId}.mp4`;
+    const poster = `./anatomy-motion-v5/${safeId}/frame-08.webp`;
+    return `<div class="motion-realistic" data-motion-player data-motion-poster="${poster}"><div class="motion-stage" role="img" aria-label="${esc(title)}: видео анатомического движения"><video class="motion-video" autoplay loop muted playsinline webkit-playsinline preload="auto" poster="${poster}" aria-hidden="true"><source src="${video}" type="video/mp4"></video><img class="motion-video-fallback" src="${poster}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
   }
 
   function initMotionPlayer() {
     motionCleanup();
     const player = host.querySelector('[data-motion-player]');
     if (!player) { motionCleanup = () => {}; return; }
-    const image = player.querySelector('.motion-frame');
+    const video = player.querySelector('.motion-video');
+    const source = video.querySelector('source');
+    const poster = player.querySelector('.motion-video-fallback');
     const toggle = player.querySelector('[data-motion-toggle]');
-    const frames = (player.dataset.motionFrames || '').split('|').filter(Boolean);
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const frameDuration = 120;
-    const endpointDuration = 260;
-    let frameIndex = 0;
-    let direction = 1;
-    let animationFrame = 0;
-    let lastTimestamp = 0;
-    let accumulator = 0;
     let userPaused = false;
     let inView = !('IntersectionObserver' in window);
     let fallbackShown = false;
-
-    frames.slice(1).forEach(src => { const preload = new Image(); preload.decoding = 'async'; preload.src = src; });
+    let playAttempt = 0;
 
     const motionDisabled = () => reduced.matches || document.documentElement.dataset.motion === 'off';
-    const stop = () => {
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-      animationFrame = 0;
-      lastTimestamp = 0;
+    const updateProgress = () => {
+      const progress = Number.isFinite(video.duration) && video.duration > 0 ? video.currentTime / video.duration * 100 : 0;
+      player.style.setProperty('--motion-progress', `${Math.max(0, Math.min(100, progress))}%`);
     };
-    const showFrame = index => {
-      if (!frames[index]) return;
-      if (image.dataset.motionSrc !== frames[index]) {
-        image.dataset.motionSrc = frames[index];
-        image.src = frames[index];
-      }
-      player.style.setProperty('--motion-progress', `${Math.round(index / (frames.length - 1) * 100)}%`);
+    const showPoster = () => {
+      playAttempt += 1;
+      video.pause();
+      video.hidden = true;
+      poster.hidden = false;
+      player.style.setProperty('--motion-progress', '100%');
     };
-    const currentDuration = () => frameIndex === 0 || frameIndex === frames.length - 1 ? endpointDuration : frameDuration;
-    const advanceFrame = () => {
-      if (frameIndex === frames.length - 1) direction = -1;
-      else if (frameIndex === 0) direction = 1;
-      frameIndex += direction;
-      showFrame(frameIndex);
+    const showVideo = () => {
+      video.hidden = false;
     };
-    const animate = timestamp => {
-      if (!animationFrame || fallbackShown) return;
-      if (!lastTimestamp) lastTimestamp = timestamp;
-      accumulator += timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-      while (accumulator >= currentDuration()) {
-        accumulator -= currentDuration();
-        advanceFrame();
-      }
-      animationFrame = window.requestAnimationFrame(animate);
+    const onPlaying = () => {
+      if (fallbackShown || motionDisabled() || userPaused || !inView || document.hidden) return;
+      video.hidden = false;
+      poster.hidden = true;
     };
-    const start = () => {
-      if (animationFrame || fallbackShown) return;
-      animationFrame = window.requestAnimationFrame(animate);
+    const onBuffering = () => {
+      if (fallbackShown || motionDisabled()) return;
+      video.hidden = false;
+      poster.hidden = false;
+    };
+    const syncToggle = () => {
+      toggle.disabled = false;
+      toggle.textContent = userPaused ? 'Продолжить' : 'Пауза';
+      toggle.setAttribute('aria-pressed', String(userPaused));
+    };
+    const play = () => {
+      showVideo();
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+      const attempt = ++playAttempt;
+      const result = video.play();
+      if (result?.then) result.then(() => {
+        if (attempt === playAttempt && !video.paused && video.readyState >= 3) onPlaying();
+      }).catch(() => {
+        if (attempt !== playAttempt || fallbackShown || motionDisabled() || userPaused || !inView || document.hidden) return;
+        if (video.error) { onError(); return; }
+        userPaused = true;
+        syncToggle();
+      });
     };
     const sync = () => {
-      stop();
       if (fallbackShown) return;
       if (motionDisabled()) {
-        frameIndex = frames.length - 1;
-        direction = -1;
-        accumulator = 0;
-        showFrame(frameIndex);
+        showPoster();
         toggle.disabled = true;
         toggle.textContent = 'Без движения';
         toggle.setAttribute('aria-pressed', 'true');
         return;
       }
-      toggle.disabled = false;
-      toggle.textContent = userPaused ? 'Продолжить' : 'Пауза';
-      toggle.setAttribute('aria-pressed', String(userPaused));
-      if (!userPaused && inView && !document.hidden) start();
+      showVideo();
+      syncToggle();
+      if (userPaused || !inView || document.hidden) { playAttempt += 1; video.pause(); }
+      else play();
     };
     const onToggle = () => { userPaused = !userPaused; sync(); };
     const onVisibility = () => sync();
@@ -141,10 +142,7 @@
     const onError = () => {
       if (fallbackShown) return;
       fallbackShown = true;
-      stop();
-      image.dataset.motionSrc = player.dataset.motionFallback || '';
-      image.src = image.dataset.motionSrc;
-      player.style.setProperty('--motion-progress', '100%');
+      showPoster();
       toggle.hidden = true;
     };
     const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
@@ -155,18 +153,33 @@
     const settingsObserver = new MutationObserver(sync);
     settingsObserver.observe(document.documentElement, {attributes:true, attributeFilter:['data-motion']});
     toggle.addEventListener('click', onToggle);
-    image.addEventListener('error', onError);
+    video.addEventListener('error', onError);
+    source.addEventListener('error', onError);
+    video.addEventListener('playing', onPlaying);
+    video.addEventListener('waiting', onBuffering);
+    video.addEventListener('stalled', onBuffering);
+    video.addEventListener('loadedmetadata', updateProgress);
+    video.addEventListener('timeupdate', updateProgress);
     document.addEventListener('visibilitychange', onVisibility);
     if (reduced.addEventListener) reduced.addEventListener('change', onReduced); else reduced.addListener(onReduced);
-    showFrame(0);
+    video.muted = true;
+    video.defaultMuted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
     sync();
 
     motionCleanup = () => {
-      stop();
+      video.pause();
       observer?.disconnect();
       settingsObserver.disconnect();
       toggle.removeEventListener('click', onToggle);
-      image.removeEventListener('error', onError);
+      video.removeEventListener('error', onError);
+      source.removeEventListener('error', onError);
+      video.removeEventListener('playing', onPlaying);
+      video.removeEventListener('waiting', onBuffering);
+      video.removeEventListener('stalled', onBuffering);
+      video.removeEventListener('loadedmetadata', updateProgress);
+      video.removeEventListener('timeupdate', updateProgress);
       document.removeEventListener('visibilitychange', onVisibility);
       if (reduced.removeEventListener) reduced.removeEventListener('change', onReduced); else reduced.removeListener(onReduced);
     };
