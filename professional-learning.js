@@ -8,7 +8,6 @@
     ? window.PRACTICE_CURRICULUM
     : {};
   const techniqueSources = Array.isArray(window.TECHNIQUE_SOURCES) ? window.TECHNIQUE_SOURCES : [];
-  const LESSON_PLAYLIST_ID = 'PL0QWH2rvIdsjtNyejciphmxdJR2PhS5I0';
   const TECHNIQUE_LESSONS = Object.freeze({
     effleurage: Object.freeze({ videoId: 'CZabcOzYZBI', index: 1, title: 'Поглаживание', duration: '7:59' }),
     friction: Object.freeze({ videoId: 'wdyDpeUqUpc', index: 3, title: 'Растирание', duration: '7:40' }),
@@ -92,21 +91,38 @@
     }).join('')}</ul><p>Источники подтверждают границы учебного материала и общие правила безопасности. Конкретный приём, силу и длительность воздействия определяют очная методика, состояние человека, назначение и локальный протокол; ссылки не подтверждают освоение навыка.</p></div></details>`;
   }
 
-  function lessonWatchUrl(lesson) {
-    return `https://www.youtube.com/watch?v=${lesson.videoId}&list=${LESSON_PLAYLIST_ID}&index=${lesson.index}`;
-  }
-
   function lessonCard(lesson, compact = false) {
     const title = `${lesson.title}. Уроки классического массажа`;
     return `<article class="video-lesson-card ${compact ? 'compact' : ''}">
-      <a class="video-poster" href="${esc(lessonWatchUrl(lesson))}" target="_blank" rel="noopener noreferrer" aria-label="Смотреть на YouTube: ${esc(title)}">
+      <button type="button" class="video-poster" data-inline-video="${esc(lesson.videoId)}" data-video-title="${esc(title)}" aria-label="Воспроизвести на этой странице: ${esc(title)}">
         <img src="https://i.ytimg.com/vi/${esc(lesson.videoId)}/hqdefault.jpg" alt="Обложка видеоурока «${esc(lesson.title)}»" loading="lazy" decoding="async">
         <span class="video-play" aria-hidden="true">▶</span><span class="video-duration">${esc(lesson.duration)}</span>
-      </a>
+      </button>
       <div class="video-lesson-copy"><h4>${esc(lesson.title)}</h4><p>${compact ? 'Наглядный показ базового приёма.' : 'Сначала посмотри движение целиком, затем повторяй медленно под наблюдением преподавателя или подготовленного партнёра.'}</p>
-        <a href="${esc(lessonWatchUrl(lesson))}" target="_blank" rel="noopener noreferrer">Открыть на YouTube</a>
+        <button type="button" class="textbutton inline-video-button" data-inline-video="${esc(lesson.videoId)}" data-video-title="${esc(title)}">Смотреть здесь</button>
       </div>
     </article>`;
+  }
+
+  function playInlineVideo(trigger) {
+    const card = trigger.closest('.video-lesson-card');
+    if (!card || card.classList.contains('playing')) return;
+    const videoId = String(trigger.dataset.inlineVideo || '');
+    if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return;
+    const title = trigger.dataset.videoTitle || 'Учебный видеоурок';
+    const frame = document.createElement('iframe');
+    frame.className = 'video-embed';
+    frame.title = title;
+    frame.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&playsinline=1`;
+    frame.loading = 'eager';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture';
+    frame.sandbox = 'allow-scripts allow-same-origin allow-presentation';
+    frame.allowFullscreen = true;
+    card.querySelector('.video-poster')?.replaceWith(frame);
+    card.classList.add('playing');
+    card.querySelectorAll('[data-inline-video]').forEach(button => { button.disabled = true; button.textContent = 'Видео открыто выше'; });
+    requestAnimationFrame(() => frame.focus());
   }
 
   function illustrationCard(illustration) {
@@ -126,13 +142,13 @@
     const illustration = TECHNIQUE_ILLUSTRATIONS[item.id];
     if (!lesson && !illustration) return '';
     if (lesson) {
-      return `<section class="technique-media" aria-labelledby="techniqueMediaTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядный урок</span><h4 id="techniqueMediaTitle">Посмотри технику перед отработкой</h4></div><a href="https://www.youtube.com/playlist?list=${LESSON_PLAYLIST_ID}" target="_blank" rel="noopener noreferrer">Весь плейлист</a></div>${lessonCard(lesson)}<p class="video-safety-note"><b>Важно:</b> видео помогает увидеть движение, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
+      return `<section class="technique-media" aria-labelledby="techniqueMediaTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядный урок</span><h4 id="techniqueMediaTitle">Посмотри технику перед отработкой</h4></div><span class="video-inline-note">Видео откроется здесь</span></div>${lessonCard(lesson)}<p class="video-safety-note"><b>Важно:</b> видео помогает увидеть движение, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
     }
     return `<section class="technique-media" aria-labelledby="techniqueMediaTitle"><div class="technique-media-head"><div><span class="eyebrow">Наглядная опора</span><h4 id="techniqueMediaTitle">Посмотри положение рук перед отработкой</h4></div></div>${illustrationCard(illustration)}<p class="video-safety-note"><b>Важно:</b> иллюстрация показывает общий принцип, но не заменяет очный показ, коррекцию рук и проверку противопоказаний.</p></section>`;
   }
 
   function lessonLibrary() {
-    return `<section class="video-library" aria-labelledby="videoLibraryTitle"><div class="video-library-head"><div><span class="eyebrow">Видео и наглядные примеры</span><h3 id="videoLibraryTitle">Базовые приёмы классического массажа</h3><p>Выбери приём: на обложке видно положение рук, а видео откроется на YouTube — на телефоне его можно смотреть в приложении.</p></div><a class="btn secondary" href="https://www.youtube.com/playlist?list=${LESSON_PLAYLIST_ID}" target="_blank" rel="noopener noreferrer">Все уроки на YouTube</a></div><div class="video-lesson-grid">${Object.values(TECHNIQUE_LESSONS).map(lesson => lessonCard(lesson, true)).join('')}</div><p class="video-safety-note"><b>Учебный порядок:</b> посмотри → назови цель и стоп-сигналы → повтори медленно → попроси обратную связь. Не копируй силу воздействия без очного обучения.</p></section>`;
+    return `<section class="video-library" aria-labelledby="videoLibraryTitle"><div class="video-library-head"><div><span class="eyebrow">Видео и наглядные примеры</span><h3 id="videoLibraryTitle">Базовые приёмы классического массажа</h3><p>Выбери приём: видео запустится прямо на этой странице и не уведёт из тренажёра.</p></div><span class="video-inline-note">4 коротких урока</span></div><div class="video-lesson-grid">${Object.values(TECHNIQUE_LESSONS).map(lesson => lessonCard(lesson, true)).join('')}</div><p class="video-safety-note"><b>Учебный порядок:</b> посмотри → назови цель и стоп-сигналы → повтори медленно → попроси обратную связь. Не копируй силу воздействия без очного обучения.</p></section>`;
   }
 
   function defaultState() {
@@ -845,5 +861,9 @@
     tabs[next].click();
   });
   $('#professionalScreen [data-go="menu"]')?.addEventListener('click', () => window.show?.('menu'));
+  $('#professionalScreen')?.addEventListener('click', event => {
+    const trigger = event.target.closest('[data-inline-video]');
+    if (trigger) playInlineVideo(trigger);
+  });
   window.ProfessionalLearning = { open: openProfessional, getProgress: () => JSON.parse(JSON.stringify(state)) };
 })();

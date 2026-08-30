@@ -43,6 +43,10 @@
 .video-poster::after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 55%,rgba(0,0,0,.58))}
 .video-play{position:absolute;z-index:1;inset:50% auto auto 50%;display:grid;place-items:center;width:54px;height:40px;border-radius:12px;background:#e62117;color:#fff;transform:translate(-50%,-50%);box-shadow:0 5px 18px rgba(0,0,0,.28)}
 .video-duration{position:absolute;z-index:1;right:8px;bottom:7px;padding:3px 6px;border-radius:5px;background:rgba(0,0,0,.78);font-size:.78em;font-weight:800;color:#fff}
+.video-embed{display:block;width:100%;min-width:0;aspect-ratio:16/9;border:0;border-radius:10px;background:#101522}
+.inline-video-button{padding:0;border:0;background:transparent;color:var(--professional-accent-strong);font:inherit;font-weight:800;cursor:pointer}
+.inline-video-button:disabled{color:var(--muted);cursor:default}
+.video-inline-note{color:var(--muted);font-size:.84em;font-weight:750;white-space:nowrap}
 .video-lesson-copy h4{margin:0 0 6px}.video-lesson-copy p{margin:0 0 8px;color:var(--muted);line-height:1.5}
 .video-safety-note{margin:11px 0 0;color:var(--muted);font-size:.86em;line-height:1.45}
 .video-library{margin:0 0 18px}.video-library-head p{max-width:720px;margin:7px 0 0;color:var(--muted);line-height:1.5}
