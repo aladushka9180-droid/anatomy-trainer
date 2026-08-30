@@ -5278,3 +5278,62 @@ body.firstvisit #continueCard {
     box-shadow: inset 0 2px 0 var(--accent);
   }
 }
+
+/* v69: keep the beginner view short and preserve contrast for every palette. */
+.statsdetails {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.statsdetails > summary {
+  min-height: 48px;
+  padding: 14px 2px;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.statsdetails > summary::-webkit-details-marker {
+  display: none;
+}
+
+.statsdetails > summary::after {
+  content: "＋";
+  float: right;
+  color: var(--accent-readable, var(--accent));
+}
+
+.statsdetails[open] > summary::after {
+  content: "−";
+}
+
+.statsdetailsbody {
+  padding-top: 2px;
+}
+
+.settinghint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.profilecheck,
+.trainingsettings .choicecheck,
+.anatomy-course-tab.viewed:not(.passed) span::after,
+.anatomy-course-tab.passed span::after {
+  color: var(--accent-readable, var(--accent));
+}
+
+@media (max-width: 650px) {
+  #quiz .answer {
+    line-height: 1.42;
+  }
+
+  .statsdetails {
+    margin-top: 14px;
+  }
+}

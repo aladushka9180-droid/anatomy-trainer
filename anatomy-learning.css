@@ -52,8 +52,8 @@
 .anatomy-course-tab span { color: var(--muted); font-size: 12px; }
 .anatomy-course-tab b { font-size: 14px; line-height: 1.25; }
 .anatomy-course-tab.active { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
-.anatomy-course-tab.viewed:not(.passed) span::after { content: " · просмотрено"; color: var(--accent); }
-.anatomy-course-tab.passed span::after { content: " · усвоено ✓"; color: var(--accent); }
+.anatomy-course-tab.viewed:not(.passed) span::after { content: " · просмотрено"; color: var(--accent-readable, var(--accent)); }
+.anatomy-course-tab.passed span::after { content: " · усвоено ✓"; color: var(--accent-readable, var(--accent)); }
 
 .anatomy-content-head { margin-bottom: 16px; }
 .anatomy-content-head h3 { margin: 0; font-size: clamp(23px, 4vw, 32px); }
