@@ -583,15 +583,18 @@ select:disabled {
 
 .questiondetails {
   display: grid;
-  max-width: 68ch;
-  gap: 7px;
-  margin-top: 13px;
+  max-width: 66ch;
+  gap: 0;
+  margin-top: 16px;
 }
 
 .questiondetail {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: clamp(16px, 1.55vw, 18px);
   font-weight: 450;
@@ -599,9 +602,19 @@ select:disabled {
   letter-spacing: 0;
 }
 
+.questiondetail:last-child {
+  border-bottom: 1px solid var(--border);
+}
+
 .questiondetail b {
   color: var(--text);
-  font-weight: 700;
+  font-size: .82em;
+  font-weight: 750;
+  letter-spacing: .015em;
+}
+
+.questiondetail > span:last-child {
+  min-width: 0;
 }
 
 #quiz .answer {
@@ -747,17 +760,19 @@ select:disabled {
 }
 
 #quiz .questionmeta {
-  margin: 22px 0 14px;
-  border-top: 1px solid var(--border);
+  margin: 0;
+  border-top: 0;
   border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
 }
 
 #quiz .questionmeta > summary {
   min-height: 42px;
   padding: 10px 2px;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 650;
   cursor: pointer;
 }
 
@@ -789,8 +804,15 @@ select:disabled {
 
   .questiondetail {
     grid-template-columns: 1fr;
-    gap: 2px;
+    gap: 3px;
+    padding: 9px 0;
     font-size: 16px;
+  }
+
+  .questiondetail b {
+    font-size: 12px;
+    letter-spacing: .045em;
+    text-transform: uppercase;
   }
 
   #quiz .questionmorebody {
