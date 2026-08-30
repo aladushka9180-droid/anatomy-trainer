@@ -203,6 +203,9 @@
   let activeTab = 'techniques';
   let activeTechnique = techniques[0]?.id || '';
   let practiceMode = 'checklists';
+  let activeChecklist = allChecklists()[0]?.id || '';
+  let journalFormOpen = false;
+  let mythsExpanded = false;
   let journalMessage = '';
 
   function saveState() {
@@ -325,6 +328,10 @@
         </nav>
         <div id="professionalContent" role="tabpanel" aria-labelledby="professionalTabTechniques" tabindex="0"></div>
       </section>`);
+    const dataPanel = document.querySelector('[data-settings-panel="data"] .resetlist');
+    if (dataPanel && !$('#clearProfessionalData')) {
+      dataPanel.insertAdjacentHTML('beforeend', `<div class="professional-data-settings"><strong>Данные практики</strong><span>Удалить журнал, отметки чек-листов и ответы на практические ситуации текущего профиля.</span><button type="button" id="clearProfessionalData" class="btn danger">Удалить данные практики</button></div>`);
+    }
   }
 
   function renderProfessionalProgress() {
@@ -359,14 +366,18 @@
       return steps.filter((_, index) => checked[index] === true).length >= required;
     }).length;
     const competencyLevels = list(first(curriculum, ['competencyLevels']));
+    const noProgress = techniquesReady + checklistsReady + scenariosDone === 0;
     host.innerHTML = `
-      <div><span>Приёмы с отмеченными чек-листами</span><strong>Выполнено: ${techniquesReady} из ${techniques.length}</strong><small>Отмечено шагов: ${techniqueDone} из ${techniqueTotal}</small></div>
-      <div><span>Чек-листы по областям тела</span><strong>Выполнено: ${checklistsReady} из ${allChecklists().length}</strong><small>Отмечено шагов: ${checklistDone} из ${checklistTotal}</small></div>
-      <div><span>Разобранные ситуации</span><strong>Выполнено: ${scenariosDone} из ${totalScenarios}</strong><small>Записей в журнале: ${state.journal.length}</small></div>
-      <div class="competency-route"><b>Маршрут освоения:</b>${competencyLevels.length
+      <section class="professional-progress-summary">
+        <div><span>Приёмы</span><strong>${techniquesReady}/${techniques.length}</strong><small>${techniqueDone} из ${techniqueTotal} шагов</small></div>
+        <div><span>Области</span><strong>${checklistsReady}/${allChecklists().length}</strong><small>${checklistDone} из ${checklistTotal} шагов</small></div>
+        <div><span>Ситуации</span><strong>${scenariosDone}/${totalScenarios}</strong><small>${state.journal.length} записей в журнале</small></div>
+        ${noProgress ? '<p>Начни с одного приёма или чек-листа по знакомой области — все показатели будут обновляться здесь.</p>' : ''}
+      </section>
+      <details class="competency-help"><summary>Как устроен путь освоения</summary><div class="competency-route">${competencyLevels.length
         ? competencyLevels.map((level, index) => `<span><i>${index + 1}</i>${esc(first(level, ['title']))}</span>`).join('')
-        : '<span><i>1</i>Знаю</span><span><i>2</i>Объясняю</span><span><i>3</i>Показываю</span><span><i>4</i>Проверено</span>'}</div>
-      <p><b>Важно:</b> отметки в приложении показывают выполненную тренировку, а не подтверждённое владение приёмом. Уровень «Проверено» может отметить только квалифицированный преподаватель после очной демонстрации.</p>`;
+        : '<span><i>1</i>Знаю</span><span><i>2</i>Объясняю</span><span><i>3</i>Показываю</span><span><i>4</i>Проверено</span>'}</div><p><b>Важно:</b> отметки показывают выполненную тренировку, а не подтверждённое владение приёмом. Уровень «Проверено» может отметить только квалифицированный преподаватель после очной демонстрации.</p></details>`;
+    wireDetails('details.competency-help');
   }
 
   function renderTechniques() {
@@ -388,32 +399,39 @@
       ['Давление, темп и длительность', first(item, ['dose', 'pressureTempoDuration', 'pressure'])],
       ['Нормальные ощущения', first(item, ['normalSensations', 'expectedSensations'])]
     ].filter(([, value]) => textRows(value).length);
+    const lesson = techniqueLesson(item);
+    const safety = `${titledList('Стоп-сигналы', first(item, ['stopSignals', 'stopSigns', 'redFlags']), 'warning')}${titledList('Где требуется осторожность', first(item, ['limitations', 'restrictedAreas', 'restrictedZones', 'contraindications']), 'caution')}`;
+    const mistakes = `${titledList('Частые ошибки', first(item, ['commonMistakes', 'mistakes']))}${titledList('Профессиональные подсказки', first(item, ['tips', 'professionalTips', 'proTips']))}`;
     host.innerHTML = `
       <div class="technique-layout">
-        <label class="technique-picker"><span>Выбери приём</span><select id="techniquePicker">
-          ${techniques.map(row => `<option value="${esc(row.id)}" ${row.id === item.id ? 'selected' : ''}>${esc(first(row, ['title', 'name']))}</option>`).join('')}
-        </select></label>
-        <aside class="technique-list" aria-label="Список массажных приёмов">
-          ${techniques.map(row => `<button type="button" data-technique-id="${esc(row.id)}" class="${row.id === item.id ? 'active' : ''}" aria-pressed="${row.id === item.id}"><strong>${esc(first(row, ['title', 'name']))}</strong><span>${esc(first(row, ['level', 'difficulty'], 'Базовый уровень'))}</span></button>`).join('')}
-        </aside>
+        <div class="technique-toolbar">
+          <label class="technique-picker"><span>Выбери приём</span><select id="techniquePicker">
+            ${techniques.map(row => `<option value="${esc(row.id)}" ${row.id === item.id ? 'selected' : ''}>${esc(first(row, ['title', 'name']))}</option>`).join('')}
+          </select></label>
+          <nav class="technique-nav" aria-label="Массажные приёмы">
+            ${techniques.map(row => `<button type="button" data-technique-id="${esc(row.id)}" class="${row.id === item.id ? 'active' : ''}" aria-pressed="${row.id === item.id}">${esc(first(row, ['title', 'name']))}</button>`).join('')}
+          </nav>
+        </div>
         <article class="technique-detail">
           <span class="eyebrow">${esc(first(item, ['level', 'difficulty'], 'Базовый уровень'))}</span>
           <h3>${esc(first(item, ['title', 'name']))}</h3>
           <p class="lead">${esc(first(item, ['summary', 'description', 'goal']))}</p>
-          ${techniqueLesson(item)}
-          <div class="skill-facts">${fields.map(([title, value]) => { const rows = textRows(value); return `<section><h4>${esc(title)}</h4>${rows.length > 1 ? `<ul>${rows.map(v => `<li>${esc(v)}</li>`).join('')}</ul>` : `<p>${esc(rows[0])}</p>`}</section>`; }).join('')}</div>
-          ${titledList('Стоп-сигналы', first(item, ['stopSignals', 'stopSigns', 'redFlags']), 'warning')}
-          ${titledList('Где требуется осторожность', first(item, ['limitations', 'restrictedAreas', 'restrictedZones', 'contraindications']), 'caution')}
-          ${titledList('Частые ошибки', first(item, ['commonMistakes', 'mistakes']))}
-          ${titledList('Профессиональные подсказки', first(item, ['tips', 'professionalTips', 'proTips']))}
-          <section class="practice-checklist"><h4>Практический чек-лист</h4><p>Отмечай пункт только после реальной отработки на учебном партнёре.</p>
-            ${checklist.map((step, index) => `<label><input type="checkbox" data-technique-check="${index}" ${checked[index] === true ? 'checked' : ''}><span>${esc(typeof step === 'string' ? step : first(step, ['text', 'label', 'title']))}</span></label>`).join('')}
-            <div class="practice-ready technique-next-step ${checklist.length && checklist.every((_, index) => checked[index] === true) ? '' : 'hidden'}"><strong>Все пункты самостоятельной отработки отмечены.</strong><span>Следующий шаг — повторить приём в другой день и показать преподавателю очно.</span></div>
-          </section>
+          <div class="technique-accordions">
+            <details class="technique-section" open><summary><span>Кратко о приёме</span><small>Цель и основной принцип</small></summary><div class="technique-section-body"><p>${esc(first(item, ['goal', 'purpose', 'summary']))}</p></div></details>
+            ${lesson ? `<details class="technique-section"><summary><span>Видео или схема</span><small>Наглядный показ положения рук</small></summary><div class="technique-section-body">${lesson}</div></details>` : ''}
+            <details class="technique-section"><summary><span>Как выполнять</span><small>Положение, направление и дозирование</small></summary><div class="technique-section-body"><div class="skill-facts">${fields.map(([title, value]) => { const rows = textRows(value); return `<section><h4>${esc(title)}</h4>${rows.length > 1 ? `<ul>${rows.map(v => `<li>${esc(v)}</li>`).join('')}</ul>` : `<p>${esc(rows[0])}</p>`}</section>`; }).join('')}</div></div></details>
+            ${safety ? `<details class="technique-section safety"><summary><span>Безопасность</span><small>Стоп-сигналы и зоны осторожности</small></summary><div class="technique-section-body">${safety}</div></details>` : ''}
+            ${mistakes ? `<details class="technique-section"><summary><span>Ошибки и подсказки</span><small>Что чаще всего мешает качеству</small></summary><div class="technique-section-body">${mistakes}</div></details>` : ''}
+            <details class="technique-section"><summary><span>Чек-лист отработки</span><small>${checklist.filter((_, index) => checked[index] === true).length}/${checklist.length} отмечено</small></summary><div class="technique-section-body"><section class="practice-checklist"><p>Отмечай пункт только после реальной отработки на учебном партнёре.</p>
+              ${checklist.map((step, index) => `<label><input type="checkbox" data-technique-check="${index}" ${checked[index] === true ? 'checked' : ''}><span>${esc(typeof step === 'string' ? step : first(step, ['text', 'label', 'title']))}</span></label>`).join('')}
+              <div class="practice-ready technique-next-step ${checklist.length && checklist.every((_, index) => checked[index] === true) ? '' : 'hidden'}"><strong>Все пункты самостоятельной отработки отмечены.</strong><span>Следующий шаг — повторить приём в другой день и показать преподавателю очно.</span></div>
+            </section></div></details>
+          </div>
           <p class="source-note">Проверка материала: ${esc(first(item, ['reviewDate', 'checkedAt', 'reviewedAt'], curriculum.reviewDate || '2026-08-29'))}. Практику выполняют только в пределах своей подготовки и компетенции.</p>
           ${techniqueSourceDetails(item)}
         </article>
       </div>`;
+    wireDetails('details.technique-section, details.technique-sources');
     $$('[data-technique-id]').forEach(button => button.addEventListener('click', () => {
       activeTechnique = button.dataset.techniqueId;
       renderTechniques();
@@ -428,7 +446,10 @@
       state.techniqueChecks[item.id] ||= {};
       state.techniqueChecks[item.id][input.dataset.techniqueCheck] = input.checked;
       saveState();
-      const complete = $$('[data-technique-check]').length > 0 && $$('[data-technique-check]').every(row => row.checked);
+      const techniqueInputs = $$('[data-technique-check]');
+      const complete = techniqueInputs.length > 0 && techniqueInputs.every(row => row.checked);
+      const counter = input.closest('details')?.querySelector('summary small');
+      if (counter) counter.textContent = `${techniqueInputs.filter(row => row.checked).length}/${techniqueInputs.length} отмечено`;
       $('.technique-next-step')?.classList.toggle('hidden', !complete);
     }));
   }
@@ -436,25 +457,25 @@
   function renderChecklistCards() {
     const rows = allChecklists();
     if (!rows.length) return '<div class="empty-state"><p>Практические чек-листы готовятся.</p></div>';
-    return `<div class="checklist-grid">${rows.map(item => {
-      const id = first(item, ['id'], uid('checklist'));
-      const steps = list(first(item, ['steps', 'checklist', 'items']));
-      const checked = state.checklistChecks[id] || {};
-      const completed = steps.filter((_, index) => checked[index] === true).length;
-      const pass = first(item, ['pass'], {});
-      const required = Number(first(pass, ['requiredSteps'], steps.length));
-      const ready = completed >= required;
-      const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['level']))].filter(Boolean).join(' · ');
-      return `<details class="practice-card" data-required-steps="${required}"><summary><span><strong>${esc(first(item, ['title', 'name']))}</strong><small>${esc(metadata)}</small></span><b>${ready ? 'Готов к показу' : `${completed}/${required}`}</b></summary>
-        <div class="practice-card-body">
-          ${first(item, ['purpose', 'goal']) ? `<p>${esc(first(item, ['purpose', 'goal']))}</p>` : ''}
-          ${titledList('Перед началом', first(item, ['prerequisites']), 'prerequisites')}
-          <p class="pass-rule"><b>Для самостоятельной отработки:</b> выполни ${required} обязательных шагов из ${steps.length}; критических ошибок — не более ${esc(first(pass, ['criticalErrorsAllowed'], 0))}.</p>
-          ${steps.map((step, index) => `<label class="practice-step ${typeof step === 'object' && step.critical ? 'critical-step' : ''}"><input type="checkbox" data-checklist-id="${esc(id)}" data-checklist-step="${index}" ${checked[index] === true ? 'checked' : ''}><span>${esc(typeof step === 'string' ? step : first(step, ['text', 'label', 'title']))}${typeof step === 'object' && step.critical ? '<small>Критически важный шаг</small>' : ''}</span></label>`).join('')}
-          ${titledList('Критические ошибки', first(item, ['criticalErrors', 'stopErrors'], criticalErrorsFor(item)), 'warning')}
-          <div class="practice-ready checklist-next-step ${ready ? '' : 'hidden'}"><strong>Все обязательные пункты чек-листа отмечены.</strong><span>Это не допуск к самостоятельной работе: покажи весь чек-лист преподавателю без подсказок.</span></div>
-        </div></details>`;
-    }).join('')}</div>`;
+    if (!rows.some(item => item.id === activeChecklist)) activeChecklist = rows[0].id;
+    const item = rows.find(row => row.id === activeChecklist) || rows[0];
+    const id = first(item, ['id'], uid('checklist'));
+    const steps = list(first(item, ['steps', 'checklist', 'items']));
+    const checked = state.checklistChecks[id] || {};
+    const completed = steps.filter((_, index) => checked[index] === true).length;
+    const pass = first(item, ['pass'], {});
+    const required = Number(first(pass, ['requiredSteps'], steps.length));
+    const ready = completed >= required;
+    const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['level']))].filter(Boolean).join(' · ');
+    return `<div class="checklist-grid"><details class="practice-card" data-required-steps="${required}" open><summary><span><strong>${esc(first(item, ['title', 'name']))}</strong><small>${esc(metadata)}</small></span><b>${ready ? 'Готов к показу' : `${completed}/${required}`}</b></summary>
+      <div class="practice-card-body">
+        ${first(item, ['purpose', 'goal']) ? `<p>${esc(first(item, ['purpose', 'goal']))}</p>` : ''}
+        ${titledList('Перед началом', first(item, ['prerequisites']), 'prerequisites')}
+        <p class="pass-rule"><b>Для самостоятельной отработки:</b> выполни ${required} обязательных шагов из ${steps.length}; критических ошибок — не более ${esc(first(pass, ['criticalErrorsAllowed'], 0))}.</p>
+        ${steps.map((step, index) => `<label class="practice-step ${typeof step === 'object' && step.critical ? 'critical-step' : ''}"><input type="checkbox" data-checklist-id="${esc(id)}" data-checklist-step="${index}" ${checked[index] === true ? 'checked' : ''}><span>${esc(typeof step === 'string' ? step : first(step, ['text', 'label', 'title']))}${typeof step === 'object' && step.critical ? '<small>Критически важный шаг</small>' : ''}</span></label>`).join('')}
+        ${titledList('Критические ошибки', first(item, ['criticalErrors', 'stopErrors'], criticalErrorsFor(item)), 'warning')}
+        <div class="practice-ready checklist-next-step ${ready ? '' : 'hidden'}"><strong>Все обязательные пункты чек-листа отмечены.</strong><span>Это не допуск к самостоятельной работе: покажи весь чек-лист преподавателю без подсказок.</span></div>
+      </div></details></div>`;
   }
 
   function renderScenarioCards() {
@@ -494,22 +515,30 @@
 
   function renderPractice() {
     const host = $('#professionalContent');
+    const checklists = allChecklists();
+    if (!checklists.some(item => item.id === activeChecklist)) activeChecklist = checklists[0]?.id || '';
     host.innerHTML = `
-      ${lessonLibrary()}
       <div class="practice-switch" role="group" aria-label="Вид практической отработки">
         <button type="button" data-practice-mode="checklists" class="${practiceMode === 'checklists' ? 'active' : ''}" aria-pressed="${practiceMode === 'checklists'}">Чек-листы по областям</button>
         <button type="button" data-practice-mode="scenarios" class="${practiceMode === 'scenarios' ? 'active' : ''}" aria-pressed="${practiceMode === 'scenarios'}">Построение сеанса</button>
       </div>
+      ${practiceMode === 'checklists' && checklists.length ? `<label class="practice-area-picker"><span>Выбери область и задачу</span><select id="practiceChecklistPicker">${checklists.map(item => `<option value="${esc(item.id)}" ${item.id === activeChecklist ? 'selected' : ''}>${esc(regionLabel(first(item, ['regionId', 'region'])))} — ${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
       <aside class="practice-method"><b>${practiceMode === 'checklists' ? 'Как отрабатывать навык' : 'Как разбирать ситуацию'}</b><span>${practiceMode === 'checklists'
         ? 'Подготовься → выполни без подсказок → отметь шаги → получи обратную связь → повтори в другой день.'
         : 'Сначала сформулируй решение по памяти → затем открой разбор → найди пропуски и критические ошибки → объясни исправленный план.'}</span></aside>
-      ${practiceMode === 'checklists' ? renderChecklistCards() : renderScenarioCards()}`;
+      ${practiceMode === 'checklists' ? `${renderChecklistCards()}<details class="practice-video-library"><summary>Видео базовых приёмов</summary><div>${lessonLibrary()}</div></details>` : renderScenarioCards()}`;
     wireDetails('details.practice-card');
+    wireDetails('details.practice-video-library');
     $$('[data-practice-mode]').forEach(button => button.addEventListener('click', () => {
       practiceMode = button.dataset.practiceMode;
       renderPractice();
       requestAnimationFrame(() => $(`[data-practice-mode="${practiceMode}"]`)?.focus());
     }));
+    $('#practiceChecklistPicker')?.addEventListener('change', event => {
+      activeChecklist = event.currentTarget.value;
+      renderPractice();
+      requestAnimationFrame(() => $('#practiceChecklistPicker')?.focus());
+    });
     $$('[data-checklist-id]').forEach(input => input.addEventListener('change', () => {
       state.checklistChecks[input.dataset.checklistId] ||= {};
       state.checklistChecks[input.dataset.checklistId][input.dataset.checklistStep] = input.checked;
@@ -589,7 +618,8 @@
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     host.innerHTML = `
       <div class="journal-layout">
-        <form id="practiceJournalForm" class="journal-form" autocomplete="off" aria-describedby="journalPrivacyNote">
+        <section class="journal-history"><div class="journal-history-head"><div><h3>История отработки</h3><p>Сохраняй только учебные наблюдения без персональных и медицинских данных.</p></div><button type="button" id="showJournalForm" class="btn primary ${journalFormOpen ? 'hidden' : ''}">Добавить запись</button></div><p id="journalStatus" class="journal-status ${journalMessage ? '' : 'hidden'}" role="status" aria-live="polite">${esc(journalMessage)}</p><div id="journalEntries"></div></section>
+        <form id="practiceJournalForm" class="journal-form ${journalFormOpen ? '' : 'hidden'}" autocomplete="off" aria-describedby="journalPrivacyNote">
           <h3>Новая запись практики</h3>
           <p id="journalPrivacyNote">Не вноси ФИО, контакты, даты рождения, диагнозы и другие сведения, по которым можно узнать клиента. Журнал хранится в незашифрованном хранилище браузера: его может увидеть любой, у кого есть доступ к этому профилю браузера или устройству.</p>
           <div class="journal-fields">
@@ -601,13 +631,20 @@
             <label>Что улучшить в следующий раз<textarea name="next" maxlength="600"></textarea></label>
           </div>
           <label class="reviewed-check"><input name="supervised" type="checkbox"> Практику наблюдал преподаватель или наставник</label>
-          <button class="btn primary" type="submit">Сохранить запись</button>
+          <div class="journal-form-actions"><button class="btn primary" type="submit">Сохранить запись</button><button class="btn secondary" id="cancelJournalForm" type="button">Отмена</button></div>
         </form>
-        <section class="journal-history"><h3>История отработки</h3><p id="journalStatus" class="journal-status ${journalMessage ? '' : 'hidden'}" role="status" aria-live="polite">${esc(journalMessage)}</p><div id="journalEntries"></div>
-          <div class="practice-data-control"><h4>Данные практики на этом устройстве</h4><p>Здесь можно удалить журнал, отметки чек-листов и ответы на практические ситуации. Учебный прогресс из основного тренажёра не изменится.</p><button type="button" id="clearProfessionalData" class="btn danger">Удалить все данные практики</button></div>
-        </section>
       </div>`;
     renderJournalEntries();
+    $('#showJournalForm')?.addEventListener('click', () => {
+      journalFormOpen = true;
+      renderJournal();
+      requestAnimationFrame(() => $('#practiceJournalForm input[name="date"]')?.focus());
+    });
+    $('#cancelJournalForm')?.addEventListener('click', () => {
+      journalFormOpen = false;
+      renderJournal();
+      requestAnimationFrame(() => $('#showJournalForm')?.focus());
+    });
     $('#practiceJournalForm')?.addEventListener('submit', event => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
@@ -626,21 +663,8 @@
       journalMessage = saveState()
         ? 'Запись сохранена в журнале на этом устройстве.'
         : 'Не удалось сохранить запись в хранилище браузера. После перезагрузки она может исчезнуть.';
+      journalFormOpen = false;
       renderJournal();
-    });
-    $('#clearProfessionalData')?.addEventListener('click', () => {
-      if (!confirm('Удалить журнал, отметки чек-листов и ответы на практические ситуации с этого устройства? Это действие нельзя отменить.')) return;
-      try {
-        profileStorage.removeItem(STORAGE_KEY);
-        state = defaultState();
-        journalMessage = 'Все данные практики удалены с этого устройства.';
-        renderProfessionalProgress();
-        renderJournal();
-      } catch (error) {
-        console.warn('Не удалось удалить данные практического обучения.', error);
-        journalMessage = 'Не удалось удалить данные из хранилища браузера. Проверь настройки хранения данных.';
-        renderJournal();
-      }
     });
   }
 
@@ -668,21 +692,47 @@
     }));
   }
 
+  function clearProfessionalData() {
+    if (!confirm('Удалить журнал, отметки чек-листов и ответы на практические ситуации текущего профиля? Это действие нельзя отменить.')) return;
+    try {
+      profileStorage.removeItem(STORAGE_KEY);
+      state = defaultState();
+      journalFormOpen = false;
+      journalMessage = 'Все данные практики текущего профиля удалены.';
+      renderProfessionalProgress();
+      if (activeTab === 'journal') renderJournal();
+    } catch (error) {
+      console.warn('Не удалось удалить данные практического обучения.', error);
+      journalMessage = 'Не удалось удалить данные из хранилища браузера. Проверь настройки хранения данных.';
+      if (activeTab === 'journal') renderJournal();
+    }
+  }
+
   function renderMyths() {
     const host = $('#professionalContent');
     const tips = allTips();
+    const myths = allMyths();
+    const visibleMyths = mythsExpanded ? myths : myths.slice(0, 3);
+    const visibleTips = mythsExpanded ? tips : tips.slice(0, 3);
+    const hasMore = myths.length > 3 || tips.length > 3;
     host.innerHTML = `
       <section class="myth-intro"><h3>Научное мышление и безопасные формулировки</h3><p>Задача массажиста — наблюдать реакцию человека, честно описывать границы метода и не подменять врача.</p></section>
-      <div class="myth-grid">${allMyths().map(item => {
+      <div class="myth-grid">${visibleMyths.map(item => {
         const source = safeUrl(first(item, ['sourceUrl', 'url']));
         return `<details class="myth-card"><summary>${esc(first(item, ['myth', 'claim', 'title']))}</summary><div><span class="fact-label">${esc(first(item, ['verdict'], 'Разбор'))}</span><p>${esc(first(item, ['fact', 'explanation', 'answer']))}</p>${source !== '#' ? `<a href="${esc(source)}" target="_blank" rel="noopener noreferrer">Источник</a>` : ''}</div></details>`;
       }).join('')}</div>
-      ${tips.length ? `<section class="tips-section"><h3>Профессиональные подсказки</h3><div class="tips-grid">${tips.map(item => {
+      ${tips.length ? `<section class="tips-section"><h3>Профессиональные подсказки</h3><div class="tips-grid">${visibleTips.map(item => {
         const level = first(item, ['level', 'risk', 'type'], 'green');
         const label = level === 'red' ? 'Опасная ошибка' : level === 'yellow' ? 'Только после обучения' : 'Безопасная привычка';
         return `<article class="tip-card ${esc(level)}"><span>${esc(label)}</span><p>${esc(first(item, ['text', 'tip', 'description', 'title']))}</p></article>`;
-      }).join('')}</div></section>` : ''}`;
+      }).join('')}</div></section>` : ''}
+      ${hasMore ? `<button type="button" id="toggleMythsMore" class="btn secondary myths-more" aria-expanded="${mythsExpanded}">${mythsExpanded ? 'Скрыть дополнительные материалы' : 'Показать остальные материалы'}</button>` : ''}`;
     wireDetails('details.myth-card');
+    $('#toggleMythsMore')?.addEventListener('click', () => {
+      mythsExpanded = !mythsExpanded;
+      renderMyths();
+      requestAnimationFrame(() => $('#toggleMythsMore')?.focus());
+    });
   }
 
   function renderActiveTab() {
@@ -713,6 +763,7 @@
 
   injectInterface();
   renderProfessionalProgress();
+  $('#clearProfessionalData')?.addEventListener('click', clearProfessionalData);
   $('#professionalShortcut')?.addEventListener('click', () => openProfessional('techniques'));
   $('#mobileProfessional')?.addEventListener('click', () => openProfessional('techniques'));
   $$('[data-professional-tab]').forEach(button => button.addEventListener('click', () => {

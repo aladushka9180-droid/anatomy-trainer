@@ -174,3 +174,86 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .practice-card summary{align-items:flex-start}
   .practice-card summary b{flex:0 0 auto;color:var(--text)}
 }
+
+/* Compact practice workspace: one clear action at a time. */
+.professional-progress{display:grid;grid-template-columns:1fr;gap:8px}
+.professional-progress-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+.professional-progress-summary>div{min-width:0;padding:11px 13px;border-right:1px solid var(--border)}
+.professional-progress-summary>div:last-of-type{border-right:0}
+.professional-progress-summary span,.professional-progress-summary small{display:block;color:var(--muted)}
+.professional-progress-summary span{font-size:.8em;font-weight:800}
+.professional-progress-summary strong{display:block;margin:2px 0;font-size:1.2em}
+.professional-progress-summary small{font-size:.76em;line-height:1.35}
+.professional-progress-summary>p{grid-column:1/-1;margin:0;padding:9px 13px;border:0;border-top:1px solid var(--border);border-radius:0;background:color-mix(in srgb,var(--accent) 5%,var(--surface2));color:var(--muted);font-size:.84em;line-height:1.4}
+.competency-help{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.competency-help>summary{padding:10px 13px;cursor:pointer;font-weight:800;list-style:none}
+.competency-help>summary::-webkit-details-marker{display:none}
+.competency-help>summary::after,.technique-section>summary::after,.practice-video-library>summary::after{content:'＋';float:right;color:var(--professional-accent-strong)}
+.competency-help[open]>summary::after,.technique-section[open]>summary::after,.practice-video-library[open]>summary::after{content:'−'}
+.competency-help>.competency-route{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:12px 13px 8px;border-top:1px solid var(--border)}
+.competency-help .competency-route span{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);color:var(--text);font-size:.84em;font-weight:700}
+.competency-help .competency-route i{display:grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--accent);color:var(--accent-ink,#07131b);font-style:normal}
+.competency-help>p{margin:0;padding:4px 13px 12px;color:var(--muted);font-size:.84em;line-height:1.45}
+
+.technique-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.technique-toolbar{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:10px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.technique-picker{display:none;gap:5px;color:var(--muted);font-size:.84em;font-weight:800}
+.technique-picker select{width:100%;min-width:0;min-height:44px;border-color:var(--professional-control-border);background:var(--surface2);color:var(--text)}
+.technique-nav{display:flex;gap:7px;min-width:0;padding-bottom:2px;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
+.technique-nav button{flex:0 0 auto;min-height:42px;padding:8px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface2);color:var(--text);font:inherit;font-size:.84em;font-weight:750;cursor:pointer}
+.technique-nav button.active{border-color:var(--professional-accent-strong);background:color-mix(in srgb,var(--accent) 13%,var(--surface2));box-shadow:inset 0 -2px var(--professional-accent-strong)}
+.technique-detail{padding:16px}
+.technique-accordions{display:grid;gap:8px;margin-top:15px}
+.technique-section{border:1px solid var(--border);border-radius:12px;background:var(--surface2);overflow:hidden}
+.technique-section>summary{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:12px 13px;cursor:pointer;list-style:none}
+.technique-section>summary::-webkit-details-marker{display:none}
+.technique-section>summary span{font-weight:850}
+.technique-section>summary small{grid-column:1;color:var(--muted);font-size:.8em;line-height:1.35}
+.technique-section>summary::after{grid-column:2;grid-row:1/3;align-self:center;float:none}
+.technique-section.safety>summary{border-left:4px solid var(--professional-caution-strong)}
+.technique-section-body{padding:12px 13px;border-top:1px solid var(--border)}
+.technique-section-body>p{margin:0;line-height:1.55}
+.technique-section-body .skill-facts{margin:0}
+.technique-section-body .technique-media{margin:0;padding:0;border:0;background:transparent}
+.technique-section-body .practice-checklist{margin:0}
+.technique-section-body .skilldetailsection:first-child{margin-top:0}
+.technique-section-body .skilldetailsection:last-child{margin-bottom:0}
+
+.practice-area-picker{display:grid;gap:6px;max-width:760px;margin:0 0 12px;color:var(--text);font-weight:800}
+.practice-area-picker select{width:100%;min-width:0;min-height:48px;border-color:var(--professional-control-border);background:var(--surface2);color:var(--text);font-size:1rem}
+.practice-video-library{margin-top:12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);overflow:hidden}
+.practice-video-library>summary{padding:12px 14px;cursor:pointer;font-weight:800;list-style:none}
+.practice-video-library>summary::-webkit-details-marker{display:none}
+.practice-video-library>div{padding:0 12px 12px;border-top:1px solid var(--border)}
+.practice-video-library .video-library{margin:12px 0 0}
+
+.journal-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.journal-history{order:1}
+.journal-form{order:2}
+.journal-history-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.journal-history-head h3,.journal-history-head p{margin:0}
+.journal-history-head p{margin-top:4px;color:var(--muted);font-size:.86em;line-height:1.4}
+.journal-form-actions{display:flex;gap:8px;flex-wrap:wrap}
+.journal-form-actions .btn{flex:0 1 auto}
+.professional-data-settings{border-top:1px solid var(--border)}
+.myths-more{margin-top:14px}
+
+@media(max-width:760px){
+  .technique-toolbar{grid-template-columns:1fr}
+  .technique-picker{display:grid}
+  .technique-nav{display:none}
+  .professional-progress-summary{grid-template-columns:1fr 1fr}
+  .professional-progress-summary>div{border-bottom:1px solid var(--border)}
+  .professional-progress-summary>div:nth-child(2){border-right:0}
+  .professional-progress-summary>div:nth-child(3){grid-column:1/-1;border-right:0;border-bottom:0}
+}
+
+@media(max-width:480px){
+  .professional-progress-summary{grid-template-columns:1fr}
+  .professional-progress-summary>div{border-right:0}
+  .professional-progress-summary>div:nth-child(3){grid-column:auto}
+  .journal-history-head{display:grid}
+  .journal-history-head .btn{width:100%}
+  .technique-detail{padding:13px}
+  .technique-section-body{padding:10px}
+}

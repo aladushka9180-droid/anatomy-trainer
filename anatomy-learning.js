@@ -42,12 +42,16 @@
   ];
 
   let active = 'joints';
+  const topicIndex = {joints:0,ligaments:0,functions:0};
   let viewed;
   try { viewed = new Set(JSON.parse(API.storage.getItem('anatomy_course_viewed_v1') || '[]')); }
   catch { viewed = new Set(); }
+  let passed;
+  try { passed = new Set(JSON.parse(API.storage.getItem('anatomy_course_passed_v1') || '[]')); }
+  catch { passed = new Set(); }
 
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-  const save = () => API.storage.setItem('anatomy_course_viewed_v1', JSON.stringify([...viewed]));
+  const save = () => { API.storage.setItem('anatomy_course_viewed_v1', JSON.stringify([...viewed])); API.storage.setItem('anatomy_course_passed_v1', JSON.stringify([...passed])); };
 
   function motionSvg(id) {
     const base = '<circle class="bodyline" cx="70" cy="25" r="14"/><path class="bodyline" d="M70 40 L70 87 M70 55 L44 78 M70 87 L51 125"/><circle class="joint" cx="70" cy="55" r="4"/><circle class="joint" cx="70" cy="87" r="4"/>';
@@ -63,13 +67,18 @@
   }
 
   function infoCards(rows, type) {
-    return `<div class="anatomy-grid">${rows.map(row => `<article class="anatomy-info-card"><h4>${esc(row.title)}</h4><dl>${type === 'joint'
+    return `<div class="anatomy-grid${rows.length===1?' single':''}">${rows.map(row => `<article class="anatomy-info-card"><h4>${esc(row.title)}</h4><dl>${type === 'joint'
       ? `<dt>Что соединяется</dt><dd>${esc(row.bones)}</dd><dt>Движения</dt><dd>${esc(row.moves)}</dd><dt>Зачем массажисту</dt><dd>${esc(row.why)}</dd><dt>Безопасность</dt><dd class="anatomy-note">${esc(row.caution)}</dd>`
       : `<dt>Где находится</dt><dd>${esc(row.where)}</dd><dt>Что делает</dt><dd>${esc(row.role)}</dd><dt>Как запомнить</dt><dd class="anatomy-note">${esc(row.remember)}</dd>`}</dl><button type="button" class="textbutton" data-anatomy-reference="${esc(row.title)}">Найти в справочнике →</button></article>`).join('')}</div>`;
   }
 
-  function renderFunctions() {
-    return `<div class="anatomy-grid">${motions.map(row => `<article class="motion-card"><div class="motion-demo">${motionSvg(row.id)}</div><div><span class="eyebrow">Анимация движения</span><h4>${esc(row.title)}</h4><p>${esc(row.simple)}</p><p><strong>Основные мышцы:</strong> ${esc(row.muscles)}</p></div></article>`).join('')}</div><p class="anatomy-safety">Анимация показывает направление движения, а не полный биомеханический анализ. Скорость и амплитуда условны.</p>`;
+  function topicSelector(rows,label) {
+    const index=Math.min(topicIndex[active]||0,rows.length-1);
+    return `<div class="anatomy-topic-select"><label for="anatomyTopicSelect">${esc(label)}</label><select id="anatomyTopicSelect" data-anatomy-topic>${rows.map((item,itemIndex)=>`<option value="${itemIndex}" ${itemIndex===index?'selected':''}>${esc(item.title)}</option>`).join('')}</select><small>Материал показывается по одной области, чтобы не перегружать страницу.</small></div>`;
+  }
+
+  function renderFunctions(rows=motions) {
+    return `<div class="anatomy-grid single">${rows.map(row => `<article class="motion-card"><div class="motion-demo">${motionSvg(row.id)}</div><div><span class="eyebrow">Анимация движения</span><h4>${esc(row.title)}</h4><p>${esc(row.simple)}</p><p><strong>Основные мышцы:</strong> ${esc(row.muscles)}</p></div></article>`).join('')}</div><p class="anatomy-safety">Анимация показывает направление движения, а не полный биомеханический анализ. Скорость и амплитуда условны.</p>`;
   }
 
   function attachmentsMarkup() {
@@ -120,13 +129,14 @@
     const [title,lead] = descriptions[active];
     const target = document.getElementById('anatomyContent');
     let body = '';
-    if (active === 'joints') body = infoCards(joints,'joint');
-    if (active === 'ligaments') body = infoCards(ligaments,'ligament');
-    if (active === 'functions') body = renderFunctions();
+    if (active === 'joints') body=topicSelector(joints,'Выберите сустав')+infoCards([joints[topicIndex.joints]],'joint');
+    if (active === 'ligaments') body=topicSelector(ligaments,'Выберите группу связок')+infoCards([ligaments[topicIndex.ligaments]],'ligament');
+    if (active === 'functions') body=topicSelector(motions,'Выберите движение')+renderFunctions([motions[topicIndex.functions]]);
     if (active === 'attachments') body = attachmentsMarkup();
     if (active === 'images') body = imagesMarkup();
     if (active === 'testing') body = testingMarkup();
-    target.innerHTML = `<div class="anatomy-content-head"><span class="eyebrow">Раздел ${modules.findIndex(row=>row[0]===active)+1} из 6</span><h3>${esc(title)}</h3><p>${esc(lead)}</p></div>${body}`;
+    const check=active==='testing'?'':`<section class="anatomy-module-check"><div><strong>${passed.has(active)?'Раздел усвоен':'Готовы проверить себя?'}</strong><span>${passed.has(active)?'Результат теста — не ниже 80%.':'Короткий тест покажет, что уже понятно и что стоит повторить.'}</span></div><button type="button" class="btn ${passed.has(active)?'secondary':'primary'}" data-anatomy-test="${active}" data-test-title="${esc(title)}">${passed.has(active)?'Пройти ещё раз':'Проверить себя · 5 вопросов'}</button></section>`;
+    target.innerHTML = `<div class="anatomy-content-head"><span class="eyebrow">Раздел ${modules.findIndex(row=>row[0]===active)+1} из 6</span><h3>${esc(title)}</h3><p>${esc(lead)}</p></div>${body}${check}`;
     if (active === 'attachments') {
       renderAttachmentsList();
       document.getElementById('attachmentSearch')?.addEventListener('input', renderAttachmentsList);
@@ -136,13 +146,14 @@
   }
 
   function syncTabs() {
-    const progress = Math.round(viewed.size / modules.length * 100);
-    document.getElementById('anatomyProgressText').textContent = `${viewed.size} из ${modules.length} разделов просмотрено`;
+    const progress = Math.round(passed.size / modules.length * 100);
+    document.getElementById('anatomyProgressText').textContent = `${passed.size} из ${modules.length} усвоено · ${viewed.size} просмотрено`;
     document.getElementById('anatomyProgressBar').style.width = `${progress}%`;
     host.querySelectorAll('[data-anatomy-module]').forEach(button => {
       const selected = button.dataset.anatomyModule === active;
       button.classList.toggle('active', selected);
       button.classList.toggle('viewed', viewed.has(button.dataset.anatomyModule));
+      button.classList.toggle('passed', passed.has(button.dataset.anatomyModule));
       button.setAttribute('aria-selected', String(selected));
       button.tabIndex = selected ? 0 : -1;
     });
@@ -166,8 +177,11 @@
     if (image) { focusImage(image.dataset.anatomyImage); return; }
     if (event.target.closest('[data-close-anatomy-image]')) { document.getElementById('anatomyImageFocus').replaceChildren(); return; }
     const test = event.target.closest('[data-anatomy-test]');
-    if (test) { viewed.add('testing'); save(); API.startTest(test.dataset.anatomyTest, `Анатомия · ${test.dataset.testTitle}`); }
+    if (test) { viewed.add(test.dataset.anatomyTest); save(); API.startTest(test.dataset.anatomyTest, `Анатомия · ${test.dataset.testTitle}`, 5); }
   });
+
+  host.addEventListener('change',event=>{const select=event.target.closest('[data-anatomy-topic]');if(!select)return;topicIndex[active]=Number(select.value)||0;renderContent();});
+  window.addEventListener('anatomy-course-test-finished',event=>{const kind=event.detail?.kind,pct=Number(event.detail?.pct)||0;if(kind&&pct>=80){passed.add(kind);viewed.add(kind);save();syncTabs();if(active===kind)renderContent();}});
 
   activate(active);
   window.AnatomyLearning = { open(){ syncTabs(); } };

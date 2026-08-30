@@ -906,6 +906,315 @@ select:disabled {
   }
 }
 
+/* Clear primary navigation and guided lesson setup */
+.appnav {
+  width: min(100%, var(--content-width));
+  flex-wrap: wrap;
+}
+
+.brandlink {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brandlink:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 56%, transparent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.navlinks,
+.navprimary,
+.navtools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.navlinks {
+  margin-left: auto;
+}
+
+.navtools {
+  margin-left: 3px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+
+.navprimary .navbutton.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+  color: var(--accent-strong);
+}
+
+.continueactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.continueactions > button {
+  width: auto;
+  min-width: 190px;
+}
+
+.learnscreen {
+  width: min(100%, 780px);
+  margin-inline: auto;
+}
+
+.screenhead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+}
+
+.compactback {
+  width: auto;
+  min-height: 40px;
+  padding: 8px 13px;
+  white-space: nowrap;
+}
+
+.learnchoices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.learnchoice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  min-height: 116px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+  box-shadow: var(--shadow-soft);
+}
+
+.learnchoice:hover,
+.learnchoice:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+  background: color-mix(in srgb, var(--accent) 7%, var(--card));
+}
+
+.learnchoice > span:not(.learnchoiceicon) {
+  min-width: 0;
+}
+
+.learnchoice strong,
+.learnchoice small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.learnchoice strong {
+  margin-bottom: 5px;
+  font-size: 17px;
+}
+
+.learnchoice small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.learnchoiceicon {
+  font-size: 28px;
+}
+
+.learnchoicearrow {
+  color: var(--muted);
+  font-size: 22px;
+}
+
+.setupstep,
+.setupsubstep {
+  scroll-margin-top: 90px;
+}
+
+.setupsubstep {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.stepcontinue {
+  width: auto;
+  min-width: 220px;
+  margin-top: 12px;
+}
+
+.regioncard.recommended {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+.regionrecommend {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--card));
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.setupsticky {
+  position: sticky;
+  bottom: 12px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 16px;
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  box-shadow: 0 12px 34px rgba(19, 34, 54, .16);
+  backdrop-filter: blur(14px);
+}
+
+.setupsticky .selectionsummary {
+  min-width: 0;
+  margin: 0;
+}
+
+.setupsticky #startTraining {
+  width: auto;
+  min-width: 210px;
+}
+
+.setupsticky #baseNote {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.settingspanel {
+  min-height: 0;
+}
+
+.settingstabhint {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.palettegrid:not(.expanded) .palettechoice:nth-child(n + 7) {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .navprimary,
+  .navtools {
+    gap: 5px;
+  }
+
+  .navtools {
+    padding-left: 6px;
+  }
+
+  .navbutton {
+    padding-inline: 9px;
+  }
+}
+
+@media (max-width: 650px) {
+  body .mobiletabbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .screenhead {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compactback {
+    grid-row: 1;
+    width: fit-content;
+  }
+
+  .learnchoices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .learnchoice {
+    min-height: 104px;
+    padding: 15px;
+  }
+
+  .continueactions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .continueactions > button,
+  .stepcontinue {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .setupsticky {
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .setupsticky #startTraining {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .setupsticky #baseNote {
+    grid-column: auto;
+  }
+
+  .settingstabhint {
+    margin-bottom: 12px;
+  }
+}
+
+@media (max-width: 390px) {
+  .learnchoice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .learnchoicearrow {
+    display: none;
+  }
+
+  .regionrecommend {
+    border-radius: 9px;
+    white-space: normal;
+  }
+}
+
 /* Independent background color and ready-made palettes. */
 .backgroundcustomizer {
   margin-top: 14px;
@@ -3106,4 +3415,9 @@ body.firstvisit #continueCard {
     flex-basis: calc(50% - 5px);
     min-width: 0;
   }
+}
+
+/* Final cascade guard: settings should size to their actual content. */
+.settingspanel {
+  min-height: 0;
 }

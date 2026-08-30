@@ -52,12 +52,19 @@
 .anatomy-course-tab span { color: var(--muted); font-size: 12px; }
 .anatomy-course-tab b { font-size: 14px; line-height: 1.25; }
 .anatomy-course-tab.active { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 13%, var(--surface)); }
-.anatomy-course-tab.viewed span::after { content: " · изучено"; color: var(--accent); }
+.anatomy-course-tab.viewed:not(.passed) span::after { content: " · просмотрено"; color: var(--accent); }
+.anatomy-course-tab.passed span::after { content: " · усвоено ✓"; color: var(--accent); }
 
 .anatomy-content-head { margin-bottom: 16px; }
 .anatomy-content-head h3 { margin: 0; font-size: clamp(23px, 4vw, 32px); }
 .anatomy-content-head p { max-width: 720px; margin: 7px 0 0; color: var(--muted); }
 .anatomy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.anatomy-grid.single { grid-template-columns: minmax(0, 760px); }
+
+.anatomy-topic-select { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: end; gap: 5px 14px; margin-bottom: 14px; }
+.anatomy-topic-select label { grid-column: 1; font-weight: 800; }
+.anatomy-topic-select select { grid-column: 1; min-height: 48px; border: 1px solid var(--border); border-radius: 12px; padding: 0 12px; background: var(--surface2); color: var(--text); }
+.anatomy-topic-select small { grid-column: 2; grid-row: 2; align-self: center; color: var(--muted); }
 
 .anatomy-info-card,
 .motion-card,
@@ -119,6 +126,11 @@
 .anatomy-test-card { display: flex; flex-direction: column; }
 .anatomy-test-card .btn { width: 100%; margin-top: auto; }
 .anatomy-safety { margin-top: 18px; padding: 13px; border: 1px solid var(--border); border-radius: 12px; color: var(--muted); }
+.anatomy-module-check { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 16px; border: 1px solid var(--accent); border-radius: 14px; background: color-mix(in srgb,var(--accent) 9%,var(--surface)); }
+.anatomy-module-check strong,
+.anatomy-module-check span { display: block; }
+.anatomy-module-check span { margin-top: 3px; color: var(--muted); }
+.anatomy-module-check .btn { flex: 0 0 auto; }
 
 .statsempty { max-width: 620px; margin: 30px auto; padding: 30px; border: 1px dashed var(--border); border-radius: 16px; text-align: center; }
 .statsempty > span { display: block; color: var(--accent); font-size: 40px; }
@@ -162,6 +174,12 @@
   .motion-demo { min-height: 120px; }
   .motion-demo svg { width: 112px; height: 112px; }
   .anatomy-filter { flex-direction: column; }
+  .anatomy-topic-select { grid-template-columns: 1fr; }
+  .anatomy-topic-select label,
+  .anatomy-topic-select select,
+  .anatomy-topic-select small { grid-column: 1; grid-row: auto; }
+  .anatomy-module-check { align-items: stretch; flex-direction: column; }
+  .anatomy-module-check .btn { width: 100%; }
   .anatomy-image-card img { height: 210px; }
   .anatomy-image-focus figcaption { flex-direction: column; }
   .adaptivereview { display: flex; }
