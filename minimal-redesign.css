@@ -9,6 +9,7 @@
   --home-width: 760px;
   --control-height: 46px;
   --section-gap: 24px;
+  --primary-action: color-mix(in srgb, var(--accent) 62%, #3f5263);
 }
 
 html {
@@ -2060,10 +2061,10 @@ select:disabled {
 
 .resultprimaryaction .resultnextchoice {
   width: 100%;
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-contrast, #071211);
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 24%, transparent);
+  border-color: var(--primary-action);
+  background: var(--primary-action);
+  color: var(--primary-action-ink, var(--accent-ink, #07131b));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--primary-action) 18%, transparent);
 }
 
 .resultprimaryaction .resultnextchoice span {
@@ -3242,7 +3243,9 @@ html[data-tint="on"][data-theme="atlas"] {
 
 .primary,
 .primarycta {
-  color: var(--accent-ink, #07131b);
+  border-color: var(--primary-action);
+  background: var(--primary-action);
+  color: var(--primary-action-ink, var(--accent-ink, #07131b));
 }
 
 .assistantpanel {
