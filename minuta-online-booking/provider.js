@@ -14,6 +14,8 @@ let selectedClientPhone = '';
 let repeatTime = '';
 let bookingEditTime = '';
 let newBookingTime = '';
+let newBookingSlots = [];
+let newBookingHour = '';
 let scheduleRows = [];
 let daysOff = [];
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
@@ -253,6 +255,7 @@ function openBookingSheet(id) {
   const statusClass = bookingStatusClass(item);
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
   const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
+  $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
@@ -346,27 +349,52 @@ async function loadNewBookingSlots() {
   const holder = $('#newBookingTimes');
   if (!service || !date || !holder) return;
   newBookingTime = '';
+  newBookingSlots = [];
+  newBookingHour = '';
   holder.innerHTML = '<span>Ищем свободное время…</span>';
   const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date });
   if (error || !data?.length) {
     holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
     return;
   }
-  holder.innerHTML = data.map(slot => { const time = String(slot.booking_time).slice(0, 5); return `<button type="button" data-new-booking-time="${time}">${time}</button>`; }).join('');
+  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5));
+  newBookingHour = newBookingSlots[0].slice(0, 2);
+  renderNewBookingTimePicker();
+}
+
+function renderNewBookingTimePicker() {
+  const holder = $('#newBookingTimes');
+  if (!holder || !newBookingSlots.length) return;
+  const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
+  if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
+  const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
+  holder.innerHTML = `<div class="booking-time-guide"><strong>1. Выберите час</strong><span>Шаг записи — 5 минут</span></div>
+    <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
+    <div class="booking-time-guide"><strong>2. Выберите точное время</strong><span>${hourSlots.length} свободных вариантов</span></div>
+    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
 }
 
 function openNewBookingSheet() {
   const services = ownServices.filter(item => item.active);
   const date = selectedDate < localIsoDate(new Date()) ? localIsoDate(new Date()) : selectedDate;
   newBookingTime = '';
+  newBookingSlots = [];
+  newBookingHour = '';
+  $('#bookingSheet').classList.add('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручная запись</small><h2 id="bookingSheetTitle">Новый клиент</h2>
-    ${services.length ? `<form class="booking-editor-form" id="newBookingForm">
-      <div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div>
-      <label>Услуга<select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
-      <label>Дата<input id="newBookingDate" type="date" min="${localIsoDate(new Date())}" value="${date}" required></label>
-      <label>Свободное время<div class="repeat-times booking-editor-times" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
-      <label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Необязательно"></textarea></label>
-      <p class="form-error" id="newBookingError" hidden></p><button class="primary" type="submit">Создать запись</button>
+    ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
+      <div class="new-booking-layout">
+        <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong>Клиент и услуга</strong><small>Основная информация о записи</small></div></div>
+          <div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div>
+          <label>Услуга<select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
+          <label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
+        </section>
+        <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small>Выберите удобное свободное окно</small></div></div>
+          <label>Дата<input id="newBookingDate" type="date" min="${localIsoDate(new Date())}" value="${date}" required></label>
+          <label>Свободное время<div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
+        </section>
+      </div>
+      <p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" type="submit">Создать запись</button>
     </form>` : '<div class="provider-empty booking-sheet-empty"><span>＋</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>'}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -375,6 +403,7 @@ function openNewBookingSheet() {
   $('#newBookingDate').addEventListener('change', loadNewBookingSlots);
   $('#newBookingForm').addEventListener('submit', createNewBooking);
   loadNewBookingSlots();
+  setTimeout(() => $('#newBookingName')?.focus(), 0);
 }
 
 async function createNewBooking(event) {
@@ -413,6 +442,7 @@ async function createNewBooking(event) {
 
 function closeBookingSheet() {
   $('#bookingSheet').hidden = true;
+  $('#bookingSheet').classList.remove('booking-sheet-wide');
   document.body.classList.remove('booking-sheet-open');
 }
 
@@ -851,6 +881,7 @@ document.addEventListener('click', async event => {
   const backBooking = event.target.closest('[data-back-booking]');
   const editTime = event.target.closest('[data-edit-booking-time]');
   const newTime = event.target.closest('[data-new-booking-time]');
+  const newHour = event.target.closest('[data-new-booking-hour]');
   const closeSheet = event.target.closest('[data-close-booking-sheet]');
   const toggle = event.target.closest('[data-toggle-service]');
   const remove = event.target.closest('[data-delete-service]');
@@ -877,6 +908,11 @@ document.addEventListener('click', async event => {
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
+  }
+  if (newHour) {
+    newBookingHour = newHour.dataset.newBookingHour;
+    if (newBookingTime && !newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = '';
+    renderNewBookingTimePicker();
   }
   if (closeSheet) closeBookingSheet();
   if (client) renderClientDetail(client.dataset.clientPhone);
