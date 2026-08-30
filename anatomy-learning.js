@@ -56,22 +56,22 @@
 
   function motionFrames(id, title) {
     const safeId = encodeURIComponent(id);
-    const frames = Array.from({length:8}, (_, index) => `./anatomy-motion-v4/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
-    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp"><div class="motion-stage" role="img" aria-label="${esc(title)}: плавная анатомическая демонстрация движения"><img class="motion-frame motion-frame-base" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"><img class="motion-frame motion-frame-fade" src="${frames[1]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
+    const frames = Array.from({length:8}, (_, index) => `./anatomy-motion-v5/${safeId}/frame-${String(index + 1).padStart(2, '0')}.webp`);
+    return `<div class="motion-realistic" data-motion-player data-motion-frames="${frames.join('|')}" data-motion-fallback="./anatomy-motion-v2/${safeId}-end.webp"><div class="motion-stage" role="img" aria-label="${esc(title)}: покадровая анатомическая демонстрация движения"><img class="motion-frame" src="${frames[0]}" alt="" aria-hidden="true" decoding="async"></div><div class="motion-playback"><span class="motion-cycle" aria-hidden="true"><i></i></span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">Пауза</button></div></div>`;
   }
 
   function initMotionPlayer() {
     motionCleanup();
     const player = host.querySelector('[data-motion-player]');
     if (!player) { motionCleanup = () => {}; return; }
-    const baseImage = player.querySelector('.motion-frame-base');
-    const fadeImage = player.querySelector('.motion-frame-fade');
+    const image = player.querySelector('.motion-frame');
     const toggle = player.querySelector('[data-motion-toggle]');
     const frames = (player.dataset.motionFrames || '').split('|').filter(Boolean);
-    const sequence = [...frames.keys(), ...Array.from({length:Math.max(0, frames.length - 2)}, (_, index) => frames.length - index - 2)];
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const phaseDuration = 180;
-    let position = 0;
+    const frameDuration = 120;
+    const endpointDuration = 260;
+    let frameIndex = 0;
+    let direction = 1;
     let animationFrame = 0;
     let lastTimestamp = 0;
     let accumulator = 0;
@@ -87,39 +87,30 @@
       animationFrame = 0;
       lastTimestamp = 0;
     };
-    const setSource = (image, src) => {
-      if (image.dataset.motionSrc === src) return;
-      image.dataset.motionSrc = src;
-      image.src = src;
+    const showFrame = index => {
+      if (!frames[index]) return;
+      if (image.dataset.motionSrc !== frames[index]) {
+        image.dataset.motionSrc = frames[index];
+        image.src = frames[index];
+      }
+      player.style.setProperty('--motion-progress', `${Math.round(index / (frames.length - 1) * 100)}%`);
     };
-    const showStaticFrame = frameIndex => {
-      if (!frames[frameIndex]) return;
-      setSource(baseImage, frames[frameIndex]);
-      setSource(fadeImage, frames[frameIndex]);
-      baseImage.style.opacity = '1';
-      fadeImage.style.opacity = '0';
-      player.style.setProperty('--motion-progress', `${Math.round(frameIndex / (frames.length - 1) * 100)}%`);
-    };
-    const showBlend = progress => {
-      const fromIndex = sequence[position];
-      const toIndex = sequence[(position + 1) % sequence.length];
-      setSource(baseImage, frames[fromIndex]);
-      setSource(fadeImage, frames[toIndex]);
-      baseImage.style.opacity = '1';
-      fadeImage.style.opacity = String(progress);
-      const visualFrame = fromIndex + (toIndex - fromIndex) * progress;
-      player.style.setProperty('--motion-progress', `${visualFrame / (frames.length - 1) * 100}%`);
+    const currentDuration = () => frameIndex === 0 || frameIndex === frames.length - 1 ? endpointDuration : frameDuration;
+    const advanceFrame = () => {
+      if (frameIndex === frames.length - 1) direction = -1;
+      else if (frameIndex === 0) direction = 1;
+      frameIndex += direction;
+      showFrame(frameIndex);
     };
     const animate = timestamp => {
       if (!animationFrame || fallbackShown) return;
       if (!lastTimestamp) lastTimestamp = timestamp;
       accumulator += timestamp - lastTimestamp;
       lastTimestamp = timestamp;
-      while (accumulator >= phaseDuration) {
-        position = (position + 1) % sequence.length;
-        accumulator -= phaseDuration;
+      while (accumulator >= currentDuration()) {
+        accumulator -= currentDuration();
+        advanceFrame();
       }
-      showBlend(accumulator / phaseDuration);
       animationFrame = window.requestAnimationFrame(animate);
     };
     const start = () => {
@@ -130,9 +121,10 @@
       stop();
       if (fallbackShown) return;
       if (motionDisabled()) {
-        position = frames.length - 1;
+        frameIndex = frames.length - 1;
+        direction = -1;
         accumulator = 0;
-        showStaticFrame(sequence[position]);
+        showFrame(frameIndex);
         toggle.disabled = true;
         toggle.textContent = 'Без движения';
         toggle.setAttribute('aria-pressed', 'true');
@@ -150,11 +142,8 @@
       if (fallbackShown) return;
       fallbackShown = true;
       stop();
-      const fallback = player.dataset.motionFallback || '';
-      setSource(baseImage, fallback);
-      setSource(fadeImage, fallback);
-      baseImage.style.opacity = '1';
-      fadeImage.style.opacity = '0';
+      image.dataset.motionSrc = player.dataset.motionFallback || '';
+      image.src = image.dataset.motionSrc;
       player.style.setProperty('--motion-progress', '100%');
       toggle.hidden = true;
     };
@@ -166,11 +155,10 @@
     const settingsObserver = new MutationObserver(sync);
     settingsObserver.observe(document.documentElement, {attributes:true, attributeFilter:['data-motion']});
     toggle.addEventListener('click', onToggle);
-    baseImage.addEventListener('error', onError);
-    fadeImage.addEventListener('error', onError);
+    image.addEventListener('error', onError);
     document.addEventListener('visibilitychange', onVisibility);
     if (reduced.addEventListener) reduced.addEventListener('change', onReduced); else reduced.addListener(onReduced);
-    showBlend(0);
+    showFrame(0);
     sync();
 
     motionCleanup = () => {
@@ -178,8 +166,7 @@
       observer?.disconnect();
       settingsObserver.disconnect();
       toggle.removeEventListener('click', onToggle);
-      baseImage.removeEventListener('error', onError);
-      fadeImage.removeEventListener('error', onError);
+      image.removeEventListener('error', onError);
       document.removeEventListener('visibilitychange', onVisibility);
       if (reduced.removeEventListener) reduced.removeEventListener('change', onReduced); else reduced.removeListener(onReduced);
     };
