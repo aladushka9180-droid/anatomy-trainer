@@ -288,6 +288,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .service-info>span { margin:0; }
 .service-info small { display:block; margin-top:4px; color:var(--muted); font-size:10px; }
 .service-dot { display:grid!important; place-items:center; width:38px; height:38px; border-radius:11px; background:#e9f4ed; color:#337455!important; font-size:15px!important; }
+.managed-service .manage-actions { display:flex; grid-template-columns:none; flex-wrap:wrap; width:auto; margin-top:0; }.managed-service .edit-service-button { background:#285f44; color:#fff; }.service-edit-form { gap:16px; }.service-edit-form label { font-size:13px; }.service-edit-form input,.service-edit-form select { min-height:49px; font-size:14px; }.service-edit-row { display:grid; grid-template-columns:1fr 1fr; gap:11px; }.service-visibility-option { display:grid!important; grid-template-columns:22px minmax(0,1fr); align-items:center; gap:11px; padding:14px; border:1px solid #dce7df; border-radius:14px; background:#f7faf8; cursor:pointer; }.service-visibility-option input { width:18px!important; min-height:18px!important; height:18px; margin:0!important; accent-color:#285f44; }.service-visibility-option strong,.service-visibility-option small { display:block; }.service-visibility-option strong { color:#244c38; font-size:13px; }.service-visibility-option small { margin-top:4px; color:#718279; font-size:10px; }.service-edit-actions { display:grid; grid-template-columns:.7fr 1.3fr; gap:9px; }.service-edit-actions button { width:100%; min-height:46px; margin:0; }
 .provider-empty small { color:var(--muted); font-size:11px; }
 .provider-mobile-nav { display:none; }
 .view-description { max-width:680px; margin:9px 0 0; color:#6f8177; font-size:12px; line-height:1.6; }
@@ -406,6 +407,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .new-booking-layout { grid-template-columns:1fr; }.new-booking-section { padding:15px 13px; }.new-booking-section:first-child { padding-bottom:16px; }.booking-time-hours { grid-template-columns:repeat(4,minmax(0,1fr)); }.booking-time-slots { grid-template-columns:repeat(3,minmax(0,1fr)); }.booking-time-guide { align-items:flex-start; flex-direction:column; gap:3px; }
   .clients-directory,.client-profile { padding:16px 13px; }.client-summary,.repeat-booking-fields { grid-template-columns:1fr; }.client-profile-head h3 { font-size:21px; }.provider-mobile-nav button { font-size:8px; }
   .manage-actions { grid-template-columns:1fr; }.manage-actions .primary,.manage-actions .manage-danger { grid-column:auto; }
+  .managed-service .manage-actions { display:grid; grid-template-columns:1fr 1fr; width:100%; }.managed-service .edit-service-button { grid-column:1/-1; }.service-edit-row,.service-edit-actions { grid-template-columns:1fr; }
   .manage-times { grid-template-columns:repeat(3,1fr); }
   .provider-body .auth-card { margin:18px auto; padding:25px 18px; }
   .auth-card>.brand { margin-bottom:24px; }

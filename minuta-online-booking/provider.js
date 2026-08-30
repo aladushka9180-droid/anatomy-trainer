@@ -272,6 +272,56 @@ function serviceOptions(selectedId, activeOnly = false) {
   return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${item.duration_minutes} мин · ${money(item.price_rub)}</option>`).join('');
 }
 
+function durationOptions(selected) {
+  const durations = [...new Set([30, 40, 60, 90, 120, Number(selected)])].filter(value => value >= 15 && value <= 480).sort((a, b) => a - b);
+  return durations.map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value} мин</option>`).join('');
+}
+
+function openServiceEditor(id) {
+  const item = ownServices.find(service => service.id === id);
+  if (!item) return;
+  $('#bookingSheet').classList.remove('booking-sheet-wide');
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Редактирование услуги</small><h2 id="bookingSheetTitle">Настройте услугу</h2>
+    <form class="booking-editor-form service-edit-form" id="serviceEditForm" data-service-id="${item.id}">
+      <label>Название услуги<input id="editServiceName" maxlength="120" value="${escapeHtml(item.name)}" required></label>
+      <div class="service-edit-row"><label>Длительность<select id="editServiceDuration" required>${durationOptions(item.duration_minutes)}</select></label><label>Цена, ₽<input id="editServicePrice" type="number" min="0" max="1000000" step="50" value="${item.price_rub}" required></label></div>
+      <label class="service-visibility-option"><input id="editServiceActive" type="checkbox" ${item.active ? 'checked' : ''}><span><strong>Показывать в онлайн-записи</strong><small>${item.active ? 'Клиенты могут выбрать эту услугу' : 'Сейчас услуга скрыта от клиентов'}</small></span></label>
+      <p class="form-error" id="serviceEditError" hidden></p>
+      <div class="service-edit-actions"><button class="secondary-button" type="button" data-close-booking-sheet>Отмена</button><button class="primary" type="submit">Сохранить изменения</button></div>
+    </form>`;
+  $('#bookingSheet').hidden = false;
+  document.body.classList.add('booking-sheet-open');
+  $('#serviceEditForm').addEventListener('submit', saveServiceChanges);
+  setTimeout(() => $('#editServiceName')?.focus(), 0);
+}
+
+async function saveServiceChanges(event) {
+  event.preventDefault();
+  clearFormError('#serviceEditError');
+  const id = event.currentTarget.dataset.serviceId;
+  const name = $('#editServiceName').value.trim();
+  const duration = Number($('#editServiceDuration').value);
+  const price = Number($('#editServicePrice').value);
+  const active = $('#editServiceActive').checked;
+  if (name.length < 2 || !Number.isFinite(duration) || duration < 15 || !Number.isFinite(price) || price < 0) {
+    showFormError('#serviceEditError', 'Проверьте название, длительность и цену.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('services').update({ name, duration_minutes: duration, price_rub: Math.round(price), active }).eq('id', id).eq('performer_id', currentUser.id);
+  if (error) {
+    button.disabled = false;
+    button.textContent = 'Сохранить изменения';
+    showFormError('#serviceEditError', 'Не удалось сохранить услугу. Попробуйте ещё раз.');
+    return;
+  }
+  closeBookingSheet();
+  await loadOwnServices();
+  notify('Услуга обновлена');
+}
+
 async function loadBookingEditSlots(id, preserveCurrent = false) {
   const item = allBookings.find(booking => booking.id === id);
   const service = $('#editBookingService')?.value;
@@ -851,7 +901,7 @@ async function loadOwnServices() {
     list.innerHTML = '<div class="provider-empty"><span>＋</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>';
     return;
   }
-  list.innerHTML = data.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)}</small></div></div><div class="manage-actions"><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
+  list.innerHTML = data.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)} · ${item.active ? 'доступна клиентам' : 'скрыта'}</small></div></div><div class="manage-actions"><button class="edit-service-button" type="button" data-edit-service="${item.id}">Изменить</button><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
 }
 
 async function loadBookings() {
@@ -884,6 +934,7 @@ document.addEventListener('click', async event => {
   const newHour = event.target.closest('[data-new-booking-hour]');
   const closeSheet = event.target.closest('[data-close-booking-sheet]');
   const toggle = event.target.closest('[data-toggle-service]');
+  const editService = event.target.closest('[data-edit-service]');
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
@@ -915,6 +966,7 @@ document.addEventListener('click', async event => {
     renderNewBookingTimePicker();
   }
   if (closeSheet) closeBookingSheet();
+  if (editService) openServiceEditor(editService.dataset.editService);
   if (client) renderClientDetail(client.dataset.clientPhone);
   if (repeat) {
     repeatTime = repeat.dataset.repeatTime;
