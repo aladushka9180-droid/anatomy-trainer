@@ -7,6 +7,10 @@ let currentUser = null;
 let currentFilter = 'day';
 let selectedDate = localIsoDate(new Date());
 let allBookings = [];
+let ownServices = [];
+let clientNotes = new Map();
+let selectedClientPhone = '';
+let repeatTime = '';
 let scheduleRows = [];
 let daysOff = [];
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
@@ -17,6 +21,11 @@ function localIsoDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+function normalizePhone(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
+  return digits;
 }
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -157,6 +166,122 @@ function renderBookings() {
   }).join('');
 }
 
+function buildClients() {
+  const clients = new Map();
+  allBookings.forEach(booking => {
+    const phone = normalizePhone(booking.client_phone);
+    if (!phone) return;
+    const current = clients.get(phone) || { phone, displayPhone: booking.client_phone, name: booking.client_name, bookings: [] };
+    current.name = booking.client_name || current.name;
+    current.displayPhone = booking.client_phone || current.displayPhone;
+    current.bookings.push(booking);
+    clients.set(phone, current);
+  });
+  return [...clients.values()].sort((a, b) => {
+    const aLast = a.bookings.at(-1); const bLast = b.bookings.at(-1);
+    return `${bLast?.booking_date || ''}${bLast?.booking_time || ''}`.localeCompare(`${aLast?.booking_date || ''}${aLast?.booking_time || ''}`);
+  });
+}
+
+function clientUpcoming(client) {
+  const now = new Date();
+  return client.bookings.find(item => item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`) >= now) || null;
+}
+
+function renderClients() {
+  const clients = buildClients();
+  const search = $('#clientSearch').value.trim().toLowerCase();
+  const filtered = clients.filter(client => `${client.name} ${client.displayPhone} ${client.phone}`.toLowerCase().includes(search));
+  $('#clientsCount').textContent = String(clients.length);
+  $('#clientsBadge').textContent = String(clients.length);
+  if (!filtered.length) {
+    $('#clientsList').innerHTML = `<div class="provider-empty compact-empty"><span>♙</span><strong>${clients.length ? 'Ничего не найдено' : 'Клиентов пока нет'}</strong><small>${clients.length ? 'Попробуйте изменить запрос.' : 'Они появятся после первой записи.'}</small></div>`;
+    return;
+  }
+  $('#clientsList').innerHTML = filtered.map(client => {
+    const upcoming = clientUpcoming(client);
+    const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
+    const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${escapeHtml(client.name.slice(0,1).toUpperCase())}</span><span class="client-list-main"><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
+  }).join('');
+}
+
+function renderClientDetail(phone) {
+  const client = buildClients().find(item => item.phone === phone);
+  if (!client) return;
+  selectedClientPhone = phone;
+  renderClients();
+  $('#clientProfileEmpty').hidden = true;
+  $('#clientProfileContent').hidden = false;
+  $('#clientAvatar').textContent = client.name.slice(0,1).toUpperCase();
+  $('#clientName').textContent = client.name;
+  $('#clientPhone').textContent = client.displayPhone;
+  $('#clientPhone').href = `tel:${client.phone}`;
+  const now = new Date();
+  const visits = client.bookings.filter(item => item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now).length;
+  const upcoming = clientUpcoming(client);
+  $('#clientVisits').textContent = String(visits);
+  $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
+  $('#clientNote').value = clientNotes.get(phone) || '';
+  $('#repeatDate').value = localIsoDate(new Date());
+  $('#repeatDate').min = localIsoDate(new Date());
+  repeatTime = '';
+  populateRepeatServices();
+  loadRepeatSlots();
+  const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
+  $('#clientHistory').innerHTML = history.map(item => {
+    const status = item.status === 'new' ? 'Новая' : item.status === 'confirmed' ? 'Подтверждена' : 'Отменена';
+    return `<article class="client-history-item status-${item.status}"><div><strong>${escapeHtml(item.services?.name || 'Услуга')}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
+  }).join('');
+}
+
+function populateRepeatServices() {
+  const select = $('#repeatService');
+  const active = ownServices.filter(item => item.active);
+  const previous = select.value;
+  select.innerHTML = active.length ? active.map(item => `<option value="${item.id}">${escapeHtml(item.name)} · ${item.duration_minutes} мин</option>`).join('') : '<option value="">Сначала добавьте услугу</option>';
+  if (active.some(item => item.id === previous)) select.value = previous;
+}
+
+async function loadRepeatSlots() {
+  if (!selectedClientPhone) return;
+  const service = $('#repeatService').value;
+  const date = $('#repeatDate').value;
+  repeatTime = '';
+  if (!service || !date) { $('#repeatTimes').innerHTML = '<span>Выберите услугу и дату</span>'; return; }
+  $('#repeatTimes').innerHTML = '<span>Ищем свободное время…</span>';
+  const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date });
+  if (error || !data?.length) { $('#repeatTimes').innerHTML = '<span>На эту дату свободного времени нет</span>'; return; }
+  $('#repeatTimes').innerHTML = data.map(item => `<button type="button" data-repeat-time="${String(item.booking_time).slice(0,5)}">${String(item.booking_time).slice(0,5)}</button>`).join('');
+}
+
+async function loadClientNotes() {
+  const { data } = await db.from('client_notes').select('client_phone,note').eq('performer_id', currentUser.id);
+  clientNotes = new Map((data || []).map(item => [item.client_phone, item.note]));
+}
+
+async function saveClientNote() {
+  if (!selectedClientPhone) return;
+  const note = $('#clientNote').value.trim();
+  const { error } = await db.from('client_notes').upsert({ performer_id: currentUser.id, client_phone: selectedClientPhone, note, updated_at: new Date().toISOString() });
+  if (error) { notify('Не удалось сохранить заметку'); return; }
+  clientNotes.set(selectedClientPhone, note);
+  notify('Заметка сохранена');
+}
+
+async function createRepeatBooking(event) {
+  event.preventDefault();
+  clearFormError('#repeatBookingError');
+  const client = buildClients().find(item => item.phone === selectedClientPhone);
+  if (!client || !repeatTime) { showFormError('#repeatBookingError', 'Выберите свободное время.'); return; }
+  const button = event.submitter; button.disabled = true; button.textContent = 'Создаём…';
+  const { error } = await db.rpc('provider_book_appointment', { p_service: $('#repeatService').value, p_date: $('#repeatDate').value, p_time: `${repeatTime}:00`, p_client_name: client.name, p_client_phone: client.displayPhone });
+  button.disabled = false; button.textContent = 'Создать запись';
+  if (error) { showFormError('#repeatBookingError', error.message?.includes('slot_unavailable') ? 'Это время уже заняли. Выберите другое.' : 'Не удалось создать запись.'); await loadRepeatSlots(); return; }
+  notify('Повторная запись создана');
+  await loadBookings();
+}
+
 async function handleSession(session) {
   currentUser = session?.user || null;
   if (recoveryMode) { showRecoveryReset(); return; }
@@ -171,7 +296,7 @@ async function handleSession(session) {
   $('#accountEmail').textContent = currentUser.email || '';
   $('#todayLabel').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   renderDateStrip();
-  await Promise.all([loadOwnServices(), loadBookings(), loadSchedule(), loadDaysOff()]);
+  await Promise.all([loadOwnServices(), loadBookings(), loadClientNotes(), loadSchedule(), loadDaysOff()]);
 }
 
 async function login(event) {
@@ -422,7 +547,9 @@ async function loadOwnServices() {
   list.innerHTML = '<div class="loading-state"><i></i><span>Загружаем…</span></div>';
   const { data, error } = await db.from('services').select('*').eq('performer_id', currentUser.id).order('created_at', { ascending: false });
   if (error) { list.innerHTML = '<div class="provider-empty">Не удалось загрузить услуги.</div>'; return; }
-  const activeCount = data.filter(item => item.active).length;
+  ownServices = data || [];
+  populateRepeatServices();
+  const activeCount = ownServices.filter(item => item.active).length;
   $('#servicesCount').textContent = String(data.length);
   $('#servicesBadge').textContent = String(data.length);
   $('#activeServicesCount').textContent = String(activeCount);
@@ -437,7 +564,7 @@ async function loadBookings() {
   const holder = $('#providerBookings');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   const { data, error } = await db.from('bookings')
-    .select('id,booking_code,client_name,client_phone,booking_date,booking_time,status,services(name,price_rub)')
+    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,status,services(name,price_rub,duration_minutes)')
     .eq('performer_id', currentUser.id)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
@@ -445,6 +572,8 @@ async function loadBookings() {
   allBookings = data || [];
   updateBookingStats();
   renderBookings();
+  renderClients();
+  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
 }
 
 document.addEventListener('click', async event => {
@@ -456,6 +585,8 @@ document.addEventListener('click', async event => {
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
+  const client = event.target.closest('[data-client-phone]');
+  const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) setProviderView(view.dataset.providerView);
   if (filter) setFilter(filter.dataset.filter);
@@ -463,6 +594,11 @@ document.addEventListener('click', async event => {
     selectedDate = date.dataset.bookingDate;
     renderDateStrip();
     setFilter('day');
+  }
+  if (client) renderClientDetail(client.dataset.clientPhone);
+  if (repeat) {
+    repeatTime = repeat.dataset.repeatTime;
+    $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
   }
   if (toggle) {
     await db.from('services').update({ active: toggle.dataset.active !== 'true' }).eq('id', toggle.dataset.toggleService);
@@ -494,6 +630,11 @@ $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
+$('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
+$('#saveClientNote').addEventListener('click', saveClientNote);
+$('#clientSearch').addEventListener('input', renderClients);
+$('#repeatService').addEventListener('change', loadRepeatSlots);
+$('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());

@@ -233,6 +233,21 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .schedule-empty { margin:20px 0; padding:46px 20px; border:0; background:#f8faf8; }
 .schedule-empty>span { display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:#e4f3e9; color:#2b7851; font-size:19px; }
 
+.clients-layout { display:grid; grid-template-columns:minmax(300px,.7fr) minmax(440px,1.3fr); gap:16px; margin-top:22px; align-items:start; }
+.clients-layout>.panel { border:1px solid #e0e8e2; border-radius:20px; background:#fff; box-shadow:0 14px 45px rgba(27,63,45,.06); }
+.clients-directory { padding:16px; }
+.client-search { position:relative; display:block; margin:0; }.client-search input { width:100%; min-height:46px; margin:0; padding:0 42px 0 15px; border:1px solid #dfe8e2; border-radius:14px; background:#f8faf9; font-size:12px; }.client-search i { position:absolute; top:12px; right:15px; color:#789087; font-size:19px; font-style:normal; }
+.clients-list { display:grid; gap:7px; max-height:690px; margin-top:13px; overflow:auto; }
+.client-list-item { display:grid; grid-template-columns:42px minmax(0,1fr) auto; align-items:center; gap:11px; width:100%; min-height:73px; padding:11px; border:1px solid transparent; border-radius:14px; background:transparent; color:var(--ink); cursor:pointer; text-align:left; }
+.client-list-item:hover,.client-list-item.active { border-color:#d8e7dd; background:#edf6f0; }.client-list-avatar,.client-avatar { display:grid; place-items:center; border-radius:13px; background:#dfeee5; color:#235d42; font-weight:900; }.client-list-avatar { width:42px; height:42px; font-size:14px; }
+.client-list-main { min-width:0; }.client-list-main strong,.client-list-main small,.client-list-main i { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.client-list-main strong { font-size:12px; }.client-list-main small { margin-top:3px; color:#6f8177; font-size:9px; }.client-list-main i { margin-top:5px; color:#397054; font-size:9px; font-style:normal; }.client-list-item>b { display:grid; place-items:center; min-width:25px; height:25px; border-radius:999px; background:#fff; color:#4b6d5b; font-size:9px; }
+.client-profile { min-height:420px; }.client-profile-empty { display:grid; place-items:center; min-height:350px; text-align:center; }.client-profile-empty>span { display:grid; place-items:center; width:54px; height:54px; border-radius:18px; background:#e8f3ec; color:#2b7650; font-size:24px; }.client-profile-empty strong { margin-top:15px; font-size:17px; }.client-profile-empty small { max-width:280px; margin-top:7px; color:var(--muted); line-height:1.5; }
+.client-profile-head { display:grid; grid-template-columns:58px minmax(0,1fr); align-items:center; gap:14px; }.client-avatar { width:58px; height:58px; font-size:20px; }.client-profile-head small { color:#6c8378; font-size:9px; font-weight:850; letter-spacing:.12em; text-transform:uppercase; }.client-profile-head h3 { margin:4px 0 3px; font-size:24px; letter-spacing:-.04em; }.client-profile-head a { color:#2d6a4c; font-size:12px; font-weight:800; }
+.client-summary { display:grid; grid-template-columns:.7fr 1.3fr; gap:9px; margin-top:20px; }.client-summary article { padding:14px 16px; border:1px solid #e3ebe5; border-radius:14px; background:#f8faf9; }.client-summary strong,.client-summary small { display:block; }.client-summary strong { font-size:17px; }.client-summary small { margin-top:4px; color:var(--muted); font-size:9px; }
+.client-note-label { margin-top:20px; color:#40594c; font-size:11px; font-weight:850; }.client-note-label textarea { width:100%; margin-top:8px; padding:13px 14px; resize:vertical; border:1px solid #dbe6df; border-radius:14px; background:#fbfcfb; color:var(--ink); font:inherit; font-size:12px; line-height:1.5; }.client-note-label textarea:focus { outline:2px solid rgba(47,118,84,.2); border-color:#5a8d72; }.client-note-save { width:auto; min-height:38px; margin-top:9px; padding:0 15px; }
+.repeat-booking,.client-history { margin-top:24px; padding-top:22px; border-top:1px solid #e7ede9; }.repeat-booking .panel-head h3,.client-history .panel-head h3 { margin:4px 0 0; font-size:18px; letter-spacing:-.03em; }.repeat-booking-fields { display:grid; grid-template-columns:1.2fr .8fr; gap:10px; }.repeat-booking label { margin-top:15px; }.repeat-booking select,.repeat-booking input { background:#fbfcfb; }.repeat-times { display:flex; flex-wrap:wrap; gap:6px; min-height:41px; margin-top:8px; }.repeat-times>span { display:flex; align-items:center; color:var(--muted); font-size:10px; }.repeat-times button { min-width:59px; min-height:36px; padding:0 9px; border:1px solid #d9e5dd; border-radius:10px; background:#fff; color:#355c48; cursor:pointer; font-size:11px; font-weight:850; }.repeat-times button.active { border-color:#255f43; background:#255f43; color:#fff; }.repeat-booking .primary { width:100%; margin-top:17px; }
+.client-history>div:last-child { display:grid; gap:7px; margin-top:13px; }.client-history-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 13px; border:1px solid #e5ece7; border-radius:13px; }.client-history-item strong,.client-history-item small { display:block; }.client-history-item strong { font-size:11px; }.client-history-item small { margin-top:4px; color:var(--muted); font-size:9px; }.client-history-item>span { padding:5px 7px; border-radius:999px; background:#fff0da; color:#91611b; font-size:8px; font-weight:900; text-transform:uppercase; }.client-history-item.status-confirmed>span { background:#e1f4e8; color:#28734c; }.client-history-item.status-cancelled { opacity:.6; }.client-history-item.status-cancelled>span { background:#eef0ee; color:#68736c; }
+
 .services-layout { display:grid; grid-template-columns:minmax(300px,.75fr) minmax(420px,1.25fr); gap:16px; margin-top:22px; align-items:start; }
 .services-layout .panel { border:1px solid #e0e8e2; border-radius:20px; background:#fff; box-shadow:0 14px 45px rgba(27,63,45,.06); }
 .services-layout .panel-head h3 { margin:4px 0 0; font-size:20px; letter-spacing:-.04em; }
@@ -304,6 +319,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .services-layout { grid-template-columns:1fr; }
   .schedule-settings-layout { grid-template-columns:1fr; }
   .settings-layout { grid-template-columns:1fr; }
+  .clients-layout { grid-template-columns:1fr; }
 }
 
 @media (max-width:760px) {
@@ -345,13 +361,14 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .schedule-day .day-off-label { text-align:right; }
   .settings-card { grid-template-columns:42px minmax(0,1fr); }
   .settings-icon { width:42px; height:42px; }
-  .provider-mobile-nav { position:fixed; z-index:20; left:10px; right:10px; bottom:max(10px,env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(4,1fr); padding:7px; border:1px solid rgba(224,232,226,.9); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 12px 45px rgba(24,52,39,.18); backdrop-filter:blur(18px); }
+  .provider-mobile-nav { position:fixed; z-index:20; left:10px; right:10px; bottom:max(10px,env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(5,1fr); padding:7px; border:1px solid rgba(224,232,226,.9); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 12px 45px rgba(24,52,39,.18); backdrop-filter:blur(18px); }
   .provider-mobile-nav button,.provider-mobile-nav a { display:grid; justify-items:center; gap:3px; padding:6px 4px; border:0; border-radius:12px; background:transparent; color:#718077; text-decoration:none; font-size:9px; font-weight:800; }
   .provider-mobile-nav span { font-size:16px; }
   .provider-mobile-nav button.active { background:#e8f3ec; color:#245e43; }
 }
 
 @media (max-width:440px) {
+  .clients-directory,.client-profile { padding:16px 13px; }.client-summary,.repeat-booking-fields { grid-template-columns:1fr; }.client-profile-head h3 { font-size:21px; }.provider-mobile-nav button { font-size:8px; }
   .manage-actions { grid-template-columns:1fr; }.manage-actions .primary,.manage-actions .manage-danger { grid-column:auto; }
   .manage-times { grid-template-columns:repeat(3,1fr); }
   .provider-body .auth-card { margin:18px auto; padding:25px 18px; }
