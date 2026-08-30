@@ -111,9 +111,9 @@ function calendarTimestamp(date, time, addMinutes = 0) {
 
 function addToCalendar() {
   const item = state.booking;
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Minuta//Booking//RU', 'BEGIN:VEVENT', `UID:${item.booking_code}@minuta-booking`, `DTSTART:${calendarTimestamp(item.booking_date, item.booking_time)}`, `DTEND:${calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)}`, `SUMMARY:${item.service_name} — Минута`, `DESCRIPTION:Исполнитель: ${item.performer_name}. Номер записи: ${item.booking_code}`, 'LOCATION:Ижевск, ул. Карла Маркса, 304б', 'END:VEVENT', 'END:VCALENDAR'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MassageIzhevsk//Booking//RU', 'BEGIN:VEVENT', `UID:${item.booking_code}@massage-izhevsk`, `DTSTART:${calendarTimestamp(item.booking_date, item.booking_time)}`, `DTEND:${calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)}`, `SUMMARY:${item.service_name} — Массаж в Ижевске`, `DESCRIPTION:Исполнитель: ${item.performer_name}. Номер записи: ${item.booking_code}`, 'LOCATION:Ижевск, ул. Карла Маркса, 304б', 'END:VEVENT', 'END:VCALENDAR'];
   const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
-  const link = document.createElement('a'); link.href = url; link.download = `minuta-${item.booking_code}.ics`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const link = document.createElement('a'); link.href = url; link.download = `massage-${item.booking_code}.ics`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 document.addEventListener('click', event => {
