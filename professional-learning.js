@@ -67,8 +67,10 @@
   const uid = prefix => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const LEVEL_LABELS = { foundation: 'Базовая отработка', basic: 'Начальный уровень', intermediate: 'Средний уровень', advanced: 'Продвинутый уровень', safety: 'Безопасность' };
   const REGION_LABELS = { neck: 'Шея и голова', shoulder: 'Плечевой пояс', arm: 'Рука и локоть', back: 'Спина и поясница', pelvis: 'Таз и ягодичная область', thigh_knee: 'Бедро и колено', lower_leg_foot: 'Голень и стопа', whole_body: 'Общий сеанс' };
+  const INTERNAL_LABELS = { 'admission-foundation': 'Пройдены условия безопасной учебной практики на партнёре' };
   const levelLabel = value => LEVEL_LABELS[value] || value || '';
   const regionLabel = value => REGION_LABELS[value] || value || '';
+  const friendlyLabel = value => INTERNAL_LABELS[value] || value;
   const textRows = value => {
     if (Array.isArray(value)) return value.flatMap(textRows).filter(Boolean);
     if (value && typeof value === 'object') {
@@ -76,7 +78,7 @@
       if (direct) return [String(direct)];
       return Object.entries(value).map(([key, row]) => `${key === 'pressure' ? 'Давление' : key === 'tempo' ? 'Темп' : key === 'duration' ? 'Длительность' : key}: ${row}`);
     }
-    return value ? [String(value)] : [];
+    return value ? [String(friendlyLabel(value))] : [];
   };
 
   function techniqueSourceDetails(item) {
@@ -204,6 +206,7 @@
   let activeTechnique = techniques[0]?.id || '';
   let practiceMode = 'checklists';
   let activeChecklist = allChecklists()[0]?.id || '';
+  let activeScenario = allScenarios()[0]?.id || '';
   let journalFormOpen = false;
   let mythsExpanded = false;
   let journalMessage = '';
@@ -305,18 +308,18 @@
   function injectInterface() {
     const nav = $('.navlinks');
     if (nav && !$('#professionalShortcut')) {
-      nav.insertAdjacentHTML('afterbegin', '<button type="button" id="professionalShortcut" class="navbutton">Практика</button>');
+      nav.insertAdjacentHTML('afterbegin', '<button type="button" id="professionalShortcut" class="navbutton">Отработка</button>');
     }
     const mobile = $('.mobiletabbar');
     if (mobile && !$('#mobileProfessional')) {
-      mobile.insertAdjacentHTML('beforeend', '<button type="button" id="mobileProfessional">Практика</button>');
+      mobile.insertAdjacentHTML('beforeend', '<button type="button" id="mobileProfessional">Отработка</button>');
     }
     const main = $('main');
     if (!main || $('#professionalScreen')) return;
     main.insertAdjacentHTML('beforeend', `
       <section id="professionalScreen" class="card screen professional-screen hidden" tabindex="-1" aria-labelledby="professionalTitle">
         <div class="professional-head">
-          <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">От знания к уверенной работе руками</h2><p>Приёмы, практические чек-листы, разбор ситуаций и журнал отработки. Материал не заменяет очное обучение, не присваивает квалификацию и не даёт допуска к медицинской деятельности.</p></div>
+          <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">Самостоятельная отработка</h2><p>Выбери один приём или одну учебную ситуацию. Отметки помогают планировать повторение, а владение навыком подтверждает преподаватель.</p></div>
           <button type="button" class="btn secondary" data-go="menu">На главную</button>
         </div>
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
@@ -368,9 +371,10 @@
     const competencyLevels = list(first(curriculum, ['competencyLevels']));
     const noProgress = techniquesReady + checklistsReady + scenariosDone === 0;
     host.innerHTML = `
+      <p class="professional-verification-note"><b>Это журнал самостоятельной отработки.</b> Отметки ниже помогают планировать повторение, но не подтверждают владение приёмом. Подтвердить навык может преподаватель после очной демонстрации.</p>
       <section class="professional-progress-summary">
-        <div><span>Приёмы</span><strong>${techniquesReady}/${techniques.length}</strong><small>${techniqueDone} из ${techniqueTotal} шагов</small></div>
-        <div><span>Области</span><strong>${checklistsReady}/${allChecklists().length}</strong><small>${checklistDone} из ${checklistTotal} шагов</small></div>
+        <div><span>Самоотработка приёмов</span><strong>${techniquesReady}/${techniques.length}</strong><small>${techniqueDone} из ${techniqueTotal} шагов</small></div>
+        <div><span>Самоотработка областей</span><strong>${checklistsReady}/${allChecklists().length}</strong><small>${checklistDone} из ${checklistTotal} шагов</small></div>
         <div><span>Ситуации</span><strong>${scenariosDone}/${totalScenarios}</strong><small>${state.journal.length} записей в журнале</small></div>
         ${noProgress ? '<p>Начни с одного приёма или чек-листа по знакомой области — все показатели будут обновляться здесь.</p>' : ''}
       </section>
@@ -467,7 +471,7 @@
     const required = Number(first(pass, ['requiredSteps'], steps.length));
     const ready = completed >= required;
     const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['level']))].filter(Boolean).join(' · ');
-    return `<div class="checklist-grid"><details class="practice-card" data-required-steps="${required}" open><summary><span><strong>${esc(first(item, ['title', 'name']))}</strong><small>${esc(metadata)}</small></span><b>${ready ? 'Готов к показу' : `${completed}/${required}`}</b></summary>
+    return `<div class="checklist-grid"><details class="practice-card" data-required-steps="${required}" ${completed ? 'open' : ''}><summary><span><strong>${esc(first(item, ['title', 'name']))}</strong><small>${esc(metadata)}</small></span><b>${ready ? 'Готов к показу' : `${completed}/${required}`}</b></summary>
       <div class="practice-card-body">
         ${first(item, ['purpose', 'goal']) ? `<p>${esc(first(item, ['purpose', 'goal']))}</p>` : ''}
         ${titledList('Перед началом', first(item, ['prerequisites']), 'prerequisites')}
@@ -481,18 +485,19 @@
   function renderScenarioCards() {
     const rows = allScenarios();
     if (!rows.length) return '<div class="empty-state"><p>Сценарии построения сеанса готовятся.</p></div>';
-    return `<div class="scenario-grid">${rows.map(item => {
-      const id = first(item, ['id'], uid('scenario'));
-      const progress = state.scenarios[id] || {};
-      const draft = String(progress.draft || '');
-      const modelSteps = textRows(first(item, ['safePlan', 'modelAnswer', 'expectedPlan', 'decisionPath']));
-      const rubric = progress.rubric && typeof progress.rubric === 'object' ? progress.rubric : {};
-      const rubricDone = modelSteps.filter((_, index) => rubric[index] === true).length;
-      const canReveal = draft.trim().length >= 20;
-      const canComplete = scenarioCanComplete(item, progress);
-      const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['difficulty', 'level']))].filter(Boolean).join(' · ')
-        || first(item, ['category'], 'Практическая ситуация');
-      return `<article class="scenario-card">
+    if (!rows.some(item => item.id === activeScenario)) activeScenario = rows[0].id;
+    const item = rows.find(row => row.id === activeScenario) || rows[0];
+    const id = first(item, ['id'], uid('scenario'));
+    const progress = state.scenarios[id] || {};
+    const draft = String(progress.draft || '');
+    const modelSteps = textRows(first(item, ['safePlan', 'modelAnswer', 'expectedPlan', 'decisionPath']));
+    const rubric = progress.rubric && typeof progress.rubric === 'object' ? progress.rubric : {};
+    const rubricDone = modelSteps.filter((_, index) => rubric[index] === true).length;
+    const canReveal = draft.trim().length >= 20;
+    const canComplete = scenarioCanComplete(item, progress);
+    const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['difficulty', 'level']))].filter(Boolean).join(' · ')
+      || first(item, ['category'], 'Практическая ситуация');
+    return `<div class="scenario-grid"><article class="scenario-card">
         <span class="eyebrow">${esc(metadata)}</span>
         <h3>${esc(first(item, ['title', 'name']))}</h3>
         <p>${esc(first(item, ['situation', 'description', 'case', 'brief']))}</p>
@@ -509,20 +514,22 @@
           </section>
           <label class="reviewed-check ${canComplete ? '' : 'not-ready'}"><input type="checkbox" data-scenario-reviewed="${esc(id)}" ${progress.reviewed === true && canComplete ? 'checked' : ''} ${canComplete ? '' : 'disabled'}><span data-scenario-reviewed-label>${canComplete ? 'Я могу объяснить решение своими словами' : `Сначала сверь все пункты (${rubricDone}/${modelSteps.length}) и критические ошибки`}</span></label>
         </div>
-      </article>`;
-    }).join('')}</div>`;
+      </article></div>`;
   }
 
   function renderPractice() {
     const host = $('#professionalContent');
     const checklists = allChecklists();
+    const scenarios = allScenarios();
     if (!checklists.some(item => item.id === activeChecklist)) activeChecklist = checklists[0]?.id || '';
+    if (!scenarios.some(item => item.id === activeScenario)) activeScenario = scenarios[0]?.id || '';
     host.innerHTML = `
       <div class="practice-switch" role="group" aria-label="Вид практической отработки">
         <button type="button" data-practice-mode="checklists" class="${practiceMode === 'checklists' ? 'active' : ''}" aria-pressed="${practiceMode === 'checklists'}">Чек-листы по областям</button>
         <button type="button" data-practice-mode="scenarios" class="${practiceMode === 'scenarios' ? 'active' : ''}" aria-pressed="${practiceMode === 'scenarios'}">Построение сеанса</button>
       </div>
       ${practiceMode === 'checklists' && checklists.length ? `<label class="practice-area-picker"><span>Выбери область и задачу</span><select id="practiceChecklistPicker">${checklists.map(item => `<option value="${esc(item.id)}" ${item.id === activeChecklist ? 'selected' : ''}>${esc(regionLabel(first(item, ['regionId', 'region'])))} — ${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
+      ${practiceMode === 'scenarios' && scenarios.length ? `<label class="practice-scenario-picker"><span>Выбери учебную ситуацию</span><select id="practiceScenarioPicker">${scenarios.map(item => `<option value="${esc(item.id)}" ${item.id === activeScenario ? 'selected' : ''}>${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
       <aside class="practice-method"><b>${practiceMode === 'checklists' ? 'Как отрабатывать навык' : 'Как разбирать ситуацию'}</b><span>${practiceMode === 'checklists'
         ? 'Подготовься → выполни без подсказок → отметь шаги → получи обратную связь → повтори в другой день.'
         : 'Сначала сформулируй решение по памяти → затем открой разбор → найди пропуски и критические ошибки → объясни исправленный план.'}</span></aside>
@@ -538,6 +545,11 @@
       activeChecklist = event.currentTarget.value;
       renderPractice();
       requestAnimationFrame(() => $('#practiceChecklistPicker')?.focus());
+    });
+    $('#practiceScenarioPicker')?.addEventListener('change', event => {
+      activeScenario = event.currentTarget.value;
+      renderPractice();
+      requestAnimationFrame(() => $('#practiceScenarioPicker')?.focus());
     });
     $$('[data-checklist-id]').forEach(input => input.addEventListener('change', () => {
       state.checklistChecks[input.dataset.checklistId] ||= {};
@@ -750,8 +762,13 @@
     else renderMyths();
   }
 
-  function openProfessional(tab = 'techniques') {
+  function openProfessional(tab = 'techniques', options = {}) {
     activeTab = ['techniques', 'practice', 'journal', 'myths'].includes(tab) ? tab : 'techniques';
+    const regionId = String(options.regionId || '');
+    if (regionId) {
+      const matchingChecklist = allChecklists().find(item => String(first(item, ['regionId', 'region'])) === regionId);
+      if (matchingChecklist) activeChecklist = matchingChecklist.id;
+    }
     if (typeof window.show === 'function') window.show('professionalScreen');
     else {
       $$('.screen').forEach(screen => screen.classList.toggle('hidden', screen.id !== 'professionalScreen'));

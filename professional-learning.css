@@ -219,8 +219,9 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
 .technique-section-body .skilldetailsection:first-child{margin-top:0}
 .technique-section-body .skilldetailsection:last-child{margin-bottom:0}
 
-.practice-area-picker{display:grid;gap:6px;max-width:760px;margin:0 0 12px;color:var(--text);font-weight:800}
-.practice-area-picker select{width:100%;min-width:0;min-height:48px;border-color:var(--professional-control-border);background:var(--surface2);color:var(--text);font-size:1rem}
+.practice-area-picker,.practice-scenario-picker{display:grid;gap:6px;max-width:760px;margin:0 0 12px;color:var(--text);font-weight:800}
+.practice-area-picker select,.practice-scenario-picker select{width:100%;min-width:0;min-height:48px;border-color:var(--professional-control-border);background:var(--surface2);color:var(--text);font-size:1rem}
+.practice-scenario-picker + .practice-method{margin-top:0}
 .practice-video-library{margin-top:12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);overflow:hidden}
 .practice-video-library>summary{padding:12px 14px;cursor:pointer;font-weight:800;list-style:none}
 .practice-video-library>summary::-webkit-details-marker{display:none}
@@ -256,4 +257,28 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .journal-history-head .btn{width:100%}
   .technique-detail{padding:13px}
   .technique-section-body{padding:10px}
+}
+.professional-verification-note {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.professional-verification-note b {
+  color: var(--text);
+}
+
+@media(max-width:480px){
+  .professional-progress-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .professional-progress-summary>div,.professional-progress-summary>div:nth-child(3){grid-column:auto;padding:9px 7px;border-right:1px solid var(--border);border-bottom:0;text-align:center}
+  .professional-progress-summary>div:last-of-type{border-right:0}
+  .professional-progress-summary span{font-size:.68em;line-height:1.2}
+  .professional-progress-summary strong{font-size:1.05em}
+  .professional-progress-summary small{display:none}
+  .professional-progress-summary>p{display:none}
+  .professional-verification-note{font-size:.82em;padding:10px 11px}
 }

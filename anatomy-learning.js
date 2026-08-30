@@ -14,6 +14,9 @@
     ['testing', '6', 'Тестирование', 'Короткая проверка по выбранной теме']
   ];
 
+  const ATTACHMENT_CARD_LIMIT = 6;
+  const RECOMMENDED_ATTACHMENT_REGION = 'Руки / плечевой пояс';
+
   const joints = [
     {title:'Плечевой сустав',type:'Шаровидный, многоосный',bones:'Головка плечевой кости + суставная впадина лопатки',moves:'Сгибание, разгибание, отведение, приведение и вращение',stability:'Капсула, связки, суставная губа и мышцы ротаторной манжеты; движение руки связано с движением лопатки.',why:'Большая подвижность требует согласованной работы плечевой кости и лопатки.',caution:'Не тянуть руку через боль и не пытаться «вправлять» сустав.'},
     {title:'Локтевой сустав',type:'Преимущественно блоковидный, одноосный',bones:'Плечевая, локтевая и лучевая кости',moves:'Сгибание и разгибание; поворот предплечья происходит в соседних лучелоктевых суставах',stability:'Форма костей, капсула и коллатеральные связки по сторонам сустава.',why:'Помогает связать работу бицепса, трицепса, плечевой и плечелучевой мышц.',caution:'После травмы или при отёке движения не форсируют.'},
@@ -43,6 +46,7 @@
 
   let active = 'joints';
   const topicIndex = {joints:0,ligaments:0,functions:0};
+  let attachmentVisibleLimit = ATTACHMENT_CARD_LIMIT;
   let viewed;
   try { viewed = new Set(JSON.parse(API.storage.getItem('anatomy_course_viewed_v1') || '[]')); }
   catch { viewed = new Set(); }
@@ -248,9 +252,11 @@
   }
 
   function attachmentsMarkup() {
+    attachmentVisibleLimit = ATTACHMENT_CARD_LIMIT;
     const source = (typeof ITEMS !== 'undefined' ? ITEMS : []).filter(item => item.kind !== 'bone');
     const groups = [...new Set(source.map(item => item.cat))].sort((a,b) => a.localeCompare(b,'ru'));
-    return `<section class="anatomy-reading-guide"><strong>Как читать запись</strong><div><span><b>1</b> Начало</span><i>относительно более неподвижная точка</i><span><b>2</b> Прикрепление</span><i>точка, которую мышца чаще перемещает</i><span><b>3</b> Линия тяги</span><i>подсказывает возможное действие мышцы</i></div><p>Это удобная учебная модель: при сложных движениях обе точки могут перемещаться, а функция зависит от положения тела.</p></section><div class="anatomy-filter"><label class="sr-only" for="attachmentSearch">Поиск мышцы</label><input id="attachmentSearch" type="search" placeholder="Найти мышцу…"><label class="sr-only" for="attachmentRegion">Область тела</label><select id="attachmentRegion"><option value="">Все области тела</option>${groups.map(group => `<option value="${esc(group)}">${esc(group)}</option>`).join('')}</select></div><div id="attachmentResults" class="anatomy-grid"></div>`;
+    const recommended = groups.includes(RECOMMENDED_ATTACHMENT_REGION) ? RECOMMENDED_ATTACHMENT_REGION : (groups[0] || '');
+    return `<section class="anatomy-reading-guide"><strong>Как читать запись</strong><div><span><b>1</b> Начало</span><i>относительно более неподвижная точка</i><span><b>2</b> Прикрепление</span><i>точка, которую мышца чаще перемещает</i><span><b>3</b> Линия тяги</span><i>подсказывает возможное действие мышцы</i></div><p>Это удобная учебная модель: при сложных движениях обе точки могут перемещаться, а функция зависит от положения тела.</p></section><div class="attachment-start"><strong>Начните с одной области</strong><span>Для первого знакомства выбран плечевой пояс. За один раз открывается не больше ${ATTACHMENT_CARD_LIMIT} новых мышц.</span></div><div class="anatomy-filter"><div><label for="attachmentRegion">Область тела</label><select id="attachmentRegion"><option value="">Все области тела</option>${groups.map(group => `<option value="${esc(group)}" ${group===recommended?'selected':''}>${group===recommended?'Рекомендуем: ':''}${esc(group)}</option>`).join('')}</select></div><div><label for="attachmentSearch">Поиск мышцы</label><input id="attachmentSearch" type="search" placeholder="Например, дельтовидная"></div></div><p id="attachmentStatus" class="attachment-status" role="status" aria-live="polite"></p><div id="attachmentResults" class="anatomy-grid" aria-describedby="attachmentStatus"></div><button type="button" class="btn secondary attachment-more" data-attachment-more hidden>Показать ещё</button>`;
   }
 
   function renderAttachmentsList() {
@@ -258,7 +264,21 @@
     if (!target) return;
     const query = (document.getElementById('attachmentSearch')?.value || '').trim().toLowerCase();
     const region = document.getElementById('attachmentRegion')?.value || '';
-    const source = (typeof ITEMS !== 'undefined' ? ITEMS : []).filter(item => item.kind !== 'bone' && (!region || item.cat === region) && (!query || (item.name+' '+item.attach).toLowerCase().includes(query))).slice(0, 30);
+    const matches = (typeof ITEMS !== 'undefined' ? ITEMS : []).filter(item => item.kind !== 'bone' && (!region || item.cat === region) && (!query || (item.name+' '+item.attach).toLowerCase().includes(query)));
+    const source = matches.slice(0, attachmentVisibleLimit);
+    const status = document.getElementById('attachmentStatus');
+    const more = document.querySelector('[data-attachment-more]');
+    if (status) {
+      const scope = region ? `в области «${region}»` : 'во всех областях';
+      status.textContent = matches.length > source.length
+        ? `Показано ${source.length} из ${matches.length} мышц ${scope}. Можно уточнить поиск или открыть следующую группу.`
+        : `Найдено мышц: ${matches.length}${region ? ` · ${region}` : ''}.`;
+    }
+    if (more) {
+      const remaining = Math.max(0, matches.length - source.length);
+      more.hidden = remaining === 0;
+      more.textContent = remaining ? `Показать ещё · осталось ${remaining}` : 'Показать ещё';
+    }
     target.innerHTML = source.map(item => `<article class="attachment-card"><small>${esc(item.cat)}</small><h4>${esc(item.name)}</h4><p>${esc(item.attach)}</p><button type="button" class="textbutton" data-anatomy-reference="${esc(item.name)}">Открыть подробное объяснение →</button></article>`).join('') || '<div class="statsnote">Ничего не найдено. Попробуйте более короткое название.</div>';
   }
 
@@ -307,8 +327,9 @@
     target.innerHTML = `<div class="anatomy-content-head"><span class="eyebrow">Раздел ${modules.findIndex(row=>row[0]===active)+1} из 6</span><h3>${esc(title)}</h3><p>${esc(lead)}</p></div>${body}${check}`;
     if (active === 'attachments') {
       renderAttachmentsList();
-      document.getElementById('attachmentSearch')?.addEventListener('input', renderAttachmentsList);
-      document.getElementById('attachmentRegion')?.addEventListener('change', renderAttachmentsList);
+      const resetAttachmentList = () => { attachmentVisibleLimit = ATTACHMENT_CARD_LIMIT; renderAttachmentsList(); };
+      document.getElementById('attachmentSearch')?.addEventListener('input', resetAttachmentList);
+      document.getElementById('attachmentRegion')?.addEventListener('change', resetAttachmentList);
     }
     if (active === 'functions') initMotionPlayer();
     syncTabs();
@@ -328,10 +349,19 @@
     });
   }
 
-  function activate(id) {
+  function activate(id, focusContent = true) {
     if (!modules.some(row => row[0] === id)) return;
     active = id; viewed.add(id); save(); renderContent();
-    requestAnimationFrame(() => document.getElementById('anatomyContent')?.focus({preventScroll:true}));
+    requestAnimationFrame(() => {
+      const tabs = host.querySelector('.anatomy-course-tabs');
+      const selected = host.querySelector(`[data-anatomy-module="${active}"]`);
+      if (tabs && selected && window.matchMedia('(max-width: 650px)').matches) {
+        const left = selected.offsetLeft - (tabs.clientWidth - selected.offsetWidth) / 2;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'off';
+        tabs.scrollTo({left:Math.max(0,left),behavior:reduceMotion?'auto':'smooth'});
+      }
+      if (focusContent) document.getElementById('anatomyContent')?.focus({preventScroll:true});
+    });
   }
 
   host.innerHTML = `<div class="anatomy-head"><div><span class="eyebrow">Учебная программа</span><h2 id="anatomyTitle">Анатомия: от строения к движению</h2><p>Шесть понятных шагов: изучите суставы и связки, посмотрите движение мышц, закрепите места прикрепления и проверьте себя.</p></div><button type="button" class="btn secondary" data-anatomy-home>На главную</button></div><div class="anatomy-progress"><div class="bar" aria-hidden="true"><i id="anatomyProgressBar"></i></div><strong id="anatomyProgressText"></strong></div><nav class="anatomy-course-tabs" role="tablist" aria-label="Разделы анатомии">${modules.map(([id,number,title,lead],index) => `<button type="button" class="anatomy-course-tab" data-anatomy-module="${id}" role="tab" aria-selected="${index===0}"><span>Шаг ${number}</span><b>${esc(title)}</b></button>`).join('')}</nav><div id="anatomyContent" role="tabpanel" tabindex="-1"></div>`;
@@ -345,8 +375,20 @@
     const image = event.target.closest('[data-anatomy-image]');
     if (image) { focusImage(image.dataset.anatomyImage); return; }
     if (event.target.closest('[data-close-anatomy-image]')) { document.getElementById('anatomyImageFocus').replaceChildren(); return; }
+    if (event.target.closest('[data-attachment-more]')) { attachmentVisibleLimit += ATTACHMENT_CARD_LIMIT; renderAttachmentsList(); return; }
     const test = event.target.closest('[data-anatomy-test]');
     if (test) { viewed.add(test.dataset.anatomyTest); save(); API.startTest(test.dataset.anatomyTest, `Анатомия · ${test.dataset.testTitle}`, 5); }
+  });
+
+  host.addEventListener('keydown', event => {
+    const current = event.target.closest('[data-anatomy-module]');
+    if (!current || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+    const tabs = [...host.querySelectorAll('[data-anatomy-module]')];
+    const index = tabs.indexOf(current);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    event.preventDefault();
+    tabs[nextIndex].focus();
+    activate(tabs[nextIndex].dataset.anatomyModule, false);
   });
 
   host.addEventListener('change',event=>{const select=event.target.closest('[data-anatomy-topic]');if(!select)return;topicIndex[active]=Number(select.value)||0;renderContent();});

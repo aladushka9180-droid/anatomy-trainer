@@ -1117,6 +1117,134 @@ select:disabled {
   min-height: 0;
 }
 
+/* Beginner guidance: explain difficult words without hiding the question. */
+.questionterms {
+  margin: -6px 0 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+#qtext {
+  white-space: pre-line;
+}
+
+.questionterms summary {
+  min-height: 44px;
+  padding: 11px 14px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 750;
+}
+
+.questionterms ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0 16px 14px 34px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.questionterms b {
+  color: var(--text);
+}
+
+.answerstep.wrongreason {
+  border-left-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 9%, var(--feedback));
+}
+
+.stagesummary {
+  flex-wrap: wrap;
+}
+
+.stagesummary .masteryrule {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.resultnextactions {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+/* One primary route; optional learning tools stay quiet until requested. */
+.homeextras,
+.questionhelp,
+.appearanceadvanced {
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.homeextras > summary,
+.questionhelp > summary,
+.appearanceadvanced > summary {
+  min-height: 48px;
+  padding: 12px 15px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.homeextras > div,
+.questionhelpbody,
+.appearanceadvancedbody {
+  padding: 0 15px 15px;
+}
+
+.homeextras p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.questionhelp {
+  margin-top: 14px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+
+.questionhelpbody .questiontools {
+  margin-top: 0;
+}
+
+.appearanceadvancedbody > .muted {
+  margin-top: 0;
+}
+
+.appearanceadvanced .advancedfont {
+  margin-top: 14px;
+}
+
+@media (max-width: 650px) {
+  .appnav .homestats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    gap: 2px;
+  }
+
+  .appnav .homestats .badge {
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    padding: 4px 2px;
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .appnav .homestats .badge b {
+    font-size: 14px;
+  }
+
+  .homeextras .btn {
+    width: 100%;
+  }
+}
+
 .settingstabhint {
   margin: 0 0 16px;
   padding: 10px 12px;
@@ -3420,4 +3548,9 @@ body.firstvisit #continueCard {
 /* Final cascade guard: settings should size to their actual content. */
 .settingspanel {
   min-height: 0;
+}
+
+/* Keep four result actions balanced after the earlier three-column rule. */
+.resultnextactions {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
