@@ -452,7 +452,7 @@ function renderSchedule() {
     const hasBreak = Boolean(row.break_start && row.break_end);
     return `<article class="schedule-day ${enabled ? '' : 'disabled'}" data-schedule-day="${row.weekday}">
       <label class="day-toggle"><input type="checkbox" data-schedule-enabled ${enabled ? 'checked' : ''}><span></span><strong>${weekdayNames[row.weekday - 1]}</strong></label>
-      <div class="day-hours"><label>С<input type="time" data-schedule-start value="${shortTime(row.start_time, '09:00')}" ${enabled ? '' : 'disabled'}></label><label>До<input type="time" data-schedule-end value="${shortTime(row.end_time, '19:00')}" ${enabled ? '' : 'disabled'}></label></div>
+      <div class="day-hours"><label>С<input type="time" data-schedule-start value="${shortTime(row.start_time, '10:00')}" ${enabled ? '' : 'disabled'}></label><label>До<input type="time" data-schedule-end value="${shortTime(row.end_time, '20:00')}" ${enabled ? '' : 'disabled'}></label></div>
       <label class="break-toggle"><input type="checkbox" data-schedule-break ${hasBreak ? 'checked' : ''} ${enabled ? '' : 'disabled'}><span>Перерыв</span></label>
       <div class="break-hours" ${hasBreak && enabled ? '' : 'hidden'}><input type="time" data-break-start value="${shortTime(row.break_start, '13:00')}"><span>—</span><input type="time" data-break-end value="${shortTime(row.break_end, '14:00')}"></div>
       <small class="day-off-label" ${enabled ? 'hidden' : ''}>Выходной</small>
@@ -466,7 +466,7 @@ async function loadSchedule() {
     $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Обновите страницу после настройки базы.</small></div>';
     return;
   }
-  scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index < 5, start_time: '09:00', end_time: '19:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
+  scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index > 0, start_time: '10:00', end_time: '20:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
   $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
   renderSchedule();
 }
