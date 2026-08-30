@@ -156,11 +156,11 @@ function updateBookingStats() {
   const today = localIsoDate(new Date());
   const active = allBookings.filter(item => item.status !== 'cancelled');
   const todayCount = active.filter(item => item.booking_date === today).length;
-  const newCount = active.filter(item => item.status === 'new' && item.booking_date >= today).length;
+  const upcomingCount = active.filter(item => item.booking_date >= today).length;
   $('#todayBookingsCount').textContent = String(todayCount);
-  $('#newBookingsCount').textContent = String(newCount);
-  $('#newBookingsBadge').textContent = String(newCount);
-  $('#newBookingsBadge').hidden = newCount === 0;
+  $('#newBookingsCount').textContent = String(upcomingCount);
+  $('#newBookingsBadge').textContent = String(upcomingCount);
+  $('#newBookingsBadge').hidden = upcomingCount === 0;
 }
 
 function filteredBookings() {
@@ -241,7 +241,7 @@ function renderBookingList(items) {
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
       <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small></div>
-      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${item.status === 'new' ? `<button type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
+      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions"><button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
     </article>`;
   }).join('');
 }
