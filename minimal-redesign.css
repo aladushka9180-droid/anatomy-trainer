@@ -1170,6 +1170,318 @@ select:disabled {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+/* v60: calm settings and assistant surfaces. */
+.settingsscreen {
+  max-width: 860px;
+}
+
+.settingsnav {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.settingsnav button {
+  min-height: 48px;
+  border-radius: 0;
+}
+
+.settingsnav button.active {
+  background: transparent;
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.settingstabhint {
+  margin: 12px 0 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.settingspanels {
+  gap: 0;
+}
+
+.settingspanel {
+  min-height: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.settingspanel .settingchecks {
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.settingspanel .settingcheck {
+  min-height: 52px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.appearanceaccessibility {
+  margin-top: 20px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.voicefine,
+.settingsdisclosure {
+  margin-top: 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.voicefine > summary,
+.settingsdisclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 2px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.voicefine > summary::-webkit-details-marker,
+.settingsdisclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.voicefine > summary::after,
+.settingsdisclosure > summary::after {
+  content: '+';
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.voicefine[open] > summary::after,
+.settingsdisclosure[open] > summary::after {
+  content: '−';
+}
+
+.settingsdisclosure > summary span,
+.settingsdisclosure > summary strong,
+.settingsdisclosure > summary small {
+  display: block;
+}
+
+.settingsdisclosure > summary small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.voicefinebody,
+.settingsdisclosurebody {
+  padding: 0 2px 16px;
+}
+
+.profiledatacard {
+  padding: 14px 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.profiledataactions,
+.profiletransferactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profiletransferactions .muted {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.settingspreflist,
+.dataresetlist {
+  display: grid;
+  gap: 0;
+}
+
+.settingspreflist > div,
+.dataresetlist > div,
+.dataresetlist > .professional-data-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: center;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+.settingspreflist > div:last-child,
+.dataresetlist > div:last-child {
+  border-bottom: 0;
+}
+
+.settingspreflist span,
+.dataresetlist span {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.settingspreflist .btn,
+.dataresetlist .btn {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.dangerdisclosure > summary strong {
+  color: var(--text);
+}
+
+.installappcard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 16px;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+}
+
+.installappcard .eyebrow {
+  display: none;
+}
+
+.installappcard h3,
+.installappcard p {
+  margin: 0;
+}
+
+.installappcard > :not(div:first-child):not(#installApp) {
+  grid-column: 1 / -1;
+}
+
+.installinstructions {
+  border-radius: 9px;
+}
+
+.materialfeedbackcount {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.assistantpanel {
+  margin: 0;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.assistanticon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.localbadge {
+  border: 0;
+  background: transparent;
+}
+
+.assistantexamples {
+  margin: 10px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.assistantexamples > summary {
+  min-height: 42px;
+  padding: 8px 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.assistantprompts {
+  margin: 4px 0 12px;
+}
+
+.assistantinput textarea {
+  min-height: 68px;
+  border-radius: 9px;
+}
+
+.assistantanswer {
+  min-height: 0;
+  margin-top: 16px;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 650px) {
+  .settingsnav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .settingspanel .settinggrid,
+  .simplethemes {
+    grid-template-columns: 1fr;
+  }
+
+  .simplethemes .themechoice {
+    min-height: 76px;
+  }
+
+  .settingspreflist > div,
+  .dataresetlist > div,
+  .dataresetlist > .professional-data-settings,
+  .installappcard {
+    grid-template-columns: 1fr;
+  }
+
+  .settingspreflist .btn,
+  .dataresetlist .btn {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    margin-top: 6px;
+  }
+
+  .installappcard #installApp {
+    width: 100%;
+  }
+
+  .assistanthead {
+    align-items: flex-start;
+  }
+
+  .localbadge {
+    display: none;
+  }
+}
+
 /* Minimal focus pass: one clear action, fewer nested cards, calmer navigation. */
 .wrap {
   max-width: 1180px;
@@ -4063,4 +4375,279 @@ body.firstvisit #continueCard {
 /* Keep four result actions balanced after the earlier three-column rule. */
 .resultnextactions {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+/* v60 final cascade: the settings and assistant stay visually flat. */
+#settingsScreen {
+  max-width: 860px;
+}
+
+#settingsScreen .settingsnav {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsScreen .settingsnav button {
+  min-height: 48px;
+  border-radius: 0;
+}
+
+#settingsScreen .settingsnav button.active {
+  background: transparent;
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+#settingsScreen .settingstabhint {
+  margin: 12px 0 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+#settingsScreen .settingspanels {
+  gap: 0;
+}
+
+#settingsScreen .settingspanel {
+  min-height: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsScreen .settingspanel .settingchecks {
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+#settingsScreen .settingspanel .settingcheck {
+  min-height: 52px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsScreen .appearanceaccessibility {
+  margin-top: 20px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsScreen .voicefine,
+#settingsScreen .settingsdisclosure {
+  margin-top: 14px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsScreen .voicefine > summary,
+#settingsScreen .settingsdisclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 2px;
+  cursor: pointer;
+  list-style: none;
+}
+
+#settingsScreen .voicefine > summary::-webkit-details-marker,
+#settingsScreen .settingsdisclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+#settingsScreen .voicefine > summary::after,
+#settingsScreen .settingsdisclosure > summary::after {
+  content: '+';
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+#settingsScreen .voicefine[open] > summary::after,
+#settingsScreen .settingsdisclosure[open] > summary::after {
+  content: '−';
+}
+
+#settingsScreen .settingsdisclosure > summary span,
+#settingsScreen .settingsdisclosure > summary strong,
+#settingsScreen .settingsdisclosure > summary small {
+  display: block;
+}
+
+#settingsScreen .settingsdisclosure > summary small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#settingsScreen .voicefinebody,
+#settingsScreen .settingsdisclosurebody {
+  padding: 0 2px 16px;
+}
+
+#settingsScreen .profiledatacard {
+  padding: 14px 0 18px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#settingsScreen .profiledataactions,
+#settingsScreen .profiletransferactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#settingsScreen .profiletransferactions .muted {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+#settingsScreen .settingspreflist,
+#settingsScreen .dataresetlist {
+  display: grid;
+  gap: 0;
+}
+
+#settingsScreen .settingspreflist > div,
+#settingsScreen .dataresetlist > div,
+#settingsScreen .dataresetlist > .professional-data-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: center;
+  padding: 14px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+#settingsScreen .settingspreflist span,
+#settingsScreen .dataresetlist span {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+#settingsScreen .settingspreflist .btn,
+#settingsScreen .dataresetlist .btn {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+#settingsScreen .installappcard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 16px;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
+}
+
+#settingsScreen .installappcard .eyebrow {
+  display: none;
+}
+
+#settingsScreen .installappcard h3,
+#settingsScreen .installappcard p {
+  margin: 0;
+}
+
+#settingsScreen .installappcard > :not(div:first-child):not(#installApp) {
+  grid-column: 1 / -1;
+}
+
+#referenceScreen .assistantpanel {
+  margin: 0;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+}
+
+#referenceScreen .localbadge {
+  border: 0;
+  background: transparent;
+}
+
+#referenceScreen .assistantexamples {
+  margin: 10px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+#referenceScreen .assistantexamples > summary {
+  min-height: 42px;
+  padding: 8px 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#referenceScreen .assistantprompts {
+  margin: 4px 0 12px;
+}
+
+#referenceScreen .assistantanswer {
+  min-height: 0;
+  margin-top: 16px;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (max-width: 650px) {
+  #settingsScreen .settingsnav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #settingsScreen .settingspanel .settinggrid,
+  #settingsScreen .simplethemes {
+    grid-template-columns: 1fr;
+  }
+
+  #settingsScreen .settingspreflist > div,
+  #settingsScreen .dataresetlist > div,
+  #settingsScreen .dataresetlist > .professional-data-settings,
+  #settingsScreen .installappcard {
+    grid-template-columns: 1fr;
+  }
+
+  #settingsScreen .settingspreflist .btn,
+  #settingsScreen .dataresetlist .btn {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    margin-top: 6px;
+  }
+
+  #settingsScreen .installappcard #installApp {
+    width: 100%;
+  }
+
+  #referenceScreen .localbadge {
+    display: none;
+  }
 }

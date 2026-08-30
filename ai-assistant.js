@@ -921,6 +921,7 @@
 
   function renderAssistantResponse(container, text, result, query) {
     if (!container) return;
+    container.classList.remove('hidden');
     container.replaceChildren();
     const answer = document.createElement('p');
     answer.className = 'assistant-answer-text';
