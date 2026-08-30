@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#183427">
-  <meta name="description" content="Простая онлайн-запись в студию красоты «Минута».">
+  <meta name="description" content="Онлайн-запись в студию красоты «Минута».">
   <meta property="og:title" content="Минута — онлайн-запись">
-  <meta property="og:description" content="Выберите услугу, специалиста и удобное время за пару минут.">
+  <meta property="og:description" content="Выберите услугу и свободное время за пару минут.">
   <meta property="og:type" content="website">
   <title>Минута — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -14,91 +14,53 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="ambient ambient-left"></div>
-  <div class="ambient ambient-right"></div>
-
+  <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
   <header class="site-header">
-    <a class="brand" href="#top" aria-label="Минута — на главную">
-      <span class="brand-mark">М</span>
-      <span><strong>Минута</strong><small>студия красоты</small></span>
-    </a>
-    <button class="bookings-link" id="openBookings" type="button" aria-label="Открыть мои записи">
-      <span class="calendar-icon" aria-hidden="true"></span>
-      Мои записи <span class="booking-count" id="bookingCount" hidden>0</span>
-    </button>
+    <a class="brand" href="#top" aria-label="Минута — на главную"><span class="brand-mark">М</span><span><strong>Минута</strong><small>студия красоты</small></span></a>
+    <a class="provider-link" href="provider.html"><span aria-hidden="true">◎</span> Вход исполнителя</a>
   </header>
 
   <main id="top" class="layout">
     <section class="intro">
-      <span class="status"><i></i> Запись открыта</span>
+      <span class="status"><i></i> Онлайн-запись работает</span>
       <h1>Красота начинается со свободного времени.</h1>
-      <p class="lead">Выберите услугу, специалиста и удобное время — всё займёт пару минут.</p>
-      <div class="benefits" aria-label="Преимущества">
-        <span>✓ Без звонков</span>
-        <span>✓ Свободное время онлайн</span>
-        <span>✓ Удобно с телефона</span>
-      </div>
-      <div class="location">
-        <span class="pin" aria-hidden="true"></span>
-        <p>Самара, ул. Молодогвардейская, 120<br><span>Ежедневно с 09:00 до 20:00</span></p>
-      </div>
+      <p class="lead">Выберите услугу и свободное время — исполнитель сразу увидит вашу запись.</p>
+      <div class="benefits" aria-label="Преимущества"><span>✓ Общая онлайн-база</span><span>✓ Занятое время блокируется</span><span>✓ Удобно с телефона</span></div>
+      <div class="location"><span class="pin" aria-hidden="true"></span><p>Самара, ул. Молодогвардейская, 120<br><span>Ежедневно с 09:00 до 20:00</span></p></div>
     </section>
 
     <section class="booking-card" aria-labelledby="bookingTitle">
       <div id="bookingFlow">
-        <div class="card-heading">
-          <div><small>Онлайн-запись</small><h2 id="bookingTitle">Выберите удобное время</h2></div>
-          <span class="step-label" id="stepLabel">Шаг 1 из 3</span>
-        </div>
+        <div class="card-heading"><div><small>Онлайн-запись</small><h2 id="bookingTitle">Выберите удобное время</h2></div><span class="step-label" id="stepLabel">Шаг 1 из 3</span></div>
         <div class="progress" aria-hidden="true"><i class="active"></i><i></i><i></i></div>
-
         <div class="step active" data-step="1">
-          <h3><span class="mini-icon scissors" aria-hidden="true">✦</span> Услуга</h3>
+          <h3><span class="mini-icon" aria-hidden="true">✦</span> Услуга и исполнитель</h3>
           <div class="option-list" id="services"></div>
-          <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◎</span> Специалист</h3>
-          <div class="specialist-grid" id="specialists"></div>
-          <button class="primary next" type="button" data-next="2">Выбрать дату <span>→</span></button>
+          <button class="primary next" id="toDate" type="button" data-next="2" disabled>Выбрать дату <span>→</span></button>
         </div>
-
         <div class="step" data-step="2">
-          <h3><span class="mini-icon" aria-hidden="true">▣</span> Дата</h3>
-          <div class="date-grid" id="dates"></div>
-          <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◷</span> Свободное время</h3>
-          <div class="time-grid" id="times"></div>
-          <div class="actions"><button class="back" type="button" data-back="1" aria-label="Назад">←</button><button class="primary" type="button" data-next="3">Продолжить <span>→</span></button></div>
+          <h3><span class="mini-icon" aria-hidden="true">▣</span> Дата</h3><div class="date-grid" id="dates"></div>
+          <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◷</span> Свободное время</h3><div class="time-grid" id="times"></div>
+          <p class="no-times" id="noTimes" hidden>На эту дату всё занято. Выберите другой день.</p>
+          <div class="actions"><button class="back" type="button" data-back="1" aria-label="Назад">←</button><button class="primary" id="continueBooking" type="button" data-next="3">Продолжить <span>→</span></button></div>
         </div>
-
         <form class="step" data-step="3" id="bookingForm" novalidate>
           <div class="summary" id="summary"></div>
           <label>Ваше имя<input id="clientName" name="name" autocomplete="name" placeholder="Например, Елена" maxlength="80" required></label>
           <label>Номер телефона<input id="clientPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label>
-          <p class="privacy">Нажимая кнопку, вы соглашаетесь на обработку данных для оформления записи.</p>
+          <p class="privacy">Данные увидит только выбранный исполнитель — для оформления записи.</p>
           <p class="form-error" id="formError" role="alert" hidden></p>
-          <div class="actions"><button class="back" type="button" data-back="2" aria-label="Назад">←</button><button class="primary" type="submit">Подтвердить запись</button></div>
+          <div class="actions"><button class="back" type="button" data-back="2" aria-label="Назад">←</button><button class="primary" id="submitBooking" type="submit">Подтвердить запись</button></div>
         </form>
       </div>
-
       <div class="success" id="success" hidden aria-live="polite">
-        <span class="success-mark">✓</span>
-        <small>Запись создана</small>
-        <h2 id="successTitle">До встречи!</h2>
-        <p id="successDetails"></p>
-        <div class="code" id="successCode"></div>
-        <p class="local-note">Демо-версия: запись сохранена в разделе «Мои записи» на этом устройстве.</p>
+        <span class="success-mark">✓</span><small>Запись отправлена исполнителю</small><h2 id="successTitle">До встречи!</h2><p id="successDetails"></p><div class="code" id="successCode"></div>
+        <p class="local-note">Сохраните номер записи. Исполнитель увидит заявку в своём кабинете.</p>
         <button class="primary" type="button" id="newBooking">Создать ещё одну запись</button>
       </div>
     </section>
   </main>
-
-  <dialog id="bookingsDialog">
-    <div class="dialog-head"><div><small>Сохранено на этом устройстве</small><h2>Мои записи</h2></div><button id="closeBookings" type="button" aria-label="Закрыть">×</button></div>
-    <div id="bookingsList" class="bookings-list"></div>
-  </dialog>
-
-  <template id="emptyBookings">
-    <div class="empty"><span>◷</span><h3>Записей пока нет</h3><p>После оформления они появятся здесь.</p></div>
-  </template>
-
-  <script src="app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script><script src="app.js" defer></script>
 </body>
 </html>
