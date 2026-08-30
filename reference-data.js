@@ -178,6 +178,7 @@
   function visualForEntry(entry){
     if(!entry||['terms','safety'].includes(entry.category))return null;
     const text=normalize(`${entry.title} ${entry.subtitle} ${entry.keywords||''}`);
+    if(/дельтовид/.test(text))return{src:'./anatomy-deltoid.png',alt:'Дельтовидная мышца: передний, средний и задний пучки',detail:true};
     if(/череп|лиц|голов|ше(я|и)|шей|атлант|осев|c1|c2/.test(text))return{src:'./anatomy-neck.png',alt:'Анатомическая схема мышц и ориентиров головы и шеи'};
     if(/плеч|лопат|ключиц|рук|локт|предплеч|кист|пальц|дельтовид|двуглав|трехглав|трёхглав/.test(text))return{src:'./anatomy-upper-limb.png',alt:'Анатомическая схема плечевого пояса и верхней конечности'};
     if(/таз|ягод|крестц|тазобедр/.test(text))return{src:'./anatomy-gluteal.png',alt:'Анатомическая схема таза и ягодичной области'};
@@ -216,7 +217,7 @@
       .referencecardaction{grid-column:2;grid-row:1/3;align-self:center;color:var(--accent);font-size:13px;font-weight:850;white-space:nowrap}
       .referencecategory{display:inline-flex;align-items:center;width:max-content;margin-bottom:8px;padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 13%,var(--surface2));color:var(--text);font-size:12px;font-weight:750}
       .referencebody{padding:0 15px 15px;border-top:1px solid var(--border);line-height:1.55}.referencebody>p{margin:13px 0}.referencebody dl{margin:0}.referencebody dt{margin-top:12px;color:var(--muted);font-size:13px;font-weight:750}.referencebody dd{margin:4px 0 0}
-      .referencevisual{margin:4px 0 12px;border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--surface2)}.referencevisual img{display:block;width:100%;height:150px;object-fit:contain}.referencevisual figcaption{padding:7px 10px;color:var(--muted);font-size:12px}
+      .referencevisual{margin:4px 0 12px;border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--surface2)}.referencevisual img{display:block;width:100%;height:150px;object-fit:contain}.referencevisual--detail img{height:auto;max-height:560px}.referencevisual figcaption{padding:7px 10px;color:var(--muted);font-size:12px}
       .referenceempty{grid-column:1/-1;padding:36px 18px;border:1px dashed var(--border);border-radius:14px;text-align:center;color:var(--muted)}
       .referencemore{display:block;width:min(100%,360px);min-height:46px;margin:14px auto 0;padding:10px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font:inherit;font-weight:800;cursor:pointer}
       .referencemore:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
@@ -377,7 +378,7 @@
       badge.textContent=CATEGORY_LABELS[entry.category];
       body.appendChild(badge);
       const visual=visualForEntry(entry);
-      if(visual){const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');figure.className='referencevisual';image.src=visual.src;image.alt=visual.alt;image.loading='lazy';image.decoding='async';caption.textContent=`Схема области: ${entry.subtitle||entry.title}`;figure.append(image,caption);body.appendChild(figure)}
+      if(visual){const figure=document.createElement('figure'),image=document.createElement('img'),caption=document.createElement('figcaption');figure.className=visual.detail?'referencevisual referencevisual--detail':'referencevisual';image.src=visual.src;image.alt=visual.alt;image.loading='lazy';image.decoding='async';caption.textContent=visual.detail?'Дельтовидная мышца: три пучка, функции и места прикрепления':`Схема области: ${entry.subtitle||entry.title}`;figure.append(image,caption);body.appendChild(figure)}
       if(entry.lead){const lead=document.createElement('p');lead.textContent=entry.lead;body.appendChild(lead)}
       if(entry.sections.length){
         const list=document.createElement('dl');

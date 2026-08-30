@@ -277,6 +277,7 @@
 
   function contextVisual(title='') {
     const text=String(title).toLowerCase();
+    if(/дельтовид/.test(text))return{src:'./anatomy-deltoid.png',alt:'Дельтовидная мышца: передний, средний и задний пучки'};
     if(/плеч|локт|лучезап|лопат|ключиц/.test(text))return{src:'./anatomy-upper-limb.png',alt:'Схема плечевого пояса и верхней конечности'};
     if(/тазобедр|таз|ягод/.test(text))return{src:'./anatomy-gluteal.png',alt:'Схема таза и ягодичной области'};
     if(/колен|бедр/.test(text))return{src:'./anatomy-leg.png',alt:'Схема бедра и колена'};
