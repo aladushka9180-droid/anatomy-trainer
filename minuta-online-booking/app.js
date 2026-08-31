@@ -1,4 +1,5 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), loadingAvailability: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
@@ -345,6 +346,15 @@ async function validateCurrentSelection() {
 }
 function formatPhone(value) { let digits = value.replace(/\D/g, '').slice(0, 11); if (!digits) return ''; if (digits[0] === '8') digits = `7${digits.slice(1)}`; if (digits[0] !== '7') digits = `7${digits}`.slice(0, 11); const p = digits.slice(1); return `+7${p.length ? ` (${p.slice(0, 3)}` : ''}${p.length >= 3 ? ')' : ''}${p.length > 3 ? ` ${p.slice(3, 6)}` : ''}${p.length > 6 ? `-${p.slice(6, 8)}` : ''}${p.length > 8 ? `-${p.slice(8, 10)}` : ''}`; }
 function showError(message) { $('#formError').textContent = message; $('#formError').hidden = false; }
+function telegramConnectUrl(manageToken) { return `${telegramClientEndpoint}/connect?token=${encodeURIComponent(manageToken)}`; }
+function notifyTelegramEvent(event, manageToken) {
+  if (!manageToken) return;
+  fetch(`${telegramClientEndpoint}/event`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', apikey: window.MINUTA_CONFIG.supabaseKey },
+    body: JSON.stringify({ event, manage_token: manageToken })
+  }).catch(() => {});
+}
 
 async function submitBooking(event) {
   event.preventDefault();
@@ -395,6 +405,8 @@ async function submitBooking(event) {
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
     $('#copyManageBooking').hidden = false;
+    $('#telegramConnect').href = telegramConnectUrl(manageToken);
+    $('#telegramConnect').hidden = false;
     const { data: management } = await db.rpc('get_booking_management', { p_token: manageToken });
     const current = management?.[0];
     renderSuccessPayment(current);
@@ -407,11 +419,12 @@ async function submitBooking(event) {
         $('#successCode').innerHTML = `Номер отменённой записи: <strong>${escapeHtml(code)}</strong>`;
       }
     }
+    if (!current || current.status !== 'cancelled') notifyTelegramEvent('confirmation', manageToken);
   }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -453,4 +466,4 @@ renderDates();
 renderTimes();
 loadServices();
 loadPublicPortfolio();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=46'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=47'));

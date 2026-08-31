@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '46';
+const version = '47';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');

@@ -1,4 +1,5 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey);
+const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 const $ = selector => document.querySelector(selector);
 const token = new URLSearchParams(location.search).get('token') || new URLSearchParams(location.hash.slice(1)).get('token') || '';
 if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `booking.html#token=${encodeURIComponent(token)}`);
@@ -10,6 +11,14 @@ function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} 
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
+function telegramConnectUrl() { return `${telegramClientEndpoint}/connect?token=${encodeURIComponent(token)}`; }
+function notifyTelegramEvent(event) {
+  return fetch(`${telegramClientEndpoint}/event`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', apikey: window.MINUTA_CONFIG.supabaseKey },
+    body: JSON.stringify({ event, manage_token: token })
+  }).catch(() => null);
+}
 function deadlineLabel(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -99,6 +108,7 @@ async function loadBooking(options = {}) {
   state.booking = data[0];
   $('#manageLoading').hidden = true;
   $('#manageContent').hidden = false;
+  $('#manageTelegramConnect').href = telegramConnectUrl();
   renderBooking();
   return true;
 }
@@ -180,6 +190,7 @@ async function confirmReschedule() {
     if (!conflict) {
       const verified = await loadBooking({ silent: true });
       if (verified && state.booking.booking_date === requestedDate && String(state.booking.booking_time).slice(0, 5) === requestedTime) {
+        notifyTelegramEvent('rescheduled');
         closeReschedule(); notify('Запись перенесена'); return;
       }
       if (!verified) { button.disabled = true; button.textContent = 'Сначала обновите запись'; }
@@ -188,6 +199,7 @@ async function confirmReschedule() {
     $('#manageFormError').hidden = false;
     return;
   }
+  notifyTelegramEvent('rescheduled');
   closeReschedule(); notify('Запись перенесена'); await loadBooking();
 }
 
@@ -203,11 +215,12 @@ async function cancelBooking() {
     }
     const verified = await loadBooking({ silent: true });
     button.disabled = !verified || state.booking?.status === 'cancelled'; button.textContent = 'Отменить запись';
-    if (verified && state.booking.status === 'cancelled') { notify('Запись отменена'); return; }
+    if (verified && state.booking.status === 'cancelled') { notifyTelegramEvent('cancelled'); notify('Запись отменена'); return; }
     if (!verified) { button.disabled = true; button.textContent = 'Сначала обновите запись'; }
     notify('Результат отмены не подтверждён — обновите запись перед повтором');
     return;
   }
+  notifyTelegramEvent('cancelled');
   notify('Запись отменена'); await loadBooking();
 }
 
@@ -238,4 +251,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=46'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=47'));

@@ -69,6 +69,7 @@ const defaultNotificationTemplates = {
   reminder: 'Здравствуйте, {имя}! Напоминаю о вашей записи.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nЕсли планы изменились, пожалуйста, сообщите заранее.',
   cancellation: 'Здравствуйте, {имя}! Ваша запись на {услуга}, {дата} в {время}, отменена. Если захотите подобрать другое время, напишите мне.'
 };
+const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 
 function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v2' : name}`; }
 function sessionIsCurrent(userId, generation) { return currentUser?.id === userId && sessionGeneration === generation; }
@@ -125,6 +126,18 @@ function requireWrites() {
   if (writesAllowed && navigator.onLine && currentUser) return true;
   notify('Изменения временно заблокированы до полной синхронизации');
   return false;
+}
+async function notifyTelegramClient(bookingId, event) {
+  try {
+    const { data } = await db.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) return;
+    await fetch(`${telegramClientEndpoint}/event`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', apikey: window.MINUTA_CONFIG.supabaseKey, authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ event, booking_id: bookingId })
+    });
+  } catch {}
 }
 function setSyncState(kind, text) {
   const element = $('#syncState');
@@ -850,6 +863,7 @@ async function saveBookingChanges(event) {
   await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
   if (!sessionIsCurrent(userId, generation)) return;
   clientNotes.set(phone, note);
+  notifyTelegramClient(id, 'rescheduled');
   selectScheduleDate(date);
   await refreshAfterWrite();
   notify('Запись обновлена');
@@ -2241,6 +2255,8 @@ document.addEventListener('click', async event => {
   if (booking) {
     const { error } = await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId).eq('performer_id', currentUser.id);
     if (error) { notify('Не удалось обновить запись'); return; }
+    if (booking.dataset.bookingStatus === 'cancelled') notifyTelegramClient(booking.dataset.bookingId, 'cancelled');
+    if (booking.dataset.bookingStatus === 'confirmed') notifyTelegramClient(booking.dataset.bookingId, 'confirmation');
     closeBookingSheet();
     notify('Статус записи обновлён');
     await refreshAfterWrite();
@@ -2347,4 +2363,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=46'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=47'));
