@@ -30,6 +30,7 @@ function localIsoDate(date) {
 function normalizePhone(value) {
   let digits = String(value || '').replace(/\D/g, '');
   if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
+  if (digits.length === 10) digits = `7${digits}`;
   return digits;
 }
 function escapeHtml(value) {
@@ -37,6 +38,14 @@ function escapeHtml(value) {
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
+function whatsappLink(item) {
+  const phone = normalizePhone(item.client_phone);
+  if (!phone) return '';
+  const date = new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const time = String(item.booking_time).slice(0, 5);
+  const message = `Здравствуйте, ${item.client_name}! Напоминаю о вашей записи.\n\n${serviceName(item.services?.name || 'Услуга')}\n${date} в ${time}\nИжевск, ул. Карла Маркса, 304Б\n\nЕсли планы изменились, пожалуйста, сообщите заранее.`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
 function bookingIsCompleted(item) {
   if (item.status !== 'confirmed') return false;
   const start = new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`);
@@ -236,12 +245,13 @@ function renderBookingList(items) {
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
+    const whatsapp = escapeHtml(whatsappLink(item));
     return `<article class="provider-booking status-${statusClass}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
       <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small></div>
-      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions"><button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
+      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
     </article>`;
   }).join('');
 }
@@ -254,6 +264,7 @@ function openBookingSheet(id) {
   const statusText = bookingStatus(item, true);
   const statusClass = bookingStatusClass(item);
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
+  const whatsapp = escapeHtml(whatsappLink(item));
   const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
@@ -262,7 +273,7 @@ function openBookingSheet(id) {
     <div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div>
     <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
     ${note ? `<div class="booking-sheet-note"><small>Заметка о клиенте</small><p>${escapeHtml(note)}</p></div>` : ''}
-    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
+    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">Написать в WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
 }
