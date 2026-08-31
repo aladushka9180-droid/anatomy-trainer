@@ -1004,7 +1004,7 @@ select:disabled {
   grid-column: 1 / -1;
 }
 
-/* Three-step introduction shown only once on a device. */
+/* Goal-based first-run setup shown once per profile. */
 .onboarding {
   position: fixed;
   z-index: 1000;
@@ -1017,7 +1017,9 @@ select:disabled {
 }
 
 .onboardingcard {
-  width: min(100%, 520px);
+  width: min(100%, 620px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   padding: clamp(22px, 5vw, 34px);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -1038,6 +1040,97 @@ select:disabled {
   color: var(--muted);
 }
 
+.onboardingchoices {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.onboardingchoice {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  min-height: 78px;
+  padding: 15px 48px 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.onboardingchoice:hover {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  transform: translateY(-1px);
+}
+
+.onboardingchoice.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.onboardingchoice.active::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink, #fff);
+  font-weight: 900;
+  transform: translateY(-50%);
+}
+
+.onboardingchoice strong,
+.onboardingexample strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.onboardingchoice span,
+.onboardingexample span {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.onboardingreviewchoices {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.onboardingreviewchoices > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.onboardingreviewchoices button {
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.onboardingreviewchoices button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
 .onboardingprogress {
   display: flex;
   gap: 6px;
@@ -1056,13 +1149,14 @@ select:disabled {
 }
 
 .onboardingexample {
+  display: grid;
+  gap: 5px;
   margin-top: 22px;
   padding: 14px;
   border-left: 3px solid var(--accent);
   border-radius: 0 8px 8px 0;
   background: var(--surface);
   color: var(--text);
-  font-weight: 750;
 }
 
 .onboardingactions {
@@ -4136,6 +4230,18 @@ body.profilemodalopen {
     max-width: 100%;
     min-width: 0;
     padding: 20px 16px;
+  }
+
+  .onboardingreviewchoices {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .onboardingreviewchoices > span {
+    grid-column: 1 / -1;
+  }
+
+  .onboardingactions {
+    flex-wrap: wrap;
   }
 
   .palettegrid {
