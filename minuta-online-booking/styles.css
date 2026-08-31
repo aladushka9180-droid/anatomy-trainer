@@ -627,3 +627,23 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 }
 html.requires-top-level body { visibility:hidden; }
 html.requires-top-level.top-level body { visibility:visible; }
+
+.success-payment { display:grid; gap:10px; margin:18px 0 8px; padding:17px; border:1px solid #cfe1d5; border-radius:15px; background:#f1f8f3; text-align:left; }
+.success-payment small { color:#718178; font-size:10px; font-weight:850; text-transform:uppercase; letter-spacing:.08em; }
+.success-payment strong { font-size:18px; }.success-payment .primary { width:100%; margin:0; text-align:center; }.success-payment p { margin:0; color:#6b7d73; font-size:10px; line-height:1.5; }
+.manage-payment { display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px 16px; margin:16px 0; padding:17px; border:1px solid #d7e5db; border-radius:15px; background:#f3f8f4; }
+.manage-payment div small,.manage-payment div strong { display:block; }.manage-payment div small { color:#718178; font-size:9px; font-weight:850; text-transform:uppercase; letter-spacing:.08em; }.manage-payment div strong { margin-top:4px; font-size:18px; }
+.manage-payment>span { padding:6px 9px; border-radius:999px; background:#fff1cf; color:#7a5a11; font-size:10px; font-weight:850; }.manage-payment>span.status-paid { background:#e1f4e7; color:#22633d; }.manage-payment>span.status-refunded { background:#edf0ee; color:#5d6b63; }
+.manage-payment .primary,.manage-payment p { grid-column:1/-1; }.manage-payment .primary { width:100%; margin:0; text-align:center; }.manage-payment p { margin:0; color:#6b7d73; font-size:10px; line-height:1.5; }
+.manage-policy { margin:12px 0; padding:10px 12px; border-radius:11px; background:#f5f7f6; color:#66776e; font-size:10px; line-height:1.5; }
+.booking-rules-card { margin-bottom:14px; }.booking-policy-form { display:grid; gap:13px; margin-top:20px; }.booking-policy-form label { color:#3f584b; font-size:10px; font-weight:850; }.booking-policy-form input { width:100%; min-height:43px; margin-top:6px; padding:0 11px; border:1px solid #d2e0d6; border-radius:11px; background:#fff; color:var(--ink); font:inherit; font-size:11px; }
+.booking-policy-form .settings-check { display:flex; align-items:flex-start; gap:10px; padding:13px; border:1px solid #dce8df; border-radius:13px; background:#f6faf7; cursor:pointer; }.booking-policy-form .settings-check input { width:18px; min-height:18px; margin:1px 0 0; padding:0; accent-color:#2f7654; }.booking-policy-form .settings-check span { display:grid; gap:3px; }.booking-policy-form .settings-check strong { font-size:12px; }.booking-policy-form .settings-check small { color:#718178; font-size:9px; line-height:1.45; }
+.booking-policy-form code { padding:1px 4px; border-radius:4px; background:#e8efea; color:#285d41; }
+.booking-prepayment-badge { display:block; width:max-content; margin-top:7px; padding:4px 7px; border-radius:999px; background:#fff1cf; color:#7a5a11; font-size:9px; font-weight:850; }.booking-prepayment-badge.status-paid { background:#e1f4e7; color:#22633d; }.booking-prepayment-badge.status-refunded { background:#edf0ee; color:#5d6b63; }
+.booking-prepayment-form { display:grid; grid-template-columns:1fr 140px; align-items:end; gap:11px; margin:14px 0; padding:15px; border:1px solid #d7e5db; border-radius:14px; background:#f3f8f4; }.booking-prepayment-form small { color:#718178; font-size:9px; font-weight:850; text-transform:uppercase; letter-spacing:.08em; }.booking-prepayment-form h3 { margin:4px 0 0; font-size:15px; }.booking-prepayment-form label { color:#3f584b; font-size:9px; font-weight:850; }.booking-prepayment-form select { width:100%; min-height:40px; margin-top:5px; padding:0 9px; border:1px solid #d2e0d6; border-radius:10px; background:#fff; color:var(--ink); font:inherit; font-size:10px; }.booking-prepayment-form button { grid-column:1/-1; width:100%; }
+
+@media (max-width:760px) {
+  .booking-policy-form .form-row { grid-template-columns:1fr; }
+  .booking-prepayment-form { grid-template-columns:1fr; }
+  .manage-payment { grid-template-columns:1fr; }.manage-payment>span { width:max-content; }
+}

@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=40">
+  <link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -201,6 +201,22 @@
         <section class="provider-view" data-provider-panel="settings" hidden>
           <div class="view-title"><div><span>Безопасность</span><h2>Настройки</h2></div></div>
           <div class="settings-layout">
+            <section class="panel settings-card booking-rules-card">
+              <div class="settings-icon" aria-hidden="true">◷</div>
+              <div class="settings-heading"><small>Правила онлайн-записи</small><h3>Отмена, перенос и предоплата</h3><p>Ограничения проверяются на сервере и не обходятся через старую ссылку.</p></div>
+              <form id="bookingPolicyForm" class="booking-policy-form">
+                <div class="form-row"><label>Отмена не позднее чем за, часов<input id="cancelCutoffHours" type="number" min="0" max="168" step="1" required></label><label>Перенос не позднее чем за, часов<input id="rescheduleCutoffHours" type="number" min="0" max="168" step="1" required></label></div>
+                <label>Максимум самостоятельных переносов<input id="maxReschedules" type="number" min="0" max="20" step="1" required></label>
+                <label class="settings-check"><input id="depositEnabled" type="checkbox"><span><strong>Требовать предоплату</strong><small>Ссылка появится сразу после записи и в личной ссылке клиента.</small></span></label>
+                <div id="depositSettings">
+                  <label>Сумма предоплаты, ₽<input id="depositAmount" type="number" min="0" max="1000000" step="50"></label>
+                  <label>Платёжная ссылка<input id="paymentUrlTemplate" type="url" maxlength="1000" placeholder="https://.../{code}"></label>
+                  <p class="password-hint">Можно использовать <code>{code}</code> и <code>{amount}</code>. Автоматическую проверку оплаты подключим после выбора платёжного сервиса.</p>
+                </div>
+                <p class="form-error" id="bookingPolicyError" hidden></p>
+                <button class="primary" type="submit">Сохранить правила</button>
+              </form>
+            </section>
             <section class="panel settings-card">
               <div class="settings-icon" aria-hidden="true">●</div>
               <div class="settings-heading"><small>Аккаунт исполнителя</small><h3>Сменить пароль</h3><p>После сохранения используйте новый пароль при следующем входе.</p></div>
@@ -264,8 +280,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=40"></script>
-  <script src="reliability.js?v=40"></script>
-  <script src="provider.js?v=40" defer></script>
+  <script src="config.js?v=41"></script>
+  <script src="reliability.js?v=41"></script>
+  <script src="provider.js?v=41" defer></script>
 </body>
 </html>

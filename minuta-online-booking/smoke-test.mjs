@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '40';
+const version = '41';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -39,6 +39,9 @@ assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'За
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
 assert.match(provider, /bookings-v2/, 'Новый обезличенный кэш не отделён от старого PII-кэша');
 assert.match(provider, /client_name: 'Клиент', client_phone: ''/, 'Офлайн-кэш записей содержит данные клиента');
+assert.match(provider, /booking_policies/, 'Кабинет не загружает правила отмены и предоплаты');
+assert.match(provider, /notification_templates/, 'Шаблоны уведомлений не синхронизируются с сервером');
+assert.match(provider, /set_booking_payment_status/, 'Нет управления статусом предоплаты');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
@@ -57,6 +60,14 @@ assert.match(app, /validateCurrentSelection/, 'Выбранное время н�
 const booking = readFileSync(join(root, 'booking.js'), 'utf8');
 assert.match(booking, /booking\.html#token=/, 'Токен управления не переносится из query-параметра во fragment');
 assert.match(booking, /loadBooking\(\{ silent: true \}\)/, 'Не проверяется результат неопределённой операции');
+assert.match(booking, /get_booking_management/, 'Клиент не получает серверные правила отмены и переноса');
+assert.match(booking, /cancel_too_late/, 'Клиентский интерфейс не обрабатывает срок отмены');
+
+const migration = readFileSync(join(root, 'supabase-migration-v41.sql'), 'utf8');
+assert.match(migration, /create table if not exists public\.booking_policies/, 'Нет серверного хранения правил записи');
+assert.match(migration, /reschedule_limit_reached/, 'Лимит переносов не проверяется сервером');
+assert.match(migration, /cancel_too_late/, 'Срок отмены не проверяется сервером');
+assert.match(migration, /payment_url_template/, 'Предоплата не подключена к правилам записи');
 
 const reliability = readFileSync(join(root, 'reliability.js'), 'utf8');
 assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Старый секретный токен не очищается');

@@ -18,7 +18,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=40">
+  <link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body>
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -67,6 +67,12 @@
       <div class="success" id="success" hidden aria-live="polite">
         <span class="success-mark">✓</span><small>Запись отправлена исполнителю</small><h2 id="successTitle">До встречи!</h2><p id="successDetails"></p><div class="code" id="successCode"></div>
         <p class="local-note">Сохраните номер записи. Исполнитель увидит заявку в своём кабинете.</p>
+        <div class="success-payment" id="successPayment" hidden>
+          <small>Для подтверждения времени</small>
+          <strong id="successDeposit"></strong>
+          <a class="primary" id="successPaymentLink" href="#" target="_blank" rel="noopener noreferrer">Внести предоплату</a>
+          <p>После оплаты сохраните чек. Исполнитель отметит поступление в кабинете.</p>
+        </div>
         <a class="primary manage-booking-link" id="manageBooking" href="booking.html" hidden>Управлять записью</a>
         <button class="manage-secondary" type="button" id="copyManageBooking" hidden>Скопировать ссылку на запись</button>
         <button class="manage-secondary" type="button" id="newBooking">Создать ещё одну запись</button>
@@ -82,6 +88,6 @@
     <button class="primary" type="button" data-choose-service-details>Выбрать эту услугу</button>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=40"></script><script src="reliability.js?v=40"></script><script src="app.js?v=40" defer></script>
+  <script src="config.js?v=41"></script><script src="reliability.js?v=41"></script><script src="app.js?v=41" defer></script>
 </body>
 </html>

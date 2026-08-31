@@ -10,6 +10,12 @@ function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} 
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
+function deadlineLabel(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
 function setFreshness(kind, text) {
   const element = $('#manageFreshness');
   element.className = `manage-freshness ${kind === 'stale' ? 'is-stale' : ''}`;
@@ -48,10 +54,33 @@ function renderBooking() {
   $('#managePrice').textContent = money(item.price_rub);
   $('#manageCode').textContent = item.booking_code;
   const cancelled = item.status === 'cancelled';
-  $('#openReschedule').disabled = cancelled;
-  $('#cancelBooking').disabled = cancelled;
+  $('#openReschedule').disabled = cancelled || !item.reschedule_allowed;
+  $('#cancelBooking').disabled = cancelled || !item.cancel_allowed;
   if (!$('#reschedulePanel').hidden) $('#confirmReschedule').disabled = !state.time;
   $('#cancelBooking').textContent = 'Отменить запись';
+  const policy = $('#managePolicy');
+  if (cancelled) policy.textContent = 'Запись отменена.';
+  else {
+    const parts = [];
+    if (item.reschedule_allowed) parts.push(`перенос доступен до ${deadlineLabel(item.reschedule_deadline)} · осталось ${item.reschedules_remaining}`);
+    else parts.push('самостоятельный перенос уже недоступен');
+    if (item.cancel_allowed) parts.push(`отмена доступна до ${deadlineLabel(item.cancel_deadline)}`);
+    else parts.push('самостоятельная отмена уже недоступна');
+    policy.textContent = parts.join('; ');
+  }
+  const payment = $('#managePayment');
+  const deposit = Number(item.deposit_amount_rub || 0);
+  payment.hidden = deposit <= 0;
+  if (deposit > 0) {
+    const labels = { pending: 'Ожидается', paid: 'Оплачено', refunded: 'Возвращено', not_required: 'Не требуется' };
+    $('#manageDeposit').textContent = money(deposit);
+    $('#managePaymentStatus').textContent = labels[item.payment_status] || item.payment_status;
+    $('#managePaymentStatus').className = `payment-status status-${item.payment_status}`;
+    const link = $('#managePaymentLink');
+    const canPay = item.payment_status === 'pending' && /^https:\/\//i.test(item.payment_url || '');
+    link.hidden = !canPay;
+    if (canPay) link.href = item.payment_url;
+  }
   setFreshness('fresh', `Проверено в ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
   if (cancelled) $('#manageActions').classList.add('cancelled');
 }
@@ -63,7 +92,7 @@ async function loadBooking(options = {}) {
     $('#manageError').hidden = true;
   }
   if (!/^[0-9a-f-]{36}$/i.test(token)) { if (!options.silent) showNotFound(); return false; }
-  const { data, error } = await db.rpc('get_booking_by_token', { p_token: token });
+  const { data, error } = await db.rpc('get_booking_management', { p_token: token });
   if (revision !== bookingLoadRevision) return false;
   if (error) { if (!options.silent) showLoadError(); else markBookingStale(); return false; }
   if (!data?.length) { if (!options.silent) showNotFound(); else markBookingStale('Запись больше не найдена — обновите страницу или свяжитесь с исполнителем.'); return false; }
@@ -120,7 +149,11 @@ async function openReschedule() {
   const first = state.dates.find(item => (state.availability.get(item.iso) || []).length);
   if (first) state.date = first.iso;
   renderDates(); renderTimes();
-  if (error) { $('#manageFormError').textContent = 'Не удалось загрузить свободное время.'; $('#manageFormError').hidden = false; }
+  if (error) {
+    const message = error.message || '';
+    $('#manageFormError').textContent = message.includes('reschedule_too_late') ? 'Срок самостоятельного переноса уже закончился.' : message.includes('reschedule_limit_reached') ? 'Лимит самостоятельных переносов исчерпан.' : 'Не удалось загрузить свободное время.';
+    $('#manageFormError').hidden = false;
+  }
   $('#reschedulePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -136,6 +169,12 @@ async function confirmReschedule() {
   button.textContent = 'Сохранить новое время';
   button.disabled = false;
   if (error) {
+    if (error.message?.includes('reschedule_too_late') || error.message?.includes('reschedule_limit_reached')) {
+      $('#manageFormError').textContent = error.message.includes('reschedule_too_late') ? 'Срок самостоятельного переноса уже закончился.' : 'Лимит самостоятельных переносов исчерпан.';
+      $('#manageFormError').hidden = false;
+      await loadBooking({ silent: true });
+      return;
+    }
     const conflict = error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505';
     if (conflict) await openReschedule();
     if (!conflict) {
@@ -157,6 +196,11 @@ async function cancelBooking() {
   const button = $('#cancelBooking'); button.disabled = true; button.textContent = 'Отменяем…';
   const { error } = await db.rpc('cancel_booking', { p_token: token });
   if (error) {
+    if (error.message?.includes('cancel_too_late')) {
+      notify('Срок самостоятельной отмены закончился — свяжитесь с исполнителем');
+      await loadBooking({ silent: true });
+      return;
+    }
     const verified = await loadBooking({ silent: true });
     button.disabled = !verified || state.booking?.status === 'cancelled'; button.textContent = 'Отменить запись';
     if (verified && state.booking.status === 'cancelled') { notify('Запись отменена'); return; }
@@ -194,4 +238,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=40'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=41'));

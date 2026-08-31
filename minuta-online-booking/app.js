@@ -211,6 +211,15 @@ function renderSummary() {
   const service = selectedService();
   $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
 }
+function renderSuccessPayment(item) {
+  const holder = $('#successPayment');
+  if (!holder) return;
+  const pending = item?.payment_status === 'pending' && Number(item.deposit_amount_rub || 0) > 0 && /^https:\/\//i.test(item.payment_url || '');
+  holder.hidden = !pending;
+  if (!pending) return;
+  $('#successDeposit').textContent = `Предоплата ${money(item.deposit_amount_rub)}`;
+  $('#successPaymentLink').href = item.payment_url;
+}
 async function validateCurrentSelection() {
   const service = selectedService();
   const selectedTime = state.time;
@@ -281,11 +290,13 @@ async function submitBooking(event) {
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
     $('#copyManageBooking').hidden = false;
+    const { data: management } = await db.rpc('get_booking_management', { p_token: manageToken });
+    renderSuccessPayment(management?.[0]);
   }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; bookingResultUncertain = false; state.time = ''; state.moreDates = false; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; bookingResultUncertain = false; state.time = ''; state.moreDates = false; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -325,4 +336,4 @@ window.addEventListener('online', () => loadServices());
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=40'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=41'));

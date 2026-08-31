@@ -16,6 +16,10 @@ let selectedDate = localIsoDate(new Date());
 let allBookings = [];
 let bookingOutcomes = new Map();
 let outcomesRemoteAvailable = false;
+let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '' };
+let serverNotificationTemplates = {};
+let serverNotificationMarks = {};
+let notificationSettingsRemoteAvailable = false;
 let ownServices = [];
 let clientNotes = new Map();
 let selectedClientPhone = '';
@@ -83,6 +87,7 @@ const writeSelectors = [
   '#newBookingButton', '#saveSchedule', '#saveClientNote',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
+  '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
@@ -152,7 +157,7 @@ function writeNotificationStorage(name, value) {
   try { localStorage.setItem(notificationStorageKey(name), JSON.stringify(value)); }
   catch { notify('Не удалось сохранить изменения в браузере'); }
 }
-function notificationTemplates() { return { ...defaultNotificationTemplates, ...readNotificationStorage('templates', {}) }; }
+function notificationTemplates() { return { ...defaultNotificationTemplates, ...readNotificationStorage('templates', {}), ...serverNotificationTemplates }; }
 function composeNotificationMessage(type, item) {
   const date = new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
   const tokens = {
@@ -270,11 +275,22 @@ function exportBookingsCsv() {
   notify('Отчёт скачан');
 }
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
-function notificationMarks() { return readNotificationStorage('marks', {}); }
-function setNotificationMark(key, status) {
-  const marks = notificationMarks();
-  if (status) marks[key] = status; else delete marks[key];
-  writeNotificationStorage('marks', marks);
+function notificationMarks() { return { ...readNotificationStorage('marks', {}), ...serverNotificationMarks }; }
+async function setNotificationMark(key, status) {
+  const local = readNotificationStorage('marks', {});
+  if (status) local[key] = status; else delete local[key];
+  writeNotificationStorage('marks', local);
+  if (!notificationSettingsRemoteAvailable || !currentUser) return false;
+  const [bookingId, kind] = key.split('|');
+  let error = null;
+  if (status) {
+    ({ error } = await db.from('notification_marks').upsert({ performer_id: currentUser.id, booking_id: bookingId, task_key: key, kind, status }, { onConflict: 'performer_id,task_key' }));
+    if (!error) serverNotificationMarks[key] = status;
+  } else {
+    ({ error } = await db.from('notification_marks').delete().eq('performer_id', currentUser.id).eq('task_key', key));
+    if (!error) delete serverNotificationMarks[key];
+  }
+  return !error;
 }
 function bookingStart(item) { return new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`); }
 function buildNotificationTasks() {
@@ -343,17 +359,25 @@ function renderNotifications() {
     </article>`;
   }).join('');
 }
-function saveNotificationTemplates(event) {
+async function saveNotificationTemplates(event) {
   event.preventDefault();
-  writeNotificationStorage('templates', {
+  if (!requireWrites()) return;
+  const templates = {
     confirmation: $('#templateConfirmation').value.trim() || defaultNotificationTemplates.confirmation,
     reminder: $('#templateReminder').value.trim() || defaultNotificationTemplates.reminder,
     cancellation: $('#templateCancellation').value.trim() || defaultNotificationTemplates.cancellation
-  });
+  };
+  writeNotificationStorage('templates', templates);
+  let remoteSaved = false;
+  if (notificationSettingsRemoteAvailable) {
+    const { error } = await db.from('notification_templates').upsert({ performer_id: currentUser.id, ...templates }, { onConflict: 'performer_id' });
+    remoteSaved = !error;
+    if (remoteSaved) serverNotificationTemplates = templates;
+  }
   renderNotificationTemplates();
   renderNotifications();
   $('#notificationTemplatesDialog').close();
-  notify('Шаблоны сохранены');
+  notify(remoteSaved ? 'Шаблоны сохранены на всех устройствах' : 'Шаблоны сохранены на этом устройстве');
 }
 function showFormError(id, message) { const element = $(id); element.textContent = message; element.hidden = false; }
 function clearFormError(id) { $(id).hidden = true; }
@@ -551,7 +575,7 @@ function renderBookingList(items) {
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
-      <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small>${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</div>
+      <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</div>
       ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
     </article>`;
   }).join('');
@@ -576,11 +600,13 @@ function openBookingSheet(id) {
     <div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div>
     <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
     ${note ? `<div class="booking-sheet-note"><small>Заметка о клиенте</small><p>${escapeHtml(note)}</p></div>` : ''}
+    ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}"><div class="booking-outcome-heading"><div><small>После визита</small><h3>Результат и оплата</h3></div><span>${outcome.visit_status === 'completed' ? '✓ Состоялся' : outcome.visit_status === 'no_show' ? '× Не пришёл' : '◷ Запланирован'}</span></div><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Клиент не пришёл</option></select></label><div class="booking-outcome-payment" id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="50" value="${amount}"></label></div><button class="primary" type="submit">Сохранить результат</button><p>${outcomesRemoteAvailable ? 'Данные доступны в кабинете исполнителя.' : 'Пока сохраняется на этом устройстве.'}</p></form>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">Написать в WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
+  $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
   $('#outcomeVisitStatus')?.addEventListener('change', toggleOutcomePaymentFields);
   toggleOutcomePaymentFields();
 }
@@ -988,6 +1014,86 @@ async function loadBookingOutcomes() {
   return { ok: !error, optional: true };
 }
 
+function renderBookingPolicyForm() {
+  if (!$('#bookingPolicyForm')) return;
+  $('#cancelCutoffHours').value = String(bookingPolicy.cancel_cutoff_hours ?? 12);
+  $('#rescheduleCutoffHours').value = String(bookingPolicy.reschedule_cutoff_hours ?? 12);
+  $('#maxReschedules').value = String(bookingPolicy.max_reschedules ?? 2);
+  $('#depositEnabled').checked = Boolean(bookingPolicy.deposit_enabled);
+  $('#depositAmount').value = String(bookingPolicy.deposit_amount_rub || 0);
+  $('#paymentUrlTemplate').value = bookingPolicy.payment_url_template || '';
+  $('#depositSettings').hidden = !$('#depositEnabled').checked;
+}
+
+async function loadBookingSettings() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false, optional: true };
+  const [policyResult, templatesResult, marksResult] = await Promise.all([
+    db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template').eq('performer_id', userId).maybeSingle(),
+    db.from('notification_templates').select('confirmation,reminder,cancellation').eq('performer_id', userId).maybeSingle(),
+    db.from('notification_marks').select('task_key,status').eq('performer_id', userId)
+  ]);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
+  if (!policyResult.error && policyResult.data) bookingPolicy = policyResult.data;
+  if (!templatesResult.error && templatesResult.data) serverNotificationTemplates = templatesResult.data;
+  if (!marksResult.error) serverNotificationMarks = Object.fromEntries((marksResult.data || []).map(item => [item.task_key, item.status]));
+  notificationSettingsRemoteAvailable = !policyResult.error && !templatesResult.error && !marksResult.error;
+  renderBookingPolicyForm();
+  renderNotificationTemplates();
+  renderNotifications();
+  return { ok: notificationSettingsRemoteAvailable, optional: true };
+}
+
+async function saveBookingPolicy(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  clearFormError('#bookingPolicyError');
+  const depositEnabled = $('#depositEnabled').checked;
+  const record = {
+    performer_id: currentUser.id,
+    cancel_cutoff_hours: Math.round(Number($('#cancelCutoffHours').value)),
+    reschedule_cutoff_hours: Math.round(Number($('#rescheduleCutoffHours').value)),
+    max_reschedules: Math.round(Number($('#maxReschedules').value)),
+    deposit_enabled: depositEnabled,
+    deposit_amount_rub: Math.max(0, Math.round(Number($('#depositAmount').value) || 0)),
+    payment_url_template: $('#paymentUrlTemplate').value.trim()
+  };
+  if (![record.cancel_cutoff_hours, record.reschedule_cutoff_hours].every(value => value >= 0 && value <= 168) || record.max_reschedules < 0 || record.max_reschedules > 20) {
+    showFormError('#bookingPolicyError', 'Проверьте ограничения отмены и переноса.');
+    return;
+  }
+  if (depositEnabled && (record.deposit_amount_rub <= 0 || !/^https:\/\//i.test(record.payment_url_template))) {
+    showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и безопасную ссылку, начинающуюся с https://.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
+  button.disabled = false;
+  button.textContent = 'Сохранить правила';
+  if (error) { showFormError('#bookingPolicyError', 'Не удалось сохранить правила.'); return; }
+  bookingPolicy = record;
+  renderBookingPolicyForm();
+  notify('Правила онлайн-записи сохранены');
+}
+
+async function savePrepaymentStatus(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const bookingId = event.currentTarget.dataset.bookingId;
+  const status = $('#bookingPrepaymentStatus').value;
+  const button = event.submitter;
+  button.disabled = true;
+  const { error } = await db.rpc('set_booking_payment_status', { p_booking: bookingId, p_status: status });
+  button.disabled = false;
+  if (error) { notify('Не удалось обновить предоплату'); return; }
+  notify('Статус предоплаты обновлён');
+  await refreshAfterWrite();
+  openBookingSheet(bookingId);
+}
+
 function toggleOutcomePaymentFields() {
   const form = $('#bookingOutcomeForm');
   if (!form) return;
@@ -1116,7 +1222,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadBookingOutcomes()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadBookingOutcomes(), loadBookingSettings()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -1200,6 +1306,10 @@ async function handleSession(session) {
     daysOff = [];
     clientNotes = new Map();
     bookingOutcomes = new Map();
+    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '' };
+    serverNotificationTemplates = {};
+    serverNotificationMarks = {};
+    notificationSettingsRemoteAvailable = false;
     return;
   }
   const userId = currentUser.id;
@@ -1213,6 +1323,7 @@ async function handleSession(session) {
   $('#todayLabel').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   renderDateStrip();
   renderNotificationTemplates();
+  renderBookingPolicyForm();
   await providerCacheMaintenance;
   if (!sessionIsCurrent(userId, generation)) return;
   await synchronizeProvider();
@@ -1583,7 +1694,7 @@ async function loadBookings(options = {}) {
   if (!userId) return { ok: false };
   if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   const { data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,services(name,price_rub,duration_minutes)')
+    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
     .eq('performer_id', userId)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
@@ -1660,16 +1771,16 @@ document.addEventListener('click', async event => {
   }
   if (closeServiceCreator) $('#serviceCreatorDialog').close();
   if (openNotification) {
-    setNotificationMark(openNotification.dataset.openNotification, 'opened');
+    await setNotificationMark(openNotification.dataset.openNotification, 'opened');
     setTimeout(renderNotifications, 0);
   }
   if (sentNotification) {
-    setNotificationMark(sentNotification.dataset.sentNotification, 'sent');
+    await setNotificationMark(sentNotification.dataset.sentNotification, 'sent');
     renderNotifications();
     notify('Уведомление отмечено отправленным');
   }
   if (restoreNotification) {
-    setNotificationMark(restoreNotification.dataset.restoreNotification, '');
+    await setNotificationMark(restoreNotification.dataset.restoreNotification, '');
     renderNotifications();
     notify('Уведомление возвращено в очередь');
   }
@@ -1749,6 +1860,8 @@ $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
+$('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
+$('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#saveClientNote').addEventListener('click', saveClientNote);
@@ -1788,4 +1901,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=40'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=41'));

@@ -10,7 +10,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Моя запись — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=40">
+  <link rel="stylesheet" href="styles.css?v=41">
 </head>
 <body class="manage-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -35,6 +35,13 @@
           <div><dt>Стоимость</dt><dd id="managePrice">—</dd></div>
           <div><dt>Номер записи</dt><dd id="manageCode">—</dd></div>
         </dl>
+        <section class="manage-payment" id="managePayment" hidden>
+          <div><small>Предоплата</small><strong id="manageDeposit">—</strong></div>
+          <span id="managePaymentStatus">Ожидается</span>
+          <a class="primary" id="managePaymentLink" href="#" target="_blank" rel="noopener noreferrer">Перейти к оплате</a>
+          <p>После оплаты сохраните чек. Статус обновит исполнитель.</p>
+        </section>
+        <p class="manage-policy" id="managePolicy"></p>
         <div class="manage-actions" id="manageActions">
           <button class="primary" id="openReschedule" type="button">Перенести запись</button>
           <button class="manage-secondary" id="addCalendar" type="button">Добавить в календарь</button>
@@ -54,6 +61,6 @@
   </main>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=40"></script><script src="reliability.js?v=40"></script><script src="booking.js?v=40" defer></script>
+  <script src="config.js?v=41"></script><script src="reliability.js?v=41"></script><script src="booking.js?v=41" defer></script>
 </body>
 </html>
