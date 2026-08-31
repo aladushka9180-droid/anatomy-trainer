@@ -22,6 +22,17 @@ state.date = dates[0].iso;
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function selectedService() { return state.services.find(item => item.id === state.serviceId); }
 function selectedDate() { return dates.find(item => item.iso === state.date); }
+function timeRange(time, duration) {
+  const [hours, minutes] = String(time).split(':').map(Number);
+  const end = hours * 60 + minutes + Number(duration || 0);
+  return `${time}–${String(Math.floor(end / 60) % 24).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+}
+function setBookingStatus(kind, text) {
+  const element = $('#bookingStatus');
+  if (!element) return;
+  element.className = `status status-${kind}`;
+  element.querySelector('span').textContent = text;
+}
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function serviceDescription(value) {
@@ -39,11 +50,17 @@ function serviceDescription(value) {
 
 async function loadServices() {
   const holder = $('#services');
+  setBookingStatus('checking', 'Проверяем расписание…');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем услуги…</span></div>';
   const { data, error } = await db.from('services').select('id, performer_id, name, duration_minutes, price_rub, performer_profiles(display_name)').eq('active', true).order('created_at', { ascending: true });
-  if (error) { holder.innerHTML = '<div class="empty-service"><strong>Не удалось загрузить услуги</strong><span>Проверьте интернет и обновите страницу.</span></div>'; return; }
+  if (error) {
+    setBookingStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Запись временно недоступна' : 'Нет соединения с интернетом');
+    holder.innerHTML = '<div class="empty-service"><strong>Не удалось проверить расписание</strong><span>Запись не создана. Проверьте интернет и повторите попытку.</span><button class="service-details-button" type="button" id="retryServices">Повторить</button></div>';
+    return;
+  }
   state.services = data || [];
   if (!state.services.some(item => item.id === state.serviceId)) state.serviceId = state.services[0]?.id || '';
+  setBookingStatus(state.services.length ? 'open' : 'closed', state.services.length ? 'Запись открыта' : 'Запись пока закрыта');
   renderServices();
 }
 
@@ -133,9 +150,13 @@ async function loadAvailability() {
   renderDates();
   renderTimes();
   if (error) {
+    setBookingStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Расписание временно недоступно' : 'Нет соединения с интернетом');
     $('#noTimes').textContent = 'Не удалось загрузить расписание. Обновите страницу.';
     $('#noTimes').hidden = false;
-  } else $('#noTimes').textContent = 'На эту дату свободного времени нет. Выберите другой день.';
+  } else {
+    setBookingStatus('open', 'Запись открыта');
+    $('#noTimes').textContent = 'На эту дату свободного времени нет. Выберите другой день.';
+  }
 }
 
 async function showStep(step) {
@@ -152,19 +173,21 @@ async function showStep(step) {
 
 function renderSummary() {
   const service = selectedService();
-  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label} в ${state.time}</span>`;
+  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
 }
 function formatPhone(value) { let digits = value.replace(/\D/g, '').slice(0, 11); if (!digits) return ''; if (digits[0] === '8') digits = `7${digits.slice(1)}`; if (digits[0] !== '7') digits = `7${digits}`.slice(0, 11); const p = digits.slice(1); return `+7${p.length ? ` (${p.slice(0, 3)}` : ''}${p.length >= 3 ? ')' : ''}${p.length > 3 ? ` ${p.slice(3, 6)}` : ''}${p.length > 6 ? `-${p.slice(6, 8)}` : ''}${p.length > 8 ? `-${p.slice(8, 10)}` : ''}`; }
 function showError(message) { $('#formError').textContent = message; $('#formError').hidden = false; }
 
 async function submitBooking(event) {
   event.preventDefault();
+  const operation = window.MinutaReliability?.operationId?.() || String(Date.now());
   const name = $('#clientName').value.trim();
   const phone = $('#clientPhone').value;
   const service = selectedService();
   if (name.length < 2 || phone.replace(/\D/g, '').length !== 11) { showError('Укажите имя и полный номер телефона.'); return; }
   if (!$('#dataConsent').checked) { showError('Подтвердите согласие на обработку данных.'); return; }
   if (!service || !state.time) { showError('Выберите услугу и свободное время.'); return; }
+  if (!navigator.onLine) { showError('Нет соединения с интернетом. Запись не создана — подключитесь к сети и повторите попытку.'); return; }
   const submit = $('#submitBooking');
   submit.disabled = true;
   submit.textContent = 'Сохраняем…';
@@ -176,7 +199,7 @@ async function submitBooking(event) {
     if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
       showError('Это время только что заняли. Выберите другое.');
       await showStep(2);
-    } else showError('Не удалось сохранить запись. Попробуйте ещё раз.');
+    } else showError(`Не удалось подтвердить запись. Она не создана. Повторите попытку. Код: ${operation.slice(0, 8)}`);
     return;
   }
   const code = data?.[0]?.booking_code || 'создан';
@@ -184,18 +207,20 @@ async function submitBooking(event) {
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
   $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
-  $('#successDetails').innerHTML = `${escapeHtml(serviceName(service.name))} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label} в ${state.time}`;
+  $('#successDetails').innerHTML = `${escapeHtml(serviceName(service.name))} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}`;
   $('#successCode').innerHTML = `Номер записи: <strong>${escapeHtml(code)}</strong>`;
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
     manageUrl.searchParams.set('token', manageToken);
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
+    $('#copyManageBooking').hidden = false;
+    try { localStorage.setItem('minuta-last-booking-url', manageUrl.href); } catch {}
   }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; state.moreDates = false; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; state.moreDates = false; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -207,6 +232,7 @@ document.addEventListener('click', event => {
   const chooseServiceDetails = event.target.closest('[data-choose-service-details]');
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
+  const retryServices = event.target.closest('#retryServices');
   if (service) { state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
   if (date && !date.disabled) { state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
@@ -216,11 +242,22 @@ document.addEventListener('click', event => {
   if (time && !time.disabled) { state.time = time.dataset.time; renderTimes(); }
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
+  if (retryServices) loadServices();
 });
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#bookingForm').addEventListener('submit', submitBooking);
 $('#newBooking').addEventListener('click', resetFlow);
+$('#copyManageBooking').addEventListener('click', async () => {
+  const url = $('#manageBooking').href;
+  try {
+    await navigator.clipboard.writeText(url);
+    $('#copyManageBooking').textContent = 'Ссылка скопирована';
+    setTimeout(() => { $('#copyManageBooking').textContent = 'Скопировать ссылку на запись'; }, 2200);
+  } catch { showError('Не удалось скопировать ссылку. Откройте страницу управления и сохраните её в закладках.'); }
+});
+window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
+window.addEventListener('online', () => loadServices());
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=38'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=39'));

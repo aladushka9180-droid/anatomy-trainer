@@ -33,6 +33,10 @@ button { color: inherit; }
 .intro { position: sticky; top: 30px; padding-top: 28px; }
 .status { display:inline-flex; align-items:center; gap:9px; padding:8px 13px; border:1px solid rgba(24,52,39,.1); border-radius:999px; background:rgba(255,255,255,.72); box-shadow:0 3px 12px rgba(24,52,39,.05); font-size:12px; font-weight:800; }
 .status i { width:8px; height:8px; border-radius:50%; background:#2bc36e; box-shadow:0 0 0 5px rgba(43,195,110,.13); }
+.status-checking i { background:#d19a3c; box-shadow:0 0 0 5px rgba(209,154,60,.13); animation:pulse-status 1.2s ease-in-out infinite; }
+.status-error,.status-offline,.status-closed { color:#7a4b2f; background:#fff9ef; border-color:#ead9bd; }
+.status-error i,.status-offline i,.status-closed i { background:#d06c4e; box-shadow:0 0 0 5px rgba(208,108,78,.13); }
+@keyframes pulse-status { 50% { opacity:.42; transform:scale(.82); } }
 .intro h1 { max-width: 520px; margin: 22px 0 0; font-size: clamp(46px,5.2vw,66px); line-height: .98; letter-spacing: -.06em; }
 .lead { max-width: 460px; margin: 20px 0 0; color: #50665b; font-size: 18px; line-height: 1.55; }
 .location { display:flex; gap:12px; margin-top:30px; padding-top:20px; border-top:1px solid rgba(24,52,39,.1); color:#536b5f; font-size:13px; line-height:1.6; }
@@ -127,6 +131,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .manage-error { padding:42px 16px; text-align:center; }
 .manage-error>span { display:grid; place-items:center; width:54px; height:54px; margin:0 auto 18px; border-radius:18px; background:#fff0ef; color:#a23f3b; font-size:24px; font-weight:900; }
 .manage-error h1 { margin:0; font-size:28px; }.manage-error p { max-width:430px; margin:12px auto 24px; color:var(--muted); line-height:1.6; }.manage-error .primary { text-decoration:none; }
+.manage-error .manage-secondary { display:inline-flex; align-items:center; justify-content:center; margin:10px 5px 0; text-decoration:none; }
 .manage-title { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
 .manage-title small { color:var(--green); font-size:10px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
 .manage-title h1 { margin:7px 0 0; font-size:clamp(25px,5vw,37px); letter-spacing:-.04em; }
@@ -200,6 +205,12 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:96px; border-bottom:1px solid #e1e8e3; }
 .provider-topbar small { display:block; color:#718278; font-size:11px; font-weight:750; text-transform:capitalize; }
 .provider-topbar h1 { margin:5px 0 0; font-size:21px; letter-spacing:-.035em; }
+.provider-topbar-actions { display:flex; align-items:center; gap:10px; }
+.sync-state { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border:1px solid #dce7df; border-radius:999px; background:#fff; color:#577064; font-size:9px; font-weight:850; white-space:nowrap; }
+.sync-state i { width:7px; height:7px; border-radius:50%; background:#33aa6d; box-shadow:0 0 0 4px rgba(51,170,109,.11); }
+.sync-state.is-checking i,.sync-state.is-warning i { background:#d09a3e; box-shadow:0 0 0 4px rgba(208,154,62,.12); animation:pulse-status 1.2s ease-in-out infinite; }
+.sync-state.is-offline { color:#855537; background:#fff8ed; border-color:#ebdcc5; }
+.sync-state.is-offline i { background:#cb6b50; box-shadow:0 0 0 4px rgba(203,107,80,.12); }
 .topbar-client-link { padding:10px 14px; border:1px solid #dbe5de; border-radius:999px; background:#fff; color:#2d6048; text-decoration:none; font-size:11px; font-weight:800; }
 .provider-view { width:min(1160px,100%); margin:0 auto; padding-top:32px; }
 .view-title { display:flex; align-items:center; justify-content:space-between; gap:16px; }
@@ -368,6 +379,9 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .provider-workspace { padding:0 14px 34px; }
   .provider-topbar { min-height:78px; }
   .provider-topbar h1 { max-width:230px; font-size:18px; }
+  .provider-topbar-actions { min-width:0; }
+  .sync-state { max-width:170px; }
+  .sync-state span { overflow:hidden; text-overflow:ellipsis; }
   .topbar-client-link { display:none; }
   .provider-view { padding-top:23px; }
   .view-title h2 { font-size:27px; }

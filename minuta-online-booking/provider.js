@@ -24,6 +24,10 @@ let newBookingHour = '';
 let scheduleRows = [];
 let daysOff = [];
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
+let bookingsChannel = null;
+let syncTimer = null;
+let bookingReloadTimer = null;
+const reliability = window.MinutaReliability;
 const weekdayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 const notificationAddress = 'Ижевск, ул. Карла Маркса, 304Б';
 const defaultNotificationTemplates = {
@@ -31,6 +35,46 @@ const defaultNotificationTemplates = {
   reminder: 'Здравствуйте, {имя}! Напоминаю о вашей записи.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nЕсли планы изменились, пожалуйста, сообщите заранее.',
   cancellation: 'Здравствуйте, {имя}! Ваша запись на {услуга}, {дата} в {время}, отменена. Если захотите подобрать другое время, напишите мне.'
 };
+
+function providerCacheKey(name) { return `provider:${currentUser?.id || 'anonymous'}:${name}`; }
+async function saveProviderCache(name, data) {
+  try { await reliability?.put(providerCacheKey(name), data); } catch {}
+}
+async function readProviderCache(name) {
+  try { return await reliability?.get(providerCacheKey(name)); } catch { return null; }
+}
+function setSyncState(kind, text) {
+  const element = $('#syncState');
+  if (!element) return;
+  element.className = `sync-state is-${kind}`;
+  element.querySelector('span').textContent = text;
+  const writeSelectors = [
+    '#newBookingButton', '#saveSchedule', '#saveClientNote',
+    '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
+    '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
+    '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
+  ];
+  $$(writeSelectors.join(',')).forEach(control => {
+    if (kind === 'offline' && !control.disabled) {
+      control.disabled = true;
+      control.dataset.offlineDisabled = 'true';
+    } else if (kind !== 'offline' && control.dataset.offlineDisabled === 'true') {
+      control.disabled = false;
+      delete control.dataset.offlineDisabled;
+    }
+  });
+}
+function cachedStateText(savedAt) {
+  return `Офлайн · данные на ${reliability?.savedAtLabel(savedAt) || 'последнюю синхронизацию'}`;
+}
+function renderBookingData() {
+  updateBookingStats();
+  renderBookings();
+  renderClients();
+  renderNotifications();
+  renderAnalytics();
+  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+}
 
 function localIsoDate(date) {
   const year = date.getFullYear();
@@ -933,6 +977,42 @@ async function createRepeatBooking(event) {
   await loadBookings();
 }
 
+function stopLiveUpdates() {
+  if (bookingsChannel) db.removeChannel(bookingsChannel);
+  bookingsChannel = null;
+  clearInterval(syncTimer);
+  syncTimer = null;
+  clearTimeout(bookingReloadTimer);
+}
+
+function scheduleBookingsReload() {
+  clearTimeout(bookingReloadTimer);
+  bookingReloadTimer = setTimeout(() => loadBookings({ silent: true }), 250);
+}
+
+function startLiveUpdates() {
+  stopLiveUpdates();
+  if (!currentUser) return;
+  bookingsChannel = db
+    .channel(`provider-bookings-${currentUser.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') setSyncState('online', 'Онлайн · записи обновляются');
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncState('warning', 'Связь нестабильна · проверяем');
+      if (status === 'CLOSED' && navigator.onLine) setSyncState('warning', 'Переподключаемся…');
+    });
+  syncTimer = setInterval(() => {
+    if (!document.hidden && navigator.onLine) loadBookings({ silent: true });
+  }, 60000);
+}
+
+async function synchronizeProvider() {
+  if (!currentUser || !navigator.onLine) return;
+  setSyncState('checking', 'Синхронизация…');
+  await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff()]);
+  if (!bookingsChannel) startLiveUpdates();
+}
+
 async function handleSession(session) {
   currentUser = session?.user || null;
   clearInterval(notificationTimer);
@@ -940,7 +1020,7 @@ async function handleSession(session) {
   if (recoveryMode) { showRecoveryReset(); return; }
   $('#authCard').hidden = Boolean(currentUser);
   $('#dashboard').hidden = !currentUser;
-  if (!currentUser) return;
+  if (!currentUser) { stopLiveUpdates(); return; }
   const { data: profile } = await db.from('performer_profiles').select('display_name').eq('id', currentUser.id).single();
   const name = profile?.display_name || 'исполнитель';
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
@@ -952,6 +1032,7 @@ async function handleSession(session) {
   renderNotificationTemplates();
   await Promise.all([loadOwnServices(), loadBookings(), loadClientNotes(), loadSchedule(), loadDaysOff()]);
   await loadBookingOutcomes();
+  startLiveUpdates();
 }
 
 async function login(event) {
@@ -1119,10 +1200,20 @@ function renderSchedule() {
 async function loadSchedule() {
   const { data, error } = await db.from('provider_schedule').select('*').eq('performer_id', currentUser.id).order('weekday');
   if (error) {
-    $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Обновите страницу после настройки базы.</small></div>';
+    const cached = await readProviderCache('schedule');
+    if (cached?.data?.length) {
+      scheduleRows = cached.data;
+      $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
+      renderSchedule();
+      renderBookings();
+      setSyncState('offline', cachedStateText(cached.savedAt));
+      return;
+    }
+    $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Соединение с сервером не установлено. Изменения не выполнялись.</small></div>';
     return;
   }
   scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index > 0, start_time: '10:00', end_time: '20:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
+  await saveProviderCache('schedule', scheduleRows);
   $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
   renderSchedule();
   renderBookings();
@@ -1155,6 +1246,7 @@ async function saveSchedule() {
   button.textContent = 'Сохранить';
   if (error) { showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
   scheduleRows = rows;
+  await saveProviderCache('schedule', scheduleRows);
   notify('Расписание сохранено');
 }
 
@@ -1173,8 +1265,19 @@ function renderDaysOff() {
 
 async function loadDaysOff() {
   const { data, error } = await db.from('provider_days_off').select('*').eq('performer_id', currentUser.id).gte('off_date', localIsoDate(new Date())).order('off_date');
-  if (error) { $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>'; return; }
+  if (error) {
+    const cached = await readProviderCache('days-off');
+    if (cached?.data) {
+      daysOff = cached.data;
+      renderDaysOff();
+      setSyncState('offline', cachedStateText(cached.savedAt));
+      return;
+    }
+    $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>';
+    return;
+  }
   daysOff = data || [];
+  await saveProviderCache('days-off', daysOff);
   renderDaysOff();
 }
 
@@ -1199,40 +1302,64 @@ async function addDayOff(event) {
   await loadDaysOff();
 }
 
-async function loadOwnServices() {
+function renderOwnServices() {
   const list = $('#serviceManageList');
-  list.innerHTML = '<div class="loading-state"><i></i><span>Загружаем…</span></div>';
-  const { data, error } = await db.from('services').select('*').eq('performer_id', currentUser.id).order('created_at', { ascending: false });
-  if (error) { list.innerHTML = '<div class="provider-empty">Не удалось загрузить услуги.</div>'; return; }
-  ownServices = data || [];
   populateRepeatServices();
   const activeCount = ownServices.filter(item => item.active).length;
-  $('#servicesCount').textContent = String(data.length);
-  $('#servicesBadge').textContent = String(data.length);
+  $('#servicesCount').textContent = String(ownServices.length);
+  $('#servicesBadge').textContent = String(ownServices.length);
   $('#activeServicesCount').textContent = String(activeCount);
-  if (!data.length) {
+  if (!ownServices.length) {
     list.innerHTML = '<div class="provider-empty"><span>＋</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>';
     return;
   }
-  list.innerHTML = data.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)} · ${item.active ? 'доступна клиентам' : 'скрыта'}</small></div></div><div class="manage-actions"><button class="edit-service-button" type="button" data-edit-service="${item.id}">Изменить</button><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
+  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)} · ${item.active ? 'доступна клиентам' : 'скрыта'}</small></div></div><div class="manage-actions"><button class="edit-service-button" type="button" data-edit-service="${item.id}">Изменить</button><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
 }
 
-async function loadBookings() {
+async function loadOwnServices(options = {}) {
+  const list = $('#serviceManageList');
+  if (!options.silent) list.innerHTML = '<div class="loading-state"><i></i><span>Загружаем…</span></div>';
+  const { data, error } = await db.from('services').select('*').eq('performer_id', currentUser.id).order('created_at', { ascending: false });
+  if (error) {
+    const cached = await readProviderCache('services');
+    if (cached?.data) {
+      ownServices = cached.data;
+      renderOwnServices();
+      setSyncState('offline', cachedStateText(cached.savedAt));
+      return;
+    }
+    list.innerHTML = '<div class="provider-empty">Не удалось загрузить услуги.</div>';
+    return;
+  }
+  ownServices = data || [];
+  await saveProviderCache('services', ownServices);
+  renderOwnServices();
+}
+
+async function loadBookings(options = {}) {
   const holder = $('#providerBookings');
-  holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
+  if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   const { data, error } = await db.from('bookings')
     .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,services(name,price_rub,duration_minutes)')
     .eq('performer_id', currentUser.id)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
-  if (error) { holder.innerHTML = '<div class="provider-empty">Не удалось загрузить записи.</div>'; return; }
+  if (error) {
+    const cached = await readProviderCache('bookings');
+    if (cached?.data) {
+      allBookings = cached.data;
+      renderBookingData();
+      setSyncState('offline', cachedStateText(cached.savedAt));
+      return;
+    }
+    holder.innerHTML = '<div class="provider-empty"><strong>Не удалось загрузить записи</strong><small>Соединение с сервером не установлено. Попробуйте ещё раз.</small></div>';
+    setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Сервер не отвечает' : 'Нет соединения');
+    return;
+  }
   allBookings = data || [];
-  updateBookingStats();
-  renderBookings();
-  renderClients();
-  renderNotifications();
-  renderAnalytics();
-  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  await saveProviderCache('bookings', allBookings);
+  renderBookingData();
+  setSyncState('online', `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
 }
 
 document.addEventListener('click', async event => {
@@ -1360,7 +1487,13 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#bookingSheet').hidden) closeBookingSheet(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) renderNotifications(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  renderNotifications();
+  if (navigator.onLine) synchronizeProvider();
+});
+window.addEventListener('offline', () => setSyncState('offline', 'Офлайн · показана сохранённая копия'));
+window.addEventListener('online', synchronizeProvider);
 updateJournalModeButtons();
 
 $('#loginForm').addEventListener('submit', login);
@@ -1407,3 +1540,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=39'));

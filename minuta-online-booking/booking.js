@@ -39,16 +39,32 @@ function renderBooking() {
 }
 
 async function loadBooking() {
+  $('#manageLoading').hidden = false;
+  $('#manageError').hidden = true;
   if (!/^[0-9a-f-]{36}$/i.test(token)) return showNotFound();
   const { data, error } = await db.rpc('get_booking_by_token', { p_token: token });
-  if (error || !data?.length) return showNotFound();
+  if (error) return showLoadError();
+  if (!data?.length) return showNotFound();
   state.booking = data[0];
   $('#manageLoading').hidden = true;
   $('#manageContent').hidden = false;
   renderBooking();
 }
 
-function showNotFound() { $('#manageLoading').hidden = true; $('#manageError').hidden = false; }
+function showNotFound() {
+  $('#manageLoading').hidden = true;
+  $('#manageError').hidden = false;
+  $('#manageErrorTitle').textContent = 'Запись не найдена';
+  $('#manageErrorText').textContent = 'Ссылка могла быть повреждена или отозвана. Проверьте её или создайте новую запись.';
+  $('#retryManage').hidden = true;
+}
+function showLoadError() {
+  $('#manageLoading').hidden = true;
+  $('#manageError').hidden = false;
+  $('#manageErrorTitle').textContent = navigator.onLine ? 'Не удалось проверить запись' : 'Нет соединения с интернетом';
+  $('#manageErrorText').textContent = 'Мы не получили ответ от сервера. Состояние записи не изменялось — повторите проверку позже.';
+  $('#retryManage').hidden = false;
+}
 
 function renderDates() {
   $('#manageDates').innerHTML = state.dates.map(item => {
@@ -93,7 +109,14 @@ async function confirmReschedule() {
   button.disabled = true; button.textContent = 'Сохраняем…';
   const { error } = await db.rpc('reschedule_booking', { p_token: token, p_date: state.date, p_time: `${state.time}:00` });
   button.textContent = 'Сохранить новое время';
-  if (error) { $('#manageFormError').textContent = 'Это время уже занято. Выберите другое.'; $('#manageFormError').hidden = false; await openReschedule(); return; }
+  button.disabled = false;
+  if (error) {
+    const conflict = error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505';
+    if (conflict) await openReschedule();
+    $('#manageFormError').textContent = conflict ? 'Это время уже занято. Выберите другое.' : 'Не удалось проверить перенос. Запись не изменена — повторите попытку.';
+    $('#manageFormError').hidden = false;
+    return;
+  }
   closeReschedule(); notify('Запись перенесена'); await loadBooking();
 }
 
@@ -127,4 +150,7 @@ $('#closeReschedule').addEventListener('click', closeReschedule);
 $('#confirmReschedule').addEventListener('click', confirmReschedule);
 $('#cancelBooking').addEventListener('click', cancelBooking);
 $('#addCalendar').addEventListener('click', addToCalendar);
+$('#retryManage').addEventListener('click', loadBooking);
+window.addEventListener('online', () => { if (!state.booking) loadBooking(); });
 loadBooking();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=39'));
