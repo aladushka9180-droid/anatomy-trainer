@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '47';
+const version = '48';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -57,6 +57,11 @@ assert.match(provider, /reorder_portfolio_items/, 'Порядок портфол
 assert.match(provider, /data-portfolio-card/, 'Карточки портфолио нельзя перетаскивать на ПК');
 assert.match(provider, /data-portfolio-move="up"/, 'Для мобильного нет кнопок изменения порядка портфолио');
 assert.match(provider, /consent_confirmed_at/, 'Согласие клиента не сохраняется для портфолио');
+assert.match(provider, /data-create-booking-at/, 'Клик по свободному месту расписания не создаёт запись');
+assert.match(provider, /timelineTimeFromClick/, 'Время клика по расписанию не вычисляется');
+assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безопасного маркера занятого времени');
+assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
+assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
 
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');

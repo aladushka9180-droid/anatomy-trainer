@@ -9,6 +9,7 @@ const $$ = selector => [...document.querySelectorAll(selector)];
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
+const SCHEDULE_BLOCK_PHONE = '0000000000';
 let currentUser = null;
 let currentFilter = restoreScheduleFilter();
 let notificationFilter = 'pending';
@@ -40,6 +41,8 @@ let bookingEditTime = '';
 let newBookingTime = '';
 let newBookingSlots = [];
 let newBookingHour = '';
+let newBookingPreferredTime = '';
+let newBookingMode = 'client';
 let scheduleRows = [];
 let daysOff = [];
 let scheduleDirty = false;
@@ -81,7 +84,9 @@ function cachePayload(name, data) {
   cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - 90);
   const cutoffIso = localIsoDate(cutoff);
-  return data.filter(item => item.booking_date >= cutoffIso).slice(-500).map(item => ({ ...item, booking_code: '', client_name: 'Клиент', client_phone: '' }));
+  return data.filter(item => item.booking_date >= cutoffIso).slice(-500).map(item => isScheduleBlock(item)
+    ? { ...item, booking_code: '', client_name: item.client_name || 'Перерыв', client_phone: SCHEDULE_BLOCK_PHONE }
+    : { ...item, booking_code: '', client_name: 'Клиент', client_phone: '' });
 }
 async function saveProviderCache(name, data, userId = currentUser?.id) {
   if (!userId) return;
@@ -181,6 +186,9 @@ function normalizePhone(value) {
   if (digits.length === 10) digits = `7${digits}`;
   return digits.length >= 11 && digits.length <= 15 && !digits.startsWith('0') ? digits : '';
 }
+function isScheduleBlock(item) {
+  return String(item?.client_phone || '').replace(/\D/g, '') === SCHEDULE_BLOCK_PHONE;
+}
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
@@ -208,6 +216,7 @@ function composeNotificationMessage(type, item) {
   return Object.entries(tokens).reduce((text, [token, value]) => text.split(token).join(value), notificationTemplates()[type] || defaultNotificationTemplates.reminder);
 }
 function whatsappLink(item, type = 'reminder') {
+  if (isScheduleBlock(item)) return '';
   const phone = normalizePhone(item.client_phone);
   if (!phone) return '';
   return `https://wa.me/${phone}?text=${encodeURIComponent(composeNotificationMessage(type, item))}`;
@@ -223,6 +232,7 @@ function writeLocalOutcomes() {
 }
 function bookingOutcome(item) { return bookingOutcomes.get(item.id) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0 }; }
 function bookingIsCompleted(item) {
+  if (isScheduleBlock(item)) return false;
   const outcome = bookingOutcome(item);
   if (outcome.visit_status === 'completed' || outcome.visit_status === 'no_show') return true;
   if (item.status !== 'confirmed') return false;
@@ -231,6 +241,7 @@ function bookingIsCompleted(item) {
 }
 function bookingStatus(item, long = false) {
   if (item.status === 'cancelled') return long ? 'Запись отменена' : 'Отменена';
+  if (isScheduleBlock(item)) return long ? 'Время занято' : 'Занято';
   const outcome = bookingOutcome(item);
   if (outcome.visit_status === 'completed') return 'Состоялся';
   if (outcome.visit_status === 'no_show') return 'Не пришёл';
@@ -240,6 +251,7 @@ function bookingStatus(item, long = false) {
 }
 function bookingStatusClass(item) {
   if (item.status === 'cancelled') return 'cancelled';
+  if (isScheduleBlock(item)) return 'block';
   const outcome = bookingOutcome(item);
   if (outcome.visit_status === 'completed') return 'visited';
   if (outcome.visit_status === 'no_show') return 'no-show';
@@ -254,13 +266,14 @@ function outcomeSummary(item) {
 }
 
 function reportBookings() {
-  if (reportPeriod === 'all') return [...allBookings];
+  const clientBookings = allBookings.filter(item => !isScheduleBlock(item));
+  if (reportPeriod === 'all') return clientBookings;
   const today = parseLocalIsoDate(businessTodayIso());
   today.setHours(0, 0, 0, 0);
   const start = reportPeriod === 'month'
     ? new Date(today.getFullYear(), today.getMonth(), 1)
     : new Date(today.getTime() - 89 * 86400000);
-  return allBookings.filter(item => new Date(`${item.booking_date}T12:00:00`) >= start);
+  return clientBookings.filter(item => new Date(`${item.booking_date}T12:00:00`) >= start);
 }
 
 function renderAnalytics() {
@@ -298,7 +311,8 @@ function exportBookingsCsv() {
   const rows = allBookings.map(item => {
     const outcome = bookingOutcome(item);
     const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
-    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, item.client_phone, serviceName(item.services?.name || 'Услуга'), bookingStatus(item, true), visit, paymentMethodLabel(outcome.payment_method), outcome.amount_rub || 0, item.services?.price_rub || 0];
+    const block = isScheduleBlock(item);
+    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : serviceName(item.services?.name || 'Услуга'), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method), block ? 0 : (outcome.amount_rub || 0), block ? 0 : (item.services?.price_rub || 0)];
   });
   const csv = [header, ...rows].map(row => row.map(csvCell).join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -394,6 +408,7 @@ function buildNotificationTasks() {
   const now = new Date();
   const tasks = [];
   allBookings.forEach(item => {
+    if (isScheduleBlock(item)) return;
     const start = bookingStart(item);
     if (item.status === 'cancelled') {
       if (start > now) tasks.push({ item, type: 'cancellation', title: 'Сообщить об отмене', dueAt: new Date(), key: notificationTaskKey(item, 'cancellation') });
@@ -674,7 +689,7 @@ function renderDateStrip() {
 
 function updateBookingStats() {
   const today = businessTodayIso();
-  const active = allBookings.filter(item => item.status !== 'cancelled');
+  const active = allBookings.filter(item => item.status !== 'cancelled' && !isScheduleBlock(item));
   const todayCount = active.filter(item => item.booking_date === today).length;
   const upcomingCount = active.filter(item => item.booking_date >= today).length;
   $('#todayBookingsCount').textContent = String(todayCount);
@@ -711,6 +726,43 @@ function timelineBounds(items) {
   return { start, end };
 }
 
+function scheduleStepForDate(dateIso) {
+  const date = parseLocalIsoDate(dateIso);
+  if (!date) return 5;
+  const weekday = ((date.getDay() + 6) % 7) + 1;
+  const row = scheduleRows.find(item => Number(item.weekday) === weekday);
+  const step = Number(row?.slot_interval_minutes || 5);
+  return Number.isInteger(step) && step >= 5 && step <= 60 ? step : 5;
+}
+
+function timelineTimeFromClick(stage, event) {
+  const start = Number(stage.dataset.timelineStart);
+  const end = Number(stage.dataset.timelineEnd);
+  const rect = stage.getBoundingClientRect();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || rect.height <= 0) return '';
+  const position = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+  const rawMinute = start + ((position / rect.height) * (end - start));
+  const step = scheduleStepForDate(selectedDate);
+  const snapped = Math.max(start, Math.min(end - step, Math.round(rawMinute / step) * step));
+  return `${String(Math.floor(snapped / 60)).padStart(2, '0')}:${String(snapped % 60).padStart(2, '0')}`;
+}
+
+function openTimelineBooking(stage, event) {
+  if (!requireWrites()) return;
+  if (selectedDate < businessTodayIso()) {
+    notify('Нельзя создать запись в прошлом');
+    return;
+  }
+  const time = timelineTimeFromClick(stage, event);
+  if (!time) return;
+  const selectedStart = new Date(`${selectedDate}T${time}:00`);
+  if (selectedStart < new Date()) {
+    notify('Это время уже прошло');
+    return;
+  }
+  openNewBookingSheet(time);
+}
+
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
@@ -732,14 +784,15 @@ function renderTimeline(items) {
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const compact = height < 54 ? ' compact' : '';
-    return `<button class="timeline-booking status-${statusClass}${compact}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}">
+    const block = isScheduleBlock(item);
+    return `<button class="timeline-booking status-${statusClass}${compact}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
-      <span class="timeline-booking-copy"><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${escapeHtml(item.client_name)} · ${duration} мин</small></span>
+      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><small>${block ? 'Занятое время' : escapeHtml(item.client_name)} · ${duration} мин</small></span>
       <span class="timeline-booking-status">${statusText}</span>
     </button>`;
   }).join('');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage">${lines.join('')}${cards || '<div class="timeline-empty-state"><span>✓</span><strong>День свободен</strong><small>Новых записей пока нет</small></div>'}</div></div>`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">＋ Нажмите на свободное время</span>${cards || '<div class="timeline-empty-state"><span>＋</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>'}</div></div>`;
 }
 
 function renderBookingList(items) {
@@ -758,12 +811,12 @@ function renderBookingList(items) {
     const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
     const whatsapp = escapeHtml(whatsappLink(item));
     const resultSummary = outcomeSummary(item);
+    const block = isScheduleBlock(item);
     return `<article class="provider-booking status-${statusClass}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
-      <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
-      <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
-      <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</div>
-      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
+      <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
+      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p><small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
+      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">${block ? 'Освободить' : 'Отменить'}</button></div>` : ''}
     </article>`;
   }).join('');
 }
@@ -781,6 +834,16 @@ function openBookingSheet(id) {
   const outcome = bookingOutcome(item);
   const amount = Number(outcome.amount_rub || item.services?.price_rub || 0);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
+  if (isScheduleBlock(item)) {
+    $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
+      <h2 id="bookingSheetTitle">${escapeHtml(item.client_name || 'Перерыв')}</h2>
+      <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-block">Занято</span></div>
+      <div class="booking-sheet-block"><span>◼</span><div><small>Блокировка времени</small><strong>Клиенты не смогут записаться на этот интервал.</strong></div></div>
+      ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions"><button class="primary" type="button" data-edit-booking="${item.id}">Изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Освободить время</button></div>` : ''}`;
+    $('#bookingSheet').hidden = false;
+    document.body.classList.add('booking-sheet-open');
+    return;
+  }
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
@@ -875,16 +938,18 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
 function openBookingEditor(id) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item) return;
+  const block = isScheduleBlock(item);
   bookingEditTime = String(item.booking_time).slice(0, 5);
-  const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
+  const note = block ? '' : (clientNotes.get(normalizePhone(item.client_phone)) || '');
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<button class="booking-editor-back" type="button" data-back-booking="${item.id}">← К записи</button>
-    <small class="booking-sheet-kicker">Изменение записи</small><h2 id="bookingSheetTitle">Перенести или изменить</h2>
+    <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
-      <label>Услуга<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
+      ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
+      <label>${block ? 'Длительность' : 'Услуга'}<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
       <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
-      <label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="3" placeholder="Пожелания, особенности или важная информация">${escapeHtml(note)}</textarea></label>
+      ${block ? '' : `<label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="3" placeholder="Пожелания, особенности или важная информация">${escapeHtml(note)}</textarea></label>`}
       <p class="form-error" id="bookingEditError" hidden></p>
       <button class="primary" type="submit">Сохранить изменения</button>
     </form>`;
@@ -903,16 +968,20 @@ async function saveBookingChanges(event) {
   const generation = sessionGeneration;
   const id = event.currentTarget.dataset.bookingId;
   const item = allBookings.find(booking => booking.id === id);
+  const block = isScheduleBlock(item);
   const service = ownServices.find(entry => entry.id === $('#editBookingService').value);
   const date = $('#editBookingDate').value;
-  if (!item || !service || !date || !bookingEditTime) {
+  const blockTitle = block ? ($('#editBookingBlockTitle')?.value.trim() || '') : '';
+  if (!item || !service || !date || !bookingEditTime || (block && blockTitle.length < 2)) {
     showFormError('#bookingEditError', 'Выберите услугу, дату и свободное время.');
     return;
   }
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const { error } = await db.from('bookings').update({ service_id: service.id, duration_minutes: service.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` }).eq('id', id).eq('performer_id', userId);
+  const changes = { service_id: service.id, duration_minutes: service.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` };
+  if (block) changes.client_name = blockTitle;
+  const { error } = await db.from('bookings').update(changes).eq('id', id).eq('performer_id', userId);
   if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
     button.disabled = false;
@@ -921,12 +990,14 @@ async function saveBookingChanges(event) {
     await loadBookingEditSlots(id);
     return;
   }
-  const phone = normalizePhone(item.client_phone);
-  const note = $('#editBookingNote').value.trim();
-  await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
-  if (!sessionIsCurrent(userId, generation)) return;
-  clientNotes.set(phone, note);
-  notifyTelegramClient(id, 'rescheduled');
+  if (!block) {
+    const phone = normalizePhone(item.client_phone);
+    const note = $('#editBookingNote').value.trim();
+    await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
+    if (!sessionIsCurrent(userId, generation)) return;
+    clientNotes.set(phone, note);
+    notifyTelegramClient(id, 'rescheduled');
+  }
   selectScheduleDate(date);
   await refreshAfterWrite();
   notify('Запись обновлена');
@@ -938,6 +1009,7 @@ async function loadNewBookingSlots() {
   const date = $('#newBookingDate')?.value;
   const holder = $('#newBookingTimes');
   if (!service || !date || !holder) return;
+  const preferredTime = newBookingPreferredTime;
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
@@ -948,8 +1020,9 @@ async function loadNewBookingSlots() {
     return;
   }
   newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5));
-  newBookingHour = newBookingSlots[0].slice(0, 2);
-  newBookingTime = newBookingSlots[0];
+  newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : (preferredTime ? '' : newBookingSlots[0]);
+  newBookingHour = String(newBookingTime || preferredTime || newBookingSlots[0]).slice(0, 2);
+  if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0].slice(0, 2);
   renderNewBookingTimePicker();
   clearFormError('#newBookingError');
 }
@@ -960,40 +1033,65 @@ function renderNewBookingTimePicker() {
   const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
   if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
-  holder.innerHTML = `<div class="booking-time-guide"><strong>1. Выберите час</strong><span>Шаг записи — 5 минут</span></div>
+  const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
+  holder.innerHTML = `${preferredUnavailable ? `<div class="booking-time-warning">В ${escapeHtml(newBookingPreferredTime)} для выбранной длительности окна нет. Выберите другое время.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
     <div class="booking-time-guide"><strong>2. Точное время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${hourSlots.length} свободных вариантов`}</span></div>
     <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
 }
 
-function openNewBookingSheet() {
+function setNewBookingMode(mode) {
+  newBookingMode = mode === 'block' ? 'block' : 'client';
+  $$('[data-new-booking-mode]').forEach(button => {
+    const active = button.dataset.newBookingMode === newBookingMode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const block = newBookingMode === 'block';
+  $('#newBookingClientFields').hidden = block;
+  $('#newBookingBlockFields').hidden = !block;
+  $('#newBookingName').required = !block;
+  $('#newBookingPhone').required = !block;
+  $('#newBookingBlockTitle').required = block;
+  $('#newBookingSheetTitle').textContent = block ? 'Занять время' : 'Новый клиент';
+  $('#newBookingServiceCaption').textContent = block ? 'Длительность (по услуге)' : 'Услуга';
+  $('#newBookingSubmit').textContent = block ? 'Занять время' : 'Создать запись';
+  clearFormError('#newBookingError');
+}
+
+function openNewBookingSheet(preferredTime = '') {
   const services = ownServices.filter(item => item.active);
   const date = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
+  newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime)) ? String(preferredTime) : '';
+  newBookingMode = 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide');
-  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручная запись</small><h2 id="bookingSheetTitle">Новый клиент</h2>
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручное расписание</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">Новый клиент</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
+      <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong>Клиент и услуга</strong><small>Основная информация о записи</small></div></div>
-          <div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div>
-          <label>Услуга<select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
-          <label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
+          <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div><label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label></div>
+          <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято, и клиенты не смогут на него записаться.</p></div>
+          <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
         </section>
         <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small>Выберите удобное свободное окно</small></div></div>
           <label>Дата<input id="newBookingDate" type="date" min="${businessTodayIso()}" value="${date}" required></label>
           <label>Свободное время<div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
         </section>
       </div>
-      <p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" type="submit">Создать запись</button>
+      <p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
     </form>` : '<div class="provider-empty booking-sheet-empty"><span>＋</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>'}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   if (!services.length) return;
+  $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => setNewBookingMode(button.dataset.newBookingMode)));
   $('#newBookingService').addEventListener('change', loadNewBookingSlots);
-  $('#newBookingDate').addEventListener('change', loadNewBookingSlots);
+  $('#newBookingDate').addEventListener('change', () => { newBookingPreferredTime = ''; loadNewBookingSlots(); });
   $('#newBookingForm').addEventListener('submit', createNewBooking);
+  setNewBookingMode('client');
   loadNewBookingSlots();
   setTimeout(() => $('#newBookingName')?.focus(), 0);
 }
@@ -1003,19 +1101,20 @@ async function createNewBooking(event) {
   if (!requireWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const name = $('#newBookingName').value.trim();
-  const phone = $('#newBookingPhone').value.trim();
+  const block = newBookingMode === 'block';
+  const name = block ? ($('#newBookingBlockTitle').value.trim() || 'Перерыв') : $('#newBookingName').value.trim();
+  const phone = block ? SCHEDULE_BLOCK_PHONE : $('#newBookingPhone').value.trim();
   const service = $('#newBookingService').value;
   const date = $('#newBookingDate').value;
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
-  newBookingTime = newBookingTime || selectedButtonTime || newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || newBookingSlots[0] || '';
-  if (name.length < 2 || normalizePhone(phone).length < 10 || !service || !date || !newBookingTime) {
-    showFormError('#newBookingError', 'Укажите имя, телефон и выберите свободное время.');
+  newBookingTime = newBookingTime || selectedButtonTime;
+  if (name.length < 2 || (!block && normalizePhone(phone).length < 10) || !service || !date || !newBookingTime) {
+    showFormError('#newBookingError', block ? 'Укажите название и выберите свободное время.' : 'Укажите имя, телефон и выберите свободное время.');
     return;
   }
   const button = event.submitter;
   button.disabled = true;
-  button.textContent = 'Создаём…';
+  button.textContent = block ? 'Занимаем…' : 'Создаём…';
   const bookingParams = { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone };
   let { error } = await db.rpc('provider_book_appointment', bookingParams);
   if (!sessionIsCurrent(userId, generation)) return;
@@ -1029,22 +1128,22 @@ async function createNewBooking(event) {
   }
   if (error) {
     button.disabled = false;
-    button.textContent = 'Создать запись';
+    button.textContent = block ? 'Занять время' : 'Создать запись';
     const reason = String(error.message || '');
     const message = reason.includes('slot_unavailable')
       ? 'Это время уже занято. Выберите другое.'
       : reason.includes('service_unavailable')
         ? 'Услуга недоступна для записи. Обновите список услуг.'
         : reason.includes('invalid_client_data')
-          ? 'Проверьте имя и номер телефона клиента.'
+        ? (block ? 'Не удалось занять время.' : 'Проверьте имя и номер телефона клиента.')
           : 'Не удалось создать запись. Обновите страницу и попробуйте ещё раз.';
     await loadNewBookingSlots();
     showFormError('#newBookingError', message);
     return;
   }
-  const note = $('#newBookingNote').value.trim();
+  const note = block ? '' : $('#newBookingNote').value.trim();
   const normalizedPhone = normalizePhone(phone);
-  if (note) {
+  if (!block && note) {
     await db.from('client_notes').upsert({ performer_id: userId, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
     if (!sessionIsCurrent(userId, generation)) return;
     clientNotes.set(normalizedPhone, note);
@@ -1052,7 +1151,7 @@ async function createNewBooking(event) {
   selectScheduleDate(date);
   closeBookingSheet();
   await refreshAfterWrite();
-  notify('Новая запись создана');
+  notify(block ? 'Время занято' : 'Новая запись создана');
 }
 
 function closeBookingSheet() {
@@ -1067,8 +1166,11 @@ function renderBookings() {
   const date = new Date(`${selectedDate}T12:00:00`);
   const today = businessTodayIso();
   $('#selectedDateTitle').textContent = selectedDate === today ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+  const clientCount = items.filter(item => !isScheduleBlock(item)).length;
+  const blockCount = items.filter(isScheduleBlock).length;
+  const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
-    ? (items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : 'Свободный день')
+    ? (daySummary || 'Свободный день')
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else renderBookingList(items);
@@ -1077,6 +1179,7 @@ function renderBookings() {
 function buildClients() {
   const clients = new Map();
   allBookings.forEach(booking => {
+    if (isScheduleBlock(booking)) return;
     const phone = normalizePhone(booking.client_phone);
     if (!phone) return;
     const current = clients.get(phone) || { phone, displayPhone: booking.client_phone, name: booking.client_name, bookings: [] };
@@ -2218,6 +2321,7 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const timelineStage = event.target.closest('[data-create-booking-at]');
   const editBooking = event.target.closest('[data-edit-booking]');
   const backBooking = event.target.closest('[data-back-booking]');
   const editTime = event.target.closest('[data-edit-booking-time]');
@@ -2281,6 +2385,7 @@ document.addEventListener('click', async event => {
   if (dateToday) selectScheduleDate(businessTodayIso());
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
   if (backBooking) openBookingSheet(backBooking.dataset.backBooking);
   if (editTime) {
@@ -2289,6 +2394,7 @@ document.addEventListener('click', async event => {
   }
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;
+    newBookingPreferredTime = newBookingTime;
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
     clearFormError('#newBookingError');
   }
@@ -2323,12 +2429,13 @@ document.addEventListener('click', async event => {
     else { notify('Исключение удалено'); await refreshAfterWrite(); }
   }
   if (booking) {
+    const bookingItem = allBookings.find(item => item.id === booking.dataset.bookingId);
     const { error } = await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId).eq('performer_id', currentUser.id);
     if (error) { notify('Не удалось обновить запись'); return; }
-    if (booking.dataset.bookingStatus === 'cancelled') notifyTelegramClient(booking.dataset.bookingId, 'cancelled');
-    if (booking.dataset.bookingStatus === 'confirmed') notifyTelegramClient(booking.dataset.bookingId, 'confirmation');
+    if (!isScheduleBlock(bookingItem) && booking.dataset.bookingStatus === 'cancelled') notifyTelegramClient(booking.dataset.bookingId, 'cancelled');
+    if (!isScheduleBlock(bookingItem) && booking.dataset.bookingStatus === 'confirmed') notifyTelegramClient(booking.dataset.bookingId, 'confirmation');
     closeBookingSheet();
-    notify('Статус записи обновлён');
+    notify(isScheduleBlock(bookingItem) && booking.dataset.bookingStatus === 'cancelled' ? 'Время освобождено' : 'Статус записи обновлён');
     await refreshAfterWrite();
   }
 });
@@ -2375,7 +2482,7 @@ $('#logoutButton').addEventListener('click', logout);
 $('#refreshBookings').addEventListener('click', synchronizeProvider);
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
 $('#exportBookings').addEventListener('click', exportBookingsCsv);
-$('#newBookingButton').addEventListener('click', openNewBookingSheet);
+$('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#slotInterval').addEventListener('change', () => { scheduleDirty = true; });
@@ -2433,4 +2540,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=47'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=48'));

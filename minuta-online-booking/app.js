@@ -466,4 +466,4 @@ renderDates();
 renderTimes();
 loadServices();
 loadPublicPortfolio();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=47'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=48'));

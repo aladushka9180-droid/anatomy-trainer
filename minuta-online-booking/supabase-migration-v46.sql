@@ -75,6 +75,12 @@ security definer
 set search_path to ''
 as $$
 begin
+  -- Provider-created calendar blocks use an internal non-routable phone marker.
+  -- They reserve availability but are not client bookings and must not create
+  -- delivery work for either the provider or a client.
+  if regexp_replace(coalesce(new.client_phone, ''), '[^0-9]', '', 'g') = '0000000000' then
+    return new;
+  end if;
   insert into public.notification_outbox (
     performer_id, booking_id, event_key, kind, channel
   ) values (
