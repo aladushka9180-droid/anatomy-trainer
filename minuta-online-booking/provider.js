@@ -10,6 +10,8 @@ let notificationTimer = null;
 let journalMode = localStorage.getItem('massage-journal-mode') || 'timeline';
 let selectedDate = localIsoDate(new Date());
 let allBookings = [];
+let bookingOutcomes = new Map();
+let outcomesRemoteAvailable = false;
 let ownServices = [];
 let clientNotes = new Map();
 let selectedClientPhone = '';
@@ -73,18 +75,46 @@ function whatsappLink(item, type = 'reminder') {
   if (!phone) return '';
   return `https://wa.me/${phone}?text=${encodeURIComponent(composeNotificationMessage(type, item))}`;
 }
+function outcomeStorageKey() { return `massage-booking-outcomes-${currentUser?.id || 'guest'}`; }
+function readLocalOutcomes() {
+  try { return JSON.parse(localStorage.getItem(outcomeStorageKey())) || {}; }
+  catch { return {}; }
+}
+function writeLocalOutcomes() {
+  try { localStorage.setItem(outcomeStorageKey(), JSON.stringify(Object.fromEntries(bookingOutcomes))); }
+  catch { notify('Не удалось сохранить результат визита'); }
+}
+function bookingOutcome(item) { return bookingOutcomes.get(item.id) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0 }; }
 function bookingIsCompleted(item) {
+  const outcome = bookingOutcome(item);
+  if (outcome.visit_status === 'completed' || outcome.visit_status === 'no_show') return true;
   if (item.status !== 'confirmed') return false;
   const start = new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`);
   return new Date(start.getTime() + Number(item.duration_minutes || item.services?.duration_minutes || 60) * 60000) < new Date();
 }
 function bookingStatus(item, long = false) {
   if (item.status === 'cancelled') return long ? 'Запись отменена' : 'Отменена';
-  if (bookingIsCompleted(item)) return 'Завершена';
+  const outcome = bookingOutcome(item);
+  if (outcome.visit_status === 'completed') return 'Состоялся';
+  if (outcome.visit_status === 'no_show') return 'Не пришёл';
+  if (bookingIsCompleted(item)) return 'Ожидает отметки';
   if (item.status === 'confirmed') return 'Подтверждена';
   return long ? 'Новая запись' : 'Новая';
 }
-function bookingStatusClass(item) { return bookingIsCompleted(item) ? 'completed' : item.status; }
+function bookingStatusClass(item) {
+  if (item.status === 'cancelled') return 'cancelled';
+  const outcome = bookingOutcome(item);
+  if (outcome.visit_status === 'completed') return 'visited';
+  if (outcome.visit_status === 'no_show') return 'no-show';
+  return bookingIsCompleted(item) ? 'needs-result' : item.status;
+}
+function paymentMethodLabel(method) { return ({ cash: 'Наличные', card: 'Карта', transfer: 'Перевод', unpaid: 'Не оплачено' })[method] || 'Не оплачено'; }
+function outcomeSummary(item) {
+  const outcome = bookingOutcome(item);
+  if (outcome.visit_status === 'no_show') return 'Клиент не пришёл';
+  if (outcome.visit_status !== 'completed') return '';
+  return `${paymentMethodLabel(outcome.payment_method)}${outcome.amount_rub ? ` · ${money(outcome.amount_rub)}` : ''}`;
+}
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
 function notificationMarks() { return readNotificationStorage('marks', {}); }
 function setNotificationMark(key, status) {
@@ -360,11 +390,12 @@ function renderBookingList(items) {
     const statusClass = bookingStatusClass(item);
     const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
     const whatsapp = escapeHtml(whatsappLink(item));
+    const resultSummary = outcomeSummary(item);
     return `<article class="provider-booking status-${statusClass}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       <p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>
-      <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small></div>
+      <small>${escapeHtml(item.booking_code)} · ${money(item.services?.price_rub || 0)}</small>${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</div>
       ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить</button></div>` : ''}
     </article>`;
   }).join('');
@@ -380,6 +411,8 @@ function openBookingSheet(id) {
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
   const whatsapp = escapeHtml(whatsappLink(item));
   const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
+  const outcome = bookingOutcome(item);
+  const amount = Number(outcome.amount_rub || item.services?.price_rub || 0);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
@@ -387,9 +420,13 @@ function openBookingSheet(id) {
     <div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div>
     <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
     ${note ? `<div class="booking-sheet-note"><small>Заметка о клиенте</small><p>${escapeHtml(note)}</p></div>` : ''}
+    ${item.status !== 'cancelled' ? `<form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}"><div class="booking-outcome-heading"><div><small>После визита</small><h3>Результат и оплата</h3></div><span>${outcome.visit_status === 'completed' ? '✓ Состоялся' : outcome.visit_status === 'no_show' ? '× Не пришёл' : '◷ Запланирован'}</span></div><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Клиент не пришёл</option></select></label><div class="booking-outcome-payment" id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="50" value="${amount}"></label></div><button class="primary" type="submit">Сохранить результат</button><p>${outcomesRemoteAvailable ? 'Данные доступны в кабинете исполнителя.' : 'Пока сохраняется на этом устройстве.'}</p></form>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">Написать в WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+  $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
+  $('#outcomeVisitStatus')?.addEventListener('change', toggleOutcomePaymentFields);
+  toggleOutcomePaymentFields();
 }
 
 function serviceOptions(selectedId, activeOnly = false) {
@@ -709,7 +746,12 @@ function renderClientDetail(phone) {
   $('#clientPhone').textContent = client.displayPhone;
   $('#clientPhone').href = `tel:${client.phone}`;
   const now = new Date();
-  const visits = client.bookings.filter(item => item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now).length;
+  const visits = client.bookings.filter(item => {
+    const outcome = bookingOutcome(item);
+    if (outcome.visit_status === 'completed') return true;
+    if (outcome.visit_status === 'no_show') return false;
+    return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
+  }).length;
   const upcoming = clientUpcoming(client);
   $('#clientVisits').textContent = String(visits);
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
@@ -749,6 +791,59 @@ async function loadRepeatSlots() {
 async function loadClientNotes() {
   const { data } = await db.from('client_notes').select('client_phone,note').eq('performer_id', currentUser.id);
   clientNotes = new Map((data || []).map(item => [item.client_phone, item.note]));
+}
+
+async function loadBookingOutcomes() {
+  const local = readLocalOutcomes();
+  const { data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,updated_at').eq('performer_id', currentUser.id);
+  outcomesRemoteAvailable = !error;
+  if (error) bookingOutcomes = new Map(Object.entries(local));
+  else {
+    bookingOutcomes = new Map((data || []).map(item => [item.booking_id, item]));
+    Object.entries(local).forEach(([id, value]) => { if (!bookingOutcomes.has(id)) bookingOutcomes.set(id, value); });
+  }
+  renderBookings();
+  renderClients();
+  renderNotifications();
+  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+}
+
+function toggleOutcomePaymentFields() {
+  const form = $('#bookingOutcomeForm');
+  if (!form) return;
+  const completed = $('#outcomeVisitStatus').value === 'completed';
+  $('#outcomePaymentFields').hidden = !completed;
+  $('#outcomePaymentMethod').disabled = !completed;
+  $('#outcomeAmount').disabled = !completed;
+}
+
+async function saveBookingOutcome(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const item = allBookings.find(booking => booking.id === form.dataset.bookingId);
+  if (!item) return;
+  const visitStatus = $('#outcomeVisitStatus').value;
+  const completed = visitStatus === 'completed';
+  const paymentMethod = completed ? $('#outcomePaymentMethod').value : 'unpaid';
+  const amount = completed && paymentMethod !== 'unpaid' ? Math.max(0, Math.round(Number($('#outcomeAmount').value) || 0)) : 0;
+  const record = { booking_id: item.id, performer_id: currentUser.id, visit_status: visitStatus, payment_method: paymentMethod, amount_rub: amount, updated_at: new Date().toISOString() };
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  let remoteSaved = false;
+  if (outcomesRemoteAvailable) {
+    const { error } = await db.from('booking_outcomes').upsert(record, { onConflict: 'booking_id' });
+    remoteSaved = !error;
+    if (error) outcomesRemoteAvailable = false;
+  }
+  bookingOutcomes.set(item.id, record);
+  writeLocalOutcomes();
+  button.disabled = false;
+  button.textContent = 'Сохранить результат';
+  notify(remoteSaved ? 'Результат визита сохранён' : 'Результат сохранён на этом устройстве');
+  renderBookings();
+  renderClients();
+  openBookingSheet(item.id);
 }
 
 async function saveClientNote() {
@@ -791,6 +886,7 @@ async function handleSession(session) {
   renderDateStrip();
   renderNotificationTemplates();
   await Promise.all([loadOwnServices(), loadBookings(), loadClientNotes(), loadSchedule(), loadDaysOff()]);
+  await loadBookingOutcomes();
 }
 
 async function login(event) {

@@ -1,5 +1,5 @@
 const CACHE = 'massage-izhevsk-v24';
-const ASSETS = ['./', './index.html', './provider.html', './booking.html', './styles.css?v=30', './config.js?v=30', './app.js?v=30', './provider.js?v=30', './booking.js?v=30', './manifest.webmanifest', './icon.svg', './og.png'];
+const ASSETS = ['./', './index.html', './provider.html', './booking.html', './styles.css?v=31', './config.js?v=31', './app.js?v=31', './provider.js?v=31', './booking.js?v=31', './manifest.webmanifest', './icon.svg', './og.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
