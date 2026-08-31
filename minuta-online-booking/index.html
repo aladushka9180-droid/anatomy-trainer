@@ -16,7 +16,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=36">
+  <link rel="stylesheet" href="styles.css?v=37">
 </head>
 <body>
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -49,7 +49,7 @@
           <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◷</span> Свободное время</h3>
           <div class="time-periods" id="timePeriods" aria-label="Период дня" hidden></div>
           <div class="time-hour-grid" id="timeHours" aria-label="Выберите час"></div>
-          <section class="minute-picker" id="minutePicker" hidden><div class="minute-picker-head"><span>Точное время</span><strong id="selectedHourLabel">—</strong></div><div class="time-grid" id="times"></div></section>
+          <details class="minute-picker" id="minutePicker" hidden><summary><span>Другое время</span><strong>с шагом 5 минут</strong></summary><div class="minute-groups" id="times"></div></details>
           <p class="no-times" id="noTimes" hidden>На эту дату всё занято. Выберите другой день.</p>
           <div class="actions"><button class="back" type="button" data-back="1" aria-label="Назад">←</button><button class="primary" id="continueBooking" type="button" data-next="3">Продолжить <span>→</span></button></div>
         </div>
@@ -80,6 +80,6 @@
     <button class="primary" type="button" data-choose-service-details>Выбрать эту услугу</button>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=36"></script><script src="app.js?v=36" defer></script>
+  <script src="config.js?v=37"></script><script src="app.js?v=37" defer></script>
 </body>
 </html>

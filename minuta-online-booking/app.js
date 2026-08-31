@@ -90,16 +90,21 @@ function renderTimes() {
   } else {
     const filtered = times;
     $('#timePeriods').innerHTML = '';
-    const hours = [...new Set(filtered.map(time => time.slice(0,2)))];
-    if (!hours.includes(state.hour)) state.hour = hours[0] || '';
     if (!filtered.includes(state.time)) state.time = '';
-    $('#timeHours').innerHTML = hours.map(hour => {
-      return `<button class="time-hour ${hour === state.hour ? 'selected' : ''}" type="button" data-time-hour="${hour}" aria-pressed="${hour === state.hour}"><strong>${hour}:00</strong></button>`;
+    const roundHours = Array.from({ length: 10 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`);
+    $('#timeHours').innerHTML = roundHours.map(slot => {
+      const available = filtered.includes(slot);
+      const selected = slot === state.time;
+      return `<button class="time-hour ${selected ? 'selected' : ''} ${available ? '' : 'unavailable'}" type="button" ${available ? `data-time="${slot}"` : 'disabled'} aria-pressed="${selected}"><strong>${slot}</strong>${available ? '' : '<small>занято</small>'}</button>`;
     }).join('');
-    const minutes = filtered.filter(time => time.startsWith(`${state.hour}:`));
-    $('#minutePicker').hidden = !minutes.length;
-    $('#selectedHourLabel').textContent = state.hour ? `${state.hour}:00–${state.hour}:59` : '—';
-    $('#times').innerHTML = minutes.map(item => `<button class="time ${item === state.time ? 'selected' : ''}" type="button" data-time="${item}" aria-pressed="${item === state.time}">${item}</button>`).join('');
+    const additionalTimes = filtered.filter(time => !time.endsWith(':00'));
+    const additionalHours = [...new Set(additionalTimes.map(time => time.slice(0, 2)))];
+    $('#minutePicker').hidden = !additionalTimes.length;
+    $('#times').innerHTML = additionalHours.map(hour => {
+      const hourTimes = additionalTimes.filter(time => time.startsWith(`${hour}:`));
+      return `<section class="minute-hour-group"><strong>${hour}:00–${hour}:59</strong><div class="time-grid">${hourTimes.map(item => `<button class="time ${item === state.time ? 'selected' : ''}" type="button" data-time="${item}" aria-pressed="${item === state.time}">${item}</button>`).join('')}</div></section>`;
+    }).join('');
+    if (state.time && !state.time.endsWith(':00')) $('#minutePicker').open = true;
   }
   $('#continueBooking').disabled = !state.time || state.loadingAvailability;
   $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length);
@@ -196,7 +201,6 @@ document.addEventListener('click', event => {
   const date = event.target.closest('[data-date]');
   const time = event.target.closest('[data-time]');
   const period = event.target.closest('[data-time-period]');
-  const hour = event.target.closest('[data-time-hour]');
   const moreDates = event.target.closest('#moreDates');
   const serviceDetails = event.target.closest('#serviceDetailsButton');
   const closeServiceDetails = event.target.closest('[data-close-service-details]');
@@ -206,7 +210,6 @@ document.addEventListener('click', event => {
   if (service) { state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
   if (date && !date.disabled) { state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
-  if (hour) { state.hour = hour.dataset.timeHour; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
   if (serviceDetails) openServiceDetails();
   if (closeServiceDetails || chooseServiceDetails) $('#serviceDetailsDialog').close();
@@ -220,4 +223,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=36'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=37'));
