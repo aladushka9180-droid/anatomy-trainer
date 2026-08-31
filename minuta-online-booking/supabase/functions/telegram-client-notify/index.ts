@@ -101,20 +101,38 @@ async function telegram(method: string, payload: Record<string, unknown>) {
 
 async function bookingByToken(token: string) {
   if (!/^[0-9a-f-]{36}$/i.test(token)) return null;
-  const { data } = await admin.from("bookings")
-    .select("id,booking_code,manage_token,performer_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,services(name,price_rub),performer_profiles(display_name)")
-    .eq("manage_token", token)
+  const { data, error } = await admin.rpc("get_booking_telegram_context", {
+    p_token: token,
+    p_booking: null,
+  })
     .maybeSingle();
-  return data;
+  if (error) {
+    console.error("Booking lookup by token failed", error);
+    return null;
+  }
+  return data ? normalizeBookingContext(data) : null;
 }
 
 async function bookingById(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const { data } = await admin.from("bookings")
-    .select("id,booking_code,manage_token,performer_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,services(name,price_rub),performer_profiles(display_name)")
-    .eq("id", id)
+  const { data, error } = await admin.rpc("get_booking_telegram_context", {
+    p_token: null,
+    p_booking: id,
+  })
     .maybeSingle();
-  return data;
+  if (error) {
+    console.error("Booking lookup by id failed", error);
+    return null;
+  }
+  return data ? normalizeBookingContext(data) : null;
+}
+
+function normalizeBookingContext(booking: any) {
+  return {
+    ...booking,
+    services: { name: booking.service_name, price_rub: booking.price_rub },
+    performer_profiles: { display_name: booking.performer_name },
+  };
 }
 
 async function sendBookingEvent(booking: any, event: BookingEvent) {
@@ -169,11 +187,8 @@ async function connectRedirect(req: Request) {
   if (!booking) return new Response("Запись не найдена", { status: 404, headers: corsHeaders });
   const bot = await telegram("getMe", {});
   if (!bot?.username) return new Response("Бот не настроен", { status: 503, headers: corsHeaders });
-  const webhookUrl = new URL(req.url);
-  webhookUrl.pathname = webhookUrl.pathname.replace(/\/connect\/?$/, "");
-  webhookUrl.search = "";
   await telegram("setWebhook", {
-    url: webhookUrl.toString(),
+    url: `${supabaseUrl}/functions/v1/telegram-client-notify`,
     secret_token: await telegramWebhookSecret(),
     allowed_updates: ["message"],
   });
@@ -242,15 +257,15 @@ async function remindersRequest(req: Request) {
   const local = new Date(now + 4 * 60 * 60 * 1000);
   const today = local.toISOString().slice(0, 10);
   const afterTomorrow = new Date(local.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const { data: bookings, error } = await admin.from("bookings")
-    .select("id,booking_code,manage_token,performer_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,services(name,price_rub),performer_profiles(display_name)")
-    .eq("status", "confirmed")
-    .gte("booking_date", today)
-    .lte("booking_date", afterTomorrow);
+  const { data: bookings, error } = await admin.rpc("get_telegram_reminder_candidates", {
+    p_from: today,
+    p_to: afterTomorrow,
+  });
   if (error) return json({ ok: false, error: "booking_query_failed" }, 500);
 
   let delivered = 0;
-  for (const booking of bookings || []) {
+  for (const item of bookings || []) {
+    const booking = normalizeBookingContext(item);
     const start = new Date(`${booking.booking_date}T${String(booking.booking_time).slice(0, 8)}+04:00`).getTime();
     const hours = (start - now) / 3600000;
     if (hours < 23 || hours > 25) continue;
