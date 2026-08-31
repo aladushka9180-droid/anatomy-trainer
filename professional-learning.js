@@ -7,6 +7,9 @@
   const curriculum = window.PRACTICE_CURRICULUM && typeof window.PRACTICE_CURRICULUM === 'object'
     ? window.PRACTICE_CURRICULUM
     : {};
+  const foundations = window.PROFESSIONAL_FOUNDATIONS && typeof window.PROFESSIONAL_FOUNDATIONS === 'object'
+    ? window.PROFESSIONAL_FOUNDATIONS
+    : {};
   const techniqueSources = Array.isArray(window.TECHNIQUE_SOURCES) ? window.TECHNIQUE_SOURCES : [];
   const TECHNIQUE_LESSONS = Object.freeze({
     effleurage: Object.freeze({ videoId: 'CZabcOzYZBI', index: 1, title: 'Поглаживание', duration: '7:59' }),
@@ -131,7 +134,7 @@
   }
 
   function defaultState() {
-    return { techniqueChecks: {}, mentorConfirmations: {}, checklistChecks: {}, scenarios: {}, journal: [] };
+    return { foundationChecks: {}, techniqueChecks: {}, mentorConfirmations: {}, checklistChecks: {}, scenarios: {}, journal: [] };
   }
 
   function normalizedFlags(value) {
@@ -173,6 +176,8 @@
       region: String(entry.region || ''),
       goal: String(entry.goal || ''),
       techniques: String(entry.techniques || ''),
+      decision: String(entry.decision || ''),
+      reassessment: String(entry.reassessment || ''),
       feedback: String(entry.feedback || ''),
       next: String(entry.next || ''),
       supervised: entry.supervised === true,
@@ -185,6 +190,7 @@
       const saved = JSON.parse(profileStorage.getItem(STORAGE_KEY) || 'null');
       if (!isRecord(saved)) return defaultState();
       return {
+        foundationChecks: normalizedChecks(saved.foundationChecks),
         techniqueChecks: normalizedChecks(saved.techniqueChecks),
         mentorConfirmations: normalizedFlags(saved.mentorConfirmations),
         checklistChecks: normalizedChecks(saved.checklistChecks),
@@ -203,7 +209,8 @@
     if (String(progress.draft || '').trim().length < 20) progress.open = false;
     if (!scenarioCanComplete(item, progress)) progress.reviewed = false;
   });
-  let activeTab = 'techniques';
+  let activeTab = 'foundations';
+  let activeFoundation = list(first(foundations, ['modules']))[0]?.id || '';
   let activeTechnique = techniques[0]?.id || '';
   let practiceMode = 'checklists';
   let activeChecklist = allChecklists()[0]?.id || '';
@@ -233,7 +240,32 @@
   }
 
   function allScenarios() {
-    return list(first(curriculum, ['scenarios', 'sessionScenarios', 'cases']));
+    return [
+      ...list(first(foundations, ['scenarios'])),
+      ...list(first(curriculum, ['scenarios', 'sessionScenarios', 'cases']))
+    ];
+  }
+
+  function allFoundations() {
+    return list(first(foundations, ['modules']));
+  }
+
+  function scenarioPickerOptions(rows) {
+    const safetyIds = new Set(list(first(foundations, ['scenarios'])).map(item => item.id));
+    const groups = [
+      ['Безопасные решения', rows.filter(item => safetyIds.has(item.id))],
+      ['Области тела', rows.filter(item => !safetyIds.has(item.id) && first(item, ['regionId', 'region']) !== 'whole_body')],
+      ['Полный сеанс', rows.filter(item => !safetyIds.has(item.id) && first(item, ['regionId', 'region']) === 'whole_body')]
+    ];
+    return groups.filter(([, items]) => items.length).map(([label, items]) => `<optgroup label="${esc(label)}">${items.map(item => `<option value="${esc(item.id)}" ${item.id === activeScenario ? 'selected' : ''}>${esc(first(item, ['title', 'name']))}</option>`).join('')}</optgroup>`).join('');
+  }
+
+  function foundationScenarioReady(item) {
+    const scenarioId = first(item, ['requiredScenarioId']);
+    if (!scenarioId) return true;
+    const scenario = allScenarios().find(row => row.id === scenarioId);
+    const progress = state.scenarios[scenarioId];
+    return Boolean(scenario && progress?.reviewed === true && scenarioCanComplete(scenario, progress));
   }
 
   function scenarioCanComplete(item, progress) {
@@ -275,7 +307,6 @@
       const summary = details.querySelector(':scope > summary');
       if (!summary) return;
       const sync = () => summary.setAttribute('aria-expanded', String(details.open));
-      summary.setAttribute('role', 'button');
       sync();
       details.addEventListener('toggle', sync);
       summary.addEventListener('keydown', event => {
@@ -321,29 +352,36 @@
     main.insertAdjacentHTML('beforeend', `
       <section id="professionalScreen" class="card screen professional-screen hidden" tabindex="-1" aria-labelledby="professionalTitle">
         <div class="professional-head">
-          <div><h2 id="professionalTitle">Практика по одному шагу</h2><p>Выбери приём или учебную ситуацию. Отметки помогут спланировать повторение.</p></div>
+          <div><h2 id="professionalTitle">Практика по одному шагу</h2><p>Начни с безопасного решения, затем переходи к приёмам и учебным ситуациям.</p></div>
           <button type="button" class="btn secondary compactback" data-go="menu">← Назад</button>
         </div>
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
         <div class="professional-workbar">
           <nav class="professional-tabs" role="tablist" aria-label="Разделы практического обучения">
-            <button type="button" id="professionalTabTechniques" class="active" data-professional-tab="techniques" role="tab" aria-controls="professionalContent" aria-selected="true" tabindex="0">Приёмы</button>
+            <button type="button" id="professionalTabFoundations" class="active" data-professional-tab="foundations" role="tab" aria-controls="professionalContent" aria-selected="true" tabindex="0">Основа</button>
+            <button type="button" id="professionalTabTechniques" data-professional-tab="techniques" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Приёмы</button>
             <button type="button" id="professionalTabPractice" data-professional-tab="practice" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Сценарии</button>
             <button type="button" id="professionalTabJournal" data-professional-tab="journal" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Журнал</button>
           </nav>
-          <div id="professionalContextControl" class="professional-context-control" aria-live="polite"></div>
+          <div id="professionalContextControl" class="professional-context-control"></div>
         </div>
-        <div id="professionalContent" role="tabpanel" aria-labelledby="professionalTabTechniques" tabindex="0"></div>
+        <div id="professionalContent" role="tabpanel" aria-labelledby="professionalTabFoundations" tabindex="0"></div>
       </section>`);
     const dataPanel = document.querySelector('[data-settings-panel="data"] .resetlist');
     if (dataPanel && !$('#clearProfessionalData')) {
-      dataPanel.insertAdjacentHTML('beforeend', `<div class="professional-data-settings"><strong>Данные практики</strong><span>Удалить журнал, отметки чек-листов и ответы на практические ситуации текущего профиля.</span><button type="button" id="clearProfessionalData" class="btn danger">Удалить данные практики</button></div>`);
+      dataPanel.insertAdjacentHTML('beforeend', `<div class="professional-data-settings"><strong>Данные практики</strong><span>Удалить отметки профессиональной основы, журнал, чек-листы и ответы на учебные ситуации текущего профиля.</span><button type="button" id="clearProfessionalData" class="btn danger">Удалить данные практики</button></div>`);
     }
   }
 
   function renderProfessionalProgress() {
     const host = $('#professionalProgress');
     if (!host) return;
+    const foundationRows = allFoundations().map(item => {
+      const steps = list(first(item, ['checkpoints']));
+      const checked = state.foundationChecks[item.id] || {};
+      const done = steps.filter((_, index) => checked[index] === true).length;
+      return { item, done, ready: steps.length > 0 && done === steps.length && foundationScenarioReady(item) };
+    });
     const techniqueRows = techniques.map(item => {
       const steps = techniqueChecklist(item);
       const checked = state.techniqueChecks[item.id] || {};
@@ -371,11 +409,20 @@
     const mentorConfirmed = techniqueRows.filter(row => row.ready && state.mentorConfirmations[row.item.id] === true).length;
     const checklistsReady = checklistRows.filter(row => row.ready).length;
     const competencyLevels = list(first(curriculum, ['competencyLevels']));
+    const foundationReady = foundationRows.filter(row => row.ready).length;
+    const startedFoundation = foundationRows.find(row => row.done > 0 && !row.ready);
+    const essentialFoundation = foundationRows.slice(0, 3).find(row => !row.ready);
+    const adaptationFoundation = foundationRows.find(row => row.item.id === 'adaptation' && !row.ready);
+    const recordsFoundation = foundationRows.find(row => row.item.id === 'records' && !row.ready);
+    const evidenceFoundation = foundationRows.find(row => row.item.id === 'evidence' && !row.ready);
     const startedTechnique = techniqueRows.find(row => row.done > 0 && !row.ready);
     const startedChecklist = checklistRows.find(row => row.done > 0 && !row.ready);
     const startedScenario = scenarioRows.find(row => row.started && !row.ready);
     let nextAction;
-    if (startedTechnique) {
+    if (startedFoundation || essentialFoundation) {
+      const row = startedFoundation || essentialFoundation;
+      nextAction = { type: 'foundation', item: row.item, title: row.done ? 'Продолжи основу безопасности' : 'Начни с безопасного решения', description: `Разбери «${first(row.item, ['title', 'name'])}» и отметь только то, что можешь объяснить своими словами.`, button: row.done ? 'Продолжить основу' : 'Открыть основу' };
+    } else if (startedTechnique) {
       nextAction = { type: 'technique', item: startedTechnique.item, title: 'Продолжи начатый приём', description: `Вернись к «${first(startedTechnique.item, ['name', 'title'])}» и заверши оставшиеся шаги безопасной отработки.`, button: 'Продолжить приём' };
     } else if (startedChecklist) {
       nextAction = { type: 'checklist', item: startedChecklist.item, title: 'Продолжи чек-лист по области', description: `Вернись к «${first(startedChecklist.item, ['title', 'name'])}». Отмечай только реально выполненные шаги.`, button: 'Продолжить чек-лист' };
@@ -383,27 +430,36 @@
       nextAction = { type: 'scenario', item: startedScenario.item, title: 'Заверши разбор ситуации', description: `Продолжи «${first(startedScenario.item, ['title', 'name'])}»: сначала свой план, затем сверка с учебным разбором.`, button: 'Продолжить ситуацию' };
     } else if (techniquesReady === 0 && techniqueRows.length) {
       nextAction = { type: 'technique', item: techniqueRows[0].item, title: 'Начни с одного базового приёма', description: `Разбери «${first(techniqueRows[0].item, ['name', 'title'])}»: цель, положение рук и ситуации, когда нужно остановиться.`, button: 'Начать первый приём' };
+    } else if (adaptationFoundation) {
+      nextAction = { type: 'foundation', item: adaptationFoundation.item, title: 'Научись изменять стандартный план', description: 'Перед региональной практикой разбери особые ситуации, в которых положение, область, давление или решение нужно изменить.', button: 'Разобрать адаптацию' };
     } else if (checklistsReady === 0 && checklistRows.length) {
       nextAction = { type: 'checklist', item: checklistRows[0].item, title: 'Закрепи приём на одной области', description: `Открой «${first(checklistRows[0].item, ['title', 'name'])}» и пройди его на учебном партнёре с правом немедленно остановить практику.`, button: 'Открыть чек-лист' };
+    } else if (evidenceFoundation) {
+      nextAction = { type: 'foundation', item: evidenceFoundation.item, title: 'Проверь профессиональные формулировки', description: 'Перед разбором ситуаций научись отделять наблюдение от диагноза, гипотезы и рекламного обещания.', button: 'Разобрать формулировки' };
     } else if (scenariosDone === 0 && scenarioRows.length) {
       nextAction = { type: 'scenario', item: scenarioRows[0].item, title: 'Проверь безопасное решение', description: `Разбери «${first(scenarioRows[0].item, ['title', 'name'])}» и объясни решение своими словами.`, button: 'Разобрать ситуацию' };
+    } else if (recordsFoundation) {
+      nextAction = { type: 'foundation', item: recordsFoundation.item, title: 'Подготовь безопасную учебную запись', description: 'Перед первым журналом разбери, что можно фиксировать и какие данные реального человека нельзя помещать в сайт.', button: 'Разобрать запись' };
     } else if (state.journal.length === 0) {
       nextAction = { type: 'journal', title: 'Зафиксируй первую отработку', description: 'Добавь короткую запись о реально выполненной практике и полученной обратной связи — без персональных и медицинских данных.', button: 'Добавить запись' };
     } else {
+      const nextFoundation = foundationRows.find(row => !row.ready);
       const nextTechnique = techniqueRows.find(row => !row.ready);
       const nextChecklist = checklistRows.find(row => !row.ready);
       const nextScenario = scenarioRows.find(row => !row.ready);
-      nextAction = nextTechnique
-        ? { type: 'technique', item: nextTechnique.item, title: 'Возьми следующий приём', description: `Продолжи самостоятельную отработку с приёма «${first(nextTechnique.item, ['name', 'title'])}».`, button: 'Открыть следующий приём' }
+      nextAction = nextFoundation
+        ? { type: 'foundation', item: nextFoundation.item, title: 'Расширь профессиональную основу', description: `Следующий общий навык — «${first(nextFoundation.item, ['title', 'name'])}». Он применяется во всех областях тела.`, button: 'Открыть основу' }
+        : nextTechnique
+          ? { type: 'technique', item: nextTechnique.item, title: 'Возьми следующий приём', description: `Продолжи самостоятельную отработку с приёма «${first(nextTechnique.item, ['name', 'title'])}».`, button: 'Открыть следующий приём' }
         : nextChecklist
           ? { type: 'checklist', item: nextChecklist.item, title: 'Возьми следующую область', description: `Продолжи с чек-листом «${first(nextChecklist.item, ['title', 'name'])}».`, button: 'Открыть следующий чек-лист' }
           : nextScenario
             ? { type: 'scenario', item: nextScenario.item, title: 'Разбери следующую ситуацию', description: `Следующий безопасный шаг — «${first(nextScenario.item, ['title', 'name'])}».`, button: 'Открыть ситуацию' }
             : { type: 'journal', title: 'Подведи итог отработки', description: 'Добавь запись о последней реальной практике и реши, что повторить в другой день.', button: 'Добавить запись' };
     }
-    const completedText = techniquesReady + checklistsReady + scenariosDone === 0
-      ? (techniqueDone + checklistDone > 0 ? `Начатых шагов: ${techniqueDone + checklistDone}. Завершённых блоков пока нет.` : 'Завершённых блоков пока нет — начни с одного небольшого шага.')
-      : `По шагам разобрано приёмов: ${techniquesReady}; наставник наблюдал: ${mentorConfirmed}; отработано областей: ${checklistsReady}; разобрано ситуаций: ${scenariosDone}.`;
+    const completedText = foundationReady + techniquesReady + checklistsReady + scenariosDone === 0
+      ? (foundationRows.some(row => row.done > 0) || techniqueDone + checklistDone > 0 ? 'Есть начатые шаги, но завершённых блоков пока нет.' : 'Завершённых блоков пока нет — начни с одного небольшого шага.')
+      : `Основа: ${foundationReady}/${foundationRows.length}; приёмы: ${techniquesReady}; наставник наблюдал: ${mentorConfirmed}; области: ${checklistsReady}; ситуации: ${scenariosDone}.`;
     host.innerHTML = `
       <section class="professional-next-step" aria-labelledby="professionalNextTitle">
         <div class="professional-next-copy"><span class="professional-next-label">Следующий шаг</span><h3 id="professionalNextTitle">${esc(nextAction.title)}</h3>
@@ -415,7 +471,10 @@
         ? competencyLevels.map((level, index) => `<span><i>${index + 1}</i>${esc(first(level, ['title']))}</span>`).join('')
         : '<span><i>1</i>Знаю</span><span><i>2</i>Объясняю</span><span><i>3</i>Показываю</span><span><i>4</i>Проверено</span>'}</div><p><b>Важно:</b> отметки показывают выполненную тренировку, а не подтверждённое владение приёмом. Уровень «Проверено» может отметить только квалифицированный преподаватель после очной демонстрации.</p></details>`;
     $('#professionalNextAction')?.addEventListener('click', () => {
-      if (nextAction.type === 'technique') {
+      if (nextAction.type === 'foundation') {
+        activeFoundation = nextAction.item.id;
+        activeTab = 'foundations';
+      } else if (nextAction.type === 'technique') {
         activeTechnique = nextAction.item.id;
         activeTab = 'techniques';
       } else if (nextAction.type === 'checklist') {
@@ -434,6 +493,98 @@
       requestAnimationFrame(() => $('#professionalContent')?.focus({ preventScroll: true }));
     });
     wireDetails('details.competency-help');
+  }
+
+  function foundationSources(item) {
+    const byId = new Map(list(first(foundations, ['sources'])).map(source => [source.id, source]));
+    const rows = list(first(item, ['sourceIds'])).map(id => byId.get(id)).filter(Boolean);
+    if (!rows.length) return '';
+    return `<details class="foundation-sources"><summary>Источники и дата проверки</summary><div><ul>${rows.map(source => {
+      const url = safeUrl(source.url);
+      return `<li>${url !== '#' ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(source.title)} (откроется в новой вкладке)">${esc(source.title)}</a>` : esc(source.title)}${source.organization ? `<small>${esc(source.organization)}</small>` : ''}</li>`;
+    }).join('')}</ul><p>Материал проверен ${esc(first(foundations, ['reviewDate'], '2026-08-31'))}. Российские нормативные источники и зарубежные учебные ориентиры отмечены отдельно; зарубежный материал не является нормой РФ. Источники не заменяют локальные требования, клинический протокол и очную подготовку.</p></div></details>`;
+  }
+
+  function renderFoundationMyths() {
+    const myths = allMyths();
+    if (!myths.length) return '';
+    return `<section class="foundation-myths" aria-labelledby="foundationMythsTitle"><h4 id="foundationMythsTitle">Проверь привычные утверждения</h4><div class="myth-grid">${myths.map(item => `<details class="myth-card"><summary>${esc(first(item, ['myth', 'claim', 'title']))}</summary><div><span class="fact-label">${esc(first(item, ['verdict'], 'Разбор'))}</span><p>${esc(first(item, ['fact', 'explanation', 'answer']))}</p></div></details>`).join('')}</div></section>`;
+  }
+
+  function renderFoundations() {
+    const host = $('#professionalContent');
+    const modules = allFoundations();
+    if (!modules.length) {
+      host.innerHTML = '<div class="empty-state"><p>Профессиональная основа готовится.</p></div>';
+      return;
+    }
+    if (!modules.some(item => item.id === activeFoundation)) activeFoundation = modules[0].id;
+    const item = modules.find(row => row.id === activeFoundation) || modules[0];
+    const checks = state.foundationChecks[item.id] || {};
+    const checkpoints = list(first(item, ['checkpoints']));
+    const completed = checkpoints.filter((_, index) => checks[index] === true).length;
+    const checksComplete = checkpoints.length > 0 && completed === checkpoints.length;
+    const requiredScenarioId = first(item, ['requiredScenarioId']);
+    const requiredScenario = requiredScenarioId ? allScenarios().find(row => row.id === requiredScenarioId) : null;
+    const scenarioComplete = foundationScenarioReady(item);
+    const complete = checksComplete && scenarioComplete;
+    const contextControl = $('#professionalContextControl');
+    if (contextControl) contextControl.innerHTML = `<label class="foundation-picker"><span>Общий навык</span><select id="foundationPicker">${modules.map(row => `<option value="${esc(row.id)}" ${row.id === item.id ? 'selected' : ''}>${esc(first(row, ['title', 'name']))}</option>`).join('')}</select></label>`;
+    const scope = first(foundations, ['scope'], {});
+    const decisions = list(first(foundations, ['decisions']));
+    host.innerHTML = `
+      <section class="foundation-intro" aria-label="Назначение и границы раздела"><details><summary>О назначении и границах раздела</summary><div><h3>${esc(first(scope, ['title'], 'Безопасная учебная практика'))}</h3><p>${esc(first(scope, ['description']))}</p><p>${esc(first(scope, ['medicalBoundary']))}</p></div></details></section>
+      <details class="session-flow-disclosure"><summary>Маршрут учебного сеанса · 8 шагов</summary><ol class="session-flow" aria-label="Полный маршрут учебного сеанса">${list(first(foundations, ['sessionFlow'])).map((step, index) => `<li><i>${index + 1}</i><span>${esc(step)}</span></li>`).join('')}</ol></details>
+      <article class="foundation-detail">
+        <header><span class="eyebrow">Общий навык · ${completed}/${checkpoints.length}</span><h3>${esc(first(item, ['title', 'name']))}</h3><p>${esc(first(item, ['goal', 'description']))}</p></header>
+        ${item.id === 'admission' && decisions.length ? `<section class="decision-path" aria-labelledby="decisionPathTitle"><h4 id="decisionPathTitle">Пять возможных решений</h4><div>${decisions.map((decision, index) => `<article><i>${index + 1}</i><div><strong>${esc(decision.title)}</strong><p>${esc(decision.description)}</p></div></article>`).join('')}</div></section>` : ''}
+        <div class="foundation-sections">${list(first(item, ['sections'])).map((section, index) => `<details class="foundation-section" ${index === 0 ? 'open' : ''}><summary><span>${esc(first(section, ['title']))}</span><small>${textRows(first(section, ['items'])).length} пунктов</small></summary><div><ul>${textRows(first(section, ['items'])).map(row => `<li>${esc(row)}</li>`).join('')}</ul></div></details>`).join('')}</div>
+        <section class="foundation-checklist" aria-labelledby="foundationCheckTitle"><div><h4 id="foundationCheckTitle">Проверь понимание</h4><span>${complete ? 'Навык разобран и проверен в ситуации.' : checksComplete && requiredScenario ? 'Теория разобрана — проверь решение в ситуации.' : 'Отмечай только то, что можешь объяснить своими словами.'}</span></div>
+          ${checkpoints.map((step, index) => `<label><input type="checkbox" data-foundation-check="${index}" ${checks[index] === true ? 'checked' : ''}><span>${esc(step)}</span></label>`).join('')}
+          ${requiredScenario ? `<button type="button" class="btn secondary foundation-scenario-action ${checksComplete && !scenarioComplete ? '' : 'hidden'}" data-open-foundation-scenario="${esc(requiredScenario.id)}">Проверить себя: ${esc(first(requiredScenario, ['title', 'name']))}</button>` : ''}
+          ${item.id === 'records' ? `<button type="button" class="btn secondary foundation-followup ${complete ? '' : 'hidden'}" data-foundation-followup="journal">Открыть обезличенный учебный журнал</button>` : ''}
+          ${item.id === 'evidence' ? `<button type="button" class="btn secondary foundation-followup ${complete ? '' : 'hidden'}" data-foundation-followup="scenarios">Применить формулировки в ситуациях</button>` : ''}
+          <p class="foundation-complete ${complete ? '' : 'hidden'}" role="status" aria-live="polite"><strong>Учебный блок разобран${requiredScenario ? ' и решение проверено' : ''}.</strong> Эта отметка не является допуском к самостоятельной практике.</p>
+        </section>
+        ${foundationSources(item)}
+      </article>`;
+    wireDetails('details.foundation-intro, details.session-flow-disclosure, details.foundation-section, details.foundation-sources, details.myth-card');
+    $('#foundationPicker')?.addEventListener('change', event => {
+      activeFoundation = event.currentTarget.value;
+      renderFoundations();
+      requestAnimationFrame(() => $('#foundationPicker')?.focus());
+    });
+    $$('[data-foundation-check]').forEach(input => input.addEventListener('change', () => {
+      state.foundationChecks[item.id] ||= {};
+      state.foundationChecks[item.id][input.dataset.foundationCheck] = input.checked;
+      saveState();
+      const rows = $$('[data-foundation-check]');
+      const ready = rows.length > 0 && rows.every(row => row.checked);
+      $('.foundation-complete')?.classList.toggle('hidden', !(ready && scenarioComplete));
+      $('.foundation-scenario-action')?.classList.toggle('hidden', !(ready && !scenarioComplete));
+      $$('.foundation-followup').forEach(button => button.classList.toggle('hidden', !(ready && scenarioComplete)));
+      const counter = $('.foundation-detail>header .eyebrow');
+      if (counter) counter.textContent = `Общий навык · ${rows.filter(row => row.checked).length}/${rows.length}`;
+      const note = $('.foundation-checklist>div span');
+      if (note) note.textContent = ready && scenarioComplete ? 'Навык разобран и проверен в ситуации.' : ready && requiredScenario ? 'Теория разобрана — проверь решение в ситуации.' : 'Отмечай только то, что можешь объяснить своими словами.';
+    }));
+    $('[data-open-foundation-scenario]')?.addEventListener('click', event => {
+      activeScenario = event.currentTarget.dataset.openFoundationScenario;
+      practiceMode = 'scenarios';
+      activeTab = 'practice';
+      renderActiveTab();
+      requestAnimationFrame(() => $('#professionalContent')?.focus({ preventScroll: true }));
+    });
+    $('[data-foundation-followup="journal"]')?.addEventListener('click', () => {
+      journalFormOpen = true;
+      activeTab = 'journal';
+      renderActiveTab();
+    });
+    $('[data-foundation-followup="scenarios"]')?.addEventListener('click', () => {
+      practiceMode = 'scenarios';
+      activeTab = 'practice';
+      renderActiveTab();
+    });
   }
 
   function renderTechniques() {
@@ -589,7 +740,7 @@
           <button type="button" data-practice-mode="scenarios" class="${practiceMode === 'scenarios' ? 'active' : ''}" aria-pressed="${practiceMode === 'scenarios'}">Построение сеанса</button>
         </div>
         ${practiceMode === 'checklists' && checklists.length ? `<label class="practice-area-picker"><span>Область и задача</span><select id="practiceChecklistPicker">${checklists.map(item => `<option value="${esc(item.id)}" ${item.id === activeChecklist ? 'selected' : ''}>${esc(regionLabel(first(item, ['regionId', 'region'])))} — ${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
-        ${practiceMode === 'scenarios' && scenarios.length ? `<label class="practice-scenario-picker"><span>Учебная ситуация</span><select id="practiceScenarioPicker">${scenarios.map(item => `<option value="${esc(item.id)}" ${item.id === activeScenario ? 'selected' : ''}>${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
+        ${practiceMode === 'scenarios' && scenarios.length ? `<label class="practice-scenario-picker"><span>Учебная ситуация</span><select id="practiceScenarioPicker">${scenarioPickerOptions(scenarios)}</select></label>` : ''}
       </div>
       <aside class="practice-method"><b>${practiceMode === 'checklists' ? 'Как отрабатывать навык' : 'Как разбирать ситуацию'}</b><span>${practiceMode === 'checklists'
         ? 'Подготовься → выполни без подсказок → отметь шаги → получи обратную связь → повтори в другой день.'
@@ -699,8 +850,10 @@
             <label>Дата<input name="date" type="date" value="${today}" required></label>
             <label>Область тела<input name="region" maxlength="80" required placeholder="Например: плечевой пояс"></label>
             <label>Цель учебной отработки<input name="goal" maxlength="180" required placeholder="Что хотел научиться делать"></label>
-            <label>Отработанные приёмы<textarea name="techniques" maxlength="600" required></textarea></label>
+            <label>Решение до контакта<select name="decision" required><option value="">Выбери решение</option><option>Работать по плану</option><option>Изменить область, положение или дозирование</option><option>Отложить практику</option><option>Рекомендовать обратиться за медицинской оценкой</option><option>Вызвать экстренную помощь</option></select></label>
+            <label>Что было сделано<textarea name="techniques" maxlength="600" required placeholder="Если контакт не выполнялся, укажи принятое действие: отложено, рекомендовано обратиться или вызвана помощь"></textarea></label>
             <label>Обратная связь партнёра<textarea name="feedback" maxlength="600"></textarea></label>
+            <label>Итог и повторная оценка<textarea name="reassessment" maxlength="600" required placeholder="Наблюдаемые факты после действия, изменение состояния, передача рекомендаций или помощи"></textarea></label>
             <label>Что улучшить в следующий раз<textarea name="next" maxlength="600"></textarea></label>
           </div>
           <label class="reviewed-check"><input name="supervised" type="checkbox"> Практику наблюдал преподаватель или наставник</label>
@@ -726,8 +879,10 @@
         date: String(data.get('date') || today),
         region: String(data.get('region') || '').trim(),
         goal: String(data.get('goal') || '').trim(),
+        decision: String(data.get('decision') || '').trim(),
         techniques: String(data.get('techniques') || '').trim(),
         feedback: String(data.get('feedback') || '').trim(),
+        reassessment: String(data.get('reassessment') || '').trim(),
         next: String(data.get('next') || '').trim(),
         supervised: data.get('supervised') === 'on',
         createdAt: new Date().toISOString()
@@ -750,8 +905,9 @@
     }
     host.innerHTML = state.journal.map(entry => `<article class="journal-entry">
       <div><span>${esc(entry.date)}</span>${entry.supervised ? '<b>Ученик отметил: практику наблюдал наставник</b>' : '<b class="selfcheck">Самопроверка</b>'}</div>
-      <h4>${esc(entry.region)}</h4><p><strong>Цель:</strong> ${esc(entry.goal)}</p><p><strong>Приёмы:</strong> ${esc(entry.techniques)}</p>
+      <h4>${esc(entry.region)}</h4><p><strong>Цель:</strong> ${esc(entry.goal)}</p>${entry.decision ? `<p><strong>Решение:</strong> ${esc(entry.decision)}</p>` : ''}<p><strong>Что сделано:</strong> ${esc(entry.techniques)}</p>
       ${entry.feedback ? `<p><strong>Обратная связь:</strong> ${esc(entry.feedback)}</p>` : ''}
+      ${entry.reassessment ? `<p><strong>Повторная оценка:</strong> ${esc(entry.reassessment)}</p>` : ''}
       ${entry.next ? `<p><strong>Следующий шаг:</strong> ${esc(entry.next)}</p>` : ''}
       <button type="button" class="btn secondary journal-delete" data-journal-delete="${esc(entry.id)}">Удалить запись</button>
     </article>`).join('');
@@ -766,7 +922,7 @@
   }
 
   function clearProfessionalData() {
-    if (!confirm('Удалить журнал, отметки чек-листов и ответы на практические ситуации текущего профиля? Это действие нельзя отменить.')) return;
+    if (!confirm('Удалить отметки профессиональной основы, журнал, чек-листы и ответы на учебные ситуации текущего профиля? Это действие нельзя отменить.')) return;
     try {
       profileStorage.removeItem(STORAGE_KEY);
       state = defaultState();
@@ -813,7 +969,7 @@
     const contextControl = $('#professionalContextControl');
     if (contextControl) {
       contextControl.innerHTML = '';
-      contextControl.classList.toggle('hidden', activeTab !== 'techniques');
+      contextControl.classList.toggle('hidden', !['foundations', 'techniques'].includes(activeTab));
     }
     $$('[data-professional-tab]').forEach(button => {
       const active = button.dataset.professionalTab === activeTab;
@@ -830,14 +986,15 @@
       content?.removeAttribute('aria-labelledby');
       content?.setAttribute('aria-label', 'Миф или факт');
     }
-    if (activeTab === 'techniques') renderTechniques();
+    if (activeTab === 'foundations') renderFoundations();
+    else if (activeTab === 'techniques') renderTechniques();
     else if (activeTab === 'practice') renderPractice();
     else if (activeTab === 'journal') renderJournal();
     else renderMyths();
   }
 
-  function openProfessional(tab = 'techniques', options = {}) {
-    activeTab = ['techniques', 'practice', 'journal', 'myths'].includes(tab) ? tab : 'techniques';
+  function openProfessional(tab = 'foundations', options = {}) {
+    activeTab = ['foundations', 'techniques', 'practice', 'journal', 'myths'].includes(tab) ? tab : 'techniques';
     const regionId = String(options.regionId || '');
     if (regionId) {
       const matchingChecklist = allChecklists().find(item => String(first(item, ['regionId', 'region'])) === regionId);
@@ -855,8 +1012,8 @@
   injectInterface();
   renderProfessionalProgress();
   $('#clearProfessionalData')?.addEventListener('click', clearProfessionalData);
-  $('#professionalShortcut')?.addEventListener('click', () => openProfessional('techniques'));
-  $('#mobileProfessional')?.addEventListener('click', () => openProfessional('techniques'));
+  $('#professionalShortcut')?.addEventListener('click', () => openProfessional('foundations'));
+  $('#mobileProfessional')?.addEventListener('click', () => openProfessional('foundations'));
   $$('[data-professional-tab]').forEach(button => button.addEventListener('click', () => {
     activeTab = button.dataset.professionalTab;
     renderActiveTab();
