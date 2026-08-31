@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '43';
+const version = '44';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -42,7 +42,7 @@ assert.match(provider, /client_name: 'Клиент', client_phone: ''/, 'Офл�
 assert.match(provider, /booking_policies/, 'Кабинет не загружает правила отмены и предоплаты');
 assert.match(provider, /notification_templates/, 'Шаблоны уведомлений не синхронизируются с сервером');
 assert.match(provider, /set_booking_payment_status/, 'Нет управления статусом предоплаты');
-assert.match(provider, /\[5, 10, 30, 40, 60, 90, 120/, 'Редактор услуги не поддерживает длительность 5 и 10 минут');
+assert.match(provider, /\[5, 10, 20, 30, 40, 60, 90, 120, 180/, 'Редактор услуги не поддерживает полный список длительностей');
 assert.match(provider, /weekStartFor/, 'Лента дат не строит календарную неделю');
 assert.match(provider, /dataDateShift|dataset\.dateShift/, 'Нет перехода между неделями');
 assert.match(provider, /SCHEDULE_DATE_KEY/, 'Выбранная дата не сохраняется после обновления страницы');
@@ -53,7 +53,9 @@ assert.match(provider, /scrollIntoView/, 'Активная дата не про�
 assert.match(provider, /setAttribute\('aria-pressed'/, 'Состояние фильтров не передаётся средствам доступности');
 
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
-assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="5">5 мин<\/option>[\s\S]*?<option value="10">10 мин<\/option>/, 'В форме новой услуги нет длительности 5 и 10 минут');
+assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
+const styles = readFileSync(join(root, 'styles.css'), 'utf8');
+assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
 assert.match(providerHtml, /data-date-shift="-7"[\s\S]*data-date-shift="7"/, 'В расписании нет навигации по неделям');
 

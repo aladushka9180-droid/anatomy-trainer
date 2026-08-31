@@ -717,7 +717,7 @@ function serviceOptions(selectedId, activeOnly = false) {
 }
 
 function durationOptions(selected) {
-  const durations = [...new Set([5, 10, 30, 40, 60, 90, 120, Number(selected)])].filter(value => value >= 5 && value <= 480).sort((a, b) => a - b);
+  const durations = [...new Set([5, 10, 20, 30, 40, 60, 90, 120, 180, Number(selected)])].filter(value => value >= 5 && value <= 480).sort((a, b) => a - b);
   return durations.map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value} мин</option>`).join('');
 }
 
@@ -2002,4 +2002,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=43'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=44'));
