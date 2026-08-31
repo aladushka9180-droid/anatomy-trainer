@@ -13,7 +13,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=29">
+  <link rel="stylesheet" href="styles.css?v=30">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -60,6 +60,7 @@
         <nav class="provider-nav" aria-label="Разделы кабинета">
           <button class="active" type="button" data-provider-view="bookings"><span aria-hidden="true">▣</span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
           <button type="button" data-provider-view="clients"><span aria-hidden="true">♙</span><span>Клиенты</span><b id="clientsBadge">0</b></button>
+          <button type="button" data-provider-view="notifications"><span aria-hidden="true">◉</span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
           <button type="button" data-provider-view="schedule"><span aria-hidden="true">◷</span><span>Расписание</span></button>
           <button type="button" data-provider-view="services"><span aria-hidden="true">✦</span><span>Услуги</span><b id="servicesBadge">0</b></button>
           <button type="button" data-provider-view="settings"><span aria-hidden="true">⚙</span><span>Настройки</span></button>
@@ -127,6 +128,33 @@
           </div>
         </section>
 
+        <section class="provider-view" data-provider-panel="notifications" hidden>
+          <div class="view-title"><div><span>Связь с клиентами</span><h2>Уведомления</h2></div><div class="view-title-actions"><span class="panel-count" id="notificationCount">0</span><button class="refresh-button" id="refreshNotifications" type="button" aria-label="Обновить уведомления">↻</button></div></div>
+          <p class="view-description">Готовые сообщения для WhatsApp: откройте чат, проверьте текст и после отправки отметьте задачу выполненной.</p>
+          <div class="notification-stat-grid">
+            <article><span>◉</span><div><strong id="notificationPendingCount">0</strong><small>нужно отправить</small></div></article>
+            <article><span>◷</span><div><strong id="notificationSoonCount">0</strong><small>на ближайшие сутки</small></div></article>
+            <article><span>✓</span><div><strong id="notificationSentCount">0</strong><small>отмечено отправленными</small></div></article>
+          </div>
+          <div class="notifications-layout">
+            <section class="panel notification-queue-panel">
+              <div class="notification-toolbar"><div><small>Очередь сообщений</small><h3>Что нужно отправить</h3></div><div class="notification-filters"><button class="active" type="button" data-notification-filter="pending">К отправке</button><button type="button" data-notification-filter="sent">Отправлено</button><button type="button" data-notification-filter="all">Все</button></div></div>
+              <div class="notification-list" id="notificationList" aria-live="polite"></div>
+            </section>
+            <section class="panel notification-template-panel">
+              <div class="panel-head"><div><small>Ваши тексты</small><h3>Шаблоны сообщений</h3></div></div>
+              <p class="template-help">Можно использовать переменные: <b>{имя}</b>, <b>{услуга}</b>, <b>{дата}</b>, <b>{время}</b>, <b>{адрес}</b>.</p>
+              <form id="notificationTemplatesForm" class="notification-template-form">
+                <label>Подтверждение записи<textarea id="templateConfirmation" rows="5" maxlength="900"></textarea></label>
+                <label>Напоминание перед визитом<textarea id="templateReminder" rows="5" maxlength="900"></textarea></label>
+                <label>Отмена записи<textarea id="templateCancellation" rows="5" maxlength="900"></textarea></label>
+                <button class="primary" type="submit">Сохранить шаблоны</button>
+              </form>
+              <p class="notification-device-note">Отметки и шаблоны пока сохраняются в этом браузере. WhatsApp не сообщает сайту о доставке — статус «Отправлено» ставите вы.</p>
+            </section>
+          </div>
+        </section>
+
         <section class="provider-view" data-provider-panel="schedule" hidden>
           <div class="view-title"><div><span>Доступность</span><h2>Рабочее расписание</h2></div><button class="primary compact-button" id="saveSchedule" type="button">Сохранить</button></div>
           <p class="view-description">Клиенты увидят только свободные интервалы внутри выбранных рабочих часов.</p>
@@ -187,14 +215,22 @@
             <aside class="settings-note"><span aria-hidden="true">✓</span><div><strong>Пароль хранится защищённо</strong><p>Мы проверим текущий пароль перед изменением. Никому не сообщайте его.</p></div></aside>
           </div>
         </section>
+
+        <section class="provider-view" data-provider-panel="more" hidden>
+          <div class="view-title"><div><span>Дополнительно</span><h2>Ещё</h2></div></div>
+          <div class="mobile-more-grid">
+            <button type="button" data-provider-view="services"><span>✦</span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
+            <button type="button" data-provider-view="settings"><span>⚙</span><strong>Настройки</strong><small>Пароль и безопасность кабинета</small></button>
+          </div>
+        </section>
       </div>
 
       <nav class="provider-mobile-nav" aria-label="Разделы кабинета">
         <button class="active" type="button" data-provider-view="bookings"><span>▣</span>Записи</button>
+        <button type="button" data-provider-view="notifications"><span>◉</span>Сообщения</button>
         <button type="button" data-provider-view="clients"><span>♙</span>Клиенты</button>
         <button type="button" data-provider-view="schedule"><span>◷</span>Расписание</button>
-        <button type="button" data-provider-view="services"><span>✦</span>Услуги</button>
-        <button type="button" data-provider-view="settings"><span>⚙</span>Настройки</button>
+        <button type="button" data-provider-view="more"><span>•••</span>Ещё</button>
       </nav>
     </section>
   </main>
@@ -208,7 +244,7 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=28"></script>
-  <script src="provider.js?v=29" defer></script>
+  <script src="config.js?v=30"></script>
+  <script src="provider.js?v=30" defer></script>
 </body>
 </html>

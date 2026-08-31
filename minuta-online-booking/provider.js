@@ -5,6 +5,8 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 let currentUser = null;
 let currentFilter = 'day';
+let notificationFilter = 'pending';
+let notificationTimer = null;
 let journalMode = localStorage.getItem('massage-journal-mode') || 'timeline';
 let selectedDate = localIsoDate(new Date());
 let allBookings = [];
@@ -20,6 +22,12 @@ let scheduleRows = [];
 let daysOff = [];
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const weekdayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+const notificationAddress = 'Ижевск, ул. Карла Маркса, 304Б';
+const defaultNotificationTemplates = {
+  confirmation: 'Здравствуйте, {имя}! Ваша запись подтверждена.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nДо встречи!',
+  reminder: 'Здравствуйте, {имя}! Напоминаю о вашей записи.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nЕсли планы изменились, пожалуйста, сообщите заранее.',
+  cancellation: 'Здравствуйте, {имя}! Ваша запись на {услуга}, {дата} в {время}, отменена. Если захотите подобрать другое время, напишите мне.'
+};
 
 function localIsoDate(date) {
   const year = date.getFullYear();
@@ -29,22 +37,41 @@ function localIsoDate(date) {
 }
 function normalizePhone(value) {
   let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('00')) return '';
   if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
   if (digits.length === 10) digits = `7${digits}`;
-  return digits;
+  return digits.length >= 11 && digits.length <= 15 && !digits.startsWith('0') ? digits : '';
 }
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
-function whatsappLink(item) {
+function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
+function readNotificationStorage(name, fallback) {
+  try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
+  catch { return fallback; }
+}
+function writeNotificationStorage(name, value) {
+  try { localStorage.setItem(notificationStorageKey(name), JSON.stringify(value)); }
+  catch { notify('Не удалось сохранить изменения в браузере'); }
+}
+function notificationTemplates() { return { ...defaultNotificationTemplates, ...readNotificationStorage('templates', {}) }; }
+function composeNotificationMessage(type, item) {
+  const date = new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  const tokens = {
+    '{имя}': item.client_name || 'клиент',
+    '{услуга}': serviceName(item.services?.name || 'Услуга'),
+    '{дата}': date,
+    '{время}': String(item.booking_time).slice(0, 5),
+    '{адрес}': notificationAddress
+  };
+  return Object.entries(tokens).reduce((text, [token, value]) => text.split(token).join(value), notificationTemplates()[type] || defaultNotificationTemplates.reminder);
+}
+function whatsappLink(item, type = 'reminder') {
   const phone = normalizePhone(item.client_phone);
   if (!phone) return '';
-  const date = new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-  const time = String(item.booking_time).slice(0, 5);
-  const message = `Здравствуйте, ${item.client_name}! Напоминаю о вашей записи.\n\n${serviceName(item.services?.name || 'Услуга')}\n${date} в ${time}\nИжевск, ул. Карла Маркса, 304Б\n\nЕсли планы изменились, пожалуйста, сообщите заранее.`;
-  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(composeNotificationMessage(type, item))}`;
 }
 function bookingIsCompleted(item) {
   if (item.status !== 'confirmed') return false;
@@ -58,6 +85,91 @@ function bookingStatus(item, long = false) {
   return long ? 'Новая запись' : 'Новая';
 }
 function bookingStatusClass(item) { return bookingIsCompleted(item) ? 'completed' : item.status; }
+function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
+function notificationMarks() { return readNotificationStorage('marks', {}); }
+function setNotificationMark(key, status) {
+  const marks = notificationMarks();
+  if (status) marks[key] = status; else delete marks[key];
+  writeNotificationStorage('marks', marks);
+}
+function bookingStart(item) { return new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`); }
+function buildNotificationTasks() {
+  const now = new Date();
+  const tasks = [];
+  allBookings.forEach(item => {
+    const start = bookingStart(item);
+    if (item.status === 'cancelled') {
+      if (start > now) tasks.push({ item, type: 'cancellation', title: 'Сообщить об отмене', dueAt: new Date(), key: notificationTaskKey(item, 'cancellation') });
+      return;
+    }
+    if (start <= now) return;
+    const createdAt = item.created_at ? new Date(item.created_at) : new Date();
+    tasks.push({ item, type: 'confirmation', title: 'Подтвердить запись', dueAt: createdAt, key: notificationTaskKey(item, 'confirmation') });
+    tasks.push({ item, type: 'reminder', title: 'Напомнить за сутки', dueAt: new Date(start.getTime() - 24 * 3600000), key: notificationTaskKey(item, 'reminder') });
+  });
+  return tasks.sort((a, b) => a.dueAt - b.dueAt || bookingStart(a.item) - bookingStart(b.item));
+}
+function notificationDueLabel(task) {
+  const now = new Date();
+  if (task.dueAt <= now) return task.type === 'cancellation' ? 'Отправить сейчас' : 'Можно отправлять сейчас';
+  return `Отправить ${task.dueAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${task.dueAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+}
+function renderNotificationTemplates() {
+  const templates = notificationTemplates();
+  if ($('#templateConfirmation')) $('#templateConfirmation').value = templates.confirmation;
+  if ($('#templateReminder')) $('#templateReminder').value = templates.reminder;
+  if ($('#templateCancellation')) $('#templateCancellation').value = templates.cancellation;
+}
+function renderNotifications() {
+  const holder = $('#notificationList');
+  if (!holder || !currentUser) return;
+  const now = new Date();
+  const nextDay = new Date(now.getTime() + 24 * 3600000);
+  const marks = notificationMarks();
+  const tasks = buildNotificationTasks().map(task => ({ ...task, mark: marks[task.key] || '', isDue: task.dueAt <= now }));
+  const pending = tasks.filter(task => task.isDue && task.mark !== 'sent').length;
+  const soon = tasks.filter(task => task.mark !== 'sent' && task.dueAt > now && task.dueAt <= nextDay).length;
+  const sent = tasks.filter(task => task.mark === 'sent').length;
+  $('#notificationPendingCount').textContent = String(pending);
+  $('#notificationSoonCount').textContent = String(soon);
+  $('#notificationSentCount').textContent = String(sent);
+  $('#notificationCount').textContent = String(tasks.length);
+  $('#notificationBadge').textContent = pending > 9 ? '9+' : String(pending);
+  $('#notificationBadge').hidden = pending === 0;
+  const filtered = tasks.filter(task => {
+    if (notificationFilter === 'sent') return task.mark === 'sent';
+    if (notificationFilter === 'pending') return task.isDue && task.mark !== 'sent';
+    return true;
+  });
+  if (!filtered.length) {
+    holder.innerHTML = `<div class="provider-empty notification-empty"><span>✓</span><strong>${notificationFilter === 'sent' ? 'Отправленных пока нет' : notificationFilter === 'all' ? 'Уведомлений пока нет' : 'Всё отправлено'}</strong><small>${notificationFilter === 'pending' ? 'Новых сообщений, требующих внимания, сейчас нет.' : 'Здесь появятся сообщения по записям клиентов.'}</small></div>`;
+    return;
+  }
+  const typeLabels = { confirmation: 'Подтверждение', reminder: 'Напоминание', cancellation: 'Отмена' };
+  holder.innerHTML = filtered.map(task => {
+    const item = task.item;
+    const start = bookingStart(item);
+    const message = composeNotificationMessage(task.type, item);
+    const link = escapeHtml(whatsappLink(item, task.type));
+    const status = task.mark === 'sent' ? 'Отправлено' : task.mark === 'opened' ? 'Переход в WhatsApp' : task.isDue ? 'Нужно отправить' : 'Запланировано';
+    return `<article class="notification-card notification-${task.type} status-${task.mark || (task.isDue ? 'due' : 'scheduled')}">
+      <span class="notification-card-icon">${task.type === 'cancellation' ? '×' : task.type === 'reminder' ? '◷' : '✓'}</span>
+      <div class="notification-card-main"><div class="notification-card-head"><span>${typeLabels[task.type]}</span><b>${status}</b></div><h3>${escapeHtml(item.client_name)} · ${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><p>${start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })} в ${String(item.booking_time).slice(0, 5)} · ${notificationDueLabel(task)}</p><blockquote>${escapeHtml(message).replace(/\n/g, '<br>')}</blockquote></div>
+      <div class="notification-card-actions">${link ? `<a class="whatsapp-action" href="${link}" target="_blank" rel="noopener noreferrer" data-open-notification="${escapeHtml(task.key)}">Открыть WhatsApp</a>` : '<span class="notification-phone-error">Проверьте телефон клиента</span>'}${task.mark === 'sent' ? `<button type="button" data-restore-notification="${escapeHtml(task.key)}">Вернуть в очередь</button>` : `<button type="button" data-sent-notification="${escapeHtml(task.key)}">Отметить отправленным</button>`}</div>
+    </article>`;
+  }).join('');
+}
+function saveNotificationTemplates(event) {
+  event.preventDefault();
+  writeNotificationStorage('templates', {
+    confirmation: $('#templateConfirmation').value.trim() || defaultNotificationTemplates.confirmation,
+    reminder: $('#templateReminder').value.trim() || defaultNotificationTemplates.reminder,
+    cancellation: $('#templateCancellation').value.trim() || defaultNotificationTemplates.cancellation
+  });
+  renderNotificationTemplates();
+  renderNotifications();
+  notify('Шаблоны сохранены');
+}
 function showFormError(id, message) { const element = $(id); element.textContent = message; element.hidden = false; }
 function clearFormError(id) { $(id).hidden = true; }
 function notify(message) {
@@ -121,11 +233,13 @@ function showRecoverySent() {
 }
 function setProviderView(view) {
   $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
+  if (view === 'services' || view === 'settings') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
     panel.classList.toggle('active', active);
   });
+  if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function setFilter(filter) {
@@ -661,6 +775,8 @@ async function createRepeatBooking(event) {
 
 async function handleSession(session) {
   currentUser = session?.user || null;
+  clearInterval(notificationTimer);
+  notificationTimer = currentUser ? setInterval(renderNotifications, 60000) : null;
   if (recoveryMode) { showRecoveryReset(); return; }
   $('#authCard').hidden = Boolean(currentUser);
   $('#dashboard').hidden = !currentUser;
@@ -673,6 +789,7 @@ async function handleSession(session) {
   $('#accountEmail').textContent = currentUser.email || '';
   $('#todayLabel').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   renderDateStrip();
+  renderNotificationTemplates();
   await Promise.all([loadOwnServices(), loadBookings(), loadClientNotes(), loadSchedule(), loadDaysOff()]);
 }
 
@@ -942,7 +1059,7 @@ async function loadBookings() {
   const holder = $('#providerBookings');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   const { data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,services(name,price_rub,duration_minutes)')
+    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,services(name,price_rub,duration_minutes)')
     .eq('performer_id', currentUser.id)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
@@ -951,12 +1068,17 @@ async function loadBookings() {
   updateBookingStats();
   renderBookings();
   renderClients();
+  renderNotifications();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
 }
 
 document.addEventListener('click', async event => {
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
+  const notificationFilterButton = event.target.closest('[data-notification-filter]');
+  const openNotification = event.target.closest('[data-open-notification]');
+  const sentNotification = event.target.closest('[data-sent-notification]');
+  const restoreNotification = event.target.closest('[data-restore-notification]');
   const filter = event.target.closest('[data-filter]');
   const journalView = event.target.closest('[data-journal-mode]');
   const date = event.target.closest('[data-booking-date]');
@@ -976,6 +1098,25 @@ document.addEventListener('click', async event => {
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) setProviderView(view.dataset.providerView);
+  if (notificationFilterButton) {
+    notificationFilter = notificationFilterButton.dataset.notificationFilter;
+    $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
+    renderNotifications();
+  }
+  if (openNotification) {
+    setNotificationMark(openNotification.dataset.openNotification, 'opened');
+    setTimeout(renderNotifications, 0);
+  }
+  if (sentNotification) {
+    setNotificationMark(sentNotification.dataset.sentNotification, 'sent');
+    renderNotifications();
+    notify('Уведомление отмечено отправленным');
+  }
+  if (restoreNotification) {
+    setNotificationMark(restoreNotification.dataset.restoreNotification, '');
+    renderNotifications();
+    notify('Уведомление возвращено в очередь');
+  }
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (date) {
@@ -1034,6 +1175,7 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#bookingSheet').hidden) closeBookingSheet(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) renderNotifications(); });
 updateJournalModeButtons();
 
 $('#loginForm').addEventListener('submit', login);
@@ -1043,6 +1185,7 @@ $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
+$('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#saveClientNote').addEventListener('click', saveClientNote);
 $('#clientSearch').addEventListener('input', renderClients);
@@ -1052,6 +1195,7 @@ $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());
 $('#refreshBookings').addEventListener('click', loadBookings);
+$('#refreshNotifications').addEventListener('click', loadBookings);
 $('#newBookingButton').addEventListener('click', openNewBookingSheet);
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
