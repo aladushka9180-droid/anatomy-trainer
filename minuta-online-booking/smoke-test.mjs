@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '41';
+const version = '42';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
   assert.match(html, /Content-Security-Policy/, `${page}: нет политики безопасности`);
-  assert.doesNotMatch(html, /v=(?:38|39)/, `${page}: осталась старая версия ресурсов`);
+  assert.doesNotMatch(html, /v=(?:38|39|40|41)/, `${page}: осталась старая версия ресурсов`);
   for (const match of html.matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"#]*)?"/g)) {
     const reference = match[1];
     if (/^(?:https?:|mailto:|tel:)/.test(reference)) continue;
@@ -42,6 +42,10 @@ assert.match(provider, /client_name: 'Клиент', client_phone: ''/, 'Офл�
 assert.match(provider, /booking_policies/, 'Кабинет не загружает правила отмены и предоплаты');
 assert.match(provider, /notification_templates/, 'Шаблоны уведомлений не синхронизируются с сервером');
 assert.match(provider, /set_booking_payment_status/, 'Нет управления статусом предоплаты');
+assert.match(provider, /\[5, 10, 30, 40, 60, 90, 120/, 'Редактор услуги не поддерживает длительность 5 и 10 минут');
+
+const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
+assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="5">5 мин<\/option>[\s\S]*?<option value="10">10 мин<\/option>/, 'В форме новой услуги нет длительности 5 и 10 минут');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
@@ -68,6 +72,9 @@ assert.match(migration, /create table if not exists public\.booking_policies/, '
 assert.match(migration, /reschedule_limit_reached/, 'Лимит переносов не проверяется сервером');
 assert.match(migration, /cancel_too_late/, 'Срок отмены не проверяется сервером');
 assert.match(migration, /payment_url_template/, 'Предоплата не подключена к правилам записи');
+
+const durationMigration = readFileSync(join(root, 'supabase-migration-v42.sql'), 'utf8');
+assert.match(durationMigration, /duration_minutes >= 5/, 'Сервер не разрешает услуги длительностью 5 минут');
 
 const reliability = readFileSync(join(root, 'reliability.js'), 'utf8');
 assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Старый секретный токен не очищается');

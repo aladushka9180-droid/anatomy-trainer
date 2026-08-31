@@ -23,7 +23,7 @@
 node minuta-online-booking/smoke-test.mjs
 ```
 
-Миграция серверной части: `supabase-migration-v41.sql`.
+Миграции серверной части: `supabase-migration-v41.sql`, `supabase-migration-v42.sql`.
 
 ## Публикация
 

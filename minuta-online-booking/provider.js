@@ -617,7 +617,7 @@ function serviceOptions(selectedId, activeOnly = false) {
 }
 
 function durationOptions(selected) {
-  const durations = [...new Set([30, 40, 60, 90, 120, Number(selected)])].filter(value => value >= 15 && value <= 480).sort((a, b) => a - b);
+  const durations = [...new Set([5, 10, 30, 40, 60, 90, 120, Number(selected)])].filter(value => value >= 5 && value <= 480).sort((a, b) => a - b);
   return durations.map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value} мин</option>`).join('');
 }
 
@@ -648,7 +648,7 @@ async function saveServiceChanges(event) {
   const duration = Number($('#editServiceDuration').value);
   const price = Number($('#editServicePrice').value);
   const active = $('#editServiceActive').checked;
-  if (name.length < 2 || !Number.isFinite(duration) || duration < 15 || !Number.isFinite(price) || price < 0) {
+  if (name.length < 2 || !Number.isFinite(duration) || duration < 5 || duration > 480 || !Number.isFinite(price) || price < 0) {
     showFormError('#serviceEditError', 'Проверьте название, длительность и цену.');
     return;
   }
@@ -1422,8 +1422,8 @@ async function addService(event) {
   const name = $('#serviceName').value.trim();
   const price = Number($('#servicePrice').value);
   const duration = Number($('#serviceDuration').value);
-  if (name.length < 2 || !Number.isFinite(price) || price < 0) {
-    showFormError('#serviceError', 'Укажите название и корректную цену.');
+  if (name.length < 2 || !Number.isFinite(duration) || duration < 5 || duration > 480 || !Number.isFinite(price) || price < 0) {
+    showFormError('#serviceError', 'Укажите название, длительность и корректную цену.');
     return;
   }
   const button = event.submitter;
@@ -1901,4 +1901,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=41'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=42'));
