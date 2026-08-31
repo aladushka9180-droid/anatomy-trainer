@@ -1,0 +1,139 @@
+name: Minuta safe release gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Этап безопасного выпуска
+        required: true
+        default: preflight
+        type: choice
+        options:
+          - preflight
+          - test-migration
+          - observe-production
+      expected_version:
+        description: Ожидаемая версия опубликованных ресурсов
+        required: true
+        default: "47"
+        type: string
+      observation_minutes:
+        description: Длительность наблюдения production
+        required: true
+        default: "30"
+        type: choice
+        options:
+          - "30"
+          - "60"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-safe-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - name: Проверить JavaScript, уведомления и платёжные границы
+        run: |
+          node --check minuta-online-booking/scripts/migration-config-guard.mjs
+          node --check minuta-online-booking/notification-outbox-static-test.mjs
+          node --check minuta-online-booking/payment-foundation-static-test.mjs
+          node --check supabase/functions/payment-webhook/index.ts
+          node --check supabase/functions/payment-webhook/provider-adapter.ts
+          deno check supabase/functions/process-notifications/index.ts
+          deno check supabase/functions/payment-webhook/index.ts
+          deno check minuta-online-booking/supabase/functions/telegram-client-notify/index.ts
+          node minuta-online-booking/notification-outbox-static-test.mjs
+          node minuta-online-booking/payment-foundation-static-test.mjs
+          node minuta-online-booking/scripts/package4-static-test.mjs
+          node minuta-online-booking/smoke-test.mjs
+
+  test-migration:
+    if: inputs.phase == 'test-migration'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Установить клиент PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Запретить миграцию production
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          guard_count="$(psql "$MINUTA_TEST_DATABASE_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
+            --tuples-only --no-align <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref = :'expected_ref'
+            and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
+      - name: Применить миграции к отдельной тестовой базе
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v46.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v47.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null;" \
+            | grep -qx t
+
+  observe-production:
+    if: inputs.phase == 'observe-production'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Наблюдать production без записи данных
+        env:
+          MINUTA_EXPECT_VERSION: ${{ inputs.expected_version }}
+          MINUTA_EXPECT_IDEMPOTENCY: "1"
+          OBSERVATION_MINUTES: ${{ inputs.observation_minutes }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          checks=$((OBSERVATION_MINUTES / 5))
+          for ((attempt=1; attempt<=checks; attempt++)); do
+            node minuta-online-booking/production-health-check.mjs
+            if [ "$attempt" -lt "$checks" ]; then sleep 300; fi
+          done

@@ -25,6 +25,8 @@ let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_
 let serverNotificationTemplates = {};
 let serverNotificationMarks = {};
 let notificationSettingsRemoteAvailable = false;
+let notificationOutbox = [];
+let notificationOutboxRemoteAvailable = false;
 let ownServices = [];
 let portfolioItems = [];
 let portfolioRemoteAvailable = false;
@@ -105,6 +107,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
+  '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
 function applyWriteAvailability() {
@@ -327,6 +330,65 @@ async function setNotificationMark(key, status) {
   }
   return !error;
 }
+function renderAutomaticNotifications() {
+  const panel = $('#automaticNotificationPanel');
+  const holder = $('#automaticNotificationList');
+  if (!panel || !holder) return;
+  panel.hidden = !notificationOutboxRemoteAvailable;
+  if (!notificationOutboxRemoteAvailable) return;
+  const statusLabels = {
+    pending: 'Ожидает отправки',
+    sending: 'Отправляется',
+    sent: 'Доставлено',
+    failed: 'Ошибка'
+  };
+  const activeCount = notificationOutbox.filter(item => item.status === 'pending' || item.status === 'sending').length;
+  const failedCount = notificationOutbox.filter(item => item.status === 'failed').length;
+  $('#automaticNotificationCount').textContent = failedCount ? `${failedCount} с ошибкой` : activeCount ? `${activeCount} в очереди` : 'Очередь обработана';
+  if (!notificationOutbox.length) {
+    holder.innerHTML = '<div class="provider-empty notification-empty"><span>↗</span><strong>Автоматических событий пока нет</strong><small>После новой записи здесь появится результат отправки сообщения мастеру.</small></div>';
+    return;
+  }
+  holder.innerHTML = notificationOutbox.map(item => {
+    const booking = allBookings.find(entry => entry.id === item.booking_id);
+    const client = booking?.client_name || 'Новая запись';
+    const service = booking ? serviceName(booking.services?.name || 'Услуга') : 'Уведомление о записи';
+    const time = booking ? `${parseLocalIsoDate(booking.booking_date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${String(booking.booking_time).slice(0, 5)}` : '';
+    const error = item.status === 'failed'
+      ? `<details class="notification-preview"><summary>Причина ошибки</summary><blockquote>${escapeHtml(item.last_error_code || 'delivery_failed')}${item.last_error ? `<br>${escapeHtml(item.last_error)}` : ''}</blockquote></details>`
+      : '';
+    const retry = item.status === 'failed'
+      ? `<button class="notification-restore-button" type="button" data-retry-notification-outbox="${escapeHtml(item.id)}">Повторить</button>`
+      : '';
+    return `<article class="notification-card status-${escapeHtml(item.status)}">
+      <span class="notification-card-icon">↗</span>
+      <div class="notification-card-main"><div class="notification-card-head"><span>Telegram мастеру</span><b>${statusLabels[item.status] || escapeHtml(item.status)}</b></div><h3>${escapeHtml(client)}</h3><p>${escapeHtml(service)}${time ? ` · ${escapeHtml(time)}` : ''} · попыток: ${Number(item.attempts) || 0}</p>${error}</div>
+      <div class="notification-card-actions">${retry}</div>
+    </article>`;
+  }).join('');
+}
+async function retryAutomaticNotification(id, button) {
+  if (!requireWrites()) return;
+  if (!notificationOutboxRemoteAvailable || !currentUser) return;
+  button.disabled = true;
+  button.textContent = 'Ставим в очередь…';
+  const { error } = await db.rpc('retry_notification_outbox', { p_outbox: id });
+  if (error) {
+    button.disabled = false;
+    button.textContent = 'Повторить';
+    notify('Не удалось повторить отправку');
+    return;
+  }
+  const item = notificationOutbox.find(entry => entry.id === id);
+  if (item) {
+    item.status = 'pending';
+    item.last_error_code = null;
+    item.last_error = null;
+  }
+  renderAutomaticNotifications();
+  notify('Уведомление возвращено в серверную очередь');
+  await loadBookingSettings();
+}
 function bookingStart(item) { return new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`); }
 function buildNotificationTasks() {
   const now = new Date();
@@ -358,6 +420,7 @@ function renderNotificationTemplates() {
 function renderNotifications() {
   const holder = $('#notificationList');
   if (!holder || !currentUser) return;
+  renderAutomaticNotifications();
   const now = new Date();
   const nextDay = new Date(now.getTime() + 24 * 3600000);
   const marks = notificationMarks();
@@ -1152,15 +1215,18 @@ async function loadBookingSettings() {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (!userId) return { ok: false, optional: true };
-  const [policyResult, templatesResult, marksResult] = await Promise.all([
+  const [policyResult, templatesResult, marksResult, outboxResult] = await Promise.all([
     db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template').eq('performer_id', userId).maybeSingle(),
     db.from('notification_templates').select('confirmation,reminder,cancellation').eq('performer_id', userId).maybeSingle(),
-    db.from('notification_marks').select('task_key,status').eq('performer_id', userId)
+    db.from('notification_marks').select('task_key,status').eq('performer_id', userId),
+    db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50)
   ]);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   if (!policyResult.error && policyResult.data) bookingPolicy = policyResult.data;
   if (!templatesResult.error && templatesResult.data) serverNotificationTemplates = templatesResult.data;
   if (!marksResult.error) serverNotificationMarks = Object.fromEntries((marksResult.data || []).map(item => [item.task_key, item.status]));
+  notificationOutboxRemoteAvailable = !outboxResult.error;
+  notificationOutbox = outboxResult.error ? [] : (outboxResult.data || []);
   notificationSettingsRemoteAvailable = !policyResult.error && !templatesResult.error && !marksResult.error;
   renderBookingPolicyForm();
   renderNotificationTemplates();
@@ -1438,6 +1504,8 @@ async function handleSession(session) {
     serverNotificationTemplates = {};
     serverNotificationMarks = {};
     notificationSettingsRemoteAvailable = false;
+    notificationOutbox = [];
+    notificationOutboxRemoteAvailable = false;
     return;
   }
   const userId = currentUser.id;
@@ -2143,6 +2211,7 @@ document.addEventListener('click', async event => {
   const openNotification = event.target.closest('[data-open-notification]');
   const sentNotification = event.target.closest('[data-sent-notification]');
   const restoreNotification = event.target.closest('[data-restore-notification]');
+  const retryOutboxNotification = event.target.closest('[data-retry-notification-outbox]');
   const filter = event.target.closest('[data-filter]');
   const journalView = event.target.closest('[data-journal-mode]');
   const date = event.target.closest('[data-booking-date]');
@@ -2205,6 +2274,7 @@ document.addEventListener('click', async event => {
     renderNotifications();
     notify('Уведомление возвращено в очередь');
   }
+  if (retryOutboxNotification) await retryAutomaticNotification(retryOutboxNotification.dataset.retryNotificationOutbox, retryOutboxNotification);
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));

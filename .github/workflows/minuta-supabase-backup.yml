@@ -16,58 +16,171 @@ jobs:
   backup:
     if: github.event_name == 'workflow_dispatch' || vars.MINUTA_BACKUPS_ENABLED == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      MINUTA_BACKUP_S3_PREFIX: ${{ vars.MINUTA_BACKUP_S3_PREFIX || 'minuta' }}
+      MINUTA_BACKUP_RETENTION_DAYS: ${{ vars.MINUTA_BACKUP_RETENTION_DAYS || '35' }}
+      PGSSLMODE: require
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Проверить секреты
-        shell: bash
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
-        run: |
-          set -euo pipefail
-          test -n "$SUPABASE_DB_URL"
-          test -n "$BACKUP_ENCRYPTION_PASSWORD"
-      - name: Установить клиент PostgreSQL
+
+      - name: Установить клиент PostgreSQL и OpenPGP
         shell: bash
         run: |
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install --yes postgresql-client gnupg
-      - name: Создать и зашифровать резервную копию
+          aws --version
+
+      - name: Проверить конфигурацию и защитные ограничения
+        shell: bash
+        env:
+          MINUTA_BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.MINUTA_BACKUP_S3_ACCESS_KEY_ID }}
+          MINUTA_BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.MINUTA_BACKUP_S3_SECRET_ACCESS_KEY }}
+          MINUTA_BACKUP_S3_REGION: ${{ secrets.MINUTA_BACKUP_S3_REGION }}
+          MINUTA_BACKUP_S3_ENDPOINT: ${{ secrets.MINUTA_BACKUP_S3_ENDPOINT }}
+          MINUTA_BACKUP_S3_BUCKET: ${{ secrets.MINUTA_BACKUP_S3_BUCKET }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: node minuta-online-booking/scripts/backup-config-guard.mjs backup
+
+      - name: Создать, проверить и зашифровать резервную копию
         id: backup
         shell: bash
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
-          PGSSLMODE: require
         run: |
           set -euo pipefail
+          umask 077
           stamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
-          plain="$RUNNER_TEMP/minuta-$stamp.dump"
-          verified="$RUNNER_TEMP/minuta-$stamp.verified.dump"
-          encrypted="$RUNNER_TEMP/minuta-$stamp.dump.gpg"
+          year_month="$(date -u +'%Y/%m')"
+          name="minuta-$stamp"
+          plain="$RUNNER_TEMP/$name.dump"
+          verified="$RUNNER_TEMP/$name.verified.dump"
+          encrypted="$RUNNER_TEMP/$name.dump.gpg"
+          checksum="$RUNNER_TEMP/$name.dump.gpg.sha256"
+          journal="$RUNNER_TEMP/$name.json"
+          object_key="$MINUTA_BACKUP_S3_PREFIX/backups/$year_month/$name.dump.gpg"
+          journal_key="$MINUTA_BACKUP_S3_PREFIX/journal/$year_month/$name.json"
+          retention_until="$(date -u -d "+$MINUTA_BACKUP_RETENTION_DAYS days" +'%Y-%m-%dT%H:%M:%SZ')"
           trap 'rm -f "$plain" "$verified"' EXIT
-          pg_dump --dbname="$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --file="$plain"
+
+          pg_dump \
+            --dbname="$SUPABASE_DB_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --file="$plain"
           pg_restore --list "$plain" >/dev/null
-          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
-            --passphrase-fd 0 --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 \
+          archive_entries="$(pg_restore --list "$plain" | awk '!/^;/ && NF { count++ } END { print count + 0 }')"
+          test "$archive_entries" -gt 0
+
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg \
+            --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 \
             --output "$encrypted" "$plain"
-          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
-            --passphrase-fd 0 --output "$verified" --decrypt "$encrypted"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg \
+            --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --output "$verified" --decrypt "$encrypted"
           cmp --silent "$plain" "$verified"
           pg_restore --list "$verified" >/dev/null
-          echo "path=$encrypted" >> "$GITHUB_OUTPUT"
-          echo "name=minuta-$stamp" >> "$GITHUB_OUTPUT"
-      - name: Сохранить зашифрованную копию
-        uses: actions/upload-artifact@v4
+
+          encrypted_sha="$(sha256sum "$encrypted" | awk '{print $1}')"
+          encrypted_bytes="$(stat --format='%s' "$encrypted")"
+          printf '%s\n' "$encrypted_sha" > "$checksum"
+
+          MINUTA_LOG_BACKUP_NAME="$name" \
+          MINUTA_LOG_OBJECT_KEY="$object_key" \
+          MINUTA_LOG_SHA256="$encrypted_sha" \
+          MINUTA_LOG_BYTES="$encrypted_bytes" \
+          MINUTA_LOG_ARCHIVE_ENTRIES="$archive_entries" \
+          MINUTA_LOG_RETENTION_UNTIL="$retention_until" \
+            node minuta-online-booking/scripts/write-backup-journal.mjs backup "$journal"
+
+          {
+            echo "name=$name"
+            echo "encrypted=$encrypted"
+            echo "checksum=$checksum"
+            echo "journal=$journal"
+            echo "object_key=$object_key"
+            echo "checksum_key=$object_key.sha256"
+            echo "journal_key=$journal_key"
+            echo "sha256=$encrypted_sha"
+            echo "bytes=$encrypted_bytes"
+            echo "retention_until=$retention_until"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Сохранить копию во внешнем S3-хранилище с неизменяемым сроком
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.MINUTA_BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINUTA_BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.MINUTA_BACKUP_S3_REGION }}
+          MINUTA_BACKUP_S3_ENDPOINT: ${{ secrets.MINUTA_BACKUP_S3_ENDPOINT }}
+          MINUTA_BACKUP_S3_BUCKET: ${{ secrets.MINUTA_BACKUP_S3_BUCKET }}
+          ENCRYPTED_PATH: ${{ steps.backup.outputs.encrypted }}
+          CHECKSUM_PATH: ${{ steps.backup.outputs.checksum }}
+          JOURNAL_PATH: ${{ steps.backup.outputs.journal }}
+          OBJECT_KEY: ${{ steps.backup.outputs.object_key }}
+          CHECKSUM_KEY: ${{ steps.backup.outputs.checksum_key }}
+          JOURNAL_KEY: ${{ steps.backup.outputs.journal_key }}
+          EXPECTED_BYTES: ${{ steps.backup.outputs.bytes }}
+          RETENTION_UNTIL: ${{ steps.backup.outputs.retention_until }}
+        run: |
+          set -euo pipefail
+
+          upload_locked() {
+            local source="$1"
+            local key="$2"
+            local content_type="$3"
+            aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api put-object \
+              --bucket "$MINUTA_BACKUP_S3_BUCKET" \
+              --key "$key" \
+              --body "$source" \
+              --content-type "$content_type" \
+              --checksum-algorithm SHA256 \
+              --object-lock-mode COMPLIANCE \
+              --object-lock-retain-until-date "$RETENTION_UNTIL" \
+              >/dev/null
+          }
+
+          upload_locked "$ENCRYPTED_PATH" "$OBJECT_KEY" application/pgp-encrypted
+          upload_locked "$CHECKSUM_PATH" "$CHECKSUM_KEY" text/plain
+          upload_locked "$JOURNAL_PATH" "$JOURNAL_KEY" application/json
+
+          head_json="$(aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api head-object \
+            --bucket "$MINUTA_BACKUP_S3_BUCKET" --key "$OBJECT_KEY")"
+          remote_bytes="$(jq -r '.ContentLength' <<<"$head_json")"
+          lock_mode="$(jq -r '.ObjectLockMode' <<<"$head_json")"
+          retain_until="$(jq -r '.ObjectLockRetainUntilDate' <<<"$head_json")"
+
+          test "$remote_bytes" = "$EXPECTED_BYTES"
+          test "$lock_mode" = "COMPLIANCE"
+          test "$(date -u -d "$retain_until" +%s)" -ge "$(date -u -d "$RETENTION_UNTIL" +%s)"
+
+          {
+            echo "### Резервная копия создана"
+            echo "- Внешний объект: \`$OBJECT_KEY\`"
+            echo "- SHA-256: \`${{ steps.backup.outputs.sha256 }}\`"
+            echo "- Неизменяемость до: \`$retain_until\`"
+            echo "- Журнал: \`$JOURNAL_KEY\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Сохранить вторую копию в GitHub Actions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ steps.backup.outputs.name }}
-          path: ${{ steps.backup.outputs.path }}
+          path: |
+            ${{ steps.backup.outputs.encrypted }}
+            ${{ steps.backup.outputs.checksum }}
+            ${{ steps.backup.outputs.journal }}
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 35
+
       - name: Сообщить об ошибке в Telegram
         if: failure()
         env:

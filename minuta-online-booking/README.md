@@ -32,7 +32,7 @@ node minuta-online-booking/smoke-test.mjs
 node minuta-online-booking/production-health-check.mjs
 ```
 
-Миграции серверной части применяются по порядку: `supabase-migration-v41.sql`, `supabase-migration-v42.sql`, `supabase-migration-v43.sql`, `supabase-migration-v44.sql`, `supabase-migration-v45.sql`. Версию 46 нельзя публиковать до применения `v45`: она создаёт таблицы портфолио, политики доступа, закрытый Storage bucket и RPC для порядка работ.
+Миграции серверной части применяются по порядку: `supabase-migration-v41.sql`…`supabase-migration-v47.sql`. `v46` добавляет серверную очередь Telegram-уведомлений, `v47` — нейтральный платёжный журнал. Они публикуются в production только после проверки в отдельной базе и настройки нужных секретов/провайдера; точный порядок описан в `OPERATIONS.md` и `SAFE_RELEASE.md`.
 
 Настройка мониторинга, уведомлений, резервных копий и отдельного тестового проекта описана в `OPERATIONS.md`.
 

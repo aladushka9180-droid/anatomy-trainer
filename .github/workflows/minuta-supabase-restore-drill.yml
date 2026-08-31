@@ -1,0 +1,233 @@
+name: Minuta monthly restore drill
+
+on:
+  schedule:
+    - cron: "43 2 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-supabase-restore-drill
+  cancel-in-progress: false
+
+jobs:
+  restore-drill:
+    if: github.event_name == 'workflow_dispatch' || vars.MINUTA_RESTORE_DRILL_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AWS_EC2_METADATA_DISABLED: "true"
+      MINUTA_BACKUP_S3_PREFIX: ${{ vars.MINUTA_BACKUP_S3_PREFIX || 'minuta' }}
+      MINUTA_BACKUP_RETENTION_DAYS: ${{ vars.MINUTA_BACKUP_RETENTION_DAYS || '35' }}
+      MINUTA_RESTORE_CONFIRM: ${{ vars.MINUTA_RESTORE_CONFIRM }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_RESTORE_TEST_PROJECT_REF: ${{ vars.MINUTA_RESTORE_TEST_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Установить клиент PostgreSQL и OpenPGP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client gnupg
+          aws --version
+
+      - name: Запретить восстановление в production
+        shell: bash
+        env:
+          MINUTA_BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.MINUTA_BACKUP_S3_ACCESS_KEY_ID }}
+          MINUTA_BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.MINUTA_BACKUP_S3_SECRET_ACCESS_KEY }}
+          MINUTA_BACKUP_S3_REGION: ${{ secrets.MINUTA_BACKUP_S3_REGION }}
+          MINUTA_BACKUP_S3_ENDPOINT: ${{ secrets.MINUTA_BACKUP_S3_ENDPOINT }}
+          MINUTA_BACKUP_S3_BUCKET: ${{ secrets.MINUTA_BACKUP_S3_BUCKET }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MINUTA_RESTORE_TEST_DB_URL: ${{ secrets.MINUTA_RESTORE_TEST_DB_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: node minuta-online-booking/scripts/backup-config-guard.mjs restore
+
+      - name: Скачать и проверить последнюю резервную копию
+        id: source
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.MINUTA_BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINUTA_BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.MINUTA_BACKUP_S3_REGION }}
+          MINUTA_BACKUP_S3_ENDPOINT: ${{ secrets.MINUTA_BACKUP_S3_ENDPOINT }}
+          MINUTA_BACKUP_S3_BUCKET: ${{ secrets.MINUTA_BACKUP_S3_BUCKET }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          prefix="$MINUTA_BACKUP_S3_PREFIX/backups/"
+          latest_key="$(aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api list-objects-v2 \
+            --bucket "$MINUTA_BACKUP_S3_BUCKET" \
+            --prefix "$prefix" \
+            --query "reverse(sort_by(Contents[?ends_with(Key, '.dump.gpg')], &LastModified))[0].Key" \
+            --output text)"
+          test -n "$latest_key"
+          test "$latest_key" != "None"
+          case "$latest_key" in
+            "$prefix"*.dump.gpg) ;;
+            *) echo "Получен недопустимый ключ резервной копии" >&2; exit 1 ;;
+          esac
+
+          encrypted="$RUNNER_TEMP/latest.dump.gpg"
+          checksum="$RUNNER_TEMP/latest.dump.gpg.sha256"
+          plain="$RUNNER_TEMP/latest.dump"
+          aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api get-object \
+            --bucket "$MINUTA_BACKUP_S3_BUCKET" --key "$latest_key" "$encrypted" >/dev/null
+          aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api get-object \
+            --bucket "$MINUTA_BACKUP_S3_BUCKET" --key "$latest_key.sha256" "$checksum" >/dev/null
+
+          expected_sha="$(tr -d '[:space:]' < "$checksum")"
+          actual_sha="$(sha256sum "$encrypted" | awk '{print $1}')"
+          test "$expected_sha" = "$actual_sha"
+
+          head_json="$(aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api head-object \
+            --bucket "$MINUTA_BACKUP_S3_BUCKET" --key "$latest_key")"
+          test "$(jq -r '.ObjectLockMode' <<<"$head_json")" = "COMPLIANCE"
+          last_modified="$(jq -r '.LastModified' <<<"$head_json")"
+          age_seconds="$(( $(date -u +%s) - $(date -u -d "$last_modified" +%s) ))"
+          test "$age_seconds" -ge 0
+          test "$age_seconds" -le 172800
+
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg \
+            --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --output "$plain" --decrypt "$encrypted"
+          pg_restore --list "$plain" >/dev/null
+
+          {
+            echo "key=$latest_key"
+            echo "sha256=$actual_sha"
+            echo "plain=$plain"
+            echo "encrypted=$encrypted"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Проверить маркер изолированной тестовой базы
+        shell: bash
+        env:
+          MINUTA_RESTORE_TEST_DB_URL: ${{ secrets.MINUTA_RESTORE_TEST_DB_URL }}
+        run: |
+          set -euo pipefail
+          guard_count="$(psql "$MINUTA_RESTORE_TEST_DB_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --set=expected_ref="$MINUTA_RESTORE_TEST_PROJECT_REF" \
+            --tuples-only --no-align <<'SQL'
+          select count(*)
+          from minuta_restore_guard.target
+          where project_ref = :'expected_ref'
+            and allow_destructive_restore is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
+
+      - name: Восстановить только в изолированную тестовую базу
+        id: restore
+        shell: bash
+        env:
+          PLAIN_BACKUP: ${{ steps.source.outputs.plain }}
+          MINUTA_RESTORE_TEST_DB_URL: ${{ secrets.MINUTA_RESTORE_TEST_DB_URL }}
+        run: |
+          set -euo pipefail
+          pg_restore \
+            --exit-on-error \
+            --clean \
+            --if-exists \
+            --no-owner \
+            --no-privileges \
+            --dbname="$MINUTA_RESTORE_TEST_DB_URL" \
+            "$PLAIN_BACKUP"
+
+          validation="$(psql "$MINUTA_RESTORE_TEST_DB_URL" \
+            --set=ON_ERROR_STOP=1 --tuples-only --no-align --field-separator='|' <<'SQL'
+          select
+            (select count(*) from public.services),
+            (select count(*) from public.bookings)
+          where to_regclass('public.services') is not null
+            and to_regclass('public.bookings') is not null;
+          SQL
+          )"
+          validation="$(tr -d '[:space:]' <<<"$validation")"
+          test -n "$validation"
+          IFS='|' read -r services bookings <<<"$validation"
+          test "$services" -gt 0
+          test "$bookings" -ge 0
+          echo "services=$services" >> "$GITHUB_OUTPUT"
+          echo "bookings=$bookings" >> "$GITHUB_OUTPUT"
+
+      - name: Записать успешную учебную реставрацию во внешний журнал
+        id: journal
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.MINUTA_BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINUTA_BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.MINUTA_BACKUP_S3_REGION }}
+          MINUTA_BACKUP_S3_ENDPOINT: ${{ secrets.MINUTA_BACKUP_S3_ENDPOINT }}
+          MINUTA_BACKUP_S3_BUCKET: ${{ secrets.MINUTA_BACKUP_S3_BUCKET }}
+          SOURCE_KEY: ${{ steps.source.outputs.key }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha256 }}
+          SERVICES: ${{ steps.restore.outputs.services }}
+          BOOKINGS: ${{ steps.restore.outputs.bookings }}
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          year_month="$(date -u +'%Y/%m')"
+          journal="$RUNNER_TEMP/restore-$stamp.json"
+          journal_key="$MINUTA_BACKUP_S3_PREFIX/restore-journal/$year_month/restore-$stamp.json"
+          retain_until="$(date -u -d '+365 days' +'%Y-%m-%dT%H:%M:%SZ')"
+
+          MINUTA_LOG_OBJECT_KEY="$SOURCE_KEY" \
+          MINUTA_LOG_SHA256="$SOURCE_SHA" \
+          MINUTA_LOG_SERVICES="$SERVICES" \
+          MINUTA_LOG_BOOKINGS="$BOOKINGS" \
+            node minuta-online-booking/scripts/write-backup-journal.mjs restore "$journal"
+
+          aws --endpoint-url "$MINUTA_BACKUP_S3_ENDPOINT" s3api put-object \
+            --bucket "$MINUTA_BACKUP_S3_BUCKET" \
+            --key "$journal_key" \
+            --body "$journal" \
+            --content-type application/json \
+            --checksum-algorithm SHA256 \
+            --object-lock-mode COMPLIANCE \
+            --object-lock-retain-until-date "$retain_until" \
+            >/dev/null
+
+          echo "path=$journal" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Учебное восстановление успешно"
+            echo "- Источник: \`$SOURCE_KEY\`"
+            echo "- Тестовый проект: \`$MINUTA_RESTORE_TEST_PROJECT_REF\`"
+            echo "- Услуг: \`$SERVICES\`, записей: \`$BOOKINGS\`"
+            echo "- Журнал: \`$journal_key\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Сохранить журнал восстановления в GitHub Actions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-restore-drill-${{ github.run_id }}
+          path: ${{ steps.journal.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Удалить расшифрованную копию с runner
+        if: always()
+        shell: bash
+        env:
+          PLAIN_BACKUP: ${{ steps.source.outputs.plain }}
+          ENCRYPTED_BACKUP: ${{ steps.source.outputs.encrypted }}
+        run: rm -f -- "$PLAIN_BACKUP" "$ENCRYPTED_BACKUP"
+
+      - name: Сообщить об ошибке в Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MINUTA_ALERT_TOPIC: ежемесячное тестовое восстановление Supabase
+        run: node minuta-online-booking/notify-health-failure.mjs

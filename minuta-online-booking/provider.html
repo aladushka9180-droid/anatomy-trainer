@@ -145,7 +145,11 @@
 
         <section class="provider-view" data-provider-panel="notifications" hidden>
           <div class="view-title"><div><span>Связь с клиентами</span><h2>Уведомления</h2></div><div class="view-title-actions"><span class="notification-total" id="notificationCount">0</span><button class="secondary-button notification-settings-button" type="button" data-open-notification-templates>Настроить сообщения</button><button class="refresh-button" id="refreshNotifications" type="button" aria-label="Обновить уведомления">↻</button></div></div>
-          <p class="view-description">Сообщения, которые нужно отправить клиентам через WhatsApp.</p>
+          <p class="view-description">Ручные сообщения клиентам через WhatsApp и состояние автоматических уведомлений мастеру.</p>
+          <section class="panel notification-queue-panel" id="automaticNotificationPanel" hidden>
+            <div class="notification-toolbar"><div><small>Автоматически</small><h3>Telegram мастеру</h3></div><span class="notification-total" id="automaticNotificationCount">Очередь обработана</span></div>
+            <div class="notification-list" id="automaticNotificationList" aria-live="polite"></div>
+          </section>
           <div class="notification-summary" aria-label="Сводка уведомлений">
             <div><strong id="notificationPendingCount">0</strong><span>к отправке</span></div>
             <i></i><div><strong id="notificationSoonCount">0</strong><span>на сегодня</span></div>
