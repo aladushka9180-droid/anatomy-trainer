@@ -13,7 +13,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=33">
+  <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -61,6 +61,7 @@
           <button class="active" type="button" data-provider-view="bookings"><span aria-hidden="true">▣</span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
           <button type="button" data-provider-view="clients"><span aria-hidden="true">♙</span><span>Клиенты</span><b id="clientsBadge">0</b></button>
           <button type="button" data-provider-view="notifications"><span aria-hidden="true">◉</span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
+          <button type="button" data-provider-view="analytics"><span aria-hidden="true">↗</span><span>Статистика</span></button>
           <button type="button" data-provider-view="schedule"><span aria-hidden="true">◷</span><span>Расписание</span></button>
           <button type="button" data-provider-view="services"><span aria-hidden="true">✦</span><span>Услуги</span><b id="servicesBadge">0</b></button>
           <button type="button" data-provider-view="settings"><span aria-hidden="true">⚙</span><span>Настройки</span></button>
@@ -175,6 +176,19 @@
           </div>
         </section>
 
+        <section class="provider-view" data-provider-panel="analytics" hidden>
+          <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="primary compact-button" id="exportBookings" type="button">Скачать отчёт</button></div>
+          <p class="view-description">Доход считается по записям, где отмечены состоявшийся визит и полученная оплата.</p>
+          <div class="report-periods" aria-label="Период отчёта"><button class="active" type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="all">Всё время</button></div>
+          <div class="report-summary">
+            <article><small>Получено</small><strong id="reportRevenue">0 ₽</strong></article>
+            <article><small>Визитов</small><strong id="reportCompleted">0</strong></article>
+            <article><small>Отменено</small><strong id="reportCancelled">0</strong></article>
+            <article><small>Не пришли</small><strong id="reportNoShow">0</strong></article>
+          </div>
+          <section class="panel report-services"><div class="panel-head"><div><small>По услугам</small><h3>Доход и посещения</h3></div></div><div id="reportServicesList"></div></section>
+        </section>
+
         <section class="provider-view" data-provider-panel="services" hidden>
           <div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><div class="view-title-actions"><span class="panel-count" id="servicesCount">0</span><button class="primary compact-button" type="button" data-open-service-creator>＋ Добавить услугу</button></div></div>
           <div class="services-layout">
@@ -204,6 +218,7 @@
           <div class="view-title"><div><span>Дополнительно</span><h2>Ещё</h2></div></div>
           <div class="mobile-more-grid">
             <button type="button" data-provider-view="services"><span>✦</span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
+            <button type="button" data-provider-view="analytics"><span>↗</span><strong>Статистика</strong><small>Доход, визиты и выгрузка записей</small></button>
             <button type="button" data-provider-view="settings"><span>⚙</span><strong>Настройки</strong><small>Пароль и безопасность кабинета</small></button>
           </div>
         </section>
@@ -247,7 +262,7 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=33"></script>
-  <script src="provider.js?v=33" defer></script>
+  <script src="config.js?v=34"></script>
+  <script src="provider.js?v=34" defer></script>
 </body>
 </html>

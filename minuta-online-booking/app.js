@@ -24,6 +24,18 @@ function selectedService() { return state.services.find(item => item.id === stat
 function selectedDate() { return dates.find(item => item.iso === state.date); }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
+function serviceDescription(value) {
+  const name = serviceName(value).toLowerCase();
+  if (name.includes('спортив')) return 'Интенсивная работа с мышцами для людей с регулярной физической нагрузкой. Темп и сила воздействия подбираются индивидуально.';
+  if (name.includes('комплекс')) return 'Продолжительный сеанс с последовательной проработкой основных зон тела. Подходит, когда хочется уделить внимание всему телу за один визит.';
+  if (name.includes('обеих сторон')) return 'Работа с передней и задней поверхностями тела в рамках одного сеанса. Интенсивность согласуется перед началом.';
+  if (name.includes('задней поверхности')) return 'Последовательная работа со спиной, поясницей и задней поверхностью ног с учётом ваших пожеланий.';
+  if (name.includes('голов')) return 'Сеанс с акцентом на спину, руки и область головы. Сила воздействия подбирается по вашим ощущениям.';
+  if (name.includes('ног') || name.includes('рук')) return 'Локальный массаж выбранной зоны. Перед началом можно уточнить, чему уделить больше внимания — ногам или рукам.';
+  if (name.includes('углуб')) return 'Более продолжительная и детальная работа со спиной и шейно-воротниковой зоной.';
+  if (name.includes('швз') || name.includes('спин')) return 'Базовый сеанс для спины и шейно-воротниковой зоны. Подходит для первого знакомства и регулярного ухода.';
+  return 'Индивидуальный сеанс массажа. Зоны и интенсивность работы согласуются с исполнителем перед началом.';
+}
 
 async function loadServices() {
   const holder = $('#services');
@@ -44,6 +56,17 @@ function renderServices() {
   }
   $('#toDate').disabled = false;
   holder.innerHTML = state.services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span></button>`).join('');
+  $('#serviceDetailsButton').hidden = !selectedService();
+}
+
+function openServiceDetails() {
+  const service = selectedService();
+  if (!service) return;
+  $('#serviceDetailsTitle').textContent = serviceName(service.name);
+  $('#serviceDetailsText').textContent = serviceDescription(service.name);
+  $('#serviceDetailsDuration').textContent = `${service.duration_minutes} мин · ${service.performer_profiles?.display_name || 'Мастер'}`;
+  $('#serviceDetailsPrice').textContent = money(service.price_rub);
+  $('#serviceDetailsDialog').showModal();
 }
 
 function renderDates() {
@@ -135,6 +158,7 @@ async function submitBooking(event) {
   const phone = $('#clientPhone').value;
   const service = selectedService();
   if (name.length < 2 || phone.replace(/\D/g, '').length !== 11) { showError('Укажите имя и полный номер телефона.'); return; }
+  if (!$('#dataConsent').checked) { showError('Подтвердите согласие на обработку данных.'); return; }
   if (!service || !state.time) { showError('Выберите услугу и свободное время.'); return; }
   const submit = $('#submitBooking');
   submit.disabled = true;
@@ -174,6 +198,9 @@ document.addEventListener('click', event => {
   const period = event.target.closest('[data-time-period]');
   const hour = event.target.closest('[data-time-hour]');
   const moreDates = event.target.closest('#moreDates');
+  const serviceDetails = event.target.closest('#serviceDetailsButton');
+  const closeServiceDetails = event.target.closest('[data-close-service-details]');
+  const chooseServiceDetails = event.target.closest('[data-choose-service-details]');
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
   if (service) { state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
@@ -181,6 +208,8 @@ document.addEventListener('click', event => {
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (hour) { state.hour = hour.dataset.timeHour; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
+  if (serviceDetails) openServiceDetails();
+  if (closeServiceDetails || chooseServiceDetails) $('#serviceDetailsDialog').close();
   if (time && !time.disabled) { state.time = time.dataset.time; renderTimes(); }
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
@@ -191,4 +220,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=33'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=34'));

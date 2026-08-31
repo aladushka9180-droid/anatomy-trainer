@@ -16,7 +16,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=33">
+  <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body>
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -41,6 +41,7 @@
         <div class="step active" data-step="1">
           <h3><span class="mini-icon" aria-hidden="true">✦</span> Услуга и исполнитель</h3>
           <div class="option-list" id="services"></div>
+          <button class="service-details-button" id="serviceDetailsButton" type="button" hidden>Подробнее об услуге</button>
           <button class="primary next" id="toDate" type="button" data-next="2" disabled>Выбрать дату <span>→</span></button>
         </div>
         <div class="step" data-step="2">
@@ -56,7 +57,8 @@
           <div class="summary" id="summary"></div>
           <label>Ваше имя<input id="clientName" name="name" autocomplete="name" placeholder="Например, Елена" maxlength="80" required></label>
           <label>Номер телефона<input id="clientPhone" name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label>
-          <p class="privacy">Данные увидит только выбранный исполнитель — для оформления записи.</p>
+          <label class="consent-check"><input id="dataConsent" type="checkbox" required><span>Я согласен(на) на обработку имени и телефона для оформления записи.</span></label>
+          <p class="privacy">Данные увидит только исполнитель. <a href="privacy.html" target="_blank" rel="noopener">Как мы используем данные</a></p>
           <p class="form-error" id="formError" role="alert" hidden></p>
           <div class="actions"><button class="back" type="button" data-back="2" aria-label="Назад">←</button><button class="primary" id="submitBooking" type="submit">Подтвердить запись</button></div>
         </form>
@@ -69,7 +71,15 @@
       </div>
     </section>
   </main>
+  <dialog class="service-details-dialog" id="serviceDetailsDialog" aria-labelledby="serviceDetailsTitle">
+    <button class="dialog-close" type="button" data-close-service-details aria-label="Закрыть">×</button>
+    <small>Об услуге</small><h2 id="serviceDetailsTitle">Массаж</h2>
+    <p id="serviceDetailsText"></p>
+    <div class="service-details-meta"><span id="serviceDetailsDuration"></span><strong id="serviceDetailsPrice"></strong></div>
+    <p class="service-details-note">Если вы плохо себя чувствуете или сомневаетесь, подходит ли вам массаж, заранее сообщите исполнителю.</p>
+    <button class="primary" type="button" data-choose-service-details>Выбрать эту услугу</button>
+  </dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=33"></script><script src="app.js?v=33" defer></script>
+  <script src="config.js?v=34"></script><script src="app.js?v=34" defer></script>
 </body>
 </html>

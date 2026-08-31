@@ -6,6 +6,7 @@ const $$ = selector => [...document.querySelectorAll(selector)];
 let currentUser = null;
 let currentFilter = 'day';
 let notificationFilter = 'pending';
+let reportPeriod = 'month';
 let notificationTimer = null;
 let journalMode = localStorage.getItem('massage-journal-mode') || 'timeline';
 let selectedDate = localIsoDate(new Date());
@@ -114,6 +115,66 @@ function outcomeSummary(item) {
   if (outcome.visit_status === 'no_show') return 'Клиент не пришёл';
   if (outcome.visit_status !== 'completed') return '';
   return `${paymentMethodLabel(outcome.payment_method)}${outcome.amount_rub ? ` · ${money(outcome.amount_rub)}` : ''}`;
+}
+
+function reportBookings() {
+  if (reportPeriod === 'all') return [...allBookings];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = reportPeriod === 'month'
+    ? new Date(today.getFullYear(), today.getMonth(), 1)
+    : new Date(today.getTime() - 89 * 86400000);
+  return allBookings.filter(item => new Date(`${item.booking_date}T12:00:00`) >= start);
+}
+
+function renderAnalytics() {
+  const holder = $('#reportServicesList');
+  if (!holder) return;
+  const items = reportBookings();
+  const completed = items.filter(item => bookingOutcome(item).visit_status === 'completed');
+  const noShows = items.filter(item => bookingOutcome(item).visit_status === 'no_show');
+  const cancelled = items.filter(item => item.status === 'cancelled');
+  const revenue = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+  $('#reportRevenue').textContent = money(revenue);
+  $('#reportCompleted').textContent = String(completed.length);
+  $('#reportCancelled').textContent = String(cancelled.length);
+  $('#reportNoShow').textContent = String(noShows.length);
+  const grouped = new Map();
+  completed.forEach(item => {
+    const name = serviceName(item.services?.name || 'Услуга');
+    const row = grouped.get(name) || { visits: 0, revenue: 0 };
+    row.visits += 1;
+    row.revenue += Number(bookingOutcome(item).amount_rub || 0);
+    grouped.set(name, row);
+  });
+  const rows = [...grouped.entries()].sort((a, b) => b[1].revenue - a[1].revenue || b[1].visits - a[1].visits);
+  holder.innerHTML = rows.length ? rows.map(([name, row]) => `<article class="report-service-row"><div><strong>${escapeHtml(name)}</strong><small>${row.visits} ${row.visits === 1 ? 'визит' : row.visits < 5 ? 'визита' : 'визитов'}</small></div><b>${money(row.revenue)}</b></article>`).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
+}
+
+function csvCell(value) {
+  let text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportBookingsCsv() {
+  const header = ['Дата', 'Время', 'Клиент', 'Телефон', 'Услуга', 'Статус записи', 'Результат визита', 'Оплата', 'Получено, ₽', 'Стоимость услуги, ₽'];
+  const rows = allBookings.map(item => {
+    const outcome = bookingOutcome(item);
+    const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
+    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, item.client_phone, serviceName(item.services?.name || 'Услуга'), bookingStatus(item, true), visit, paymentMethodLabel(outcome.payment_method), outcome.amount_rub || 0, item.services?.price_rub || 0];
+  });
+  const csv = [header, ...rows].map(row => row.map(csvCell).join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `записи-${localIsoDate(new Date())}.csv`;
+  link.hidden = true;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  notify('Отчёт скачан');
 }
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
 function notificationMarks() { return readNotificationStorage('marks', {}); }
@@ -264,13 +325,14 @@ function showRecoverySent() {
 }
 function setProviderView(view) {
   $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
-  if (view === 'services' || view === 'settings') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
+  if (view === 'services' || view === 'settings' || view === 'analytics') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
     panel.classList.toggle('active', active);
   });
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
+  if (view === 'analytics') renderAnalytics();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function setFilter(filter) {
@@ -806,6 +868,7 @@ async function loadBookingOutcomes() {
   renderBookings();
   renderClients();
   renderNotifications();
+  renderAnalytics();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
 }
 
@@ -844,6 +907,7 @@ async function saveBookingOutcome(event) {
   notify(remoteSaved ? 'Результат визита сохранён' : 'Результат сохранён на этом устройстве');
   renderBookings();
   renderClients();
+  renderAnalytics();
   openBookingSheet(item.id);
 }
 
@@ -1167,6 +1231,7 @@ async function loadBookings() {
   renderBookings();
   renderClients();
   renderNotifications();
+  renderAnalytics();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
 }
 
@@ -1174,6 +1239,7 @@ document.addEventListener('click', async event => {
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
+  const reportPeriodButton = event.target.closest('[data-report-period]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
   const openServiceCreator = event.target.closest('[data-open-service-creator]');
@@ -1204,6 +1270,11 @@ document.addEventListener('click', async event => {
     notificationFilter = notificationFilterButton.dataset.notificationFilter;
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
     renderNotifications();
+  }
+  if (reportPeriodButton) {
+    reportPeriod = reportPeriodButton.dataset.reportPeriod;
+    $$('[data-report-period]').forEach(button => button.classList.toggle('active', button === reportPeriodButton));
+    renderAnalytics();
   }
   if (openNotificationTemplates) {
     renderNotificationTemplates();
@@ -1310,6 +1381,7 @@ $$('[data-back-to-login]').forEach(button => button.addEventListener('click', ()
 $('#logoutButton').addEventListener('click', () => db.auth.signOut());
 $('#refreshBookings').addEventListener('click', loadBookings);
 $('#refreshNotifications').addEventListener('click', loadBookings);
+$('#exportBookings').addEventListener('click', exportBookingsCsv);
 $('#newBookingButton').addEventListener('click', openNewBookingSheet);
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });

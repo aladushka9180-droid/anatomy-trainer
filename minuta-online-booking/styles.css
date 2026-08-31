@@ -568,3 +568,46 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .managed-service .manage-actions { display:grid; grid-template-columns:1fr 1fr 1fr; }
   .managed-service .edit-service-button { grid-column:auto; }
 }
+
+.service-details-button { display:block; margin:9px 0 0 auto; padding:8px 0; border:0; background:transparent; color:#356f52; cursor:pointer; font-size:11px; font-weight:850; }
+.service-details-button:hover { color:#164a32; }
+.service-details-dialog { width:min(520px,calc(100% - 28px)); padding:28px; border:0; border-radius:22px; background:#fff; color:var(--ink); box-shadow:0 28px 90px rgba(17,48,33,.25); }
+.service-details-dialog::backdrop { background:rgba(16,36,26,.4); backdrop-filter:blur(5px); }
+.service-details-dialog>.dialog-close { position:absolute; top:16px; right:16px; display:grid; place-items:center; width:38px; height:38px; border:0; border-radius:50%; background:#f1f5f2; color:#496456; cursor:pointer; font-size:22px; }
+.service-details-dialog>small { color:#789087; font-size:10px; font-weight:900; letter-spacing:.1em; text-transform:uppercase; }
+.service-details-dialog h2 { margin:7px 48px 0 0; font-size:27px; letter-spacing:-.04em; }
+.service-details-dialog>p { margin:17px 0 0; color:#596c62; font-size:14px; line-height:1.65; }
+.service-details-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:20px; padding:15px 0; border-top:1px solid #e4ebe6; border-bottom:1px solid #e4ebe6; }
+.service-details-meta span { color:#718178; font-size:12px; }.service-details-meta strong { font-size:17px; }
+.service-details-dialog .service-details-note { padding:12px 14px; border-radius:12px; background:#f5f8f6; font-size:11px; }
+.service-details-dialog .primary { width:100%; margin-top:18px; }
+.consent-check { display:flex!important; align-items:flex-start; gap:10px; margin-top:15px!important; color:#52685c!important; font-size:11px!important; font-weight:700!important; line-height:1.5; }
+.consent-check input { flex:0 0 auto; width:18px!important; height:18px!important; min-height:0!important; margin:0!important; padding:0!important; accent-color:#2f7654; }
+.privacy a { color:#2f7654; font-weight:800; }
+.privacy-body { min-height:100vh; background:#f4f8f5; }
+.privacy-header { max-width:980px; }
+.privacy-layout { width:min(820px,calc(100% - 32px)); margin:20px auto 70px; }
+.privacy-card { padding:clamp(26px,5vw,54px); border:1px solid #e0e8e2; border-radius:24px; background:#fff; }
+.privacy-card>small { color:#789087; font-size:10px; font-weight:900; letter-spacing:.11em; text-transform:uppercase; }
+.privacy-card h1 { max-width:620px; margin:10px 0 0; font-size:clamp(34px,6vw,56px); line-height:1; letter-spacing:-.055em; }
+.privacy-lead { max-width:650px; margin:22px 0 0; color:#53685d; font-size:17px; line-height:1.6; }
+.privacy-card section { padding:22px 0; border-bottom:1px solid #e7ede9; }
+.privacy-card section h2 { margin:0; font-size:17px; }.privacy-card section p { margin:8px 0 0; color:#607168; font-size:13px; line-height:1.65; }.privacy-card section a { color:#296d4a; font-weight:800; }
+.privacy-updated { margin:22px 0 0; color:#8a9890; font-size:10px; }
+.report-periods { display:flex; width:max-content; max-width:100%; gap:5px; margin-top:18px; padding:4px; border-radius:12px; background:#edf3ef; }
+.report-periods button { min-height:34px; padding:0 13px; border:0; border-radius:9px; background:transparent; color:#66776e; cursor:pointer; font-size:10px; font-weight:850; }
+.report-periods button.active { background:#fff; color:#1f5b3f; box-shadow:0 3px 10px rgba(24,52,39,.07); }
+.report-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:14px; }
+.report-summary article { display:grid; gap:7px; min-height:90px; padding:18px; border:1px solid #e1e9e3; border-radius:16px; background:#fff; }
+.report-summary small { color:#718178; font-size:10px; font-weight:800; }.report-summary strong { font-size:24px; letter-spacing:-.04em; }
+.report-services { margin-top:14px; }
+.report-service-row { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:15px 0; border-bottom:1px solid #e8eeea; }
+.report-service-row:last-child { border-bottom:0; }.report-service-row strong,.report-service-row small { display:block; }.report-service-row strong { font-size:13px; }.report-service-row small { margin-top:4px; color:#78877f; font-size:10px; }.report-service-row b { flex:0 0 auto; font-size:14px; }
+
+@media (max-width:760px) {
+  .service-details-dialog { padding:23px 20px; border-radius:19px; }
+  .privacy-header { padding-left:16px; padding-right:16px; }.privacy-header .provider-link { min-height:40px; padding:0 13px; font-size:10px; }
+  .privacy-layout { margin-top:8px; }.privacy-card { border-radius:20px; }
+  .report-periods { width:100%; overflow-x:auto; }.report-periods button { flex:1; white-space:nowrap; }
+  .report-summary { grid-template-columns:1fr 1fr; }.report-summary article { min-height:78px; padding:15px; }.report-summary strong { font-size:21px; }
+}
