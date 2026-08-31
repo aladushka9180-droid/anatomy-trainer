@@ -286,11 +286,14 @@
 .statsempty > span { display: block; color: var(--accent); font-size: 40px; }
 .statsempty h3 { margin: 8px 0; }
 .statsempty p { color: var(--muted); }
-.adaptivereview { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; margin: 18px 0 28px; padding: 18px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
-.adaptivereview h3,
-.adaptivereview p { margin: 0; }
-.adaptivereview p { color: var(--muted); }
-.adaptivetopics { grid-column: 1 / -1; display: grid; gap: 8px; }
+.adaptivereview { display: block; margin: 16px 0 0; padding: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; }
+.adaptivereview > summary { min-height: 48px; padding: 14px 2px; color: var(--text); font-weight: 800; cursor: pointer; list-style: none; }
+.adaptivereview > summary::-webkit-details-marker { display: none; }
+.adaptivereview > summary::after { content: "＋"; float: right; color: var(--accent-readable, var(--accent)); }
+.adaptivereview[open] > summary::after { content: "−"; }
+.adaptivereviewbody { display: grid; gap: 12px; padding: 0 0 4px; }
+.adaptivereviewbody > p { margin: 0; color: var(--muted); }
+.adaptivetopics { display: grid; gap: 8px; }
 .adaptivetopic { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px; border: 1px solid var(--border); border-left-width: 5px; border-radius: 10px; background: var(--surface2); cursor: pointer; }
 .adaptivetopic.needswork { border-left-color: #d84a4a; }
 .adaptivetopic.practice { border-left-color: #d18a00; }
@@ -309,15 +312,13 @@
 
 @media (max-width: 650px) {
   .anatomyentry,
-  .anatomy-head,
-  .screenhead,
-  .adaptivereview { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; }
+  .anatomy-head { grid-template-columns: 1fr; flex-direction: column; align-items: stretch; }
   .anatomyentry .btn,
-  .anatomy-head .btn,
-  .screenhead .btn,
-  .adaptivereview .btn { width: 100%; }
-  .anatomy-course-tabs { display: flex; overflow-x: auto; padding-bottom: 5px; scroll-padding-inline: calc(50% - 71px); scroll-snap-type: x proximity; }
-  .anatomy-course-tab { flex: 0 0 142px; scroll-snap-align: start; }
+  .anatomy-head .btn { width: fit-content; }
+  .anatomy-course-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; padding: 0; }
+  .anatomy-course-tab { min-height: 68px; padding: 10px; }
+  .anatomy-course-tab span { font-size: .76em; }
+  .anatomy-course-tab b { font-size: .88em; }
   .anatomy-grid,
   .anatomy-image-grid { grid-template-columns: 1fr; }
   .motion-card { grid-template-columns: 112px minmax(0, 1fr); padding: 12px; }
@@ -344,7 +345,6 @@
   .shoulder-instruction { padding: 13px; }
   .shoulder-actions { align-items: stretch; flex-direction: column; }
   .shoulder-actions .btn { width: 100%; }
-  .adaptivereview { display: flex; }
 }
 
 @media (max-width: 520px) {

@@ -436,6 +436,7 @@
       button.classList.toggle('passed', passed.has(button.dataset.anatomyModule));
       button.setAttribute('aria-selected', String(selected));
       button.tabIndex = selected ? 0 : -1;
+      if (selected) document.getElementById('anatomyContent')?.setAttribute('aria-labelledby', button.id);
     });
   }
 
@@ -454,7 +455,7 @@
     });
   }
 
-  host.innerHTML = `<div class="anatomy-head"><div><span class="eyebrow">Учебная программа</span><h2 id="anatomyTitle">Анатомия: от строения к движению</h2><p>Шесть понятных шагов: изучите суставы и связки, посмотрите движение мышц, закрепите места прикрепления и проверьте себя.</p></div><button type="button" class="btn secondary" data-anatomy-home>На главную</button></div><div class="anatomy-progress"><div class="bar" aria-hidden="true"><i id="anatomyProgressBar"></i></div><strong id="anatomyProgressText"></strong></div><nav class="anatomy-course-tabs" role="tablist" aria-label="Разделы анатомии">${modules.map(([id,number,title,lead],index) => `<button type="button" class="anatomy-course-tab" data-anatomy-module="${id}" role="tab" aria-selected="${index===0}"><span>Шаг ${number}</span><b>${esc(title)}</b></button>`).join('')}</nav><div id="anatomyContent" role="tabpanel" tabindex="-1"></div>`;
+  host.innerHTML = `<div class="anatomy-head"><div><span class="eyebrow">Учебная программа</span><h2 id="anatomyTitle">Анатомия: от строения к движению</h2><p>Шесть понятных шагов: изучите суставы и связки, посмотрите движение мышц, закрепите места прикрепления и проверьте себя.</p></div><button type="button" class="btn secondary compactback" data-anatomy-home>← Назад</button></div><div class="anatomy-progress"><div class="bar" aria-hidden="true"><i id="anatomyProgressBar"></i></div><strong id="anatomyProgressText"></strong></div><nav class="anatomy-course-tabs" role="tablist" aria-label="Разделы анатомии">${modules.map(([id,number,title,lead],index) => `<button type="button" id="anatomyTab-${id}" class="anatomy-course-tab" data-anatomy-module="${id}" role="tab" aria-controls="anatomyContent" aria-selected="${index===0}"><span>Шаг ${number}</span><b>${esc(title)}</b></button>`).join('')}</nav><div id="anatomyContent" role="tabpanel" tabindex="-1"></div>`;
 
   host.addEventListener('click', event => {
     const moduleButton = event.target.closest('[data-anatomy-module]');

@@ -631,8 +631,7 @@ select:disabled {
 
 #quiz .questionmaterials > summary,
 #quiz .questionmaterials .questionterms > details > summary,
-#quiz .qvisualdetails > summary,
-#quiz .questionhelp > summary {
+#quiz .qvisualdetails > summary {
   min-height: 44px;
   padding: 10px 2px;
   color: var(--text);
@@ -704,7 +703,7 @@ select:disabled {
 }
 
 #quiz .questionhelpbody {
-  padding: 2px 0 12px;
+  padding: 12px 2px;
 }
 
 #quiz .minimalquestiontools {
@@ -723,6 +722,14 @@ select:disabled {
 #quiz .minimalquestiontools #hint {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#startAdaptiveReview:disabled {
+  border-color: var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 #quiz .minimalquestiontools #readQuestion[aria-busy="true"] {
@@ -2119,7 +2126,6 @@ select:disabled {
 
 /* One primary route; optional learning tools stay quiet until requested. */
 .homeextras,
-.questionhelp,
 .appearanceadvanced {
   margin: 16px 0;
   border: 1px solid var(--border);
@@ -2128,7 +2134,6 @@ select:disabled {
 }
 
 .homeextras > summary,
-.questionhelp > summary,
 .appearanceadvanced > summary {
   min-height: 48px;
   padding: 12px 15px;
@@ -2227,11 +2232,14 @@ select:disabled {
   }
 
   .screenhead {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .compactback {
-    grid-row: 1;
+    order: -1;
+    align-self: flex-start;
     width: fit-content;
   }
 
@@ -4373,6 +4381,12 @@ body {
 
 body {
   background-attachment: fixed;
+}
+
+@media (max-width: 650px) {
+  body {
+    background-attachment: scroll;
+  }
 }
 
 html[data-custom-bg="on"] .appnav {

@@ -322,7 +322,7 @@
       <section id="professionalScreen" class="card screen professional-screen hidden" tabindex="-1" aria-labelledby="professionalTitle">
         <div class="professional-head">
           <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">Практика по одному шагу</h2><p>Выбери один приём или одну учебную ситуацию. Отметки помогают планировать повторение, а владение навыком подтверждает преподаватель.</p></div>
-          <button type="button" class="btn secondary" data-go="menu">На главную</button>
+          <button type="button" class="btn secondary compactback" data-go="menu">← Назад</button>
         </div>
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
         <nav class="professional-tabs" role="tablist" aria-label="Разделы практического обучения">
@@ -807,6 +807,7 @@
   }
 
   function renderActiveTab() {
+    $('#professionalProgress')?.classList.toggle('hidden', activeTab !== 'techniques');
     $$('[data-professional-tab]').forEach(button => {
       const active = button.dataset.professionalTab === activeTab;
       button.classList.toggle('active', active);
