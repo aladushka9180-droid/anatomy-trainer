@@ -143,5 +143,7 @@ assert.match(reliability, /removeExpired/, 'Нет автоматическог�
 
 const productionHealth = readFileSync(join(root, 'production-health-check.mjs'), 'utf8');
 assert.match(productionHealth, /`\\\$\{CACHE_PREFIX\}v\$\{expectedVersion\}`/, 'Production health ожидает неверное имя кэша Service Worker');
+assert.match(productionHealth, /rest\/v1\/portfolio_items/, 'Production health не проверяет таблицу портфолио');
+assert.match(productionHealth, /rest\/v1\/portfolio_photos/, 'Production health не проверяет таблицу фотографий');
 
 console.log('minuta-online-booking smoke test: OK');

@@ -107,6 +107,14 @@ const servicesResult = await checkedFetch(servicesUrl, { headers: apiHeaders });
 const services = await servicesResult.response.json();
 assert.ok(Array.isArray(services) && services[0]?.id, 'Supabase не вернул ни одной активной услуги');
 
+const portfolioResult = await checkedFetch(new URL('/rest/v1/portfolio_items?select=id&published=eq.true&limit=1', supabaseUrl), { headers: apiHeaders });
+const portfolio = await portfolioResult.response.json();
+assert.ok(Array.isArray(portfolio), 'Таблица публичного портфолио недоступна');
+
+const portfolioPhotosResult = await checkedFetch(new URL('/rest/v1/portfolio_photos?select=id&limit=1', supabaseUrl), { headers: apiHeaders });
+const portfolioPhotos = await portfolioPhotosResult.response.json();
+assert.ok(Array.isArray(portfolioPhotos), 'Таблица фотографий портфолио недоступна');
+
 const slotsResult = await checkedFetch(new URL('/rest/v1/rpc/get_available_slots', supabaseUrl), {
   method: 'POST',
   headers: apiHeaders,
@@ -148,7 +156,7 @@ if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   assert.match(probe?.message || '', /invalid input syntax for type uuid/i, 'Идемпотентная RPC версии 43 не подтвердила UUID-параметр');
 }
 
-console.log(`Minuta production health: OK; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс`);
+console.log(`Minuta production health: OK; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс`);
 } catch (error) {
   console.error(`Minuta production health: FAIL; ${error?.message || error}`);
   process.exitCode = 1;
