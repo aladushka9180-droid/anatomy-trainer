@@ -1,0 +1,55 @@
+/* One disclosure language across the trainer: right when closed, down when open. */
+details > summary {
+  position: relative;
+  padding-right: 42px !important;
+  list-style: none;
+  cursor: pointer;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details > summary::marker {
+  content: "";
+}
+
+details > summary::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50%;
+  right: 16px;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 0 !important;
+  border-right: 2px solid currentColor !important;
+  border-bottom: 2px solid currentColor !important;
+  border-radius: 1px;
+  color: var(--accent-readable, var(--professional-accent-strong, var(--text)));
+  opacity: .62;
+  transform: translateY(-55%) rotate(-45deg);
+  transform-origin: center;
+  transition: transform .16s ease, opacity .16s ease;
+  float: none !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  align-self: auto !important;
+  pointer-events: none;
+}
+
+details[open] > summary::after {
+  content: "" !important;
+  transform: translateY(-62%) rotate(45deg);
+}
+
+details > summary:hover::after,
+details > summary:focus-visible::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  details > summary::after {
+    transition: none;
+  }
+}
