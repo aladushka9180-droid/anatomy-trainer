@@ -990,6 +990,7 @@ async function addService(event) {
   if (error) { showFormError('#serviceError', 'Не удалось добавить услугу.'); return; }
   event.target.reset();
   $('#serviceDuration').value = '60';
+  $('#serviceCreatorDialog').close();
   notify('Услуга добавлена');
   await loadOwnServices();
 }
@@ -1175,6 +1176,8 @@ document.addEventListener('click', async event => {
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
+  const openServiceCreator = event.target.closest('[data-open-service-creator]');
+  const closeServiceCreator = event.target.closest('[data-close-service-creator]');
   const openNotification = event.target.closest('[data-open-notification]');
   const sentNotification = event.target.closest('[data-sent-notification]');
   const restoreNotification = event.target.closest('[data-restore-notification]');
@@ -1207,6 +1210,13 @@ document.addEventListener('click', async event => {
     $('#notificationTemplatesDialog').showModal();
   }
   if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
+  if (openServiceCreator) {
+    $('#serviceForm').reset();
+    $('#serviceDuration').value = '60';
+    clearFormError('#serviceError');
+    $('#serviceCreatorDialog').showModal();
+  }
+  if (closeServiceCreator) $('#serviceCreatorDialog').close();
   if (openNotification) {
     setNotificationMark(openNotification.dataset.openNotification, 'opened');
     setTimeout(renderNotifications, 0);

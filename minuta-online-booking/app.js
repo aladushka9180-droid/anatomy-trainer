@@ -1,5 +1,5 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
-const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', availability: new Map(), loadingAvailability: false };
+const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), loadingAvailability: false };
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -43,16 +43,19 @@ function renderServices() {
     return;
   }
   $('#toDate').disabled = false;
-  holder.innerHTML = state.services.map((item, index) => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="service-symbol service-${(index % 3) + 1}">${['✦', '◇', '⌁'][index % 3]}</span><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span><span class="chevron">›</span></button>`).join('');
+  holder.innerHTML = state.services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span></button>`).join('');
 }
 
 function renderDates() {
-  $('#dates').innerHTML = dates.map(item => {
+  if (dates.findIndex(item => item.iso === state.date) > 6) state.moreDates = true;
+  const visibleDates = state.moreDates ? dates : dates.slice(0, 7);
+  $('#dates').innerHTML = visibleDates.map(item => {
     const hasLoaded = state.availability.has(item.iso);
     const hasSlots = (state.availability.get(item.iso) || []).length > 0;
     const disabled = !state.loadingAvailability && hasLoaded && !hasSlots;
     return `<button class="date ${item.iso === state.date ? 'selected' : ''} ${disabled ? 'unavailable' : ''}" type="button" data-date="${item.iso}" aria-label="${item.label}" aria-pressed="${item.iso === state.date}" ${disabled ? 'disabled' : ''}><small>${item.weekday}</small><strong>${item.day}</strong>${disabled ? '<i>нет мест</i>' : ''}</button>`;
   }).join('');
+  $('#moreDates').hidden = state.moreDates;
 }
 
 function renderTimes() {
@@ -62,25 +65,13 @@ function renderTimes() {
     $('#timeHours').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободное время…</span></div>';
     $('#minutePicker').hidden = true;
   } else {
-    const periods = [
-      { id:'all', label:'Все', match:() => true },
-      { id:'morning', label:'Утро', match:hour => hour < 12 },
-      { id:'day', label:'День', match:hour => hour >= 12 && hour < 17 },
-      { id:'evening', label:'Вечер', match:hour => hour >= 17 }
-    ];
-    const currentPeriod = periods.find(item => item.id === state.period) || periods[0];
-    let filtered = times.filter(time => currentPeriod.match(Number(time.slice(0,2))));
-    if (!filtered.length && times.length) { state.period = 'all'; filtered = times; }
-    $('#timePeriods').innerHTML = periods.map(period => {
-      const count = times.filter(time => period.match(Number(time.slice(0,2)))).length;
-      return `<button class="${period.id === state.period ? 'active' : ''}" type="button" data-time-period="${period.id}" ${count ? '' : 'disabled'}>${period.label}<small>${count}</small></button>`;
-    }).join('');
+    const filtered = times;
+    $('#timePeriods').innerHTML = '';
     const hours = [...new Set(filtered.map(time => time.slice(0,2)))];
     if (!hours.includes(state.hour)) state.hour = hours[0] || '';
     if (!filtered.includes(state.time)) state.time = '';
     $('#timeHours').innerHTML = hours.map(hour => {
-      const count = filtered.filter(time => time.startsWith(`${hour}:`)).length;
-      return `<button class="time-hour ${hour === state.hour ? 'selected' : ''}" type="button" data-time-hour="${hour}" aria-pressed="${hour === state.hour}"><strong>${hour}:00</strong><small>${count} ${count === 1 ? 'вариант' : count < 5 ? 'варианта' : 'вариантов'}</small></button>`;
+      return `<button class="time-hour ${hour === state.hour ? 'selected' : ''}" type="button" data-time-hour="${hour}" aria-pressed="${hour === state.hour}"><strong>${hour}:00</strong></button>`;
     }).join('');
     const minutes = filtered.filter(time => time.startsWith(`${state.hour}:`));
     $('#minutePicker').hidden = !minutes.length;
@@ -175,19 +166,21 @@ async function submitBooking(event) {
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; state.moreDates = false; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
   const time = event.target.closest('[data-time]');
   const period = event.target.closest('[data-time-period]');
   const hour = event.target.closest('[data-time-hour]');
+  const moreDates = event.target.closest('#moreDates');
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
   if (service) { state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
   if (date && !date.disabled) { state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (hour) { state.hour = hour.dataset.timeHour; state.time = ''; renderTimes(); }
+  if (moreDates) { state.moreDates = true; renderDates(); }
   if (time && !time.disabled) { state.time = time.dataset.time; renderTimes(); }
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
@@ -198,4 +191,4 @@ $('#newBooking').addEventListener('click', resetFlow);
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=24'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=33'));

@@ -16,7 +16,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=24">
+  <link rel="stylesheet" href="styles.css?v=33">
 </head>
 <body>
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -28,9 +28,9 @@
   <main id="top" class="layout">
     <section class="intro">
       <span class="status"><i></i> Онлайн-запись работает</span>
-      <h1>Лёгкость начинается с заботы о себе.</h1>
-      <p class="lead">Выберите услугу и свободное время — исполнитель сразу увидит вашу запись.</p>
-      <div class="benefits" aria-label="Преимущества"><span>✓ Запись сохраняется онлайн</span><span>✓ Без пересечений в расписании</span><span>✓ Удобно с телефона</span></div>
+      <h1>Массаж в удобное время.</h1>
+      <p class="lead">Выберите услугу, дату и свободное время.</p>
+      <p class="trust-line">Онлайн-запись · без звонков · свободное время видно сразу</p>
       <div class="location"><span class="pin" aria-hidden="true"></span><p>Ижевск, ул. Карла Маркса, 304б<br><span>Вт–Вс с 10:00 до 20:00 · Пн выходной</span></p></div>
     </section>
 
@@ -44,9 +44,9 @@
           <button class="primary next" id="toDate" type="button" data-next="2" disabled>Выбрать дату <span>→</span></button>
         </div>
         <div class="step" data-step="2">
-          <h3><span class="mini-icon" aria-hidden="true">▣</span> Дата</h3><div class="date-grid" id="dates"></div>
+          <h3><span class="mini-icon" aria-hidden="true">▣</span> Дата</h3><div class="date-grid" id="dates"></div><button class="more-dates-button" id="moreDates" type="button">Показать следующие даты →</button>
           <h3 class="section-gap"><span class="mini-icon" aria-hidden="true">◷</span> Свободное время</h3>
-          <div class="time-periods" id="timePeriods" aria-label="Период дня"></div>
+          <div class="time-periods" id="timePeriods" aria-label="Период дня" hidden></div>
           <div class="time-hour-grid" id="timeHours" aria-label="Выберите час"></div>
           <section class="minute-picker" id="minutePicker" hidden><div class="minute-picker-head"><span>Точное время</span><strong id="selectedHourLabel">—</strong></div><div class="time-grid" id="times"></div></section>
           <p class="no-times" id="noTimes" hidden>На эту дату всё занято. Выберите другой день.</p>
@@ -70,6 +70,6 @@
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=24"></script><script src="app.js?v=24" defer></script>
+  <script src="config.js?v=33"></script><script src="app.js?v=33" defer></script>
 </body>
 </html>
