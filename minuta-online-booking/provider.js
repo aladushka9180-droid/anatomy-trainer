@@ -742,8 +742,9 @@ function timelineTimeFromClick(stage, event) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || rect.height <= 0) return '';
   const position = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
   const rawMinute = start + ((position / rect.height) * (end - start));
-  const step = scheduleStepForDate(selectedDate);
-  const snapped = Math.max(start, Math.min(end - step, Math.round(rawMinute / step) * step));
+  const hourStart = Math.floor(rawMinute / 60) * 60;
+  const latestHour = Math.floor((end - 1) / 60) * 60;
+  const snapped = Math.max(start, Math.min(latestHour, hourStart));
   return `${String(Math.floor(snapped / 60)).padStart(2, '0')}:${String(snapped % 60).padStart(2, '0')}`;
 }
 
@@ -2540,4 +2541,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=48'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=49'));

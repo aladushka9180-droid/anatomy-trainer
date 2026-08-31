@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '48';
+const version = '49';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -59,6 +59,14 @@ assert.match(provider, /data-portfolio-move="up"/, 'Для мобильного 
 assert.match(provider, /consent_confirmed_at/, 'Согласие клиента не сохраняется для портфолио');
 assert.match(provider, /data-create-booking-at/, 'Клик по свободному месту расписания не создаёт запись');
 assert.match(provider, /timelineTimeFromClick/, 'Время клика по расписанию не вычисляется');
+assert.match(provider, /Math\.floor\(rawMinute \/ 60\) \* 60/, 'Клик по расписанию не округляется вниз до начала часа');
+const timelineFunctionSource = provider.match(/function timelineTimeFromClick\(stage, event\) \{[\s\S]*?\n\}/)?.[0];
+assert.ok(timelineFunctionSource, 'Не удалось извлечь расчёт времени клика для проверки');
+const timelineTimeFromClick = Function(`${timelineFunctionSource}; return timelineTimeFromClick;`)();
+const timelineStage = { dataset: { timelineStart: '600', timelineEnd: '1200' }, getBoundingClientRect: () => ({ top: 0, height: 600 }) };
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 205 }), '13:00', 'Клик в 13:25 должен сначала выбирать 13:00');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 239 }), '13:00', 'Клик в конце часа должен выбирать его начало');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 240 }), '14:00', 'Клик ровно в начале часа не должен сдвигаться');
 assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безопасного маркера занятого времени');
 assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
 assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
