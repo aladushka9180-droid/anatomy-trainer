@@ -557,12 +557,12 @@
     const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['difficulty', 'level']))].filter(Boolean).join(' · ')
       || first(item, ['category'], 'Практическая ситуация');
     return `<div class="scenario-grid"><article class="scenario-card">
-        <span class="eyebrow">${esc(metadata)}</span>
-        <h3>${esc(first(item, ['title', 'name']))}</h3>
-        <p>${esc(first(item, ['situation', 'description', 'case', 'brief']))}</p>
-        ${titledList('Продумай перед открытием разбора', first(item, ['questions', 'prompts', 'tasks', 'task']))}
-        <label class="scenario-draft"><span>Сначала запиши своё решение</span><textarea data-scenario-draft="${esc(id)}" maxlength="1200" placeholder="Какие вопросы задашь, что сделаешь по порядку, когда остановишься?">${esc(draft)}</textarea><small data-scenario-draft-note="${esc(id)}">${canReveal ? 'Ответ сохранён. Теперь можно сравнить его с разбором.' : 'Нужно не менее 20 знаков: попытка вспомнить ответ важнее простого чтения.'}</small></label>
-        <button type="button" class="btn secondary" data-reveal-scenario="${esc(id)}" aria-expanded="${progress.open ? 'true' : 'false'}" ${canReveal ? '' : 'disabled'}>${progress.open ? 'Скрыть разбор' : 'Сравнить с учебным разбором'}</button>
+        <div class="scenario-brief"><span class="eyebrow">${esc(metadata)}</span>
+          <h3>${esc(first(item, ['title', 'name']))}</h3>
+          <p>${esc(first(item, ['situation', 'description', 'case', 'brief']))}</p>
+          ${titledList('Продумай перед открытием разбора', first(item, ['questions', 'prompts', 'tasks', 'task']))}</div>
+        <div class="scenario-work"><label class="scenario-draft"><span>Сначала запиши своё решение</span><textarea data-scenario-draft="${esc(id)}" maxlength="1200" placeholder="Какие вопросы задашь, что сделаешь по порядку, когда остановишься?">${esc(draft)}</textarea><small data-scenario-draft-note="${esc(id)}">${canReveal ? 'Ответ сохранён. Теперь можно сравнить его с разбором.' : 'Нужно не менее 20 знаков: попытка вспомнить ответ важнее простого чтения.'}</small></label>
+        <button type="button" class="btn primary" data-reveal-scenario="${esc(id)}" aria-expanded="${progress.open ? 'true' : 'false'}" ${canReveal ? '' : 'disabled'}>${progress.open ? 'Скрыть разбор' : 'Сравнить с учебным разбором'}</button></div>
         <div class="scenario-answer ${progress.open ? '' : 'hidden'}" data-scenario-answer="${esc(id)}">
           ${titledList('Рекомендуемый ход рассуждения', modelSteps)}
           ${titledList('Когда остановиться и обратиться за помощью', first(item, ['stopSignals', 'redFlags', 'referral']))}
@@ -583,12 +583,14 @@
     if (!checklists.some(item => item.id === activeChecklist)) activeChecklist = checklists[0]?.id || '';
     if (!scenarios.some(item => item.id === activeScenario)) activeScenario = scenarios[0]?.id || '';
     host.innerHTML = `
-      <div class="practice-switch" role="group" aria-label="Вид практической отработки">
-        <button type="button" data-practice-mode="checklists" class="${practiceMode === 'checklists' ? 'active' : ''}" aria-pressed="${practiceMode === 'checklists'}">Чек-листы по областям</button>
-        <button type="button" data-practice-mode="scenarios" class="${practiceMode === 'scenarios' ? 'active' : ''}" aria-pressed="${practiceMode === 'scenarios'}">Построение сеанса</button>
+      <div class="practice-controls">
+        <div class="practice-switch" role="group" aria-label="Вид практической отработки">
+          <button type="button" data-practice-mode="checklists" class="${practiceMode === 'checklists' ? 'active' : ''}" aria-pressed="${practiceMode === 'checklists'}">Чек-листы</button>
+          <button type="button" data-practice-mode="scenarios" class="${practiceMode === 'scenarios' ? 'active' : ''}" aria-pressed="${practiceMode === 'scenarios'}">Построение сеанса</button>
+        </div>
+        ${practiceMode === 'checklists' && checklists.length ? `<label class="practice-area-picker"><span>Область и задача</span><select id="practiceChecklistPicker">${checklists.map(item => `<option value="${esc(item.id)}" ${item.id === activeChecklist ? 'selected' : ''}>${esc(regionLabel(first(item, ['regionId', 'region'])))} — ${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
+        ${practiceMode === 'scenarios' && scenarios.length ? `<label class="practice-scenario-picker"><span>Учебная ситуация</span><select id="practiceScenarioPicker">${scenarios.map(item => `<option value="${esc(item.id)}" ${item.id === activeScenario ? 'selected' : ''}>${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
       </div>
-      ${practiceMode === 'checklists' && checklists.length ? `<label class="practice-area-picker"><span>Выбери область и задачу</span><select id="practiceChecklistPicker">${checklists.map(item => `<option value="${esc(item.id)}" ${item.id === activeChecklist ? 'selected' : ''}>${esc(regionLabel(first(item, ['regionId', 'region'])))} — ${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
-      ${practiceMode === 'scenarios' && scenarios.length ? `<label class="practice-scenario-picker"><span>Выбери учебную ситуацию</span><select id="practiceScenarioPicker">${scenarios.map(item => `<option value="${esc(item.id)}" ${item.id === activeScenario ? 'selected' : ''}>${esc(first(item, ['title', 'name']))}</option>`).join('')}</select></label>` : ''}
       <aside class="practice-method"><b>${practiceMode === 'checklists' ? 'Как отрабатывать навык' : 'Как разбирать ситуацию'}</b><span>${practiceMode === 'checklists'
         ? 'Подготовься → выполни без подсказок → отметь шаги → получи обратную связь → повтори в другой день.'
         : 'Сначала сформулируй решение по памяти → затем открой разбор → найди пропуски и критические ошибки → объясни исправленный план.'}</span></aside>

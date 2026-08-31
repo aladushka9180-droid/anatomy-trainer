@@ -411,3 +411,49 @@ html[data-size="large"] .professional-screen :is(.technique-picker select,.scena
   .professional-context-control .technique-picker{grid-template-columns:1fr;gap:5px}
   .professional-next-status{font-size:.73em}
 }
+
+/* Minimal checklist and scenario views. */
+.practice-controls{display:grid;grid-template-columns:auto minmax(360px,1fr);align-items:end;gap:16px;padding:2px 0 12px;border-bottom:1px solid var(--border)}
+.practice-switch{width:fit-content;max-width:none;margin:0;padding:3px;border:0;border-radius:10px;background:var(--surface2)}
+.practice-switch button{min-width:150px;min-height:38px;padding:7px 14px;border:0;border-radius:8px;font-size:.86em;box-shadow:none}
+.practice-switch button.active{border:0;background:var(--surface);box-shadow:0 1px 3px color-mix(in srgb,var(--text) 10%,transparent)}
+.practice-area-picker,.practice-scenario-picker{grid-template-columns:auto minmax(280px,1fr);align-items:center;justify-self:end;width:min(100%,760px);max-width:none;margin:0;gap:10px;color:var(--muted);font-size:.82em}
+.practice-area-picker select,.practice-scenario-picker select{min-height:40px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:.94rem;font-weight:700}
+.practice-method{display:flex;align-items:baseline;gap:8px;margin:0;padding:0 0 11px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent;font-size:.82em;line-height:1.4}
+.practice-method b{flex:0 0 auto;font-weight:750}
+.practice-method span{color:var(--muted)}
+.practice-card{border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent}
+.practice-card summary{padding:12px 0}
+.practice-card summary b{font-size:.9em}
+.practice-card-body{padding:2px 0 14px;border-top:0}
+.practice-video-library{margin-top:8px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:transparent}
+.practice-video-library>summary{padding:11px 0}
+.practice-video-library>div{padding:0 0 12px;border-top:0}
+.scenario-grid{grid-template-columns:1fr;gap:0}
+.scenario-card{display:grid;grid-template-columns:minmax(0,.9fr) minmax(360px,1.1fr);gap:20px 26px;width:100%;padding:12px 0 0;border:0;border-radius:0;background:transparent}
+.scenario-brief,.scenario-work{min-width:0}
+.scenario-brief h3{margin:4px 0 7px}
+.scenario-brief>p{margin:0;color:var(--muted);line-height:1.5}
+.scenario-brief>.skilldetailsection{margin:14px 0 0;padding:12px 0 0;border:0;border-top:1px solid var(--border);border-radius:0;background:transparent}
+.scenario-work{display:grid;align-content:start;gap:10px;padding-left:26px;border-left:1px solid var(--border)}
+.scenario-draft{margin:0}
+.scenario-draft textarea{min-height:150px;background:var(--surface)}
+.scenario-work>.btn{justify-self:start}
+.scenario-answer{grid-column:1/-1;margin-top:0;padding-top:16px}
+
+@media(max-width:900px){
+  .practice-controls{grid-template-columns:1fr;gap:10px}
+  .practice-switch{width:100%}
+  .practice-switch button{min-width:0}
+  .practice-area-picker,.practice-scenario-picker{justify-self:stretch;width:100%}
+  .scenario-card{grid-template-columns:1fr;gap:16px}
+  .scenario-work{padding:14px 0 0;border-left:0;border-top:1px solid var(--border)}
+  .scenario-answer{grid-column:1}
+}
+
+@media(max-width:560px){
+  .practice-area-picker,.practice-scenario-picker{grid-template-columns:1fr;gap:5px}
+  .practice-switch button{padding-inline:8px;font-size:.8em}
+  .practice-method{display:grid;gap:3px}
+  .scenario-work>.btn{width:100%}
+}
