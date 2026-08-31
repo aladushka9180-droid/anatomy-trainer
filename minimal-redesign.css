@@ -6209,3 +6209,41 @@ html[data-motion-style="soft"] .navbutton::after {
     font-size: 10px;
   }
 }
+
+/* v75: aligned learning settings fields. */
+#settingsScreen .learning-settings-grid {
+  align-items: start;
+  gap: 16px;
+}
+
+#settingsScreen .learning-settings-grid .settingfield {
+  display: grid;
+  grid-template-rows: auto 56px;
+  align-content: start;
+  gap: 8px;
+}
+
+#settingsScreen .learning-settings-grid select {
+  width: 100%;
+  height: 56px;
+  min-height: 56px;
+  margin: 0;
+  padding-block: 0;
+}
+
+#settingsScreen .defaultmodehint {
+  max-width: none;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 650px) {
+  #settingsScreen .learning-settings-grid {
+    gap: 13px;
+  }
+}
