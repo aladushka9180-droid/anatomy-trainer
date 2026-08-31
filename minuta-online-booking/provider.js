@@ -141,8 +141,8 @@ function buildNotificationTasks() {
 }
 function notificationDueLabel(task) {
   const now = new Date();
-  if (task.dueAt <= now) return task.type === 'cancellation' ? 'Отправить сейчас' : 'Можно отправлять сейчас';
-  return `Отправить ${task.dueAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${task.dueAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+  if (task.dueAt <= now) return 'Сейчас';
+  return `${task.dueAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, ${task.dueAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
 }
 function renderNotificationTemplates() {
   const templates = notificationTemplates();
@@ -181,11 +181,11 @@ function renderNotifications() {
     const start = bookingStart(item);
     const message = composeNotificationMessage(task.type, item);
     const link = escapeHtml(whatsappLink(item, task.type));
-    const status = task.mark === 'sent' ? 'Отправлено' : task.mark === 'opened' ? 'Переход в WhatsApp' : task.isDue ? 'Нужно отправить' : 'Запланировано';
+    const status = task.mark === 'sent' ? 'Отправлено' : task.isDue ? 'К отправке' : 'Позже';
     return `<article class="notification-card notification-${task.type} status-${task.mark || (task.isDue ? 'due' : 'scheduled')}">
       <span class="notification-card-icon">${task.type === 'cancellation' ? '×' : task.type === 'reminder' ? '◷' : '✓'}</span>
-      <div class="notification-card-main"><div class="notification-card-head"><span>${typeLabels[task.type]}</span><b>${status}</b></div><h3>${escapeHtml(item.client_name)} · ${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h3><p>${start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })} в ${String(item.booking_time).slice(0, 5)} · ${notificationDueLabel(task)}</p><blockquote>${escapeHtml(message).replace(/\n/g, '<br>')}</blockquote></div>
-      <div class="notification-card-actions">${link ? `<a class="whatsapp-action" href="${link}" target="_blank" rel="noopener noreferrer" data-open-notification="${escapeHtml(task.key)}">Открыть WhatsApp</a>` : '<span class="notification-phone-error">Проверьте телефон клиента</span>'}${task.mark === 'sent' ? `<button type="button" data-restore-notification="${escapeHtml(task.key)}">Вернуть в очередь</button>` : `<button type="button" data-sent-notification="${escapeHtml(task.key)}">Отметить отправленным</button>`}</div>
+      <div class="notification-card-main"><div class="notification-card-head"><span>${typeLabels[task.type]}</span><b>${status}</b></div><h3>${escapeHtml(item.client_name)}</h3><p>${escapeHtml(serviceName(item.services?.name || 'Услуга'))} · ${start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${String(item.booking_time).slice(0, 5)} · ${notificationDueLabel(task)}</p><details class="notification-preview"><summary>Посмотреть текст</summary><blockquote>${escapeHtml(message).replace(/\n/g, '<br>')}</blockquote></details></div>
+      <div class="notification-card-actions">${link ? `<a class="whatsapp-action" href="${link}" target="_blank" rel="noopener noreferrer" data-open-notification="${escapeHtml(task.key)}">Открыть WhatsApp</a>` : '<span class="notification-phone-error">Проверьте телефон</span>'}${task.mark === 'sent' ? `<button class="notification-restore-button" type="button" data-restore-notification="${escapeHtml(task.key)}">Вернуть</button>` : `<button class="notification-done-button" type="button" data-sent-notification="${escapeHtml(task.key)}" aria-label="Отметить отправленным" title="Отметить отправленным">✓</button>`}</div>
     </article>`;
   }).join('');
 }
@@ -198,6 +198,7 @@ function saveNotificationTemplates(event) {
   });
   renderNotificationTemplates();
   renderNotifications();
+  $('#notificationTemplatesDialog').close();
   notify('Шаблоны сохранены');
 }
 function showFormError(id, message) { const element = $(id); element.textContent = message; element.hidden = false; }
@@ -1172,6 +1173,8 @@ document.addEventListener('click', async event => {
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
+  const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
+  const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
   const openNotification = event.target.closest('[data-open-notification]');
   const sentNotification = event.target.closest('[data-sent-notification]');
   const restoreNotification = event.target.closest('[data-restore-notification]');
@@ -1199,6 +1202,11 @@ document.addEventListener('click', async event => {
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
     renderNotifications();
   }
+  if (openNotificationTemplates) {
+    renderNotificationTemplates();
+    $('#notificationTemplatesDialog').showModal();
+  }
+  if (closeNotificationTemplates) $('#notificationTemplatesDialog').close();
   if (openNotification) {
     setNotificationMark(openNotification.dataset.openNotification, 'opened');
     setTimeout(renderNotifications, 0);
