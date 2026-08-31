@@ -1,0 +1,48 @@
+name: Minuta production health
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-production-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Проверить сайт и публичные RPC
+        env:
+          MINUTA_EXPECT_VERSION: "45"
+          MINUTA_EXPECT_IDEMPOTENCY: "1"
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if node minuta-online-booking/production-health-check.mjs; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 20
+          done
+      - name: Сообщить об ошибке в Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MINUTA_ALERT_TOPIC: проверка рабочего сайта
+        run: node minuta-online-booking/notify-health-failure.mjs

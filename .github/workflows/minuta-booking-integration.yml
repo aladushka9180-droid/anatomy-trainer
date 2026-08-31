@@ -1,0 +1,29 @@
+name: Minuta booking integration test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-booking-integration
+  cancel-in-progress: false
+
+jobs:
+  idempotency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MINUTA_TEST_CONFIRM: "1"
+      MINUTA_TEST_SUPABASE_URL: ${{ secrets.MINUTA_TEST_SUPABASE_URL }}
+      MINUTA_TEST_ANON_KEY: ${{ secrets.MINUTA_TEST_ANON_KEY }}
+      MINUTA_TEST_SERVICE_ROLE_KEY: ${{ secrets.MINUTA_TEST_SERVICE_ROLE_KEY }}
+      MINUTA_TEST_SERVICE_ID: ${{ secrets.MINUTA_TEST_SERVICE_ID }}
+      MINUTA_TEST_PROJECT_REF: ${{ secrets.MINUTA_TEST_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node minuta-online-booking/idempotency-integration-test.mjs

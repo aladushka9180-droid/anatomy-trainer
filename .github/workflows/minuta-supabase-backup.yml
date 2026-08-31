@@ -1,0 +1,76 @@
+name: Minuta Supabase encrypted backup
+
+on:
+  schedule:
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Проверить секреты
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          test -n "$BACKUP_ENCRYPTION_PASSWORD"
+      - name: Установить клиент PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client gnupg
+      - name: Создать и зашифровать резервную копию
+        id: backup
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+          PGSSLMODE: require
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          plain="$RUNNER_TEMP/minuta-$stamp.dump"
+          verified="$RUNNER_TEMP/minuta-$stamp.verified.dump"
+          encrypted="$RUNNER_TEMP/minuta-$stamp.dump.gpg"
+          trap 'rm -f "$plain" "$verified"' EXIT
+          pg_dump --dbname="$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --file="$plain"
+          pg_restore --list "$plain" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 \
+            --output "$encrypted" "$plain"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$verified" --decrypt "$encrypted"
+          cmp --silent "$plain" "$verified"
+          pg_restore --list "$verified" >/dev/null
+          echo "path=$encrypted" >> "$GITHUB_OUTPUT"
+          echo "name=minuta-$stamp" >> "$GITHUB_OUTPUT"
+      - name: Сохранить зашифрованную копию
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.backup.outputs.name }}
+          path: ${{ steps.backup.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+      - name: Сообщить об ошибке в Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MINUTA_ALERT_TOPIC: резервное копирование Supabase
+        run: node minuta-online-booking/notify-health-failure.mjs

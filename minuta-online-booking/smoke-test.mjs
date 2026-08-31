@@ -6,12 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '44';
+const version = '45';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
   assert.match(html, /Content-Security-Policy/, `${page}: нет политики безопасности`);
-  assert.doesNotMatch(html, /v=(?:38|39|40|41)/, `${page}: осталась старая версия ресурсов`);
+  assert.doesNotMatch(html, /v=(?:38|39|40|41|42|43|44)/, `${page}: осталась старая версия ресурсов`);
   for (const match of html.matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"#]*)?"/g)) {
     const reference = match[1];
     if (/^(?:https?:|mailto:|tel:)/.test(reference)) continue;
@@ -72,6 +72,11 @@ assert.match(worker, /!new URL\(request\.url\)\.search/, 'Навигация с 
 const app = readFileSync(join(root, 'app.js'), 'utf8');
 assert.doesNotMatch(app, /minuta-last-booking-url/, 'Секретная ссылка сохраняется в localStorage');
 assert.match(app, /validateCurrentSelection/, 'Выбранное время не перепроверяется после восстановления связи');
+assert.match(app, /p_request_id: attempt\.requestId/, 'Запись создаётся без идентификатора идемпотентности');
+assert.match(app, /Проверить результат/, 'После неопределённого ответа нельзя безопасно проверить результат');
+assert.match(app, /bookingFingerprint/, 'Изменение параметров не отделяет новую попытку записи от повтора');
+assert.match(app, /sessionStorage\.setItem\(BOOKING_ATTEMPT_KEY/, 'Повтор после перезагрузки страницы теряет идентификатор запроса');
+assert.doesNotMatch(app, /sessionStorage\.setItem\([^\n]*(?:clientName|clientPhone)/, 'Персональные данные попадают в sessionStorage');
 
 const booking = readFileSync(join(root, 'booking.js'), 'utf8');
 assert.match(booking, /booking\.html#token=/, 'Токен управления не переносится из query-параметра во fragment');
@@ -88,8 +93,25 @@ assert.match(migration, /payment_url_template/, 'Предоплата не по�
 const durationMigration = readFileSync(join(root, 'supabase-migration-v42.sql'), 'utf8');
 assert.match(durationMigration, /duration_minutes >= 5/, 'Сервер не разрешает услуги длительностью 5 минут');
 
+const idempotencyMigration = readFileSync(join(root, 'supabase-migration-v43.sql'), 'utf8');
+assert.match(idempotencyMigration, /add column if not exists request_id uuid/, 'В записях нет идентификатора идемпотентности');
+assert.match(idempotencyMigration, /create unique index if not exists idx_bookings_request_id/, 'Идентификатор идемпотентности не защищён уникальным индексом');
+assert.match(idempotencyMigration, /pg_advisory_xact_lock\(hashtextextended\('booking-request:/, 'Повторные запросы не сериализуются на сервере');
+assert.match(idempotencyMigration, /message = 'request_conflict'/, 'Повтор идентификатора с изменёнными данными не отклоняется');
+assert.match(idempotencyMigration, /public\.book_appointment\(uuid, uuid, date, time without time zone, text, text\)/, 'Новая RPC-функция не опубликована для клиента');
+
+const immutableRequestMigration = readFileSync(join(root, 'supabase-migration-v44.sql'), 'utf8');
+assert.match(immutableRequestMigration, /add column if not exists request_fingerprint text/, 'Исходный запрос не получает неизменяемый отпечаток');
+assert.match(immutableRequestMigration, /booking\.request_fingerprint/, 'Повтор сравнивается с изменяемыми полями записи');
+assert.doesNotMatch(immutableRequestMigration, /v_existing_(?:service|date|time|name|phone)/, 'Повтор всё ещё зависит от изменяемого состояния записи');
+assert.match(immutableRequestMigration, /request_fingerprint ~ '\^\[0-9a-f\]\{64\}\$'/, 'Формат серверного отпечатка не ограничен');
+assert.match(app, /clearBookingAttempt\(\);\s*\n\s*\$\('#bookingFlow'\)/, 'Подтверждённая запись оставляет попытку в sessionStorage');
+
 const reliability = readFileSync(join(root, 'reliability.js'), 'utf8');
 assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Старый секретный токен не очищается');
 assert.match(reliability, /removeExpired/, 'Нет автоматического удаления просроченного офлайн-кэша');
+
+const productionHealth = readFileSync(join(root, 'production-health-check.mjs'), 'utf8');
+assert.match(productionHealth, /`\\\$\{CACHE_PREFIX\}v\$\{expectedVersion\}`/, 'Production health ожидает неверное имя кэша Service Worker');
 
 console.log('minuta-online-booking smoke test: OK');

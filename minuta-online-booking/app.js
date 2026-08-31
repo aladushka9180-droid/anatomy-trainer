@@ -5,8 +5,59 @@ let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
 let selectionValidationBlocked = false;
 let bookingResultUncertain = false;
+const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
+let bookingAttempt = loadBookingAttempt();
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+function createRequestId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function loadBookingAttempt() {
+  try {
+    const attempt = JSON.parse(sessionStorage.getItem(BOOKING_ATTEMPT_KEY) || 'null');
+    if (/^[0-9a-f-]{36}$/i.test(attempt?.requestId) && /^[0-9a-f]{64}$/i.test(attempt?.fingerprint)) return attempt;
+  } catch {}
+  return null;
+}
+
+function saveBookingAttempt(attempt) {
+  try { sessionStorage.setItem(BOOKING_ATTEMPT_KEY, JSON.stringify(attempt)); } catch {}
+}
+
+async function bookingFingerprint(service, name, phone) {
+  const value = JSON.stringify([service.id, state.date, state.time, name.trim(), phone.replace(/\D/g, '')]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function currentBookingAttempt(service, name, phone) {
+  const fingerprint = await bookingFingerprint(service, name, phone);
+  if (!bookingAttempt || bookingAttempt.fingerprint !== fingerprint) {
+    bookingAttempt = { requestId: createRequestId(), fingerprint };
+    saveBookingAttempt(bookingAttempt);
+    bookingResultUncertain = false;
+  }
+  return bookingAttempt;
+}
+
+function clearBookingAttempt() {
+  bookingAttempt = null;
+  bookingResultUncertain = false;
+  try { sessionStorage.removeItem(BOOKING_ATTEMPT_KEY); } catch {}
+}
+
+function bookingInputChanged() {
+  if (!bookingResultUncertain) return;
+  bookingResultUncertain = false;
+  if (state.step === 3 && !selectionValidationBlocked) setSelectionValidationState('ready');
+}
 
 function localIsoDate(date) {
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
@@ -44,8 +95,8 @@ function setSelectionValidationState(kind) {
   const submit = $('#submitBooking');
   if (!submit) return;
   if (kind === 'ready') {
-    submit.disabled = bookingResultUncertain;
-    submit.textContent = bookingResultUncertain ? 'Нужна проверка записи' : 'Подтвердить запись';
+    submit.disabled = false;
+    submit.textContent = bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись';
   } else {
     submit.disabled = true;
     submit.textContent = kind === 'checking' ? 'Проверяем выбранное время…' : 'Сначала обновите расписание';
@@ -250,7 +301,6 @@ async function submitBooking(event) {
   event.preventDefault();
   if (selectionValidationPending) { showError('Подождите, пока выбранное время будет перепроверено.'); return; }
   if (selectionValidationBlocked) { showError('Сначала обновите расписание и перепроверьте выбранное время.'); return; }
-  if (bookingResultUncertain) { showError('Сначала уточните у исполнителя, была ли создана предыдущая запись.'); return; }
   const name = $('#clientName').value.trim();
   const phone = $('#clientPhone').value;
   const service = selectedService();
@@ -258,27 +308,33 @@ async function submitBooking(event) {
   if (!$('#dataConsent').checked) { showError('Подтвердите согласие на обработку данных.'); return; }
   if (!service || !state.time) { showError('Выберите услугу и свободное время.'); return; }
   if (!navigator.onLine) { showError('Нет соединения с интернетом. Запись не создана — подключитесь к сети и повторите попытку.'); return; }
+  const attempt = await currentBookingAttempt(service, name, phone);
   const submit = $('#submitBooking');
   submit.disabled = true;
-  submit.textContent = 'Сохраняем…';
+  submit.textContent = bookingResultUncertain ? 'Проверяем…' : 'Сохраняем…';
   $('#formError').hidden = true;
-  const { data, error } = await db.rpc('book_appointment', { p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone });
+  const { data, error } = await db.rpc('book_appointment', { p_request_id: attempt.requestId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone });
   submit.disabled = false;
-  submit.textContent = 'Подтвердить запись';
+  submit.textContent = bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись';
   if (error) {
     if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
+      clearBookingAttempt();
       showError('Это время только что заняли. Выберите другое.');
       await showStep(2);
+    } else if (error.message?.includes('request_conflict')) {
+      clearBookingAttempt();
+      showError('Параметры записи изменились. Проверьте услугу, дату и время, затем повторите отправку.');
     } else {
       bookingResultUncertain = true;
-      submit.disabled = true;
-      submit.textContent = 'Нужна проверка записи';
-      showError('Сервер не подтвердил результат. Не отправляйте форму повторно: свяжитесь с исполнителем по номеру +7 950 177-31-31, чтобы исключить двойную запись.');
+      submit.disabled = false;
+      submit.textContent = 'Проверить результат';
+      showError('Сервер не подтвердил результат. Нажмите «Проверить результат»: повторный запрос безопасно вернёт уже созданную запись и не создаст дубль.');
     }
     return;
   }
   const code = data?.[0]?.booking_code || 'создан';
   const manageToken = data?.[0]?.manage_token;
+  clearBookingAttempt();
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
   $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
@@ -291,12 +347,22 @@ async function submitBooking(event) {
     $('#manageBooking').hidden = false;
     $('#copyManageBooking').hidden = false;
     const { data: management } = await db.rpc('get_booking_management', { p_token: manageToken });
-    renderSuccessPayment(management?.[0]);
+    const current = management?.[0];
+    renderSuccessPayment(current);
+    if (current) {
+      const currentDate = new Date(`${current.booking_date}T00:00:00`);
+      const currentDateLabel = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+      $('#successDetails').innerHTML = `${escapeHtml(current.service_name)} · ${escapeHtml(current.performer_name || 'Мастер')}<br>${escapeHtml(currentDateLabel)}, ${timeRange(current.booking_time.slice(0, 5), current.duration_minutes)}`;
+      if (current.status === 'cancelled') {
+        $('#successTitle').textContent = 'Эта запись уже отменена';
+        $('#successCode').innerHTML = `Номер отменённой записи: <strong>${escapeHtml(code)}</strong>`;
+      }
+    }
   }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; bookingResultUncertain = false; state.time = ''; state.moreDates = false; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -309,18 +375,19 @@ document.addEventListener('click', event => {
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
   const retryServices = event.target.closest('#retryServices');
-  if (service) { state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
-  if (date && !date.disabled) { state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
+  if (service) { bookingInputChanged(); state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
+  if (date && !date.disabled) { bookingInputChanged(); state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
   if (serviceDetails) openServiceDetails();
   if (closeServiceDetails || chooseServiceDetails) $('#serviceDetailsDialog').close();
-  if (time && !time.disabled) { state.time = time.dataset.time; renderTimes(); }
+  if (time && !time.disabled) { bookingInputChanged(); state.time = time.dataset.time; renderTimes(); }
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
   if (retryServices) loadServices();
 });
-$('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
+$('#clientName').addEventListener('input', bookingInputChanged);
+$('#clientPhone').addEventListener('input', event => { bookingInputChanged(); event.target.value = formatPhone(event.target.value); });
 $('#bookingForm').addEventListener('submit', submitBooking);
 $('#newBooking').addEventListener('click', resetFlow);
 $('#copyManageBooking').addEventListener('click', async () => {
@@ -336,4 +403,4 @@ window.addEventListener('online', () => loadServices());
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=44'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=45'));
