@@ -264,18 +264,20 @@ async function remindersRequest(req: Request) {
   return json({ ok: true, delivered });
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!supabaseUrl || !serviceRoleKey || !botToken) return json({ ok: false, error: "not_configured" }, 503);
-  const path = new URL(req.url).pathname.replace(/\/+$/, "");
-  try {
-    if (req.method === "GET" && path.endsWith("/connect")) return await connectRedirect(req);
-    if (req.method === "POST" && path.endsWith("/event")) return await eventRequest(req);
-    if (req.method === "POST" && path.endsWith("/reminders")) return await remindersRequest(req);
-    if (req.method === "POST") return await telegramWebhook(req);
-    return json({ ok: false, error: "not_found" }, 404);
-  } catch (error) {
-    console.error("Telegram client notification error", error);
-    return json({ ok: false, error: "internal_error" }, 500);
-  }
-});
+export default {
+  async fetch(req: Request) {
+    if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+    if (!supabaseUrl || !serviceRoleKey || !botToken) return json({ ok: false, error: "not_configured" }, 503);
+    const path = new URL(req.url).pathname.replace(/\/+$/, "");
+    try {
+      if (req.method === "GET" && path.endsWith("/connect")) return await connectRedirect(req);
+      if (req.method === "POST" && path.endsWith("/event")) return await eventRequest(req);
+      if (req.method === "POST" && path.endsWith("/reminders")) return await remindersRequest(req);
+      if (req.method === "POST") return await telegramWebhook(req);
+      return json({ ok: false, error: "not_found" }, 404);
+    } catch (error) {
+      console.error("Telegram client notification error", error);
+      return json({ ok: false, error: "internal_error" }, 500);
+    }
+  },
+};
