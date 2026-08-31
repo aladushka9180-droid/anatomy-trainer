@@ -321,15 +321,18 @@
     main.insertAdjacentHTML('beforeend', `
       <section id="professionalScreen" class="card screen professional-screen hidden" tabindex="-1" aria-labelledby="professionalTitle">
         <div class="professional-head">
-          <div><span class="eyebrow">Практические навыки</span><h2 id="professionalTitle">Практика по одному шагу</h2><p>Выбери один приём или одну учебную ситуацию. Отметки помогают планировать повторение, а владение навыком подтверждает преподаватель.</p></div>
+          <div><h2 id="professionalTitle">Практика по одному шагу</h2><p>Выбери приём или учебную ситуацию. Отметки помогут спланировать повторение.</p></div>
           <button type="button" class="btn secondary compactback" data-go="menu">← Назад</button>
         </div>
         <div id="professionalProgress" class="professional-progress" aria-label="Прогресс практических навыков"></div>
-        <nav class="professional-tabs" role="tablist" aria-label="Разделы практического обучения">
-          <button type="button" id="professionalTabTechniques" class="active" data-professional-tab="techniques" role="tab" aria-controls="professionalContent" aria-selected="true" tabindex="0">Приёмы</button>
-          <button type="button" id="professionalTabPractice" data-professional-tab="practice" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Сценарии</button>
-          <button type="button" id="professionalTabJournal" data-professional-tab="journal" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Журнал</button>
-        </nav>
+        <div class="professional-workbar">
+          <nav class="professional-tabs" role="tablist" aria-label="Разделы практического обучения">
+            <button type="button" id="professionalTabTechniques" class="active" data-professional-tab="techniques" role="tab" aria-controls="professionalContent" aria-selected="true" tabindex="0">Приёмы</button>
+            <button type="button" id="professionalTabPractice" data-professional-tab="practice" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Сценарии</button>
+            <button type="button" id="professionalTabJournal" data-professional-tab="journal" role="tab" aria-controls="professionalContent" aria-selected="false" tabindex="-1">Журнал</button>
+          </nav>
+          <div id="professionalContextControl" class="professional-context-control" aria-live="polite"></div>
+        </div>
         <div id="professionalContent" role="tabpanel" aria-labelledby="professionalTabTechniques" tabindex="0"></div>
       </section>`);
     const dataPanel = document.querySelector('[data-settings-panel="data"] .resetlist');
@@ -403,10 +406,10 @@
       : `По шагам разобрано приёмов: ${techniquesReady}; наставник наблюдал: ${mentorConfirmed}; отработано областей: ${checklistsReady}; разобрано ситуаций: ${scenariosDone}.`;
     host.innerHTML = `
       <section class="professional-next-step" aria-labelledby="professionalNextTitle">
-        <div class="professional-next-copy"><span class="eyebrow">Твой следующий шаг</span><h3 id="professionalNextTitle">${esc(nextAction.title)}</h3>
-          <p><b>Уже сделано:</b> ${esc(completedText)}</p><p><b>Лучше сделать сейчас:</b> ${esc(nextAction.description)}</p></div>
+        <div class="professional-next-copy"><span class="professional-next-label">Следующий шаг</span><h3 id="professionalNextTitle">${esc(nextAction.title)}</h3>
+          <p>${esc(nextAction.description)}</p><small class="professional-next-status">${esc(completedText)}</small></div>
         <button type="button" id="professionalNextAction" class="btn primary">${esc(nextAction.button)}</button>
-        <p class="professional-boundary"><b>Важно:</b> это самоотработка, а не подтверждение навыка. Отметку о владении приёмом может дать только преподаватель после очного показа.</p>
+        <p class="professional-boundary">Самоотработка не подтверждает владение приёмом — это может сделать только преподаватель после очного показа.</p>
       </section>
       <details class="competency-help"><summary>Как устроен путь освоения</summary><div class="competency-route">${competencyLevels.length
         ? competencyLevels.map((level, index) => `<span><i>${index + 1}</i>${esc(first(level, ['title']))}</span>`).join('')
@@ -441,6 +444,8 @@
     }
     if (!techniques.some(item => item.id === activeTechnique)) activeTechnique = techniques[0].id;
     const item = techniques.find(row => row.id === activeTechnique) || techniques[0];
+    const contextControl = $('#professionalContextControl');
+    if (contextControl) contextControl.innerHTML = `<label class="technique-picker"><span>Приём</span><select id="techniquePicker">${techniques.map(row => `<option value="${esc(row.id)}" ${row.id === item.id ? 'selected' : ''}>${esc(first(row, ['title', 'name']))}</option>`).join('')}</select></label>`;
     const checklist = techniqueChecklist(item);
     const checked = state.techniqueChecks[item.id] || {};
     const checklistComplete = checklist.length > 0 && checklist.every((_, index) => checked[index] === true);
@@ -457,22 +462,17 @@
     const lesson = techniqueLesson(item);
     const safety = `${titledList('Стоп-сигналы', first(item, ['stopSignals', 'stopSigns', 'redFlags']), 'warning')}${titledList('Где требуется осторожность', first(item, ['limitations', 'restrictedAreas', 'restrictedZones', 'contraindications']), 'caution')}`;
     const mistakes = `${titledList('Частые ошибки', first(item, ['commonMistakes', 'mistakes']))}${titledList('Профессиональные подсказки', first(item, ['tips', 'professionalTips', 'proTips']))}`;
+    const techniqueSummary = first(item, ['summary', 'description', 'goal']);
+    const techniqueGoal = first(item, ['goal', 'purpose', 'summary']);
+    const techniqueGoalMarkup = techniqueGoal && techniqueGoal !== techniqueSummary ? `<p class="technique-goal">${esc(techniqueGoal)}</p>` : '';
     host.innerHTML = `
       <div class="technique-layout">
-        <div class="technique-toolbar">
-          <label class="technique-picker"><span>Выбери приём</span><select id="techniquePicker">
-            ${techniques.map(row => `<option value="${esc(row.id)}" ${row.id === item.id ? 'selected' : ''}>${esc(first(row, ['title', 'name']))}</option>`).join('')}
-          </select></label>
-          <nav class="technique-nav" aria-label="Массажные приёмы">
-            ${techniques.map(row => `<button type="button" data-technique-id="${esc(row.id)}" class="${row.id === item.id ? 'active' : ''}" aria-pressed="${row.id === item.id}">${esc(first(row, ['title', 'name']))}</button>`).join('')}
-          </nav>
-        </div>
         <article class="technique-detail">
-          <span class="eyebrow">${esc(first(item, ['level', 'difficulty'], 'Базовый уровень'))}</span>
+          <span class="technique-level">${esc(first(item, ['level', 'difficulty'], 'Базовый уровень'))}</span>
           <h3>${esc(first(item, ['title', 'name']))}</h3>
-          <p class="lead">${esc(first(item, ['summary', 'description', 'goal']))}</p>
+          <p class="lead">${esc(techniqueSummary)}</p>
+          ${techniqueGoalMarkup}
           <div class="technique-accordions">
-            <details class="technique-section" open><summary><span>Кратко о приёме</span><small>Цель и основной принцип</small></summary><div class="technique-section-body"><p>${esc(first(item, ['goal', 'purpose', 'summary']))}</p></div></details>
             ${lesson ? `<details class="technique-section"><summary><span>Видео или схема</span><small>Наглядный показ положения рук</small></summary><div class="technique-section-body">${lesson}</div></details>` : ''}
             <details class="technique-section"><summary><span>Как выполнять</span><small>Положение, направление и дозирование</small></summary><div class="technique-section-body"><div class="skill-facts">${fields.map(([title, value]) => { const rows = textRows(value); return `<section><h4>${esc(title)}</h4>${rows.length > 1 ? `<ul>${rows.map(v => `<li>${esc(v)}</li>`).join('')}</ul>` : `<p>${esc(rows[0])}</p>`}</section>`; }).join('')}</div></div></details>
             ${safety ? `<details class="technique-section safety"><summary><span>Безопасность</span><small>Стоп-сигналы и зоны осторожности</small></summary><div class="technique-section-body">${safety}</div></details>` : ''}
@@ -808,6 +808,11 @@
 
   function renderActiveTab() {
     $('#professionalProgress')?.classList.toggle('hidden', activeTab !== 'techniques');
+    const contextControl = $('#professionalContextControl');
+    if (contextControl) {
+      contextControl.innerHTML = '';
+      contextControl.classList.toggle('hidden', activeTab !== 'techniques');
+    }
     $$('[data-professional-tab]').forEach(button => {
       const active = button.dataset.professionalTab === activeTab;
       button.classList.toggle('active', active);
