@@ -78,6 +78,52 @@
     }
   }
 
+  async function remove(key) {
+    await withStore('readwrite', store => store.delete(key));
+  }
+
+  async function removeExpired(prefix, maxAgeMs) {
+    const database = await openDatabase();
+    try {
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction(STORE, 'readwrite');
+        const request = transaction.objectStore(STORE).openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          const savedAt = new Date(cursor.value?.savedAt).getTime();
+          if (String(cursor.key).startsWith(prefix) && (!Number.isFinite(savedAt) || Date.now() - savedAt > maxAgeMs)) cursor.delete();
+          cursor.continue();
+        };
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error('indexeddb_cleanup_failed'));
+      });
+    } finally {
+      database.close();
+    }
+  }
+
+  async function removeMatching(prefix, suffix) {
+    const database = await openDatabase();
+    try {
+      await new Promise((resolve, reject) => {
+        const transaction = database.transaction(STORE, 'readwrite');
+        const request = transaction.objectStore(STORE).openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          const key = String(cursor.key);
+          if (key.startsWith(prefix) && key.endsWith(suffix)) cursor.delete();
+          cursor.continue();
+        };
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error || new Error('indexeddb_migration_failed'));
+      });
+    } finally {
+      database.close();
+    }
+  }
+
   function savedAtLabel(value) {
     if (!value) return 'время неизвестно';
     const date = new Date(value);
@@ -85,10 +131,6 @@
     return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   }
 
-  function operationId() {
-    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
-
-  window.MinutaReliability = { get, put, removePrefix, savedAtLabel, operationId };
+  try { localStorage.removeItem('minuta-last-booking-url'); } catch {}
+  window.MinutaReliability = { get, put, remove, removePrefix, removeExpired, removeMatching, savedAtLabel };
 })();

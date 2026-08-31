@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#183427">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
   <meta name="description" content="Управление записью на массаж в Ижевске.">
   <meta name="robots" content="noindex,nofollow">
   <title>Моя запись — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=39">
+  <link rel="stylesheet" href="styles.css?v=40">
 </head>
 <body class="manage-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -24,6 +24,7 @@
       <div class="manage-error" id="manageError" hidden><span>!</span><h1 id="manageErrorTitle">Запись не найдена</h1><p id="manageErrorText">Ссылка могла быть повреждена. Проверьте её или создайте новую запись.</p><button class="primary" id="retryManage" type="button" hidden>Повторить проверку</button><a class="manage-secondary" href="index.html">Перейти к онлайн-записи</a></div>
       <div id="manageContent" hidden>
         <div class="manage-title"><div><small>Ваша запись</small><h1 id="manageService">Услуга</h1></div><span class="manage-status" id="manageStatus">Новая</span></div>
+        <p class="manage-freshness" id="manageFreshness" aria-live="polite">Проверяем актуальность…</p>
         <div class="manage-appointment">
           <div class="manage-date-mark"><strong id="manageDay">—</strong><span id="manageMonth">—</span></div>
           <div><strong id="manageDate">—</strong><span id="manageTime">—</span></div>
@@ -52,7 +53,7 @@
     </section>
   </main>
   <div class="toast" id="toast" hidden></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4/dist/umd/supabase.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV" crossorigin="anonymous"></script>
-  <script src="config.js?v=39"></script><script src="reliability.js?v=39"></script><script src="booking.js?v=39" defer></script>
+  <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
+  <script src="config.js?v=40"></script><script src="reliability.js?v=40"></script><script src="booking.js?v=40" defer></script>
 </body>
 </html>

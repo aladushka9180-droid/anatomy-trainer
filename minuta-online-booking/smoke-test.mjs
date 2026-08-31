@@ -1,16 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '39';
+const version = '40';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
   assert.match(html, /Content-Security-Policy/, `${page}: нет политики безопасности`);
-  assert.doesNotMatch(html, /v=38/, `${page}: осталась старая версия ресурсов`);
+  assert.doesNotMatch(html, /v=(?:38|39)/, `${page}: осталась старая версия ресурсов`);
   for (const match of html.matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"#]*)?"/g)) {
     const reference = match[1];
     if (/^(?:https?:|mailto:|tel:)/.test(reference)) continue;
@@ -20,21 +21,45 @@ for (const page of pages) {
 
 for (const page of ['index.html', 'provider.html', 'booking.html']) {
   const html = readFileSync(join(root, page), 'utf8');
-  assert.match(html, /@supabase\/supabase-js@2\.112\.4/, `${page}: SDK Supabase не закреплён`);
+  assert.match(html, /vendor\/supabase-2\.112\.4\.min\.js/, `${page}: SDK Supabase не закреплён локально`);
   assert.match(html, /integrity="sha384-/, `${page}: нет контроля целостности SDK`);
   assert.match(html, new RegExp(`reliability\\.js\\?v=${version}`), `${page}: не подключён слой надёжности`);
+  assert.doesNotMatch(html, /https:\/\/\*\.supabase\.co/, `${page}: CSP разрешает любой проект Supabase`);
 }
+
+const sdk = readFileSync(join(root, 'vendor', 'supabase-2.112.4.min.js'));
+assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV', 'Контрольная сумма локального SDK не совпадает');
 
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
+assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
+assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
+assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
+assert.match(provider, /bookings-v2/, 'Новый обезличенный кэш не отделён от старого PII-кэша');
+assert.match(provider, /client_name: 'Клиент', client_phone: ''/, 'Офлайн-кэш записей содержит данные клиента');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
-assert.match(worker, new RegExp(`massage-izhevsk-v${version}`), 'Версия Service Worker не совпадает');
+assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
+assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
 for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
+assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');
+assert.match(worker, /!new URL\(request\.url\)\.search/, 'Навигация с секретными параметрами может попасть в кэш');
+
+const app = readFileSync(join(root, 'app.js'), 'utf8');
+assert.doesNotMatch(app, /minuta-last-booking-url/, 'Секретная ссылка сохраняется в localStorage');
+assert.match(app, /validateCurrentSelection/, 'Выбранное время не перепроверяется после восстановления связи');
+
+const booking = readFileSync(join(root, 'booking.js'), 'utf8');
+assert.match(booking, /booking\.html#token=/, 'Токен управления не переносится из query-параметра во fragment');
+assert.match(booking, /loadBooking\(\{ silent: true \}\)/, 'Не проверяется результат неопределённой операции');
+
+const reliability = readFileSync(join(root, 'reliability.js'), 'utf8');
+assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Старый секретный токен не очищается');
+assert.match(reliability, /removeExpired/, 'Нет автоматического удаления просроченного офлайн-кэша');
 
 console.log('minuta-online-booking smoke test: OK');

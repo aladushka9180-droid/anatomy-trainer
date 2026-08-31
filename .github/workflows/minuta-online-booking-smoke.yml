@@ -21,4 +21,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node --check minuta-online-booking/app.js && node --check minuta-online-booking/booking.js && node --check minuta-online-booking/provider.js && node --check minuta-online-booking/reliability.js && node --check minuta-online-booking/sw.js
       - run: node minuta-online-booking/smoke-test.mjs

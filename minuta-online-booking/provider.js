@@ -1,3 +1,6 @@
+if (window.top === window.self) document.documentElement.classList.add('top-level');
+else throw new Error('embedded_provider_blocked');
+
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
@@ -23,11 +26,24 @@ let newBookingSlots = [];
 let newBookingHour = '';
 let scheduleRows = [];
 let daysOff = [];
+let scheduleDirty = false;
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let bookingsChannel = null;
 let syncTimer = null;
 let bookingReloadTimer = null;
+let sessionGeneration = 0;
+let bookingsRequestRevision = 0;
+let synchronizationPromise = null;
+let synchronizationGeneration = -1;
+let synchronizationQueued = false;
+let writesAllowed = false;
 const reliability = window.MinutaReliability;
+const PROVIDER_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+const providerCacheMaintenance = (async () => {
+  await reliability?.removeExpired?.('provider:', PROVIDER_CACHE_MAX_AGE);
+  try { await reliability?.removeMatching?.('provider:', ':bookings'); } catch {}
+})().catch(() => {});
+setInterval(() => { reliability?.removeMatching?.('provider:', ':bookings')?.catch(() => {}); }, 60000);
 const weekdayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 const notificationAddress = 'Ижевск, ул. Карла Маркса, 304Б';
 const defaultNotificationTemplates = {
@@ -36,33 +52,66 @@ const defaultNotificationTemplates = {
   cancellation: 'Здравствуйте, {имя}! Ваша запись на {услуга}, {дата} в {время}, отменена. Если захотите подобрать другое время, напишите мне.'
 };
 
-function providerCacheKey(name) { return `provider:${currentUser?.id || 'anonymous'}:${name}`; }
-async function saveProviderCache(name, data) {
-  try { await reliability?.put(providerCacheKey(name), data); } catch {}
+function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v2' : name}`; }
+function sessionIsCurrent(userId, generation) { return currentUser?.id === userId && sessionGeneration === generation; }
+function cachePayload(name, data) {
+  if (name !== 'bookings' || !Array.isArray(data)) return data;
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - 90);
+  const cutoffIso = localIsoDate(cutoff);
+  return data.filter(item => item.booking_date >= cutoffIso).slice(-500).map(item => ({ ...item, booking_code: '', client_name: 'Клиент', client_phone: '' }));
 }
-async function readProviderCache(name) {
-  try { return await reliability?.get(providerCacheKey(name)); } catch { return null; }
+async function saveProviderCache(name, data, userId = currentUser?.id) {
+  if (!userId) return;
+  try { await reliability?.put(providerCacheKey(name, userId), cachePayload(name, data)); } catch {}
+}
+async function readProviderCache(name, userId = currentUser?.id) {
+  if (!userId) return null;
+  try {
+    const cached = await reliability?.get(providerCacheKey(name, userId));
+    if (!cached) return null;
+    const savedAt = new Date(cached.savedAt).getTime();
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > PROVIDER_CACHE_MAX_AGE) {
+      await reliability?.remove?.(providerCacheKey(name, userId));
+      return null;
+    }
+    return cached;
+  } catch { return null; }
+}
+const writeSelectors = [
+  '#newBookingButton', '#saveSchedule', '#saveClientNote',
+  '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
+  '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
+  '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
+  '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
+];
+function applyWriteAvailability() {
+  $$(writeSelectors.join(',')).forEach(control => {
+    if (!writesAllowed && !control.disabled) {
+      control.disabled = true;
+      control.dataset.reliabilityDisabled = 'true';
+    } else if (writesAllowed && control.dataset.reliabilityDisabled === 'true') {
+      control.disabled = false;
+      delete control.dataset.reliabilityDisabled;
+    }
+  });
+}
+function setWritesAllowed(value) {
+  writesAllowed = Boolean(value);
+  applyWriteAvailability();
+}
+function requireWrites() {
+  if (writesAllowed && navigator.onLine && currentUser) return true;
+  notify('Изменения временно заблокированы до полной синхронизации');
+  return false;
 }
 function setSyncState(kind, text) {
   const element = $('#syncState');
   if (!element) return;
   element.className = `sync-state is-${kind}`;
   element.querySelector('span').textContent = text;
-  const writeSelectors = [
-    '#newBookingButton', '#saveSchedule', '#saveClientNote',
-    '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
-    '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
-    '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
-  ];
-  $$(writeSelectors.join(',')).forEach(control => {
-    if (kind === 'offline' && !control.disabled) {
-      control.disabled = true;
-      control.dataset.offlineDisabled = 'true';
-    } else if (kind !== 'offline' && control.dataset.offlineDisabled === 'true') {
-      control.disabled = false;
-      delete control.dataset.offlineDisabled;
-    }
-  });
+  applyWriteAvailability();
 }
 function cachedStateText(savedAt) {
   return `Офлайн · данные на ${reliability?.savedAtLabel(savedAt) || 'последнюю синхронизацию'}`;
@@ -566,6 +615,7 @@ function openServiceEditor(id) {
 
 async function saveServiceChanges(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
   clearFormError('#serviceEditError');
   const id = event.currentTarget.dataset.serviceId;
   const name = $('#editServiceName').value.trim();
@@ -587,7 +637,7 @@ async function saveServiceChanges(event) {
     return;
   }
   closeBookingSheet();
-  await loadOwnServices();
+  await refreshAfterWrite();
   notify('Услуга обновлена');
 }
 
@@ -635,6 +685,9 @@ function openBookingEditor(id) {
 
 async function saveBookingChanges(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   const id = event.currentTarget.dataset.bookingId;
   const item = allBookings.find(booking => booking.id === id);
   const service = ownServices.find(entry => entry.id === $('#editBookingService').value);
@@ -646,7 +699,8 @@ async function saveBookingChanges(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const { error } = await db.from('bookings').update({ service_id: service.id, duration_minutes: service.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` }).eq('id', id).eq('performer_id', currentUser.id);
+  const { error } = await db.from('bookings').update({ service_id: service.id, duration_minutes: service.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` }).eq('id', id).eq('performer_id', userId);
+  if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
     button.disabled = false;
     button.textContent = 'Сохранить изменения';
@@ -656,11 +710,12 @@ async function saveBookingChanges(event) {
   }
   const phone = normalizePhone(item.client_phone);
   const note = $('#editBookingNote').value.trim();
-  await db.from('client_notes').upsert({ performer_id: currentUser.id, client_phone: phone, note, updated_at: new Date().toISOString() });
+  await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
+  if (!sessionIsCurrent(userId, generation)) return;
   clientNotes.set(phone, note);
   selectedDate = date;
   renderDateStrip();
-  await loadBookings();
+  await refreshAfterWrite();
   notify('Запись обновлена');
   openBookingSheet(id);
 }
@@ -732,6 +787,9 @@ function openNewBookingSheet() {
 
 async function createNewBooking(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   const name = $('#newBookingName').value.trim();
   const phone = $('#newBookingPhone').value.trim();
   const service = $('#newBookingService').value;
@@ -747,12 +805,14 @@ async function createNewBooking(event) {
   button.textContent = 'Создаём…';
   const bookingParams = { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone };
   let { error } = await db.rpc('provider_book_appointment', bookingParams);
+  if (!sessionIsCurrent(userId, generation)) return;
   const technicalProviderError = error && (
     ['42501', '42883', 'PGRST202'].includes(String(error.code || ''))
     || /permission denied|could not find the function|does not exist/i.test(String(error.message || ''))
   );
   if (technicalProviderError) {
     ({ error } = await db.rpc('book_appointment', bookingParams));
+    if (!sessionIsCurrent(userId, generation)) return;
   }
   if (error) {
     button.disabled = false;
@@ -772,13 +832,14 @@ async function createNewBooking(event) {
   const note = $('#newBookingNote').value.trim();
   const normalizedPhone = normalizePhone(phone);
   if (note) {
-    await db.from('client_notes').upsert({ performer_id: currentUser.id, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
+    await db.from('client_notes').upsert({ performer_id: userId, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
+    if (!sessionIsCurrent(userId, generation)) return;
     clientNotes.set(normalizedPhone, note);
   }
   selectedDate = date;
   renderDateStrip();
   closeBookingSheet();
-  await loadBookings();
+  await refreshAfterWrite();
   notify('Новая запись создана');
 }
 
@@ -896,13 +957,23 @@ async function loadRepeatSlots() {
 }
 
 async function loadClientNotes() {
-  const { data } = await db.from('client_notes').select('client_phone,note').eq('performer_id', currentUser.id);
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false };
+  const { data, error } = await db.from('client_notes').select('client_phone,note').eq('performer_id', userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
+  if (error) return { ok: false };
   clientNotes = new Map((data || []).map(item => [item.client_phone, item.note]));
+  return { ok: true };
 }
 
 async function loadBookingOutcomes() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false, optional: true };
   const local = readLocalOutcomes();
-  const { data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,updated_at').eq('performer_id', currentUser.id);
+  const { data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,updated_at').eq('performer_id', userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   outcomesRemoteAvailable = !error;
   if (error) bookingOutcomes = new Map(Object.entries(local));
   else {
@@ -914,6 +985,7 @@ async function loadBookingOutcomes() {
   renderNotifications();
   renderAnalytics();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  return { ok: !error, optional: true };
 }
 
 function toggleOutcomePaymentFields() {
@@ -927,6 +999,9 @@ function toggleOutcomePaymentFields() {
 
 async function saveBookingOutcome(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   const form = event.currentTarget;
   const item = allBookings.find(booking => booking.id === form.dataset.bookingId);
   if (!item) return;
@@ -934,13 +1009,14 @@ async function saveBookingOutcome(event) {
   const completed = visitStatus === 'completed';
   const paymentMethod = completed ? $('#outcomePaymentMethod').value : 'unpaid';
   const amount = completed && paymentMethod !== 'unpaid' ? Math.max(0, Math.round(Number($('#outcomeAmount').value) || 0)) : 0;
-  const record = { booking_id: item.id, performer_id: currentUser.id, visit_status: visitStatus, payment_method: paymentMethod, amount_rub: amount, updated_at: new Date().toISOString() };
+  const record = { booking_id: item.id, performer_id: userId, visit_status: visitStatus, payment_method: paymentMethod, amount_rub: amount, updated_at: new Date().toISOString() };
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
   let remoteSaved = false;
   if (outcomesRemoteAvailable) {
     const { error } = await db.from('booking_outcomes').upsert(record, { onConflict: 'booking_id' });
+    if (!sessionIsCurrent(userId, generation)) return;
     remoteSaved = !error;
     if (error) outcomesRemoteAvailable = false;
   }
@@ -956,16 +1032,22 @@ async function saveBookingOutcome(event) {
 }
 
 async function saveClientNote() {
+  if (!requireWrites()) return;
   if (!selectedClientPhone) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const clientPhone = selectedClientPhone;
   const note = $('#clientNote').value.trim();
-  const { error } = await db.from('client_notes').upsert({ performer_id: currentUser.id, client_phone: selectedClientPhone, note, updated_at: new Date().toISOString() });
+  const { error } = await db.from('client_notes').upsert({ performer_id: userId, client_phone: clientPhone, note, updated_at: new Date().toISOString() });
+  if (!sessionIsCurrent(userId, generation)) return;
   if (error) { notify('Не удалось сохранить заметку'); return; }
-  clientNotes.set(selectedClientPhone, note);
+  clientNotes.set(clientPhone, note);
   notify('Заметка сохранена');
 }
 
 async function createRepeatBooking(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
   clearFormError('#repeatBookingError');
   const client = buildClients().find(item => item.phone === selectedClientPhone);
   if (!client || !repeatTime) { showFormError('#repeatBookingError', 'Выберите свободное время.'); return; }
@@ -974,7 +1056,7 @@ async function createRepeatBooking(event) {
   button.disabled = false; button.textContent = 'Создать запись';
   if (error) { showFormError('#repeatBookingError', error.message?.includes('slot_unavailable') ? 'Это время уже заняли. Выберите другое.' : 'Не удалось создать запись.'); await loadRepeatSlots(); return; }
   notify('Повторная запись создана');
-  await loadBookings();
+  await refreshAfterWrite();
 }
 
 function stopLiveUpdates() {
@@ -987,41 +1069,142 @@ function stopLiveUpdates() {
 
 function scheduleBookingsReload() {
   clearTimeout(bookingReloadTimer);
-  bookingReloadTimer = setTimeout(() => loadBookings({ silent: true }), 250);
+  bookingReloadTimer = setTimeout(() => {
+    if (synchronizationPromise) { synchronizationQueued = true; return; }
+    synchronizeProvider();
+  }, 250);
 }
 
 function startLiveUpdates() {
   stopLiveUpdates();
   if (!currentUser) return;
-  bookingsChannel = db
+  const channel = db
     .channel(`provider-bookings-${currentUser.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'services', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_schedule', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_days_off', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'client_notes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_outcomes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .subscribe(status => {
-      if (status === 'SUBSCRIBED') setSyncState('online', 'Онлайн · записи обновляются');
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setSyncState('warning', 'Связь нестабильна · проверяем');
-      if (status === 'CLOSED' && navigator.onLine) setSyncState('warning', 'Переподключаемся…');
+      if (bookingsChannel !== channel) return;
+      if (status === 'SUBSCRIBED') {
+        setSyncState(writesAllowed ? 'online' : 'warning', writesAllowed ? 'Онлайн · данные обновляются' : 'Подключено · проверяем данные · только чтение');
+        if (!writesAllowed) synchronizeProvider();
+      }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        bookingsChannel = null;
+        db.removeChannel(channel);
+        setWritesAllowed(false);
+        if (navigator.onLine) {
+          setSyncState('warning', 'Связь нестабильна · только чтение');
+          setTimeout(() => { if (currentUser && navigator.onLine && !bookingsChannel) startLiveUpdates(); }, 5000);
+        }
+      }
     });
+  bookingsChannel = channel;
   syncTimer = setInterval(() => {
-    if (!document.hidden && navigator.onLine) loadBookings({ silent: true });
+    if (!document.hidden && navigator.onLine) synchronizeProvider();
   }, 60000);
 }
 
-async function synchronizeProvider() {
-  if (!currentUser || !navigator.onLine) return;
-  setSyncState('checking', 'Синхронизация…');
-  await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff()]);
-  if (!bookingsChannel) startLiveUpdates();
+function synchronizeProvider() {
+  const requestedGeneration = sessionGeneration;
+  if (synchronizationPromise && synchronizationGeneration === requestedGeneration) return synchronizationPromise;
+  const run = (async () => {
+    const userId = currentUser?.id;
+    const generation = sessionGeneration;
+    if (!userId || !navigator.onLine) return false;
+    setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadBookingOutcomes()]);
+    if (!sessionIsCurrent(userId, generation)) return false;
+    const requiredResults = results.filter(result => !result?.optional);
+    const complete = requiredResults.every(result => result?.ok);
+    const skipped = requiredResults.some(result => result?.skipped);
+    const degraded = results.some(result => result?.optional && !result?.ok);
+    setWritesAllowed(complete);
+    if (complete) {
+      setSyncState(skipped || degraded ? 'warning' : 'online', skipped ? 'Есть несохранённое расписание · серверная сверка приостановлена' : degraded ? 'Основные данные синхронизированы · результаты визитов доступны только на этом устройстве' : `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
+      if (!bookingsChannel) startLiveUpdates();
+    } else {
+      const cached = results.filter(result => result?.cached).map(result => result.savedAt).filter(Boolean).sort()[0];
+      setSyncState(navigator.onLine ? 'warning' : 'offline', cached ? `${navigator.onLine ? 'Не все данные обновлены' : 'Офлайн'} · копия на ${reliability?.savedAtLabel(cached) || 'последнюю синхронизацию'} · только чтение` : 'Данные не синхронизированы · только чтение');
+    }
+    return complete;
+  })();
+  synchronizationGeneration = requestedGeneration;
+  synchronizationPromise = run;
+  run.finally(() => {
+    if (synchronizationPromise === run) {
+      synchronizationPromise = null;
+      synchronizationGeneration = -1;
+      if (synchronizationQueued && currentUser && navigator.onLine) {
+        synchronizationQueued = false;
+        setTimeout(() => synchronizeProvider(), 0);
+      }
+    }
+  });
+  return run;
+}
+
+async function refreshAfterWrite() {
+  if (synchronizationPromise) await synchronizationPromise;
+  return synchronizeProvider();
+}
+
+async function clearProviderDeviceData(userId) {
+  if (!userId) return;
+  try { await reliability?.removePrefix(`provider:${userId}:`); } catch {}
+  try {
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith(`massage-notifications-${userId}-`) || key === `massage-booking-outcomes-${userId}`) localStorage.removeItem(key);
+    });
+  } catch {}
+}
+
+async function logout() {
+  const userId = currentUser?.id;
+  ++sessionGeneration;
+  synchronizationQueued = false;
+  stopLiveUpdates();
+  setWritesAllowed(false);
+  await clearProviderDeviceData(userId);
+  await db.auth.signOut();
 }
 
 async function handleSession(session) {
+  const previousUserId = currentUser?.id;
+  const generation = ++sessionGeneration;
+  synchronizationQueued = false;
+  stopLiveUpdates();
+  $$('[data-operation-disabled]').forEach(control => {
+    control.disabled = false;
+    delete control.dataset.operationDisabled;
+    if (control.id === 'saveSchedule') control.textContent = 'Сохранить';
+  });
+  setWritesAllowed(false);
   currentUser = session?.user || null;
+  scheduleDirty = false;
+  if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId);
+  if (generation !== sessionGeneration) return;
   clearInterval(notificationTimer);
   notificationTimer = currentUser ? setInterval(renderNotifications, 60000) : null;
   if (recoveryMode) { showRecoveryReset(); return; }
   $('#authCard').hidden = Boolean(currentUser);
   $('#dashboard').hidden = !currentUser;
-  if (!currentUser) { stopLiveUpdates(); return; }
+  if (!currentUser) {
+    closeBookingSheet();
+    allBookings = [];
+    ownServices = [];
+    scheduleRows = [];
+    daysOff = [];
+    clientNotes = new Map();
+    bookingOutcomes = new Map();
+    return;
+  }
+  const userId = currentUser.id;
   const { data: profile } = await db.from('performer_profiles').select('display_name').eq('id', currentUser.id).single();
+  if (!sessionIsCurrent(userId, generation)) return;
   const name = profile?.display_name || 'исполнитель';
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
   $('#sidebarName').textContent = name;
@@ -1030,9 +1213,11 @@ async function handleSession(session) {
   $('#todayLabel').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   renderDateStrip();
   renderNotificationTemplates();
-  await Promise.all([loadOwnServices(), loadBookings(), loadClientNotes(), loadSchedule(), loadDaysOff()]);
-  await loadBookingOutcomes();
-  startLiveUpdates();
+  await providerCacheMaintenance;
+  if (!sessionIsCurrent(userId, generation)) return;
+  await synchronizeProvider();
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (!bookingsChannel) startLiveUpdates();
 }
 
 async function login(event) {
@@ -1112,6 +1297,7 @@ async function completePasswordRecovery(event) {
     return;
   }
   recoveryMode = false;
+  await clearProviderDeviceData(currentUser?.id);
   await db.auth.signOut();
   history.replaceState({}, '', 'provider.html');
   setAuthTab('login');
@@ -1120,6 +1306,7 @@ async function completePasswordRecovery(event) {
 
 async function addService(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
   clearFormError('#serviceError');
   const name = $('#serviceName').value.trim();
   const price = Number($('#servicePrice').value);
@@ -1137,7 +1324,7 @@ async function addService(event) {
   $('#serviceDuration').value = '60';
   $('#serviceCreatorDialog').close();
   notify('Услуга добавлена');
-  await loadOwnServices();
+  await refreshAfterWrite();
 }
 
 async function changePassword(event) {
@@ -1181,6 +1368,12 @@ async function changePassword(event) {
 }
 
 function shortTime(value, fallback) { return value ? String(value).slice(0, 5) : fallback; }
+function defaultScheduleRows(userId) {
+  return Array.from({ length: 7 }, (_, index) => ({ performer_id: userId, weekday: index + 1, enabled: index > 0, start_time: '10:00', end_time: '20:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
+}
+function comparableSchedule(rows) {
+  return rows.map(row => ({ weekday: Number(row.weekday), enabled: Boolean(row.enabled), start_time: shortTime(row.start_time, ''), end_time: shortTime(row.end_time, ''), break_start: shortTime(row.break_start, ''), break_end: shortTime(row.break_end, ''), slot_interval_minutes: Number(row.slot_interval_minutes || 5) })).sort((a, b) => a.weekday - b.weekday);
+}
 
 function renderSchedule() {
   const holder = $('#weeklySchedule');
@@ -1198,35 +1391,45 @@ function renderSchedule() {
 }
 
 async function loadSchedule() {
-  const { data, error } = await db.from('provider_schedule').select('*').eq('performer_id', currentUser.id).order('weekday');
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false };
+  if (scheduleDirty && writesAllowed) return { ok: true, skipped: true };
+  const { data, error } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   if (error) {
-    const cached = await readProviderCache('schedule');
+    const cached = await readProviderCache('schedule', userId);
+    if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
     if (cached?.data?.length) {
       scheduleRows = cached.data;
       $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
       renderSchedule();
       renderBookings();
-      setSyncState('offline', cachedStateText(cached.savedAt));
-      return;
+      return { ok: false, cached: true, savedAt: cached.savedAt };
     }
     $('#weeklySchedule').innerHTML = '<div class="provider-empty"><strong>Расписание пока недоступно</strong><small>Соединение с сервером не установлено. Изменения не выполнялись.</small></div>';
-    return;
+    return { ok: false };
   }
-  scheduleRows = data?.length ? data : Array.from({ length: 7 }, (_, index) => ({ performer_id: currentUser.id, weekday: index + 1, enabled: index > 0, start_time: '10:00', end_time: '20:00', break_start: null, break_end: null, slot_interval_minutes: 5 }));
-  await saveProviderCache('schedule', scheduleRows);
+  scheduleRows = data?.length ? data : defaultScheduleRows(userId);
+  await saveProviderCache('schedule', scheduleRows, userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
   renderSchedule();
   renderBookings();
+  return { ok: true };
 }
 
 async function saveSchedule() {
+  if (!requireWrites()) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   clearFormError('#scheduleError');
   const interval = Number($('#slotInterval').value);
   const rows = $$('[data-schedule-day]').map(card => {
     const enabled = card.querySelector('[data-schedule-enabled]').checked;
     const hasBreak = enabled && card.querySelector('[data-schedule-break]').checked;
     return {
-      performer_id: currentUser.id,
+      performer_id: userId,
       weekday: Number(card.dataset.scheduleDay),
       enabled,
       start_time: card.querySelector('[data-schedule-start]').value,
@@ -1239,14 +1442,37 @@ async function saveSchedule() {
   const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
   if (invalid) { showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
   const button = $('#saveSchedule');
+  button.dataset.operationDisabled = 'true';
   button.disabled = true;
+  button.textContent = 'Проверяем…';
+  const { data: serverSchedule, error: checkError } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (checkError) {
+    button.disabled = false;
+    delete button.dataset.operationDisabled;
+    button.textContent = 'Сохранить';
+    showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
+    return;
+  }
+  const serverRows = serverSchedule?.length ? serverSchedule : defaultScheduleRows(userId);
+  if (JSON.stringify(comparableSchedule(serverRows)) !== JSON.stringify(comparableSchedule(scheduleRows))) {
+    button.disabled = false;
+    delete button.dataset.operationDisabled;
+    button.textContent = 'Сохранить';
+    showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
+    return;
+  }
   button.textContent = 'Сохраняем…';
   const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
+  if (!sessionIsCurrent(userId, generation)) return;
   button.disabled = false;
+  delete button.dataset.operationDisabled;
   button.textContent = 'Сохранить';
   if (error) { showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
   scheduleRows = rows;
-  await saveProviderCache('schedule', scheduleRows);
+  scheduleDirty = false;
+  await saveProviderCache('schedule', scheduleRows, userId);
+  if (!sessionIsCurrent(userId, generation)) return;
   notify('Расписание сохранено');
 }
 
@@ -1264,25 +1490,32 @@ function renderDaysOff() {
 }
 
 async function loadDaysOff() {
-  const { data, error } = await db.from('provider_days_off').select('*').eq('performer_id', currentUser.id).gte('off_date', localIsoDate(new Date())).order('off_date');
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false };
+  const { data, error } = await db.from('provider_days_off').select('*').eq('performer_id', userId).gte('off_date', localIsoDate(new Date())).order('off_date');
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   if (error) {
-    const cached = await readProviderCache('days-off');
+    const cached = await readProviderCache('days-off', userId);
+    if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
     if (cached?.data) {
       daysOff = cached.data;
       renderDaysOff();
-      setSyncState('offline', cachedStateText(cached.savedAt));
-      return;
+      return { ok: false, cached: true, savedAt: cached.savedAt };
     }
     $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>';
-    return;
+    return { ok: false };
   }
   daysOff = data || [];
-  await saveProviderCache('days-off', daysOff);
+  await saveProviderCache('days-off', daysOff, userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   renderDaysOff();
+  return { ok: true };
 }
 
 async function addDayOff(event) {
   event.preventDefault();
+  if (!requireWrites()) return;
   clearFormError('#dayOffError');
   const allDay = $('#dayOffAllDay').checked;
   const date = $('#dayOffDate').value;
@@ -1299,7 +1532,7 @@ async function addDayOff(event) {
   $('#dayOffTime').hidden = true;
   $('#dayOffDate').min = localIsoDate(new Date());
   notify('Исключение добавлено');
-  await loadDaysOff();
+  await refreshAfterWrite();
 }
 
 function renderOwnServices() {
@@ -1318,48 +1551,59 @@ function renderOwnServices() {
 
 async function loadOwnServices(options = {}) {
   const list = $('#serviceManageList');
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false };
   if (!options.silent) list.innerHTML = '<div class="loading-state"><i></i><span>Загружаем…</span></div>';
-  const { data, error } = await db.from('services').select('*').eq('performer_id', currentUser.id).order('created_at', { ascending: false });
+  const { data, error } = await db.from('services').select('*').eq('performer_id', userId).order('created_at', { ascending: false });
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   if (error) {
-    const cached = await readProviderCache('services');
+    const cached = await readProviderCache('services', userId);
+    if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
     if (cached?.data) {
       ownServices = cached.data;
       renderOwnServices();
-      setSyncState('offline', cachedStateText(cached.savedAt));
-      return;
+      return { ok: false, cached: true, savedAt: cached.savedAt };
     }
     list.innerHTML = '<div class="provider-empty">Не удалось загрузить услуги.</div>';
-    return;
+    return { ok: false };
   }
   ownServices = data || [];
-  await saveProviderCache('services', ownServices);
+  await saveProviderCache('services', ownServices, userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   renderOwnServices();
+  return { ok: true };
 }
 
 async function loadBookings(options = {}) {
   const holder = $('#providerBookings');
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const revision = ++bookingsRequestRevision;
+  if (!userId) return { ok: false };
   if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   const { data, error } = await db.from('bookings')
     .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,services(name,price_rub,duration_minutes)')
-    .eq('performer_id', currentUser.id)
+    .eq('performer_id', userId)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
+  if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (error) {
-    const cached = await readProviderCache('bookings');
+    const cached = await readProviderCache('bookings', userId);
+    if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
     if (cached?.data) {
       allBookings = cached.data;
       renderBookingData();
-      setSyncState('offline', cachedStateText(cached.savedAt));
-      return;
+      return { ok: false, cached: true, savedAt: cached.savedAt };
     }
     holder.innerHTML = '<div class="provider-empty"><strong>Не удалось загрузить записи</strong><small>Соединение с сервером не установлено. Попробуйте ещё раз.</small></div>';
-    setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Сервер не отвечает' : 'Нет соединения');
-    return;
+    return { ok: false };
   }
   allBookings = data || [];
-  await saveProviderCache('bookings', allBookings);
+  await saveProviderCache('bookings', allBookings, userId);
+  if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   renderBookingData();
-  setSyncState('online', `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
+  return { ok: true };
 }
 
 document.addEventListener('click', async event => {
@@ -1461,28 +1705,29 @@ document.addEventListener('click', async event => {
     repeatTime = repeat.dataset.repeatTime;
     $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
   }
+  if ((toggle || remove || removeDayOff || booking) && !requireWrites()) return;
   if (toggle) {
     await db.from('services').update({ active: toggle.dataset.active !== 'true' }).eq('id', toggle.dataset.toggleService);
     notify('Услуга обновлена');
-    await loadOwnServices();
+    await refreshAfterWrite();
   }
   if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
     const { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
     if (error) notify('Не удалось удалить услугу');
     else notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
-    await Promise.all([loadOwnServices(), loadBookings()]);
+    await refreshAfterWrite();
   }
   if (removeDayOff) {
     const { error } = await db.from('provider_days_off').delete().eq('id', removeDayOff.dataset.deleteDayOff);
     if (error) notify('Не удалось удалить исключение');
-    else { notify('Исключение удалено'); await loadDaysOff(); }
+    else { notify('Исключение удалено'); await refreshAfterWrite(); }
   }
   if (booking) {
     const { error } = await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId).eq('performer_id', currentUser.id);
     if (error) { notify('Не удалось обновить запись'); return; }
     closeBookingSheet();
     notify('Статус записи обновлён');
-    await loadBookings();
+    await refreshAfterWrite();
   }
 });
 
@@ -1492,8 +1737,9 @@ document.addEventListener('visibilitychange', () => {
   renderNotifications();
   if (navigator.onLine) synchronizeProvider();
 });
-window.addEventListener('offline', () => setSyncState('offline', 'Офлайн · показана сохранённая копия'));
+window.addEventListener('offline', () => { setWritesAllowed(false); setSyncState('offline', 'Офлайн · показана сохранённая копия · только чтение'); });
 window.addEventListener('online', synchronizeProvider);
+new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
 
 $('#loginForm').addEventListener('submit', login);
@@ -1511,17 +1757,19 @@ $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
-$('#logoutButton').addEventListener('click', () => db.auth.signOut());
-$('#refreshBookings').addEventListener('click', loadBookings);
-$('#refreshNotifications').addEventListener('click', loadBookings);
+$('#logoutButton').addEventListener('click', logout);
+$('#refreshBookings').addEventListener('click', synchronizeProvider);
+$('#refreshNotifications').addEventListener('click', synchronizeProvider);
 $('#exportBookings').addEventListener('click', exportBookingsCsv);
 $('#newBookingButton').addEventListener('click', openNewBookingSheet);
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
+$('#slotInterval').addEventListener('change', () => { scheduleDirty = true; });
 $('#dayOffDate').min = localIsoDate(new Date());
 $('#weeklySchedule').addEventListener('change', event => {
   const card = event.target.closest('[data-schedule-day]');
   if (!card) return;
+  scheduleDirty = true;
   if (event.target.matches('[data-schedule-enabled]')) {
     const enabled = event.target.checked;
     card.classList.toggle('disabled', !enabled);
@@ -1540,4 +1788,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=39'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=40'));

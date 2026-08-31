@@ -1,13 +1,28 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey);
 const $ = selector => document.querySelector(selector);
-const token = new URLSearchParams(location.search).get('token') || '';
+const token = new URLSearchParams(location.search).get('token') || new URLSearchParams(location.hash.slice(1)).get('token') || '';
+if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `booking.html#token=${encodeURIComponent(token)}`);
 const state = { booking: null, dates: [], availability: new Map(), date: '', time: '' };
+let bookingLoadRevision = 0;
 
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
+function setFreshness(kind, text) {
+  const element = $('#manageFreshness');
+  element.className = `manage-freshness ${kind === 'stale' ? 'is-stale' : ''}`;
+  element.textContent = text;
+}
+function markBookingStale(text = 'Не удалось обновить данные — показана сохранённая на экране версия.') {
+  setFreshness('stale', text);
+  $('#openReschedule').disabled = true;
+  $('#cancelBooking').disabled = true;
+  $('#confirmReschedule').disabled = true;
+  $('#reschedulePanel').hidden = true;
+  $('#manageActions').hidden = false;
+}
 
 function createDates() {
   const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
@@ -35,20 +50,28 @@ function renderBooking() {
   const cancelled = item.status === 'cancelled';
   $('#openReschedule').disabled = cancelled;
   $('#cancelBooking').disabled = cancelled;
+  if (!$('#reschedulePanel').hidden) $('#confirmReschedule').disabled = !state.time;
+  $('#cancelBooking').textContent = 'Отменить запись';
+  setFreshness('fresh', `Проверено в ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
   if (cancelled) $('#manageActions').classList.add('cancelled');
 }
 
-async function loadBooking() {
-  $('#manageLoading').hidden = false;
-  $('#manageError').hidden = true;
-  if (!/^[0-9a-f-]{36}$/i.test(token)) return showNotFound();
+async function loadBooking(options = {}) {
+  const revision = ++bookingLoadRevision;
+  if (!options.silent) {
+    $('#manageLoading').hidden = false;
+    $('#manageError').hidden = true;
+  }
+  if (!/^[0-9a-f-]{36}$/i.test(token)) { if (!options.silent) showNotFound(); return false; }
   const { data, error } = await db.rpc('get_booking_by_token', { p_token: token });
-  if (error) return showLoadError();
-  if (!data?.length) return showNotFound();
+  if (revision !== bookingLoadRevision) return false;
+  if (error) { if (!options.silent) showLoadError(); else markBookingStale(); return false; }
+  if (!data?.length) { if (!options.silent) showNotFound(); else markBookingStale('Запись больше не найдена — обновите страницу или свяжитесь с исполнителем.'); return false; }
   state.booking = data[0];
   $('#manageLoading').hidden = true;
   $('#manageContent').hidden = false;
   renderBooking();
+  return true;
 }
 
 function showNotFound() {
@@ -62,7 +85,7 @@ function showLoadError() {
   $('#manageLoading').hidden = true;
   $('#manageError').hidden = false;
   $('#manageErrorTitle').textContent = navigator.onLine ? 'Не удалось проверить запись' : 'Нет соединения с интернетом';
-  $('#manageErrorText').textContent = 'Мы не получили ответ от сервера. Состояние записи не изменялось — повторите проверку позже.';
+  $('#manageErrorText').textContent = 'Мы не получили актуальные данные от сервера. Информация на экране могла устареть — повторите проверку позже.';
   $('#retryManage').hidden = false;
 }
 
@@ -107,13 +130,22 @@ async function confirmReschedule() {
   if (!state.time) return;
   const button = $('#confirmReschedule');
   button.disabled = true; button.textContent = 'Сохраняем…';
-  const { error } = await db.rpc('reschedule_booking', { p_token: token, p_date: state.date, p_time: `${state.time}:00` });
+  const requestedDate = state.date;
+  const requestedTime = state.time;
+  const { error } = await db.rpc('reschedule_booking', { p_token: token, p_date: requestedDate, p_time: `${requestedTime}:00` });
   button.textContent = 'Сохранить новое время';
   button.disabled = false;
   if (error) {
     const conflict = error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505';
     if (conflict) await openReschedule();
-    $('#manageFormError').textContent = conflict ? 'Это время уже занято. Выберите другое.' : 'Не удалось проверить перенос. Запись не изменена — повторите попытку.';
+    if (!conflict) {
+      const verified = await loadBooking({ silent: true });
+      if (verified && state.booking.booking_date === requestedDate && String(state.booking.booking_time).slice(0, 5) === requestedTime) {
+        closeReschedule(); notify('Запись перенесена'); return;
+      }
+      if (!verified) { button.disabled = true; button.textContent = 'Сначала обновите запись'; }
+    }
+    $('#manageFormError').textContent = conflict ? 'Это время уже занято. Выберите другое.' : 'Результат переноса не подтверждён. Не повторяйте действие сразу — сначала обновите состояние записи.';
     $('#manageFormError').hidden = false;
     return;
   }
@@ -124,7 +156,14 @@ async function cancelBooking() {
   if (!confirm('Отменить эту запись?')) return;
   const button = $('#cancelBooking'); button.disabled = true; button.textContent = 'Отменяем…';
   const { error } = await db.rpc('cancel_booking', { p_token: token });
-  if (error) { button.disabled = false; button.textContent = 'Отменить запись'; notify('Не удалось отменить запись'); return; }
+  if (error) {
+    const verified = await loadBooking({ silent: true });
+    button.disabled = !verified || state.booking?.status === 'cancelled'; button.textContent = 'Отменить запись';
+    if (verified && state.booking.status === 'cancelled') { notify('Запись отменена'); return; }
+    if (!verified) { button.disabled = true; button.textContent = 'Сначала обновите запись'; }
+    notify('Результат отмены не подтверждён — обновите запись перед повтором');
+    return;
+  }
   notify('Запись отменена'); await loadBooking();
 }
 
@@ -151,6 +190,8 @@ $('#confirmReschedule').addEventListener('click', confirmReschedule);
 $('#cancelBooking').addEventListener('click', cancelBooking);
 $('#addCalendar').addEventListener('click', addToCalendar);
 $('#retryManage').addEventListener('click', loadBooking);
-window.addEventListener('online', () => { if (!state.booking) loadBooking(); });
+window.addEventListener('online', () => loadBooking({ silent: Boolean(state.booking) }));
+document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
+setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=39'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=40'));

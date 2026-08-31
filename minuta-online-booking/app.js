@@ -1,5 +1,10 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), loadingAvailability: false };
+let servicesLoadRevision = 0;
+let availabilityLoadRevision = 0;
+let selectionValidationPending = false;
+let selectionValidationBlocked = false;
+let bookingResultUncertain = false;
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -33,6 +38,19 @@ function setBookingStatus(kind, text) {
   element.className = `status status-${kind}`;
   element.querySelector('span').textContent = text;
 }
+function setSelectionValidationState(kind) {
+  selectionValidationPending = kind === 'checking';
+  selectionValidationBlocked = kind !== 'ready';
+  const submit = $('#submitBooking');
+  if (!submit) return;
+  if (kind === 'ready') {
+    submit.disabled = bookingResultUncertain;
+    submit.textContent = bookingResultUncertain ? 'Нужна проверка записи' : 'Подтвердить запись';
+  } else {
+    submit.disabled = true;
+    submit.textContent = kind === 'checking' ? 'Проверяем выбранное время…' : 'Сначала обновите расписание';
+  }
+}
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function serviceDescription(value) {
@@ -50,18 +68,34 @@ function serviceDescription(value) {
 
 async function loadServices() {
   const holder = $('#services');
+  const revision = ++servicesLoadRevision;
+  const previousServiceId = state.serviceId;
+  if (state.step === 3) setSelectionValidationState('checking');
   setBookingStatus('checking', 'Проверяем расписание…');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем услуги…</span></div>';
   const { data, error } = await db.from('services').select('id, performer_id, name, duration_minutes, price_rub, performer_profiles(display_name)').eq('active', true).order('created_at', { ascending: true });
+  if (revision !== servicesLoadRevision) return;
   if (error) {
+    if (state.step === 3) setSelectionValidationState('failed');
     setBookingStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Запись временно недоступна' : 'Нет соединения с интернетом');
     holder.innerHTML = '<div class="empty-service"><strong>Не удалось проверить расписание</strong><span>Запись не создана. Проверьте интернет и повторите попытку.</span><button class="service-details-button" type="button" id="retryServices">Повторить</button></div>';
     return;
   }
   state.services = data || [];
-  if (!state.services.some(item => item.id === state.serviceId)) state.serviceId = state.services[0]?.id || '';
+  const selectionWasRemoved = Boolean(previousServiceId) && !state.services.some(item => item.id === previousServiceId);
+  if (!previousServiceId) state.serviceId = state.services[0]?.id || '';
+  else if (selectionWasRemoved) state.serviceId = '';
   setBookingStatus(state.services.length ? 'open' : 'closed', state.services.length ? 'Запись открыта' : 'Запись пока закрыта');
   renderServices();
+  if (selectionWasRemoved) {
+    state.time = '';
+    state.availability = new Map();
+    setBookingStatus('error', 'Выбранная услуга больше недоступна');
+    await showStep(1);
+    return;
+  }
+  if (state.step === 2) await loadAvailability();
+  if (state.step === 3 && selectedService()) await validateCurrentSelection();
 }
 
 function renderServices() {
@@ -71,7 +105,7 @@ function renderServices() {
     $('#toDate').disabled = true;
     return;
   }
-  $('#toDate').disabled = false;
+  $('#toDate').disabled = !selectedService();
   holder.innerHTML = state.services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span></button>`).join('');
   $('#serviceDetailsButton').hidden = !selectedService();
 }
@@ -129,6 +163,7 @@ function renderTimes() {
 
 async function loadAvailability() {
   const service = selectedService();
+  const revision = ++availabilityLoadRevision;
   state.availability = new Map();
   state.time = '';
   state.hour = '';
@@ -138,6 +173,7 @@ async function loadAvailability() {
   renderTimes();
   if (!service) { state.loadingAvailability = false; renderTimes(); return; }
   const { data, error } = await db.rpc('get_available_slots', { p_service: service.id, p_start: dates[0].iso, p_end: dates[dates.length - 1].iso });
+  if (revision !== availabilityLoadRevision || selectedService()?.id !== service.id) return;
   dates.forEach(item => state.availability.set(item.iso, []));
   if (!error) (data || []).forEach(item => {
     const date = item.booking_date;
@@ -167,7 +203,7 @@ async function showStep(step) {
   $('#bookingTitle').textContent = titles[step];
   $('#stepLabel').textContent = `Шаг ${step} из 3`;
   if (step === 2) await loadAvailability();
-  if (step === 3) renderSummary();
+  if (step === 3) { setSelectionValidationState('ready'); renderSummary(); }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -175,12 +211,37 @@ function renderSummary() {
   const service = selectedService();
   $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
 }
+async function validateCurrentSelection() {
+  const service = selectedService();
+  const selectedTime = state.time;
+  const selectedBookingDate = state.date;
+  if (!service || !selectedTime) { await showStep(2); return; }
+  setSelectionValidationState('checking');
+  const { data, error } = await db.rpc('get_available_slots', { p_service: service.id, p_start: selectedBookingDate, p_end: selectedBookingDate });
+  if (selectedService()?.id !== service.id || state.date !== selectedBookingDate || state.time !== selectedTime) return;
+  if (error) {
+    setSelectionValidationState('failed');
+    setBookingStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Не удалось перепроверить выбранное время' : 'Нет соединения с интернетом');
+    return;
+  }
+  const available = (data || []).some(item => String(item.booking_time).slice(0, 5) === selectedTime);
+  if (!available) {
+    state.time = '';
+    await showStep(2);
+    setBookingStatus('error', 'Выбранное время стало недоступно — выберите другое');
+    return;
+  }
+  setSelectionValidationState('ready');
+  renderSummary();
+}
 function formatPhone(value) { let digits = value.replace(/\D/g, '').slice(0, 11); if (!digits) return ''; if (digits[0] === '8') digits = `7${digits.slice(1)}`; if (digits[0] !== '7') digits = `7${digits}`.slice(0, 11); const p = digits.slice(1); return `+7${p.length ? ` (${p.slice(0, 3)}` : ''}${p.length >= 3 ? ')' : ''}${p.length > 3 ? ` ${p.slice(3, 6)}` : ''}${p.length > 6 ? `-${p.slice(6, 8)}` : ''}${p.length > 8 ? `-${p.slice(8, 10)}` : ''}`; }
 function showError(message) { $('#formError').textContent = message; $('#formError').hidden = false; }
 
 async function submitBooking(event) {
   event.preventDefault();
-  const operation = window.MinutaReliability?.operationId?.() || String(Date.now());
+  if (selectionValidationPending) { showError('Подождите, пока выбранное время будет перепроверено.'); return; }
+  if (selectionValidationBlocked) { showError('Сначала обновите расписание и перепроверьте выбранное время.'); return; }
+  if (bookingResultUncertain) { showError('Сначала уточните у исполнителя, была ли создана предыдущая запись.'); return; }
   const name = $('#clientName').value.trim();
   const phone = $('#clientPhone').value;
   const service = selectedService();
@@ -199,7 +260,12 @@ async function submitBooking(event) {
     if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
       showError('Это время только что заняли. Выберите другое.');
       await showStep(2);
-    } else showError(`Не удалось подтвердить запись. Она не создана. Повторите попытку. Код: ${operation.slice(0, 8)}`);
+    } else {
+      bookingResultUncertain = true;
+      submit.disabled = true;
+      submit.textContent = 'Нужна проверка записи';
+      showError('Сервер не подтвердил результат. Не отправляйте форму повторно: свяжитесь с исполнителем по номеру +7 950 177-31-31, чтобы исключить двойную запись.');
+    }
     return;
   }
   const code = data?.[0]?.booking_code || 'создан';
@@ -211,16 +277,15 @@ async function submitBooking(event) {
   $('#successCode').innerHTML = `Номер записи: <strong>${escapeHtml(code)}</strong>`;
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
-    manageUrl.searchParams.set('token', manageToken);
+    manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
     $('#copyManageBooking').hidden = false;
-    try { localStorage.setItem('minuta-last-booking-url', manageUrl.href); } catch {}
   }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; state.time = ''; state.moreDates = false; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; bookingResultUncertain = false; state.time = ''; state.moreDates = false; showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -260,4 +325,4 @@ window.addEventListener('online', () => loadServices());
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=39'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=40'));
