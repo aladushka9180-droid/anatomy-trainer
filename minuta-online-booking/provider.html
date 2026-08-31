@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#153c2c">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
   <meta name="description" content="Кабинет исполнителя онлайн-записи «Массаж в Ижевске».">
   <meta property="og:title" content="Кабинет исполнителя — Массаж в Ижевске">
   <meta property="og:description" content="Управляйте услугами, расписанием и записями клиентов.">
@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=45">
+  <link rel="stylesheet" href="styles.css?v=46">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -66,6 +66,7 @@
           <button type="button" data-provider-view="analytics"><span aria-hidden="true">↗</span><span>Статистика</span></button>
           <button type="button" data-provider-view="schedule"><span aria-hidden="true">◷</span><span>Расписание</span></button>
           <button type="button" data-provider-view="services"><span aria-hidden="true">✦</span><span>Услуги</span><b id="servicesBadge">0</b></button>
+          <button type="button" data-provider-view="portfolio"><span aria-hidden="true">▧</span><span>Портфолио</span><b id="portfolioBadge">0</b></button>
           <button type="button" data-provider-view="settings"><span aria-hidden="true">⚙</span><span>Настройки</span></button>
         </nav>
         <div class="sidebar-bottom">
@@ -204,6 +205,14 @@
           </div>
         </section>
 
+        <section class="provider-view" data-provider-panel="portfolio" hidden>
+          <div class="view-title"><div><span>Работы мастера</span><h2>Портфолио</h2></div><div class="view-title-actions"><span class="panel-count" id="portfolioCount">0</span><button class="primary compact-button" type="button" data-open-portfolio-editor>＋ Добавить работу</button></div></div>
+          <p class="view-description">Показывайте результат честно: подписи «До» и «После N сеансов» можно менять без повторной загрузки фото.</p>
+          <p class="portfolio-availability" id="portfolioAvailability" role="status" aria-live="polite" hidden></p>
+          <div class="portfolio-manage-list" id="portfolioManageList"></div>
+          <p class="sr-only" id="portfolioOrderStatus" aria-live="polite"></p>
+        </section>
+
         <section class="provider-view" data-provider-panel="settings" hidden>
           <div class="view-title"><div><span>Безопасность</span><h2>Настройки</h2></div></div>
           <div class="settings-layout">
@@ -242,6 +251,7 @@
           <div class="view-title"><div><span>Дополнительно</span><h2>Ещё</h2></div></div>
           <div class="mobile-more-grid">
             <button type="button" data-provider-view="services"><span>✦</span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
+            <button type="button" data-provider-view="portfolio"><span>▧</span><strong>Портфолио</strong><small>Фото работ и количество сеансов</small></button>
             <button type="button" data-provider-view="analytics"><span>↗</span><strong>Статистика</strong><small>Доход, визиты и выгрузка записей</small></button>
             <button type="button" data-provider-view="settings"><span>⚙</span><strong>Настройки</strong><small>Пароль и безопасность кабинета</small></button>
           </div>
@@ -257,6 +267,24 @@
       </nav>
     </section>
   </main>
+  <dialog class="portfolio-editor-dialog" id="portfolioEditorDialog" aria-labelledby="portfolioEditorTitle">
+    <div class="notification-template-dialog-head"><div><small>Портфолио</small><h2 id="portfolioEditorTitle">Новая работа</h2></div><button type="button" data-close-portfolio-editor aria-label="Закрыть">×</button></div>
+    <form id="portfolioForm" class="portfolio-form">
+      <input id="portfolioItemId" type="hidden">
+      <div class="form-row"><label>Процедура<input id="portfolioProcedure" maxlength="120" placeholder="Например, Лазерная эпиляция" required></label><label>Зона<input id="portfolioArea" maxlength="120" placeholder="Например, Голени"></label></div>
+      <label>Количество проведённых сеансов<input id="portfolioSessions" type="number" min="1" max="999" inputmode="numeric" placeholder="Например, 6"><small>Если заполнить, на результате появится метка «После 6 сеансов».</small></label>
+      <div class="portfolio-photo-fields">
+        <label class="portfolio-photo-field" data-portfolio-photo-field="before"><span>Фото «До»</span><input id="portfolioBeforeFile" type="file" accept="image/jpeg,image/png,image/webp"><span class="portfolio-photo-placeholder">＋ Выбрать фотографию</span><img id="portfolioBeforePreview" alt="Предпросмотр фотографии до" hidden></label>
+        <label class="portfolio-photo-field" data-portfolio-photo-field="after"><span>Фото «После»</span><input id="portfolioAfterFile" type="file" accept="image/jpeg,image/png,image/webp"><span class="portfolio-photo-placeholder">＋ Выбрать фотографию</span><img id="portfolioAfterPreview" alt="Предпросмотр фотографии после" hidden></label>
+      </div>
+      <p class="portfolio-photo-help">JPEG, PNG или WebP до 12 МБ. Перед загрузкой сайт уменьшит фото и удалит EXIF, включая геолокацию.</p>
+      <label>Описание<textarea id="portfolioDescription" maxlength="1200" rows="4" placeholder="Что изменилось и за какой период"></textarea></label>
+      <label class="settings-check portfolio-consent"><input id="portfolioConsent" type="checkbox"><span><strong>Согласие клиента получено</strong><small>Клиент разрешил публиковать эти фотографии. Имя и данные записи не добавляются.</small></span></label>
+      <label class="settings-check"><input id="portfolioPublished" type="checkbox"><span><strong>Показывать клиентам</strong><small>Публикация доступна только после подтверждения согласия.</small></span></label>
+      <p class="form-error" id="portfolioError" role="alert" hidden></p>
+      <div class="portfolio-form-actions"><button class="secondary-button" type="button" data-close-portfolio-editor>Отмена</button><button class="primary" type="submit">Сохранить работу</button></div>
+    </form>
+  </dialog>
   <dialog class="notification-template-dialog" id="notificationTemplatesDialog" aria-labelledby="notificationTemplatesTitle">
     <div class="notification-template-dialog-head"><div><small>Ваши тексты</small><h2 id="notificationTemplatesTitle">Шаблоны сообщений</h2></div><button type="button" data-close-notification-templates aria-label="Закрыть">×</button></div>
     <p class="template-help">Переменные: <b>{имя}</b>, <b>{услуга}</b>, <b>{дата}</b>, <b>{время}</b>, <b>{адрес}</b>.</p>
@@ -286,8 +314,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=45"></script>
-  <script src="reliability.js?v=45"></script>
-  <script src="provider.js?v=45" defer></script>
+  <script src="config.js?v=46"></script>
+  <script src="reliability.js?v=46"></script>
+  <script src="provider.js?v=46" defer></script>
 </body>
 </html>

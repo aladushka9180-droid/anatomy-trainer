@@ -149,6 +149,55 @@ async function loadServices() {
   if (state.step === 3 && selectedService()) await validateCurrentSelection();
 }
 
+function publicPortfolioAfterLabel(sessionCount) {
+  const count = Number(sessionCount);
+  if (!count) return 'После процедуры';
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  const word = mod10 === 1 && mod100 !== 11 ? 'сеанса' : 'сеансов';
+  return `После ${count} ${word}`;
+}
+
+function publicPortfolioPhoto(item, type) {
+  return (item.portfolio_photos || []).find(photo => photo.photo_type === type);
+}
+
+function publicPortfolioPhotoMarkup(photo, label) {
+  if (!photo?.signedUrl) return `<figure class="portfolio-photo portfolio-photo-empty"><span>${escapeHtml(label)}</span></figure>`;
+  return `<figure class="portfolio-photo"><img src="${escapeHtml(photo.signedUrl)}" alt="${escapeHtml(photo.alt_text || label)}" loading="lazy" decoding="async"><span>${escapeHtml(label)}</span></figure>`;
+}
+
+async function loadPublicPortfolio() {
+  const section = $('#portfolioSection');
+  const holder = $('#publicPortfolioList');
+  if (!section || !holder) return;
+  const { data, error } = await db.from('portfolio_items')
+    .select('id, procedure_name, body_area, session_count, description, sort_order, performer_profiles(display_name), portfolio_photos(id, photo_type, storage_path, alt_text)')
+    .eq('published', true)
+    .order('sort_order', { ascending: true })
+    .limit(24);
+  if (error || !data?.length) {
+    section.hidden = true;
+    holder.innerHTML = '';
+    return;
+  }
+  const items = await Promise.all(data.map(async item => {
+    const photos = await Promise.all((item.portfolio_photos || []).map(async photo => {
+      const { data: signed } = await db.storage.from('portfolio-images').createSignedUrl(photo.storage_path, 3600);
+      return { ...photo, signedUrl: signed?.signedUrl || '' };
+    }));
+    return { ...item, portfolio_photos: photos };
+  }));
+  holder.innerHTML = items.map(item => {
+    const afterLabel = publicPortfolioAfterLabel(item.session_count);
+    const area = item.body_area ? `<span>${escapeHtml(item.body_area)}</span>` : '';
+    const performer = item.performer_profiles?.display_name ? `<span>Мастер: ${escapeHtml(item.performer_profiles.display_name)}</span>` : '';
+    const description = item.description ? `<p>${escapeHtml(item.description)}</p>` : '';
+    return `<article class="public-portfolio-card"><div class="public-portfolio-photos">${publicPortfolioPhotoMarkup(publicPortfolioPhoto(item, 'before'), 'До')}${publicPortfolioPhotoMarkup(publicPortfolioPhoto(item, 'after'), afterLabel)}</div><div class="public-portfolio-copy"><h3>${escapeHtml(item.procedure_name)}</h3>${area}${performer}${description}</div></article>`;
+  }).join('');
+  section.hidden = false;
+}
+
 function renderServices() {
   const holder = $('#services');
   if (!state.services.length) {
@@ -399,8 +448,9 @@ $('#copyManageBooking').addEventListener('click', async () => {
   } catch { showError('Не удалось скопировать ссылку. Откройте страницу управления и сохраните её в закладках.'); }
 });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
-window.addEventListener('online', () => loadServices());
+window.addEventListener('online', () => { loadServices(); loadPublicPortfolio(); });
 renderDates();
 renderTimes();
 loadServices();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=45'));
+loadPublicPortfolio();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=46'));

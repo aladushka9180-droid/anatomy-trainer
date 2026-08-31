@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '45';
+const version = '46';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -51,6 +51,12 @@ assert.match(provider, /SCHEDULE_FILTER_KEY/, 'Фильтр расписания
 assert.match(provider, /timeZone: 'Europe\/Samara'/, 'Расписание не использует часовой пояс места оказания услуг');
 assert.match(provider, /scrollIntoView/, 'Активная дата не прокручивается в видимую область на мобильном');
 assert.match(provider, /setAttribute\('aria-pressed'/, 'Состояние фильтров не передаётся средствам доступности');
+assert.match(provider, /preparePortfolioImage/, 'Фотографии портфолио не обрабатываются перед загрузкой');
+assert.match(provider, /canvas\.toBlob\(resolve, 'image\/webp'/, 'Фотографии портфолио не преобразуются в WebP без EXIF');
+assert.match(provider, /reorder_portfolio_items/, 'Порядок портфолио не синхронизируется с сервером');
+assert.match(provider, /data-portfolio-card/, 'Карточки портфолио нельзя перетаскивать на ПК');
+assert.match(provider, /data-portfolio-move="up"/, 'Для мобильного нет кнопок изменения порядка портфолио');
+assert.match(provider, /consent_confirmed_at/, 'Согласие клиента не сохраняется для портфолио');
 
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
@@ -58,6 +64,11 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
 assert.match(providerHtml, /data-date-shift="-7"[\s\S]*data-date-shift="7"/, 'В расписании нет навигации по неделям');
+assert.match(providerHtml, /data-provider-panel="portfolio"/, 'В кабинете нет раздела портфолио');
+assert.match(providerHtml, /id="portfolioSessions"[^>]*min="1"[^>]*max="999"/, 'Нельзя указать количество проведённых сеансов');
+assert.match(providerHtml, /id="portfolioBeforeFile"[^>]*accept="image\/jpeg,image\/png,image\/webp"/, 'Нет выбора фотографии «До»');
+assert.match(providerHtml, /id="portfolioAfterFile"[^>]*accept="image\/jpeg,image\/png,image\/webp"/, 'Нет выбора фотографии «После»');
+assert.match(providerHtml, /id="portfolioConsent"/, 'Публикация не требует подтверждения согласия клиента');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
@@ -77,6 +88,12 @@ assert.match(app, /Проверить результат/, 'После неоп�
 assert.match(app, /bookingFingerprint/, 'Изменение параметров не отделяет новую попытку записи от повтора');
 assert.match(app, /sessionStorage\.setItem\(BOOKING_ATTEMPT_KEY/, 'Повтор после перезагрузки страницы теряет идентификатор запроса');
 assert.doesNotMatch(app, /sessionStorage\.setItem\([^\n]*(?:clientName|clientPhone)/, 'Персональные данные попадают в sessionStorage');
+assert.match(app, /loadPublicPortfolio/, 'Публичное портфолио не загружается');
+assert.match(app, /createSignedUrl\(photo\.storage_path/, 'Публичные фотографии не используют временные ссылки');
+assert.match(app, /После \$\{count\} \$\{word\}/, 'Количество сеансов не выводится на фотографии «После»');
+
+const index = readFileSync(join(root, 'index.html'), 'utf8');
+assert.match(index, /id="portfolioSection"/, 'На публичной странице нет раздела портфолио');
 
 const booking = readFileSync(join(root, 'booking.js'), 'utf8');
 assert.match(booking, /booking\.html#token=/, 'Токен управления не переносится из query-параметра во fragment');
@@ -106,6 +123,19 @@ assert.match(immutableRequestMigration, /booking\.request_fingerprint/, 'Пов�
 assert.doesNotMatch(immutableRequestMigration, /v_existing_(?:service|date|time|name|phone)/, 'Повтор всё ещё зависит от изменяемого состояния записи');
 assert.match(immutableRequestMigration, /request_fingerprint ~ '\^\[0-9a-f\]\{64\}\$'/, 'Формат серверного отпечатка не ограничен');
 assert.match(app, /clearBookingAttempt\(\);\s*\n\s*\$\('#bookingFlow'\)/, 'Подтверждённая запись оставляет попытку в sessionStorage');
+
+const portfolioMigration = readFileSync(join(root, 'supabase-migration-v45.sql'), 'utf8');
+assert.match(portfolioMigration, /create table if not exists public\.portfolio_items/, 'Нет серверного хранения карточек портфолио');
+assert.match(portfolioMigration, /create table if not exists public\.portfolio_photos/, 'Нет серверного хранения метаданных фотографий');
+assert.match(portfolioMigration, /portfolio_publication_requires_consent/, 'Сервер разрешает публикацию без согласия клиента');
+assert.match(portfolioMigration, /'portfolio-images',[\s\S]*false,[\s\S]*8388608/, 'Хранилище портфолио не является закрытым или не ограничивает размер');
+assert.match(portfolioMigration, /array\['image\/webp'\]/, 'Хранилище принимает файлы с лишними метаданными');
+assert.match(portfolioMigration, /portfolio_objects_public_select/, 'Нет ограниченного публичного чтения опубликованных фотографий');
+assert.match(portfolioMigration, /create or replace function public\.reorder_portfolio_items/, 'Нет серверного изменения порядка портфолио');
+
+const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
+assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
+assert.match(privacy, /EXIF и геометки/, 'В политике не описано удаление метаданных фотографий');
 
 const reliability = readFileSync(join(root, 'reliability.js'), 'utf8');
 assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Старый секретный токен не очищается');

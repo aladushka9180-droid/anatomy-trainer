@@ -561,6 +561,23 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .service-creator-dialog select { box-shadow:none; transition:border-color .16s ease; }
 .service-creator-dialog select:focus { border-color:#438065; box-shadow:none; }
 .service-creator-dialog .primary { width:100%; margin-top:4px; }
+.portfolio-availability { margin:16px 0 0; padding:12px 14px; border:1px solid #ead9b9; border-radius:13px; background:#fff8eb; color:#765724; font-size:11px; line-height:1.5; }
+.portfolio-manage-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; margin-top:20px; }
+.portfolio-card { min-width:0; overflow:hidden; border:1px solid #dfe8e2; border-radius:18px; background:#fff; transition:border-color .16s ease,transform .16s ease,opacity .16s ease; }
+.portfolio-card[draggable="true"] { cursor:grab; }.portfolio-card.dragging { opacity:.48; }.portfolio-card.drag-target { border-color:#4d886a; transform:translateY(-2px); }
+.portfolio-card-photos,.public-portfolio-photos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:2px; background:#e8eeea; }
+.portfolio-photo { position:relative; min-height:170px; margin:0; overflow:hidden; background:#eef3ef; }
+.portfolio-photo img { display:block; width:100%; height:100%; min-height:170px; object-fit:cover; }
+.portfolio-photo>span { position:absolute; top:10px; left:10px; max-width:calc(100% - 20px); padding:6px 9px; border-radius:999px; background:rgba(20,44,32,.82); color:#fff; font-size:9px; font-weight:900; line-height:1.2; backdrop-filter:blur(8px); }
+.portfolio-photo-empty { display:grid; place-items:center; min-height:170px; color:#789087; font-size:11px; font-weight:800; }
+.portfolio-card-body { padding:15px; }.portfolio-card-body h3 { margin:0; font-size:16px; letter-spacing:-.03em; }.portfolio-card-body>small { display:block; margin-top:5px; color:#73847b; font-size:10px; }.portfolio-card-body>p { margin:10px 0 0; color:#5f7268; font-size:11px; line-height:1.5; }
+.portfolio-card-status { display:inline-flex; margin-top:11px; padding:5px 8px; border-radius:999px; background:#edf3ef; color:#617369; font-size:8px; font-weight:900; text-transform:uppercase; }.portfolio-card-status.published { background:#e2f3e8; color:#266846; }
+.portfolio-card-actions { display:grid; grid-template-columns:auto auto 1fr auto; gap:6px; padding:0 15px 15px; }.portfolio-card-actions button { min-height:35px; padding:0 10px; border:1px solid #dce6df; border-radius:10px; background:#f7faf8; color:#315c46; cursor:pointer; font-size:9px; font-weight:850; }.portfolio-card-actions button:disabled { cursor:not-allowed; opacity:.42; }.portfolio-card-actions .portfolio-edit { background:#285f44; color:#fff; }.portfolio-card-actions .danger { border-color:#f0d8d5; }
+.portfolio-editor-dialog { width:min(720px,calc(100% - 28px)); max-height:calc(100vh - 32px); padding:24px; overflow:auto; border:0; border-radius:22px; background:#fff; color:var(--ink); box-shadow:0 28px 90px rgba(17,48,33,.24); }.portfolio-editor-dialog::backdrop { background:rgba(16,36,26,.4); backdrop-filter:blur(4px); }
+.portfolio-form { display:grid; gap:16px; margin-top:20px; }.portfolio-form label { margin:0; }.portfolio-form label>small { display:block; margin-top:6px; color:#75867d; font-size:9px; line-height:1.45; }.portfolio-form textarea { width:100%; margin-top:8px; padding:12px 14px; resize:vertical; border:1px solid #cedbd3; border-radius:13px; background:#fff; color:var(--ink); font:inherit; font-size:13px; line-height:1.5; }.portfolio-form textarea:focus { outline:0; border-color:var(--green); box-shadow:0 0 0 3px rgba(52,114,88,.09); }
+.portfolio-photo-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }.portfolio-photo-field { position:relative; min-height:205px; padding:11px; overflow:hidden; border:1px dashed #afc5b7; border-radius:15px; background:#f6faf7; cursor:pointer; }.portfolio-photo-field>span:first-child { position:relative; z-index:2; display:inline-flex; padding:5px 8px; border-radius:999px; background:#fff; color:#365f49; font-size:9px; font-weight:900; }.portfolio-photo-field input { position:absolute; width:1px; height:1px; opacity:0; }.portfolio-photo-placeholder { position:absolute; inset:0; display:grid; place-items:center; color:#688075; font-size:11px; font-weight:850; }.portfolio-photo-field img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }.portfolio-photo-field:focus-within { border-color:#438065; box-shadow:0 0 0 3px rgba(52,114,88,.1); }.portfolio-photo-help { margin:-7px 0 0; color:#73847b; font-size:9px; line-height:1.5; }
+.portfolio-form .settings-check { display:flex; align-items:flex-start; gap:10px; margin:0; padding:13px; border:1px solid #dce8df; border-radius:13px; background:#f6faf7; cursor:pointer; }.portfolio-form .settings-check input { flex:0 0 auto; width:18px; min-height:18px; height:18px; margin:1px 0 0; padding:0; accent-color:#2f7654; }.portfolio-form .settings-check span { display:grid; gap:3px; }.portfolio-form .settings-check strong { font-size:12px; }.portfolio-form .settings-check small { color:#718178; font-size:9px; line-height:1.45; }.portfolio-form-actions { display:grid; grid-template-columns:.7fr 1.3fr; gap:9px; }.portfolio-form-actions button { width:100%; min-height:46px; margin:0; }
+.public-portfolio { width:min(1160px,calc(100% - 40px)); margin:0 auto 64px; padding:34px; border:1px solid rgba(255,255,255,.9); border-radius:26px; background:rgba(255,255,255,.9); box-shadow:0 20px 60px rgba(33,74,54,.08); }.public-portfolio-heading { display:flex; align-items:end; justify-content:space-between; gap:24px; }.public-portfolio-heading small { color:#6c8378; font-size:10px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }.public-portfolio-heading h2 { margin:6px 0 0; font-size:clamp(28px,4vw,42px); letter-spacing:-.05em; }.public-portfolio-heading p { max-width:390px; margin:0; color:#687b71; font-size:12px; line-height:1.55; }.public-portfolio-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-top:24px; }.public-portfolio-card { overflow:hidden; border:1px solid #e0e8e2; border-radius:18px; background:#fff; }.public-portfolio-card .portfolio-photo { min-height:230px; }.public-portfolio-card .portfolio-photo img { min-height:230px; }.public-portfolio-copy { padding:17px; }.public-portfolio-copy h3 { margin:0; font-size:17px; letter-spacing:-.03em; }.public-portfolio-copy>span { display:block; margin-top:5px; color:#718279; font-size:10px; font-weight:750; }.public-portfolio-copy p { margin:10px 0 0; color:#586c61; font-size:12px; line-height:1.55; white-space:pre-line; }
 .schedule-settings-layout { gap:14px; margin-top:14px; }
 .weekly-schedule-panel,.days-off-panel { box-shadow:none; }
 .booking-step-setting { padding:12px 0; border:0; border-top:1px solid #e8eee9; border-bottom:1px solid #e8eee9; border-radius:0; background:transparent; }
@@ -586,6 +603,12 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .managed-service { align-items:flex-start; flex-direction:column; }
   .managed-service .manage-actions { width:100%; }
   .service-creator-dialog { padding:20px; border-radius:18px; }
+  .portfolio-manage-list,.public-portfolio-list { grid-template-columns:1fr; }
+  .portfolio-editor-dialog { padding:20px; border-radius:18px; }
+  .portfolio-form .form-row,.portfolio-form-actions { grid-template-columns:1fr; }
+  .public-portfolio { width:calc(100% - 24px); margin-bottom:92px; padding:22px 16px; border-radius:20px; }
+  .public-portfolio-heading { align-items:flex-start; flex-direction:column; gap:9px; }
+  .public-portfolio-card .portfolio-photo,.public-portfolio-card .portfolio-photo img { min-height:190px; }
   .booking-sheet-client { padding:0; }
 }
 
@@ -597,6 +620,10 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .services-layout .panel { padding:16px 13px; }
   .managed-service .manage-actions { display:grid; grid-template-columns:1fr 1fr 1fr; }
   .managed-service .edit-service-button { grid-column:auto; }
+  .portfolio-photo-fields { grid-template-columns:1fr; }
+  .portfolio-photo-field { min-height:190px; }
+  .portfolio-card-actions { grid-template-columns:repeat(2,1fr); }
+  .portfolio-card-actions .portfolio-edit { grid-column:1/-1; }
 }
 
 .service-details-button { display:block; margin:9px 0 0 auto; padding:8px 0; border:0; background:transparent; color:#356f52; cursor:pointer; font-size:11px; font-weight:850; }

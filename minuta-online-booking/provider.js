@@ -26,6 +26,11 @@ let serverNotificationTemplates = {};
 let serverNotificationMarks = {};
 let notificationSettingsRemoteAvailable = false;
 let ownServices = [];
+let portfolioItems = [];
+let portfolioRemoteAvailable = false;
+let portfolioDraggedId = '';
+let portfolioPhotoDrafts = { before: null, after: null };
+let portfolioPreviewUrls = [];
 let clientNotes = new Map();
 let selectedClientPhone = '';
 let repeatTime = '';
@@ -55,6 +60,10 @@ const providerCacheMaintenance = (async () => {
 setInterval(() => { reliability?.removeMatching?.('provider:', ':bookings')?.catch(() => {}); }, 60000);
 const weekdayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 const notificationAddress = 'Ижевск, ул. Карла Маркса, 304Б';
+const PORTFOLIO_BUCKET = 'portfolio-images';
+const PORTFOLIO_INPUT_LIMIT = 12 * 1024 * 1024;
+const PORTFOLIO_OUTPUT_LIMIT = 8 * 1024 * 1024;
+const PORTFOLIO_MAX_EDGE = 2000;
 const defaultNotificationTemplates = {
   confirmation: 'Здравствуйте, {имя}! Ваша запись подтверждена.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nДо встречи!',
   reminder: 'Здравствуйте, {имя}! Напоминаю о вашей записи.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nЕсли планы изменились, пожалуйста, сообщите заранее.',
@@ -94,6 +103,7 @@ const writeSelectors = [
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
+  '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
   '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
 function applyWriteAvailability() {
@@ -454,7 +464,7 @@ function showRecoverySent() {
 }
 function setProviderView(view) {
   $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
-  if (view === 'services' || view === 'settings' || view === 'analytics') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
+  if (view === 'services' || view === 'portfolio' || view === 'settings' || view === 'analytics') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
@@ -462,6 +472,7 @@ function setProviderView(view) {
   });
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
+  if (view === 'portfolio') renderPortfolio();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function setFilter(filter) {
@@ -1290,6 +1301,8 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_days_off', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'client_notes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_outcomes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .subscribe(status => {
       if (bookingsChannel !== channel) return;
       if (status === 'SUBSCRIBED') {
@@ -1321,7 +1334,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadBookingOutcomes(), loadBookingSettings()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -1401,6 +1414,8 @@ async function handleSession(session) {
     closeBookingSheet();
     allBookings = [];
     ownServices = [];
+    portfolioItems = [];
+    portfolioRemoteAvailable = false;
     scheduleRows = [];
     daysOff = [];
     clientNotes = new Map();
@@ -1745,6 +1760,287 @@ async function addDayOff(event) {
   await refreshAfterWrite();
 }
 
+function portfolioPhoto(item, type) { return (item.photos || []).find(photo => photo.photo_type === type); }
+function portfolioSessionWord(value) { const number = Math.abs(Number(value)); return number % 10 === 1 && number % 100 !== 11 ? 'сеанс' : number % 10 >= 2 && number % 10 <= 4 && (number % 100 < 12 || number % 100 > 14) ? 'сеанса' : 'сеансов'; }
+function portfolioAfterSessionWord(value) { const number = Math.abs(Number(value)); return number % 10 === 1 && number % 100 !== 11 ? 'сеанса' : 'сеансов'; }
+function portfolioAfterLabel(item) { return item.session_count ? `После ${item.session_count} ${portfolioAfterSessionWord(item.session_count)}` : 'После'; }
+function portfolioPhotoMarkup(item, type) {
+  const photo = portfolioPhoto(item, type);
+  const label = type === 'before' ? 'До' : portfolioAfterLabel(item);
+  if (!photo?.signed_url) return `<div class="portfolio-photo"><div class="portfolio-photo-empty">Фото «${label}» не добавлено</div><span>${label}</span></div>`;
+  return `<figure class="portfolio-photo"><img src="${escapeHtml(photo.signed_url)}" alt="${escapeHtml(photo.alt_text || `${item.procedure_name} — ${label.toLowerCase()}`)}" loading="lazy"><span>${label}</span></figure>`;
+}
+
+function renderPortfolio() {
+  const list = $('#portfolioManageList');
+  if (!list) return;
+  const publishedCount = portfolioItems.filter(item => item.published).length;
+  $('#portfolioCount').textContent = String(portfolioItems.length);
+  $('#portfolioBadge').textContent = String(portfolioItems.length);
+  const availability = $('#portfolioAvailability');
+  availability.hidden = portfolioRemoteAvailable;
+  availability.textContent = portfolioRemoteAvailable ? '' : 'Портфолио пока недоступно: серверная часть ещё не подключена или связь прервана.';
+  if (!portfolioRemoteAvailable) {
+    list.innerHTML = '<div class="provider-empty"><span>▧</span><strong>Портфолио не загружено</strong><small>Основные функции кабинета продолжают работать.</small></div>';
+    return;
+  }
+  if (!portfolioItems.length) {
+    list.innerHTML = '<div class="provider-empty"><span>＋</span><strong>Работ пока нет</strong><small>Добавьте фотографии «До» и «После» и укажите число сеансов.</small></div>';
+    return;
+  }
+  list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
+    <div class="portfolio-card-photos">${portfolioPhotoMarkup(item, 'before')}${portfolioPhotoMarkup(item, 'after')}</div>
+    <div class="portfolio-card-body"><h3>${escapeHtml(item.procedure_name)}</h3><small>${escapeHtml(item.body_area || 'Зона не указана')}${item.session_count ? ` · ${item.session_count} ${portfolioSessionWord(item.session_count)}` : ''}</small>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}<span class="portfolio-card-status ${item.published ? 'published' : ''}">${item.published ? 'Опубликовано' : 'Черновик'}</span></div>
+    <div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" data-portfolio-id="${item.id}" ${index === 0 ? 'disabled' : ''} aria-label="Переместить работу выше">↑ Выше</button><button type="button" data-portfolio-move="down" data-portfolio-id="${item.id}" ${index === portfolioItems.length - 1 ? 'disabled' : ''} aria-label="Переместить работу ниже">↓ Ниже</button><button class="portfolio-edit" type="button" data-edit-portfolio="${item.id}">Изменить</button><button class="danger" type="button" data-delete-portfolio="${item.id}">Удалить</button></div>
+  </article>`).join('');
+  $('#portfolioOrderStatus').textContent = `${portfolioItems.length} работ, опубликовано ${publishedCount}`;
+  applyWriteAvailability();
+}
+
+async function signedPortfolioUrl(path) {
+  const { data, error } = await db.storage.from(PORTFOLIO_BUCKET).createSignedUrl(path, 3600);
+  return error ? '' : data?.signedUrl || '';
+}
+
+async function loadPortfolio() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok: false, optional: true };
+  const [{ data: items, error: itemsError }, { data: photos, error: photosError }] = await Promise.all([
+    db.from('portfolio_items').select('*').eq('performer_id', userId).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
+    db.from('portfolio_photos').select('*').eq('performer_id', userId).order('created_at', { ascending: true })
+  ]);
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, optional: true, stale: true };
+  if (itemsError || photosError) {
+    portfolioRemoteAvailable = false;
+    portfolioItems = [];
+    renderPortfolio();
+    return { ok: false, optional: true };
+  }
+  const signedPhotos = await Promise.all((photos || []).map(async photo => ({ ...photo, signed_url: await signedPortfolioUrl(photo.storage_path) })));
+  if (!sessionIsCurrent(userId, generation)) return { ok: false, optional: true, stale: true };
+  portfolioItems = (items || []).map(item => ({ ...item, photos: signedPhotos.filter(photo => photo.portfolio_item_id === item.id) }));
+  portfolioRemoteAvailable = true;
+  renderPortfolio();
+  return { ok: true, optional: true };
+}
+
+function clearPortfolioPreviews() {
+  portfolioPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+  portfolioPreviewUrls = [];
+  portfolioPhotoDrafts = { before: null, after: null };
+}
+
+function setPortfolioPreview(type, source = '') {
+  const preview = type === 'before' ? $('#portfolioBeforePreview') : $('#portfolioAfterPreview');
+  const field = preview.closest('.portfolio-photo-field');
+  preview.src = source;
+  preview.hidden = !source;
+  field.querySelector('.portfolio-photo-placeholder').hidden = Boolean(source);
+}
+
+function updatePortfolioPublishControl() {
+  const consent = $('#portfolioConsent').checked;
+  const published = $('#portfolioPublished');
+  if (!consent) published.checked = false;
+  published.disabled = !consent;
+}
+
+function openPortfolioEditor(id = '') {
+  if (!portfolioRemoteAvailable) { notify('Сначала подключите серверную часть портфолио'); return; }
+  const item = portfolioItems.find(entry => entry.id === id);
+  clearPortfolioPreviews();
+  $('#portfolioForm').reset();
+  $('#portfolioItemId').value = item?.id || '';
+  $('#portfolioProcedure').value = item?.procedure_name || '';
+  $('#portfolioArea').value = item?.body_area || '';
+  $('#portfolioSessions').value = item?.session_count || '';
+  $('#portfolioDescription').value = item?.description || '';
+  $('#portfolioConsent').checked = Boolean(item?.consent_confirmed_at);
+  $('#portfolioPublished').checked = Boolean(item?.published);
+  $('#portfolioEditorTitle').textContent = item ? 'Редактирование работы' : 'Новая работа';
+  setPortfolioPreview('before', portfolioPhoto(item || {}, 'before')?.signed_url || '');
+  setPortfolioPreview('after', portfolioPhoto(item || {}, 'after')?.signed_url || '');
+  updatePortfolioPublishControl();
+  clearFormError('#portfolioError');
+  $('#portfolioEditorDialog').showModal();
+  setTimeout(() => $('#portfolioProcedure').focus(), 0);
+}
+
+function closePortfolioEditor() {
+  $('#portfolioEditorDialog').close();
+  clearPortfolioPreviews();
+}
+
+function handlePortfolioFile(type, file) {
+  if (!file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    showFormError('#portfolioError', 'Выберите изображение JPEG, PNG или WebP.');
+    return;
+  }
+  if (file.size > PORTFOLIO_INPUT_LIMIT) {
+    showFormError('#portfolioError', 'Исходная фотография должна быть не больше 12 МБ.');
+    return;
+  }
+  clearFormError('#portfolioError');
+  portfolioPhotoDrafts[type] = file;
+  const url = URL.createObjectURL(file);
+  portfolioPreviewUrls.push(url);
+  setPortfolioPreview(type, url);
+}
+
+async function decodePortfolioImage(file) {
+  if ('createImageBitmap' in window) {
+    try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch {}
+  }
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image_decode_failed')); };
+    image.src = url;
+  });
+}
+
+async function preparePortfolioImage(file) {
+  const image = await decodePortfolioImage(file);
+  const sourceWidth = image.width;
+  const sourceHeight = image.height;
+  const scale = Math.min(1, PORTFOLIO_MAX_EDGE / Math.max(sourceWidth, sourceHeight));
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { alpha: false });
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+  image.close?.();
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .84));
+  if (!blob || blob.size > PORTFOLIO_OUTPUT_LIMIT) throw new Error('image_too_large');
+  return { blob, width, height };
+}
+
+function createPortfolioPhotoId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function savePortfolioPhoto(item, type, file, procedure, area, sessions) {
+  if (!file) return;
+  const prepared = await preparePortfolioImage(file);
+  const photoId = createPortfolioPhotoId();
+  const path = `${currentUser.id}/${item.id}/${photoId}.webp`;
+  const { error: uploadError } = await db.storage.from(PORTFOLIO_BUCKET).upload(path, prepared.blob, { contentType: 'image/webp', cacheControl: '31536000', upsert: false });
+  if (uploadError) throw uploadError;
+  const existing = portfolioPhoto(item, type);
+  const label = type === 'before' ? 'до процедуры' : sessions ? `после ${sessions} ${portfolioAfterSessionWord(sessions)}` : 'после процедуры';
+  const record = { performer_id: currentUser.id, portfolio_item_id: item.id, photo_type: type, storage_path: path, alt_text: `${procedure}${area ? `, ${area}` : ''} — ${label}`, width: prepared.width, height: prepared.height };
+  const result = existing
+    ? await db.from('portfolio_photos').update(record).eq('id', existing.id).eq('performer_id', currentUser.id)
+    : await db.from('portfolio_photos').insert(record);
+  if (result.error) {
+    await db.storage.from(PORTFOLIO_BUCKET).remove([path]);
+    throw result.error;
+  }
+  if (existing?.storage_path) await db.storage.from(PORTFOLIO_BUCKET).remove([existing.storage_path]);
+}
+
+async function savePortfolioItem(event) {
+  event.preventDefault();
+  if (!requireWrites() || !portfolioRemoteAvailable) return;
+  clearFormError('#portfolioError');
+  const id = $('#portfolioItemId').value;
+  const existing = portfolioItems.find(item => item.id === id);
+  const procedure = $('#portfolioProcedure').value.trim();
+  const area = $('#portfolioArea').value.trim();
+  const sessions = $('#portfolioSessions').value ? Number($('#portfolioSessions').value) : null;
+  const description = $('#portfolioDescription').value.trim();
+  const consent = $('#portfolioConsent').checked;
+  const published = $('#portfolioPublished').checked;
+  const hasPhoto = Boolean(existing?.photos?.length || portfolioPhotoDrafts.before || portfolioPhotoDrafts.after);
+  if (procedure.length < 2) { showFormError('#portfolioError', 'Укажите название процедуры.'); return; }
+  if (sessions !== null && (!Number.isInteger(sessions) || sessions < 1 || sessions > 999)) { showFormError('#portfolioError', 'Количество сеансов должно быть от 1 до 999.'); return; }
+  if (!hasPhoto) { showFormError('#portfolioError', 'Добавьте хотя бы одну фотографию работы.'); return; }
+  if (published && !consent) { showFormError('#portfolioError', 'Для публикации подтвердите согласие клиента.'); return; }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  let createdItemId = '';
+  try {
+    let item = existing;
+    if (!item) {
+      const nextOrder = portfolioItems.reduce((max, entry) => Math.max(max, Number(entry.sort_order) || 0), 0) + 10;
+      const { data, error } = await db.from('portfolio_items').insert({ performer_id: currentUser.id, procedure_name: procedure, body_area: area, session_count: sessions, description, sort_order: nextOrder, published: false, consent_confirmed_at: consent ? new Date().toISOString() : null }).select().single();
+      if (error) throw error;
+      item = { ...data, photos: [] };
+      createdItemId = item.id;
+    }
+    await savePortfolioPhoto(item, 'before', portfolioPhotoDrafts.before, procedure, area, sessions);
+    await savePortfolioPhoto(item, 'after', portfolioPhotoDrafts.after, procedure, area, sessions);
+    const consentAt = consent ? item.consent_confirmed_at || new Date().toISOString() : null;
+    const { error } = await db.from('portfolio_items').update({ procedure_name: procedure, body_area: area, session_count: sessions, description, published, consent_confirmed_at: consentAt }).eq('id', item.id).eq('performer_id', currentUser.id);
+    if (error) throw error;
+    closePortfolioEditor();
+    await loadPortfolio();
+    notify(published ? 'Работа опубликована' : 'Работа сохранена');
+  } catch (error) {
+    if (createdItemId) {
+      const { data: createdPhotos } = await db.from('portfolio_photos').select('storage_path').eq('portfolio_item_id', createdItemId).eq('performer_id', currentUser.id);
+      const paths = (createdPhotos || []).map(photo => photo.storage_path).filter(Boolean);
+      if (paths.length) await db.storage.from(PORTFOLIO_BUCKET).remove(paths);
+      await db.from('portfolio_items').delete().eq('id', createdItemId).eq('performer_id', currentUser.id);
+    } else if (existing) {
+      await loadPortfolio();
+    }
+    const message = error?.message === 'image_too_large' ? 'После обработки фотография всё ещё слишком большая.' : 'Не удалось сохранить работу. Проверьте соединение и попробуйте снова.';
+    showFormError('#portfolioError', message);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Сохранить работу';
+  }
+}
+
+async function deletePortfolioItem(id) {
+  if (!requireWrites()) return;
+  const item = portfolioItems.find(entry => entry.id === id);
+  if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return;
+  const paths = (item.photos || []).map(photo => photo.storage_path).filter(Boolean);
+  if (paths.length) {
+    const { error } = await db.storage.from(PORTFOLIO_BUCKET).remove(paths);
+    if (error) { notify('Не удалось удалить фотографии'); return; }
+  }
+  const { error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', currentUser.id);
+  if (error) { notify('Не удалось удалить работу'); return; }
+  notify('Работа удалена');
+  await loadPortfolio();
+}
+
+async function persistPortfolioOrder(message = 'Порядок работ сохранён') {
+  const { error } = await db.rpc('reorder_portfolio_items', { p_ids: portfolioItems.map(item => item.id) });
+  if (error) {
+    notify('Не удалось сохранить порядок');
+    await loadPortfolio();
+    return;
+  }
+  $('#portfolioOrderStatus').textContent = message;
+}
+
+async function movePortfolioItem(id, direction) {
+  if (!requireWrites()) return;
+  const index = portfolioItems.findIndex(item => item.id === id);
+  const target = direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= portfolioItems.length) return;
+  [portfolioItems[index], portfolioItems[target]] = [portfolioItems[target], portfolioItems[index]];
+  renderPortfolio();
+  await persistPortfolioOrder(`Работа перемещена ${direction === 'up' ? 'выше' : 'ниже'}`);
+}
+
 function renderOwnServices() {
   const list = $('#serviceManageList');
   populateRepeatServices();
@@ -1825,6 +2121,11 @@ document.addEventListener('click', async event => {
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
   const openServiceCreator = event.target.closest('[data-open-service-creator]');
   const closeServiceCreator = event.target.closest('[data-close-service-creator]');
+  const openPortfolioEditorButton = event.target.closest('[data-open-portfolio-editor]');
+  const closePortfolioEditorButton = event.target.closest('[data-close-portfolio-editor]');
+  const editPortfolio = event.target.closest('[data-edit-portfolio]');
+  const deletePortfolio = event.target.closest('[data-delete-portfolio]');
+  const movePortfolio = event.target.closest('[data-portfolio-move]');
   const openNotification = event.target.closest('[data-open-notification]');
   const sentNotification = event.target.closest('[data-sent-notification]');
   const restoreNotification = event.target.closest('[data-restore-notification]');
@@ -1871,6 +2172,11 @@ document.addEventListener('click', async event => {
     $('#serviceCreatorDialog').showModal();
   }
   if (closeServiceCreator) $('#serviceCreatorDialog').close();
+  if (openPortfolioEditorButton) openPortfolioEditor();
+  if (closePortfolioEditorButton) closePortfolioEditor();
+  if (editPortfolio) openPortfolioEditor(editPortfolio.dataset.editPortfolio);
+  if (movePortfolio) await movePortfolioItem(movePortfolio.dataset.portfolioId, movePortfolio.dataset.portfolioMove);
+  if (deletePortfolio) await deletePortfolioItem(deletePortfolio.dataset.deletePortfolio);
   if (openNotification) {
     await setNotificationMark(openNotification.dataset.openNotification, 'opened');
     setTimeout(renderNotifications, 0);
@@ -1941,7 +2247,11 @@ document.addEventListener('click', async event => {
   }
 });
 
-document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#bookingSheet').hidden) closeBookingSheet(); });
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  if ($('#portfolioEditorDialog').open) closePortfolioEditor();
+  else if (!$('#bookingSheet').hidden) closeBookingSheet();
+});
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   refreshBusinessDay();
@@ -1958,6 +2268,10 @@ $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
 $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
+$('#portfolioForm').addEventListener('submit', savePortfolioItem);
+$('#portfolioBeforeFile').addEventListener('change', event => handlePortfolioFile('before', event.target.files?.[0]));
+$('#portfolioAfterFile').addEventListener('change', event => handlePortfolioFile('after', event.target.files?.[0]));
+$('#portfolioConsent').addEventListener('change', updatePortfolioPublishControl);
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
@@ -1993,6 +2307,37 @@ $('#weeklySchedule').addEventListener('change', event => {
   }
   if (event.target.matches('[data-schedule-break]')) card.querySelector('.break-hours').hidden = !event.target.checked;
 });
+$('#portfolioManageList').addEventListener('dragstart', event => {
+  const card = event.target.closest('[data-portfolio-card]');
+  if (!card || !requireWrites()) { event.preventDefault(); return; }
+  portfolioDraggedId = card.dataset.portfolioCard;
+  card.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', portfolioDraggedId);
+});
+$('#portfolioManageList').addEventListener('dragover', event => {
+  const card = event.target.closest('[data-portfolio-card]');
+  if (!card || card.dataset.portfolioCard === portfolioDraggedId) return;
+  event.preventDefault();
+  $$('.portfolio-card.drag-target').forEach(item => item.classList.remove('drag-target'));
+  card.classList.add('drag-target');
+});
+$('#portfolioManageList').addEventListener('drop', async event => {
+  const targetCard = event.target.closest('[data-portfolio-card]');
+  event.preventDefault();
+  if (!targetCard || !portfolioDraggedId || targetCard.dataset.portfolioCard === portfolioDraggedId) return;
+  const from = portfolioItems.findIndex(item => item.id === portfolioDraggedId);
+  const to = portfolioItems.findIndex(item => item.id === targetCard.dataset.portfolioCard);
+  if (from < 0 || to < 0) return;
+  const [moved] = portfolioItems.splice(from, 1);
+  portfolioItems.splice(to, 0, moved);
+  renderPortfolio();
+  await persistPortfolioOrder('Порядок работ изменён перетаскиванием');
+});
+$('#portfolioManageList').addEventListener('dragend', () => {
+  portfolioDraggedId = '';
+  $$('.portfolio-card.dragging,.portfolio-card.drag-target').forEach(card => card.classList.remove('dragging', 'drag-target'));
+});
 db.auth.onAuthStateChange((event, session) => {
   if (event === 'PASSWORD_RECOVERY') {
     recoveryMode = true;
@@ -2002,4 +2347,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=45'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=46'));
