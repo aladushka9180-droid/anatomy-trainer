@@ -268,11 +268,22 @@
     return Boolean(scenario && progress?.reviewed === true && scenarioCanComplete(scenario, progress));
   }
 
+  function scenarioKnowledgeChecks(item) {
+    return list(first(item, ['knowledgeChecks', 'objectiveChecks']));
+  }
+
+  function scenarioKnowledgePassed(item, progress) {
+    const checks = scenarioKnowledgeChecks(item);
+    if (!checks.length) return true;
+    const answers = isRecord(progress?.knowledgeChecks) ? progress.knowledgeChecks : {};
+    return checks.every(check => String(answers[first(check, ['id'])] || '') === String(first(check, ['correctId'])));
+  }
+
   function scenarioCanComplete(item, progress) {
     if (!item || !isRecord(progress) || String(progress.draft || '').trim().length < 20 || progress.noCritical !== true) return false;
     const modelSteps = textRows(first(item, ['safePlan', 'modelAnswer', 'expectedPlan', 'decisionPath']));
     const rubric = isRecord(progress.rubric) ? progress.rubric : {};
-    return modelSteps.length > 0 && modelSteps.every((_, index) => rubric[index] === true);
+    return scenarioKnowledgePassed(item, progress) && modelSteps.length > 0 && modelSteps.every((_, index) => rubric[index] === true);
   }
 
   function allTips() {
@@ -326,8 +337,12 @@
     const noCritical = card.querySelector('[data-scenario-no-critical]');
     const reviewed = card.querySelector('[data-scenario-reviewed]');
     const label = card.querySelector('[data-scenario-reviewed-label]');
-    const canComplete = draft.value.trim().length >= 20 && rubric.length > 0
-      && rubric.every(input => input.checked) && noCritical?.checked === true;
+    const item = allScenarios().find(row => row.id === id);
+    const progress = state.scenarios[id] || {};
+    const knowledgeChecks = scenarioKnowledgeChecks(item);
+    const knowledgeAnswers = isRecord(progress.knowledgeChecks) ? progress.knowledgeChecks : {};
+    const knowledgeDone = knowledgeChecks.filter(check => String(knowledgeAnswers[first(check, ['id'])] || '') === String(first(check, ['correctId']))).length;
+    const canComplete = scenarioCanComplete(item, progress);
     if (reviewed) {
       reviewed.disabled = !canComplete;
       if (!canComplete) reviewed.checked = false;
@@ -335,7 +350,9 @@
     }
     if (label) label.textContent = canComplete
       ? 'Я могу объяснить решение своими словами'
-      : `Сначала сверь все пункты (${rubric.filter(input => input.checked).length}/${rubric.length}) и критические ошибки`;
+      : knowledgeChecks.length && knowledgeDone < knowledgeChecks.length
+        ? `Сначала ответь на проверочные вопросы (${knowledgeDone}/${knowledgeChecks.length})`
+        : `Сначала сверь все пункты (${rubric.filter(input => input.checked).length}/${rubric.length}) и критические ошибки`;
   }
 
   function injectInterface() {
@@ -703,8 +720,14 @@
     const modelSteps = textRows(first(item, ['safePlan', 'modelAnswer', 'expectedPlan', 'decisionPath']));
     const rubric = progress.rubric && typeof progress.rubric === 'object' ? progress.rubric : {};
     const rubricDone = modelSteps.filter((_, index) => rubric[index] === true).length;
+    const knowledgeChecks = scenarioKnowledgeChecks(item);
+    const knowledgeAnswers = isRecord(progress.knowledgeChecks) ? progress.knowledgeChecks : {};
+    const knowledgeDone = knowledgeChecks.filter(check => String(knowledgeAnswers[first(check, ['id'])] || '') === String(first(check, ['correctId']))).length;
     const canReveal = draft.trim().length >= 20;
     const canComplete = scenarioCanComplete(item, progress);
+    const completionHint = knowledgeChecks.length && knowledgeDone < knowledgeChecks.length
+      ? `Сначала ответь на проверочные вопросы (${knowledgeDone}/${knowledgeChecks.length})`
+      : `Сначала сверь все пункты (${rubricDone}/${modelSteps.length}) и критические ошибки`;
     const metadata = [regionLabel(first(item, ['regionId', 'region'])), levelLabel(first(item, ['difficulty', 'level']))].filter(Boolean).join(' · ')
       || first(item, ['category'], 'Практическая ситуация');
     return `<div class="scenario-grid"><article class="scenario-card">
@@ -718,11 +741,24 @@
           ${titledList('Рекомендуемый ход рассуждения', modelSteps)}
           ${titledList('Когда остановиться и обратиться за помощью', first(item, ['stopSignals', 'redFlags', 'referral']))}
           ${titledList('Критические ошибки', first(item, ['criticalErrors', 'unsafeChoices'], criticalErrorsFor(item)), 'warning')}
+          ${knowledgeChecks.length ? `<section class="scenario-knowledge-check" aria-labelledby="scenarioKnowledgeTitle-${esc(id)}"><h4 id="scenarioKnowledgeTitle-${esc(id)}">Проверь решение</h4><p>Выбери один ответ в каждом пункте. Эти вопросы проверяются автоматически и не заменяются самостоятельными галочками.</p>
+            ${knowledgeChecks.map((check, checkIndex) => {
+              const checkId = first(check, ['id'], `check-${checkIndex}`);
+              const selected = String(knowledgeAnswers[checkId] || '');
+              const correctId = String(first(check, ['correctId']));
+              const answered = selected !== '';
+              const correct = answered && selected === correctId;
+              return `<fieldset><legend>${esc(first(check, ['question', 'title']))}</legend>${list(first(check, ['options'])).map(option => {
+                const optionId = String(first(option, ['id', 'value']));
+                return `<label><input type="radio" name="scenario-knowledge-${esc(id)}-${esc(checkId)}" value="${esc(optionId)}" data-scenario-knowledge="${esc(id)}" data-knowledge-check="${esc(checkId)}" ${selected === optionId ? 'checked' : ''}><span>${esc(first(option, ['label', 'text', 'title']))}</span></label>`;
+              }).join('')}<p class="scenario-knowledge-feedback ${answered ? (correct ? 'correct' : 'incorrect') : ''}" data-scenario-knowledge-feedback="${esc(checkId)}" role="status" aria-live="polite">${answered ? (correct ? 'Верно.' : 'Пока неверно. Вернись к разбору и попробуй ещё раз.') : 'Ответ пока не выбран.'}</p></fieldset>`;
+            }).join('')}
+          </section>` : ''}
           <section class="scenario-rubric"><h4>Сверь свой ответ</h4><p>Отметь только то, что уже было в твоём решении до открытия разбора. Пропущенные пункты добавь в следующую попытку.</p>
             ${modelSteps.map((step, index) => `<label><input type="checkbox" data-scenario-rubric="${esc(id)}" data-rubric-step="${index}" ${rubric[index] === true ? 'checked' : ''}><span>${esc(step)}</span></label>`).join('')}
             <label class="no-critical"><input type="checkbox" data-scenario-no-critical="${esc(id)}" ${progress.noCritical === true ? 'checked' : ''}><span>В моём решении не было перечисленных критических ошибок</span></label>
           </section>
-          <label class="reviewed-check ${canComplete ? '' : 'not-ready'}"><input type="checkbox" data-scenario-reviewed="${esc(id)}" ${progress.reviewed === true && canComplete ? 'checked' : ''} ${canComplete ? '' : 'disabled'}><span data-scenario-reviewed-label>${canComplete ? 'Я могу объяснить решение своими словами' : `Сначала сверь все пункты (${rubricDone}/${modelSteps.length}) и критические ошибки`}</span></label>
+          <label class="reviewed-check ${canComplete ? '' : 'not-ready'}"><input type="checkbox" data-scenario-reviewed="${esc(id)}" ${progress.reviewed === true && canComplete ? 'checked' : ''} ${canComplete ? '' : 'disabled'}><span data-scenario-reviewed-label>${canComplete ? 'Я могу объяснить решение своими словами' : completionHint}</span></label>
         </div>
       </article></div>`;
   }
@@ -816,6 +852,25 @@
       state.scenarios[id].rubric[input.dataset.rubricStep] = input.checked;
       state.scenarios[id].reviewed = false;
       saveState();
+      refreshScenarioCompletion(id);
+    }));
+    $$('[data-scenario-knowledge]').forEach(input => input.addEventListener('change', () => {
+      const id = input.dataset.scenarioKnowledge;
+      const checkId = input.dataset.knowledgeCheck;
+      const scenario = allScenarios().find(item => item.id === id);
+      const check = scenarioKnowledgeChecks(scenario).find(item => String(first(item, ['id'])) === checkId);
+      state.scenarios[id] ||= {};
+      state.scenarios[id].knowledgeChecks ||= {};
+      state.scenarios[id].knowledgeChecks[checkId] = input.value;
+      state.scenarios[id].reviewed = false;
+      saveState();
+      const feedback = input.closest('fieldset')?.querySelector('[data-scenario-knowledge-feedback]');
+      const correct = String(input.value) === String(first(check, ['correctId']));
+      if (feedback) {
+        feedback.textContent = correct ? 'Верно.' : 'Пока неверно. Вернись к разбору и попробуй ещё раз.';
+        feedback.classList.toggle('correct', correct);
+        feedback.classList.toggle('incorrect', !correct);
+      }
       refreshScenarioCompletion(id);
     }));
     $$('[data-scenario-no-critical]').forEach(input => input.addEventListener('change', () => {

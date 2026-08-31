@@ -111,6 +111,16 @@
 .scenario-rubric label{display:flex;align-items:flex-start;gap:9px;padding:8px;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer;line-height:1.4}
 .scenario-rubric input{flex:0 0 auto;width:19px;height:19px;margin:1px 0 0;accent-color:var(--professional-accent-strong)}
 .scenario-rubric .no-critical{margin-top:3px;border-left:4px solid var(--professional-bad-strong)}
+.scenario-knowledge-check{display:grid;gap:10px;padding:13px;border:1px solid var(--professional-control-border);border-radius:12px;background:var(--surface2)}
+.scenario-knowledge-check>h4,.scenario-knowledge-check>p{margin:0}
+.scenario-knowledge-check>p{color:var(--muted);font-size:.875rem;line-height:1.45}
+.scenario-knowledge-check fieldset{display:grid;gap:7px;margin:0;padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.scenario-knowledge-check legend{max-width:100%;padding:0 5px;color:var(--text);font-weight:850;line-height:1.4}
+.scenario-knowledge-check label{display:flex;align-items:flex-start;gap:9px;min-height:44px;padding:10px;border:1px solid var(--border);border-radius:9px;background:var(--card);cursor:pointer;line-height:1.4}
+.scenario-knowledge-check input{flex:0 0 auto;width:20px;height:20px;margin:1px 0 0;accent-color:var(--professional-accent-strong)}
+.scenario-knowledge-feedback{margin:0;padding:7px 9px;border-radius:8px;color:var(--muted);font-size:.875rem;line-height:1.4}
+.scenario-knowledge-feedback.correct{border-left:3px solid var(--professional-good-strong);background:color-mix(in srgb,var(--good) 8%,var(--surface));color:var(--text)}
+.scenario-knowledge-feedback.incorrect{border-left:3px solid var(--professional-bad-strong);background:color-mix(in srgb,var(--bad) 7%,var(--surface));color:var(--text)}
 .reviewed-check.not-ready{cursor:not-allowed;color:var(--muted)}
 .journal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:18px;align-items:start}
 .journal-form,.journal-history{padding:17px;border:1px solid var(--border);border-radius:15px;background:var(--surface)}
