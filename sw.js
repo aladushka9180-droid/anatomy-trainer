@@ -1,4 +1,4 @@
-const CACHE='anatomy-v112';
+const CACHE='anatomy-v113';
 const MOTION_IDS=['abduction','elbow','hip','knee','foot','head'];
 const MOTION_PRIMARY=MOTION_IDS.flatMap(id=>[`./anatomy-motion-v8/${id}.mp4?v=blender-v1`,`./anatomy-motion-v8/${id}.webp?v=blender-v1`]);
 const ASSETS=['./','./index.html','./minimal-redesign.css?v=78','./professional-learning.css?v=53','./anatomy-learning.css?v=14','./disclosure.css?v=1','./profiles.js?v=6','./massage-data.js','./practice-cases.js','./learning-paths.js','./learning-sources.js','./reference-data.js?v=8','./massage-techniques.js?v=38','./practice-curriculum.js?v=38','./professional-foundations.js?v=2','./professional-learning.js?v=56','./ai-assistant.js?v=46','./anatomy-learning.js?v=16','./manifest.webmanifest','./icon-192.png','./icon-512.png','./anatomy-upper-limb.png','./anatomy-deltoid.png','./anatomy-leg.png','./anatomy-calf.png','./anatomy-gluteal.png','./anatomy-adductors.png','./anatomy-back.png','./anatomy-neck.png','./bones-skull.svg','./bones-upper-limb.svg?v=2','./bones-spine.png','./bones-vertebrae.png','./bones-lower-limb.svg?v=2'];

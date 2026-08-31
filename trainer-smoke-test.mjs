@@ -85,6 +85,7 @@ assert.equal((onboardingLanguages.match(/class="active"/g) || []).length, 0, 'К
 assert.ok(html.includes("onboardingLanguage=''"), 'Начальное значение сложности должно быть пустым');
 assert.ok(!html.includes("selectOnboardingLanguage(goal==='beginner'"), 'Цель занятия не должна автоматически назначать сложность');
 assert.ok(html.includes("$('#nextOnboarding').disabled=summary?!onboardingLanguage:!onboardingGoal"), 'Начало занятия должно быть заблокировано до выбора сложности');
+for (const emoji of ['🌱', '🙂', '📘']) assert.ok(!html.includes(emoji), `В подписи сложности остался лишний эмодзи ${emoji}`);
 
 for (const [file, globalName] of [['massage-data.js', 'MASSAGE_QUESTIONS'], ['practice-cases.js', 'PRACTICE_CASES']]) {
   const questions = loadGlobal(file, globalName);
