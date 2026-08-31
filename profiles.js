@@ -22,13 +22,21 @@
   const COLORS = ['#14b8a6', '#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#64748b'];
   const AVATARS = ['care', 'balance', 'anatomy', 'motion', 'study', 'focus'];
   const LEGACY_AVATARS = {'👐': 'care', '🌿': 'balance', '🧠': 'anatomy', '💪': 'motion', '🦴': 'study', '⭐': 'focus'};
+  const AVATAR_LABELS = {
+    care: 'Забота',
+    balance: 'Баланс',
+    anatomy: 'Тело',
+    motion: 'Движение',
+    study: 'Учёба',
+    focus: 'Цель'
+  };
   const AVATAR_ICONS = {
-    care: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13.5c2.5 0 4.2 1.1 5.5 3.5 1.3-2.4 3-3.5 5.5-3.5 2.7 0 4.5 1.7 5 4.5-2.8 1.8-5.5 2.7-8 2.7S6.8 19.8 4 18c.5-2.8 2.3-4.5 5-4.5"/><path d="M12 16c-2.7-1.6-4.2-3.6-4.2-5.7A2.8 2.8 0 0 1 12 7.9a2.8 2.8 0 0 1 4.2 2.4c0 2.1-1.5 4.1-4.2 5.7Z"/></svg>',
-    balance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20c-4.7 0-8-2.2-8-5.5 3.7-.2 6.4 1.2 8 4.2 1.6-3 4.3-4.4 8-4.2 0 3.3-3.3 5.5-8 5.5Z"/><path d="M12 18.5c-2.5-2.1-3.7-4.4-3.7-6.8S9.5 7.1 12 4c2.5 3.1 3.7 5.3 3.7 7.7S14.5 16.4 12 18.5Z"/></svg>',
-    anatomy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7-4.1-7-10.1A4.1 4.1 0 0 1 12 7.5a4.1 4.1 0 0 1 7 2.9c0 6-7 10.1-7 10.1Z"/><path d="M4.7 13h4l1.5-3 2.5 6 1.6-3H20"/></svg>',
-    motion: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><path d="m8 21 2-6-3-3 3-3 4 2 3-2"/><path d="m10 9 2 4 4 2 2 5"/></svg>',
-    study: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5c2.8-.8 5.5-.3 8 1.5v13c-2.5-1.8-5.2-2.3-8-1.5Z"/><path d="M20 5.5c-2.8-.8-5.5-.3-8 1.5v13c2.5-1.8 5.2-2.3 8-1.5Z"/></svg>',
-    focus: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>',
+    care: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0l-1 1.1-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"/></svg>',
+    balance: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4c-6.8.2-11.3 3.4-12.5 8.3-.8 3.3 1.3 6.1 4.6 5.4C17 16.7 19.7 11.9 20 4Z"/><path d="M4 20c2.7-4.1 6.1-7 10.4-9"/></svg>',
+    anatomy: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.5" r="2.2"/><path d="M8.3 9c1-1.2 2.2-1.8 3.7-1.8S14.7 7.8 15.7 9l1.8 4-2.8 1.5V21H9.3v-6.5L6.5 13l1.8-4Z"/><path d="M9.3 14.5h5.4"/></svg>',
+    motion: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6l6 6-6 6M20 12H8"/><path d="M10 18l-6-6 6-6M4 12h12"/></svg>',
+    study: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h6.2c1 0 1.8.8 1.8 1.8V20c0-1.1-.9-2-2-2H4Z"/><path d="M20 5.5h-6.2c-1 0-1.8.8-1.8 1.8V20c0-1.1.9-2 2-2h6Z"/></svg>',
+    focus: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>',
     guest: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 20c.5-4 2.7-6 6.5-6s6 2 6.5 6"/></svg>'
   };
   const guestMemory = new Map();
@@ -38,6 +46,10 @@
   const safeColor = (value) => COLORS.includes(value) ? value : COLORS[0];
   const safeAvatar = (value) => AVATARS.includes(value) ? value : (LEGACY_AVATARS[value] || AVATARS[0]);
   const avatarMarkup = (value) => AVATAR_ICONS[value === 'guest' ? 'guest' : safeAvatar(value)];
+  const avatarChoicesMarkup = (name, selected) => AVATARS.map((avatar) => {
+    const label = AVATAR_LABELS[avatar];
+    return `<label><input type="radio" name="${name}" value="${avatar}" aria-label="${label}"${avatar === safeAvatar(selected) ? ' checked' : ''}><span>${avatarMarkup(avatar)}<small>${label}</small></span></label>`;
+  }).join('');
   const storageKey = (profileId, key) => `${PREFIX}${profileId}__${key}`;
   const readRegistry = () => {
     try {
@@ -161,6 +173,19 @@
     location.reload();
   }
 
+  function updateCurrentAvatar(avatar) {
+    const profile = currentProfile();
+    if (profile.id === GUEST_ID) throw new Error('В гостевом режиме аватар не сохраняется. Создайте профиль.');
+    const target = registry.profiles.find((item) => item.id === profile.id);
+    if (!target) throw new Error('Не удалось найти текущий профиль.');
+    target.avatar = safeAvatar(avatar);
+    saveRegistry();
+    renderCurrentProfile();
+    renderProfileList();
+    showPickerView();
+    window.dispatchEvent(new CustomEvent('anatomy-profile-updated', {detail: {profileId: target.id}}));
+  }
+
   function deleteCurrentProfile() {
     const profile = currentProfile();
     if (profile.id === GUEST_ID) return;
@@ -262,12 +287,15 @@
     const deleteButton = document.querySelector('#deleteProfile');
     if (exportButton) exportButton.disabled = profile.id === GUEST_ID;
     if (deleteButton) deleteButton.disabled = profile.id === GUEST_ID;
+    const editButtons = [document.querySelector('#editCurrentAvatarButton'), document.querySelector('#editProfileAvatarFromSettings')];
+    editButtons.forEach((button) => { if (button) button.disabled = profile.id === GUEST_ID; });
     const mobileButton = document.querySelector('#mobileProfileShortcut');
     if (mobileButton) mobileButton.setAttribute('aria-label', `Сменить профиль: ${profile.name}`);
   }
 
   function showCreateForm() {
     document.querySelector('#profilePickerView')?.classList.add('hidden');
+    document.querySelector('#profileAvatarView')?.classList.add('hidden');
     document.querySelector('#profileCreateView')?.classList.remove('hidden');
     document.querySelector('#profileDialog')?.setAttribute('aria-labelledby', 'profileCreateTitle');
     const input = document.querySelector('#profileName');
@@ -279,9 +307,23 @@
 
   function showPickerView() {
     document.querySelector('#profileCreateView')?.classList.add('hidden');
+    document.querySelector('#profileAvatarView')?.classList.add('hidden');
     document.querySelector('#profilePickerView')?.classList.remove('hidden');
     document.querySelector('#profileDialog')?.setAttribute('aria-labelledby', 'profileDialogTitle');
     renderProfileList();
+  }
+
+  function showAvatarForm() {
+    const profile = currentProfile();
+    if (profile.id === GUEST_ID) return;
+    document.querySelector('#profilePickerView')?.classList.add('hidden');
+    document.querySelector('#profileCreateView')?.classList.add('hidden');
+    document.querySelector('#profileAvatarView')?.classList.remove('hidden');
+    document.querySelector('#profileDialog')?.setAttribute('aria-labelledby', 'profileAvatarTitle');
+    const selected = document.querySelector(`input[name="profileAvatarEdit"][value="${safeAvatar(profile.avatar)}"]`);
+    if (selected) selected.checked = true;
+    document.querySelector('#profileAvatarError').textContent = '';
+    requestAnimationFrame(() => selected?.focus());
   }
 
   function setBackgroundInert(value) {
@@ -313,20 +355,33 @@
   }
 
   function initUI() {
+    const createChoices = document.querySelector('[data-avatar-choices="create"]');
+    const editChoices = document.querySelector('[data-avatar-choices="edit"]');
+    if (createChoices) createChoices.innerHTML = avatarChoicesMarkup('profileAvatar', AVATARS[0]);
+    if (editChoices) editChoices.innerHTML = avatarChoicesMarkup('profileAvatarEdit', currentProfile().avatar);
     renderCurrentProfile();
     document.querySelector('#profileSwitcher')?.addEventListener('click', () => openPicker(false));
     document.querySelector('#mobileProfileShortcut')?.addEventListener('click', () => openPicker(false));
     document.querySelector('#switchProfileFromSettings')?.addEventListener('click', () => openPicker(false));
     document.querySelector('#createProfileFromSettings')?.addEventListener('click', () => { openPicker(false); showCreateForm(); });
+    document.querySelector('#editProfileAvatarFromSettings')?.addEventListener('click', () => { openPicker(false); showAvatarForm(); });
     document.querySelector('#closeProfiles')?.addEventListener('click', closePicker);
     document.querySelector('#createProfileButton')?.addEventListener('click', showCreateForm);
+    document.querySelector('#editCurrentAvatarButton')?.addEventListener('click', showAvatarForm);
     document.querySelector('#cancelCreateProfile')?.addEventListener('click', showPickerView);
+    document.querySelector('#cancelAvatarEdit')?.addEventListener('click', showPickerView);
     document.querySelector('#profileCreateView')?.addEventListener('submit', (event) => {
       event.preventDefault();
       const color = document.querySelector('input[name="profileColor"]:checked')?.value;
       const avatar = document.querySelector('input[name="profileAvatar"]:checked')?.value;
       try { createProfile(document.querySelector('#profileName')?.value, color, avatar); }
       catch (error) { document.querySelector('#profileFormError').textContent = error.message; }
+    });
+    document.querySelector('#profileAvatarView')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const avatar = document.querySelector('input[name="profileAvatarEdit"]:checked')?.value;
+      try { updateCurrentAvatar(avatar); }
+      catch (error) { document.querySelector('#profileAvatarError').textContent = error.message; }
     });
     document.querySelector('#exportProfile')?.addEventListener('click', exportCurrentProfile);
     document.querySelector('#deleteProfile')?.addEventListener('click', deleteCurrentProfile);

@@ -6095,3 +6095,117 @@ html[data-motion-style="soft"] .navbutton::after {
     gap: 13px;
   }
 }
+
+/* v74: clear profile avatars and in-place avatar editing. */
+.profilepickeractions {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 8px;
+}
+
+.profilepickeractions .btn {
+  width: 100%;
+  min-height: 46px;
+  box-shadow: none;
+}
+
+.profilepickeractions #editCurrentAvatarButton {
+  border-color: color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+.profileeditidentity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 68%, transparent);
+}
+
+.profileeditidentity .profileavatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+
+.profileeditidentity strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatarchoices {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.avatarchoices span {
+  min-height: 76px;
+  padding: 10px 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--muted);
+  box-shadow: none;
+  transition: border-color 180ms ease-out, background-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out;
+}
+
+.avatarchoices span svg {
+  width: 27px;
+  height: 27px;
+  stroke-width: 1.75;
+}
+
+.avatarchoices span small {
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.avatarchoices label:hover span {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  color: var(--text);
+}
+
+.avatarchoices input:checked + span {
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--accent-readable, var(--accent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.avatarchoices input:checked + span svg {
+  stroke-width: 2;
+}
+
+.profileavatarform .profilelead {
+  max-width: 45ch;
+}
+
+@media (max-width: 650px) {
+  .profilepickeractions {
+    grid-template-columns: 1fr;
+  }
+
+  .profilepickeractions .btn {
+    min-height: 48px;
+  }
+
+  .avatarchoices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .avatarchoices span {
+    min-height: 72px;
+    padding-inline: 3px;
+  }
+
+  .avatarchoices span small {
+    font-size: 10px;
+  }
+}
