@@ -36,6 +36,7 @@ assert.ok(assetBlock, 'sw.js: не найден обязательный спи�
 for (const match of assetBlock[1].matchAll(/'([^']+)'/g)) assertLocalFile(match[1], 'sw.js');
 
 for (const reference of [
+  './minimal-redesign.css?v=78',
   './professional-learning.css?v=53',
   './professional-foundations.js?v=2',
   './professional-learning.js?v=56'
@@ -75,6 +76,15 @@ for (const value of ['kids', 'simple', 'study']) {
   assert.ok(html.includes(`data-onboarding-language="${value}"`), `В онбординге отсутствует способ объяснения ${value}`);
   assert.ok(html.includes(`<option value="${value}">`), `В настройках отсутствует способ объяснения ${value}`);
 }
+
+const onboardingLanguages = html.match(/<div id="onboardingLanguageChoices"[\s\S]*?<\/div>/)?.[0] || '';
+assert.ok(onboardingLanguages.includes('Выберите сложность объяснения'), 'Онбординг не просит явно выбрать сложность');
+assert.ok(onboardingLanguages.includes('сайт не назначает уровень автоматически'), 'Нет пояснения об обязательном самостоятельном выборе');
+assert.equal((onboardingLanguages.match(/aria-checked="true"/g) || []).length, 0, 'Сложность не должна быть выбрана автоматически');
+assert.equal((onboardingLanguages.match(/class="active"/g) || []).length, 0, 'Карточка сложности не должна выглядеть выбранной заранее');
+assert.ok(html.includes("onboardingLanguage=''"), 'Начальное значение сложности должно быть пустым');
+assert.ok(!html.includes("selectOnboardingLanguage(goal==='beginner'"), 'Цель занятия не должна автоматически назначать сложность');
+assert.ok(html.includes("$('#nextOnboarding').disabled=summary?!onboardingLanguage:!onboardingGoal"), 'Начало занятия должно быть заблокировано до выбора сложности');
 
 for (const [file, globalName] of [['massage-data.js', 'MASSAGE_QUESTIONS'], ['practice-cases.js', 'PRACTICE_CASES']]) {
   const questions = loadGlobal(file, globalName);
