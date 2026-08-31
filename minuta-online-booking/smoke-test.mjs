@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '42';
+const version = '43';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -43,9 +43,19 @@ assert.match(provider, /booking_policies/, 'Кабинет не загружае
 assert.match(provider, /notification_templates/, 'Шаблоны уведомлений не синхронизируются с сервером');
 assert.match(provider, /set_booking_payment_status/, 'Нет управления статусом предоплаты');
 assert.match(provider, /\[5, 10, 30, 40, 60, 90, 120/, 'Редактор услуги не поддерживает длительность 5 и 10 минут');
+assert.match(provider, /weekStartFor/, 'Лента дат не строит календарную неделю');
+assert.match(provider, /dataDateShift|dataset\.dateShift/, 'Нет перехода между неделями');
+assert.match(provider, /SCHEDULE_DATE_KEY/, 'Выбранная дата не сохраняется после обновления страницы');
+assert.match(provider, /SCHEDULE_FOLLOW_TODAY_KEY/, 'Сохранённое «Сегодня» не следует за новым календарным днём');
+assert.match(provider, /SCHEDULE_FILTER_KEY/, 'Фильтр расписания не сохраняется после обновления страницы');
+assert.match(provider, /timeZone: 'Europe\/Samara'/, 'Расписание не использует часовой пояс места оказания услуг');
+assert.match(provider, /scrollIntoView/, 'Активная дата не прокручивается в видимую область на мобильном');
+assert.match(provider, /setAttribute\('aria-pressed'/, 'Состояние фильтров не передаётся средствам доступности');
 
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="5">5 мин<\/option>[\s\S]*?<option value="10">10 мин<\/option>/, 'В форме новой услуги нет длительности 5 и 10 минут');
+assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
+assert.match(providerHtml, /data-date-shift="-7"[\s\S]*data-date-shift="7"/, 'В расписании нет навигации по неделям');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');

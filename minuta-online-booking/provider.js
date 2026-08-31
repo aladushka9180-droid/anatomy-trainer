@@ -6,13 +6,18 @@ const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window
 });
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
+const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
+const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 let currentUser = null;
-let currentFilter = 'day';
+let currentFilter = restoreScheduleFilter();
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
 let journalMode = localStorage.getItem('massage-journal-mode') || 'timeline';
-let selectedDate = localIsoDate(new Date());
+if (currentFilter !== 'day') journalMode = 'list';
+let selectedDate = restoreSelectedDate();
+let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
 let bookingOutcomes = new Map();
 let outcomesRemoteAvailable = false;
@@ -136,6 +141,13 @@ function localIsoDate(date) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+function businessTodayIso(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Samara', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
 function normalizePhone(value) {
   let digits = String(value || '').replace(/\D/g, '');
   if (digits.startsWith('00')) return '';
@@ -217,7 +229,7 @@ function outcomeSummary(item) {
 
 function reportBookings() {
   if (reportPeriod === 'all') return [...allBookings];
-  const today = new Date();
+  const today = parseLocalIsoDate(businessTodayIso());
   today.setHours(0, 0, 0, 0);
   const start = reportPeriod === 'month'
     ? new Date(today.getFullYear(), today.getMonth(), 1)
@@ -266,7 +278,7 @@ function exportBookingsCsv() {
   const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `записи-${localIsoDate(new Date())}.csv`;
+  link.download = `записи-${businessTodayIso()}.csv`;
   link.hidden = true;
   document.body.append(link);
   link.click();
@@ -455,7 +467,12 @@ function setProviderView(view) {
 function setFilter(filter) {
   currentFilter = filter;
   if (filter !== 'day' && journalMode === 'timeline') journalMode = 'list';
-  $$('[data-filter]').forEach(button => button.classList.toggle('active', button.dataset.filter === filter));
+  try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === filter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
   updateJournalModeButtons();
   renderBookings();
 }
@@ -464,29 +481,112 @@ function setJournalMode(mode) {
   journalMode = mode === 'list' ? 'list' : 'timeline';
   if (journalMode === 'timeline') currentFilter = 'day';
   localStorage.setItem('massage-journal-mode', journalMode);
-  $$('[data-filter]').forEach(button => button.classList.toggle('active', button.dataset.filter === currentFilter));
+  try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
   updateJournalModeButtons();
   renderBookings();
 }
 
 function updateJournalModeButtons() {
-  $$('[data-journal-mode]').forEach(button => button.classList.toggle('active', button.dataset.journalMode === journalMode));
+  $$('[data-journal-mode]').forEach(button => {
+    const active = button.dataset.journalMode === journalMode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function parseLocalIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
+  const date = new Date(`${value}T12:00:00`);
+  return Number.isNaN(date.getTime()) || localIsoDate(date) !== value ? null : date;
+}
+
+function restoreSelectedDate() {
+  try {
+    if (localStorage.getItem(SCHEDULE_FOLLOW_TODAY_KEY) === 'true') return businessTodayIso();
+    const stored = localStorage.getItem(SCHEDULE_DATE_KEY);
+    if (parseLocalIsoDate(stored)) return stored;
+  } catch {}
+  return businessTodayIso();
+}
+
+function restoreScheduleFilter() {
+  try {
+    const stored = localStorage.getItem(SCHEDULE_FILTER_KEY);
+    if (['day', 'upcoming', 'all'].includes(stored)) return stored;
+  } catch {}
+  return 'day';
+}
+
+function rememberSelectedDate(followToday = selectedDate === businessTodayIso()) {
+  try {
+    localStorage.setItem(SCHEDULE_DATE_KEY, selectedDate);
+    localStorage.setItem(SCHEDULE_FOLLOW_TODAY_KEY, String(followToday));
+  } catch {}
+}
+
+function weekStartFor(date) {
+  const start = new Date(date);
+  const daysFromMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - daysFromMonday);
+  return start;
+}
+
+function selectScheduleDate(value) {
+  const date = parseLocalIsoDate(value);
+  if (!date) return;
+  selectedDate = localIsoDate(date);
+  rememberSelectedDate();
+  renderDateStrip();
+  setFilter('day');
+}
+
+function shiftScheduleDate(days) {
+  const date = parseLocalIsoDate(selectedDate) || parseLocalIsoDate(businessTodayIso());
+  date.setDate(date.getDate() + days);
+  selectScheduleDate(localIsoDate(date));
+}
+
+function refreshBusinessDay() {
+  const today = businessTodayIso();
+  if (today === renderedBusinessToday) return;
+  renderedBusinessToday = today;
+  try {
+    if (localStorage.getItem(SCHEDULE_FOLLOW_TODAY_KEY) === 'true') {
+      selectedDate = today;
+      rememberSelectedDate(true);
+    }
+  } catch {}
+  renderDateStrip();
+  renderBookingData();
 }
 
 function renderDateStrip() {
-  const today = new Date();
+  const todayIso = businessTodayIso();
+  const today = parseLocalIsoDate(todayIso);
+  const selected = parseLocalIsoDate(selectedDate) || today;
+  const weekStart = weekStartFor(selected);
   const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
   $('#dateStrip').innerHTML = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
     const iso = localIsoDate(date);
-    const label = index === 0 ? 'Сегодня' : weekday.format(date).replace('.', '');
-    return `<button type="button" class="${iso === selectedDate ? 'active' : ''}" data-booking-date="${iso}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
+    const label = iso === todayIso ? 'Сегодня' : weekday.format(date).replace('.', '');
+    const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    return `<button type="button" class="${iso === selectedDate ? 'active' : ''}" data-booking-date="${iso}" aria-label="${fullDate}" aria-pressed="${iso === selectedDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
   }).join('');
+  const picker = $('#scheduleDatePicker');
+  if (picker) picker.value = selectedDate;
+  const active = $('#dateStrip [data-booking-date].active');
+  if ($('#dateStrip').scrollWidth > $('#dateStrip').clientWidth) active?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 
 function updateBookingStats() {
-  const today = localIsoDate(new Date());
+  const today = businessTodayIso();
   const active = allBookings.filter(item => item.status !== 'cancelled');
   const todayCount = active.filter(item => item.booking_date === today).length;
   const upcomingCount = active.filter(item => item.booking_date >= today).length;
@@ -497,7 +597,7 @@ function updateBookingStats() {
 }
 
 function filteredBookings() {
-  const today = localIsoDate(new Date());
+  const today = businessTodayIso();
   if (currentFilter === 'all') return allBookings;
   if (currentFilter === 'upcoming') return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date >= today);
   return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date === selectedDate);
@@ -695,7 +795,7 @@ function openBookingEditor(id) {
     <small class="booking-sheet-kicker">Изменение записи</small><h2 id="bookingSheetTitle">Перенести или изменить</h2>
     <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
       <label>Услуга<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
-      <label>Новая дата<input id="editBookingDate" type="date" min="${localIsoDate(new Date())}" value="${item.booking_date}" required></label>
+      <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
       <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
       <label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="3" placeholder="Пожелания, особенности или важная информация">${escapeHtml(note)}</textarea></label>
       <p class="form-error" id="bookingEditError" hidden></p>
@@ -739,8 +839,7 @@ async function saveBookingChanges(event) {
   await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
   if (!sessionIsCurrent(userId, generation)) return;
   clientNotes.set(phone, note);
-  selectedDate = date;
-  renderDateStrip();
+  selectScheduleDate(date);
   await refreshAfterWrite();
   notify('Запись обновлена');
   openBookingSheet(id);
@@ -781,7 +880,7 @@ function renderNewBookingTimePicker() {
 
 function openNewBookingSheet() {
   const services = ownServices.filter(item => item.active);
-  const date = selectedDate < localIsoDate(new Date()) ? localIsoDate(new Date()) : selectedDate;
+  const date = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
@@ -795,7 +894,7 @@ function openNewBookingSheet() {
           <label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
         </section>
         <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small>Выберите удобное свободное окно</small></div></div>
-          <label>Дата<input id="newBookingDate" type="date" min="${localIsoDate(new Date())}" value="${date}" required></label>
+          <label>Дата<input id="newBookingDate" type="date" min="${businessTodayIso()}" value="${date}" required></label>
           <label>Свободное время<div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
         </section>
       </div>
@@ -862,8 +961,7 @@ async function createNewBooking(event) {
     if (!sessionIsCurrent(userId, generation)) return;
     clientNotes.set(normalizedPhone, note);
   }
-  selectedDate = date;
-  renderDateStrip();
+  selectScheduleDate(date);
   closeBookingSheet();
   await refreshAfterWrite();
   notify('Новая запись создана');
@@ -879,7 +977,7 @@ function renderBookings() {
   const holder = $('#providerBookings');
   const items = filteredBookings();
   const date = new Date(`${selectedDate}T12:00:00`);
-  const today = localIsoDate(new Date());
+  const today = businessTodayIso();
   $('#selectedDateTitle').textContent = selectedDate === today ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
   $('#selectedDateSummary').textContent = currentFilter === 'day'
     ? (items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : 'Свободный день')
@@ -950,8 +1048,8 @@ function renderClientDetail(phone) {
   $('#clientVisits').textContent = String(visits);
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
   $('#clientNote').value = clientNotes.get(phone) || '';
-  $('#repeatDate').value = localIsoDate(new Date());
-  $('#repeatDate').min = localIsoDate(new Date());
+  $('#repeatDate').value = businessTodayIso();
+  $('#repeatDate').min = businessTodayIso();
   repeatTime = '';
   populateRepeatServices();
   loadRepeatSlots();
@@ -1210,6 +1308,7 @@ function startLiveUpdates() {
     });
   bookingsChannel = channel;
   syncTimer = setInterval(() => {
+    refreshBusinessDay();
     if (!document.hidden && navigator.onLine) synchronizeProvider();
   }, 60000);
 }
@@ -1320,7 +1419,7 @@ async function handleSession(session) {
   $('#sidebarName').textContent = name;
   $('#userAvatar').textContent = name.slice(0, 1).toUpperCase();
   $('#accountEmail').textContent = currentUser.email || '';
-  $('#todayLabel').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#todayLabel').textContent = parseLocalIsoDate(businessTodayIso()).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   renderDateStrip();
   renderNotificationTemplates();
   renderBookingPolicyForm();
@@ -1604,7 +1703,7 @@ async function loadDaysOff() {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (!userId) return { ok: false };
-  const { data, error } = await db.from('provider_days_off').select('*').eq('performer_id', userId).gte('off_date', localIsoDate(new Date())).order('off_date');
+  const { data, error } = await db.from('provider_days_off').select('*').eq('performer_id', userId).gte('off_date', businessTodayIso()).order('off_date');
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   if (error) {
     const cached = await readProviderCache('days-off', userId);
@@ -1641,7 +1740,7 @@ async function addDayOff(event) {
   event.target.reset();
   $('#dayOffAllDay').checked = true;
   $('#dayOffTime').hidden = true;
-  $('#dayOffDate').min = localIsoDate(new Date());
+  $('#dayOffDate').min = businessTodayIso();
   notify('Исключение добавлено');
   await refreshAfterWrite();
 }
@@ -1732,6 +1831,8 @@ document.addEventListener('click', async event => {
   const filter = event.target.closest('[data-filter]');
   const journalView = event.target.closest('[data-journal-mode]');
   const date = event.target.closest('[data-booking-date]');
+  const dateShift = event.target.closest('[data-date-shift]');
+  const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
   const editBooking = event.target.closest('[data-edit-booking]');
   const backBooking = event.target.closest('[data-back-booking]');
@@ -1786,11 +1887,9 @@ document.addEventListener('click', async event => {
   }
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
-  if (date) {
-    selectedDate = date.dataset.bookingDate;
-    renderDateStrip();
-    setFilter('day');
-  }
+  if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
+  if (dateToday) selectScheduleDate(businessTodayIso());
+  if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
   if (backBooking) openBookingSheet(backBooking.dataset.backBooking);
@@ -1845,6 +1944,7 @@ document.addEventListener('click', async event => {
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#bookingSheet').hidden) closeBookingSheet(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
+  refreshBusinessDay();
   renderNotifications();
   if (navigator.onLine) synchronizeProvider();
 });
@@ -1868,6 +1968,7 @@ $('#saveClientNote').addEventListener('click', saveClientNote);
 $('#clientSearch').addEventListener('input', renderClients);
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
+$('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
@@ -1878,7 +1979,7 @@ $('#newBookingButton').addEventListener('click', openNewBookingSheet);
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#slotInterval').addEventListener('change', () => { scheduleDirty = true; });
-$('#dayOffDate').min = localIsoDate(new Date());
+$('#dayOffDate').min = businessTodayIso();
 $('#weeklySchedule').addEventListener('change', event => {
   const card = event.target.closest('[data-schedule-day]');
   if (!card) return;
@@ -1901,4 +2002,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=42'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=43'));

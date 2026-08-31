@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=42">
+  <link rel="stylesheet" href="styles.css?v=43">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -89,12 +89,18 @@
             <i></i><div><strong id="activeServicesCount">0</strong><span>услуг</span></div>
           </div>
           <section class="schedule-card">
-            <div class="date-strip" id="dateStrip" aria-label="Выбор даты"></div>
+            <div class="date-navigation" role="group" aria-label="Навигация по расписанию">
+              <button class="date-nav-button" type="button" data-date-shift="-7" aria-label="Показать предыдущую неделю"><span aria-hidden="true">←</span><span>Предыдущая</span></button>
+              <button class="date-today-button" type="button" data-date-today>Сегодня</button>
+              <label class="schedule-date-picker"><span>Календарь</span><input id="scheduleDatePicker" type="date" aria-label="Выбрать дату в календаре"></label>
+              <button class="date-nav-button" type="button" data-date-shift="7" aria-label="Показать следующую неделю"><span>Следующая</span><span aria-hidden="true">→</span></button>
+            </div>
+            <div class="date-strip" id="dateStrip" role="group" aria-label="Выбор даты"></div>
             <div class="schedule-toolbar">
               <div><strong id="selectedDateTitle">Сегодня</strong><span id="selectedDateSummary">Записей нет</span></div>
               <div class="schedule-controls">
-                <div class="journal-mode-toggle" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline"><span aria-hidden="true">◷</span> Лента</button><button type="button" data-journal-mode="list"><span aria-hidden="true">☷</span> Список</button></div>
-                <div class="booking-filters"><button class="active" type="button" data-filter="day">День</button><button type="button" data-filter="upcoming">Будущие</button><button type="button" data-filter="all">Все</button></div>
+                <div class="journal-mode-toggle" role="group" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline" aria-pressed="true"><span aria-hidden="true">◷</span> Лента</button><button type="button" data-journal-mode="list" aria-pressed="false"><span aria-hidden="true">☷</span> Список</button></div>
+                <div class="booking-filters" role="group" aria-label="Фильтр записей"><button class="active" type="button" data-filter="day" aria-pressed="true">День</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все</button></div>
               </div>
             </div>
             <div class="provider-bookings schedule-list" id="providerBookings"></div>
@@ -280,8 +286,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=42"></script>
-  <script src="reliability.js?v=42"></script>
-  <script src="provider.js?v=42" defer></script>
+  <script src="config.js?v=43"></script>
+  <script src="reliability.js?v=43"></script>
+  <script src="provider.js?v=43" defer></script>
 </body>
 </html>

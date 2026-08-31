@@ -227,6 +227,13 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .stat-grid strong,.stat-grid small { display:block; }.stat-grid strong { font-size:22px; letter-spacing:-.04em; }.stat-grid small { margin-top:3px; color:#74847b; font-size:10px; }
 
 .schedule-card { margin-top:15px; overflow:hidden; border:1px solid #e0e8e2; border-radius:21px; background:#fff; box-shadow:0 14px 45px rgba(27,63,45,.06); }
+.date-navigation { display:flex; align-items:center; justify-content:center; gap:9px; padding:12px 13px 0; background:#fafcfb; }
+.date-nav-button,.date-today-button,.schedule-date-picker { display:flex; align-items:center; justify-content:center; gap:6px; min-height:34px; padding:0 12px; border:1px solid #dce7df; border-radius:11px; background:#fff; color:#315b47; font-size:10px; font-weight:850; }
+.date-nav-button,.date-today-button { cursor:pointer; }
+.date-nav-button:hover,.date-today-button:hover { border-color:#75a58c; background:#f2f8f4; }
+.schedule-date-picker { position:relative; padding:5px 9px 5px 11px; }
+.schedule-date-picker input { min-height:25px; border:0; background:transparent; color:#315b47; font:inherit; cursor:pointer; outline:none; }
+.date-nav-button:focus-visible,.date-today-button:focus-visible,.schedule-date-picker:focus-within { outline:3px solid rgba(48,126,83,.2); outline-offset:2px; }
 .date-strip { display:grid; grid-template-columns:repeat(7,1fr); padding:13px; border-bottom:1px solid #e8eee9; background:#fafcfb; }
 .date-strip button { display:grid; justify-items:center; gap:3px; min-height:70px; padding:9px 5px; border:0; border-radius:13px; background:transparent; color:#73827a; cursor:pointer; }
 .date-strip button span { font-size:9px; font-weight:850; text-transform:capitalize; }.date-strip button strong { font-size:18px; }.date-strip button small { font-size:9px; }
@@ -390,6 +397,12 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .stat-grid { grid-template-columns:1fr 1fr; gap:9px; }
   .stat-grid article { min-height:72px; padding:12px; }
   .stat-grid article:last-child { grid-column:1/-1; }
+  .date-navigation { display:grid; grid-template-columns:1fr auto 1fr; padding:10px 10px 0; }
+  .date-nav-button { min-width:0; min-height:44px; padding:0 9px; }
+  .date-today-button { min-height:44px; padding:0 10px; }
+  .schedule-date-picker { grid-column:1/-1; grid-row:2; }
+  .schedule-date-picker,.schedule-date-picker input { min-height:44px; }
+  .schedule-date-picker input { width:auto; }
   .date-strip { display:flex; gap:5px; overflow-x:auto; padding:10px; scrollbar-width:none; }
   .date-strip::-webkit-scrollbar { display:none; }
   .date-strip button { flex:0 0 61px; min-height:66px; }
@@ -427,6 +440,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .auth-card>.brand { margin-bottom:24px; }
   .auth-card h1 { font-size:38px; }
   .stat-grid small { font-size:9px; }
+  .date-nav-button span:not([aria-hidden="true"]) { display:none; }
   .booking-filters { width:100%; }
   .booking-filters button { flex:1; }
   .services-layout .panel { padding:18px 14px; }
