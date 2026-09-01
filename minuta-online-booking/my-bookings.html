@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#183427">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
+  <meta name="description" content="Все мои записи на массаж в Ижевске.">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Мои записи — Массаж в Ижевске</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=86">
+</head>
+<body class="manage-body client-account-body">
+  <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
+  <header class="site-header manage-header">
+    <a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>мои записи</small></span></a>
+    <a class="provider-link" href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая запись</span></a>
+  </header>
+  <main class="client-account-layout">
+    <section class="client-login-card" id="clientLoginCard">
+      <span class="client-login-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg></span>
+      <small>Личный раздел</small><h1>Мои записи</h1>
+      <p>Введите телефон и личный код, полученный после первой записи.</p>
+      <form id="clientLoginForm" novalidate>
+        <label>Номер телефона<input id="clientLoginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
+        <label>Личный код<input id="clientLoginCode" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" required></label>
+        <p class="form-error" id="clientLoginError" role="alert" hidden></p>
+        <button class="primary" id="clientLoginButton" type="submit">Открыть мои записи</button>
+      </form>
+      <p class="client-login-note">Код не приходит по SMS. Он выдаётся после первой онлайн-записи и действует вместе с вашим номером телефона.</p>
+    </section>
+    <section class="client-bookings-card" id="clientBookingsCard" hidden>
+      <div class="client-bookings-head"><div><small>Личный раздел</small><h1>Мои записи</h1><p id="clientAccountPhone"></p></div><button class="manage-secondary" id="clientLogout" type="button">Выйти</button></div>
+      <div class="client-account-tools"><button class="manage-secondary" id="clientRefresh" type="button">Обновить</button><button class="manage-secondary" id="clientRotateCode" type="button">Новый личный код</button></div>
+      <section class="client-code-result" id="clientCodeResult" hidden><small>Новый личный код</small><strong id="clientNewCode"></strong><p>Сохраните его: прежний код больше не действует.</p><div class="client-access-share"><a id="clientCodeWhatsapp" href="#" target="_blank" rel="noopener noreferrer">Отправить в WhatsApp</a><a id="clientCodeTelegram" href="#" target="_blank" rel="noopener noreferrer">Отправить в Telegram</a></div></section>
+      <div class="loading-state client-bookings-loading" id="clientBookingsLoading"><i></i><span>Загружаем записи…</span></div>
+      <div class="client-bookings-list" id="clientBookingsList"></div>
+      <div class="client-bookings-empty" id="clientBookingsEmpty" hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"></use></svg></span><h2>Записей пока нет</h2><p>Создайте новую запись, и она появится здесь.</p><a class="primary" href="index.html">Записаться</a></div>
+      <p class="form-error" id="clientBookingsError" role="alert" hidden></p>
+    </section>
+  </main>
+  <div class="toast" id="toast" hidden></div>
+  <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
+  <script src="config.js?v=86"></script><script src="reliability.js?v=86"></script><script src="my-bookings.js?v=86" defer></script>
+</body>
+</html>

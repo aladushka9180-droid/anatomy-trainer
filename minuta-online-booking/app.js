@@ -7,6 +7,7 @@ let selectionValidationPending = false;
 let selectionValidationBlocked = false;
 let bookingResultUncertain = false;
 const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
+const CLIENT_SESSION_KEY = 'minuta-client-session-v1';
 let bookingAttempt = loadBookingAttempt();
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -456,6 +457,29 @@ function notifyTelegramEvent(event, manageToken) {
     body: JSON.stringify({ event, manage_token: manageToken })
   }).catch(() => {});
 }
+function saveClientSession(token) {
+  if (!/^[0-9a-f]{64}$/i.test(token || '')) return;
+  try { localStorage.setItem(CLIENT_SESSION_KEY, token); } catch {}
+}
+function clientAccessShareMessage(code, phone) { return `Мои записи на массаж: ${new URL('my-bookings.html', location.href).href}\nТелефон: ${phone}\nЛичный код: ${code}\nНе пересылайте код посторонним.`; }
+function renderClientAccess(result, phone) {
+  if (!result?.session_token) return;
+  saveClientSession(result.session_token);
+  $('#myBookingsSuccess').hidden = false;
+  if (!result.access_code) return;
+  $('#clientAccessCode').textContent = result.access_code;
+  $('#clientAccessNote').textContent = 'Сохраните этот личный код. На другом устройстве он понадобится вместе с номером телефона.';
+  const text = clientAccessShareMessage(result.access_code, phone);
+  $('#clientAccessWhatsapp').href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  $('#clientAccessTelegram').href = `https://t.me/share/url?url=${encodeURIComponent(new URL('my-bookings.html', location.href).href)}&text=${encodeURIComponent(text)}`;
+  $('#clientAccessShare').hidden = false;
+  $('#clientAccessResult').hidden = false;
+}
+async function bootstrapClientAccess(manageToken, phone) {
+  if (!manageToken) return;
+  const { data } = await db.rpc('bootstrap_client_access', { p_manage_token: manageToken, p_device_name: navigator.userAgent.slice(0, 120) });
+  renderClientAccess(data?.[0], phone);
+}
 
 async function submitBooking(event) {
   event.preventDefault();
@@ -506,6 +530,7 @@ async function submitBooking(event) {
     $('#copyManageBooking').hidden = false;
     $('#telegramConnect').href = telegramConnectUrl(manageToken);
     $('#telegramConnect').hidden = false;
+    await bootstrapClientAccess(manageToken, phone);
     const { data: management } = await db.rpc('get_booking_management', { p_token: manageToken });
     const current = management?.[0];
     renderSuccessPayment(current);
@@ -522,7 +547,7 @@ async function submitBooking(event) {
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -584,4 +609,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=79'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=86'));

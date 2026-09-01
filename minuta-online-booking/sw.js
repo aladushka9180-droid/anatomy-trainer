@@ -1,17 +1,19 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v79`;
+const CACHE = `${CACHE_PREFIX}v86`;
 const ASSETS = [
   './',
   './index.html',
   './provider.html',
   './booking.html',
+  './my-bookings.html',
   './privacy.html',
-  './styles.css?v=79',
-  './config.js?v=79',
-  './reliability.js?v=79',
-  './app.js?v=79',
-  './provider.js?v=79',
-  './booking.js?v=79',
+  './styles.css?v=86',
+  './config.js?v=86',
+  './reliability.js?v=86',
+  './app.js?v=86',
+  './provider.js?v=86',
+  './booking.js?v=86',
+  './my-bookings.js?v=86',
   './ui-icons.svg',
   './manifest.webmanifest',
   './icon.svg',
@@ -47,7 +49,7 @@ async function navigationResponse(request) {
     return response;
   } catch {
     const path = new URL(request.url).pathname;
-    const shell = path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
+    const shell = path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
     return (await caches.match(shell)) || (await caches.match('./index.html'));
   }
 }

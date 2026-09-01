@@ -59,7 +59,7 @@ function cacheBustedVersions(html) {
 }
 
 const timings = [];
-const pages = ['index.html', 'provider.html', 'booking.html'];
+const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html'];
 const assetUrls = new Set();
 
 for (const page of pages) {

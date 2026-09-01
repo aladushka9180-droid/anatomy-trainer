@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '79';
+const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
+const version = '86';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -19,7 +19,7 @@ for (const page of pages) {
   }
 }
 
-for (const page of ['index.html', 'provider.html', 'booking.html']) {
+for (const page of ['index.html', 'provider.html', 'booking.html', 'my-bookings.html']) {
   const html = readFileSync(join(root, page), 'utf8');
   assert.match(html, /vendor\/supabase-2\.112\.4\.min\.js/, `${page}: SDK Supabase не закреплён локально`);
   assert.match(html, /integrity="sha384-/, `${page}: нет контроля целостности SDK`);
@@ -171,7 +171,7 @@ assert.match(styles, /color-lavender[\s\S]*background:#f2edfa/, 'Палитра 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
 assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
-for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js']) {
+for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js', 'my-bookings.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
 assert.match(worker, /\.\/ui-icons\.svg/, 'Service Worker не кэширует единый набор иконок');
@@ -237,6 +237,8 @@ assert.match(index, /id="durationNote"/, 'В форме нет пояснени�
 assert.doesNotMatch(index, /id="successCode"/, 'Технический номер показывается клиенту после записи');
 assert.doesNotMatch(bookingHtml, /id="manageCode"|Номер записи/, 'Технический номер показывается на странице управления записью');
 assert.match(index, /class="booking-footer"[\s\S]*provider\.html/, 'Исполнитель потерял доступ к своему кабинету');
+assert.match(index, /href="my-bookings\.html"[\s\S]*Мои записи/, 'На странице записи нет отдельной кнопки «Мои записи»');
+assert.match(index, /id="clientAccessResult"/, 'После записи не показывается личный код клиента');
 const clientHeader = index.match(/<header class="site-header booking-client-header">[\s\S]*?<\/header>/)?.[0] || '';
 assert.doesNotMatch(clientHeader, /provider-link|provider\.html/, 'Вход исполнителя снова отвлекает клиента в шапке');
 assert.ok(existsSync(join(root, 'ui-icons.svg')), 'Единый набор иконок отсутствует');
@@ -315,6 +317,20 @@ assert.match(bookingSessionMigration, /create or replace function public\.save_b
 assert.match(bookingSessionMigration, /session_overlap:/, 'Сервер не блокирует пересечение со следующей записью');
 assert.match(bookingSessionMigration, /original_price_rub/, 'Первоначальная стоимость записи не сохраняется');
 assert.match(bookingSessionMigration, /total_price_rub/, 'Итоговая стоимость записи не сохраняется');
+
+const clientAccountMigration = readFileSync(join(root, 'supabase-migration-v54.sql'), 'utf8');
+assert.match(clientAccountMigration, /create table if not exists public\.client_accounts/, 'Нет серверного хранения клиентских аккаунтов');
+assert.match(clientAccountMigration, /create table if not exists public\.client_device_sessions/, 'Нет ограниченных сессий клиентских устройств');
+assert.match(clientAccountMigration, /access_code_hash/, 'Личный код клиента хранится без хеша');
+assert.match(clientAccountMigration, /create or replace function public\.login_client_access/, 'Нет безопасного входа клиента');
+assert.match(clientAccountMigration, /login_rate_limited/, 'Вход клиента не ограничивает частоту попыток');
+assert.match(clientAccountMigration, /create or replace function public\.get_client_bookings/, 'Нет защищённого списка записей клиента');
+const clientAccount = readFileSync(join(root, 'my-bookings.js'), 'utf8');
+assert.match(clientAccount, /login_client_access/, 'Клиентская зона не выполняет вход по телефону и коду');
+assert.match(clientAccount, /get_client_bookings/, 'Клиентская зона не загружает все записи');
+assert.match(clientAccount, /localStorage\.setItem\(SESSION_KEY/, 'Сессия клиента не сохраняется на устройстве');
+assert.doesNotMatch(clientAccount, /localStorage\.setItem\([^\n]*(?:phone|code)/i, 'Телефон или личный код сохраняется в открытом виде');
+assert.match(app, /bootstrap_client_access/, 'После оформления не создаётся клиентский доступ');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
