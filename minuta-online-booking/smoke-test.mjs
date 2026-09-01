@@ -166,7 +166,7 @@ assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-stat
 assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px; margin:0;/, 'Поле календаря не выровнено с подписью и иконкой');
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
-assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 70 : 76/, 'Высота часового интервала снова обрезает заметки');
+assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 60 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:stretch; align-items:center;/, 'Время записи не центрируется по высоте карточки');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
