@@ -149,9 +149,10 @@ jobs:
             *cawexmmrqjvothcbgjxr*) ;;
             *) echo "Строка подключения не соответствует production проекту" >&2; exit 1 ;;
           esac
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+          MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v54.sql
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and to_regprocedure('public.bootstrap_client_access(uuid,text)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
 
