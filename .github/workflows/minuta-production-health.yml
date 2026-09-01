@@ -25,7 +25,7 @@ jobs:
           node-version: 22
       - name: Проверить сайт и публичные RPC
         env:
-          MINUTA_EXPECT_VERSION: "69"
+          MINUTA_EXPECT_VERSION: "70"
           MINUTA_EXPECT_IDEMPOTENCY: "1"
         shell: bash
         run: |

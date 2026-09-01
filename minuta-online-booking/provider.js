@@ -959,7 +959,7 @@ function renderTimeline(items) {
     const height = Math.max(36, (duration / 60) * hourHeight - 4);
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
-    const compact = height < 46 ? ' compact' : '';
+    const compact = height < 58 ? ' compact' : '';
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
     const clientDetails = block ? 'Занятое время' : `${item.client_name} · ${item.client_phone} · ${duration} мин`;
@@ -968,7 +968,7 @@ function renderTimeline(items) {
     const badgeDetails = block ? '' : clientBadgeText(item.client_phone);
     return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}${vip ? ' client-vip' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
-      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${escapeHtml(clientDetails)}</small>${block ? '' : clientBadgeMarkup(item.client_phone)}</span>${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
+      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${escapeHtml(clientDetails)}</small>${block ? '' : clientBadgeMarkup(item.client_phone)}</span>${note ? `<small class="timeline-booking-note"><span class="timeline-note-client">${escapeHtml(block ? '' : `${item.client_name} · `)}</span><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
       <span class="timeline-booking-status">${statusText}</span>
     </button>`;
   }).join('');
@@ -2970,4 +2970,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=69'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=70'));
