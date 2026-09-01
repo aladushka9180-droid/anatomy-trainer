@@ -430,7 +430,9 @@ assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Стары
 assert.match(reliability, /removeExpired/, 'Нет автоматического удаления просроченного офлайн-кэша');
 
 const productionHealth = readFileSync(join(root, 'production-health-check.mjs'), 'utf8');
-assert.match(productionHealth, /`\\\$\{CACHE_PREFIX\}v\$\{expectedVersion\}`/, 'Production health ожидает неверное имя кэша Service Worker');
+assert.match(productionHealth, /const checkedVersion = expectedVersion \|\| liveVersion/, 'Production health не определяет актуальную версию рабочего сайта');
+assert.match(productionHealth, /`\\\$\{CACHE_PREFIX\}v\$\{checkedVersion\}`/, 'Production health ожидает неверное имя кэша Service Worker');
+assert.match(productionHealth, /uniqueVersions\.length, 1/, 'Production health не обнаруживает смешанные версии ресурсов');
 assert.match(productionHealth, /rest\/v1\/portfolio_items/, 'Production health не проверяет таблицу портфолио');
 assert.match(productionHealth, /rest\/v1\/portfolio_photos/, 'Production health не проверяет таблицу фотографий');
 assert.match(productionHealth, /rpc\/get_public_booking_reviews/, 'Production health не проверяет отзывы');

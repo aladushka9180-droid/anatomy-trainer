@@ -61,6 +61,7 @@ function cacheBustedVersions(html) {
 const timings = [];
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html'];
 const assetUrls = new Set();
+let liveVersion = '';
 
 for (const page of pages) {
   const pageUrl = new URL(page, baseUrl);
@@ -68,9 +69,13 @@ for (const page of pages) {
   const html = await response.text();
   assert.ok(/Content-Security-Policy/.test(html), `${page}: отсутствует CSP`);
   assert.ok(/vendor\/supabase-2\.112\.4\.min\.js/.test(html), `${page}: отсутствует закреплённый Supabase SDK`);
+  const versions = cacheBustedVersions(html);
+  const uniqueVersions = [...new Set(versions)];
+  assert.ok(versions.length > 0, `${page}: не найдены версии статических ресурсов`);
+  assert.equal(uniqueVersions.length, 1, `${page}: одновременно опубликованы разные версии ресурсов: ${uniqueVersions.join(', ')}`);
+  if (!liveVersion) liveVersion = uniqueVersions[0];
+  assert.equal(uniqueVersions[0], liveVersion, `${page}: версия ${uniqueVersions[0]} не совпадает с общей версией ${liveVersion}`);
   if (expectedVersion) {
-    const versions = cacheBustedVersions(html);
-    assert.ok(versions.length > 0, `${page}: не найдены версии статических ресурсов`);
     assert.ok(versions.every(version => version === expectedVersion), `${page}: ожидалась версия ${expectedVersion}, найдены ${[...new Set(versions)].join(', ')}`);
   }
   for (const asset of sameOriginAssets(html, pageUrl)) assetUrls.add(asset);
@@ -88,10 +93,9 @@ assert.ok(supabaseUrl && supabaseKey, 'Не удалось прочитать п
 
 const workerResult = await checkedFetch(new URL('sw.js', baseUrl));
 const workerSource = await workerResult.response.text();
-if (expectedVersion) {
-  assert.ok(workerSource.includes(`\${CACHE_PREFIX}v${expectedVersion}`), `sw.js: не найден кэш версии ${expectedVersion}`);
-  assert.ok(workerSource.includes(`?v=${expectedVersion}`), `sw.js: ресурсы не переведены на версию ${expectedVersion}`);
-}
+const checkedVersion = expectedVersion || liveVersion;
+assert.ok(workerSource.includes(`\${CACHE_PREFIX}v${checkedVersion}`), `sw.js: не найден кэш версии ${checkedVersion}`);
+assert.ok(workerSource.includes(`?v=${checkedVersion}`), `sw.js: ресурсы не переведены на версию ${checkedVersion}`);
 
 const apiHeaders = {
   apikey: supabaseKey,
@@ -168,7 +172,7 @@ if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   assert.match(probe?.message || '', /invalid input syntax for type uuid/i, 'Идемпотентная RPC версии 43 не подтвердила UUID-параметр');
 }
 
-console.log(`Minuta production health: OK; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
+console.log(`Minuta production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
 } catch (error) {
   console.error(`Minuta production health: FAIL; ${error?.message || error}`);
   process.exitCode = 1;

@@ -15,9 +15,9 @@ on:
           - diagnose-client-links
           - observe-production
       expected_version:
-        description: Ожидаемая версия опубликованных ресурсов
-        required: true
-        default: "88"
+        description: Ожидаемая версия ресурсов; пусто — определить автоматически
+        required: false
+        default: ""
         type: string
       observation_minutes:
         description: Длительность наблюдения production
@@ -27,6 +27,11 @@ on:
         options:
           - "30"
           - "60"
+      backup_confirm:
+        description: Для production-migration введите BACKUP_VERIFIED после проверки свежей копии
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -52,8 +57,10 @@ jobs:
       - name: Проверить JavaScript, уведомления и платёжные границы
         run: |
           node --check minuta-online-booking/scripts/migration-config-guard.mjs
+          node --check minuta-online-booking/scripts/migration-safety-guard.mjs
           node --check minuta-online-booking/notification-outbox-static-test.mjs
           node --check minuta-online-booking/payment-foundation-static-test.mjs
+          node --check minuta-online-booking/provider-delete-v64-static-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
@@ -61,6 +68,8 @@ jobs:
           deno check minuta-online-booking/supabase/functions/telegram-client-notify/index.ts
           node minuta-online-booking/notification-outbox-static-test.mjs
           node minuta-online-booking/payment-foundation-static-test.mjs
+          node minuta-online-booking/provider-delete-v64-static-test.mjs
+          node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
           node minuta-online-booking/smoke-test.mjs
 
@@ -129,6 +138,10 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v56.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v57.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v58.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v60.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v62.sql
@@ -136,11 +149,16 @@ jobs:
             -f minuta-online-booking/supabase-migration-v63.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v61.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v64.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regclass('public.client_labels') is not null and to_regclass('public.booking_session_items') is not null and to_regclass('public.booking_session_revisions') is not null and to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='favorite_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='vip_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='total_price_rub') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='client_account_id') and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null and to_regprocedure('public.set_booking_note(uuid,text)') is not null and to_regprocedure('public.save_booking_session(uuid,jsonb)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.booking_reviews') is not null and to_regprocedure('public.provider_delete_booking(uuid)') is not null and to_regprocedure('public.submit_booking_review(text,uuid,integer,text)') is not null and to_regprocedure('public.get_client_bookings_v2(text)') is not null and to_regprocedure('public.get_public_booking_reviews()') is not null and to_regprocedure('public.get_provider_booking_reviews()') is not null and to_regprocedure('public.set_booking_review_published(uuid,boolean)') is not null;" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select p.prorettype = 'text'::regtype and p.prosecdef and position('return ''review_protected''' in pg_get_functiondef(p.oid)) > 0 and position('delete from public.payment_events' in pg_get_functiondef(p.oid)) > 0 and position('booking_delete_failed' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE') from pg_proc p where p.oid = 'public.provider_delete_booking(uuid)'::regprocedure;" \
             | grep -qx t
 
   production-migration:
@@ -157,49 +175,30 @@ jobs:
       - name: Применить миграции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MINUTA_BACKUP_CONFIRM: ${{ inputs.backup_confirm }}
         shell: bash
         run: |
           set -euo pipefail
+          test "$MINUTA_BACKUP_CONFIRM" = "BACKUP_VERIFIED"
           test -n "$SUPABASE_DB_URL"
           case "$SUPABASE_DB_URL" in
             *cawexmmrqjvothcbgjxr*) ;;
             *) echo "Строка подключения не соответствует production проекту" >&2; exit 1 ;;
           esac
           MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_reviews') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regprocedure('public.provider_delete_booking(uuid)') is not null and to_regprocedure('public.get_client_bookings_v2(text)') is not null;" \
+            | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v54.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v55.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v56.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v57.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v60.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v62.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v63.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v61.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
-          begin;
-          select set_config(
-            'request.jwt.claim.sub',
-            (select performer_id::text from public.bookings order by created_at desc limit 1),
-            true
-          );
-          set local role authenticated;
-          select public.provider_delete_booking(
-            (select id from public.bookings where performer_id = auth.uid() order by created_at desc limit 1)
-          );
-          rollback;
-          SQL
+            -f minuta-online-booking/supabase-migration-v64.sql
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='actual_duration_minutes') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='calculated_amount_rub') and to_regprocedure('public.bootstrap_client_access(uuid,text)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.booking_reviews') is not null and to_regprocedure('public.provider_delete_booking(uuid)') is not null and to_regprocedure('public.submit_booking_review(text,uuid,integer,text)') is not null and to_regprocedure('public.get_client_bookings_v2(text)') is not null and to_regprocedure('public.get_public_booking_reviews()') is not null and to_regprocedure('public.get_provider_booking_reviews()') is not null and to_regprocedure('public.set_booking_review_published(uuid,boolean)') is not null;" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select p.prorettype = 'text'::regtype and p.prosecdef and position('return ''review_protected''' in pg_get_functiondef(p.oid)) > 0 and position('delete from public.payment_events' in pg_get_functiondef(p.oid)) > 0 and position('booking_delete_failed' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE') from pg_proc p where p.oid = 'public.provider_delete_booking(uuid)'::regprocedure;" \
             | grep -qx t
 
   diagnose-client-links:
