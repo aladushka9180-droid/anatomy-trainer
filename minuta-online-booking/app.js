@@ -382,6 +382,11 @@ async function showStep(step) {
   $('#bookingTitle').textContent = titles[step];
   $('#stepKicker').textContent = kickers[step];
   $('#stepLabel').textContent = `${step} из 3`;
+  const bookingCard = $('.booking-card');
+  requestAnimationFrame(() => bookingCard?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start'
+  }));
   if (step === 2) {
     if (state.availabilityServiceId === state.serviceId && state.availability.size) {
       renderDates();
@@ -393,7 +398,6 @@ async function showStep(step) {
     await validateCurrentSelection();
     updateSubmitAvailability();
   }
-  $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderSummary() {
@@ -574,4 +578,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=51'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=52'));

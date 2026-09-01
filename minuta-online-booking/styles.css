@@ -10,10 +10,11 @@
 
 * { box-sizing: border-box; }
 [hidden] { display:none!important; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 body { margin: 0; min-height: 100vh; color: var(--ink); background: linear-gradient(180deg,#fbfdf9,#f3f8f4); font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow-x: hidden; }
 button, input { font: inherit; -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
+button,a,summary { touch-action:manipulation; }
 .ambient { position: fixed; z-index: -1; border-radius: 50%; filter: blur(4px); pointer-events: none; }
 .ambient-left { width: 620px; height: 620px; left: -260px; top: -260px; background: radial-gradient(circle,rgba(201,255,231,.9),transparent 68%); }
 .ambient-right { width: 650px; height: 650px; right: -260px; top: -300px; background: radial-gradient(circle,rgba(255,230,188,.82),transparent 68%); }
@@ -44,7 +45,7 @@ button { color: inherit; }
 .pin { position:relative; width:16px; height:16px; flex:0 0 auto; margin-top:4px; border:2px solid var(--green); border-radius:50% 50% 50% 0; transform:rotate(-45deg); }
 .pin::after { content:""; position:absolute; width:4px; height:4px; left:4px; top:4px; border-radius:50%; background:var(--green); }
 
-.booking-card { min-height: 610px; padding: 28px; border:1px solid #e0e8e2; border-radius:24px; background:#fff; box-shadow:0 18px 55px rgba(33,74,54,.09); }
+.booking-card { min-height: 610px; padding: 28px; overflow-anchor:none; scroll-margin-top:10px; border:1px solid #e0e8e2; border-radius:24px; background:#fff; box-shadow:0 18px 55px rgba(33,74,54,.09); }
 .card-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
 .card-heading small,.dialog-head small,.success small { display:block; color:#6c8378; font-size:11px; font-weight:850; letter-spacing:.16em; text-transform:uppercase; }
 .card-heading h2,.dialog-head h2 { margin:5px 0 0; font-size:25px; line-height:1.15; letter-spacing:-.045em; }
@@ -396,13 +397,15 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .manage-times { grid-template-columns:repeat(4,1fr); }
   .provider-app { display:block; padding-bottom:76px; }
   .provider-sidebar { display:none; }
-  .provider-workspace { padding:0 14px 34px; }
-  .provider-topbar { min-height:78px; }
-  .provider-topbar h1 { max-width:230px; font-size:18px; }
-  .provider-topbar-actions { min-width:0; }
-  .sync-state { max-width:170px; }
+  .provider-workspace { padding:0 10px 30px; }
+  .provider-topbar { display:grid; grid-template-columns:minmax(0,1fr) 42px; align-items:center; gap:8px 10px; min-height:0; padding:12px 2px 11px; }
+  .provider-topbar>div:first-child { grid-column:1; grid-row:1; min-width:0; }
+  .provider-topbar h1 { max-width:none; font-size:18px; }
+  .provider-topbar-actions { display:contents; }
+  .sync-state { grid-column:1/-1; grid-row:2; justify-self:start; max-width:100%; }
   .sync-state span { overflow:hidden; text-overflow:ellipsis; }
-  .topbar-client-link { display:none; }
+  .provider-topbar .topbar-client-link { grid-column:2; grid-row:1; display:grid; place-items:center; width:42px; min-height:42px; padding:0; border-radius:13px; }
+  .topbar-client-link>span { display:none; }
   .provider-view { padding-top:23px; }
   .view-title h2 { font-size:27px; }
   .view-title-actions .compact-button { min-height:39px; padding:0 12px; font-size:10px; }
@@ -434,6 +437,9 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .schedule-day .day-off-label { text-align:right; }
   .settings-card { grid-template-columns:42px minmax(0,1fr); }
   .settings-icon { width:42px; height:42px; }
+  .schedule-settings-layout>.panel { padding:17px 12px; }
+  .provider-body .ambient-right { display:none; }
+  input,select,textarea { font-size:16px!important; }
   .provider-mobile-nav { position:fixed; z-index:20; left:10px; right:10px; bottom:max(10px,env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(5,1fr); padding:7px; border:1px solid rgba(224,232,226,.9); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 12px 45px rgba(24,52,39,.18); backdrop-filter:blur(18px); }
   .provider-mobile-nav button,.provider-mobile-nav a { display:grid; justify-items:center; gap:3px; padding:6px 4px; border:0; border-radius:12px; background:transparent; color:#718077; text-decoration:none; font-size:9px; font-weight:800; }
   .provider-mobile-nav span { font-size:16px; }

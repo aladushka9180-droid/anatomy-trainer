@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '51';
+const version = '52';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -75,6 +75,10 @@ const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
+assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
+assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Двойное нажатие может случайно увеличить страницу');
+assert.match(styles, /\.provider-body \.ambient-right\s*\{[^}]*display:none/, 'Декоративная жёлтая область остаётся на мобильном');
+assert.match(styles, /input,select,textarea\s*\{[^}]*font-size:16px!important/, 'Мобильные поля могут вызывать автоматическое увеличение');
 assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
 assert.match(providerHtml, /data-date-shift="-7"[\s\S]*data-date-shift="7"/, 'В расписании нет навигации по неделям');
 assert.match(providerHtml, /data-provider-panel="portfolio"/, 'В кабинете нет раздела портфолио');
@@ -117,6 +121,7 @@ assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфол
 assert.match(app, /до \$\{endTime\} · нельзя начать/, 'Недоступное начало ошибочно выглядит как занятое отдельное время');
 assert.match(app, /весь интервал должен быть свободен/, 'Клиенту не объясняется правило для продолжительной услуги');
 assert.doesNotMatch(app, /<small>занято<\/small>/, 'Интерфейс всё ещё называет недоступное начало занятым временем');
+assert.match(app, /requestAnimationFrame\(\(\) => bookingCard\?\.scrollIntoView/, 'Переход между шагами прокручивается только после загрузки данных');
 
 const timeRangeFunctionSource = app.match(/function timeRange\(time, duration\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(timeRangeFunctionSource, 'Не удалось извлечь расчёт интервала услуги');
