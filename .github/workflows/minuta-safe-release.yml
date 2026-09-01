@@ -12,6 +12,7 @@ on:
           - preflight
           - test-migration
           - production-migration
+          - diagnose-client-links
           - observe-production
       expected_version:
         description: Ожидаемая версия опубликованных ресурсов
@@ -159,6 +160,83 @@ jobs:
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and to_regprocedure('public.bootstrap_client_access(uuid,text)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
+
+  diagnose-client-links:
+    if: inputs.phase == 'diagnose-client-links'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Установить клиент PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Проверить связи клиентских записей без персональных данных
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          case "$SUPABASE_DB_URL" in
+            *cawexmmrqjvothcbgjxr*) ;;
+            *) echo "Строка подключения не соответствует production проекту" >&2; exit 1 ;;
+          esac
+          MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -P pager=off <<'SQL'
+          select
+            count(*) as bookings_total,
+            count(*) filter (where client_phone <> '0000000000') as eligible_phone_total,
+            count(*) filter (where client_account_id is not null) as linked_total,
+            count(*) filter (
+              where client_account_id is null
+                and client_phone <> '0000000000'
+                and public.normalize_client_phone(client_phone) ~ '^7[0-9]{10}$'
+            ) as linkable_unlinked_total
+          from public.bookings;
+
+          select
+            count(*) as accounts_total,
+            count(*) filter (where linked_bookings = 0) as accounts_without_bookings,
+            count(*) filter (where matching_bookings > linked_bookings) as accounts_with_missing_links,
+            coalesce(sum(linked_bookings), 0) as linked_bookings_total,
+            coalesce(sum(matching_bookings), 0) as matching_bookings_total
+          from (
+            select
+              account.id,
+              count(booking.id) filter (where booking.client_account_id = account.id) as linked_bookings,
+              count(booking.id) filter (
+                where booking.client_phone <> '0000000000'
+                  and public.normalize_client_phone(booking.client_phone) = account.normalized_phone
+              ) as matching_bookings
+            from public.client_accounts account
+            left join public.bookings booking
+              on booking.client_account_id = account.id
+              or (
+                booking.client_account_id is null
+                and booking.client_phone <> '0000000000'
+                and public.normalize_client_phone(booking.client_phone) = account.normalized_phone
+              )
+            group by account.id
+          ) diagnostics;
+
+          select count(*) as mismatched_links_total
+          from public.bookings booking
+          join public.client_accounts account on account.id = booking.client_account_id
+          where public.normalize_client_phone(booking.client_phone) is distinct from account.normalized_phone;
+
+          select
+            count(*) as active_sessions_total,
+            count(distinct session.client_account_id) as accounts_with_active_sessions,
+            count(*) filter (where linked.id is null) as active_sessions_without_linked_bookings
+          from public.client_device_sessions session
+          left join lateral (
+            select booking.id
+            from public.bookings booking
+            where booking.client_account_id = session.client_account_id
+            limit 1
+          ) linked on true
+          where session.revoked_at is null
+            and session.expires_at > now();
+          SQL
 
   observe-production:
     if: inputs.phase == 'observe-production'
