@@ -40,6 +40,8 @@ let portfolioDraggedId = '';
 let portfolioPhotoDrafts = { before: null, after: null };
 let portfolioPreviewUrls = [];
 let clientNotes = new Map();
+let clientLabels = new Map();
+let pendingClientLabels = new Set();
 let selectedClientPhone = '';
 let repeatTime = '';
 let bookingEditTime = '';
@@ -111,7 +113,7 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '#saveClientNote',
+  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#saveClientLabels',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
@@ -190,6 +192,75 @@ function normalizePhone(value) {
   if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
   if (digits.length === 10) digits = `7${digits}`;
   return digits.length >= 11 && digits.length <= 15 && !digits.startsWith('0') ? digits : '';
+}
+
+function clientLabelStorageKey(userId = currentUser?.id) { return `massage-client-labels-v1:${userId || 'anonymous'}`; }
+function clientLabelPendingStorageKey(userId = currentUser?.id) { return `massage-client-labels-pending-v1:${userId || 'anonymous'}`; }
+function normalizeClientLabel(value = {}) {
+  return {
+    favorite: Boolean(value.favorite),
+    vip: Boolean(value.vip),
+    attention: Boolean(value.attention),
+    attention_reason: String(value.attention_reason || '').trim().slice(0, 500)
+  };
+}
+function loadLocalClientLabels(userId = currentUser?.id) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(clientLabelStorageKey(userId)) || '{}');
+    clientLabels = new Map(Object.entries(saved).map(([phone, value]) => [phone, normalizeClientLabel(value)]));
+  } catch { clientLabels = new Map(); }
+  try { pendingClientLabels = new Set(JSON.parse(localStorage.getItem(clientLabelPendingStorageKey(userId)) || '[]')); }
+  catch { pendingClientLabels = new Set(); }
+}
+function persistClientLabels(userId = currentUser?.id) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(clientLabelStorageKey(userId), JSON.stringify(Object.fromEntries(clientLabels)));
+    localStorage.setItem(clientLabelPendingStorageKey(userId), JSON.stringify([...pendingClientLabels]));
+  } catch {}
+}
+function clientLabel(phone) { return normalizeClientLabel(clientLabels.get(normalizePhone(phone))); }
+function clientIsNew(phone) {
+  const normalized = normalizePhone(phone);
+  const now = new Date();
+  return !allBookings.some(item => {
+    if (isScheduleBlock(item) || normalizePhone(item.client_phone) !== normalized || item.status === 'cancelled') return false;
+    const outcome = bookingOutcome(item);
+    if (outcome.visit_status === 'no_show') return false;
+    if (outcome.visit_status === 'completed') return true;
+    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+    const end = new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`);
+    return new Date(end.getTime() + duration * 60000) < now;
+  });
+}
+function clientBadgeDefinitions(phone) {
+  const value = clientLabel(phone);
+  return [
+    value.attention ? { key:'attention', icon:'shield-alert', label:'Требует внимания', detail:value.attention_reason } : null,
+    value.vip ? { key:'vip', icon:'star', label:'VIP' } : null,
+    value.favorite ? { key:'favorite', icon:'heart', label:'Любимый клиент' } : null,
+    clientIsNew(phone) ? { key:'new', icon:'spark', label:'Новый клиент' } : null
+  ].filter(Boolean);
+}
+function clientBadgeText(phone) {
+  return clientBadgeDefinitions(phone).map(item => item.detail ? `${item.label}: ${item.detail}` : item.label).join(', ');
+}
+function clientBadgeMarkup(phone, { limit = 2, showLabels = false } = {}) {
+  const definitions = clientBadgeDefinitions(phone);
+  if (!definitions.length) return '';
+  const shown = definitions.slice(0, limit);
+  const rest = definitions.length - shown.length;
+  if (!showLabels) {
+    const fullText = clientBadgeText(phone);
+    return `<span class="client-badges" aria-hidden="true">${shown.map(item => {
+      const title = item.detail ? `${item.label}: ${item.detail}` : item.label;
+      return `<span class="client-badge badge-${item.key}" title="${escapeHtml(title)}">${uiIcon(item.icon)}</span>`;
+    }).join('')}${rest > 0 ? `<span class="client-badge-more">+${rest}</span>` : ''}</span><span class="sr-only">Метки клиента: ${escapeHtml(fullText)}</span>`;
+  }
+  return `<span class="client-badges with-labels" role="list" aria-label="Метки клиента">${shown.map(item => {
+    const title = item.detail ? `${item.label}: ${item.detail}` : item.label;
+    return `<span class="client-badge badge-${item.key}" role="listitem" title="${escapeHtml(title)}">${uiIcon(item.icon)}<span>${item.label}</span>${item.detail ? `<span class="sr-only">: ${escapeHtml(item.detail)}</span>` : ''}</span>`;
+  }).join('')}${rest > 0 ? `<span class="client-badge-more" aria-hidden="true">+${rest}</span><span class="sr-only">Остальные метки: ${escapeHtml(definitions.slice(limit).map(item => item.detail ? `${item.label}: ${item.detail}` : item.label).join(', '))}</span>` : ''}</span>`;
 }
 function bookingColorStorageKey(userId = currentUser?.id) { return `massage-booking-colors-v1:${userId || 'anonymous'}`; }
 function validBookingColor(value) { return BOOKING_COLOR_KEYS.includes(String(value)) ? String(value) : BOOKING_COLOR_DEFAULT; }
@@ -875,9 +946,11 @@ function renderTimeline(items) {
     const note = bookingDisplayNote(item);
     const clientDetails = block ? 'Занятое время' : `${item.client_name} · ${item.client_phone} · ${duration} мин`;
     const ariaDetails = note ? `${clientDetails}, заметка: ${note}` : clientDetails;
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}">
+    const vip = !block && clientLabel(item.client_phone).vip;
+    const badgeDetails = block ? '' : clientBadgeText(item.client_phone);
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}${vip ? ' client-vip' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
-      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><small class="timeline-booking-client">${escapeHtml(clientDetails)}</small>${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
+      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${escapeHtml(clientDetails)}</small>${block ? '' : clientBadgeMarkup(item.client_phone)}</span>${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
       <span class="timeline-booking-status">${statusText}</span>
     </button>`;
   }).join('');
@@ -903,10 +976,10 @@ function renderBookingList(items) {
     const resultSummary = outcomeSummary(item);
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}">
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${!block && clientLabel(item.client_phone).vip ? ' client-vip' : ''}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
-      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
+      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone)}</span><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
       ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">${block ? 'Освободить' : 'Отменить'}</button></div>` : ''}
     </article>`;
   }).join('');
@@ -925,6 +998,7 @@ function openBookingSheet(id) {
   const outcome = bookingOutcome(item);
   const amount = Number(outcome.amount_rub || item.services?.price_rub || 0);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
+  $('#bookingSheet').classList.toggle('booking-sheet-vip', !isScheduleBlock(item) && clientLabel(item.client_phone).vip);
   if (isScheduleBlock(item)) {
     $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
       <h2 id="bookingSheetTitle">${escapeHtml(item.client_name || 'Перерыв')}</h2>
@@ -947,7 +1021,7 @@ function openBookingSheet(id) {
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
-    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(item.services?.price_rub || 0)}</strong></div></div>
+    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}<a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(item.services?.price_rub || 0)}</strong></div></div>
     ${bookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
     <details class="booking-sheet-disclosure booking-note-disclosure" ${note ? 'open' : ''}>
       <summary><div><small>О клиенте</small><strong>Заметка</strong></div><span class="booking-note-state">${note ? 'Добавлена' : 'Добавить'}</span></summary>
@@ -1099,6 +1173,7 @@ function openBookingEditor(id) {
   const block = isScheduleBlock(item);
   bookingEditTime = String(item.booking_time).slice(0, 5);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
+  $('#bookingSheet').classList.toggle('booking-sheet-vip', !block && clientLabel(item.client_phone).vip);
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small></div><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}">
@@ -1239,6 +1314,7 @@ function openNewBookingSheet(preferredTime = '') {
   newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime)) ? String(preferredTime) : '';
   newBookingMode = 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide');
+  $('#bookingSheet').classList.remove('booking-sheet-vip');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручное расписание</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">Новый клиент</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
@@ -1341,7 +1417,7 @@ async function createNewBooking(event) {
 
 function closeBookingSheet() {
   $('#bookingSheet').hidden = true;
-  $('#bookingSheet').classList.remove('booking-sheet-wide');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'booking-sheet-vip');
   document.body.classList.remove('booking-sheet-open');
 }
 
@@ -1398,7 +1474,7 @@ function renderClients() {
     const upcoming = clientUpcoming(client);
     const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${escapeHtml(client.name.slice(0,1).toUpperCase())}</span><span class="client-list-main"><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientLabel(client.phone).vip ? ' client-vip' : ''}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${escapeHtml(client.name.slice(0,1).toUpperCase())}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
   }).join('');
 }
 
@@ -1413,6 +1489,16 @@ function renderClientDetail(phone) {
   $('#clientName').textContent = client.name;
   $('#clientPhone').textContent = client.displayPhone;
   $('#clientPhone').href = `tel:${client.phone}`;
+  $('#clientProfileBadges').innerHTML = clientBadgeMarkup(client.phone, { limit:4, showLabels:true });
+  const labels = clientLabel(client.phone);
+  $('#clientProfileContent').closest('.client-profile').classList.toggle('client-vip-profile', labels.vip);
+  $('#clientLabelFavorite').checked = labels.favorite;
+  $('#clientLabelVip').checked = labels.vip;
+  $('#clientLabelAttention').checked = labels.attention;
+  $('#clientAttentionReason').value = labels.attention_reason;
+  $('#clientAttentionReasonField').hidden = !labels.attention;
+  $('#clientAutomaticLabel').innerHTML = clientIsNew(client.phone) ? `${uiIcon('spark')} Новый клиент` : '';
+  clearFormError('#clientLabelsError');
   const now = new Date();
   const visits = client.bookings.filter(item => {
     const outcome = bookingOutcome(item);
@@ -1467,6 +1553,60 @@ async function loadClientNotes() {
   renderBookings();
   renderClients();
   return { ok: true };
+}
+
+async function loadClientLabels() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok:false, optional:true };
+  const { data, error } = await db.from('client_labels').select('client_phone,favorite,vip,attention,attention_reason').eq('performer_id', userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, optional:true };
+  if (!error) {
+    (data || []).forEach(item => {
+      const phone = normalizePhone(item.client_phone);
+      if (!pendingClientLabels.has(phone)) clientLabels.set(phone, normalizeClientLabel(item));
+    });
+    persistClientLabels(userId);
+  }
+  renderBookings();
+  renderClients();
+  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  return { ok:!error, optional:true };
+}
+
+async function saveClientLabels() {
+  if (!requireWrites() || !selectedClientPhone) return;
+  clearFormError('#clientLabelsError');
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const phone = selectedClientPhone;
+  const value = normalizeClientLabel({
+    favorite:$('#clientLabelFavorite').checked,
+    vip:$('#clientLabelVip').checked,
+    attention:$('#clientLabelAttention').checked,
+    attention_reason:$('#clientAttentionReason').value
+  });
+  if (value.attention && value.attention_reason.length < 3) {
+    showFormError('#clientLabelsError', 'Кратко укажите, почему клиент требует внимания.');
+    $('#clientAttentionReason').focus();
+    return;
+  }
+  if (!value.attention) value.attention_reason = '';
+  clientLabels.set(phone, value);
+  pendingClientLabels.add(phone);
+  persistClientLabels();
+  renderBookingData();
+  const button = $('#saveClientLabels');
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' });
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (!error) pendingClientLabels.delete(phone);
+  persistClientLabels();
+  button.disabled = false;
+  button.textContent = 'Сохранить метки';
+  renderBookingData();
+  notify(error ? 'Метки сохранены на этом устройстве' : 'Метки клиента сохранены');
 }
 
 async function loadBookingOutcomes() {
@@ -1670,6 +1810,7 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_schedule', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_days_off', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'client_notes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'client_labels', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_outcomes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
@@ -1704,7 +1845,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -1712,7 +1853,7 @@ function synchronizeProvider() {
     const degraded = results.some(result => result?.optional && !result?.ok);
     setWritesAllowed(complete);
     if (complete) {
-      setSyncState(skipped || degraded ? 'warning' : 'online', skipped ? 'Есть несохранённое расписание · серверная сверка приостановлена' : degraded ? 'Основные данные синхронизированы · результаты визитов доступны только на этом устройстве' : `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
+      setSyncState(skipped || degraded ? 'warning' : 'online', skipped ? 'Есть несохранённое расписание · серверная сверка приостановлена' : degraded ? 'Основные данные синхронизированы · дополнительные данные сохранены на этом устройстве' : `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
       if (!bookingsChannel) startLiveUpdates();
     } else {
       const cached = results.filter(result => result?.cached).map(result => result.savedAt).filter(Boolean).sort()[0];
@@ -1749,7 +1890,9 @@ async function clearProviderDeviceData(userId) {
         || key === `massage-booking-outcomes-${userId}`
         || key === bookingColorStorageKey(userId)
         || key === bookingNoteStorageKey(userId)
-        || key === bookingNotePendingStorageKey(userId)) localStorage.removeItem(key);
+        || key === bookingNotePendingStorageKey(userId)
+        || key === clientLabelStorageKey(userId)
+        || key === clientLabelPendingStorageKey(userId)) localStorage.removeItem(key);
     });
   } catch {}
 }
@@ -1779,10 +1922,13 @@ async function handleSession(session) {
   if (currentUser) {
     loadBookingColors(currentUser.id);
     loadBookingNotes(currentUser.id);
+    loadLocalClientLabels(currentUser.id);
   } else {
     bookingColors = new Map();
     bookingNotes = new Map();
     pendingBookingNotes = new Set();
+    clientLabels = new Map();
+    pendingClientLabels = new Set();
   }
   scheduleDirty = false;
   if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId);
@@ -1801,6 +1947,8 @@ async function handleSession(session) {
     scheduleRows = [];
     daysOff = [];
     clientNotes = new Map();
+    clientLabels = new Map();
+    pendingClientLabels = new Set();
     bookingOutcomes = new Map();
     bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '' };
     serverNotificationTemplates = {};
@@ -2681,6 +2829,12 @@ $('#depositEnabled').addEventListener('change', event => { $('#depositSettings')
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#saveClientNote').addEventListener('click', saveClientNote);
+$('#saveClientLabels').addEventListener('click', saveClientLabels);
+$('#clientLabelAttention').addEventListener('change', event => {
+  $('#clientAttentionReasonField').hidden = !event.target.checked;
+  if (event.target.checked) $('#clientAttentionReason').focus();
+  else clearFormError('#clientLabelsError');
+});
 $('#clientSearch').addEventListener('input', renderClients);
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
@@ -2749,4 +2903,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=67'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=68'));

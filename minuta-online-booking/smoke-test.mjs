@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '67';
+const version = '68';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -31,6 +31,7 @@ const sdk = readFileSync(join(root, 'vendor', 'supabase-2.112.4.min.js'));
 assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV', 'Контрольная сумма локального SDK не совпадает');
 
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
@@ -71,6 +72,13 @@ assert.match(provider, /blockDurationOptions/, 'При редактирован�
 assert.match(provider, /bookingNoteStorageKey\(userId\).*localStorage\.removeItem/s, 'Заметки к перерывам остаются на общем устройстве после выхода');
 assert.match(provider, /Заметка сохранена на этом устройстве/, 'Интерфейс скрывает ошибку серверного сохранения заметки');
 assert.match(provider, /pendingBookingNotes\.has\(item\.id\)/, 'Синхронизация может затереть локальную заметку после ошибки RPC');
+assert.match(provider, /function clientBadgeMarkup/, 'В записях не отображаются метки клиента');
+assert.match(provider, /function clientIsNew/, 'Новый клиент не определяется автоматически');
+assert.match(providerHtml, /id="saveClientLabels"/, 'В карточке клиента нет сохранения меток');
+assert.match(provider, /attention_reason\.length < 3/, 'Метка «Требует внимания» сохраняется без причины');
+assert.match(provider, /client-vip/, 'VIP-записи не имеют отдельного минималистичного оформления');
+assert.match(provider, /Метки клиента: \$\{escapeHtml\(fullText\)\}/, 'Компактные метки недоступны скринридеру');
+assert.match(provider, /метки клиента: \$\{escapeHtml\(badgeDetails\)\}/, 'Метки не включены в доступное имя записи расписания');
 assert.doesNotMatch(provider, /<span>Номер записи<\/span>/, 'Технический номер показывается в карточке исполнителя');
 assert.match(provider, /class="booking-sheet-summary"/, 'Клиент и стоимость не собраны в компактное резюме');
 assert.match(provider, /booking-note-disclosure/, 'Пустая заметка занимает слишком много места');
@@ -89,7 +97,6 @@ assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безоп
 assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
 assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
 
-const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
@@ -246,6 +253,11 @@ const bookingNoteMigration = readFileSync(join(root, 'supabase-migration-v49.sql
 assert.match(bookingNoteMigration, /add column if not exists provider_note text/, 'Заметка к перерыву не сохраняется на сервере');
 assert.match(bookingNoteMigration, /create or replace function public\.set_booking_note/, 'Нет защищённой RPC сохранения заметки к перерыву');
 assert.match(bookingNoteMigration, /char_length\(provider_note\) <= 1000/, 'Длина заметки к перерыву не ограничена');
+
+const clientLabelsMigration = readFileSync(join(root, 'supabase-migration-v50.sql'), 'utf8');
+assert.match(clientLabelsMigration, /create table if not exists public\.client_labels/, 'Нет серверного хранения меток клиента');
+assert.match(clientLabelsMigration, /performer_id = \(select auth\.uid\(\)\)/, 'Исполнитель может читать или менять чужие метки клиентов');
+assert.match(clientLabelsMigration, /not attention or char_length\(btrim\(attention_reason\)\) >= 3/, 'Сервер принимает предупреждение без причины');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');

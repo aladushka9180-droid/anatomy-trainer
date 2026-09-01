@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=67">
+  <link rel="stylesheet" href="styles.css?v=68">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -114,8 +114,19 @@
             <section class="panel client-profile">
               <div class="client-profile-empty" id="clientProfileEmpty"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-user"></use></svg></span><strong>Выберите клиента</strong><small>Справа появятся контакты, история и заметки.</small></div>
               <div id="clientProfileContent" hidden>
-                <div class="client-profile-head"><span class="client-avatar" id="clientAvatar">К</span><div><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><a id="clientPhone" href="tel:">Телефон</a></div></div>
+                <div class="client-profile-head"><span class="client-avatar" id="clientAvatar">К</span><div><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div id="clientProfileBadges"></div><a id="clientPhone" href="tel:">Телефон</a></div></div>
                 <div class="client-summary"><article><strong id="clientVisits">0</strong><small>посещений</small></article><article><strong id="clientNext">—</strong><small>ближайшая запись</small></article></div>
+                <section class="client-labels-panel" aria-labelledby="clientLabelsTitle">
+                  <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
+                  <div class="client-label-options">
+                    <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
+                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-star"></use></svg></span><strong>VIP</strong></label>
+                    <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
+                  </div>
+                  <label class="client-attention-reason" id="clientAttentionReasonField" hidden>Причина<textarea id="clientAttentionReason" maxlength="500" rows="2" placeholder="Например, нужна предоплата или часто опаздывает"></textarea></label>
+                  <p class="form-error" id="clientLabelsError" hidden></p>
+                  <button class="secondary-button client-labels-save" id="saveClientLabels" type="button">Сохранить метки</button>
+                </section>
                 <label class="client-note-label">Заметка<textarea id="clientNote" maxlength="1000" rows="4" placeholder="Предпочтения, важные детали или пожелания клиента"></textarea></label>
                 <button class="secondary-button client-note-save" id="saveClientNote" type="button">Сохранить заметку</button>
                 <details class="client-disclosure">
@@ -311,8 +322,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=67"></script>
-  <script src="reliability.js?v=67"></script>
-  <script src="provider.js?v=67" defer></script>
+  <script src="config.js?v=68"></script>
+  <script src="reliability.js?v=68"></script>
+  <script src="provider.js?v=68" defer></script>
 </body>
 </html>

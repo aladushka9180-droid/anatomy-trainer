@@ -26,5 +26,8 @@
   <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 4v11m-4-4 4 4 4-4M5 20h14"/></symbol>
   <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3m2 0-1 13H8L7 7m3.5 4v5m3-5v5"/></symbol>
   <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 4 21 20H3L12 4Zm0 5v5m0 3v.1"/></symbol>
+  <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M20 8.8c0 5-8 10.2-8 10.2S4 13.8 4 8.8A4.3 4.3 0 0 1 12 6.6a4.3 4.3 0 0 1 8 2.2Z"/></symbol>
+  <symbol id="icon-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></symbol>
+  <symbol id="icon-shield-alert" viewBox="0 0 24 24"><path d="M12 3.5 19 6v5.3c0 4.4-2.4 7.4-7 9.2-4.6-1.8-7-4.8-7-9.2V6l7-2.5Zm0 4.2v5.1m0 3v.1"/></symbol>
   <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 16V5m-4 4 4-4 4 4M5 20h14"/></symbol>
 </svg>
