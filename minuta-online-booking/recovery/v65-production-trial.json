@@ -1,0 +1,41 @@
+{
+  "tested_at": "2026-09-02T02:22:19+04:00",
+  "base_commit": "b033692513be0bb1f624092d7ce2e896c19883bc",
+  "migration": "supabase-migration-v65.sql",
+  "migration_sha256": "05b44914413069dcf8ab9ebfffe7a88254a3af879d71cb2028c61b07d83f16f8",
+  "integration_sha256": "8d3eba8756b7894793fb8385fdf15b9fde9fd432469a9b5f2765aa43816c20e0",
+  "rollback_sha256": "db3214e6096c40a0b30a242c7d7165d82d34fca5482ea23a0fac2681f3f00037",
+  "mode": "production_transaction_with_rollback",
+  "production_applied": false,
+  "baseline": {
+    "performer_profiles": 1,
+    "services": 9,
+    "bookings": 44,
+    "provider_schedule": 7
+  },
+  "trial_results": {
+    "organizations": 1,
+    "locations": 1,
+    "memberships": 1,
+    "legacy_owner_is_bookable": true,
+    "public_booking_enabled": false,
+    "second_run_preserved_foundation_hashes": true,
+    "owner_admin_specialist_rls": true,
+    "foreign_tenant_hidden": true,
+    "suspended_tenant_hidden": true,
+    "invited_specialist_duplicate_org_blocked": true,
+    "legacy_provider_delete_unchanged": true,
+    "release_postcheck": true,
+    "rollback_script": true
+  },
+  "final_production_state": {
+    "organizations_table_absent": true,
+    "locations_table_absent": true,
+    "organization_memberships_table_absent": true,
+    "performer_profiles": 1,
+    "services": 9,
+    "bookings": 44,
+    "provider_schedule": 7
+  },
+  "release_blocker": "Production application requires a confirmed external backup."
+}
