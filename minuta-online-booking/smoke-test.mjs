@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
+const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
 const version = '99';
 
 for (const page of pages) {
@@ -26,6 +26,10 @@ for (const page of ['index.html', 'provider.html', 'booking.html', 'my-bookings.
   assert.match(html, new RegExp(`reliability\\.js\\?v=${version}`), `${page}: не подключён слой надёжности`);
   assert.doesNotMatch(html, /https:\/\/\*\.supabase\.co/, `${page}: CSP разрешает любой проект Supabase`);
 }
+
+const waitlistPage = readFileSync(join(root, 'waitlist.html'), 'utf8');
+assert.match(waitlistPage, /vendor\/supabase-2\.112\.4\.min\.js/, 'waitlist.html: SDK Supabase не закреплён локально');
+assert.match(waitlistPage, /integrity="sha384-/, 'waitlist.html: нет контроля целостности SDK');
 
 const sdk = readFileSync(join(root, 'vendor', 'supabase-2.112.4.min.js'));
 assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV', 'Контрольная сумма локального SDK не совпадает');
@@ -177,7 +181,7 @@ assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
 assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
-for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js', 'my-bookings.js']) {
+for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
 assert.match(worker, /\.\/ui-icons\.svg/, 'Service Worker не кэширует единый набор иконок');
@@ -203,6 +207,7 @@ assert.doesNotMatch(app, /firstAvailable/, 'Расписание всё ещё �
 assert.match(app, /data-suggested-date/, 'Нет однокнопочной подсказки ближайшего времени');
 assert.match(app, /Сегодня мест нет/, 'Подсказка не объясняет отсутствие мест сегодня');
 assert.match(app, /Показать это время/, 'Подсказка ближайшего времени не содержит понятного действия');
+assert.match(app, /join_booking_waitlist/, 'Клиент не может оставить заявку в листе ожидания');
 assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфолио отвлекает клиента во время записи');
 assert.doesNotMatch(app, /· нельзя начать/, 'Серые интервалы перегружены повторяющейся подписью');
 assert.match(app, /недоступно для начала: весь интервал должен быть свободен/, 'Недоступность интервала не объясняется средствам доступности');
@@ -240,6 +245,7 @@ assert.match(index, /id="portfolioSection"/, 'На публичной стран
 assert.match(index, /Услуга[\s\S]*Время[\s\S]*Контакты/, 'На форме нет понятного прогресса из трёх этапов');
 assert.match(index, /id="submitBooking"[^>]*disabled/, 'Кнопка подтверждения активна до корректных контактов');
 assert.match(index, /id="availabilityHint"/, 'В форме нет места для подсказки ближайшего времени');
+assert.match(index, /id="waitlistCta"[\s\S]*id="waitlistDialog"/, 'В форме нет листа ожидания');
 assert.match(index, /id="durationNote"/, 'В форме нет пояснения длительности выбранного интервала');
 assert.doesNotMatch(index, /id="successCode"/, 'Технический номер показывается клиенту после записи');
 assert.doesNotMatch(bookingHtml, /id="manageCode"|Номер записи/, 'Технический номер показывается на странице управления записью');
@@ -258,6 +264,17 @@ assert.match(booking, /booking\.html#token=/, 'Токен управления �
 assert.match(booking, /loadBooking\(\{ silent: true \}\)/, 'Не проверяется результат неопределённой операции');
 assert.match(booking, /get_booking_management/, 'Клиент не получает серверные правила отмены и переноса');
 assert.match(booking, /cancel_too_late/, 'Клиентский интерфейс не обрабатывает срок отмены');
+assert.match(booking, /confirm_booking_by_token/, 'Клиент не может подтвердить визит');
+
+const waitlist = readFileSync(join(root, 'waitlist.js'), 'utf8');
+assert.match(waitlist, /get_waitlist_request/, 'Страница листа ожидания не загружает заявку');
+assert.match(waitlist, /cancel_waitlist_request/, 'Клиент не может отменить заявку листа ожидания');
+assert.match(provider, /booking_waitlist_requests/, 'Кабинет не загружает лист ожидания');
+assert.match(provider, /set_waitlist_request_status/, 'Кабинет не меняет статус заявки листа ожидания');
+
+const waitlistMigration = readFileSync(join(root, 'supabase-migration-v58.sql'), 'utf8');
+assert.match(waitlistMigration, /create table if not exists public\.booking_waitlist_requests/, 'Нет серверной таблицы листа ожидания');
+assert.match(waitlistMigration, /confirm_booking_by_token/, 'Нет серверного подтверждения визита клиентом');
 assert.match(bookingHtml, /id="addAppleCalendar"[\s\S]*id="addAndroidCalendar"/, 'Нет отдельных вариантов календаря для iPhone и Android');
 assert.match(booking, /new File\([\s\S]*type: 'text\/calendar'/, 'Для телефонов не создаётся календарный файл');
 assert.match(booking, /navigator\.canShare\?\.\(\{ files: \[file\] \}\)/, 'Android не проверяет системное меню приложений для файла');

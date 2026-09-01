@@ -35,6 +35,7 @@ function markBookingStale(text = 'Не удалось обновить данн�
   $('#openReschedule').disabled = true;
   $('#cancelBooking').disabled = true;
   $('#confirmReschedule').disabled = true;
+  $('#confirmAttendance').disabled = true;
   $('#reschedulePanel').hidden = true;
   $('#manageActions').hidden = false;
 }
@@ -50,7 +51,7 @@ function createDates() {
 function renderBooking() {
   const item = state.booking;
   const date = new Date(`${item.booking_date}T12:00:00`);
-  const statusMap = { new: 'Новая', confirmed: 'Подтверждена', cancelled: 'Отменена' };
+  const statusMap = { new: 'Ожидает подтверждения', confirmed: 'Подтверждена', cancelled: 'Отменена' };
   $('#manageService').textContent = serviceName(item.service_name);
   $('#manageStatus').textContent = statusMap[item.status] || item.status;
   $('#manageStatus').className = `manage-status status-${item.status}`;
@@ -62,6 +63,8 @@ function renderBooking() {
   $('#manageDuration').textContent = `${item.duration_minutes} мин`;
   $('#managePrice').textContent = money(item.price_rub);
   const cancelled = item.status === 'cancelled';
+  $('#attendanceConfirmation').hidden = item.status !== 'new';
+  $('#confirmAttendance').disabled = item.status !== 'new';
   $('#openReschedule').disabled = cancelled || !item.reschedule_allowed;
   $('#cancelBooking').disabled = cancelled || !item.cancel_allowed;
   if (!$('#reschedulePanel').hidden) $('#confirmReschedule').disabled = !state.time;
@@ -91,6 +94,23 @@ function renderBooking() {
   }
   setFreshness('fresh', `Проверено в ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
   if (cancelled) $('#manageActions').classList.add('cancelled');
+}
+
+async function confirmAttendance() {
+  const button = $('#confirmAttendance');
+  button.disabled = true;
+  button.textContent = 'Подтверждаем…';
+  const { error } = await db.rpc('confirm_booking_by_token', { p_token: token });
+  if (error) {
+    button.disabled = false;
+    button.textContent = 'Да, я приду';
+    notify('Не удалось подтвердить визит. Попробуйте ещё раз.');
+    return;
+  }
+  await loadBooking({ silent: true });
+  button.disabled = false;
+  button.textContent = 'Да, я приду';
+  notify('Визит подтверждён');
 }
 
 async function loadBooking(options = {}) {
@@ -287,6 +307,7 @@ $('#openReschedule').addEventListener('click', openReschedule);
 $('#closeReschedule').addEventListener('click', closeReschedule);
 $('#confirmReschedule').addEventListener('click', confirmReschedule);
 $('#cancelBooking').addEventListener('click', cancelBooking);
+$('#confirmAttendance').addEventListener('click', confirmAttendance);
 $('#addCalendar').addEventListener('click', addToCalendar);
 $('#addAppleCalendar').addEventListener('click', () => { appleCalendarFile(); $('#calendarDialog').close(); });
 $('#addAndroidCalendar').addEventListener('click', addToAndroidCalendar);

@@ -6,6 +6,7 @@ const ASSETS = [
   './provider.html',
   './booking.html',
   './my-bookings.html',
+  './waitlist.html',
   './privacy.html',
   './styles.css?v=99',
   './config.js?v=99',
@@ -14,6 +15,7 @@ const ASSETS = [
   './provider.js?v=99',
   './booking.js?v=99',
   './my-bookings.js?v=99',
+  './waitlist.js?v=99',
   './ui-icons.svg?v=99',
   './manifest.webmanifest',
   './icon.svg',
@@ -49,7 +51,7 @@ async function navigationResponse(request) {
     return response;
   } catch {
     const path = new URL(request.url).pathname;
-    const shell = path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
+    const shell = path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/waitlist.html') ? './waitlist.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
     return (await caches.match(shell)) || (await caches.match('./index.html'));
   }
 }

@@ -22,6 +22,8 @@ if (currentFilter !== 'day') journalMode = 'list';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
+let waitlistRequests = [];
+let waitlistRemoteAvailable = false;
 let bookingOutcomes = new Map();
 let bookingSessionItems = new Map();
 let sessionItemsRemoteAvailable = false;
@@ -126,7 +128,7 @@ const writeSelectors = [
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
   '[data-retry-notification-outbox]',
-  '[data-booking-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
+  '[data-booking-status]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
 function applyWriteAvailability() {
   $$(writeSelectors.join(',')).forEach(control => {
@@ -825,7 +827,7 @@ function showRecoverySent() {
 }
 function setProviderView(view) {
   $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
-  if (view === 'services' || view === 'portfolio' || view === 'settings' || view === 'analytics') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
+  if (view === 'services' || view === 'portfolio' || view === 'settings' || view === 'analytics' || view === 'waitlist') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
@@ -834,6 +836,7 @@ function setProviderView(view) {
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
   if (view === 'portfolio') renderPortfolio();
+  if (view === 'waitlist') renderWaitlist();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function setFilter(filter) {
@@ -2242,6 +2245,7 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_session_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .subscribe(status => {
       if (bookingsChannel !== channel) return;
       if (status === 'SUBSCRIBED') {
@@ -2273,7 +2277,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -2372,6 +2376,8 @@ async function handleSession(session) {
   if (!currentUser) {
     closeBookingSheet();
     allBookings = [];
+    waitlistRequests = [];
+    waitlistRemoteAvailable = false;
     ownServices = [];
     portfolioItems = [];
     portfolioRemoteAvailable = false;
@@ -3084,6 +3090,52 @@ async function loadBookings(options = {}) {
   return { ok: true };
 }
 
+function waitlistPeriodLabel(value) {
+  return ({ any: 'Любое время', morning: 'Утро · 10:00–12:00', day: 'День · 12:00–17:00', evening: 'Вечер · 17:00–20:00' })[value] || 'Любое время';
+}
+
+function renderWaitlist() {
+  const holder = $('#waitlistList');
+  if (!holder) return;
+  const active = waitlistRequests.filter(item => ['waiting', 'contacted'].includes(item.status));
+  $('#waitlistCount').textContent = String(active.length);
+  const badge = $('#waitlistBadge');
+  badge.textContent = String(active.length);
+  badge.hidden = !active.length;
+  if (!waitlistRemoteAvailable) {
+    holder.innerHTML = '<div class="provider-empty"><strong>Лист ожидания недоступен</strong><small>Обновите страницу после установки серверного обновления.</small></div>';
+    return;
+  }
+  if (!active.length) {
+    holder.innerHTML = '<div class="provider-empty"><strong>Заявок пока нет</strong><small>Когда клиент не найдёт время, он сможет оставить здесь удобную дату.</small></div>';
+    return;
+  }
+  const statusLabels = { waiting: 'Ожидает', contacted: 'Связались' };
+  holder.innerHTML = active.map(item => {
+    const date = new Date(`${item.desired_date}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
+    const phone = String(item.client_phone || '');
+    const whatsapp = phone.replace(/\D/g, '') ? `https://wa.me/${phone.replace(/\D/g, '')}` : '';
+    return `<article class="waitlist-provider-card"><div class="waitlist-provider-date"><strong>${escapeHtml(date)}</strong><span>${escapeHtml(waitlistPeriodLabel(item.time_period))}</span></div><div class="waitlist-provider-client"><small>${escapeHtml(item.services?.name || 'Услуга')}</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:+${escapeHtml(phone)}">+${escapeHtml(phone)}</a></div><span class="waitlist-status status-${escapeHtml(item.status)}">${statusLabels[item.status] || escapeHtml(item.status)}</span><div class="waitlist-provider-actions">${whatsapp ? `<a class="secondary-button" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'waiting' ? `<button class="secondary-button" type="button" data-waitlist-status="contacted" data-waitlist-id="${item.id}">Связались</button>` : ''}<button class="primary compact-button" type="button" data-waitlist-status="booked" data-waitlist-id="${item.id}">Записан</button><button class="booking-cancel-action" type="button" data-waitlist-status="closed" data-waitlist-id="${item.id}">Закрыть</button></div></article>`;
+  }).join('');
+  applyWriteAvailability();
+}
+
+async function loadWaitlist() {
+  const userId = currentUser?.id;
+  if (!userId) return { ok: false, optional: true };
+  const { data, error } = await db.from('booking_waitlist_requests')
+    .select('id,request_code,client_name,client_phone,desired_date,time_period,status,created_at,services(name)')
+    .eq('performer_id', userId)
+    .in('status', ['waiting', 'contacted'])
+    .order('desired_date', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (currentUser?.id !== userId) return { ok: false, optional: true, stale: true };
+  waitlistRemoteAvailable = !error;
+  waitlistRequests = error ? [] : (data || []);
+  renderWaitlist();
+  return { ok: !error, optional: true };
+}
+
 document.addEventListener('click', async event => {
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
@@ -3123,6 +3175,7 @@ document.addEventListener('click', async event => {
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
+  const waitlistStatus = event.target.closest('[data-waitlist-status]');
   const client = event.target.closest('[data-client-phone]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
@@ -3213,7 +3266,7 @@ document.addEventListener('click', async event => {
     repeatTime = repeat.dataset.repeatTime;
     $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
   }
-  if ((toggle || remove || removeDayOff || booking) && !requireWrites()) return;
+  if ((toggle || remove || removeDayOff || booking || waitlistStatus) && !requireWrites()) return;
   if (toggle) {
     await db.from('services').update({ active: toggle.dataset.active !== 'true' }).eq('id', toggle.dataset.toggleService);
     notify('Услуга обновлена');
@@ -3239,6 +3292,15 @@ document.addEventListener('click', async event => {
     closeBookingSheet();
     notify(isScheduleBlock(bookingItem) && booking.dataset.bookingStatus === 'cancelled' ? 'Время освобождено' : 'Статус записи обновлён');
     await refreshAfterWrite();
+  }
+  if (waitlistStatus) {
+    const button = waitlistStatus;
+    button.disabled = true;
+    const { error } = await db.rpc('set_waitlist_request_status', { p_request: button.dataset.waitlistId, p_status: button.dataset.waitlistStatus });
+    button.disabled = false;
+    if (error) { notify('Не удалось обновить заявку'); return; }
+    notify(button.dataset.waitlistStatus === 'booked' ? 'Клиент отмечен записанным' : button.dataset.waitlistStatus === 'contacted' ? 'Контакт отмечен' : 'Заявка закрыта');
+    await loadWaitlist();
   }
 });
 

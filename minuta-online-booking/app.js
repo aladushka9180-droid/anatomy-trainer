@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false };
+const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -346,6 +346,8 @@ function renderTimes() {
   $('#continueBooking').disabled = !state.time || state.loadingAvailability;
   const suggestionShown = renderAvailabilitySuggestion(times);
   $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length) || suggestionShown;
+  const waitlistCta = $('#waitlistCta');
+  if (waitlistCta) waitlistCta.hidden = state.loadingAvailability || state.availabilityError || !state.date || Boolean(times.length);
 }
 
 function renderAvailabilitySuggestion(times) {
@@ -379,6 +381,7 @@ async function loadAvailability() {
   state.time = '';
   state.hour = '';
   state.period = 'all';
+  state.availabilityError = false;
   state.loadingAvailability = true;
   renderDates();
   renderTimes();
@@ -391,6 +394,7 @@ async function loadAvailability() {
     const time = String(item.booking_time).slice(0, 5);
     state.availability.set(date, [...(state.availability.get(date) || []), time]);
   });
+  state.availabilityError = Boolean(error);
   if (!error) state.availabilityServiceId = service.id;
   state.loadingAvailability = false;
   renderDates();
@@ -403,6 +407,58 @@ async function loadAvailability() {
     setBookingStatus('open', 'Запись открыта');
     $('#noTimes').textContent = 'На эту дату свободного времени нет. Выберите другой день.';
   }
+}
+
+function openWaitlistDialog() {
+  const service = selectedService();
+  const date = selectedDate();
+  if (!service || !date) return;
+  $('#waitlistForm').hidden = false;
+  $('#waitlistSuccess').hidden = true;
+  $('#waitlistError').hidden = true;
+  $('#waitlistService').textContent = serviceName(service.name);
+  $('#waitlistDate').textContent = date.label;
+  $('#waitlistName').value = $('#clientName')?.value || '';
+  $('#waitlistPhone').value = $('#clientPhone')?.value || '';
+  $('#waitlistDialog').showModal();
+}
+
+async function submitWaitlist(event) {
+  event.preventDefault();
+  const service = selectedService();
+  const name = $('#waitlistName').value.trim();
+  const phone = $('#waitlistPhone').value;
+  const phoneDigits = phone.replace(/\D/g, '');
+  const errorHolder = $('#waitlistError');
+  errorHolder.hidden = true;
+  if (!service || !state.date || name.length < 2 || phoneDigits.length !== 11 || !$('#waitlistConsent').checked) {
+    errorHolder.textContent = 'Укажите имя, полный номер телефона и подтвердите согласие.';
+    errorHolder.hidden = false;
+    return;
+  }
+  const button = $('#submitWaitlist');
+  button.disabled = true;
+  button.textContent = 'Отправляем…';
+  const { data, error } = await db.rpc('join_booking_waitlist', {
+    p_service: service.id,
+    p_date: state.date,
+    p_time_period: $('#waitlistPeriod').value,
+    p_client_name: name,
+    p_client_phone: phoneDigits
+  });
+  button.disabled = false;
+  button.textContent = 'Оставить заявку';
+  if (error || !data?.[0]?.manage_token) {
+    errorHolder.textContent = 'Не удалось добавить заявку. Проверьте соединение и попробуйте ещё раз.';
+    errorHolder.hidden = false;
+    return;
+  }
+  const manageUrl = new URL('waitlist.html', location.href);
+  manageUrl.hash = `token=${encodeURIComponent(data[0].manage_token)}`;
+  $('#waitlistManageLink').href = manageUrl.href;
+  $('#waitlistSuccessText').textContent = `Заявка ${data[0].request_code} на ${selectedDate().label} сохранена. Мастер увидит её в кабинете.`;
+  $('#waitlistForm').hidden = true;
+  $('#waitlistSuccess').hidden = false;
 }
 
 async function showStep(step) {
@@ -600,6 +656,8 @@ document.addEventListener('click', event => {
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
   const retryServices = event.target.closest('#retryServices');
+  const openWaitlist = event.target.closest('#openWaitlist');
+  const closeWaitlist = event.target.closest('[data-close-waitlist]');
   if (service) {
     bookingInputChanged();
     if (state.serviceId !== service.dataset.service) {
@@ -628,11 +686,15 @@ document.addEventListener('click', event => {
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
   if (retryServices) loadServices();
+  if (openWaitlist) openWaitlistDialog();
+  if (closeWaitlist) $('#waitlistDialog').close();
 });
 $('#clientName').addEventListener('input', bookingInputChanged);
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
 $('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
+$('#waitlistPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
+$('#waitlistForm').addEventListener('submit', submitWaitlist);
 $('#newBooking').addEventListener('click', resetFlow);
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
 window.addEventListener('online', loadServices);

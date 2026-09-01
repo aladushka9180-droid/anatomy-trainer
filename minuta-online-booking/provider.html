@@ -63,6 +63,7 @@
           <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
           <button type="button" data-provider-view="clients"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Клиенты</span><b id="clientsBadge">0</b></button>
           <button type="button" data-provider-view="notifications"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
+          <button type="button" data-provider-view="waitlist"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Лист ожидания</span><b id="waitlistBadge" hidden>0</b></button>
           <button type="button" data-provider-view="analytics"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-chart"></use></svg></span><span>Статистика</span></button>
           <button type="button" data-provider-view="schedule"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Расписание</span></button>
           <button type="button" data-provider-view="services"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></span><span>Услуги</span><b id="servicesBadge">0</b></button>
@@ -169,6 +170,12 @@
           </section>
         </section>
 
+        <section class="provider-view" data-provider-panel="waitlist" hidden>
+          <div class="view-title"><div><span>Свободные окна</span><h2>Лист ожидания</h2></div><span class="panel-count" id="waitlistCount">0</span></div>
+          <p class="view-description">Клиенты сами оставляют удобную дату. Свяжитесь с подходящим клиентом, когда в расписании появится место.</p>
+          <section class="panel waitlist-panel"><div class="waitlist-provider-list" id="waitlistList"><div class="loading-state"><i></i><span>Загружаем заявки…</span></div></div></section>
+        </section>
+
         <section class="provider-view" data-provider-panel="schedule" hidden>
           <div class="view-title"><div><span>Доступность</span><h2>Рабочее расписание</h2></div><button class="primary compact-button" id="saveSchedule" type="button">Сохранить</button></div>
           <p class="view-description">Клиенты увидят только свободные интервалы внутри выбранных рабочих часов.</p>
@@ -266,6 +273,7 @@
             <button type="button" data-provider-view="services"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
             <button type="button" data-provider-view="portfolio"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span><strong>Портфолио</strong><small>Фото работ и количество сеансов</small></button>
             <button type="button" data-provider-view="analytics"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-chart"></use></svg></span><strong>Статистика</strong><small>Доход, визиты и выгрузка записей</small></button>
+            <button type="button" data-provider-view="waitlist"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></span><strong>Лист ожидания</strong><small>Заявки клиентов на занятые даты</small></button>
             <button type="button" data-provider-view="settings"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-settings"></use></svg></span><strong>Настройки</strong><small>Пароль и безопасность кабинета</small></button>
           </div>
         </section>

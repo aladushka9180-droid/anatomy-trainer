@@ -485,6 +485,45 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .provider-mobile-nav button.active { background:#e8f3ec; color:#245e43; }
 }
 
+.waitlist-cta { margin-top:18px; padding:18px; border:1px solid #cddbd3; border-radius:18px; background:#f4f8f5; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.waitlist-cta>div { display:grid; gap:5px; }
+.waitlist-cta strong { color:#173d2d; font-size:16px; }
+.waitlist-cta span { color:#65746d; font-size:13px; line-height:1.45; }
+.waitlist-dialog { width:min(560px,calc(100% - 28px)); border:0; border-radius:28px; padding:30px; color:#173d2d; box-shadow:0 28px 80px rgba(18,42,31,.28); }
+.waitlist-dialog::backdrop { background:rgba(17,38,29,.58); backdrop-filter:blur(5px); }
+.waitlist-dialog form { display:grid; gap:14px; margin-top:20px; }
+.waitlist-dialog form>label:not(.consent-check) { display:grid; gap:7px; font-weight:700; }
+.waitlist-dialog input,.waitlist-dialog select { width:100%; min-height:50px; border:1px solid #cbd9d1; border-radius:14px; padding:0 14px; background:#fff; color:#173d2d; font:inherit; }
+.waitlist-context { display:flex; justify-content:space-between; gap:12px; margin:14px 0 0; padding:12px 14px; border-radius:14px; background:#f2f7f4; }
+.waitlist-context span { color:#68776f; }
+.waitlist-success { text-align:center; padding:10px 2px; }
+.waitlist-success .primary { display:inline-flex; margin-top:10px; text-decoration:none; }
+.attendance-confirmation { margin:18px 0; padding:18px; border:1px solid #c8d9cf; border-radius:18px; background:#f1f7f3; display:flex; align-items:center; justify-content:space-between; gap:18px; }
+.attendance-confirmation>div { display:grid; gap:4px; }
+.attendance-confirmation small { color:#7a8a82; text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+.attendance-confirmation span { color:#65746d; font-size:13px; }
+.waitlist-provider-list { display:grid; gap:12px; }
+.waitlist-provider-card { display:grid; grid-template-columns:minmax(150px,.85fr) minmax(190px,1.15fr) auto; align-items:center; gap:16px; padding:17px; border:1px solid #d9e3dd; border-radius:18px; background:#fff; }
+.waitlist-provider-date,.waitlist-provider-client { display:grid; gap:4px; }
+.waitlist-provider-date span,.waitlist-provider-client small { color:#74827b; font-size:12px; }
+.waitlist-provider-client a { color:#245b43; font-weight:700; text-decoration:none; }
+.waitlist-status { justify-self:start; padding:7px 10px; border-radius:999px; background:#fff2c9; color:#75570c; font-size:12px; font-weight:800; }
+.waitlist-status.status-contacted { background:#e8f0fb; color:#315c8a; }
+.waitlist-provider-actions { grid-column:1 / -1; display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; padding-top:12px; border-top:1px solid #edf1ef; }
+.waitlist-provider-actions a,.waitlist-provider-actions button { min-height:40px; }
+.provider-nav #waitlistBadge { min-width:22px; height:22px; border-radius:999px; padding:0 6px; background:#e7bc50; color:#173d2d; font-size:11px; display:inline-grid; place-items:center; }
+
+@media (max-width:760px) {
+  .waitlist-cta,.attendance-confirmation { align-items:stretch; flex-direction:column; }
+  .waitlist-cta button,.attendance-confirmation button { width:100%; }
+  .waitlist-dialog { padding:24px 18px; border-radius:22px; }
+  .waitlist-context { flex-direction:column; }
+  .waitlist-provider-card { grid-template-columns:1fr auto; }
+  .waitlist-provider-client { grid-column:1 / -1; }
+  .waitlist-provider-actions { justify-content:stretch; }
+  .waitlist-provider-actions>* { flex:1 1 44%; text-align:center; justify-content:center; }
+}
+
 @media (max-width:440px) {
   .view-title { align-items:flex-start; }.view-title-actions { gap:5px; }.view-title-actions .compact-button { width:42px; padding:0; overflow:hidden; font-size:0; }.view-title-actions .compact-button::first-letter { font-size:18px; }.schedule-view-title { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:10px; }.schedule-view-title>div:first-child { min-width:0; }.schedule-view-title .view-title-actions { padding-top:18px; }.schedule-view-title #newBookingButton { display:grid; place-items:center; width:40px; min-height:40px; padding:0; border-radius:12px; box-shadow:none; }.schedule-view-title #newBookingButton span { display:none; }.schedule-view-title #newBookingButton .ui-icon { width:17px; height:17px; }.schedule-view-title .refresh-button { width:40px; height:40px; border-radius:12px; }.booking-client-fields { grid-template-columns:1fr; }
   .booking-sheet { align-items:end; }.booking-sheet-panel,.booking-sheet-wide .booking-sheet-panel { width:100%; margin:0; padding:25px 18px max(24px,env(safe-area-inset-bottom)); border-radius:24px 24px 0 0; }.booking-sheet.new-booking-sheet .booking-sheet-backdrop { animation:new-booking-backdrop-in .2s ease-out both; }.booking-sheet.new-booking-sheet .booking-sheet-panel { animation:new-booking-sheet-in .34s cubic-bezier(.25,.8,.25,1) both; will-change:transform; }.booking-sheet-handle { display:block; width:42px; height:4px; margin:-13px auto 16px; border-radius:999px; background:#d9e2dc; }.booking-sheet-panel h2,.booking-sheet-wide .booking-sheet-panel h2 { font-size:23px; }.booking-sheet-actions { grid-template-columns:1fr; }.booking-sheet-actions button:only-child { grid-column:auto; }
