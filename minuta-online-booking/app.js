@@ -8,6 +8,8 @@ let selectionValidationBlocked = false;
 let bookingResultUncertain = false;
 const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
 const CLIENT_SESSION_KEY = 'minuta-client-session-v1';
+const CLIENT_CONTACT_KEY = 'minuta-client-contact-v1';
+const CLIENT_CONTACT_TTL = 90 * 24 * 60 * 60 * 1000;
 let bookingAttempt = loadBookingAttempt();
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -53,6 +55,30 @@ function clearBookingAttempt() {
   bookingAttempt = null;
   bookingResultUncertain = false;
   try { sessionStorage.removeItem(BOOKING_ATTEMPT_KEY); } catch {}
+}
+
+function saveClientContact(name, phone) {
+  const contact = { name: name.trim().slice(0, 80), phone: formatPhone(phone), savedAt: Date.now() };
+  if (contact.name.length < 2 || contact.phone.replace(/\D/g, '').length !== 11) return;
+  try { localStorage.setItem(CLIENT_CONTACT_KEY, JSON.stringify(contact)); } catch {}
+}
+
+function loadClientContact() {
+  try {
+    const contact = JSON.parse(localStorage.getItem(CLIENT_CONTACT_KEY) || 'null');
+    if (!contact || Date.now() - Number(contact.savedAt || 0) > CLIENT_CONTACT_TTL || String(contact.name || '').trim().length < 2 || String(contact.phone || '').replace(/\D/g, '').length !== 11) {
+      localStorage.removeItem(CLIENT_CONTACT_KEY);
+      return null;
+    }
+    return { name: String(contact.name).trim().slice(0, 80), phone: formatPhone(String(contact.phone)) };
+  } catch { return null; }
+}
+
+function restoreClientContact() {
+  const contact = loadClientContact();
+  if (!contact) return;
+  $('#clientName').value = contact.name;
+  $('#clientPhone').value = contact.phone;
 }
 
 function bookingInputChanged() {
@@ -530,6 +556,7 @@ async function submitBooking(event) {
     return;
   }
   const manageToken = data?.[0]?.manage_token;
+  saveClientContact(name, phone);
   clearBookingAttempt();
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
@@ -560,7 +587,7 @@ async function submitBooking(event) {
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -618,8 +645,9 @@ $('#copyManageBooking').addEventListener('click', async () => {
 });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
 window.addEventListener('online', loadServices);
+restoreClientContact();
 renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=89'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=90'));

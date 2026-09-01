@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '89';
+const version = '90';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -254,6 +254,10 @@ assert.match(booking, /booking\.html#token=/, 'Токен управления �
 assert.match(booking, /loadBooking\(\{ silent: true \}\)/, 'Не проверяется результат неопределённой операции');
 assert.match(booking, /get_booking_management/, 'Клиент не получает серверные правила отмены и переноса');
 assert.match(booking, /cancel_too_late/, 'Клиентский интерфейс не обрабатывает срок отмены');
+assert.match(bookingHtml, /id="addAppleCalendar"[\s\S]*id="addGoogleCalendar"/, 'Нет отдельных вариантов календаря для iPhone и Android');
+assert.match(booking, /type: 'text\/calendar;charset=utf-8'/, 'Для iPhone не создаётся календарный файл');
+assert.match(booking, /https:\/\/calendar\.google\.com\/calendar\/render/, 'Для Android не создаётся ссылка Google Календаря');
+assert.match(booking, /new URLSearchParams\(\{ action: 'TEMPLATE'/, 'Параметры Google Календаря не кодируются безопасно');
 
 const migration = readFileSync(join(root, 'supabase-migration-v41.sql'), 'utf8');
 assert.match(migration, /create table if not exists public\.booking_policies/, 'Нет серверного хранения правил записи');
@@ -344,6 +348,10 @@ assert.match(clientAccount, /localStorage\.setItem\(SESSION_KEY/, 'Сессия 
 assert.doesNotMatch(clientAccount, /localStorage\.setItem\([^\n]*(?:phone|code)/i, 'Телефон или личный код сохраняется в открытом виде');
 assert.doesNotMatch(clientAccount, /if \(!data\?\.length\)[\s\S]*logout/, 'Пустой кабинет ошибочно сбрасывает действующую сессию');
 assert.match(app, /bootstrap_client_access/, 'После оформления не создаётся клиентский доступ');
+assert.match(app, /saveClientContact\(name, phone\);\s*\n\s*clearBookingAttempt/, 'Контакты не сохраняются после подтверждённой записи');
+assert.match(app, /restoreClientContact\(\);\s*\$\('#formError'\)/, 'Новая запись не восстанавливает имя и телефон');
+assert.match(app, /CLIENT_CONTACT_TTL = 90 \* 24 \* 60 \* 60 \* 1000/, 'Срок хранения контактов не ограничен 90 днями');
+assert.match(app, /if \(error\) \{[\s\S]*?return;\s*\n\s*\}\s*\n\s*const manageToken[\s\S]*?saveClientContact\(name, phone\)/, 'Контакты сохраняются до подтверждения записи');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');

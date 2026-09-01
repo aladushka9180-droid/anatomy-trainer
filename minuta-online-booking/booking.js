@@ -224,15 +224,48 @@ async function cancelBooking() {
 }
 
 function calendarTimestamp(date, time, addMinutes = 0) {
-  const value = new Date(`${date}T${String(time).slice(0, 5)}:00`); value.setMinutes(value.getMinutes() + addMinutes);
-  return `${value.getFullYear()}${String(value.getMonth() + 1).padStart(2, '0')}${String(value.getDate()).padStart(2, '0')}T${String(value.getHours()).padStart(2, '0')}${String(value.getMinutes()).padStart(2, '0')}00`;
+  const [year, month, day] = String(date).split('-').map(Number);
+  const [hour, minute] = String(time).slice(0, 5).split(':').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hour - 4, minute + addMinutes)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function calendarUtcTimestamp() { return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
+function calendarText(value) { return String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1'); }
+
+function calendarEvent() {
+  const item = state.booking;
+  return {
+    title: `${item.service_name} — Массаж в Ижевске`,
+    description: `Исполнитель: ${item.performer_name}`,
+    location: 'Ижевск, ул. Карла Маркса, 304б',
+    start: calendarTimestamp(item.booking_date, item.booking_time),
+    end: calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)
+  };
+}
+
+function googleCalendarUrl() {
+  const event = calendarEvent();
+  const params = new URLSearchParams({ action: 'TEMPLATE', text: event.title, dates: `${event.start}/${event.end}`, details: event.description, location: event.location });
+  return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+function appleCalendarFile() {
+  const item = state.booking;
+  const event = calendarEvent();
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'PRODID:-//MassageIzhevsk//Booking//RU', 'BEGIN:VEVENT', `UID:${item.booking_code}@massage-izhevsk`, `DTSTAMP:${calendarUtcTimestamp()}`, `DTSTART:${event.start}`, `DTEND:${event.end}`, `SUMMARY:${calendarText(event.title)}`, `DESCRIPTION:${calendarText(event.description)}`, `LOCATION:${calendarText(event.location)}`, 'END:VEVENT', 'END:VCALENDAR', ''];
+  const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `massage-${item.booking_date}-${String(item.booking_time).slice(0, 5).replace(':', '-')}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function addToCalendar() {
-  const item = state.booking;
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MassageIzhevsk//Booking//RU', 'BEGIN:VEVENT', `UID:${item.booking_code}@massage-izhevsk`, `DTSTART:${calendarTimestamp(item.booking_date, item.booking_time)}`, `DTEND:${calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)}`, `SUMMARY:${item.service_name} — Массаж в Ижевске`, `DESCRIPTION:Исполнитель: ${item.performer_name}`, 'LOCATION:Ижевск, ул. Карла Маркса, 304б', 'END:VEVENT', 'END:VCALENDAR'];
-  const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
-  const link = document.createElement('a'); link.href = url; link.download = `massage-${item.booking_date}-${String(item.booking_time).slice(0, 5).replace(':', '-')}.ics`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $('#addGoogleCalendar').href = googleCalendarUrl();
+  $('#calendarDialog').showModal();
 }
 
 document.addEventListener('click', event => {
@@ -245,9 +278,13 @@ $('#closeReschedule').addEventListener('click', closeReschedule);
 $('#confirmReschedule').addEventListener('click', confirmReschedule);
 $('#cancelBooking').addEventListener('click', cancelBooking);
 $('#addCalendar').addEventListener('click', addToCalendar);
+$('#addAppleCalendar').addEventListener('click', () => { appleCalendarFile(); $('#calendarDialog').close(); });
+$('#addGoogleCalendar').addEventListener('click', () => $('#calendarDialog').close());
+$('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').close());
+$('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 $('#retryManage').addEventListener('click', loadBooking);
 window.addEventListener('online', () => loadBooking({ silent: Boolean(state.booking) }));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=89'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=90'));

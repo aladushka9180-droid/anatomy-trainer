@@ -10,7 +10,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Моя запись — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=89">
+  <link rel="stylesheet" href="styles.css?v=90">
 </head>
 <body class="manage-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -43,7 +43,7 @@
         <p class="manage-policy" id="managePolicy"></p>
         <div class="manage-actions" id="manageActions">
           <button class="primary" id="openReschedule" type="button">Перенести запись</button>
-          <button class="manage-secondary" id="addCalendar" type="button">Добавить в календарь</button>
+          <button class="manage-secondary" id="addCalendar" type="button">Сохранить в календарь</button>
           <button class="manage-danger" id="cancelBooking" type="button">Отменить запись</button>
         </div>
         <a class="telegram-connect-button manage-telegram-connect" id="manageTelegramConnect" href="#" target="_blank" rel="noopener noreferrer"><span class="telegram-connect-mark" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"></use></svg></span><span><strong>Получать уведомления в Telegram</strong><small>Подтверждение и напоминание о визите</small></span></a>
@@ -59,8 +59,17 @@
       </div>
     </section>
   </main>
+  <dialog class="calendar-dialog" id="calendarDialog" aria-labelledby="calendarDialogTitle">
+    <button class="calendar-dialog-close" id="closeCalendarDialog" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
+    <small>Напоминание о записи</small><h2 id="calendarDialogTitle">Куда добавить?</h2>
+    <p>Выберите календарь на вашем телефоне.</p>
+    <div class="calendar-options">
+      <button class="calendar-option" id="addAppleCalendar" type="button"><strong>iPhone</strong><span>Открыть событие для Apple Calendar</span></button>
+      <a class="calendar-option" id="addGoogleCalendar" href="#" target="_blank" rel="noopener noreferrer"><strong>Android</strong><span>Открыть событие в Google Календаре</span></a>
+    </div>
+  </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=89"></script><script src="reliability.js?v=89"></script><script src="booking.js?v=89" defer></script>
+  <script src="config.js?v=90"></script><script src="reliability.js?v=90"></script><script src="booking.js?v=90" defer></script>
 </body>
 </html>
