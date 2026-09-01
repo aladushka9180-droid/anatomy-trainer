@@ -567,7 +567,6 @@ async function submitBooking(event) {
     manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
-    $('#copyManageBooking').hidden = false;
     $('#telegramConnect').href = telegramConnectUrl(manageToken);
     $('#telegramConnect').hidden = false;
     await bootstrapClientAccess(manageToken, phone);
@@ -587,7 +586,7 @@ async function submitBooking(event) {
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -635,14 +634,6 @@ $('#clientPhone').addEventListener('input', event => { event.target.value = form
 $('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
 $('#newBooking').addEventListener('click', resetFlow);
-$('#copyManageBooking').addEventListener('click', async () => {
-  const url = $('#manageBooking').href;
-  try {
-    await navigator.clipboard.writeText(url);
-    $('#copyManageBooking').textContent = 'Ссылка скопирована';
-    setTimeout(() => { $('#copyManageBooking').textContent = 'Скопировать ссылку на запись'; }, 2200);
-  } catch { showError('Не удалось скопировать ссылку. Откройте страницу управления и сохраните её в закладках.'); }
-});
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
 window.addEventListener('online', loadServices);
 restoreClientContact();
@@ -650,4 +641,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=98'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=99'));

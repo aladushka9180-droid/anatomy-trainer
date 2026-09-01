@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '96';
+const version = '99';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -213,6 +213,8 @@ assert.match(app, /function successDetailsMarkup\(service, performer, dateLabel,
 const clientHtml = readFileSync(join(root, 'index.html'), 'utf8');
 assert.match(clientHtml, /class="success-appointment"/, 'Детали успешной записи не собраны в компактный блок');
 assert.match(clientHtml, /class="success-actions"/, 'Действия успешной записи не собраны по приоритету');
+assert.match(clientHtml, />Управлять записью</, 'Ссылка на управление записью названа непонятно');
+assert.doesNotMatch(clientHtml, /copyManageBooking|Скопировать ссылку/, 'На экране успеха осталось лишнее действие копирования ссылки');
 assert.match(clientHtml, /class="ui-icon telegram-connect-arrow"/, 'В Telegram-действии нет понятного направления перехода');
 
 const timeRangeFunctionSource = app.match(/function timeRange\(time, duration\) \{[\s\S]*?\n\}/)?.[0];
