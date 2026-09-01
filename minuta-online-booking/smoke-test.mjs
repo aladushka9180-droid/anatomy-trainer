@@ -183,7 +183,6 @@ assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация 
 assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');
 assert.match(worker, /!new URL\(request\.url\)\.search/, 'Навигация с секретными параметрами может попасть в кэш');
 
-const app = readFileSync(join(root, 'app.js'), 'utf8');
 assert.doesNotMatch(app, /minuta-last-booking-url/, 'Секретная ссылка сохраняется в localStorage');
 assert.match(app, /validateCurrentSelection/, 'Выбранное время не перепроверяется после восстановления связи');
 assert.match(app, /p_request_id: attempt\.requestId/, 'Запись создаётся без идентификатора идемпотентности');
