@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '58';
+const version = '59';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -35,6 +35,10 @@ assert.match(provider, /postgres_changes/, 'Кабинет не подписан
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
+assert.match(provider, /function bookingClientNote\(item\)/, 'Расписание не получает заметку клиента');
+assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
+assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
+assert.match(provider, /class="provider-booking-note"/, 'Заметка клиента не показывается в списке записей');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
 assert.match(provider, /bookings-v2/, 'Новый обезличенный кэш не отделён от старого PII-кэша');

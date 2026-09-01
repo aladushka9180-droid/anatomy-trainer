@@ -886,6 +886,13 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .timeline-booking.status-new { border-color:#ead7b6; background:#fff9ef; }
 .provider-body .timeline-booking.status-completed { border-color:#e0e5e1; background:#f4f6f4; }
 .provider-body .timeline-booking.status-block { border-color:#d8dfda; background:repeating-linear-gradient(135deg,#f3f5f3,#f3f5f3 9px,#ecefec 9px,#ecefec 18px); }
+.provider-body .timeline-booking-client { color:#52685c; opacity:.88; }
+.provider-body .timeline-booking-note { margin-top:2px; color:#4c6156; font-size:8px; opacity:1; }
+.provider-body .timeline-booking-note b { font-weight:900; }
+.provider-body .timeline-booking.compact .timeline-booking-client { display:block; margin-top:1px; font-size:8px; }
+.provider-body .timeline-booking.compact .timeline-booking-note { display:none; }
+.provider-body .provider-booking-note { max-width:720px; margin-top:7px; overflow:hidden; color:#53675c; text-overflow:ellipsis; white-space:nowrap; }
+.provider-body .provider-booking-note b { color:#304f3f; }
 
 .provider-body .services-layout { margin-top:12px; }
 .provider-body .service-catalog { padding:8px 18px; }

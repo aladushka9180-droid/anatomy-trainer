@@ -765,6 +765,10 @@ function openTimelineBooking(stage, event) {
   openNewBookingSheet(time);
 }
 
+function bookingClientNote(item) {
+  return String(clientNotes.get(normalizePhone(item?.client_phone)) || '').trim();
+}
+
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
@@ -785,11 +789,14 @@ function renderTimeline(items) {
     const height = Math.max(36, (duration / 60) * hourHeight - 4);
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
-    const compact = height < 54 ? ' compact' : '';
+    const compact = height < 46 ? ' compact' : '';
     const block = isScheduleBlock(item);
-    return `<button class="timeline-booking status-${statusClass}${compact}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}">
+    const note = block ? '' : bookingClientNote(item);
+    const clientDetails = block ? 'Занятое время' : `${item.client_name} · ${item.client_phone} · ${duration} мин`;
+    const ariaDetails = note ? `${clientDetails}, заметка: ${note}` : clientDetails;
+    return `<button class="timeline-booking status-${statusClass}${compact}${note ? ' has-note' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
-      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><small>${block ? 'Занятое время' : escapeHtml(item.client_name)} · ${duration} мин</small></span>
+      <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><small class="timeline-booking-client">${escapeHtml(clientDetails)}</small>${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
       <span class="timeline-booking-status">${statusText}</span>
     </button>`;
   }).join('');
@@ -814,10 +821,11 @@ function renderBookingList(items) {
     const whatsapp = escapeHtml(whatsappLink(item));
     const resultSummary = outcomeSummary(item);
     const block = isScheduleBlock(item);
+    const note = block ? '' : bookingClientNote(item);
     return `<article class="provider-booking status-${statusClass}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
-      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p><small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
+      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
       ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">${block ? 'Освободить' : 'Отменить'}</button></div>` : ''}
     </article>`;
   }).join('');
@@ -1298,7 +1306,9 @@ async function loadClientNotes() {
   const { data, error } = await db.from('client_notes').select('client_phone,note').eq('performer_id', userId);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   if (error) return { ok: false };
-  clientNotes = new Map((data || []).map(item => [item.client_phone, item.note]));
+  clientNotes = new Map((data || []).map(item => [normalizePhone(item.client_phone), item.note]));
+  renderBookings();
+  renderClients();
   return { ok: true };
 }
 
@@ -2560,4 +2570,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=58'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=59'));
