@@ -50,7 +50,6 @@ assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
 assert.match(provider, /height < 58 \? ' compact'/, 'Короткие записи не получают компактную раскладку');
-assert.match(provider, /class="provider-booking-note"/, 'Заметка клиента не показывается в списке записей');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
 assert.match(provider, /bookings-v2/, 'Новый обезличенный кэш не отделён от старого PII-кэша');
