@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '77';
+const version = '78';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -135,6 +135,8 @@ assert.match(provider, /function bookingSessionMarkup/, 'В карточке з�
 assert.match(provider, /const addons = items\.slice\(1\)/, 'Основная услуга повторно выводится в составе сеанса');
 assert.match(provider, /booking-session-addons/, 'Дополнительные услуги не отделены от основной');
 assert.match(provider, /data-edit-booking-session/, 'Состав конкретной записи нельзя изменить');
+assert.match(provider, /addon \? `<label>Название<input data-session-title/, 'Произвольное название недоступно для дополнительной услуги');
+assert.match(provider, /<input data-session-title type="hidden"/, 'Название основной услуги повторяется отдельным полем');
 assert.match(provider, /Дополнительная услуга/, 'В состав нельзя добавить дополнительную услугу');
 assert.match(provider, /function sessionConflict/, 'Дополнительная длительность не проверяется на пересечение');
 assert.match(provider, /пересекаются со следующей записью/, 'Пользователь не получает понятного предупреждения о пересечении');
