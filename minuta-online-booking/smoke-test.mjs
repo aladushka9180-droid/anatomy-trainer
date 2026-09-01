@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '104';
+const version = '105';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -45,6 +45,9 @@ assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не со�
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
 assert.match(provider, /function bookingClientNote\(item\)/, 'Расписание не получает заметку клиента');
+assert.match(provider, /class="provider-booking-open"[\s\S]*data-open-booking/, 'Компактная запись не открывает подробности по нажатию');
+assert.match(provider, /Есть заметка/, 'Компактная запись не обозначает наличие заметки');
+assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
 assert.match(provider, /height < 58 \? ' compact'/, 'Короткие записи не получают компактную раскладку');

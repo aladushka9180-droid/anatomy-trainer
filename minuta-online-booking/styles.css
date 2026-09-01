@@ -1302,3 +1302,84 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .timeline-booking.compact .timeline-booking-client-row,
   .provider-body .timeline-booking.compact .timeline-booking-note { padding-right:60px; }
 }
+
+/* Минималистичный журнал: подробности и действия открываются по нажатию на запись. */
+.journal-mode-toggle[hidden] { display:none!important; }
+.schedule-list .provider-booking { display:block; padding:0; }
+.provider-booking-open { display:grid; grid-template-columns:90px minmax(0,1fr) 28px; align-items:center; gap:16px; width:100%; min-width:0; padding:16px 0; border:0; background:transparent; color:inherit; cursor:pointer; font:inherit; text-align:left; }
+.provider-booking-open:focus-visible { outline:3px solid rgba(35,91,64,.2); outline-offset:-3px; }
+.provider-booking-open .booking-time-column { min-width:0; }
+.provider-booking-open .booking-main { display:block; min-width:0; }
+.provider-booking-open .provider-booking-top { display:flex; min-width:0; }
+.provider-booking-open .provider-booking-top h3 { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.provider-booking-client-line { display:flex; align-items:center; gap:8px; min-width:0; margin-top:6px; color:#52685c; font-size:11px; }
+.provider-booking-client-line>span { min-width:0; }
+.provider-booking-phone { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.provider-booking-signals { display:flex; align-items:center; flex-wrap:wrap; gap:5px; min-height:0; margin-top:6px; }
+.provider-booking-signals:empty { display:none; }
+.provider-booking-note-flag { padding:4px 7px; border-radius:999px; background:#eef3ef; color:#53675c; font-size:8px; font-weight:850; }
+.provider-booking-note-full { width:100%; color:#53675c; font-size:9px; line-height:1.4; overflow-wrap:anywhere; white-space:normal; }
+.provider-booking-note-full b { color:#304f3f; }
+.provider-booking-chevron { color:#819087; font-size:25px; font-weight:400; line-height:1; text-align:center; }
+
+@media (max-width:760px) {
+  .provider-body .provider-view[data-provider-panel="bookings"] { padding-bottom:calc(104px + env(safe-area-inset-bottom)); }
+  .provider-body .schedule-card { overflow:visible; }
+  .provider-body .schedule-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:9px 10px; padding:11px 12px; }
+  .provider-body .schedule-toolbar>div:first-child { grid-column:1; grid-row:1; min-width:0; }
+  .provider-body .schedule-toolbar>div:first-child strong { font-size:14px; }
+  .provider-body .schedule-toolbar>div:first-child span { margin-top:2px; font-size:9px; }
+  .provider-body .schedule-controls { display:contents; }
+  .provider-body .booking-filters { display:grid; grid-column:1/-1; grid-row:2; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; width:100%; }
+  .provider-body .booking-filters button { min-width:0; min-height:38px; padding:0 6px; border-radius:11px; font-size:10px; }
+  .provider-body .journal-mode-toggle { grid-column:2; grid-row:1; align-self:center; gap:2px; padding:2px; border-radius:10px; }
+  .provider-body .journal-mode-toggle { display:none!important; }
+  .provider-body .journal-mode-toggle button { justify-content:center; width:38px; min-height:34px; padding:0; border-radius:8px; }
+  .provider-body .journal-mode-toggle button span { display:none; }
+  .provider-body .journal-mode-toggle .ui-icon { width:16px; height:16px; }
+
+  .provider-body .schedule-list { gap:0; padding:0 12px 12px; overflow:hidden; }
+  .provider-body .schedule-list .provider-booking { border:0; border-bottom:1px solid #e7ede9; border-radius:0!important; background:#fff!important; box-shadow:none!important; color:#173d2b; opacity:1; }
+  .provider-body .schedule-list .provider-booking:last-child { border-bottom:0; }
+  .provider-body .provider-booking-open { grid-template-columns:58px minmax(0,1fr) 20px; gap:10px; min-height:80px; padding:11px 2px; }
+  .provider-body .provider-booking-open .booking-time-column { align-self:stretch; justify-content:center; padding-right:9px; border-right:1px solid #dce6df; }
+  .provider-body .provider-booking-open .booking-time-column strong { font-size:17px; }
+  .provider-body .provider-booking-open .booking-time-column span { margin-top:3px; overflow:hidden; font-size:7px; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body .provider-booking-open .provider-booking-top { align-items:flex-start; gap:6px; }
+  .provider-body .provider-booking-open .provider-booking-top h3 { margin:0; overflow:visible; font-size:12px; line-height:1.25; overflow-wrap:anywhere; white-space:normal; }
+  .provider-body .provider-booking-open .booking-status { display:inline-flex; flex:none; align-items:center; max-width:88px; min-height:20px; padding:3px 6px; font-size:7px; line-height:1.1; text-align:center; }
+  .provider-body .provider-booking-client-line { align-items:flex-start; flex-direction:column; gap:3px; margin-top:5px; font-size:10px; line-height:1.25; }
+  .provider-body .provider-booking-client-line .booking-client-name-row { display:flex; width:100%; align-items:center; gap:4px; overflow:visible; }
+  .provider-body .provider-booking-client-line .booking-client-name-row>strong { overflow:visible; overflow-wrap:anywhere; white-space:normal; }
+  .provider-body .provider-booking-phone { display:block; width:100%; overflow:visible; color:#4e695a; font-weight:750; white-space:nowrap; }
+  .provider-body .provider-booking-signals { gap:4px; margin-top:5px; }
+  .provider-body .provider-booking-signals>span { max-width:100%; overflow:visible; text-overflow:clip; white-space:normal; }
+  .provider-body .provider-booking-signals .provider-booking-note-full { display:block; width:100%; font-size:9px; line-height:1.4; overflow-wrap:anywhere; }
+  .provider-body .provider-booking-signals .booking-prepayment-badge,
+  .provider-body .provider-booking-signals .booking-outcome-summary { margin:0; padding:4px 7px; font-size:7px; }
+  .provider-body .provider-booking-open .client-badge { width:21px; height:21px; border-radius:7px; box-shadow:none; }
+  .provider-body .provider-booking-open .client-badge .ui-icon { width:13px; height:13px; }
+  .provider-body .provider-booking-chevron { font-size:21px; }
+
+  .provider-body .timeline-view { padding-bottom:12px; }
+  .provider-body .timeline-booking { grid-template-columns:minmax(0,1fr)!important; grid-template-rows:auto auto auto; align-content:start; gap:2px; min-width:0; padding:6px 38px 6px 9px; border-radius:11px; box-shadow:none; }
+  .provider-body .timeline-booking-time { display:none!important; }
+  .provider-body .timeline-booking-copy,
+  .provider-body .timeline-booking.compact .timeline-booking-copy { display:grid; grid-column:1; grid-row:1/-1; align-content:start; min-width:0; padding:0; }
+  .provider-body .timeline-booking-copy>strong,
+  .provider-body .timeline-booking.compact .timeline-booking-copy>strong { display:-webkit-box; grid-column:auto; grid-row:auto; min-width:0; padding:0; overflow:hidden; font-size:11px; line-height:1.12; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .provider-body .timeline-booking-client-row,
+  .provider-body .timeline-booking.compact .timeline-booking-client-row { display:block!important; grid-column:auto; grid-row:auto; min-width:0; padding:0; overflow:hidden; }
+  .provider-body .timeline-booking-client,
+  .provider-body .timeline-booking.compact .timeline-booking-client { display:block; margin-top:2px; overflow:hidden; font-size:9px; line-height:1.1; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body .timeline-booking-note,
+  .provider-body .timeline-booking.compact.has-note .timeline-booking-note { display:block; grid-column:auto; grid-row:auto; margin-top:3px; padding:0; overflow:hidden; font-size:8px; line-height:1; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body .timeline-booking.compact.has-note .timeline-booking-client-row { display:block!important; }
+  .provider-body .timeline-booking .client-badges { top:7px; right:7px; max-width:none; transform:none; }
+  .provider-body .timeline-booking .client-badges:not(.with-labels) .client-badge,
+  .provider-body .timeline-booking .client-badges:not(.with-labels) .badge-vip,
+  .provider-body .timeline-booking .client-badges:not(.with-labels) .badge-favorite { width:25px; height:25px; border-radius:8px; box-shadow:none; }
+  .provider-body .timeline-booking .client-badges:not(.with-labels) .client-badge .ui-icon { width:14px; height:14px; }
+  .provider-body .timeline-booking-status { position:absolute; right:7px; bottom:6px; max-width:70px; overflow:hidden; font-size:7px!important; line-height:1; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body .timeline-booking.compact .timeline-booking-status { display:none; }
+}

@@ -10,6 +10,7 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
+const JOURNAL_MODE_KEY = 'massage-journal-mode-v2';
 const BOOKING_COLOR_KEYS = ['auto', 'mint', 'sky', 'lavender', 'peach', 'rose', 'vanilla'];
 const BOOKING_COLOR_DEFAULT = 'auto';
 let currentUser = null;
@@ -17,7 +18,7 @@ let currentFilter = restoreScheduleFilter();
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
-let journalMode = localStorage.getItem('massage-journal-mode') || 'timeline';
+let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || (window.matchMedia('(max-width: 760px)').matches ? 'list' : 'timeline');
 if (currentFilter !== 'day') journalMode = 'list';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
@@ -420,7 +421,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=104#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=105#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -852,7 +853,7 @@ function setFilter(filter) {
 function setJournalMode(mode) {
   journalMode = mode === 'list' ? 'list' : 'timeline';
   if (journalMode === 'timeline') currentFilter = 'day';
-  localStorage.setItem('massage-journal-mode', journalMode);
+  localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
   try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
   $$('[data-filter]').forEach(button => {
     const active = button.dataset.filter === currentFilter;
@@ -864,6 +865,8 @@ function setJournalMode(mode) {
 }
 
 function updateJournalModeButtons() {
+  const modeToggle = $('.journal-mode-toggle');
+  if (modeToggle) modeToggle.hidden = currentFilter !== 'day';
   $$('[data-journal-mode]').forEach(button => {
     const active = button.dataset.journalMode === journalMode;
     button.classList.toggle('active', active);
@@ -1047,7 +1050,7 @@ function bookingDisplayNote(item) {
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
-  const hourHeight = window.matchMedia('(max-width: 760px)').matches ? 70 : 76;
+  const hourHeight = window.matchMedia('(max-width: 760px)').matches ? 60 : 76;
   const totalHeight = ((end - start) / 60) * hourHeight;
   const labels = [];
   const lines = [];
@@ -1077,7 +1080,7 @@ function renderTimeline(items) {
     const badgeDetails = block ? '' : clientBadgeText(item.client_phone);
     return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
-      <span class="timeline-booking-copy"><strong>${block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга')}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${clientDetailsMarkup}</small></span>${block ? '' : clientBadgeMarkup(item.client_phone)}${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
+      <span class="timeline-booking-copy"><strong>${block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга')}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${clientDetailsMarkup}</small></span>${block ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
       <span class="timeline-booking-status">${statusText}</span>
     </button>`;
   }).join('');
@@ -1098,16 +1101,21 @@ function renderBookingList(items) {
     const time = String(item.booking_time).slice(0, 5);
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
-    const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
-    const whatsapp = escapeHtml(whatsappLink(item));
+    const phone = escapeHtml(String(item.client_phone || ''));
     const resultSummary = outcomeSummary(item);
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
+    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+    const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+    const details = block ? `Занятое время · ${duration} мин` : `${item.client_name}, ${item.client_phone}`;
     return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}">
-      <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
-      <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
-      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone)}</span><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(bookingSessionTotal(item))}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
-      ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">${block ? 'Освободить' : 'Отменить'}</button></div>` : ''}
+      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, ${time}, ${escapeHtml(details)}. Открыть подробности">
+        <span class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></span>
+        <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
+        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:1 })}</span><span class="provider-booking-phone">${phone}</span></span>`}
+        <span class="provider-booking-signals">${note ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(note)}</span>` : ''}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
+        <span class="provider-booking-chevron" aria-hidden="true">›</span>
+      </button>
     </article>`;
   }).join('');
 }
@@ -1705,7 +1713,7 @@ function renderBookings() {
   $('#selectedDateSummary').textContent = currentFilter === 'day'
     ? (daySummary || 'Свободный день')
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
-  if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
+  if (!window.matchMedia('(max-width: 760px)').matches && currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else renderBookingList(items);
 }
 
@@ -3500,4 +3508,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=104'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=105'));
