@@ -236,6 +236,37 @@ jobs:
           ) linked on true
           where session.revoked_at is null
             and session.expires_at > now();
+
+          begin;
+          create temporary table client_rpc_diagnostics (
+            client_account_id uuid primary key,
+            session_token text not null
+          ) on commit drop;
+          insert into client_rpc_diagnostics (client_account_id, session_token)
+          select account.id, encode(digest('client-rpc-diagnostic:' || account.id::text, 'sha256'), 'hex')
+          from public.client_accounts account;
+          insert into public.client_device_sessions (client_account_id, token_hash, device_name, expires_at)
+          select diagnostic.client_account_id,
+                 encode(digest(diagnostic.session_token, 'sha256'), 'hex'),
+                 'production-diagnostic',
+                 now() + interval '5 minutes'
+          from client_rpc_diagnostics diagnostic;
+          select
+            count(*) as rpc_accounts_tested,
+            count(*) filter (where expected.rows <> actual.rows) as rpc_account_mismatches,
+            coalesce(sum(expected.rows), 0) as rpc_expected_rows,
+            coalesce(sum(actual.rows), 0) as rpc_actual_rows
+          from client_rpc_diagnostics diagnostic
+          cross join lateral (
+            select count(*) as rows
+            from public.bookings booking
+            where booking.client_account_id = diagnostic.client_account_id
+          ) expected
+          cross join lateral (
+            select count(*) as rows
+            from public.get_client_bookings(diagnostic.session_token)
+          ) actual;
+          rollback;
           SQL
 
   observe-production:
