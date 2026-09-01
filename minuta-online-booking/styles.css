@@ -1074,21 +1074,23 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .schedule-date-picker { grid-column:1/-1; grid-row:2; width:100%; margin:0; }
   .provider-body .schedule-toolbar { padding:12px; }
   .provider-body .timeline-booking { grid-template-columns:58px minmax(0,1fr); grid-template-rows:auto auto auto; gap:2px 8px; align-content:center; padding:7px 10px; }
-  .provider-body .timeline-booking-time { grid-column:1; grid-row:1; align-self:center; font-size:16px; line-height:1; }
+  .provider-body .timeline-booking-time { grid-column:1; grid-row:1; align-self:center; font-size:14px; font-weight:800; line-height:1; }
   .provider-body .timeline-booking-copy { display:contents; }
-  .provider-body .timeline-booking-copy>strong { display:-webkit-box; grid-column:2; grid-row:1; align-self:center; padding-right:32px; overflow:hidden; font-size:13px; line-height:1.15; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .provider-body .timeline-booking-copy>strong { display:-webkit-box; grid-column:2; grid-row:1; align-self:center; padding-right:32px; overflow:hidden; font-size:11px; font-weight:800; line-height:1.1; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
   .provider-body .timeline-service-variant { display:none; }
   .provider-body .timeline-booking-client-row { grid-column:1 / -1; grid-row:2; display:flex!important; padding-right:32px; }
-  .provider-body .timeline-booking-client { width:100%; font-size:10px; }
+  .provider-body .timeline-booking-client { width:100%; font-size:9px; font-weight:500; }
   .provider-body .timeline-client-duration { display:none; }
-  .provider-body .timeline-booking-note { grid-column:1 / -1; grid-row:3; max-width:none; margin-top:1px; padding-right:32px; font-size:9px; line-height:1.15; }
+  .provider-body .timeline-booking-note { grid-column:1 / -1; grid-row:3; max-width:none; margin-top:1px; padding-right:32px; font-size:8px; font-weight:500; line-height:1.1; }
   .provider-body .timeline-booking .client-badges { position:absolute; top:50%; right:9px; transform:translateY(-50%); }
-  .provider-body .timeline-booking.compact { grid-template-columns:58px minmax(0,1fr); }
-  .provider-body .timeline-booking.compact .timeline-booking-time { grid-column:1; grid-row:1; }
+  .provider-body .timeline-booking.compact { grid-template-columns:54px minmax(0,1fr); grid-template-rows:18px 13px; gap:0 7px; padding:2px 8px; }
+  .provider-body .timeline-booking.compact .timeline-booking-time { grid-column:1; grid-row:1 / 3; align-self:center; font-size:14px; }
   .provider-body .timeline-booking.compact .timeline-booking-copy { display:contents; }
-  .provider-body .timeline-booking.compact .timeline-booking-copy>strong { -webkit-line-clamp:1; }
-  .provider-body .timeline-booking.compact.has-note .timeline-booking-client-row { display:flex!important; }
-  .provider-body .timeline-booking.compact.has-note .timeline-booking-note { grid-column:1 / -1; grid-row:3; display:block; }
+  .provider-body .timeline-booking.compact .timeline-booking-copy>strong { grid-column:2; grid-row:1; align-self:end; padding-right:28px; font-size:10px; line-height:1; -webkit-line-clamp:1; }
+  .provider-body .timeline-booking.compact .timeline-booking-client-row { grid-column:2; grid-row:2; align-self:start; padding-right:28px; line-height:1; }
+  .provider-body .timeline-booking.compact .timeline-booking-client { margin:0; font-size:8px; line-height:1; }
+  .provider-body .timeline-booking.compact.has-note .timeline-booking-client-row { display:none!important; }
+  .provider-body .timeline-booking.compact.has-note .timeline-booking-note { display:block; grid-column:2; grid-row:2; align-self:start; margin:0; padding-right:28px; overflow:hidden; font-size:8px; line-height:1; text-overflow:ellipsis; white-space:nowrap; }
   .provider-body .managed-service { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
   .provider-body .managed-service .manage-actions { width:auto; }
   .provider-body .service-visibility-toggle span { display:none; }
