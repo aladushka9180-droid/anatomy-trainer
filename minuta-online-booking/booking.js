@@ -243,10 +243,11 @@ function calendarEvent() {
   };
 }
 
-function googleCalendarUrl() {
+function androidCalendarUrl() {
   const event = calendarEvent();
-  const params = new URLSearchParams({ action: 'TEMPLATE', text: event.title, dates: `${event.start}/${event.end}`, details: event.description, location: event.location });
-  return `https://calendar.google.com/calendar/render?${params}`;
+  const start = Date.parse(event.start.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z'));
+  const end = Date.parse(event.end.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z'));
+  return `intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${start};l.endTime=${end};end`;
 }
 
 function appleCalendarFile() {
@@ -263,9 +264,10 @@ function appleCalendarFile() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-function addToCalendar() {
-  $('#addGoogleCalendar').href = googleCalendarUrl();
-  $('#calendarDialog').showModal();
+function addToCalendar() { $('#calendarDialog').showModal(); }
+function addToAndroidCalendar() {
+  location.href = androidCalendarUrl();
+  $('#calendarDialog').close();
 }
 
 document.addEventListener('click', event => {
@@ -279,7 +281,7 @@ $('#confirmReschedule').addEventListener('click', confirmReschedule);
 $('#cancelBooking').addEventListener('click', cancelBooking);
 $('#addCalendar').addEventListener('click', addToCalendar);
 $('#addAppleCalendar').addEventListener('click', () => { appleCalendarFile(); $('#calendarDialog').close(); });
-$('#addGoogleCalendar').addEventListener('click', () => $('#calendarDialog').close());
+$('#addAndroidCalendar').addEventListener('click', addToAndroidCalendar);
 $('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').close());
 $('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 $('#retryManage').addEventListener('click', loadBooking);
@@ -287,4 +289,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=90'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=91'));
