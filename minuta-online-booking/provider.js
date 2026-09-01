@@ -10,6 +10,8 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
+const BOOKING_COLOR_KEYS = ['auto', 'mint', 'sky', 'lavender', 'peach', 'rose', 'vanilla'];
+const BOOKING_COLOR_DEFAULT = 'auto';
 let currentUser = null;
 let currentFilter = restoreScheduleFilter();
 let notificationFilter = 'pending';
@@ -21,6 +23,7 @@ let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
 let bookingOutcomes = new Map();
+let bookingColors = new Map();
 let outcomesRemoteAvailable = false;
 let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '' };
 let serverNotificationTemplates = {};
@@ -113,7 +116,7 @@ const writeSelectors = [
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
   '[data-retry-notification-outbox]',
-  '[data-booking-status]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
+  '[data-booking-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
 function applyWriteAvailability() {
   $$(writeSelectors.join(',')).forEach(control => {
@@ -185,6 +188,41 @@ function normalizePhone(value) {
   if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
   if (digits.length === 10) digits = `7${digits}`;
   return digits.length >= 11 && digits.length <= 15 && !digits.startsWith('0') ? digits : '';
+}
+function bookingColorStorageKey(userId = currentUser?.id) { return `massage-booking-colors-v1:${userId || 'anonymous'}`; }
+function validBookingColor(value) { return BOOKING_COLOR_KEYS.includes(String(value)) ? String(value) : BOOKING_COLOR_DEFAULT; }
+function loadBookingColors(userId = currentUser?.id) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(bookingColorStorageKey(userId)) || '{}');
+    bookingColors = new Map(Object.entries(saved).map(([id, color]) => [id, validBookingColor(color)]));
+  } catch { bookingColors = new Map(); }
+}
+function persistBookingColors(userId = currentUser?.id) {
+  if (!userId) return;
+  try { localStorage.setItem(bookingColorStorageKey(userId), JSON.stringify(Object.fromEntries(bookingColors))); } catch {}
+}
+function bookingColor(item) { return validBookingColor(item?.color_key || bookingColors.get(item?.id)); }
+function bookingColorPicker(name, selected, bookingId = '') {
+  const labels = { auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль' };
+  const current = validBookingColor(selected);
+  return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}"><input type="radio" name="${name}" value="${color}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${labels[color]}</small></label>`).join('')}</div></fieldset>`;
+}
+async function saveBookingColor(id, color, { rerender = true } = {}) {
+  const selected = validBookingColor(color);
+  bookingColors.set(id, selected);
+  persistBookingColors();
+  const item = allBookings.find(booking => booking.id === id);
+  if (item) item.color_key = selected;
+  if (rerender) renderBookingData();
+  const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
+  return !error;
+}
+async function loadRemoteBookingColors(userId, generation) {
+  const { data, error } = await db.from('bookings').select('id,color_key').eq('performer_id', userId).not('color_key', 'is', null);
+  if (error || !sessionIsCurrent(userId, generation)) return false;
+  (data || []).forEach(item => bookingColors.set(item.id, validBookingColor(item.color_key)));
+  persistBookingColors(userId);
+  return true;
 }
 function isScheduleBlock(item) {
   return String(item?.client_phone || '').replace(/\D/g, '') === SCHEDULE_BLOCK_PHONE;
@@ -795,7 +833,7 @@ function renderTimeline(items) {
     const note = block ? '' : bookingClientNote(item);
     const clientDetails = block ? 'Занятое время' : `${item.client_name} · ${item.client_phone} · ${duration} мин`;
     const ariaDetails = note ? `${clientDetails}, заметка: ${note}` : clientDetails;
-    return `<button class="timeline-booking status-${statusClass}${compact}${note ? ' has-note' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}">
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
       <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><small class="timeline-booking-client">${escapeHtml(clientDetails)}</small>${note ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
       <span class="timeline-booking-status">${statusText}</span>
@@ -823,7 +861,7 @@ function renderBookingList(items) {
     const resultSummary = outcomeSummary(item);
     const block = isScheduleBlock(item);
     const note = block ? '' : bookingClientNote(item);
-    return `<article class="provider-booking status-${statusClass}">
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
@@ -850,6 +888,7 @@ function openBookingSheet(id) {
       <h2 id="bookingSheetTitle">${escapeHtml(item.client_name || 'Перерыв')}</h2>
       <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-block">Занято</span></div>
       <div class="booking-sheet-block"><span>◼</span><div><small>Блокировка времени</small><strong>Клиенты не смогут записаться на этот интервал.</strong></div></div>
+      ${bookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
       ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions"><button class="primary" type="button" data-edit-booking="${item.id}">Изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Освободить время</button></div>` : ''}`;
     $('#bookingSheet').hidden = false;
     document.body.classList.add('booking-sheet-open');
@@ -859,6 +898,7 @@ function openBookingSheet(id) {
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
     <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(item.services?.price_rub || 0)}</strong></div></div>
+    ${bookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
     <details class="booking-sheet-disclosure booking-note-disclosure" ${note ? 'open' : ''}>
       <summary><div><small>О клиенте</small><strong>Заметка</strong></div><span class="booking-note-state">${note ? 'Добавлена' : 'Добавить'}</span></summary>
       <form class="booking-sheet-note-editor" id="bookingSheetNoteForm" data-client-phone="${escapeHtml(normalizePhone(item.client_phone))}">
@@ -984,6 +1024,7 @@ function openBookingEditor(id) {
     <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
       ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
       <label>${block ? 'Длительность' : 'Услуга'}<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
+      ${bookingColorPicker('editBookingColor', bookingColor(item))}
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
       <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
       <p class="form-error" id="bookingEditError" hidden></p>
@@ -1007,6 +1048,7 @@ async function saveBookingChanges(event) {
   const block = isScheduleBlock(item);
   const service = ownServices.find(entry => entry.id === $('#editBookingService').value);
   const date = $('#editBookingDate').value;
+  const color = $('[name="editBookingColor"]:checked')?.value || bookingColor(item);
   const blockTitle = block ? ($('#editBookingBlockTitle')?.value.trim() || '') : '';
   if (!item || !service || !date || !bookingEditTime || (block && blockTitle.length < 2)) {
     showFormError('#bookingEditError', 'Выберите услугу, дату и свободное время.');
@@ -1027,6 +1069,7 @@ async function saveBookingChanges(event) {
     return;
   }
   if (!block) notifyTelegramClient(id, 'rescheduled');
+  await saveBookingColor(id, color, { rerender:false });
   selectScheduleDate(date);
   await refreshAfterWrite();
   notify('Запись обновлена');
@@ -1105,6 +1148,7 @@ function openNewBookingSheet(preferredTime = '') {
           <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div><label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято, и клиенты не смогут на него записаться.</p></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
+          ${bookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT)}
         </section>
         <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small>Выберите удобное свободное окно</small></div></div>
           <label>Дата<input id="newBookingDate" type="date" min="${businessTodayIso()}" value="${date}" required></label>
@@ -1135,6 +1179,7 @@ async function createNewBooking(event) {
   const phone = block ? SCHEDULE_BLOCK_PHONE : $('#newBookingPhone').value.trim();
   const service = $('#newBookingService').value;
   const date = $('#newBookingDate').value;
+  const color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
   newBookingTime = newBookingTime || selectedButtonTime;
   if (name.length < 2 || (!block && normalizePhone(phone).length < 10) || !service || !date || !newBookingTime) {
@@ -1180,6 +1225,8 @@ async function createNewBooking(event) {
   selectScheduleDate(date);
   closeBookingSheet();
   await refreshAfterWrite();
+  const createdBooking = [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone));
+  if (createdBooking) await saveBookingColor(createdBooking.id, color);
   notify(block ? 'Время занято' : 'Новая запись создана');
 }
 
@@ -1616,6 +1663,8 @@ async function handleSession(session) {
   });
   setWritesAllowed(false);
   currentUser = session?.user || null;
+  if (currentUser) loadBookingColors(currentUser.id);
+  else bookingColors = new Map();
   scheduleDirty = false;
   if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId);
   if (generation !== sessionGeneration) return;
@@ -2322,6 +2371,8 @@ async function loadBookings(options = {}) {
     return { ok: false };
   }
   allBookings = data || [];
+  await loadRemoteBookingColors(userId, generation);
+  if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   await saveProviderCache('bookings', allBookings, userId);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   renderBookingData();
@@ -2471,6 +2522,14 @@ document.addEventListener('click', async event => {
   }
 });
 
+document.addEventListener('change', async event => {
+  const colorInput = event.target.closest('[data-booking-color-id]');
+  if (!colorInput) return;
+  if (!requireWrites()) return;
+  await saveBookingColor(colorInput.dataset.bookingColorId, colorInput.value);
+  notify('Цвет записи сохранён');
+});
+
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
   if ($('#portfolioEditorDialog').open) closePortfolioEditor();
@@ -2571,4 +2630,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=64'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=65'));

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '64';
+const version = '65';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -110,8 +110,12 @@ assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:
 assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 70 : 76/, 'Высота часового интервала снова обрезает заметки');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:stretch; align-items:center;/, 'Время записи не центрируется по высоте карточки');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
-assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:8px;/, 'Получасовые отметки не отличаются от полных часов');
+assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:9px;/, 'Получасовые отметки не отличаются от полных часов');
 assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая линия не синхронизирована с масштабом расписания');
+assert.match(provider, /bookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
+assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
+assert.match(provider, /data-booking-color-id/, 'Цвет существующей записи нельзя изменить из карточки');
+assert.match(styles, /color-lavender[\s\S]*background:#f2edfa/, 'Палитра нежных цветов не оформлена');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
@@ -226,6 +230,11 @@ assert.match(portfolioMigration, /'portfolio-images',[\s\S]*false,[\s\S]*8388608
 assert.match(portfolioMigration, /array\['image\/webp'\]/, 'Хранилище принимает файлы с лишними метаданными');
 assert.match(portfolioMigration, /portfolio_objects_public_select/, 'Нет ограниченного публичного чтения опубликованных фотографий');
 assert.match(portfolioMigration, /create or replace function public\.reorder_portfolio_items/, 'Нет серверного изменения порядка портфолио');
+
+const bookingColorMigration = readFileSync(join(root, 'supabase-migration-v48.sql'), 'utf8');
+assert.match(bookingColorMigration, /add column if not exists color_key text/, 'Цвет записи не сохраняется на сервере');
+assert.match(bookingColorMigration, /create or replace function public\.set_booking_color/, 'Нет защищённой RPC смены цвета записи');
+assert.match(bookingColorMigration, /performer_id = \(select auth\.uid\(\)\)/, 'Исполнитель может изменить цвет чужой записи');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
