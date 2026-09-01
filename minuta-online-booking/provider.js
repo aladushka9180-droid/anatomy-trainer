@@ -851,7 +851,11 @@ function openBookingSheet(id) {
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
     <div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div>
     <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
-    ${note ? `<div class="booking-sheet-note"><small>Заметка о клиенте</small><p>${escapeHtml(note)}</p></div>` : ''}
+    <form class="booking-sheet-note-editor" id="bookingSheetNoteForm" data-client-phone="${escapeHtml(normalizePhone(item.client_phone))}">
+      <div class="booking-sheet-note-heading"><label for="bookingSheetClientNote">Заметка о клиенте</label><small>Видна только вам</small></div>
+      <textarea id="bookingSheetClientNote" maxlength="1000" rows="2" placeholder="Добавить пожелания, особенности или важную информацию">${escapeHtml(note)}</textarea>
+      <button class="secondary-button" type="submit">Сохранить заметку</button>
+    </form>
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}"><div class="booking-outcome-heading"><div><small>После визита</small><h3>Результат и оплата</h3></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован'}</span></div><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Клиент не пришёл</option></select></label><div class="booking-outcome-payment" id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="50" value="${amount}"></label></div><button class="primary" type="submit">Сохранить результат</button><p>${outcomesRemoteAvailable ? 'Данные доступны в кабинете исполнителя.' : 'Пока сохраняется на этом устройстве.'}</p></form>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">Написать в WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
@@ -859,8 +863,28 @@ function openBookingSheet(id) {
   document.body.classList.add('booking-sheet-open');
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
   $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
+  $('#bookingSheetNoteForm')?.addEventListener('submit', saveBookingSheetNote);
   $('#outcomeVisitStatus')?.addEventListener('change', toggleOutcomePaymentFields);
   toggleOutcomePaymentFields();
+}
+
+async function saveBookingSheetNote(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const phone = normalizePhone(event.currentTarget.dataset.clientPhone);
+  const note = $('#bookingSheetClientNote').value.trim();
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
+  if (!sessionIsCurrent(userId, generation)) return;
+  button.disabled = false;
+  button.textContent = 'Сохранить заметку';
+  if (error) { notify('Не удалось сохранить заметку'); return; }
+  clientNotes.set(phone, note);
+  notify('Заметка сохранена');
 }
 
 function serviceOptions(selectedId, activeOnly = false) {
@@ -942,16 +966,14 @@ function openBookingEditor(id) {
   if (!item) return;
   const block = isScheduleBlock(item);
   bookingEditTime = String(item.booking_time).slice(0, 5);
-  const note = block ? '' : (clientNotes.get(normalizePhone(item.client_phone)) || '');
   $('#bookingSheet').classList.remove('booking-sheet-wide');
-  $('#bookingSheetContent').innerHTML = `<button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
-    <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
+  $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
+    <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small></div><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
       ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
       <label>${block ? 'Длительность' : 'Услуга'}<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
       <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
-      ${block ? '' : `<label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="3" placeholder="Пожелания, особенности или важная информация">${escapeHtml(note)}</textarea></label>`}
       <p class="form-error" id="bookingEditError" hidden></p>
       <button class="primary" type="submit">Сохранить изменения</button>
     </form>`;
@@ -992,14 +1014,7 @@ async function saveBookingChanges(event) {
     await loadBookingEditSlots(id);
     return;
   }
-  if (!block) {
-    const phone = normalizePhone(item.client_phone);
-    const note = $('#editBookingNote').value.trim();
-    await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
-    if (!sessionIsCurrent(userId, generation)) return;
-    clientNotes.set(phone, note);
-    notifyTelegramClient(id, 'rescheduled');
-  }
+  if (!block) notifyTelegramClient(id, 'rescheduled');
   selectScheduleDate(date);
   await refreshAfterWrite();
   notify('Запись обновлена');
@@ -2542,4 +2557,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=52'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=53'));
