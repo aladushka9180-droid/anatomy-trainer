@@ -839,6 +839,37 @@ html.requires-top-level.top-level body { visibility:visible; }
   .manage-payment { grid-template-columns:1fr; }.manage-payment>span { width:max-content; }
 }
 
+/* Компактный экран успешной записи */
+.booking-client-page .success { width:min(100%,620px); min-height:0; margin:0 auto; padding:38px 8px 24px; align-content:start; }
+.booking-client-page .success-mark { width:58px; height:58px; margin:0 0 15px; background:#e4f3e9; box-shadow:none; }
+.booking-client-page .success-mark .ui-icon { width:27px; height:27px; }
+.booking-client-page .success h2 { max-width:560px; margin-top:7px; font-size:30px; line-height:1.12; }
+.booking-client-page .success-appointment { width:min(100%,540px); margin-top:22px; padding:17px 0; border-top:1px solid #e0e8e2; border-bottom:1px solid #e0e8e2; }
+.booking-client-page #successDetails { display:grid; gap:5px; margin:0; line-height:1.4; }
+.booking-client-page #successDetails strong { color:#193f2d; font-size:15px; }
+.booking-client-page #successDetails span { color:#708078; font-size:11px; }
+.booking-client-page #successDetails b { color:#3f584b; font-size:12px; font-weight:850; }
+.booking-client-page .success-appointment .local-note { max-width:none; margin:10px 0 0; color:#87938d; font-size:9px; }
+.booking-client-page .success-payment { width:min(100%,540px); }
+.booking-client-page .telegram-connect-button { width:min(100%,540px); margin-top:16px; padding:11px 12px; border-color:#dbe5de; border-radius:13px; background:#fff; }
+.booking-client-page .telegram-connect-button:hover { border-color:#bdcec3; background:#f8faf8; }
+.booking-client-page .telegram-connect-mark { width:34px; height:34px; background:#e5f1e9; color:#2e7150; }
+.booking-client-page .telegram-connect-button strong { font-size:12px; }
+.booking-client-page .telegram-connect-button small { margin-top:2px; font-size:9px; }
+.booking-client-page .telegram-connect-arrow { width:16px; height:16px; margin-left:auto; color:#71837a; }
+.booking-client-page .success-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:min(100%,540px); margin-top:18px; }
+.booking-client-page .success-actions .primary { grid-column:1/-1; width:100%; min-height:48px; margin:0; }
+.booking-client-page .success-actions .manage-secondary { width:100%; min-height:42px; margin:0; border-radius:12px; background:#fff; color:#496054; font-size:10px; }
+.booking-client-page .success-actions #newBooking { border-color:transparent; background:#f2f5f3; }
+
+@media (max-width:520px) {
+  .booking-client-page .success { padding:28px 0 16px; }
+  .booking-client-page .success h2 { font-size:27px; }
+  .booking-client-page .success-appointment { margin-top:18px; }
+  .booking-client-page .success-actions { grid-template-columns:1fr; }
+  .booking-client-page .success-actions .primary { grid-column:auto; }
+}
+
 /* Компактная система кабинета: зелёный только для выбора и главного действия */
 .provider-body { background:#f5f7f5; }
 .provider-body .provider-view { padding-top:22px; }

@@ -18,7 +18,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=59">
+  <link rel="stylesheet" href="styles.css?v=60">
 </head>
 <body class="booking-client-page">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -61,18 +61,16 @@
         </form>
       </div>
       <div class="success" id="success" hidden aria-live="polite">
-        <span class="success-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"/></svg></span><small>Запись создана</small><h2 id="successTitle">Готово!</h2><p id="successDetails"></p>
-        <p class="local-note">Запись сохранена. Мастер увидит её в своём кабинете.</p>
+        <span class="success-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"/></svg></span><small>Запись создана</small><h2 id="successTitle">Готово!</h2>
+        <div class="success-appointment"><p id="successDetails"></p><p class="local-note">Мастер уже видит запись в своём кабинете.</p></div>
         <div class="success-payment" id="successPayment" hidden>
           <small>Для подтверждения времени</small>
           <strong id="successDeposit"></strong>
           <a class="primary" id="successPaymentLink" href="#" target="_blank" rel="noopener noreferrer">Внести предоплату</a>
           <p>После оплаты сохраните чек. Исполнитель отметит поступление в кабинете.</p>
         </div>
-        <a class="telegram-connect-button" id="telegramConnect" href="#" target="_blank" rel="noopener noreferrer" hidden><span class="telegram-connect-mark" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"/></svg></span><span><strong>Подключить напоминания в Telegram</strong><small>Необязательно · подтверждение и напоминание</small></span></a>
-        <a class="primary manage-booking-link" id="manageBooking" href="booking.html" hidden>Управлять записью</a>
-        <button class="manage-secondary" type="button" id="copyManageBooking" hidden>Скопировать ссылку на запись</button>
-        <button class="manage-secondary" type="button" id="newBooking">Создать ещё одну запись</button>
+        <a class="telegram-connect-button" id="telegramConnect" href="#" target="_blank" rel="noopener noreferrer" hidden><span class="telegram-connect-mark" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"/></svg></span><span><strong>Напоминания в Telegram</strong><small>Получить подтверждение и напоминание</small></span><svg class="ui-icon telegram-connect-arrow" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></a>
+        <div class="success-actions"><a class="primary manage-booking-link" id="manageBooking" href="booking.html" hidden>Управлять записью</a><button class="manage-secondary" type="button" id="copyManageBooking" hidden>Скопировать ссылку</button><button class="manage-secondary" type="button" id="newBooking">Создать ещё запись</button></div>
       </div>
     </section>
   </main>
@@ -90,6 +88,6 @@
     <button class="primary" type="button" data-choose-service-details><span>Выбрать эту услугу</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"/></svg></button>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=59"></script><script src="reliability.js?v=59"></script><script src="app.js?v=59" defer></script>
+  <script src="config.js?v=60"></script><script src="reliability.js?v=60"></script><script src="app.js?v=60" defer></script>
 </body>
 </html>

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '59';
+const version = '60';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -141,6 +141,11 @@ assert.match(app, /недоступно для начала: весь интер
 assert.match(app, /весь интервал должен быть свободен/, 'Клиенту не объясняется правило для продолжительной услуги');
 assert.match(app, /duration <= 60[\s\S]*?'занято'[\s\S]*?'нет окна'/, 'Недоступные часы не получают короткую подпись по длительности услуги');
 assert.match(app, /requestAnimationFrame\(\(\) => bookingCard\?\.scrollIntoView/, 'Переход между шагами прокручивается только после загрузки данных');
+assert.match(app, /function successDetailsMarkup\(service, performer, dateLabel, range\)/, 'Экран успеха не использует структурированную сводку записи');
+const clientHtml = readFileSync(join(root, 'index.html'), 'utf8');
+assert.match(clientHtml, /class="success-appointment"/, 'Детали успешной записи не собраны в компактный блок');
+assert.match(clientHtml, /class="success-actions"/, 'Действия успешной записи не собраны по приоритету');
+assert.match(clientHtml, /class="ui-icon telegram-connect-arrow"/, 'В Telegram-действии нет понятного направления перехода');
 
 const timeRangeFunctionSource = app.match(/function timeRange\(time, duration\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(timeRangeFunctionSource, 'Не удалось извлечь расчёт интервала услуги');

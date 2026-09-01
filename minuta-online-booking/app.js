@@ -419,6 +419,9 @@ function renderSuccessPayment(item) {
   $('#successDeposit').textContent = `Предоплата ${money(item.deposit_amount_rub)}`;
   $('#successPaymentLink').href = item.payment_url;
 }
+function successDetailsMarkup(service, performer, dateLabel, range) {
+  return `<strong>${escapeHtml(service)}</strong><span>${escapeHtml(performer)}</span><b>${escapeHtml(dateLabel)} · ${escapeHtml(range)}</b>`;
+}
 async function validateCurrentSelection() {
   const service = selectedService();
   const selectedTime = state.time;
@@ -494,7 +497,7 @@ async function submitBooking(event) {
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
   $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
-  $('#successDetails').innerHTML = `${escapeHtml(serviceName(service.name))} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}`;
+  $('#successDetails').innerHTML = successDetailsMarkup(serviceName(service.name), service.performer_profiles?.display_name || 'Мастер', selectedDate().label, timeRange(state.time, service.duration_minutes));
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
     manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
@@ -509,7 +512,7 @@ async function submitBooking(event) {
     if (current) {
       const currentDate = new Date(`${current.booking_date}T00:00:00`);
       const currentDateLabel = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
-      $('#successDetails').innerHTML = `${escapeHtml(current.service_name)} · ${escapeHtml(current.performer_name || 'Мастер')}<br>${escapeHtml(currentDateLabel)}, ${timeRange(current.booking_time.slice(0, 5), current.duration_minutes)}`;
+      $('#successDetails').innerHTML = successDetailsMarkup(current.service_name, current.performer_name || 'Мастер', currentDateLabel, timeRange(current.booking_time.slice(0, 5), current.duration_minutes));
       if (current.status === 'cancelled') {
         $('#successTitle').textContent = 'Эта запись уже отменена';
       }
@@ -581,4 +584,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=59'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=60'));
