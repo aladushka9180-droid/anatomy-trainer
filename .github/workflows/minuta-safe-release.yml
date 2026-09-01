@@ -15,7 +15,7 @@ on:
       expected_version:
         description: Ожидаемая версия опубликованных ресурсов
         required: true
-        default: "73"
+        default: "74"
         type: string
       observation_minutes:
         description: Длительность наблюдения production
@@ -118,8 +118,10 @@ jobs:
             -f minuta-online-booking/supabase-migration-v51.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v52.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v53.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regclass('public.client_labels') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='favorite_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='vip_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source') and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null and to_regprocedure('public.set_booking_note(uuid,text)') is not null;" \
+            "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regclass('public.client_labels') is not null and to_regclass('public.booking_session_items') is not null and to_regclass('public.booking_session_revisions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='favorite_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='vip_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='total_price_rub') and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null and to_regprocedure('public.set_booking_note(uuid,text)') is not null and to_regprocedure('public.save_booking_session(uuid,jsonb)') is not null;" \
             | grep -qx t
 
   observe-production:

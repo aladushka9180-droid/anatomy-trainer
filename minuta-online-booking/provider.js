@@ -23,6 +23,9 @@ let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
 let bookingOutcomes = new Map();
+let bookingSessionItems = new Map();
+let sessionItemsRemoteAvailable = false;
+let sessionComposerDraft = [];
 let bookingColors = new Map();
 let bookingNotes = new Map();
 let pendingBookingNotes = new Set();
@@ -115,8 +118,8 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientPreferenceNote', '#clientAttentionReason',
-  '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-preference-note]', '[data-booking-attention-reason]',
+  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
+  '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
@@ -270,7 +273,6 @@ function clientBadgeMarkup(phone, { limit = 2, showLabels = false } = {}) {
 function bookingClientLabelsMarkup(phone, bookingId) {
   const normalizedPhone = normalizePhone(phone);
   const value = clientLabel(normalizedPhone);
-  const preferenceNote = value.vip_note || value.favorite_note;
   const summary = clientBadgeMarkup(normalizedPhone, { limit:3 }) || `${uiIcon('plus')}<span>Добавить</span>`;
   return `<details class="booking-sheet-disclosure booking-labels-disclosure">
     <summary><div><small>О клиенте</small><strong>Метки клиента</strong></div><span class="booking-labels-summary">${summary}</span></summary>
@@ -280,7 +282,8 @@ function bookingClientLabelsMarkup(phone, bookingId) {
         <label class="client-label-option label-vip"><input data-booking-label-vip type="checkbox" ${value.vip ? 'checked' : ''}><span>${uiIcon('star')}</span><strong>VIP</strong></label>
         <label class="client-label-option label-attention"><input data-booking-label-attention type="checkbox" ${value.attention ? 'checked' : ''}><span>${uiIcon('shield-alert')}</span><strong>Внимание</strong></label>
       </div>
-      <label class="client-attention-reason" data-booking-preference-note-field ${value.favorite || value.vip ? '' : 'hidden'}>Пожелания и условия<textarea data-booking-preference-note maxlength="500" rows="2" placeholder="Например, индивидуальные пожелания или условия">${escapeHtml(preferenceNote)}</textarea></label>
+      <label class="client-attention-reason" data-booking-favorite-note-field ${value.favorite ? '' : 'hidden'}>Что нравится клиенту<textarea data-booking-favorite-note maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита">${escapeHtml(value.favorite_note)}</textarea></label>
+      <label class="client-attention-reason" data-booking-vip-note-field ${value.vip ? '' : 'hidden'}>Пожелания и условия<textarea data-booking-vip-note maxlength="500" rows="2" placeholder="Например, индивидуальные пожелания или условия">${escapeHtml(value.vip_note)}</textarea></label>
       <label class="client-attention-reason" data-booking-attention-reason-field ${value.attention ? '' : 'hidden'}>Причина<textarea data-booking-attention-reason maxlength="500" rows="2" placeholder="Например, нужна предоплата или часто опаздывает">${escapeHtml(value.attention_reason)}</textarea></label>
       <p class="form-error" data-booking-labels-error hidden></p>
       <span class="client-labels-autosave" data-booking-labels-status role="status" aria-live="polite">Сохраняются автоматически</span>
@@ -321,6 +324,40 @@ function bookingColorPicker(name, selected, bookingId = '') {
   const labels = { auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль' };
   const current = validBookingColor(selected);
   return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}" title="${labels[color]}"><input type="radio" name="${name}" value="${color}" aria-label="${labels[color]}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${labels[color]}</small></label>`).join('')}</div></fieldset>`;
+}
+function compactBookingColorPicker(name, selected, bookingId) {
+  const labels = { auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль' };
+  const current = validBookingColor(selected);
+  return `<details class="booking-color-compact"><summary><span>Цвет записи</span><strong><i class="booking-color-dot color-${current}" aria-hidden="true"></i>${labels[current]}</strong></summary>${bookingColorPicker(name, current, bookingId)}</details>`;
+}
+function bookingSession(item) {
+  const saved = bookingSessionItems.get(item.id);
+  if (saved?.length) return saved.map(entry => ({
+    kind:entry.item_kind || entry.kind,
+    service_id:entry.service_id || '',
+    title:String(entry.title || ''),
+    duration_minutes:Number(entry.duration_minutes || 0),
+    price_rub:Number(entry.price_rub || 0),
+    extends_duration:entry.item_kind === 'primary' || entry.kind === 'primary' ? true : Boolean(entry.extends_duration)
+  }));
+  return [{
+    kind:'primary',
+    service_id:item.service_id,
+    title:serviceName(item.services?.name || 'Основная услуга'),
+    duration_minutes:Number(item.duration_minutes || item.services?.duration_minutes || 60),
+    price_rub:Number(item.total_price_rub ?? item.original_price_rub ?? item.services?.price_rub ?? 0),
+    extends_duration:true
+  }];
+}
+function bookingSessionTotal(item) {
+  return bookingSession(item).reduce((sum, entry) => sum + Number(entry.price_rub || 0), 0);
+}
+function bookingSessionDuration(items) {
+  return items.reduce((sum, entry) => sum + (entry.kind === 'primary' || entry.extends_duration ? Number(entry.duration_minutes || 0) : 0), 0);
+}
+function bookingSessionMarkup(item) {
+  const items = bookingSession(item);
+  return `<section class="booking-session-summary"><div class="booking-session-heading"><div><small>Состав сеанса</small><strong>${items.length} ${items.length === 1 ? 'позиция' : items.length < 5 ? 'позиции' : 'позиций'}</strong></div><button type="button" data-edit-booking-session="${item.id}">Изменить</button></div><div class="booking-session-lines">${items.map((entry, index) => `<div><span><b>${escapeHtml(entry.title)}</b><small>${entry.duration_minutes} мин${index > 0 && !entry.extends_duration ? ' · без увеличения времени' : ''}</small></span><strong>${money(entry.price_rub)}</strong></div>`).join('')}</div><div class="booking-session-total"><span>Итого</span><strong>${money(bookingSessionTotal(item))}</strong></div></section>`;
 }
 async function saveBookingColor(id, color, { rerender = true } = {}) {
   const selected = validBookingColor(color);
@@ -393,7 +430,16 @@ function whatsappLink(item, type = 'reminder') {
   return `https://wa.me/${phone}?text=${encodeURIComponent(composeNotificationMessage(type, item))}`;
 }
 function outcomeStorageKey() { return `massage-booking-outcomes-${currentUser?.id || 'guest'}`; }
+function sessionItemsStorageKey(userId = currentUser?.id) { return `massage-booking-session-items-${userId || 'guest'}`; }
 function autoCompleteStorageKey(userId = currentUser?.id) { return `massage-auto-complete-visits-${userId || 'guest'}`; }
+function readLocalSessionItems(userId = currentUser?.id) {
+  try { return JSON.parse(localStorage.getItem(sessionItemsStorageKey(userId)) || '{}'); }
+  catch { return {}; }
+}
+function writeLocalSessionItems(userId = currentUser?.id) {
+  try { localStorage.setItem(sessionItemsStorageKey(userId), JSON.stringify(Object.fromEntries(bookingSessionItems))); }
+  catch {}
+}
 function readLocalOutcomes() {
   try { return JSON.parse(localStorage.getItem(outcomeStorageKey())) || {}; }
   catch { return {}; }
@@ -510,7 +556,7 @@ function exportBookingsCsv() {
     const outcome = bookingOutcome(item);
     const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
     const block = isScheduleBlock(item);
-    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : serviceName(item.services?.name || 'Услуга'), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method), block ? 0 : (outcome.amount_rub || 0), block ? 0 : (item.services?.price_rub || 0)];
+    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : bookingSession(item).map(entry => entry.title).join(' + '), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method), block ? 0 : (outcome.amount_rub || 0), block ? 0 : bookingSessionTotal(item)];
   });
   const csv = [header, ...rows].map(row => row.map(csvCell).join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -1031,7 +1077,7 @@ function renderBookingList(items) {
     return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${!block && clientLabel(item.client_phone).vip ? ' client-vip' : ''}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
-      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone)}</span><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
+      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone)}</span><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(bookingSessionTotal(item))}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
       ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">${block ? 'Освободить' : 'Отменить'}</button></div>` : ''}
     </article>`;
   }).join('');
@@ -1048,7 +1094,7 @@ function openBookingSheet(id) {
   const whatsapp = escapeHtml(whatsappLink(item));
   const note = bookingDisplayNote(item);
   const outcome = bookingOutcome(item);
-  const amount = Number(outcome.amount_rub || item.services?.price_rub || 0);
+  const amount = Number(outcome.amount_rub || bookingSessionTotal(item));
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheet').classList.toggle('booking-sheet-vip', !isScheduleBlock(item) && clientLabel(item.client_phone).vip);
   if (isScheduleBlock(item)) {
@@ -1073,9 +1119,10 @@ function openBookingSheet(id) {
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
-    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}<a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(item.services?.price_rub || 0)}</strong></div></div>
+    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}<a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(bookingSessionTotal(item))}</strong></div></div>
+    ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}
-    ${bookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
+    ${compactBookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
     <details class="booking-sheet-disclosure booking-note-disclosure" ${note ? 'open' : ''}>
       <summary><div><small>О клиенте</small><strong>Заметка</strong></div><span class="booking-note-state">${note ? 'Добавлена' : 'Добавить'}</span></summary>
       <form class="booking-sheet-note-editor" id="bookingSheetNoteForm" data-client-phone="${escapeHtml(normalizePhone(item.client_phone))}">
@@ -1220,6 +1267,127 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
   holder.innerHTML = times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" data-edit-booking-time="${time}">${time}</button>`).join('');
 }
 
+function sessionServiceOptions(selectedId = '', allowCustom = false) {
+  const custom = allowCustom ? `<option value="" ${selectedId ? '' : 'selected'}>Произвольная услуга</option>` : '';
+  return `${custom}${ownServices.map(service => `<option value="${service.id}" ${service.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(service.name))}</option>`).join('')}`;
+}
+
+function sessionConflict(item, items) {
+  const start = minutesFromTime(item.booking_time);
+  const duration = bookingSessionDuration(items);
+  const end = start + duration;
+  const conflict = allBookings
+    .filter(other => other.id !== item.id && other.status !== 'cancelled' && other.booking_date === item.booking_date)
+    .map(other => ({ item:other, start:minutesFromTime(other.booking_time), end:minutesFromTime(other.booking_time) + Number(other.duration_minutes || other.services?.duration_minutes || 60) }))
+    .filter(other => start < other.end && end > other.start)
+    .sort((a, b) => a.start - b.start)[0];
+  if (!conflict) return null;
+  return { time:String(conflict.item.booking_time).slice(0, 5), extra:Math.max(0, duration - Number(item.duration_minutes || 0)) };
+}
+
+function sessionComposerItemMarkup(entry, index) {
+  const addon = entry.kind === 'addon';
+  return `<article class="session-composer-item" data-session-item="${index}"><div class="session-composer-item-head"><strong>${addon ? `Дополнительная услуга ${index}` : 'Основная услуга'}</strong>${addon ? `<button type="button" data-remove-session-item="${index}" aria-label="Удалить дополнительную услугу">${uiIcon('trash')}</button>` : ''}</div><label>${addon ? 'Источник' : 'Услуга из каталога'}<select data-session-service ${addon ? '' : 'required'}>${sessionServiceOptions(entry.service_id, addon)}</select></label><label>Название<input data-session-title maxlength="120" value="${escapeHtml(entry.title)}" required></label><div class="session-composer-fields"><label>Длительность, мин<input data-session-duration type="number" min="${addon ? 0 : 5}" max="480" step="5" value="${entry.duration_minutes}" required></label><label>Стоимость, ₽<input data-session-price type="number" min="0" max="1000000" step="50" value="${entry.price_rub}" required></label></div>${addon ? `<label class="session-duration-toggle"><input data-session-extends type="checkbox" ${entry.extends_duration ? 'checked' : ''}><span><strong>Увеличивает продолжительность сеанса</strong><small>Если выключено, услуга добавится только к стоимости.</small></span></label>` : ''}</article>`;
+}
+
+function readSessionComposerDraft() {
+  return $$('.session-composer-item').map((card, index) => ({
+    kind:index === 0 ? 'primary' : 'addon',
+    service_id:card.querySelector('[data-session-service]').value,
+    title:card.querySelector('[data-session-title]').value.trim(),
+    duration_minutes:Math.round(Number(card.querySelector('[data-session-duration]').value) || 0),
+    price_rub:Math.max(0, Math.round(Number(card.querySelector('[data-session-price]').value) || 0)),
+    extends_duration:index === 0 || Boolean(card.querySelector('[data-session-extends]')?.checked)
+  }));
+}
+
+function updateSessionComposerSummary(id) {
+  const item = allBookings.find(booking => booking.id === id);
+  if (!item) return;
+  sessionComposerDraft = readSessionComposerDraft();
+  const total = sessionComposerDraft.reduce((sum, entry) => sum + entry.price_rub, 0);
+  const duration = bookingSessionDuration(sessionComposerDraft);
+  $('#sessionComposerTotal').textContent = money(total);
+  $('#sessionComposerDuration').textContent = `${duration} мин`;
+  const conflict = sessionConflict(item, sessionComposerDraft);
+  const warning = $('#sessionComposerWarning');
+  const button = $('#sessionComposerSave');
+  warning.hidden = !conflict;
+  if (conflict) warning.textContent = `${conflict.extra ? `Дополнительные ${conflict.extra} минут` : `Сеанс длительностью ${duration} минут`} пересекаются со следующей записью в ${conflict.time}.`;
+  button.disabled = Boolean(conflict) || duration < 5 || sessionComposerDraft.some(entry => entry.title.length < 2);
+}
+
+function renderSessionComposer(id) {
+  const item = allBookings.find(booking => booking.id === id);
+  if (!item) return;
+  $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button><small class="booking-sheet-kicker">Только для этой записи</small></div><h2 id="bookingSheetTitle">Состав сеанса</h2><p class="session-composer-lead">Каталог услуг не изменится. Здесь настраивается только этот визит.</p><form class="session-composer" id="sessionComposerForm" data-booking-id="${item.id}"><div id="sessionComposerItems">${sessionComposerDraft.map(sessionComposerItemMarkup).join('')}</div><button class="session-add-button" type="button" data-add-session-item>${uiIcon('plus')}<span>Дополнительная услуга</span></button><p class="session-composer-warning" id="sessionComposerWarning" role="alert" hidden></p><div class="session-composer-summary"><span><small>Продолжительность</small><strong id="sessionComposerDuration">0 мин</strong></span><span><small>Итого</small><strong id="sessionComposerTotal">0 ₽</strong></span></div><p class="form-error" id="sessionComposerError" hidden></p><button class="primary" id="sessionComposerSave" type="submit">Сохранить состав</button></form>`;
+  $('#sessionComposerForm').addEventListener('submit', saveBookingSession);
+  updateSessionComposerSummary(id);
+}
+
+function openSessionComposer(id) {
+  const item = allBookings.find(booking => booking.id === id);
+  if (!item || isScheduleBlock(item)) return;
+  sessionComposerDraft = bookingSession(item).map(entry => ({ ...entry }));
+  $('#bookingSheet').classList.remove('booking-sheet-wide');
+  renderSessionComposer(id);
+}
+
+async function saveBookingSession(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const item = allBookings.find(booking => booking.id === event.currentTarget.dataset.bookingId);
+  if (!item) return;
+  clearFormError('#sessionComposerError');
+  sessionComposerDraft = readSessionComposerDraft();
+  const conflict = sessionConflict(item, sessionComposerDraft);
+  if (conflict) { updateSessionComposerSummary(item.id); return; }
+  const totalPrice = sessionComposerDraft.reduce((sum, entry) => sum + entry.price_rub, 0);
+  const totalDuration = bookingSessionDuration(sessionComposerDraft);
+  if (totalDuration < 5 || totalDuration > 480 || totalPrice > 10000000 || sessionComposerDraft.some(entry => entry.title.length < 2)) {
+    showFormError('#sessionComposerError', 'Проверьте названия, длительность и стоимость услуг.');
+    return;
+  }
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  let remoteSaved = false;
+  if (sessionItemsRemoteAvailable) {
+    const { error } = await db.rpc('save_booking_session', { p_booking:item.id, p_items:sessionComposerDraft });
+    if (error?.message?.includes('session_overlap:')) {
+      const time = error.message.split('session_overlap:')[1]?.slice(0, 5) || 'следующей записью';
+      showFormError('#sessionComposerError', `Сеанс пересекается со следующей записью в ${time}.`);
+      button.disabled = false;
+      button.textContent = 'Сохранить состав';
+      return;
+    }
+    if (error && !/save_booking_session|schema cache|could not find/i.test(error.message || '')) {
+      button.disabled = false;
+      button.textContent = 'Сохранить состав';
+      showFormError('#sessionComposerError', 'Не удалось проверить состав сеанса. Изменения не сохранены.');
+      return;
+    }
+    remoteSaved = !error;
+    if (error) sessionItemsRemoteAvailable = false;
+  }
+  if (!remoteSaved) {
+    let { error } = await db.from('bookings').update({ service_id:sessionComposerDraft[0].service_id, duration_minutes:totalDuration, total_price_rub:totalPrice }).eq('id', item.id).eq('performer_id', currentUser.id);
+    if (error) ({ error } = await db.from('bookings').update({ service_id:sessionComposerDraft[0].service_id, duration_minutes:totalDuration }).eq('id', item.id).eq('performer_id', currentUser.id));
+    if (error) {
+      button.disabled = false;
+      button.textContent = 'Сохранить состав';
+      showFormError('#sessionComposerError', 'Не удалось сохранить состав сеанса.');
+      return;
+    }
+  }
+  bookingSessionItems.set(item.id, sessionComposerDraft.map((entry, index) => ({ ...entry, item_kind:entry.kind, position:index + 1 })));
+  writeLocalSessionItems();
+  button.textContent = 'Сохранить состав';
+  await refreshAfterWrite();
+  notify(remoteSaved ? 'Состав сеанса сохранён' : 'Состав сохранён на этом устройстве');
+  openBookingSheet(item.id);
+}
+
 function openBookingEditor(id) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item) return;
@@ -1231,7 +1399,7 @@ function openBookingEditor(id) {
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small></div><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}">
       ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
-      <label>${block ? 'Длительность' : 'Услуга'}<select id="editBookingService" required>${block ? blockDurationOptions(item.service_id) : serviceOptions(item.service_id)}</select></label>
+      <label>${block ? 'Длительность' : 'Основная услуга'}<select id="editBookingService" required ${block ? '' : 'disabled'}>${block ? blockDurationOptions(item.service_id) : serviceOptions(item.service_id)}</select>${block ? '' : '<small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small>'}</label>
       <label>${block ? 'Заметка к перерыву' : 'Заметка о клиенте'}<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="${block ? 'Например, обед или личное дело' : 'Пожелания, особенности или важная информация'}">${escapeHtml(bookingDisplayNote(item))}</textarea></label>
       ${bookingColorPicker('editBookingColor', bookingColor(item))}
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
@@ -1267,7 +1435,7 @@ async function saveBookingChanges(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const changes = { service_id: service.id, duration_minutes: service.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` };
+  const changes = { service_id:block ? service.id : item.service_id, duration_minutes:block ? service.duration_minutes : item.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` };
   if (block) changes.client_name = blockTitle;
   const { error } = await db.from('bookings').update(changes).eq('id', id).eq('performer_id', userId);
   if (!sessionIsCurrent(userId, generation)) return;
@@ -1548,9 +1716,11 @@ function renderClientDetail(phone) {
   $('#clientLabelFavorite').checked = labels.favorite;
   $('#clientLabelVip').checked = labels.vip;
   $('#clientLabelAttention').checked = labels.attention;
-  $('#clientPreferenceNote').value = labels.vip_note || labels.favorite_note;
+  $('#clientFavoriteNote').value = labels.favorite_note;
+  $('#clientVipNote').value = labels.vip_note;
   $('#clientAttentionReason').value = labels.attention_reason;
-  $('#clientPreferenceNoteField').hidden = !(labels.favorite || labels.vip);
+  $('#clientFavoriteNoteField').hidden = !labels.favorite;
+  $('#clientVipNoteField').hidden = !labels.vip;
   $('#clientAttentionReasonField').hidden = !labels.attention;
   $('#clientAutomaticLabel').innerHTML = clientIsNew(client.phone) ? `${uiIcon('spark')} Новый клиент` : '';
   clearFormError('#clientLabelsError');
@@ -1670,12 +1840,11 @@ async function persistClientLabelValue(phone, value, statusElement) {
 async function saveClientLabels() {
   if (!requireWrites() || !selectedClientPhone) return;
   clearFormError('#clientLabelsError');
-  const preferenceNote = $('#clientPreferenceNote').value;
   const value = normalizeClientLabel({
     favorite:$('#clientLabelFavorite').checked,
-    favorite_note:preferenceNote,
+    favorite_note:$('#clientFavoriteNote').value,
     vip:$('#clientLabelVip').checked,
-    vip_note:preferenceNote,
+    vip_note:$('#clientVipNote').value,
     attention:$('#clientLabelAttention').checked,
     attention_reason:$('#clientAttentionReason').value
   });
@@ -1695,12 +1864,11 @@ async function saveBookingClientLabels(editor) {
   const errorElement = editor.querySelector('[data-booking-labels-error]');
   errorElement.hidden = true;
   const phone = normalizePhone(editor.dataset.bookingClientLabels);
-  const preferenceNote = editor.querySelector('[data-booking-preference-note]').value;
   const value = normalizeClientLabel({
     favorite:editor.querySelector('[data-booking-label-favorite]').checked,
-    favorite_note:preferenceNote,
+    favorite_note:editor.querySelector('[data-booking-favorite-note]').value,
     vip:editor.querySelector('[data-booking-label-vip]').checked,
-    vip_note:preferenceNote,
+    vip_note:editor.querySelector('[data-booking-vip-note]').value,
     attention:editor.querySelector('[data-booking-label-attention]').checked,
     attention_reason:editor.querySelector('[data-booking-attention-reason]').value
   });
@@ -1714,6 +1882,30 @@ async function saveBookingClientLabels(editor) {
   if (!value.vip) value.vip_note = '';
   if (!value.attention) value.attention_reason = '';
   await persistClientLabelValue(phone, value, editor.querySelector('[data-booking-labels-status]'));
+}
+
+async function loadBookingSessionItems() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok:false, optional:true };
+  const local = readLocalSessionItems(userId);
+  const { data, error } = await db.from('booking_session_items').select('id,booking_id,position,item_kind,service_id,title,duration_minutes,price_rub,extends_duration').eq('performer_id', userId).order('position');
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, optional:true };
+  sessionItemsRemoteAvailable = !error;
+  if (error) bookingSessionItems = new Map(Object.entries(local));
+  else {
+    const grouped = new Map();
+    (data || []).forEach(entry => {
+      const rows = grouped.get(entry.booking_id) || [];
+      rows.push(entry);
+      grouped.set(entry.booking_id, rows);
+    });
+    bookingSessionItems = grouped;
+    Object.entries(local).forEach(([id, items]) => { if (!bookingSessionItems.has(id)) bookingSessionItems.set(id, items); });
+    writeLocalSessionItems(userId);
+  }
+  renderBookingData();
+  return { ok:!error, optional:true };
 }
 
 async function loadBookingOutcomes() {
@@ -1961,6 +2153,7 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'client_notes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'client_labels', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_outcomes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_session_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .subscribe(status => {
@@ -1994,7 +2187,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -2043,6 +2236,7 @@ async function clearProviderDeviceData(userId) {
         || key === bookingNotePendingStorageKey(userId)
         || key === clientLabelStorageKey(userId)
         || key === clientLabelPendingStorageKey(userId)
+        || key === sessionItemsStorageKey(userId)
         || key === autoCompleteStorageKey(userId)) localStorage.removeItem(key);
     });
   } catch {}
@@ -2101,6 +2295,8 @@ async function handleSession(session) {
     clientLabels = new Map();
     pendingClientLabels = new Set();
     bookingOutcomes = new Map();
+    bookingSessionItems = new Map();
+    sessionItemsRemoteAvailable = false;
     bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false };
     serverNotificationTemplates = {};
     serverNotificationMarks = {};
@@ -2771,11 +2967,16 @@ async function loadBookings(options = {}) {
   const revision = ++bookingsRequestRevision;
   if (!userId) return { ok: false };
   if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
-  const { data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
+  let { data, error } = await db.from('bookings')
+    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
     .eq('performer_id', userId)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
+  if (error) ({ data, error } = await db.from('bookings')
+    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
+    .eq('performer_id', userId)
+    .order('booking_date', { ascending:true })
+    .order('booking_time', { ascending:true }));
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (error) {
     const cached = await readProviderCache('bookings', userId);
@@ -2823,6 +3024,9 @@ document.addEventListener('click', async event => {
   const openBooking = event.target.closest('[data-open-booking]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
   const editBooking = event.target.closest('[data-edit-booking]');
+  const editBookingSession = event.target.closest('[data-edit-booking-session]');
+  const addSessionItem = event.target.closest('[data-add-session-item]');
+  const removeSessionItem = event.target.closest('[data-remove-session-item]');
   const backBooking = event.target.closest('[data-back-booking]');
   const editTime = event.target.closest('[data-edit-booking-time]');
   const newTime = event.target.closest('[data-new-booking-time]');
@@ -2887,6 +3091,18 @@ document.addEventListener('click', async event => {
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
+  if (editBookingSession) openSessionComposer(editBookingSession.dataset.editBookingSession);
+  if (addSessionItem) {
+    const form = addSessionItem.closest('#sessionComposerForm');
+    sessionComposerDraft = readSessionComposerDraft();
+    sessionComposerDraft.push({ kind:'addon', service_id:'', title:'Дополнительная услуга', duration_minutes:0, price_rub:0, extends_duration:false });
+    renderSessionComposer(form.dataset.bookingId);
+  }
+  if (removeSessionItem) {
+    const form = removeSessionItem.closest('#sessionComposerForm');
+    sessionComposerDraft = readSessionComposerDraft().filter((_, index) => index !== Number(removeSessionItem.dataset.removeSessionItem));
+    renderSessionComposer(form.dataset.bookingId);
+  }
   if (backBooking) openBookingSheet(backBooking.dataset.backBooking);
   if (editTime) {
     bookingEditTime = editTime.dataset.editBookingTime;
@@ -2941,15 +3157,31 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('change', async event => {
+  const sessionControl = event.target.closest('[data-session-service],[data-session-duration],[data-session-price],[data-session-extends]');
+  if (sessionControl) {
+    const form = sessionControl.closest('#sessionComposerForm');
+    const card = sessionControl.closest('[data-session-item]');
+    if (sessionControl.matches('[data-session-service]') && sessionControl.value) {
+      const service = ownServices.find(item => item.id === sessionControl.value);
+      if (service && card) {
+        card.querySelector('[data-session-title]').value = serviceName(service.name);
+        card.querySelector('[data-session-duration]').value = String(service.duration_minutes);
+        card.querySelector('[data-session-price]').value = String(service.price_rub);
+      }
+    }
+    if (form) updateSessionComposerSummary(form.dataset.bookingId);
+  }
   const bookingLabelInput = event.target.closest('[data-booking-label-favorite],[data-booking-label-vip],[data-booking-label-attention]');
   if (bookingLabelInput) {
     const editor = bookingLabelInput.closest('[data-booking-client-labels]');
     const favoriteInput = editor?.querySelector('[data-booking-label-favorite]');
     const vipInput = editor?.querySelector('[data-booking-label-vip]');
     const attentionInput = editor?.querySelector('[data-booking-label-attention]');
-    const preferenceField = editor?.querySelector('[data-booking-preference-note-field]');
+    const favoriteField = editor?.querySelector('[data-booking-favorite-note-field]');
+    const vipField = editor?.querySelector('[data-booking-vip-note-field]');
     const field = editor?.querySelector('[data-booking-attention-reason-field]');
-    if (preferenceField && favoriteInput && vipInput) preferenceField.hidden = !(favoriteInput.checked || vipInput.checked);
+    if (favoriteField && favoriteInput) favoriteField.hidden = !favoriteInput.checked;
+    if (vipField && vipInput) vipField.hidden = !vipInput.checked;
     if (field && attentionInput) field.hidden = !attentionInput.checked;
     if (bookingLabelInput.matches('[data-booking-label-attention]') && attentionInput?.checked) editor?.querySelector('[data-booking-attention-reason]')?.focus();
     if (editor) await saveBookingClientLabels(editor);
@@ -2994,11 +3226,11 @@ $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTempl
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#saveClientNote').addEventListener('click', saveClientNote);
 $('#clientLabelFavorite').addEventListener('change', event => {
-  $('#clientPreferenceNoteField').hidden = !(event.target.checked || $('#clientLabelVip').checked);
+  $('#clientFavoriteNoteField').hidden = !event.target.checked;
   saveClientLabels();
 });
 $('#clientLabelVip').addEventListener('change', event => {
-  $('#clientPreferenceNoteField').hidden = !(event.target.checked || $('#clientLabelFavorite').checked);
+  $('#clientVipNoteField').hidden = !event.target.checked;
   saveClientLabels();
 });
 $('#clientLabelAttention').addEventListener('change', event => {
@@ -3007,12 +3239,17 @@ $('#clientLabelAttention').addEventListener('change', event => {
   else clearFormError('#clientLabelsError');
   saveClientLabels();
 });
-[$('#clientPreferenceNote'), $('#clientAttentionReason')].forEach(input => input.addEventListener('input', () => {
+[$('#clientFavoriteNote'), $('#clientVipNote'), $('#clientAttentionReason')].forEach(input => input.addEventListener('input', () => {
   clearTimeout(clientLabelReasonTimer);
   clientLabelReasonTimer = setTimeout(saveClientLabels, 450);
 }));
 document.addEventListener('input', event => {
-  const reason = event.target.closest('[data-booking-preference-note],[data-booking-attention-reason]');
+  const sessionInput = event.target.closest('[data-session-title],[data-session-duration],[data-session-price]');
+  if (sessionInput) {
+    const form = sessionInput.closest('#sessionComposerForm');
+    if (form) updateSessionComposerSummary(form.dataset.bookingId);
+  }
+  const reason = event.target.closest('[data-booking-favorite-note],[data-booking-vip-note],[data-booking-attention-reason]');
   if (!reason) return;
   clearTimeout(clientLabelReasonTimer);
   clientLabelReasonTimer = setTimeout(() => saveBookingClientLabels(reason.closest('[data-booking-client-labels]')), 450);
@@ -3085,4 +3322,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=73'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=74'));

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '73';
+const version = '74';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -79,10 +79,10 @@ assert.match(providerHtml, /id="clientLabelsSaveStatus"/, 'В карточке �
 assert.match(provider, /function bookingClientLabelsMarkup/, 'В карточке записи нельзя открыть метки клиента');
 assert.match(provider, /clientLabelVip'\)\.addEventListener\('change'/, 'VIP-метка не сохраняется сразу после выбора');
 assert.match(provider, /data-booking-labels-status/, 'В карточке записи нет статуса автосохранения меток');
-assert.match(providerHtml, /id="clientPreferenceNote"/, 'У любимого или VIP-клиента нельзя оставить пожелания');
-assert.doesNotMatch(providerHtml, /id="clientFavoriteNote"|id="clientVipNote"/, 'Для любимого и VIP-клиента показываются дублирующие поля');
-assert.match(provider, /data-booking-preference-note/, 'Общие пожелания любимого или VIP-клиента недоступны из записи');
-assert.doesNotMatch(provider, /data-booking-favorite-note|data-booking-vip-note/, 'В записи остались дублирующие поля пожеланий');
+assert.match(providerHtml, /Что нравится клиенту<textarea id="clientFavoriteNote"/, 'У любимого клиента нет строки «Что нравится клиенту»');
+assert.match(providerHtml, /id="clientVipNote"/, 'У VIP-клиента нельзя оставить пожелания');
+assert.match(provider, /data-booking-favorite-note/, 'Комментарий любимого клиента недоступен из записи');
+assert.match(provider, /data-booking-vip-note/, 'Комментарий VIP-клиента недоступен из записи');
 assert.match(provider, /attention_reason\.length < 3/, 'Метка «Требует внимания» сохраняется без причины');
 assert.match(provider, /client-vip/, 'VIP-записи не имеют отдельного минималистичного оформления');
 assert.match(provider, /Метки клиента: \$\{escapeHtml\(fullText\)\}/, 'Компактные метки недоступны скринридеру');
@@ -127,6 +127,13 @@ assert.match(provider, /function applyAutomaticVisitOutcomes/, 'Прошедши
 assert.match(provider, /completion_source:'auto'/, 'Автоматическое завершение нельзя отличить от ручного');
 assert.match(provider, /Будет учтён автоматически/, 'Карточка не объясняет автоматический учёт визита');
 assert.match(provider, /payment_method:'unpaid', amount_rub:0, completion_source:'auto'/, 'Автоматический визит ошибочно считается оплаченным');
+assert.match(provider, /function bookingSessionMarkup/, 'В карточке записи нет состава сеанса');
+assert.match(provider, /data-edit-booking-session/, 'Состав конкретной записи нельзя изменить');
+assert.match(provider, /Дополнительная услуга/, 'В состав нельзя добавить дополнительную услугу');
+assert.match(provider, /function sessionConflict/, 'Дополнительная длительность не проверяется на пересечение');
+assert.match(provider, /пересекаются со следующей записью/, 'Пользователь не получает понятного предупреждения о пересечении');
+assert.match(provider, /function compactBookingColorPicker/, 'Большой выбор цвета не свёрнут в компактную строку');
+assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумма состава не используется в карточке и оплате');
 assert.match(providerHtml, /<details class="panel settings-card account-settings-card">/, 'Смена пароля не свёрнута в дополнительный раздел');
 assert.match(provider, /class="service-more"/, 'Повторяющиеся действия услуги не убраны в компактное меню');
 assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-status[\s\S]*display:none/, 'Подтверждённые записи продолжают показывать повторяющийся статус');
@@ -283,6 +290,14 @@ const automaticVisitsMigration = readFileSync(join(root, 'supabase-migration-v52
 assert.match(automaticVisitsMigration, /add column if not exists auto_complete_visits boolean/, 'Настройка автоматического учёта не сохраняется на сервере');
 assert.match(automaticVisitsMigration, /add column if not exists completion_source text/, 'Источник результата визита не сохраняется на сервере');
 assert.match(automaticVisitsMigration, /completion_source in \('manual', 'auto'\)/, 'Источник результата визита не ограничен допустимыми значениями');
+
+const bookingSessionMigration = readFileSync(join(root, 'supabase-migration-v53.sql'), 'utf8');
+assert.match(bookingSessionMigration, /create table if not exists public\.booking_session_items/, 'Состав сеанса не сохраняется на сервере');
+assert.match(bookingSessionMigration, /create table if not exists public\.booking_session_revisions/, 'История первоначальной и итоговой суммы не сохраняется');
+assert.match(bookingSessionMigration, /create or replace function public\.save_booking_session/, 'Нет защищённого сохранения состава сеанса');
+assert.match(bookingSessionMigration, /session_overlap:/, 'Сервер не блокирует пересечение со следующей записью');
+assert.match(bookingSessionMigration, /original_price_rub/, 'Первоначальная стоимость записи не сохраняется');
+assert.match(bookingSessionMigration, /total_price_rub/, 'Итоговая стоимость записи не сохраняется');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
