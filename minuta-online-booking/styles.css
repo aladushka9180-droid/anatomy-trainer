@@ -689,19 +689,20 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .report-periods { display:flex; width:max-content; max-width:100%; gap:5px; margin-top:18px; padding:4px; border-radius:12px; background:#edf3ef; }
 .report-periods button { min-height:34px; padding:0 13px; border:0; border-radius:9px; background:transparent; color:#66776e; cursor:pointer; font-size:10px; font-weight:850; }
 .report-periods button.active { background:#fff; color:#1f5b3f; box-shadow:0 3px 10px rgba(24,52,39,.07); }
-.report-summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:14px; }
+.report-summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-top:14px; }
 .report-summary article { display:grid; gap:7px; min-height:90px; padding:18px; border:1px solid #e1e9e3; border-radius:16px; background:#fff; }
 .report-summary small { color:#718178; font-size:10px; font-weight:800; }.report-summary strong { font-size:24px; letter-spacing:-.04em; }
 .report-services { margin-top:14px; }
 .report-service-row { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:15px 0; border-bottom:1px solid #e8eeea; }
 .report-service-row:last-child { border-bottom:0; }.report-service-row strong,.report-service-row small { display:block; }.report-service-row strong { font-size:13px; }.report-service-row small { margin-top:4px; color:#78877f; font-size:10px; }.report-service-row b { flex:0 0 auto; font-size:14px; }
+.auto-complete-setting { margin-top:4px; }
 
 @media (max-width:760px) {
   .service-details-dialog { padding:23px 20px; border-radius:19px; }
   .privacy-header { padding-left:16px; padding-right:16px; }.privacy-header .provider-link { min-height:40px; padding:0 13px; font-size:10px; }
   .privacy-layout { margin-top:8px; }.privacy-card { border-radius:20px; }
   .report-periods { width:100%; overflow-x:auto; }.report-periods button { flex:1; white-space:nowrap; }
-  .report-summary { grid-template-columns:1fr 1fr; }.report-summary article { min-height:78px; padding:15px; }.report-summary strong { font-size:21px; }
+  .report-summary { grid-template-columns:1fr 1fr; }.report-summary article:first-child { grid-column:1/-1; }.report-summary article { min-height:78px; padding:15px; }.report-summary strong { font-size:21px; }
 }
 html.requires-top-level body { visibility:hidden; }
 html.requires-top-level.top-level body { visibility:visible; }
