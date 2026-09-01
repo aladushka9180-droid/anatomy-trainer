@@ -3290,13 +3290,14 @@ document.addEventListener('click', async event => {
     const label = isScheduleBlock(item) ? 'занятое время' : 'запись';
     if (!confirm(`Удалить ${label} на ${String(item.booking_time).slice(0, 5)} навсегда? Восстановить его будет нельзя.`)) return;
     deleteBookingButton.disabled = true;
-    const { error } = await db.from('bookings').delete().eq('id', id).eq('performer_id', currentUser.id);
+    const { data, error } = await db.rpc('provider_delete_booking', { p_booking:id });
     deleteBookingButton.disabled = false;
     if (error) {
-      const paymentProtected = error.code === '23503' || /payment|foreign key/i.test(error.message || '');
-      notify(paymentProtected ? 'Запись с проведённой оплатой удалить нельзя. Используйте отмену.' : 'Не удалось удалить запись');
+      notify('Не удалось удалить запись. Обновите страницу и повторите попытку.');
       return;
     }
+    if (data === 'payment_protected') { notify('Запись с проведённой оплатой удалить нельзя. Используйте отмену.'); return; }
+    if (data !== 'deleted') { closeBookingSheet(); notify('Запись уже была удалена'); await refreshAfterWrite(); return; }
     bookingOutcomes.delete(id);
     bookingSessionItems.delete(id);
     bookingColors.delete(id);
@@ -3499,4 +3500,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=102'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=103'));
