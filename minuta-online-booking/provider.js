@@ -42,6 +42,8 @@ let portfolioPreviewUrls = [];
 let clientNotes = new Map();
 let clientLabels = new Map();
 let pendingClientLabels = new Set();
+let clientLabelReasonTimer = null;
+const clientLabelSaveQueues = new Map();
 let selectedClientPhone = '';
 let repeatTime = '';
 let bookingEditTime = '';
@@ -113,7 +115,8 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#saveClientLabels', '[data-save-booking-client-labels]',
+  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientAttentionReason',
+  '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
@@ -276,7 +279,7 @@ function bookingClientLabelsMarkup(phone, bookingId) {
       </div>
       <label class="client-attention-reason" data-booking-attention-reason-field ${value.attention ? '' : 'hidden'}>Причина<textarea data-booking-attention-reason maxlength="500" rows="2" placeholder="Например, нужна предоплата или часто опаздывает">${escapeHtml(value.attention_reason)}</textarea></label>
       <p class="form-error" data-booking-labels-error hidden></p>
-      <button class="secondary-button client-labels-save" type="button" data-save-booking-client-labels>Сохранить метки</button>
+      <span class="client-labels-autosave" data-booking-labels-status role="status" aria-live="polite">Сохраняются автоматически</span>
     </div>
   </details>`;
 }
@@ -1593,12 +1596,46 @@ async function loadClientLabels() {
   return { ok:!error, optional:true };
 }
 
+function refreshClientLabelPresentation(phone) {
+  renderBookings();
+  renderClients();
+  if (selectedClientPhone === phone) {
+    $('#clientProfileBadges').innerHTML = clientBadgeMarkup(phone, { limit:4, showLabels:true });
+    $('#clientProfileContent').closest('.client-profile').classList.toggle('client-vip-profile', clientLabel(phone).vip);
+  }
+  const editor = $('[data-booking-client-labels]');
+  if (editor && normalizePhone(editor.dataset.bookingClientLabels) === phone) {
+    $('#bookingSheet').classList.toggle('booking-sheet-vip', clientLabel(phone).vip);
+    const summary = editor.closest('.booking-labels-disclosure')?.querySelector('.booking-labels-summary');
+    if (summary) summary.innerHTML = clientBadgeMarkup(phone, { limit:3 }) || `${uiIcon('plus')}<span>Добавить</span>`;
+  }
+}
+
+async function persistClientLabelValue(phone, value, statusElement) {
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  clientLabels.set(phone, value);
+  pendingClientLabels.add(phone);
+  persistClientLabels();
+  refreshClientLabelPresentation(phone);
+  if (statusElement) statusElement.textContent = 'Сохраняем…';
+  const previous = clientLabelSaveQueues.get(phone) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(() => db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' }));
+  clientLabelSaveQueues.set(phone, operation);
+  const { error } = await operation;
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (clientLabelSaveQueues.get(phone) === operation) {
+    clientLabelSaveQueues.delete(phone);
+    if (!error) pendingClientLabels.delete(phone);
+    persistClientLabels();
+    if (statusElement?.isConnected) statusElement.textContent = error ? 'Сохранено на этом устройстве' : 'Сохранено';
+    if (error) notify('Метки сохранены на этом устройстве');
+  }
+}
+
 async function saveClientLabels() {
   if (!requireWrites() || !selectedClientPhone) return;
   clearFormError('#clientLabelsError');
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
-  const phone = selectedClientPhone;
   const value = normalizeClientLabel({
     favorite:$('#clientLabelFavorite').checked,
     vip:$('#clientLabelVip').checked,
@@ -1606,32 +1643,16 @@ async function saveClientLabels() {
     attention_reason:$('#clientAttentionReason').value
   });
   if (value.attention && value.attention_reason.length < 3) {
-    showFormError('#clientLabelsError', 'Кратко укажите, почему клиент требует внимания.');
-    $('#clientAttentionReason').focus();
+    showFormError('#clientLabelsError', 'Добавьте короткую причину — метка сохранится автоматически.');
+    $('#clientLabelsSaveStatus').textContent = 'Ожидает причину';
     return;
   }
   if (!value.attention) value.attention_reason = '';
-  clientLabels.set(phone, value);
-  pendingClientLabels.add(phone);
-  persistClientLabels();
-  renderBookingData();
-  const button = $('#saveClientLabels');
-  button.disabled = true;
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' });
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (!error) pendingClientLabels.delete(phone);
-  persistClientLabels();
-  button.disabled = false;
-  button.textContent = 'Сохранить метки';
-  renderBookingData();
-  notify(error ? 'Метки сохранены на этом устройстве' : 'Метки клиента сохранены');
+  await persistClientLabelValue(selectedClientPhone, value, $('#clientLabelsSaveStatus'));
 }
 
-async function saveBookingClientLabels(button) {
-  if (!requireWrites()) return;
-  const editor = button.closest('[data-booking-client-labels]');
-  if (!editor) return;
+async function saveBookingClientLabels(editor) {
+  if (!requireWrites() || !editor) return;
   const errorElement = editor.querySelector('[data-booking-labels-error]');
   errorElement.hidden = true;
   const phone = normalizePhone(editor.dataset.bookingClientLabels);
@@ -1642,28 +1663,13 @@ async function saveBookingClientLabels(button) {
     attention_reason:editor.querySelector('[data-booking-attention-reason]').value
   });
   if (value.attention && value.attention_reason.length < 3) {
-    errorElement.textContent = 'Кратко укажите, почему клиент требует внимания.';
+    errorElement.textContent = 'Добавьте короткую причину — метка сохранится автоматически.';
     errorElement.hidden = false;
-    editor.querySelector('[data-booking-attention-reason]').focus();
+    editor.querySelector('[data-booking-labels-status]').textContent = 'Ожидает причину';
     return;
   }
   if (!value.attention) value.attention_reason = '';
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
-  const bookingId = editor.dataset.bookingId;
-  clientLabels.set(phone, value);
-  pendingClientLabels.add(phone);
-  persistClientLabels();
-  renderBookingData();
-  button.disabled = true;
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' });
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (!error) pendingClientLabels.delete(phone);
-  persistClientLabels();
-  renderBookingData();
-  openBookingSheet(bookingId);
-  notify(error ? 'Метки сохранены на этом устройстве' : 'Метки клиента сохранены');
+  await persistClientLabelValue(phone, value, editor.querySelector('[data-booking-labels-status]'));
 }
 
 async function loadBookingOutcomes() {
@@ -2739,7 +2745,6 @@ document.addEventListener('click', async event => {
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
-  const saveBookingLabels = event.target.closest('[data-save-booking-client-labels]');
   const client = event.target.closest('[data-client-phone]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
@@ -2812,7 +2817,6 @@ document.addEventListener('click', async event => {
     clearFormError('#newBookingError');
   }
   if (closeSheet) closeBookingSheet();
-  if (saveBookingLabels) await saveBookingClientLabels(saveBookingLabels);
   if (editService) openServiceEditor(editService.dataset.editService);
   if (client) renderClientDetail(client.dataset.clientPhone);
   if (repeat) {
@@ -2849,13 +2853,14 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('change', async event => {
-  const attentionInput = event.target.closest('[data-booking-label-attention]');
-  if (attentionInput) {
-    const editor = attentionInput.closest('[data-booking-client-labels]');
+  const bookingLabelInput = event.target.closest('[data-booking-label-favorite],[data-booking-label-vip],[data-booking-label-attention]');
+  if (bookingLabelInput) {
+    const editor = bookingLabelInput.closest('[data-booking-client-labels]');
+    const attentionInput = editor?.querySelector('[data-booking-label-attention]');
     const field = editor?.querySelector('[data-booking-attention-reason-field]');
-    if (field) field.hidden = !attentionInput.checked;
-    if (attentionInput.checked) editor?.querySelector('[data-booking-attention-reason]')?.focus();
-    else if (editor) editor.querySelector('[data-booking-labels-error]').hidden = true;
+    if (field && attentionInput) field.hidden = !attentionInput.checked;
+    if (bookingLabelInput.matches('[data-booking-label-attention]') && attentionInput?.checked) editor?.querySelector('[data-booking-attention-reason]')?.focus();
+    if (editor) await saveBookingClientLabels(editor);
   }
   const colorInput = event.target.closest('[data-booking-color-id]');
   if (!colorInput) return;
@@ -2896,11 +2901,23 @@ $('#depositEnabled').addEventListener('change', event => { $('#depositSettings')
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#saveClientNote').addEventListener('click', saveClientNote);
-$('#saveClientLabels').addEventListener('click', saveClientLabels);
+$('#clientLabelFavorite').addEventListener('change', saveClientLabels);
+$('#clientLabelVip').addEventListener('change', saveClientLabels);
 $('#clientLabelAttention').addEventListener('change', event => {
   $('#clientAttentionReasonField').hidden = !event.target.checked;
   if (event.target.checked) $('#clientAttentionReason').focus();
   else clearFormError('#clientLabelsError');
+  saveClientLabels();
+});
+$('#clientAttentionReason').addEventListener('input', () => {
+  clearTimeout(clientLabelReasonTimer);
+  clientLabelReasonTimer = setTimeout(saveClientLabels, 450);
+});
+document.addEventListener('input', event => {
+  const reason = event.target.closest('[data-booking-attention-reason]');
+  if (!reason) return;
+  clearTimeout(clientLabelReasonTimer);
+  clientLabelReasonTimer = setTimeout(() => saveBookingClientLabels(reason.closest('[data-booking-client-labels]')), 450);
 });
 $('#clientSearch').addEventListener('input', renderClients);
 $('#repeatService').addEventListener('change', loadRepeatSlots);
@@ -2970,4 +2987,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=70'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=71'));
