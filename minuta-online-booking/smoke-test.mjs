@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '93';
+const version = '94';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -255,13 +255,13 @@ assert.match(booking, /loadBooking\(\{ silent: true \}\)/, 'Не проверя�
 assert.match(booking, /get_booking_management/, 'Клиент не получает серверные правила отмены и переноса');
 assert.match(booking, /cancel_too_late/, 'Клиентский интерфейс не обрабатывает срок отмены');
 assert.match(bookingHtml, /id="addAppleCalendar"[\s\S]*id="addAndroidCalendar"/, 'Нет отдельных вариантов календаря для iPhone и Android');
-assert.match(booking, /type: 'text\/calendar;charset=utf-8'/, 'Для iPhone не создаётся календарный файл');
-assert.match(booking, /action=android\.intent\.action\.INSERT;type=vnd\.android\.cursor\.item\/event/, 'Для Android не открывается системное создание события');
-assert.match(booking, /S\.title=\$\{encodeURIComponent\(event\.title\)\}/, 'Данные системного календаря Android не кодируются безопасно');
-assert.doesNotMatch(booking, /calendar\.google\.com\/calendar\/render/, 'Android всё ещё отправляется в браузерный Google Календарь');
+assert.match(booking, /new File\([\s\S]*type: 'text\/calendar'/, 'Для телефонов не создаётся календарный файл');
+assert.match(booking, /navigator\.canShare\?\.\(\{ files: \[file\] \}\)/, 'Android не проверяет системное меню приложений для файла');
+assert.match(booking, /navigator\.share\(\{ files: \[file\]/, 'Android не передаёт событие в системное меню телефона');
+assert.match(booking, /downloadCalendarFile\(file\)/, 'Для Android нет резервного скачивания события');
+assert.doesNotMatch(booking, /calendar\.google\.com\/calendar\/render|intent:\/\//, 'Android использует ненадёжную браузерную или intent-ссылку');
 assert.match(booking, /typeof dialog\.showModal !== 'function'/, 'Старые мобильные браузеры не получают запасной календарный файл');
 assert.doesNotMatch(booking, /controllerchange[\s\S]*location\.reload/, 'Обновление Service Worker перезагружает страницу вместо открытия календаря');
-assert.match(booking, /intent:\/\/com\.android\.calendar\/events#Intent;scheme=content/, 'Android intent не указывает системный календарь');
 
 const migration = readFileSync(join(root, 'supabase-migration-v41.sql'), 'utf8');
 assert.match(migration, /create table if not exists public\.booking_policies/, 'Нет серверного хранения правил записи');
