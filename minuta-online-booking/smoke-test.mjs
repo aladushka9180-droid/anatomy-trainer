@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '65';
+const version = '66';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -110,7 +110,8 @@ assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:
 assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 70 : 76/, 'Высота часового интервала снова обрезает заметки');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:stretch; align-items:center;/, 'Время записи не центрируется по высоте карточки');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
-assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:9px;/, 'Получасовые отметки не отличаются от полных часов');
+assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
+assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:10px;/, 'Получасовые отметки остались слишком мелкими');
 assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая линия не синхронизирована с масштабом расписания');
 assert.match(provider, /bookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
 assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
