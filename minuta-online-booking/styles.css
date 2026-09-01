@@ -656,7 +656,8 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .client-access-result>strong,.client-code-result>strong { display:block; margin-top:8px; color:#1f5e40; font-size:20px; letter-spacing:.08em; overflow-wrap:anywhere; }
 .client-access-result>p,.client-code-result>p { margin:8px 0 0; color:#5f7268; font-size:10px; line-height:1.5; }
 .client-access-share { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
-.client-access-share a { display:flex; align-items:center; justify-content:center; min-height:39px; padding:0 10px; border:1px solid #cbded2; border-radius:11px; background:#fff; color:#285f44; text-align:center; text-decoration:none; font-size:9px; font-weight:850; }
+.client-access-share a,.client-access-share button { display:flex; align-items:center; justify-content:center; min-height:39px; padding:0 10px; border:1px solid #cbded2; border-radius:11px; background:#fff; color:#285f44; text-align:center; text-decoration:none; font-size:9px; font-weight:850; }
+.client-access-share button { grid-column:1/-1; width:100%; }
 .client-account-layout { width:min(calc(100% - 32px),820px); margin:0 auto; padding:34px 0 70px; }
 .client-login-card,.client-bookings-card { padding:30px; border:1px solid #e0e8e2; border-radius:22px; background:#fff; box-shadow:0 18px 55px rgba(33,74,54,.09); }
 .client-login-card { width:min(100%,520px); margin:0 auto; }
@@ -885,9 +886,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 
 @media (max-width:760px) {
   .booking-client-header { padding-top:14px; }
-  .booking-client-header .client-bookings-link { width:42px; padding:0; justify-content:center; font-size:0; }
-  .booking-client-header .client-bookings-link span { font-size:0; }
-  .booking-client-header .client-bookings-link .ui-icon { width:18px; height:18px; }
+  .booking-client-header .client-bookings-link { width:auto; min-width:42px; padding:0 12px; justify-content:center; font-size:11px; }
+  .booking-client-header .client-bookings-link span { font-size:11px; }
+  .booking-client-header .client-bookings-link .ui-icon { width:17px; height:17px; }
   .booking-client-layout { width:calc(100% - 20px); padding-top:4px; }
   .booking-client-page .booking-card { padding:20px 16px; border-radius:22px; }
   .booking-context-row { align-items:flex-start; flex-direction:column; gap:8px; margin-bottom:18px; padding-bottom:15px; }

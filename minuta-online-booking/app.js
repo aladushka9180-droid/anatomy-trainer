@@ -462,18 +462,31 @@ function saveClientSession(token) {
   try { localStorage.setItem(CLIENT_SESSION_KEY, token); } catch {}
 }
 function clientAccessShareMessage(code, phone) { return `Мои записи на массаж: ${new URL('my-bookings.html', location.href).href}\nТелефон: ${phone}\nЛичный код: ${code}\nНе пересылайте код посторонним.`; }
+function downloadClientAccessFile(code, phone) {
+  const file = new Blob([`${clientAccessShareMessage(code, phone)}\n`], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'lichnyy-kod-moi-zapisi.txt';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 function renderClientAccess(result, phone) {
   if (!result?.session_token) return;
   saveClientSession(result.session_token);
   $('#myBookingsSuccess').hidden = false;
   if (!result.access_code) return;
   $('#clientAccessCode').textContent = result.access_code;
-  $('#clientAccessNote').textContent = 'Сохраните этот личный код. На другом устройстве он понадобится вместе с номером телефона.';
+  $('#clientAccessNote').textContent = 'Это устройство запомнило вход на 90 дней. Код сохранится в файл; если загрузка не началась, нажмите кнопку ниже.';
+  $('#clientAccessDownload').onclick = () => downloadClientAccessFile(result.access_code, phone);
   const text = clientAccessShareMessage(result.access_code, phone);
   $('#clientAccessWhatsapp').href = `https://wa.me/?text=${encodeURIComponent(text)}`;
   $('#clientAccessTelegram').href = `https://t.me/share/url?url=${encodeURIComponent(new URL('my-bookings.html', location.href).href)}&text=${encodeURIComponent(text)}`;
   $('#clientAccessShare').hidden = false;
   $('#clientAccessResult').hidden = false;
+  downloadClientAccessFile(result.access_code, phone);
 }
 async function bootstrapClientAccess(manageToken, phone) {
   if (!manageToken) return;
@@ -609,4 +622,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=86'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=87'));

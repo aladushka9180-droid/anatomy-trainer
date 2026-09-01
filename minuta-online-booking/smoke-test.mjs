@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '86';
+const version = '87';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -30,8 +30,12 @@ for (const page of ['index.html', 'provider.html', 'booking.html', 'my-bookings.
 const sdk = readFileSync(join(root, 'vendor', 'supabase-2.112.4.min.js'));
 assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV', 'Контрольная сумма локального SDK не совпадает');
 
+const app = readFileSync(join(root, 'app.js'), 'utf8');
+const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
+assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
+assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
