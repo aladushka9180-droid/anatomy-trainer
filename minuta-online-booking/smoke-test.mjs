@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '106';
+const version = '107';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -84,6 +84,7 @@ assert.match(provider, /bookingNoteStorageKey\(userId\).*localStorage\.removeIte
 assert.match(provider, /Заметка сохранена на этом устройстве/, 'Интерфейс скрывает ошибку серверного сохранения заметки');
 assert.match(provider, /pendingBookingNotes\.has\(item\.id\)/, 'Синхронизация может затереть локальную заметку после ошибки RPC');
 assert.match(provider, /function clientBadgeMarkup/, 'В записях не отображаются метки клиента');
+assert.match(provider, /class="booking-sheet-client-name"[\s\S]*clientBadgeMarkup\(item\.client_phone, \{ limit:3, showLabels:true \}\)/, 'Метки в карточке записи не стоят в строке с именем');
 assert.match(provider, /function clientIsNew/, 'Новый клиент не определяется автоматически');
 assert.match(providerHtml, /id="clientLabelsSaveStatus"/, 'В карточке клиента нет статуса автосохранения меток');
 assert.match(provider, /function bookingClientLabelsMarkup/, 'В карточке записи нельзя открыть метки клиента');
@@ -119,6 +120,7 @@ assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерыв
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
+assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
