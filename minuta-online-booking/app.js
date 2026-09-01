@@ -248,7 +248,7 @@ function renderServices() {
     return;
   }
   $('#toDate').disabled = !selectedService();
-  holder.innerHTML = state.services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}</span></button>`).join('');
+  holder.innerHTML = state.services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : `${item.duration_minutes} мин`} · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>`).join('');
   $('#serviceDetailsButton').hidden = !selectedService();
 }
 
@@ -257,8 +257,8 @@ function openServiceDetails() {
   if (!service) return;
   $('#serviceDetailsTitle').textContent = serviceName(service.name);
   $('#serviceDetailsText').textContent = serviceDescription(service.name);
-  $('#serviceDetailsDuration').textContent = `${service.duration_minutes} мин · ${service.performer_profiles?.display_name || 'Мастер'}`;
-  $('#serviceDetailsPrice').textContent = money(service.price_rub);
+  $('#serviceDetailsDuration').textContent = `${Number(service.duration_minutes) === 1 ? 'Поминутная оплата' : `${service.duration_minutes} мин`} · ${service.performer_profiles?.display_name || 'Мастер'}`;
+  $('#serviceDetailsPrice').textContent = `${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}`;
   $('#serviceDetailsDialog').showModal();
 }
 
@@ -409,7 +409,7 @@ async function showStep(step) {
 
 function renderSummary() {
   const service = selectedService();
-  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
+  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
 }
 function renderSuccessPayment(item) {
   const holder = $('#successPayment');
@@ -622,4 +622,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=88'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=89'));

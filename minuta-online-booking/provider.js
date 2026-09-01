@@ -465,7 +465,13 @@ function writeLocalOutcomes() {
   try { localStorage.setItem(outcomeStorageKey(), JSON.stringify(Object.fromEntries(bookingOutcomes))); }
   catch { notify('Не удалось сохранить результат визита'); }
 }
-function bookingOutcome(item) { return bookingOutcomes.get(item.id) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0, completion_source: 'manual' }; }
+function bookingOutcome(item) { return bookingOutcomes.get(item.id) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0, actual_duration_minutes: 0, calculated_amount_rub: 0, completion_source: 'manual' }; }
+function isPerMinuteBooking(item) { return Number(item?.services?.duration_minutes || 0) === 1; }
+function bookingMinuteRate(item) { return Math.max(0, Number(item?.original_price_rub ?? item?.services?.price_rub ?? bookingSessionTotal(item)) || 0); }
+function bookingCalculatedValue(item) {
+  const outcome = bookingOutcome(item);
+  return isPerMinuteBooking(item) && Number(outcome.calculated_amount_rub) > 0 ? Number(outcome.calculated_amount_rub) : bookingSessionTotal(item);
+}
 function bookingWorkdayEnd(item) {
   const date = parseLocalIsoDate(item.booking_date);
   const weekday = ((date.getDay() + 6) % 7) + 1;
@@ -521,7 +527,8 @@ function outcomeSummary(item) {
   const outcome = bookingOutcome(item);
   if (outcome.visit_status === 'no_show') return 'Клиент не пришёл';
   if (outcome.visit_status !== 'completed') return '';
-  return `${paymentMethodLabel(outcome.payment_method)}${outcome.amount_rub ? ` · ${money(outcome.amount_rub)}` : ''}`;
+  const actualTime = isPerMinuteBooking(item) && outcome.actual_duration_minutes ? `${outcome.actual_duration_minutes} мин · ${money(bookingCalculatedValue(item))} · ` : '';
+  return `${actualTime}${paymentMethodLabel(outcome.payment_method)}${outcome.amount_rub ? ` · получено ${money(outcome.amount_rub)}` : ''}`;
 }
 
 function reportBookings() {
@@ -544,7 +551,7 @@ function renderAnalytics() {
   const noShows = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'no_show');
   const cancelled = items.filter(item => item.status === 'cancelled');
   const revenue = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
-  const completedValue = completed.reduce((sum, item) => sum + bookingSessionTotal(item), 0);
+  const completedValue = completed.reduce((sum, item) => sum + bookingCalculatedValue(item), 0);
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportCompleted').textContent = String(completed.length);
@@ -1116,7 +1123,10 @@ function openBookingSheet(id) {
   const whatsapp = escapeHtml(whatsappLink(item));
   const note = bookingDisplayNote(item);
   const outcome = bookingOutcome(item);
-  const amount = Number(outcome.amount_rub || bookingSessionTotal(item));
+  const minuteRate = bookingMinuteRate(item);
+  const actualMinutes = Number(outcome.actual_duration_minutes || 0);
+  const calculatedAmount = Number(outcome.calculated_amount_rub || (actualMinutes ? actualMinutes * minuteRate : bookingSessionTotal(item)));
+  const amount = Number(outcome.amount_rub || calculatedAmount);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   applyClientHighlightClasses($('#bookingSheet'), isScheduleBlock(item) ? '' : item.client_phone, 'booking-sheet-');
   if (isScheduleBlock(item)) {
@@ -1141,7 +1151,7 @@ function openBookingSheet(id) {
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
-    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}<a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(bookingSessionTotal(item))}</strong></div></div>
+    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}<a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
     ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}
     ${compactBookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
@@ -1153,7 +1163,7 @@ function openBookingSheet(id) {
       </form>
     </details>
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
-    ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div class="booking-outcome-payment" id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="50" value="${amount}"></label></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
+    ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button><button class="booking-cancel-action" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -1161,7 +1171,10 @@ function openBookingSheet(id) {
   $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
   $('#bookingSheetNoteForm')?.addEventListener('submit', saveBookingSheetNote);
   $('#outcomeVisitStatus')?.addEventListener('change', toggleOutcomePaymentFields);
+  $('#outcomeActualMinutes')?.addEventListener('input', updateOutcomeMinuteCalculation);
+  $('#outcomePaymentMethod')?.addEventListener('change', updateOutcomeMinuteCalculation);
   toggleOutcomePaymentFields();
+  updateOutcomeMinuteCalculation();
 }
 
 async function saveBookingBlockNote(event) {
@@ -1221,8 +1234,8 @@ function blockDurationOptions(selectedId, activeOnly = false) {
 }
 
 function durationOptions(selected) {
-  const durations = [...new Set([5, 10, 20, 30, 40, 60, 90, 120, 180, Number(selected)])].filter(value => value >= 5 && value <= 480).sort((a, b) => a - b);
-  return durations.map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value} мин</option>`).join('');
+  const durations = [...new Set([1, 5, 10, 20, 30, 40, 60, 90, 120, 180, Number(selected)])].filter(value => value >= 1 && value <= 480).sort((a, b) => a - b);
+  return durations.map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value === 1 ? '1 мин (цена за минуту)' : `${value} мин`}</option>`).join('');
 }
 
 function openServiceEditor(id) {
@@ -1232,7 +1245,7 @@ function openServiceEditor(id) {
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Редактирование услуги</small><h2 id="bookingSheetTitle">Настройте услугу</h2>
     <form class="booking-editor-form service-edit-form" id="serviceEditForm" data-service-id="${item.id}">
       <label>Название услуги<input id="editServiceName" maxlength="120" value="${escapeHtml(item.name)}" required></label>
-      <div class="service-edit-row"><label>Длительность<select id="editServiceDuration" required>${durationOptions(item.duration_minutes)}</select></label><label>Цена, ₽<input id="editServicePrice" type="number" min="0" max="1000000" step="50" value="${item.price_rub}" required></label></div>
+      <div class="service-edit-row"><label>Длительность<select id="editServiceDuration" required>${durationOptions(item.duration_minutes)}</select></label><label>Цена, ₽<input id="editServicePrice" type="number" min="0" max="1000000" step="1" value="${item.price_rub}" required></label></div>
       <label class="service-visibility-option"><input id="editServiceActive" type="checkbox" ${item.active ? 'checked' : ''}><span><strong>Показывать в онлайн-записи</strong><small>${item.active ? 'Клиенты могут выбрать эту услугу' : 'Сейчас услуга скрыта от клиентов'}</small></span></label>
       <p class="form-error" id="serviceEditError" hidden></p>
       <div class="service-edit-actions"><button class="secondary-button" type="button" data-close-booking-sheet>Отмена</button><button class="primary" type="submit">Сохранить изменения</button></div>
@@ -1252,7 +1265,7 @@ async function saveServiceChanges(event) {
   const duration = Number($('#editServiceDuration').value);
   const price = Number($('#editServicePrice').value);
   const active = $('#editServiceActive').checked;
-  if (name.length < 2 || !Number.isFinite(duration) || duration < 5 || duration > 480 || !Number.isFinite(price) || price < 0) {
+  if (name.length < 2 || !Number.isFinite(duration) || duration < 1 || duration > 480 || !Number.isFinite(price) || price < 0) {
     showFormError('#serviceEditError', 'Проверьте название, длительность и цену.');
     return;
   }
@@ -1935,7 +1948,8 @@ async function loadBookingOutcomes() {
   const generation = sessionGeneration;
   if (!userId) return { ok: false, optional: true };
   const local = readLocalOutcomes();
-  let { data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,completion_source,updated_at').eq('performer_id', userId);
+  let { data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,actual_duration_minutes,calculated_amount_rub,completion_source,updated_at').eq('performer_id', userId);
+  if (error) ({ data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,completion_source,updated_at').eq('performer_id', userId));
   if (error) ({ data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,updated_at').eq('performer_id', userId));
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   outcomesRemoteAvailable = !error;
@@ -1955,8 +1969,16 @@ async function loadBookingOutcomes() {
 async function persistBookingOutcome(record) {
   if (!outcomesRemoteAvailable) return false;
   let { error } = await db.from('booking_outcomes').upsert(record, { onConflict:'booking_id' });
+  if (error && (Object.hasOwn(record, 'actual_duration_minutes') || Object.hasOwn(record, 'calculated_amount_rub'))) {
+    const compatibleRecord = { ...record };
+    delete compatibleRecord.actual_duration_minutes;
+    delete compatibleRecord.calculated_amount_rub;
+    ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
+  }
   if (error && Object.hasOwn(record, 'completion_source')) {
     const compatibleRecord = { ...record };
+    delete compatibleRecord.actual_duration_minutes;
+    delete compatibleRecord.calculated_amount_rub;
     delete compatibleRecord.completion_source;
     ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
   }
@@ -1972,6 +1994,10 @@ async function applyAutomaticVisitOutcomes() {
   const updatedAt = now.toISOString();
   for (const item of items) {
     const record = { booking_id:item.id, performer_id:currentUser.id, visit_status:'completed', payment_method:'unpaid', amount_rub:0, completion_source:'auto', updated_at:updatedAt };
+    if (isPerMinuteBooking(item)) {
+      record.actual_duration_minutes = 0;
+      record.calculated_amount_rub = 0;
+    }
     await persistBookingOutcome(record);
     bookingOutcomes.set(item.id, record);
   }
@@ -2078,6 +2104,19 @@ async function savePrepaymentStatus(event) {
   openBookingSheet(bookingId);
 }
 
+function updateOutcomeMinuteCalculation() {
+  const minutesInput = $('#outcomeActualMinutes');
+  const output = $('#outcomeCalculatedAmount');
+  const form = $('#bookingOutcomeForm');
+  if (!minutesInput || !output || !form) return;
+  const minutes = Math.max(0, Math.min(1440, Math.round(Number(minutesInput.value) || 0)));
+  const rate = Math.max(0, Number(form.dataset.minuteRate) || 0);
+  const total = minutes * rate;
+  output.textContent = minutes ? `${minutes} × ${money(rate)} = ${money(total)}` : `Укажите минуты · ${money(rate)}/мин`;
+  const amount = $('#outcomeAmount');
+  if (amount && $('#outcomePaymentMethod')?.value !== 'unpaid') amount.value = String(total);
+}
+
 function toggleOutcomePaymentFields() {
   const form = $('#bookingOutcomeForm');
   if (!form) return;
@@ -2085,6 +2124,7 @@ function toggleOutcomePaymentFields() {
   $('#outcomePaymentFields').hidden = !completed;
   $('#outcomePaymentMethod').disabled = !completed;
   $('#outcomeAmount').disabled = !completed;
+  if ($('#outcomeActualMinutes')) $('#outcomeActualMinutes').disabled = !completed;
 }
 
 async function saveBookingOutcome(event) {
@@ -2098,8 +2138,18 @@ async function saveBookingOutcome(event) {
   const visitStatus = $('#outcomeVisitStatus').value;
   const completed = visitStatus === 'completed';
   const paymentMethod = completed ? $('#outcomePaymentMethod').value : 'unpaid';
+  const actualMinutes = completed && isPerMinuteBooking(item) ? Math.max(0, Math.min(1440, Math.round(Number($('#outcomeActualMinutes')?.value) || 0))) : 0;
+  if (completed && isPerMinuteBooking(item) && actualMinutes < 1) {
+    notify('Укажите фактическое время процедуры');
+    return;
+  }
+  const calculatedAmount = actualMinutes * bookingMinuteRate(item);
   const amount = completed && paymentMethod !== 'unpaid' ? Math.max(0, Math.round(Number($('#outcomeAmount').value) || 0)) : 0;
   const record = { booking_id: item.id, performer_id: userId, visit_status: visitStatus, payment_method: paymentMethod, amount_rub: amount, completion_source:'manual', updated_at: new Date().toISOString() };
+  if (isPerMinuteBooking(item)) {
+    record.actual_duration_minutes = actualMinutes;
+    record.calculated_amount_rub = calculatedAmount;
+  }
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
@@ -2437,7 +2487,7 @@ async function addService(event) {
   const name = $('#serviceName').value.trim();
   const price = Number($('#servicePrice').value);
   const duration = Number($('#serviceDuration').value);
-  if (name.length < 2 || !Number.isFinite(duration) || duration < 5 || duration > 480 || !Number.isFinite(price) || price < 0) {
+  if (name.length < 2 || !Number.isFinite(duration) || duration < 1 || duration > 480 || !Number.isFinite(price) || price < 0) {
     showFormError('#serviceError', 'Укажите название, длительность и корректную цену.');
     return;
   }
@@ -2953,7 +3003,7 @@ function renderOwnServices() {
     list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>`;
     return;
   }
-  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
+  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
 }
 
 async function loadOwnServices(options = {}) {
@@ -3344,4 +3394,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=88'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=89'));

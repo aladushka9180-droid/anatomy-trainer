@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '88';
+const version = '89';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -52,7 +52,7 @@ assert.match(provider, /client_name: 'Клиент', client_phone: ''/, 'Офл�
 assert.match(provider, /booking_policies/, 'Кабинет не загружает правила отмены и предоплаты');
 assert.match(provider, /notification_templates/, 'Шаблоны уведомлений не синхронизируются с сервером');
 assert.match(provider, /set_booking_payment_status/, 'Нет управления статусом предоплаты');
-assert.match(provider, /\[5, 10, 20, 30, 40, 60, 90, 120, 180/, 'Редактор услуги не поддерживает полный список длительностей');
+assert.match(provider, /\[1, 5, 10, 20, 30, 40, 60, 90, 120, 180/, 'Редактор услуги не поддерживает полный список длительностей');
 assert.match(provider, /weekStartFor/, 'Лента дат не строит календарную неделю');
 assert.match(provider, /dataDateShift|dataset\.dateShift/, 'Нет перехода между неделями');
 assert.match(provider, /SCHEDULE_DATE_KEY/, 'Выбранная дата не сохраняется после обновления страницы');
@@ -261,8 +261,11 @@ assert.match(migration, /reschedule_limit_reached/, 'Лимит переносо
 assert.match(migration, /cancel_too_late/, 'Срок отмены не проверяется сервером');
 assert.match(migration, /payment_url_template/, 'Предоплата не подключена к правилам записи');
 
-const durationMigration = readFileSync(join(root, 'supabase-migration-v42.sql'), 'utf8');
-assert.match(durationMigration, /duration_minutes >= 5/, 'Сервер не разрешает услуги длительностью 5 минут');
+const durationMigration = readFileSync(join(root, 'supabase-migration-v57.sql'), 'utf8');
+assert.match(durationMigration, /duration_minutes >= 1/, 'Сервер не разрешает поминутные услуги');
+assert.match(durationMigration, /actual_duration_minutes/, 'Фактическое время поминутной услуги не сохраняется');
+assert.match(providerHtml, /option value="1">1 мин \(цена за минуту\)/, 'В создании услуги нет поминутного тарифа');
+assert.match(provider, /actualMinutes \* bookingMinuteRate\(item\)/, 'Итог поминутной услуги не рассчитывается');
 
 const idempotencyMigration = readFileSync(join(root, 'supabase-migration-v43.sql'), 'utf8');
 assert.match(idempotencyMigration, /add column if not exists request_id uuid/, 'В записях нет идентификатора идемпотентности');
@@ -328,9 +331,12 @@ assert.match(clientAccountMigration, /access_code_hash/, 'Личный код к
 assert.match(clientAccountMigration, /create or replace function public\.login_client_access/, 'Нет безопасного входа клиента');
 assert.match(clientAccountMigration, /login_rate_limited/, 'Вход клиента не ограничивает частоту попыток');
 assert.match(clientAccountMigration, /create or replace function public\.get_client_bookings/, 'Нет защищённого списка записей клиента');
-const clientBookingsMigration = readFileSync(join(root, 'supabase-migration-v55.sql'), 'utf8');
+const clientBookingsMigration = readFileSync(join(root, 'supabase-migration-v56.sql'), 'utf8');
+assert.match(clientBookingsMigration, /add column if not exists total_price_rub integer/, 'Миграция не добавляет стоимость, используемую RPC');
 assert.match(clientBookingsMigration, /booking\.booking_code::text/, 'Код записи не приводится к типу RPC');
 assert.match(clientBookingsMigration, /booking\.status::text/, 'Статус записи не приводится к типу RPC');
+assert.match(clientBookingsMigration, /where booking\.client_account_id = v_account_id/, 'RPC не выбирает записи текущего клиента');
+assert.match(clientBookingsMigration, /coalesce\(booking\.total_price_rub, service\.price_rub\)::integer/, 'RPC не возвращает стоимость после миграции схемы');
 const clientAccount = readFileSync(join(root, 'my-bookings.js'), 'utf8');
 assert.match(clientAccount, /login_client_access/, 'Клиентская зона не выполняет вход по телефону и коду');
 assert.match(clientAccount, /get_client_bookings/, 'Клиентская зона не загружает все записи');

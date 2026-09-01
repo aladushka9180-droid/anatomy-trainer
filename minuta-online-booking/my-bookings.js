@@ -110,4 +110,4 @@ $('#clientRotateCode').addEventListener('click', rotateCode);
 $('#clientLogout').addEventListener('click', logout);
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=88'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=89'));

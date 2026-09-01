@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=88">
+  <link rel="stylesheet" href="styles.css?v=89">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -313,7 +313,7 @@
     <div class="notification-template-dialog-head"><div><small>Каталог</small><h2 id="serviceCreatorTitle">Новая услуга</h2></div><button type="button" data-close-service-creator aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <form id="serviceForm" class="service-form">
       <label>Название услуги<input id="serviceName" placeholder="Например, Спортивный массаж" maxlength="120" required></label>
-      <div class="form-row"><label>Длительность<select id="serviceDuration"><option value="5">5 мин</option><option value="10">10 мин</option><option value="20">20 мин</option><option value="30">30 мин</option><option value="40">40 мин</option><option value="60" selected>60 мин</option><option value="90">90 мин</option><option value="120">120 мин</option><option value="180">180 мин</option></select></label><label>Цена, ₽<input id="servicePrice" type="number" min="0" max="1000000" step="50" placeholder="2500" required></label></div>
+      <div class="form-row"><label>Длительность<select id="serviceDuration"><option value="1">1 мин (цена за минуту)</option><option value="5">5 мин</option><option value="10">10 мин</option><option value="20">20 мин</option><option value="30">30 мин</option><option value="40">40 мин</option><option value="60" selected>60 мин</option><option value="90">90 мин</option><option value="120">120 мин</option><option value="180">180 мин</option></select></label><label>Цена, ₽<input id="servicePrice" type="number" min="0" max="1000000" step="1" placeholder="2500" required></label></div>
       <p class="form-error" id="serviceError" hidden></p><button class="primary" type="submit">Добавить услугу</button>
     </form>
   </dialog>
@@ -327,8 +327,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=88"></script>
-  <script src="reliability.js?v=88"></script>
-  <script src="provider.js?v=88" defer></script>
+  <script src="config.js?v=89"></script>
+  <script src="reliability.js?v=89"></script>
+  <script src="provider.js?v=89" defer></script>
 </body>
 </html>
