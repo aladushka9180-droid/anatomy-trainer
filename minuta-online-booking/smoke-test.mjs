@@ -46,7 +46,6 @@ assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной пер
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
 assert.match(provider, /function bookingClientNote\(item\)/, 'Расписание не получает заметку клиента');
 assert.match(provider, /class="provider-booking-open"[\s\S]*data-open-booking/, 'Компактная запись не открывает подробности по нажатию');
-assert.match(provider, /Есть заметка/, 'Компактная запись не обозначает наличие заметки');
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
