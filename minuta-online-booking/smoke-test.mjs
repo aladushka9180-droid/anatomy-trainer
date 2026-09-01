@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '91';
+const version = '92';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -259,6 +259,8 @@ assert.match(booking, /type: 'text\/calendar;charset=utf-8'/, 'Для iPhone н�
 assert.match(booking, /action=android\.intent\.action\.INSERT;type=vnd\.android\.cursor\.item\/event/, 'Для Android не открывается системное создание события');
 assert.match(booking, /S\.title=\$\{encodeURIComponent\(event\.title\)\}/, 'Данные системного календаря Android не кодируются безопасно');
 assert.doesNotMatch(booking, /calendar\.google\.com\/calendar\/render/, 'Android всё ещё отправляется в браузерный Google Календарь');
+assert.match(booking, /typeof dialog\.showModal !== 'function'/, 'Старые мобильные браузеры не получают запасной календарный файл');
+assert.match(booking, /navigator\.serviceWorker\.addEventListener\('controllerchange'/, 'Страница записи не обновляется после установки новой версии');
 
 const migration = readFileSync(join(root, 'supabase-migration-v41.sql'), 'utf8');
 assert.match(migration, /create table if not exists public\.booking_policies/, 'Нет серверного хранения правил записи');
@@ -271,6 +273,8 @@ assert.match(durationMigration, /duration_minutes >= 1/, 'Сервер не ра
 assert.match(durationMigration, /actual_duration_minutes/, 'Фактическое время поминутной услуги не сохраняется');
 assert.match(providerHtml, /option value="1">1 мин \(цена за минуту\)/, 'В создании услуги нет поминутного тарифа');
 assert.match(provider, /actualMinutes \* bookingMinuteRate\(item\)/, 'Итог поминутной услуги не рассчитывается');
+assert.match(provider, /if \(amount\) amount\.value = String\(total\)/, 'Полученная сумма не обновляется при изменении фактического времени');
+assert.doesNotMatch(provider, /if \(amount && \$\('#outcomePaymentMethod'\)\?\.value !== 'unpaid'\)/, 'Пересчёт полученной суммы всё ещё зависит от способа оплаты');
 
 const idempotencyMigration = readFileSync(join(root, 'supabase-migration-v43.sql'), 'utf8');
 assert.match(idempotencyMigration, /add column if not exists request_id uuid/, 'В записях нет идентификатора идемпотентности');

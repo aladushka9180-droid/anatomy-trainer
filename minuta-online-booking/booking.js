@@ -245,9 +245,10 @@ function calendarEvent() {
 
 function androidCalendarUrl() {
   const event = calendarEvent();
-  const start = Date.parse(event.start.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z'));
-  const end = Date.parse(event.end.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z'));
-  return `intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${start};l.endTime=${end};end`;
+  const toIso = value => value.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z');
+  const start = Date.parse(toIso(event.start));
+  const end = Date.parse(toIso(event.end));
+  return `intent://insert#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${start};l.endTime=${end};S.browser_fallback_url=${encodeURIComponent(location.href)};end`;
 }
 
 function appleCalendarFile() {
@@ -264,7 +265,11 @@ function appleCalendarFile() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-function addToCalendar() { $('#calendarDialog').showModal(); }
+function addToCalendar() {
+  const dialog = $('#calendarDialog');
+  if (!dialog || typeof dialog.showModal !== 'function') { appleCalendarFile(); return; }
+  dialog.showModal();
+}
 function addToAndroidCalendar() {
   location.href = androidCalendarUrl();
   $('#calendarDialog').close();
@@ -289,4 +294,11 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=91'));
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (sessionStorage.getItem('minuta-sw-reloaded')) return;
+    sessionStorage.setItem('minuta-sw-reloaded', '1');
+    location.reload();
+  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=92'));
+}
