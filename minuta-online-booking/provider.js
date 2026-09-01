@@ -41,6 +41,7 @@ let notificationOutbox = [];
 let notificationOutboxRemoteAvailable = false;
 let ownServices = [];
 let portfolioItems = [];
+let providerReviews = [];
 let portfolioRemoteAvailable = false;
 let portfolioDraggedId = '';
 let portfolioPhotoDrafts = { before: null, after: null };
@@ -833,7 +834,7 @@ function setProviderView(view) {
   });
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
-  if (view === 'portfolio') renderPortfolio();
+  if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
   if (view === 'waitlist') renderWaitlist();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -2284,7 +2285,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -2803,6 +2804,37 @@ async function loadPortfolio() {
   return { ok: true, optional: true };
 }
 
+function renderProviderReviews() {
+  const list = $('#providerReviewsList');
+  if (!list) return;
+  $('#providerReviewsCount').textContent = String(providerReviews.length);
+  if (!providerReviews.length) {
+    list.innerHTML = '<div class="provider-empty"><strong>Отзывов пока нет</strong><small>Здесь появятся отзывы после завершённых визитов.</small></div>';
+    return;
+  }
+  list.innerHTML = providerReviews.map(review => {
+    const rating = Math.max(1, Math.min(5, Number(review.rating) || 1));
+    const created = new Date(review.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+    return `<article class="provider-review-card ${review.published ? '' : 'unpublished'}">
+      <div class="provider-review-head"><div><strong>${escapeHtml(review.client_name || 'Клиент')}</strong><small>${escapeHtml(review.service_name || 'Услуга')} · ${escapeHtml(created)}</small></div><span aria-label="Оценка ${rating} из 5">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</span></div>
+      ${review.review_text ? `<p>${escapeHtml(review.review_text)}</p>` : '<p class="provider-review-empty">Отзыв оставлен без текста.</p>'}
+      <button type="button" data-review-visibility="${review.review_id}" data-review-published="${review.published ? 'true' : 'false'}">${review.published ? 'Скрыть с сайта' : 'Опубликовать на сайте'}</button>
+    </article>`;
+  }).join('');
+  applyWriteAvailability();
+}
+
+async function loadProviderReviews() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok:false, optional:true };
+  const { data, error } = await db.rpc('get_provider_booking_reviews');
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
+  providerReviews = error ? [] : (data || []);
+  renderProviderReviews();
+  return { ok:!error, optional:true };
+}
+
 function clearPortfolioPreviews() {
   portfolioPreviewUrls.forEach(url => URL.revokeObjectURL(url));
   portfolioPreviewUrls = [];
@@ -3184,6 +3216,7 @@ document.addEventListener('click', async event => {
   const booking = event.target.closest('[data-booking-status]');
   const deleteBookingButton = event.target.closest('[data-delete-booking]');
   const waitlistStatus = event.target.closest('[data-waitlist-status]');
+  const reviewVisibility = event.target.closest('[data-review-visibility]');
   const client = event.target.closest('[data-client-phone]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
@@ -3274,7 +3307,16 @@ document.addEventListener('click', async event => {
     repeatTime = repeat.dataset.repeatTime;
     $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
   }
-  if ((toggle || remove || removeDayOff || booking || deleteBookingButton || waitlistStatus) && !requireWrites()) return;
+  if ((toggle || remove || removeDayOff || booking || deleteBookingButton || waitlistStatus || reviewVisibility) && !requireWrites()) return;
+  if (reviewVisibility) {
+    reviewVisibility.disabled = true;
+    const publish = reviewVisibility.dataset.reviewPublished !== 'true';
+    const { error } = await db.rpc('set_booking_review_published', { p_review:reviewVisibility.dataset.reviewVisibility, p_published:publish });
+    reviewVisibility.disabled = false;
+    if (error) { notify('Не удалось изменить видимость отзыва'); return; }
+    notify(publish ? 'Отзыв опубликован на сайте' : 'Отзыв скрыт с сайта');
+    await loadProviderReviews();
+  }
   if (toggle) {
     await db.from('services').update({ active: toggle.dataset.active !== 'true' }).eq('id', toggle.dataset.toggleService);
     notify('Услуга обновлена');
@@ -3304,6 +3346,7 @@ document.addEventListener('click', async event => {
       notify('Не удалось удалить запись. Обновите страницу и повторите попытку.');
       return;
     }
+    if (data === 'review_protected') { notify('Запись с опубликованным отзывом удалить нельзя.'); return; }
     if (data !== 'deleted') { closeBookingSheet(); notify('Запись уже была удалена'); await refreshAfterWrite(); return; }
     allBookings = allBookings.filter(entry => entry.id !== id);
     bookingOutcomes.delete(id);

@@ -135,6 +135,18 @@ const managementResult = await checkedFetch(new URL('/rest/v1/rpc/get_booking_ma
 const management = await managementResult.response.json();
 assert.ok(Array.isArray(management), 'RPC управления записью вернул ответ неожиданного формата');
 
+const reviewsResult = await checkedFetch(new URL('/rest/v1/rpc/get_public_booking_reviews', supabaseUrl), {
+  method: 'POST', headers: apiHeaders, body: '{}'
+});
+const reviews = await reviewsResult.response.json();
+assert.ok(Array.isArray(reviews), 'RPC публичных отзывов вернул ответ неожиданного формата');
+
+const clientBookingsV2Result = await checkedFetch(new URL('/rest/v1/rpc/get_client_bookings_v2', supabaseUrl), {
+  method: 'POST', headers: apiHeaders, body: JSON.stringify({ p_session_token: 'health-check-invalid-session' })
+});
+const clientBookingsV2 = await clientBookingsV2Result.response.json();
+assert.ok(Array.isArray(clientBookingsV2), 'RPC повторной записи вернул ответ неожиданного формата');
+
 if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   // Заведомо невалидный UUID отклоняется PostgREST при приведении типа до вызова SQL-функции.
   // Так проверяется наличие шестипараметровой сигнатуры v43 без запуска функции и без записи в БД.
@@ -156,7 +168,7 @@ if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   assert.match(probe?.message || '', /invalid input syntax for type uuid/i, 'Идемпотентная RPC версии 43 не подтвердила UUID-параметр');
 }
 
-console.log(`Minuta production health: OK; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс`);
+console.log(`Minuta production health: OK; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
 } catch (error) {
   console.error(`Minuta production health: FAIL; ${error?.message || error}`);
   process.exitCode = 1;

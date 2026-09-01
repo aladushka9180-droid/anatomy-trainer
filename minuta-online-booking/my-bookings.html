@@ -41,6 +41,17 @@
       <p class="form-error" id="clientBookingsError" role="alert" hidden></p>
     </section>
   </main>
+  <dialog class="review-dialog" id="reviewDialog" aria-labelledby="reviewTitle">
+    <button class="dialog-close" id="closeReview" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
+    <small>После визита</small><h2 id="reviewTitle">Как всё прошло?</h2><p id="reviewServiceName"></p>
+    <form id="reviewForm" novalidate>
+      <fieldset class="review-rating"><legend>Ваша оценка</legend><div role="group" aria-label="Оценка от 1 до 5"><button type="button" data-review-rating="1" aria-label="1 из 5">★</button><button type="button" data-review-rating="2" aria-label="2 из 5">★</button><button type="button" data-review-rating="3" aria-label="3 из 5">★</button><button type="button" data-review-rating="4" aria-label="4 из 5">★</button><button type="button" data-review-rating="5" aria-label="5 из 5">★</button></div><small id="reviewRatingHint">Выберите оценку</small></fieldset>
+      <label>Ваш отзыв <small>необязательно</small><textarea id="reviewText" maxlength="1000" rows="5" placeholder="Расскажите, что вам понравилось"></textarea></label>
+      <p class="review-public-note">Отзыв будет опубликован без вашего имени, фамилии и телефона.</p>
+      <p class="form-error" id="reviewError" role="alert" hidden></p>
+      <button class="primary" id="submitReview" type="submit">Опубликовать отзыв</button>
+    </form>
+  </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=105"></script><script src="reliability.js?v=105"></script><script src="my-bookings.js?v=105" defer></script>

@@ -30,6 +30,7 @@
   <main id="top" class="layout booking-client-layout">
     <section class="booking-card" aria-labelledby="bookingTitle">
       <div id="bookingFlow">
+        <div class="repeat-booking-notice" id="repeatBookingNotice" role="status" hidden></div>
         <div class="booking-context-row"><span class="status status-checking" id="bookingStatus" role="status" aria-live="polite"><i></i><span>Проверяем расписание…</span></span><span class="booking-address">Карла Маркса, 304б · 10:00–20:00</span></div>
         <div class="card-heading"><div><small id="stepKicker">Услуга</small><h2 id="bookingTitle">Выберите услугу</h2></div><span class="step-label" id="stepLabel">1 из 3</span></div>
         <div class="progress" aria-hidden="true"><i class="active"></i><i></i><i></i></div>
@@ -89,6 +90,10 @@
   <section class="public-portfolio" id="portfolioSection" aria-labelledby="portfolioTitle" hidden>
     <div class="public-portfolio-heading"><div><small>Результаты работы</small><h2 id="portfolioTitle">Портфолио</h2></div><p>Количество сеансов указано мастером для каждого результата.</p></div>
     <div class="public-portfolio-list" id="publicPortfolioList"></div>
+  </section>
+  <section class="public-reviews" id="reviewsSection" aria-labelledby="reviewsTitle" hidden>
+    <div class="public-reviews-heading"><div><small>Отзывы клиентов</small><h2 id="reviewsTitle">После реальных визитов</h2></div><div class="reviews-summary"><strong id="reviewsAverage">0,0</strong><span aria-hidden="true">★</span><small id="reviewsCount">0 отзывов</small></div></div>
+    <div class="public-reviews-list" id="publicReviewsList"></div>
   </section>
   <footer class="booking-footer"><a href="provider.html">Вход для исполнителя</a></footer>
   <dialog class="service-details-dialog" id="serviceDetailsDialog" aria-labelledby="serviceDetailsTitle">

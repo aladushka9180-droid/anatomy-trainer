@@ -10,6 +10,9 @@ const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
 const CLIENT_SESSION_KEY = 'minuta-client-session-v1';
 const CLIENT_CONTACT_KEY = 'minuta-client-contact-v1';
 const CLIENT_CONTACT_TTL = 90 * 24 * 60 * 60 * 1000;
+const bookingQuery = new URLSearchParams(location.search);
+const requestedServiceId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '';
+const isRepeatBooking = bookingQuery.get('repeat') === '1' && Boolean(requestedServiceId);
 let bookingAttempt = loadBookingAttempt();
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -202,10 +205,22 @@ async function loadServices() {
   }
   state.services = data || [];
   const selectionWasRemoved = Boolean(previousServiceId) && !state.services.some(item => item.id === previousServiceId);
-  if (!previousServiceId) state.serviceId = state.services[0]?.id || '';
+  if (!previousServiceId) {
+    state.serviceId = isRepeatBooking && requestedServiceId
+      ? (state.services.some(item => item.id === requestedServiceId) ? requestedServiceId : '')
+      : state.services[0]?.id || '';
+  }
   else if (selectionWasRemoved) state.serviceId = '';
   setBookingStatus(state.services.length ? 'open' : 'closed', state.services.length ? 'Запись открыта' : 'Запись пока закрыта');
   renderServices();
+  const repeatNotice = $('#repeatBookingNotice');
+  if (repeatNotice && isRepeatBooking) {
+    const requestedService = state.services.find(item => item.id === requestedServiceId);
+    repeatNotice.hidden = false;
+    repeatNotice.innerHTML = requestedService
+      ? `<strong>Услуга выбрана</strong><span>${escapeHtml(serviceName(requestedService.name))} · теперь выберите удобное время.</span>`
+      : '<strong>Услуга больше недоступна</strong><span>Выберите другую услугу.</span>';
+  }
   if (selectionWasRemoved) {
     state.time = '';
     state.availability = new Map();
@@ -263,6 +278,28 @@ async function loadPublicPortfolio() {
     const description = item.description ? `<p>${escapeHtml(item.description)}</p>` : '';
     return `<article class="public-portfolio-card"><div class="public-portfolio-photos">${publicPortfolioPhotoMarkup(publicPortfolioPhoto(item, 'before'), 'До')}${publicPortfolioPhotoMarkup(publicPortfolioPhoto(item, 'after'), afterLabel)}</div><div class="public-portfolio-copy"><h3>${escapeHtml(item.procedure_name)}</h3>${area}${performer}${description}</div></article>`;
   }).join('');
+  section.hidden = false;
+}
+
+function reviewStars(rating) {
+  const value = Math.max(0, Math.min(5, Number(rating) || 0));
+  return `<span class="review-stars" aria-label="Оценка ${value} из 5">${'★'.repeat(value)}${'☆'.repeat(5 - value)}</span>`;
+}
+
+async function loadPublicReviews() {
+  const section = $('#reviewsSection');
+  const holder = $('#publicReviewsList');
+  if (!section || !holder) return;
+  const { data, error } = await db.rpc('get_public_booking_reviews');
+  if (error || !data?.length) {
+    section.hidden = true;
+    holder.innerHTML = '';
+    return;
+  }
+  const summary = data[0];
+  $('#reviewsAverage').textContent = Number(summary.average_rating || 0).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  $('#reviewsCount').textContent = `${summary.total_reviews} ${Number(summary.total_reviews) === 1 ? 'отзыв' : 'отзывов'} после реальных визитов`;
+  holder.innerHTML = data.map(item => `<article class="public-review-card"><div class="public-review-head"><div>${reviewStars(item.rating)}<strong>${escapeHtml(item.reviewer_name || 'Клиент')}</strong></div><time datetime="${escapeHtml(item.created_at)}">${new Date(item.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</time></div>${item.review_text ? `<p>${escapeHtml(item.review_text)}</p>` : '<p class="review-without-text">Оценка без текста</p>'}<small>${escapeHtml(serviceName(item.service_name))} · ${escapeHtml(item.performer_name)}</small></article>`).join('');
   section.hidden = false;
 }
 
@@ -766,5 +803,6 @@ restoreClientContact();
 renderDates();
 renderTimes();
 loadServices();
+loadPublicReviews();
 updateSubmitAvailability();
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=105'));

@@ -46,6 +46,7 @@ assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной пер
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
 assert.match(provider, /function bookingClientNote\(item\)/, 'Расписание не получает заметку клиента');
 assert.match(provider, /class="provider-booking-open"[\s\S]*data-open-booking/, 'Компактная запись не открывает подробности по нажатию');
+assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:/, 'Компактная запись не показывает заметку');
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
@@ -381,6 +382,36 @@ assert.match(app, /bootstrap_client_access/, 'После оформления н
 assert.match(app, /saveClientContact\(name, phone\);\s*\n\s*clearBookingAttempt/, 'Контакты не сохраняются после подтверждённой записи');
 assert.match(app, /restoreClientContact\(\);\s*\$\('#formError'\)/, 'Новая запись не восстанавливает имя и телефон');
 assert.match(app, /CLIENT_CONTACT_TTL = 90 \* 24 \* 60 \* 60 \* 1000/, 'Срок хранения контактов не ограничен 90 днями');
+assert.match(clientAccount, /get_client_bookings_v2/, 'Личный раздел не загружает данные для отзыва и повторной записи');
+assert.match(clientAccount, /submit_booking_review/, 'Клиент не может опубликовать отзыв');
+assert.match(clientAccount, /currentReviewEditing[\s\S]*Сохранить изменения/, 'Редактирование отзыва не получает понятную кнопку сохранения');
+assert.match(clientAccount, /repeatBookingUrl/, 'В личном разделе нет повторной записи');
+assert.match(indexHtml, /id="reviewsSection"/, 'На главной странице нет отзывов');
+assert.match(app, /get_public_booking_reviews/, 'Публичные отзывы не загружаются');
+assert.match(app, /requestedServiceId/, 'Повторная запись не выбирает прежнюю услугу');
+assert.match(app, /isRepeatBooking && requestedServiceId[\s\S]*\? requestedServiceId : ''/, 'Недоступная прежняя услуга молча заменяется первой активной');
+const reviewsMigration = readFileSync(join(root, 'supabase-migration-v61.sql'), 'utf8');
+assert.match(reviewsMigration, /create table if not exists public\.booking_reviews/, 'Нет серверного хранения отзывов');
+assert.match(reviewsMigration, /outcome\.visit_status = 'completed'/, 'Отзыв можно оставить до завершения визита');
+assert.match(reviewsMigration, /where booking\.manage_token = p_manage_token[\s\S]*booking\.client_account_id = v_account_id/, 'Отзыв не привязан к сессии клиента');
+assert.match(reviewsMigration, /'Клиент'::text as reviewer_name/, 'Публичный отзыв раскрывает имя или фамилию клиента');
+assert.match(reviewsMigration, /join public\.booking_outcomes outcome[\s\S]*outcome\.visit_status = 'completed'/, 'Публичный отзыв не перепроверяет статус визита');
+assert.match(reviewsMigration, /p_rating is null or p_rating not between 1 and 5/, 'NULL-рейтинг не получает стабильную ошибку');
+assert.match(reviewsMigration, /\(booking\.status <> 'cancelled' and outcome\.visit_status = 'completed'\)/, 'Отменённая запись ошибочно разрешает отзыв');
+assert.match(reviewsMigration, /public\.booking_reviews review where review\.booking_id = p_booking[\s\S]*return 'review_protected'/, 'Запись с отзывом можно удалить вместе с отзывом');
+const reviewUpsert = reviewsMigration.match(/on conflict \(booking_id\) do update[\s\S]*?returning id into v_review_id;/)?.[0] || '';
+assert.ok(reviewUpsert, 'Не найдено безопасное обновление отзыва');
+assert.doesNotMatch(reviewUpsert, /published\s*=\s*true/, 'Редактирование отзыва самовольно отменяет решение исполнителя скрыть его');
+assert.match(reviewsMigration, /create or replace function public\.get_provider_booking_reviews/, 'Исполнитель не может получить отзывы для модерации');
+assert.match(reviewsMigration, /create or replace function public\.set_booking_review_published/, 'Исполнитель не может изменить видимость отзыва');
+assert.match(provider, /data === 'review_protected'/, 'Кабинет не объясняет защиту записи с отзывом');
+assert.match(providerHtml, /id="providerReviewsList"/, 'В кабинете нет списка отзывов');
+assert.match(provider, /get_provider_booking_reviews/, 'Кабинет не загружает отзывы для модерации');
+assert.match(provider, /set_booking_review_published/, 'Кабинет не управляет публикацией отзывов');
+assert.match(styles, /\.client-booking-action\s*\{\s*font-size:11px;/, 'Кнопки отзывов и повторной записи слишком мелкие');
+assert.match(styles, /\.review-rating button\s*\{[^}]*width:44px;[^}]*min-height:44px;/, 'Звёзды оценки имеют слишком маленькую область нажатия');
+const releaseWorkflow = readFileSync(join(root, '..', '.github', 'workflows', 'minuta-safe-release.yml'), 'utf8');
+assert.match(releaseWorkflow, /supabase-migration-v60\.sql[\s\S]*supabase-migration-v62\.sql[\s\S]*supabase-migration-v63\.sql[\s\S]*supabase-migration-v61\.sql/, 'Безопасный выпуск не применяет защиту отзывов после актуальной миграции удаления');
 assert.match(app, /if \(error\) \{[\s\S]*?return;\s*\n\s*\}\s*\n\s*const manageToken[\s\S]*?saveClientContact\(name, phone\)/, 'Контакты сохраняются до подтверждения записи');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
@@ -395,5 +426,7 @@ const productionHealth = readFileSync(join(root, 'production-health-check.mjs'),
 assert.match(productionHealth, /`\\\$\{CACHE_PREFIX\}v\$\{expectedVersion\}`/, 'Production health ожидает неверное имя кэша Service Worker');
 assert.match(productionHealth, /rest\/v1\/portfolio_items/, 'Production health не проверяет таблицу портфолио');
 assert.match(productionHealth, /rest\/v1\/portfolio_photos/, 'Production health не проверяет таблицу фотографий');
+assert.match(productionHealth, /rpc\/get_public_booking_reviews/, 'Production health не проверяет отзывы');
+assert.match(productionHealth, /rpc\/get_client_bookings_v2/, 'Production health не проверяет повторную запись');
 
 console.log('minuta-online-booking smoke test: OK');
