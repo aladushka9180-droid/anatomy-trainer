@@ -780,6 +780,7 @@ function renderTimeline(items) {
     const label = `${String(Math.floor(minute / 60)).padStart(2, '0')}:00`;
     const top = ((minute - start) / 60) * hourHeight;
     labels.push(`<span class="timeline-hour" style="top:${top}px">${label}</span>`);
+    if (minute + 30 < end) labels.push(`<span class="timeline-hour timeline-half-hour" style="top:${top + hourHeight / 2}px">${String(Math.floor(minute / 60)).padStart(2, '0')}:30</span>`);
     lines.push(`<i class="timeline-grid-line" style="top:${top}px" aria-hidden="true"></i>`);
   }
   const cards = items.map(item => {
@@ -801,7 +802,7 @@ function renderTimeline(items) {
     </button>`;
   }).join('');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
 }
 
 function renderBookingList(items) {
@@ -2570,4 +2571,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=63'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=64'));
