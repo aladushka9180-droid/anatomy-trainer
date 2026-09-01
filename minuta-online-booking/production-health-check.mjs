@@ -55,7 +55,7 @@ function sameOriginAssets(html, pageUrl) {
 }
 
 function cacheBustedVersions(html) {
-  return [...html.matchAll(/(?:src|href)="[^"#?]+\?v=([^"&]+)"/g)].map(match => match[1]);
+  return [...html.matchAll(/(?:src|href)="[^"#?]+\?v=([^"&#]+)(?:#[^"]*)?"/g)].map(match => match[1]);
 }
 
 const timings = [];
