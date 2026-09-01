@@ -297,7 +297,13 @@ function renderTimes() {
       const selected = slot === state.time;
       const range = timeRange(slot, duration);
       const endTime = range.split('–')[1];
-      const caption = selected ? `до ${endTime} · выбрано` : `до ${endTime}`;
+      const caption = selected
+        ? `до ${endTime} · выбрано`
+        : available
+          ? `до ${endTime}`
+          : duration <= 60
+            ? 'занято'
+            : 'нет окна';
       const ariaLabel = available ? `${range}${selected ? ', выбрано' : ''}` : `${range}, недоступно для начала: весь интервал должен быть свободен`;
       return `<button class="time-hour ${selected ? 'selected' : ''} ${available ? '' : 'unavailable'}" type="button" ${available ? `data-time="${slot}"` : 'disabled'} aria-label="${ariaLabel}" aria-pressed="${selected}"><strong>${slot}</strong><small>${caption}</small></button>`;
     }).join('');
@@ -575,4 +581,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=56'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=57'));

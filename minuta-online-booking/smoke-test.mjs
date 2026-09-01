@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '56';
+const version = '57';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -130,7 +130,7 @@ assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфол
 assert.doesNotMatch(app, /· нельзя начать/, 'Серые интервалы перегружены повторяющейся подписью');
 assert.match(app, /недоступно для начала: весь интервал должен быть свободен/, 'Недоступность интервала не объясняется средствам доступности');
 assert.match(app, /весь интервал должен быть свободен/, 'Клиенту не объясняется правило для продолжительной услуги');
-assert.doesNotMatch(app, /<small>занято<\/small>/, 'Интерфейс всё ещё называет недоступное начало занятым временем');
+assert.match(app, /duration <= 60[\s\S]*?'занято'[\s\S]*?'нет окна'/, 'Недоступные часы не получают короткую подпись по длительности услуги');
 assert.match(app, /requestAnimationFrame\(\(\) => bookingCard\?\.scrollIntoView/, 'Переход между шагами прокручивается только после загрузки данных');
 
 const timeRangeFunctionSource = app.match(/function timeRange\(time, duration\) \{[\s\S]*?\n\}/)?.[0];
