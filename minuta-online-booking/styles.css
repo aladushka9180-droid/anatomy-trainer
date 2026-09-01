@@ -13,24 +13,36 @@
 .provider-display-form { display:grid; grid-column:1/-1; gap:18px; margin-top:18px; }
 .provider-theme-picker,.booking-card-settings { min-width:0; margin:0; padding:0; border:0; }
 .provider-theme-picker>legend,.booking-card-settings>legend { margin-bottom:9px; color:var(--ink); font-size:11px; font-weight:900; }
-.provider-theme-options { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
-.provider-theme-option { position:relative; min-width:0; padding:8px; border:1px solid var(--line); border-radius:13px; background:#fff; cursor:pointer; transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
+.provider-theme-options { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; align-items:stretch; }
+.provider-theme-option { position:relative; display:flex; min-width:0; min-height:116px; padding:8px; border:1px solid var(--line); border-radius:13px; background:#fff; cursor:pointer; flex-direction:column; transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
 .provider-theme-option:hover { transform:translateY(-1px); }
 .provider-theme-option input { position:absolute; width:1px!important; height:1px!important; margin:0!important; opacity:0; pointer-events:none; }
 .provider-theme-option:has(input:checked) { border-color:var(--theme-preview-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-preview-accent) 17%,transparent); }
-.provider-theme-option strong,.provider-theme-option small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.provider-theme-option strong { margin-top:7px; font-size:9px; }
-.provider-theme-option small { margin-top:3px; color:var(--muted); font-size:7px; }
-.theme-swatch { position:relative; display:grid; grid-template-columns:20px 1fr; height:56px; overflow:hidden; border:1px solid var(--theme-preview-line); border-radius:9px; background:var(--theme-preview-bg); }
+.provider-theme-option:has(input:checked)::after { content:'✓'; position:absolute; top:12px; right:12px; display:grid; place-items:center; width:17px; height:17px; border-radius:50%; background:var(--theme-preview-accent); color:#fff; font-size:10px; font-weight:950; }
+.provider-theme-option strong,.provider-theme-option small { display:block; overflow:visible; white-space:normal; }
+.provider-theme-option strong { margin-top:7px; font-size:9px; line-height:1.25; }
+.provider-theme-option small { margin-top:3px; color:var(--muted); font-size:7px; line-height:1.3; }
+.theme-swatch { position:relative; display:grid; grid-template-columns:20px 1fr; height:56px; overflow:hidden; border:1px solid var(--theme-preview-line); border-radius:var(--theme-preview-radius,9px); background:var(--theme-preview-bg); }
 .theme-swatch::before { content:''; grid-row:1/4; background:var(--theme-preview-surface); border-right:1px solid var(--theme-preview-line); }
-.theme-swatch i { display:block; height:7px; margin:6px 7px 0; border-radius:4px; background:var(--theme-preview-surface); }
+.theme-swatch i { display:block; height:7px; margin:6px 7px 0; border-radius:var(--theme-preview-item-radius,4px); background:var(--theme-preview-surface); }
 .theme-swatch i:nth-child(2) { width:56%; background:var(--theme-preview-accent); }
 .theme-swatch i:nth-child(3) { height:16px; margin-top:4px; border:1px solid var(--theme-preview-line); }
-.theme-sage { --theme-preview-bg:#f4f7f5; --theme-preview-surface:#fff; --theme-preview-line:#dfe6e1; --theme-preview-accent:#235b40; }
-.theme-nordic { --theme-preview-bg:#f3f6fb; --theme-preview-surface:#fff; --theme-preview-line:#dce5f0; --theme-preview-accent:#3568e8; }
-.theme-warm { --theme-preview-bg:#f6f1ea; --theme-preview-surface:#fffdfa; --theme-preview-line:#eadfd4; --theme-preview-accent:#a9664c; }
-.theme-graphite { --theme-preview-bg:#11171b; --theme-preview-surface:#1a2228; --theme-preview-line:#2d3941; --theme-preview-accent:#8b7cf6; color:#f1f4f6; }
-.theme-lavender { --theme-preview-bg:#f5f3fb; --theme-preview-surface:#fff; --theme-preview-line:#e5e0ef; --theme-preview-accent:#7660cc; }
+.theme-linear,.theme-soft,.theme-capsule,.theme-editorial,.theme-bento { --theme-preview-bg:#f4f7f5; --theme-preview-surface:#fff; --theme-preview-line:#d5dfd8; --theme-preview-accent:#235b40; }
+.theme-linear { --theme-preview-radius:0; --theme-preview-item-radius:0; border-radius:2px; }
+.theme-linear .theme-swatch { box-shadow:inset 3px 0 0 var(--theme-preview-accent); }
+.theme-soft { --theme-preview-radius:13px; --theme-preview-item-radius:6px; }
+.theme-soft .theme-swatch { border-color:#e3eae5; box-shadow:0 5px 13px rgba(28,65,45,.1); }
+.theme-capsule { --theme-preview-radius:28px; --theme-preview-item-radius:999px; }
+.theme-capsule .theme-swatch { grid-template-columns:13px 1fr; padding:4px; gap:3px; }
+.theme-capsule .theme-swatch::before { border:0; border-radius:999px; background:var(--theme-preview-accent); }
+.theme-editorial { --theme-preview-radius:0; --theme-preview-item-radius:0; border-radius:0; }
+.theme-editorial .theme-swatch { border-width:2px 0 0; border-color:#17241d; background:#fff; }
+.theme-editorial .theme-swatch i { height:1px; margin-top:9px; background:#17241d; }
+.theme-editorial .theme-swatch i:nth-child(2) { width:72%; }.theme-editorial .theme-swatch i:nth-child(3) { height:14px; border-width:1px 0 0; }
+.theme-bento { --theme-preview-radius:12px; --theme-preview-item-radius:7px; }
+.theme-bento .theme-swatch { grid-template-columns:24px 1fr; gap:4px; padding:4px; background:#e6eee8; }
+.theme-bento .theme-swatch::before { border:0; border-radius:7px; }
+.theme-bento .theme-swatch i { height:11px; margin:0; border:0; background:#fff; }.theme-bento .theme-swatch i:nth-child(2) { width:70%; background:#fff; }.theme-bento .theme-swatch i:nth-child(3) { height:25px; margin:0; }
 .booking-card-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .provider-display-form .settings-check { display:flex; align-items:flex-start; gap:10px; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:12px; background:var(--soft); cursor:pointer; }
 .provider-display-form .settings-check input { flex:none; width:18px; height:18px; margin:1px 0 0; accent-color:var(--green); }
@@ -45,11 +57,11 @@
 .provider-booking-client-line { flex-wrap:wrap; align-items:center; }
 .timeline-client-visit-wrap { display:inline; }
 
-.provider-body[data-provider-theme="sage"] { --theme-bg:#f4f7f5; --theme-surface:#fff; --theme-surface-alt:#f8faf9; --theme-ink:#183425; --theme-muted:#728078; --theme-line:#dfe6e1; --theme-accent:#235b40; --theme-accent-soft:#e9eeeb; --theme-shadow:rgba(29,70,48,.12); }
-.provider-body[data-provider-theme="nordic"] { --theme-bg:#f3f6fb; --theme-surface:#fff; --theme-surface-alt:#f7f9fd; --theme-ink:#182437; --theme-muted:#718096; --theme-line:#dde5f0; --theme-accent:#3568e8; --theme-accent-soft:#e9efff; --theme-shadow:rgba(36,66,118,.13); }
-.provider-body[data-provider-theme="warm"] { --theme-bg:#f6f1ea; --theme-surface:#fffdfa; --theme-surface-alt:#faf6f0; --theme-ink:#332923; --theme-muted:#85756a; --theme-line:#eadfd4; --theme-accent:#a9664c; --theme-accent-soft:#f2e6dd; --theme-shadow:rgba(92,65,48,.14); }
-.provider-body[data-provider-theme="graphite"] { --theme-bg:#11171b; --theme-surface:#1a2228; --theme-surface-alt:#161d22; --theme-ink:#f1f4f6; --theme-muted:#99a7b1; --theme-line:#2d3941; --theme-accent:#8b7cf6; --theme-accent-soft:#292741; --theme-shadow:rgba(0,0,0,.38); color-scheme:dark; }
-.provider-body[data-provider-theme="lavender"] { --theme-bg:#f5f3fb; --theme-surface:#fff; --theme-surface-alt:#faf9fd; --theme-ink:#2c2740; --theme-muted:#817b93; --theme-line:#e5e0ef; --theme-accent:#7660cc; --theme-accent-soft:#eeeafb; --theme-shadow:rgba(73,54,122,.14); }
+.provider-body[data-provider-theme="linear"],
+.provider-body[data-provider-theme="soft"],
+.provider-body[data-provider-theme="capsule"],
+.provider-body[data-provider-theme="editorial"],
+.provider-body[data-provider-theme="bento"] { --theme-bg:#f4f7f5; --theme-surface:#fff; --theme-surface-alt:#f8faf9; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#dce5df; --theme-accent:#235b40; --theme-accent-soft:#e9f1ec; --theme-shadow:rgba(29,70,48,.12); }
 .provider-body[data-provider-theme] { --ink:var(--theme-ink); --muted:var(--theme-muted); --green:var(--theme-accent); --line:var(--theme-line); --soft:var(--theme-accent-soft); --white:var(--theme-surface); --shadow:0 24px 64px var(--theme-shadow); background:var(--theme-bg); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .provider-app { background:var(--theme-bg); color:var(--theme-ink); }
 .provider-body[data-provider-theme] :is(.provider-sidebar,.panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.provider-mobile-nav,.booking-sheet-panel,.notification-template-dialog,.service-creator-dialog) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
@@ -1529,4 +1541,151 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme] .schedule-list .provider-booking-phone,
   .provider-body[data-provider-theme] .schedule-list .provider-booking-note-full { color:var(--theme-muted); }
   .provider-body[data-provider-theme] .schedule-list .booking-time-column { border-color:var(--theme-line); }
+}
+
+/* Все разделы кабинета используют поверхности и акцент выбранной темы. */
+.provider-body[data-provider-theme] :is(.secondary-button,.notification-settings-button,.service-visibility-toggle,.provider-review-card>button,.portfolio-card-actions button,.repeat-times button,.notification-card-actions .notification-done-button,.notification-card-actions .notification-restore-button) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); box-shadow:none; }
+.provider-body[data-provider-theme] :is(.notification-summary,.notification-filters,.report-periods) { border-color:var(--theme-line); background:var(--theme-accent-soft); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.notification-filters button,.report-periods button) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(.notification-filters button.active,.report-periods button.active) { background:var(--theme-accent); color:#fff; box-shadow:none; }
+.provider-body[data-provider-theme] :is(.notification-card,.waitlist-provider-card,.report-summary article,.portfolio-card,.provider-review-card,.mobile-more-grid button,.client-history-item,.day-off-item,.service-visibility-option,.booking-policy-form .settings-check,.portfolio-form .settings-check,.booking-sheet-disclosure,.booking-session-summary,.session-composer-item,.booking-color-compact) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.client-label-option,.repeat-times button,.portfolio-card-actions button,.booking-color-option,.notification-card-actions .notification-done-button,.notification-card-actions .notification-restore-button) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.client-list-item:hover,.client-list-item.active,.managed-service:hover) { border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line)); background:var(--theme-accent-soft); }
+.provider-body[data-provider-theme] :is(.client-list-avatar,.client-avatar,.client-profile-empty>span,.notification-card-icon,.mobile-more-grid button>span,.settings-icon) { background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] :is(.client-list-item>b,.provider-nav b,.portfolio-photo-field>span:first-child) { background:var(--theme-surface); color:var(--theme-accent); }
+.provider-body[data-provider-theme] :is(.client-summary,.client-disclosure,.repeat-booking,.client-history,.client-history-item,.managed-service,.booking-step-setting,.schedule-day,.day-off-form,.day-off-item,.waitlist-provider-actions,.report-service-row,.password-form,.booking-labels-editor,.booking-session-addons,.booking-delete-zone) { border-color:var(--theme-line); }
+.provider-body[data-provider-theme] :is(.booking-step-setting,.schedule-day,.day-off-item,.portfolio-photo-field,.booking-prepayment-form,.provider-display-hint,.booking-policy-form .settings-check,.mobile-more-grid button) { background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme] :is(.portfolio-editor-dialog,.notification-template-dialog,.service-creator-dialog,.booking-sheet-panel) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.portfolio-photo-field,.portfolio-form textarea,.client-note-label textarea,.client-attention-reason textarea,.booking-policy-form input,.password-form input) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.notification-card blockquote,.booking-sheet-note-editor,.booking-session-summary,.session-composer-item,.booking-color-compact,.service-visibility-option) { background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme] :is(.view-description,.notification-summary span,.notification-toolbar small,.notification-card p,.notification-card-head>span,.notification-card blockquote,.client-list-main small,.client-profile-head small,.client-summary small,.client-labels-heading small,.client-disclosure summary small,.client-history-item small,.waitlist-provider-date span,.waitlist-provider-client small,.booking-step-setting small,.day-off-item span,.report-summary small,.report-service-row small,.managed-service span,.portfolio-card-body>small,.portfolio-card-body>p,.provider-reviews-panel>p,.provider-review-head small,.provider-review-card>p,.mobile-more-grid small,.settings-heading p,.booking-policy-form .settings-check small,.portfolio-form .settings-check small) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(.client-profile-head a,.client-disclosure summary span,.waitlist-provider-client a,.notification-preview summary,.provider-display-status) { color:var(--theme-accent); }
+.provider-body[data-provider-theme] .notification-summary strong { color:var(--theme-accent); }
+.provider-body[data-provider-theme] .notification-summary i { background:color-mix(in srgb,var(--theme-accent) 28%,var(--theme-line)); }
+.provider-body[data-provider-theme] .notification-card h3 { color:var(--theme-ink); }
+.provider-body[data-provider-theme] .notification-card-actions .whatsapp-action { border-color:color-mix(in srgb,#2f9c62 38%,var(--theme-line)); background:color-mix(in srgb,#2f9c62 16%,var(--theme-surface)); color:color-mix(in srgb,#2f9c62 72%,var(--theme-ink)); }
+.provider-body[data-provider-theme] .notification-card.status-sent { opacity:.74; }
+.provider-body[data-provider-theme] .notification-card.status-scheduled { opacity:.68; }
+.provider-body[data-provider-theme] .managed-service .edit-service-button,
+.provider-body[data-provider-theme] .portfolio-card-actions .portfolio-edit { border-color:var(--theme-accent); background:var(--theme-accent); color:#fff; }
+.provider-body[data-provider-theme] .booking-policy-form code { background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .settings-check strong { color:var(--theme-ink); }
+.provider-body[data-provider-theme] .portfolio-photo-fields { background:transparent; }
+.provider-body[data-provider-theme] .portfolio-card-photos { background:var(--theme-line); }
+.provider-body[data-provider-theme] .portfolio-photo { background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme] .portfolio-photo-empty { color:var(--theme-muted); }
+
+.provider-body[data-provider-theme="graphite"] :is(.notification-card-icon,.client-profile-empty>span,.mobile-more-grid button>span) { background:#292741; color:#b0a5ff; }
+.provider-body[data-provider-theme="graphite"] .notification-reminder .notification-card-icon { background:#3a3020; color:#e7c370; }
+.provider-body[data-provider-theme="graphite"] .notification-cancellation .notification-card-icon { background:#3a2729; color:#e79a98; }
+.provider-body[data-provider-theme="graphite"] .notification-card-actions .whatsapp-action { border-color:#315a45; background:#1b3428; color:#83d7a4; }
+.provider-body[data-provider-theme="graphite"] :is(.danger,.day-off-item button,.session-composer-item-head button) { border-color:#5d3839!important; background:#382426!important; color:#ee9e9e!important; }
+
+/* Пять геометрических стилей кабинета. Палитра намеренно остаётся общей. */
+.provider-body[data-provider-theme] :is(.provider-topbar>div:first-child,.view-title>div:first-child,.settings-heading,.panel-head>div,.provider-booking-open .booking-main) { min-width:0; }
+.provider-body[data-provider-theme] :is(.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3) { max-width:100%; line-height:1.08; overflow-wrap:anywhere; }
+.provider-body[data-provider-theme] :is(.provider-topbar,.provider-sidebar,.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-nav button,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.provider-mobile-nav) { transition:border-radius .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease; }
+.provider-body[data-provider-theme] .provider-nav button>span:nth-child(2) { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.provider-body[data-provider-theme] .provider-topbar-actions,.provider-body[data-provider-theme] .view-title-actions,.provider-body[data-provider-theme] .schedule-controls { min-width:0; flex-wrap:wrap; justify-content:flex-end; }
+
+/* 01. Строгая геометрия */
+.provider-body[data-provider-theme="linear"] .provider-app { background-color:#f1f4f2; background-image:linear-gradient(rgba(29,70,48,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(29,70,48,.025) 1px,transparent 1px); background-size:24px 24px; }
+.provider-body[data-provider-theme="linear"] :is(.provider-sidebar,.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme="linear"] .provider-sidebar { border-right-color:#cbd6cf; }
+.provider-body[data-provider-theme="linear"] .provider-nav { gap:0; }
+.provider-body[data-provider-theme="linear"] .provider-nav button { min-height:50px; border-bottom:1px solid var(--theme-line); border-radius:0; }
+.provider-body[data-provider-theme="linear"] .provider-nav button.active { box-shadow:inset 3px 0 0 var(--theme-accent); }
+.provider-body[data-provider-theme="linear"] .provider-nav button.active>span:first-child { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme="linear"] .schedule-card { border-color:#c7d2cb; }
+.provider-body[data-provider-theme="linear"] .date-strip button { border-radius:0; }
+.provider-body[data-provider-theme="linear"] .schedule-list .provider-booking { border-left:3px solid color-mix(in srgb,var(--theme-accent) 42%,var(--theme-line)); }
+
+/* 02. Мягкий минимализм */
+.provider-body[data-provider-theme="soft"] { --theme-bg:#eef4f0; --theme-surface-alt:#f7faf8; --theme-shadow:rgba(29,70,48,.11); }
+.provider-body[data-provider-theme="soft"] .provider-app { background:var(--theme-bg); }
+.provider-body[data-provider-theme="soft"] .provider-sidebar { box-shadow:8px 0 28px rgba(29,70,48,.055); }
+.provider-body[data-provider-theme="soft"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-color:#e3eae5; border-radius:24px; box-shadow:0 14px 38px rgba(29,70,48,.07); }
+.provider-body[data-provider-theme="soft"] :is(.provider-nav button,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.provider-display-form .settings-check) { border-radius:15px; }
+.provider-body[data-provider-theme="soft"] :is(.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button) { border-radius:13px; }
+.provider-body[data-provider-theme="soft"] .date-strip { margin:0 10px; }
+.provider-body[data-provider-theme="soft"] .schedule-toolbar { margin:8px 10px 0; border:1px solid var(--theme-line); }
+.provider-body[data-provider-theme="soft"] .schedule-list { padding:10px 20px 16px; }
+
+/* 03. Капсульный Flow */
+@media (min-width:761px) {
+  .provider-body[data-provider-theme="capsule"] .provider-app { grid-template-columns:220px minmax(0,1fr); gap:18px; padding:18px; background:#edf3ef; }
+  .provider-body[data-provider-theme="capsule"] .provider-sidebar { top:18px; min-height:calc(100vh - 36px); padding:20px 14px 16px; border:1px solid var(--theme-line); border-radius:34px; box-shadow:0 16px 42px rgba(29,70,48,.08); }
+  .provider-body[data-provider-theme="capsule"] .provider-workspace { padding:0 20px 52px; }
+  .provider-body[data-provider-theme="capsule"] .provider-topbar { min-height:78px; margin-bottom:8px; padding:0 24px; border:1px solid var(--theme-line); border-radius:999px; background:var(--theme-surface); }
+}
+.provider-body[data-provider-theme="capsule"] .provider-brand { margin:0 4px; }
+.provider-body[data-provider-theme="capsule"] .provider-nav { gap:8px; }
+.provider-body[data-provider-theme="capsule"] .provider-nav button { min-height:46px; border-radius:999px; }
+.provider-body[data-provider-theme="capsule"] .provider-nav button>span:first-child,.provider-body[data-provider-theme="capsule"] :is(.provider-user,.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button,.journal-mode-toggle,.journal-mode-toggle button,.panel-count,.sync-state,.topbar-client-link) { border-radius:999px; }
+.provider-body[data-provider-theme="capsule"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-radius:28px; box-shadow:0 12px 34px rgba(29,70,48,.06); }
+.provider-body[data-provider-theme="capsule"] .date-strip { margin:0 12px; border-radius:999px; }
+.provider-body[data-provider-theme="capsule"] .date-strip button { border-radius:999px; }
+.provider-body[data-provider-theme="capsule"] .schedule-toolbar { margin:8px 12px 0; border:0; border-radius:22px; background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme="capsule"] .schedule-list { padding:8px 14px 16px; }
+.provider-body[data-provider-theme="capsule"] :is(.timeline-booking,.schedule-list .provider-booking) { border-radius:22px; }
+
+/* 04. Редакционный журнал */
+.provider-body[data-provider-theme="editorial"] { --theme-line:#ced7d1; }
+.provider-body[data-provider-theme="editorial"] .provider-app { grid-template-columns:224px minmax(0,1fr); background:#fff; }
+.provider-body[data-provider-theme="editorial"] .provider-sidebar { border-right:1px solid #17241d; }
+.provider-body[data-provider-theme="editorial"] :is(.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.client-profile-head h3) { font-family:Georgia,"Times New Roman",serif; font-weight:500; letter-spacing:-.025em; }
+.provider-body[data-provider-theme="editorial"] .provider-topbar { border-bottom:2px solid #17241d; }
+.provider-body[data-provider-theme="editorial"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme="editorial"] .provider-nav { gap:0; }
+.provider-body[data-provider-theme="editorial"] .provider-nav button { min-height:51px; border-bottom:1px solid var(--theme-line); border-radius:0; }
+.provider-body[data-provider-theme="editorial"] .provider-nav button.active { background:transparent; color:#17241d; box-shadow:inset 0 -2px 0 #17241d; }
+.provider-body[data-provider-theme="editorial"] .provider-nav button.active::after { content:'→'; font-size:14px; }
+.provider-body[data-provider-theme="editorial"] .provider-nav button.active>b { display:none; }
+.provider-body[data-provider-theme="editorial"] .provider-nav button.active>span:first-child { background:transparent; box-shadow:none; }
+.provider-body[data-provider-theme="editorial"] .view-title { padding-bottom:12px; border-bottom:1px solid #17241d; }
+.provider-body[data-provider-theme="editorial"] .schedule-card { border-width:0 0 1px; }
+.provider-body[data-provider-theme="editorial"] .date-strip button { border-left:1px solid var(--theme-line); border-radius:0; }
+.provider-body[data-provider-theme="editorial"] .date-strip button:first-child { border-left:0; }
+.provider-body[data-provider-theme="editorial"] .schedule-list .provider-booking { background:#fff; }
+
+/* 05. Модульный Bento */
+@media (min-width:761px) {
+  .provider-body[data-provider-theme="bento"] .provider-app { grid-template-columns:230px minmax(0,1fr); gap:16px; padding:16px; background:#e6eee8; }
+  .provider-body[data-provider-theme="bento"] .provider-sidebar { top:16px; min-height:calc(100vh - 32px); border:1px solid var(--theme-line); border-radius:24px; box-shadow:0 12px 36px rgba(29,70,48,.08); }
+  .provider-body[data-provider-theme="bento"] .provider-workspace { padding:0 0 48px; }
+  .provider-body[data-provider-theme="bento"] .provider-topbar { min-height:80px; padding:0 24px; border:1px solid var(--theme-line); border-radius:22px; background:var(--theme-surface); }
+  .provider-body[data-provider-theme="bento"] .provider-view { width:100%; }
+}
+.provider-body[data-provider-theme="bento"] :is(.panel,.settings-card,.clients-directory,.client-profile) { border-radius:22px; box-shadow:0 8px 26px rgba(29,70,48,.055); }
+.provider-body[data-provider-theme="bento"] .provider-nav button { border-radius:13px; }
+.provider-body[data-provider-theme="bento"] .schedule-card { display:grid; gap:10px; overflow:visible; border:0; background:transparent; box-shadow:none; }
+.provider-body[data-provider-theme="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { margin:0; border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); box-shadow:0 8px 24px rgba(29,70,48,.05); }
+.provider-body[data-provider-theme="bento"] .date-strip { padding:10px; }
+.provider-body[data-provider-theme="bento"] .schedule-list { padding:8px 18px 12px; }
+.provider-body[data-provider-theme="bento"] .schedule-list .provider-booking { border-radius:14px; }
+.provider-body[data-provider-theme="bento"] :is(.dashboard-summary,.notification-summary,.report-summary article,.provider-display-form .settings-check) { border-radius:15px; }
+
+@media (max-width:980px) and (min-width:761px) {
+  .provider-body[data-provider-theme="capsule"] .provider-app { grid-template-columns:190px minmax(0,1fr); }
+  .provider-body[data-provider-theme="bento"] .provider-app { grid-template-columns:200px minmax(0,1fr); }
+  .provider-body[data-provider-theme="editorial"] .provider-app { grid-template-columns:200px minmax(0,1fr); }
+}
+
+@media (max-width:760px) {
+  .provider-theme-options { grid-template-columns:1fr 1fr; gap:9px; }
+  .provider-theme-option { min-height:124px; }
+  .provider-theme-option:last-child { grid-column:1/-1; }
+  .provider-body[data-provider-theme] .provider-topbar-actions,.provider-body[data-provider-theme] .view-title-actions { flex-wrap:nowrap; }
+  .provider-body[data-provider-theme="soft"] .date-strip,.provider-body[data-provider-theme="capsule"] .date-strip { margin:0; }
+  .provider-body[data-provider-theme="soft"] .schedule-toolbar,.provider-body[data-provider-theme="capsule"] .schedule-toolbar { margin:0; }
+  .provider-body[data-provider-theme="capsule"] .provider-topbar { border-radius:20px; }
+  .provider-body[data-provider-theme="capsule"] .provider-mobile-nav { border-radius:999px; }
+  .provider-body[data-provider-theme="capsule"] .provider-mobile-nav :is(button,a) { border-radius:999px; }
+  .provider-body[data-provider-theme="bento"] .provider-app { padding:8px 8px 84px; background:#e6eee8; }
+  .provider-body[data-provider-theme="bento"] .provider-workspace { padding:0; }
+  .provider-body[data-provider-theme="bento"] .provider-topbar { padding:12px; border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); }
+  .provider-body[data-provider-theme="bento"] .provider-mobile-nav { left:8px; right:8px; }
+  .provider-body[data-provider-theme="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { border-radius:15px; }
+  .provider-body[data-provider-theme="editorial"] .provider-app { display:block; }
+  .provider-body[data-provider-theme="editorial"] .provider-topbar { border-bottom-width:2px; }
 }

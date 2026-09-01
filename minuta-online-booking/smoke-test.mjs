@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '111';
+const version = '113';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -91,7 +91,7 @@ assert.match(provider, /const REGULAR_CLIENT_COMPLETED_VISITS = 10;/, 'Пост�
 assert.match(provider, /bookingOutcome\(item\)\.visit_status === 'completed'/, 'В визиты попадают незавершённые записи');
 assert.match(provider, /provider_display_preferences/, 'Оформление кабинета не сохраняется в аккаунте мастера');
 assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
-assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"/, 'В настройках доступны не все пять тем');
+assert.match(providerHtml, /value="linear"[\s\S]*value="soft"[\s\S]*value="capsule"[\s\S]*value="editorial"[\s\S]*value="bento"/, 'В настройках доступны не все пять стилей');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
 const visitClassifierSource = provider.match(/function classifyVisitHistory\(referenceTimestamp, completedTimestamps, currentCompleted = false\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(visitClassifierSource, 'Не удалось извлечь расчёт номера визита для проверки');
@@ -142,12 +142,19 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
-for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+for (const theme of ['linear', 'soft', 'capsule', 'editorial', 'bento']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS стиля ${theme}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
 assert.match(styles, /data-provider-theme\] \.timeline-view \.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
-assert.match(styles, /data-provider-theme="graphite"\] \.timeline-view \.timeline-booking\.status-new\.color-auto/, 'Статусы записей не адаптированы к тёмной теме');
+assert.match(styles, /data-provider-theme="linear"\][\s\S]*?\.provider-nav button\.active/, 'Строгая геометрия не оформляет активный раздел');
+assert.match(styles, /data-provider-theme="capsule"\][\s\S]*?\.provider-sidebar/, 'Капсульный стиль не оформляет боковую навигацию');
+assert.match(styles, /data-provider-theme="editorial"\][\s\S]*?font-family:Georgia/, 'Редакционный стиль не меняет типографику');
+assert.match(styles, /data-provider-theme="bento"\][\s\S]*?\.schedule-card/, 'Bento-стиль не разделяет расписание на модули');
+assert.match(styles, /data-provider-theme\] :is\(\.notification-card,\.waitlist-provider-card,\.report-summary article,\.portfolio-card,\.provider-review-card/, 'Карточки отдельных разделов не продолжают выбранную тему');
+assert.match(styles, /data-provider-theme\] :is\(\.notification-summary,\.notification-filters,\.report-periods\)/, 'Сводки и фильтры разделов не продолжают выбранную тему');
+assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Старый выбор оформления не переносится на новые стили');
+assert.match(styles, /data-provider-theme\] \.settings-check strong \{ color:var\(--theme-ink\); \}/, 'Основной текст настроек окрашен акцентом и теряет контраст');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
 assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Двойное нажатие может случайно увеличить страницу');

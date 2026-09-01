@@ -11,12 +11,13 @@ const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v2';
-const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender'];
+const PROVIDER_THEME_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
+const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ sage: 'linear', nordic: 'soft', warm: 'editorial', graphite: 'bento', lavender: 'capsule' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const REGULAR_CLIENT_COMPLETED_VISITS = 10;
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
-  theme: 'sage',
+  theme: 'linear',
   show_phone: true,
   show_visit_number: true,
   show_client_type: true,
@@ -260,8 +261,9 @@ function applyClientHighlightClasses(element, phone, prefix = 'client-') {
 function providerDisplayStorageKey(userId = currentUser?.id) { return `massage-provider-display-v1:${userId || 'guest'}`; }
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
+  const storedTheme = String(source.theme || '');
   return {
-    theme: PROVIDER_THEME_KEYS.includes(String(source.theme)) ? String(source.theme) : DEFAULT_DISPLAY_PREFERENCES.theme,
+    theme: PROVIDER_THEME_KEYS.includes(storedTheme) ? storedTheme : LEGACY_PROVIDER_THEME_MAP[storedTheme] || DEFAULT_DISPLAY_PREFERENCES.theme,
     show_phone: source.show_phone ?? DEFAULT_DISPLAY_PREFERENCES.show_phone,
     show_visit_number: source.show_visit_number ?? DEFAULT_DISPLAY_PREFERENCES.show_visit_number,
     show_client_type: source.show_client_type ?? DEFAULT_DISPLAY_PREFERENCES.show_client_type,
@@ -279,8 +281,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
-  const themeColors = { sage:'#153c2c', nordic:'#2f63dc', warm:'#9b5d45', graphite:'#11181d', lavender:'#6f59c5' };
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#153c2c');
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -545,7 +546,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=111#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=113#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3699,4 +3700,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=111'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=113'));
