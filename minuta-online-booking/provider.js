@@ -772,7 +772,7 @@ function bookingClientNote(item) {
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
-  const hourHeight = window.matchMedia('(max-width: 760px)').matches ? 56 : 64;
+  const hourHeight = window.matchMedia('(max-width: 760px)').matches ? 70 : 76;
   const totalHeight = ((end - start) / 60) * hourHeight;
   const labels = [];
   const lines = [];
@@ -2570,4 +2570,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=62'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=63'));

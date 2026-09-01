@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '62';
+const version = '63';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -107,6 +107,8 @@ assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-stat
 assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px; margin:0;/, 'Поле календаря не выровнено с подписью и иконкой');
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
+assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 70 : 76/, 'Высота часового интервала снова обрезает заметки');
+assert.match(styles, /timeline-booking-time \{ display:flex; align-self:stretch; align-items:center;/, 'Время записи не центрируется по высоте карточки');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
