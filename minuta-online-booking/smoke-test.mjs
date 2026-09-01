@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '87';
+const version = '88';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -328,11 +328,15 @@ assert.match(clientAccountMigration, /access_code_hash/, 'Личный код к
 assert.match(clientAccountMigration, /create or replace function public\.login_client_access/, 'Нет безопасного входа клиента');
 assert.match(clientAccountMigration, /login_rate_limited/, 'Вход клиента не ограничивает частоту попыток');
 assert.match(clientAccountMigration, /create or replace function public\.get_client_bookings/, 'Нет защищённого списка записей клиента');
+const clientBookingsMigration = readFileSync(join(root, 'supabase-migration-v55.sql'), 'utf8');
+assert.match(clientBookingsMigration, /booking\.booking_code::text/, 'Код записи не приводится к типу RPC');
+assert.match(clientBookingsMigration, /booking\.status::text/, 'Статус записи не приводится к типу RPC');
 const clientAccount = readFileSync(join(root, 'my-bookings.js'), 'utf8');
 assert.match(clientAccount, /login_client_access/, 'Клиентская зона не выполняет вход по телефону и коду');
 assert.match(clientAccount, /get_client_bookings/, 'Клиентская зона не загружает все записи');
 assert.match(clientAccount, /localStorage\.setItem\(SESSION_KEY/, 'Сессия клиента не сохраняется на устройстве');
 assert.doesNotMatch(clientAccount, /localStorage\.setItem\([^\n]*(?:phone|code)/i, 'Телефон или личный код сохраняется в открытом виде');
+assert.doesNotMatch(clientAccount, /if \(!data\?\.length\)[\s\S]*logout/, 'Пустой кабинет ошибочно сбрасывает действующую сессию');
 assert.match(app, /bootstrap_client_access/, 'После оформления не создаётся клиентский доступ');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');

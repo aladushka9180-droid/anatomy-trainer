@@ -45,10 +45,6 @@ async function loadBookings() {
   const { data, error } = await db.rpc('get_client_bookings', { p_session_token: sessionToken });
   $('#clientBookingsLoading').hidden = true;
   if (error) { showError($('#clientBookingsError'), navigator.onLine ? 'Не удалось загрузить записи. Повторите попытку.' : 'Нет соединения с интернетом.'); return false; }
-  if (!data?.length) {
-    const { data: restored } = await db.rpc('restore_client_session', { p_session_token: sessionToken });
-    if (!restored?.length) { await logout({ localOnly: true }); return false; }
-  }
   renderBookings(data || []);
   return true;
 }
@@ -114,4 +110,4 @@ $('#clientRotateCode').addEventListener('click', rotateCode);
 $('#clientLogout').addEventListener('click', logout);
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=87'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=88'));
