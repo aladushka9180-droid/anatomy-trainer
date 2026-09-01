@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '74';
+const version = '75';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -134,6 +134,9 @@ assert.match(provider, /function sessionConflict/, 'Дополнительная
 assert.match(provider, /пересекаются со следующей записью/, 'Пользователь не получает понятного предупреждения о пересечении');
 assert.match(provider, /function compactBookingColorPicker/, 'Большой выбор цвета не свёрнут в компактную строку');
 assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумма состава не используется в карточке и оплате');
+assert.match(provider, /timeline-client-phone/, 'Телефон клиента нельзя независимо разместить в мобильной карточке');
+assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт телефону всю доступную ширину');
+assert.match(styles, /timeline-client-duration\s*\{\s*display:none/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');
 assert.match(providerHtml, /<details class="panel settings-card account-settings-card">/, 'Смена пароля не свёрнута в дополнительный раздел');
 assert.match(provider, /class="service-more"/, 'Повторяющиеся действия услуги не убраны в компактное меню');
 assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-status[\s\S]*display:none/, 'Подтверждённые записи продолжают показывать повторяющийся статус');
