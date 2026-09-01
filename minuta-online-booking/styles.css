@@ -900,7 +900,8 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .schedule-date-picker { min-height:32px; border-color:#dce3de; border-radius:9px; background:#fff; color:#465d50; }
 .provider-body .date-nav-button:hover,
 .provider-body .date-today-button:hover { border-color:#c6d1ca; background:#f4f6f4; }
-.provider-body .schedule-date-picker { margin-left:auto; }
+.provider-body .schedule-date-picker { margin:0 0 0 auto; }
+.provider-body .schedule-date-picker input { height:25px; margin:0; padding:0 4px; line-height:25px; }
 .provider-body .date-strip { padding:8px 10px; border-bottom:0; background:#fafbfa; }
 .provider-body .date-strip button { min-height:58px; border-radius:10px; }
 .provider-body .date-strip button.active { background:#235b40; color:#fff; box-shadow:none; }
