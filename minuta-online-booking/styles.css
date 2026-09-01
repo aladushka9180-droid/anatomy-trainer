@@ -1076,7 +1076,8 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .timeline-booking { grid-template-columns:58px minmax(0,1fr); grid-template-rows:auto auto auto; gap:2px 8px; align-content:center; padding:7px 10px; }
   .provider-body .timeline-booking-time { grid-column:1; grid-row:1; align-self:center; font-size:16px; line-height:1; }
   .provider-body .timeline-booking-copy { display:contents; }
-  .provider-body .timeline-booking-copy>strong { grid-column:2; grid-row:1; align-self:center; padding-right:32px; font-size:13px; }
+  .provider-body .timeline-booking-copy>strong { display:-webkit-box; grid-column:2; grid-row:1; align-self:center; padding-right:32px; overflow:hidden; font-size:13px; line-height:1.15; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .provider-body .timeline-service-variant { display:none; }
   .provider-body .timeline-booking-client-row { grid-column:1 / -1; grid-row:2; display:flex!important; padding-right:32px; }
   .provider-body .timeline-booking-client { width:100%; font-size:10px; }
   .provider-body .timeline-client-duration { display:none; }
@@ -1085,6 +1086,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .timeline-booking.compact { grid-template-columns:58px minmax(0,1fr); }
   .provider-body .timeline-booking.compact .timeline-booking-time { grid-column:1; grid-row:1; }
   .provider-body .timeline-booking.compact .timeline-booking-copy { display:contents; }
+  .provider-body .timeline-booking.compact .timeline-booking-copy>strong { -webkit-line-clamp:1; }
   .provider-body .timeline-booking.compact.has-note .timeline-booking-client-row { display:flex!important; }
   .provider-body .timeline-booking.compact.has-note .timeline-booking-note { grid-column:1 / -1; grid-row:3; display:block; }
   .provider-body .managed-service { grid-template-columns:minmax(0,1fr) auto; align-items:center; }

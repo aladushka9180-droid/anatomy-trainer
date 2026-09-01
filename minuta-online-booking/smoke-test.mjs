@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '78';
+const version = '79';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -145,7 +145,11 @@ assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумм
 assert.match(providerHtml, /id="reportCompletedValue"/, 'В статистике не показана стоимость состоявшихся визитов');
 assert.match(provider, /const completedValue = completed\.reduce[\s\S]*bookingSessionTotal\(item\)/, 'Стоимость состоявшихся визитов считается без итогового состава сеанса');
 assert.match(provider, /timeline-client-phone/, 'Телефон клиента нельзя независимо разместить в мобильной карточке');
+assert.match(provider, /function timelineServiceNameMarkup/, 'Название услуги нельзя адаптировать для мобильной карточки');
+assert.match(provider, /timeline-service-variant/, 'Уточнение услуги не отделено от основной части названия');
 assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт телефону всю доступную ширину');
+assert.match(styles, /timeline-service-variant\s*\{\s*display:none/, 'На мобильном экране второстепенное уточнение продолжает сокращать основное название');
+assert.match(styles, /-webkit-line-clamp:2/, 'Длинное основное название услуги не может занять две строки');
 assert.match(styles, /timeline-client-duration\s*\{\s*display:none/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');
 assert.match(providerHtml, /<details class="panel settings-card account-settings-card">/, 'Смена пароля не свёрнута в дополнительный раздел');
 assert.match(provider, /class="service-more"/, 'Повторяющиеся действия услуги не убраны в компактное меню');
