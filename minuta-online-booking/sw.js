@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v96`;
+const CACHE = `${CACHE_PREFIX}v97`;
 const ASSETS = [
   './',
   './index.html',
@@ -7,14 +7,14 @@ const ASSETS = [
   './booking.html',
   './my-bookings.html',
   './privacy.html',
-  './styles.css?v=96',
-  './config.js?v=96',
-  './reliability.js?v=96',
-  './app.js?v=96',
-  './provider.js?v=96',
-  './booking.js?v=96',
-  './my-bookings.js?v=96',
-  './ui-icons.svg?v=96',
+  './styles.css?v=97',
+  './config.js?v=97',
+  './reliability.js?v=97',
+  './app.js?v=97',
+  './provider.js?v=97',
+  './booking.js?v=97',
+  './my-bookings.js?v=97',
+  './ui-icons.svg?v=97',
   './manifest.webmanifest',
   './icon.svg',
   './og.png',
