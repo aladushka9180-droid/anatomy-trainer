@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '50';
+const version = '51';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -114,6 +114,15 @@ assert.match(app, /data-suggested-date/, 'Нет однокнопочной по
 assert.match(app, /Сегодня мест нет/, 'Подсказка не объясняет отсутствие мест сегодня');
 assert.match(app, /Показать это время/, 'Подсказка ближайшего времени не содержит понятного действия');
 assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфолио отвлекает клиента во время записи');
+assert.match(app, /до \$\{endTime\} · нельзя начать/, 'Недоступное начало ошибочно выглядит как занятое отдельное время');
+assert.match(app, /весь интервал должен быть свободен/, 'Клиенту не объясняется правило для продолжительной услуги');
+assert.doesNotMatch(app, /<small>занято<\/small>/, 'Интерфейс всё ещё называет недоступное начало занятым временем');
+
+const timeRangeFunctionSource = app.match(/function timeRange\(time, duration\) \{[\s\S]*?\n\}/)?.[0];
+assert.ok(timeRangeFunctionSource, 'Не удалось извлечь расчёт интервала услуги');
+const calculateTimeRange = Function(`${timeRangeFunctionSource}; return timeRange;`)();
+assert.equal(calculateTimeRange('11:00', 120), '11:00–13:00', 'Двухчасовой сеанс с 11:00 должен заканчиваться в 13:00');
+assert.equal(calculateTimeRange('12:00', 120), '12:00–14:00', 'Альтернативное начало в 12:00 должно проверять интервал до 14:00');
 
 const suggestionFunctionSource = app.match(/function renderAvailabilitySuggestion\(times\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(suggestionFunctionSource, 'Не удалось извлечь умную подсказку для проверки');
@@ -131,6 +140,7 @@ assert.match(index, /id="portfolioSection"/, 'На публичной стран
 assert.match(index, /Услуга[\s\S]*Время[\s\S]*Контакты/, 'На форме нет понятного прогресса из трёх этапов');
 assert.match(index, /id="submitBooking"[^>]*disabled/, 'Кнопка подтверждения активна до корректных контактов');
 assert.match(index, /id="availabilityHint"/, 'В форме нет места для подсказки ближайшего времени');
+assert.match(index, /id="durationNote"/, 'В форме нет пояснения длительности выбранного интервала');
 assert.match(index, /class="booking-footer"[\s\S]*provider\.html/, 'Исполнитель потерял доступ к своему кабинету');
 const clientHeader = index.match(/<header class="site-header booking-client-header">[\s\S]*?<\/header>/)?.[0] || '';
 assert.doesNotMatch(clientHeader, /provider-link|provider\.html/, 'Вход исполнителя снова отвлекает клиента в шапке');

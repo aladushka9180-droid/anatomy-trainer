@@ -86,6 +86,14 @@ function timeRange(time, duration) {
   const end = hours * 60 + minutes + Number(duration || 0);
   return `${time}–${String(Math.floor(end / 60) % 24).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
 }
+function durationLabel(duration) {
+  const minutes = Number(duration || 0);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} мин`;
+  const hourWord = hours === 1 ? 'час' : hours >= 2 && hours <= 4 ? 'часа' : 'часов';
+  return rest ? `${hours} ч ${rest} мин` : `${hours} ${hourWord}`;
+}
 function setBookingStatus(kind, text) {
   const element = $('#bookingStatus');
   if (!element) return;
@@ -267,6 +275,14 @@ function renderDates() {
 
 function renderTimes() {
   const times = state.availability.get(state.date) || [];
+  const service = selectedService();
+  const duration = Number(service?.duration_minutes || 0);
+  const durationNote = $('#durationNote');
+  if (durationNote) {
+    durationNote.innerHTML = state.time && duration
+      ? `Выбрано: <strong>${escapeHtml(timeRange(state.time, duration))}</strong>`
+      : duration ? `Сеанс длится <strong>${escapeHtml(durationLabel(duration))}</strong>. Выберите время начала — весь интервал должен быть свободен.` : '';
+  }
   if (state.loadingAvailability) {
     $('#timePeriods').innerHTML = '';
     $('#timeHours').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободное время…</span></div>';
@@ -279,14 +295,18 @@ function renderTimes() {
     $('#timeHours').innerHTML = roundHours.map(slot => {
       const available = filtered.includes(slot);
       const selected = slot === state.time;
-      return `<button class="time-hour ${selected ? 'selected' : ''} ${available ? '' : 'unavailable'}" type="button" ${available ? `data-time="${slot}"` : 'disabled'} aria-pressed="${selected}"><strong>${slot}</strong>${available ? '' : '<small>занято</small>'}</button>`;
+      const range = timeRange(slot, duration);
+      const endTime = range.split('–')[1];
+      const caption = selected ? `до ${endTime} · выбрано` : available ? `до ${endTime}` : `до ${endTime} · нельзя начать`;
+      const ariaLabel = available ? `${range}${selected ? ', выбрано' : ''}` : `${range}, недоступно для начала: весь интервал должен быть свободен`;
+      return `<button class="time-hour ${selected ? 'selected' : ''} ${available ? '' : 'unavailable'}" type="button" ${available ? `data-time="${slot}"` : 'disabled'} aria-label="${ariaLabel}" aria-pressed="${selected}"><strong>${slot}</strong><small>${caption}</small></button>`;
     }).join('');
     const additionalTimes = filtered.filter(time => !time.endsWith(':00'));
     const additionalHours = [...new Set(additionalTimes.map(time => time.slice(0, 2)))];
     $('#minutePicker').hidden = !additionalTimes.length;
     $('#times').innerHTML = additionalHours.map(hour => {
       const hourTimes = additionalTimes.filter(time => time.startsWith(`${hour}:`));
-      return `<section class="minute-hour-group"><strong>${hour}:00–${hour}:59</strong><div class="time-grid">${hourTimes.map(item => `<button class="time ${item === state.time ? 'selected' : ''}" type="button" data-time="${item}" aria-pressed="${item === state.time}">${item}</button>`).join('')}</div></section>`;
+      return `<section class="minute-hour-group"><strong>${hour}:00–${hour}:59</strong><div class="time-grid">${hourTimes.map(item => { const range = timeRange(item, duration); return `<button class="time ${item === state.time ? 'selected' : ''}" type="button" data-time="${item}" aria-label="${range}" aria-pressed="${item === state.time}"><strong>${item}</strong><small>до ${range.split('–')[1]}</small></button>`; }).join('')}</div></section>`;
     }).join('');
     if (state.time && !state.time.endsWith(':00')) $('#minutePicker').open = true;
   }
@@ -554,4 +574,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=50'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=51'));
