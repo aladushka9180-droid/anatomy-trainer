@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '110';
+const version = '111';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -144,6 +144,10 @@ assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимог
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
 for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
+assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
+assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
+assert.match(styles, /data-provider-theme\] \.timeline-view \.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
+assert.match(styles, /data-provider-theme="graphite"\] \.timeline-view \.timeline-booking\.status-new\.color-auto/, 'Статусы записей не адаптированы к тёмной теме');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
 assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Двойное нажатие может случайно увеличить страницу');
