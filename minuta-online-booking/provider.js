@@ -1322,7 +1322,21 @@ function sessionConflict(item, items) {
 
 function sessionComposerItemMarkup(entry, index) {
   const addon = entry.kind === 'addon';
-  return `<article class="session-composer-item" data-session-item="${index}"><div class="session-composer-item-head"><strong>${addon ? `Дополнительная услуга ${index}` : 'Основная услуга'}</strong>${addon ? `<button type="button" data-remove-session-item="${index}" aria-label="Удалить дополнительную услугу">${uiIcon('trash')}</button>` : ''}</div><label>${addon ? 'Источник' : 'Услуга из каталога'}<select data-session-service ${addon ? '' : 'required'}>${sessionServiceOptions(entry.service_id, addon)}</select></label>${addon ? `<label>Название<input data-session-title maxlength="120" value="${escapeHtml(entry.title)}" required></label>` : `<input data-session-title type="hidden" value="${escapeHtml(entry.title)}">`}<div class="session-composer-fields"><label>Длительность, мин<input data-session-duration type="number" min="${addon ? 0 : 5}" max="480" step="5" value="${entry.duration_minutes}" required></label><label>Стоимость, ₽<input data-session-price type="number" min="0" max="1000000" step="50" value="${entry.price_rub}" required></label></div>${addon ? `<label class="session-duration-toggle"><input data-session-extends type="checkbox" ${entry.extends_duration ? 'checked' : ''}><span><strong>Увеличивает продолжительность сеанса</strong><small>Если выключено, услуга добавится только к стоимости.</small></span></label>` : ''}</article>`;
+  const service = ownServices.find(item => item.id === entry.service_id);
+  const minutePrice = Number(service?.duration_minutes) === 1 ? Number(service.price_rub) : null;
+  const price = minutePrice !== null ? Math.max(0, Math.round(Number(entry.duration_minutes) * minutePrice)) : entry.price_rub;
+  return `<article class="session-composer-item" data-session-item="${index}"><div class="session-composer-item-head"><strong>${addon ? `Дополнительная услуга ${index}` : 'Основная услуга'}</strong>${addon ? `<button type="button" data-remove-session-item="${index}" aria-label="Удалить дополнительную услугу">${uiIcon('trash')}</button>` : ''}</div><label>${addon ? 'Источник' : 'Услуга из каталога'}<select data-session-service ${addon ? '' : 'required'}>${sessionServiceOptions(entry.service_id, addon)}</select></label>${addon ? `<label>Название<input data-session-title maxlength="120" value="${escapeHtml(entry.title)}" required></label>` : `<input data-session-title type="hidden" value="${escapeHtml(entry.title)}">`}<div class="session-composer-fields"><label>Длительность, мин<input data-session-duration type="number" min="${addon ? 0 : 5}" max="480" step="1" value="${entry.duration_minutes}" required></label><label>Стоимость, ₽<input data-session-price type="number" min="0" max="1000000" step="1" value="${price}" required></label></div>${addon ? `<label class="session-duration-toggle"><input data-session-extends type="checkbox" ${entry.extends_duration ? 'checked' : ''}><span><strong>Увеличивает продолжительность сеанса</strong><small>Если выключено, услуга добавится только к стоимости.</small></span></label>` : ''}</article>`;
+}
+
+function updateSessionMinutePrice(durationInput) {
+  const card = durationInput?.closest('[data-session-item]');
+  const serviceId = card?.querySelector('[data-session-service]')?.value;
+  const service = ownServices.find(item => item.id === serviceId);
+  if (!card || Number(service?.duration_minutes) !== 1) return;
+  const duration = Number(durationInput.value);
+  const minutePrice = Number(service.price_rub);
+  if (!Number.isFinite(duration) || duration < 0 || !Number.isFinite(minutePrice)) return;
+  card.querySelector('[data-session-price]').value = String(Math.max(0, Math.round(duration * minutePrice)));
 }
 
 function readSessionComposerDraft() {
@@ -3241,6 +3255,7 @@ document.addEventListener('change', async event => {
         card.querySelector('[data-session-price]').value = String(service.price_rub);
       }
     }
+    if (sessionControl.matches('[data-session-duration]')) updateSessionMinutePrice(sessionControl);
     if (form) updateSessionComposerSummary(form.dataset.bookingId);
   }
   const bookingLabelInput = event.target.closest('[data-booking-label-favorite],[data-booking-label-vip],[data-booking-label-attention]');
@@ -3319,6 +3334,7 @@ document.addEventListener('input', event => {
   const sessionInput = event.target.closest('[data-session-title],[data-session-duration],[data-session-price]');
   if (sessionInput) {
     const form = sessionInput.closest('#sessionComposerForm');
+    if (sessionInput.matches('[data-session-duration]')) updateSessionMinutePrice(sessionInput);
     if (form) updateSessionComposerSummary(form.dataset.bookingId);
   }
   const reason = event.target.closest('[data-booking-favorite-note],[data-booking-vip-note],[data-booking-attention-reason]');
