@@ -647,6 +647,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .booking-labels-disclosure>summary>span { min-width:64px; justify-content:center; }.booking-labels-summary .client-badges { gap:3px; }.booking-labels-summary .client-badge { width:19px; height:19px; border-radius:6px; }.booking-labels-summary .client-badge .ui-icon { width:11px; height:11px; }.booking-labels-editor { margin:0 14px 14px; padding-top:13px; border-top:1px solid #e5ece7; }.booking-labels-editor .client-label-options { margin-top:0; }.booking-labels-editor .client-labels-save { width:auto; }
 .client-labels-autosave { display:block; min-height:14px; margin-top:9px; color:#788a80; font-size:9px; font-weight:750; }.booking-labels-editor .client-labels-autosave { text-align:right; }
 .booking-sheet-actions .booking-cancel-action { grid-column:1/-1; min-height:37px; border:0; background:transparent; color:#a03d39; box-shadow:none; font-size:9px; font-weight:850; }
+.booking-delete-zone { margin-top:14px; padding-top:12px; border-top:1px solid #edf0ee; text-align:center; }.booking-delete-action { min-height:34px; padding:0 12px; border:0; background:transparent; color:#a75a57; cursor:pointer; font:inherit; font-size:9px; font-weight:800; }.booking-delete-action:hover { color:#8f302d; text-decoration:underline; }.booking-delete-action:disabled { cursor:wait; opacity:.5; }
 .booking-outcome-heading small,.booking-outcome-form>p { font-size:10px; }
 .booking-outcome-heading>span { font-size:9px; }
 .booking-outcome-form label { font-size:11px; }

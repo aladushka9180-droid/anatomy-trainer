@@ -128,7 +128,7 @@ const writeSelectors = [
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
   '[data-retry-notification-outbox]',
-  '[data-booking-status]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
+  '[data-booking-status]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
 function applyWriteAvailability() {
   $$(writeSelectors.join(',')).forEach(control => {
@@ -1142,7 +1142,8 @@ function openBookingSheet(id) {
           <button class="secondary-button" type="submit">Сохранить заметку</button>
         </form>
       </details>
-      ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions"><button class="primary" type="button" data-edit-booking="${item.id}">Изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Освободить время</button></div>` : ''}`;
+      ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions"><button class="primary" type="button" data-edit-booking="${item.id}">Изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Освободить время</button></div>` : ''}
+      <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить время навсегда</button></div>`;
     $('#bookingSheet').hidden = false;
     document.body.classList.add('booking-sheet-open');
     $('#bookingBlockNoteForm')?.addEventListener('submit', saveBookingBlockNote);
@@ -1164,7 +1165,8 @@ function openBookingSheet(id) {
     </details>
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
-    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button><button class="booking-cancel-action" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
+    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button><button class="booking-cancel-action" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}
+    <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись навсегда</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
@@ -3172,6 +3174,7 @@ document.addEventListener('click', async event => {
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
+  const deleteBookingButton = event.target.closest('[data-delete-booking]');
   const waitlistStatus = event.target.closest('[data-waitlist-status]');
   const client = event.target.closest('[data-client-phone]');
   const repeat = event.target.closest('[data-repeat-time]');
@@ -3263,7 +3266,7 @@ document.addEventListener('click', async event => {
     repeatTime = repeat.dataset.repeatTime;
     $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
   }
-  if ((toggle || remove || removeDayOff || booking || waitlistStatus) && !requireWrites()) return;
+  if ((toggle || remove || removeDayOff || booking || deleteBookingButton || waitlistStatus) && !requireWrites()) return;
   if (toggle) {
     await db.from('services').update({ active: toggle.dataset.active !== 'true' }).eq('id', toggle.dataset.toggleService);
     notify('Услуга обновлена');
@@ -3279,6 +3282,33 @@ document.addEventListener('click', async event => {
     const { error } = await db.from('provider_days_off').delete().eq('id', removeDayOff.dataset.deleteDayOff);
     if (error) notify('Не удалось удалить исключение');
     else { notify('Исключение удалено'); await refreshAfterWrite(); }
+  }
+  if (deleteBookingButton) {
+    const id = deleteBookingButton.dataset.deleteBooking;
+    const item = allBookings.find(entry => entry.id === id);
+    if (!item) return;
+    const label = isScheduleBlock(item) ? 'занятое время' : 'запись';
+    if (!confirm(`Удалить ${label} на ${String(item.booking_time).slice(0, 5)} навсегда? Восстановить его будет нельзя.`)) return;
+    deleteBookingButton.disabled = true;
+    const { error } = await db.from('bookings').delete().eq('id', id).eq('performer_id', currentUser.id);
+    deleteBookingButton.disabled = false;
+    if (error) {
+      const paymentProtected = error.code === '23503' || /payment|foreign key/i.test(error.message || '');
+      notify(paymentProtected ? 'Запись с проведённой оплатой удалить нельзя. Используйте отмену.' : 'Не удалось удалить запись');
+      return;
+    }
+    bookingOutcomes.delete(id);
+    bookingSessionItems.delete(id);
+    bookingColors.delete(id);
+    bookingNotes.delete(id);
+    pendingBookingNotes.delete(id);
+    writeLocalOutcomes();
+    writeLocalSessionItems();
+    persistBookingColors();
+    persistBookingNotes();
+    closeBookingSheet();
+    notify(isScheduleBlock(item) ? 'Занятое время удалено' : 'Запись удалена');
+    await refreshAfterWrite();
   }
   if (booking) {
     const bookingItem = allBookings.find(item => item.id === booking.dataset.bookingId);
@@ -3469,4 +3499,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=101'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=102'));
