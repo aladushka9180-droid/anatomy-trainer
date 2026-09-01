@@ -1173,8 +1173,8 @@ function openBookingSheet(id) {
     </details>
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
-    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button><button class="booking-cancel-action" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}
-    <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись навсегда</button></div>`;
+    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button></div>` : ''}
+    <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
@@ -3296,7 +3296,7 @@ document.addEventListener('click', async event => {
     const item = allBookings.find(entry => entry.id === id);
     if (!item) return;
     const label = isScheduleBlock(item) ? 'занятое время' : 'запись';
-    if (!confirm(`Удалить ${label} на ${String(item.booking_time).slice(0, 5)} навсегда? Восстановить его будет нельзя.`)) return;
+    if (!confirm(`Удалить ${label} на ${String(item.booking_time).slice(0, 5)}? Запись исчезнет из расписания и статистики.`)) return;
     deleteBookingButton.disabled = true;
     const { data, error } = await db.rpc('provider_delete_booking', { p_booking:id });
     deleteBookingButton.disabled = false;
@@ -3304,8 +3304,8 @@ document.addEventListener('click', async event => {
       notify('Не удалось удалить запись. Обновите страницу и повторите попытку.');
       return;
     }
-    if (data === 'payment_protected') { notify('Запись с проведённой оплатой удалить нельзя. Используйте отмену.'); return; }
     if (data !== 'deleted') { closeBookingSheet(); notify('Запись уже была удалена'); await refreshAfterWrite(); return; }
+    allBookings = allBookings.filter(entry => entry.id !== id);
     bookingOutcomes.delete(id);
     bookingSessionItems.delete(id);
     bookingColors.delete(id);
@@ -3316,6 +3316,7 @@ document.addEventListener('click', async event => {
     persistBookingColors();
     persistBookingNotes();
     closeBookingSheet();
+    renderBookingData();
     notify(isScheduleBlock(item) ? 'Занятое время удалено' : 'Запись удалена');
     await refreshAfterWrite();
   }
