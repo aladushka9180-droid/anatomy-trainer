@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '53';
+const version = '54';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -122,7 +122,8 @@ assert.match(app, /data-suggested-date/, 'Нет однокнопочной по
 assert.match(app, /Сегодня мест нет/, 'Подсказка не объясняет отсутствие мест сегодня');
 assert.match(app, /Показать это время/, 'Подсказка ближайшего времени не содержит понятного действия');
 assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфолио отвлекает клиента во время записи');
-assert.match(app, /до \$\{endTime\} · нельзя начать/, 'Недоступное начало ошибочно выглядит как занятое отдельное время');
+assert.doesNotMatch(app, /· нельзя начать/, 'Серые интервалы перегружены повторяющейся подписью');
+assert.match(app, /недоступно для начала: весь интервал должен быть свободен/, 'Недоступность интервала не объясняется средствам доступности');
 assert.match(app, /весь интервал должен быть свободен/, 'Клиенту не объясняется правило для продолжительной услуги');
 assert.doesNotMatch(app, /<small>занято<\/small>/, 'Интерфейс всё ещё называет недоступное начало занятым временем');
 assert.match(app, /requestAnimationFrame\(\(\) => bookingCard\?\.scrollIntoView/, 'Переход между шагами прокручивается только после загрузки данных');
