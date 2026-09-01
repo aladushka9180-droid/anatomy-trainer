@@ -2257,7 +2257,7 @@ function renderOwnServices() {
     list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>`;
     return;
   }
-  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">${uiIcon('spark')}</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)} · ${item.active ? 'доступна клиентам' : 'скрыта'}</small></div></div><div class="manage-actions"><button class="edit-service-button" type="button" data-edit-service="${item.id}">Изменить</button><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
+  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
 }
 
 async function loadOwnServices(options = {}) {
@@ -2560,4 +2560,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=57'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=58'));
