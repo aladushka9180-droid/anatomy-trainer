@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=71">
+  <link rel="stylesheet" href="styles.css?v=72">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -123,6 +123,8 @@
                     <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-star"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
+                  <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
+                  <label class="client-attention-reason" id="clientVipNoteField" hidden>Особые предпочтения<textarea id="clientVipNote" maxlength="500" rows="2" placeholder="Например, индивидуальные пожелания или условия"></textarea></label>
                   <label class="client-attention-reason" id="clientAttentionReasonField" hidden>Причина<textarea id="clientAttentionReason" maxlength="500" rows="2" placeholder="Например, нужна предоплата или часто опаздывает"></textarea></label>
                   <p class="form-error" id="clientLabelsError" hidden></p>
                   <span class="client-labels-autosave" id="clientLabelsSaveStatus" role="status" aria-live="polite">Сохраняются автоматически</span>
@@ -322,8 +324,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=71"></script>
-  <script src="reliability.js?v=71"></script>
-  <script src="provider.js?v=71" defer></script>
+  <script src="config.js?v=72"></script>
+  <script src="reliability.js?v=72"></script>
+  <script src="provider.js?v=72" defer></script>
 </body>
 </html>

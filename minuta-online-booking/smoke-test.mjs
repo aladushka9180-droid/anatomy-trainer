@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '71';
+const version = '72';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -77,8 +77,12 @@ assert.match(provider, /function clientBadgeMarkup/, 'В записях не о�
 assert.match(provider, /function clientIsNew/, 'Новый клиент не определяется автоматически');
 assert.match(providerHtml, /id="clientLabelsSaveStatus"/, 'В карточке клиента нет статуса автосохранения меток');
 assert.match(provider, /function bookingClientLabelsMarkup/, 'В карточке записи нельзя открыть метки клиента');
-assert.match(provider, /clientLabelVip'\)\.addEventListener\('change', saveClientLabels\)/, 'VIP-метка не сохраняется сразу после выбора');
+assert.match(provider, /clientLabelVip'\)\.addEventListener\('change'/, 'VIP-метка не сохраняется сразу после выбора');
 assert.match(provider, /data-booking-labels-status/, 'В карточке записи нет статуса автосохранения меток');
+assert.match(providerHtml, /id="clientFavoriteNote"/, 'У любимого клиента нельзя оставить комментарий');
+assert.match(providerHtml, /id="clientVipNote"/, 'У VIP-клиента нельзя оставить комментарий');
+assert.match(provider, /data-booking-favorite-note/, 'Комментарий любимого клиента недоступен из записи');
+assert.match(provider, /data-booking-vip-note/, 'Комментарий VIP-клиента недоступен из записи');
 assert.match(provider, /attention_reason\.length < 3/, 'Метка «Требует внимания» сохраняется без причины');
 assert.match(provider, /client-vip/, 'VIP-записи не имеют отдельного минималистичного оформления');
 assert.match(provider, /Метки клиента: \$\{escapeHtml\(fullText\)\}/, 'Компактные метки недоступны скринридеру');
@@ -262,6 +266,12 @@ const clientLabelsMigration = readFileSync(join(root, 'supabase-migration-v50.sq
 assert.match(clientLabelsMigration, /create table if not exists public\.client_labels/, 'Нет серверного хранения меток клиента');
 assert.match(clientLabelsMigration, /performer_id = \(select auth\.uid\(\)\)/, 'Исполнитель может читать или менять чужие метки клиентов');
 assert.match(clientLabelsMigration, /not attention or char_length\(btrim\(attention_reason\)\) >= 3/, 'Сервер принимает предупреждение без причины');
+
+const clientLabelNotesMigration = readFileSync(join(root, 'supabase-migration-v51.sql'), 'utf8');
+assert.match(clientLabelNotesMigration, /add column if not exists favorite_note text/, 'Комментарий любимого клиента не сохраняется на сервере');
+assert.match(clientLabelNotesMigration, /add column if not exists vip_note text/, 'Комментарий VIP-клиента не сохраняется на сервере');
+assert.match(clientLabelNotesMigration, /char_length\(favorite_note\) <= 500/, 'Длина комментария любимого клиента не ограничена');
+assert.match(clientLabelNotesMigration, /char_length\(vip_note\) <= 500/, 'Длина комментария VIP-клиента не ограничена');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');

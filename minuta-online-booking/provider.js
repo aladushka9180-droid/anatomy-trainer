@@ -115,8 +115,8 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientAttentionReason',
-  '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-attention-reason]',
+  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
+  '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
@@ -202,7 +202,9 @@ function clientLabelPendingStorageKey(userId = currentUser?.id) { return `massag
 function normalizeClientLabel(value = {}) {
   return {
     favorite: Boolean(value.favorite),
+    favorite_note: String(value.favorite_note || '').trim().slice(0, 500),
     vip: Boolean(value.vip),
+    vip_note: String(value.vip_note || '').trim().slice(0, 500),
     attention: Boolean(value.attention),
     attention_reason: String(value.attention_reason || '').trim().slice(0, 500)
   };
@@ -240,8 +242,8 @@ function clientBadgeDefinitions(phone) {
   const value = clientLabel(phone);
   return [
     value.attention ? { key:'attention', icon:'shield-alert', label:'Требует внимания', detail:value.attention_reason } : null,
-    value.vip ? { key:'vip', icon:'star', label:'VIP' } : null,
-    value.favorite ? { key:'favorite', icon:'heart', label:'Любимый клиент' } : null,
+    value.vip ? { key:'vip', icon:'star', label:'VIP', detail:value.vip_note } : null,
+    value.favorite ? { key:'favorite', icon:'heart', label:'Любимый клиент', detail:value.favorite_note } : null,
     clientIsNew(phone) ? { key:'new', icon:'spark', label:'Новый клиент' } : null
   ].filter(Boolean);
 }
@@ -277,6 +279,8 @@ function bookingClientLabelsMarkup(phone, bookingId) {
         <label class="client-label-option label-vip"><input data-booking-label-vip type="checkbox" ${value.vip ? 'checked' : ''}><span>${uiIcon('star')}</span><strong>VIP</strong></label>
         <label class="client-label-option label-attention"><input data-booking-label-attention type="checkbox" ${value.attention ? 'checked' : ''}><span>${uiIcon('shield-alert')}</span><strong>Внимание</strong></label>
       </div>
+      <label class="client-attention-reason" data-booking-favorite-note-field ${value.favorite ? '' : 'hidden'}>Что нравится клиенту<textarea data-booking-favorite-note maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита">${escapeHtml(value.favorite_note)}</textarea></label>
+      <label class="client-attention-reason" data-booking-vip-note-field ${value.vip ? '' : 'hidden'}>Особые предпочтения<textarea data-booking-vip-note maxlength="500" rows="2" placeholder="Например, индивидуальные пожелания или условия">${escapeHtml(value.vip_note)}</textarea></label>
       <label class="client-attention-reason" data-booking-attention-reason-field ${value.attention ? '' : 'hidden'}>Причина<textarea data-booking-attention-reason maxlength="500" rows="2" placeholder="Например, нужна предоплата или часто опаздывает">${escapeHtml(value.attention_reason)}</textarea></label>
       <p class="form-error" data-booking-labels-error hidden></p>
       <span class="client-labels-autosave" data-booking-labels-status role="status" aria-live="polite">Сохраняются автоматически</span>
@@ -1517,7 +1521,11 @@ function renderClientDetail(phone) {
   $('#clientLabelFavorite').checked = labels.favorite;
   $('#clientLabelVip').checked = labels.vip;
   $('#clientLabelAttention').checked = labels.attention;
+  $('#clientFavoriteNote').value = labels.favorite_note;
+  $('#clientVipNote').value = labels.vip_note;
   $('#clientAttentionReason').value = labels.attention_reason;
+  $('#clientFavoriteNoteField').hidden = !labels.favorite;
+  $('#clientVipNoteField').hidden = !labels.vip;
   $('#clientAttentionReasonField').hidden = !labels.attention;
   $('#clientAutomaticLabel').innerHTML = clientIsNew(client.phone) ? `${uiIcon('spark')} Новый клиент` : '';
   clearFormError('#clientLabelsError');
@@ -1581,7 +1589,8 @@ async function loadClientLabels() {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (!userId) return { ok:false, optional:true };
-  const { data, error } = await db.from('client_labels').select('client_phone,favorite,vip,attention,attention_reason').eq('performer_id', userId);
+  let { data, error } = await db.from('client_labels').select('client_phone,favorite,favorite_note,vip,vip_note,attention,attention_reason').eq('performer_id', userId);
+  if (error) ({ data, error } = await db.from('client_labels').select('client_phone,favorite,vip,attention,attention_reason').eq('performer_id', userId));
   if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, optional:true };
   if (!error) {
     (data || []).forEach(item => {
@@ -1638,7 +1647,9 @@ async function saveClientLabels() {
   clearFormError('#clientLabelsError');
   const value = normalizeClientLabel({
     favorite:$('#clientLabelFavorite').checked,
+    favorite_note:$('#clientFavoriteNote').value,
     vip:$('#clientLabelVip').checked,
+    vip_note:$('#clientVipNote').value,
     attention:$('#clientLabelAttention').checked,
     attention_reason:$('#clientAttentionReason').value
   });
@@ -1647,6 +1658,8 @@ async function saveClientLabels() {
     $('#clientLabelsSaveStatus').textContent = 'Ожидает причину';
     return;
   }
+  if (!value.favorite) value.favorite_note = '';
+  if (!value.vip) value.vip_note = '';
   if (!value.attention) value.attention_reason = '';
   await persistClientLabelValue(selectedClientPhone, value, $('#clientLabelsSaveStatus'));
 }
@@ -1658,7 +1671,9 @@ async function saveBookingClientLabels(editor) {
   const phone = normalizePhone(editor.dataset.bookingClientLabels);
   const value = normalizeClientLabel({
     favorite:editor.querySelector('[data-booking-label-favorite]').checked,
+    favorite_note:editor.querySelector('[data-booking-favorite-note]').value,
     vip:editor.querySelector('[data-booking-label-vip]').checked,
+    vip_note:editor.querySelector('[data-booking-vip-note]').value,
     attention:editor.querySelector('[data-booking-label-attention]').checked,
     attention_reason:editor.querySelector('[data-booking-attention-reason]').value
   });
@@ -1668,6 +1683,8 @@ async function saveBookingClientLabels(editor) {
     editor.querySelector('[data-booking-labels-status]').textContent = 'Ожидает причину';
     return;
   }
+  if (!value.favorite) value.favorite_note = '';
+  if (!value.vip) value.vip_note = '';
   if (!value.attention) value.attention_reason = '';
   await persistClientLabelValue(phone, value, editor.querySelector('[data-booking-labels-status]'));
 }
@@ -2856,8 +2873,14 @@ document.addEventListener('change', async event => {
   const bookingLabelInput = event.target.closest('[data-booking-label-favorite],[data-booking-label-vip],[data-booking-label-attention]');
   if (bookingLabelInput) {
     const editor = bookingLabelInput.closest('[data-booking-client-labels]');
+    const favoriteInput = editor?.querySelector('[data-booking-label-favorite]');
+    const vipInput = editor?.querySelector('[data-booking-label-vip]');
     const attentionInput = editor?.querySelector('[data-booking-label-attention]');
+    const favoriteField = editor?.querySelector('[data-booking-favorite-note-field]');
+    const vipField = editor?.querySelector('[data-booking-vip-note-field]');
     const field = editor?.querySelector('[data-booking-attention-reason-field]');
+    if (favoriteField && favoriteInput) favoriteField.hidden = !favoriteInput.checked;
+    if (vipField && vipInput) vipField.hidden = !vipInput.checked;
     if (field && attentionInput) field.hidden = !attentionInput.checked;
     if (bookingLabelInput.matches('[data-booking-label-attention]') && attentionInput?.checked) editor?.querySelector('[data-booking-attention-reason]')?.focus();
     if (editor) await saveBookingClientLabels(editor);
@@ -2901,20 +2924,26 @@ $('#depositEnabled').addEventListener('change', event => { $('#depositSettings')
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#saveClientNote').addEventListener('click', saveClientNote);
-$('#clientLabelFavorite').addEventListener('change', saveClientLabels);
-$('#clientLabelVip').addEventListener('change', saveClientLabels);
+$('#clientLabelFavorite').addEventListener('change', event => {
+  $('#clientFavoriteNoteField').hidden = !event.target.checked;
+  saveClientLabels();
+});
+$('#clientLabelVip').addEventListener('change', event => {
+  $('#clientVipNoteField').hidden = !event.target.checked;
+  saveClientLabels();
+});
 $('#clientLabelAttention').addEventListener('change', event => {
   $('#clientAttentionReasonField').hidden = !event.target.checked;
   if (event.target.checked) $('#clientAttentionReason').focus();
   else clearFormError('#clientLabelsError');
   saveClientLabels();
 });
-$('#clientAttentionReason').addEventListener('input', () => {
+[$('#clientFavoriteNote'), $('#clientVipNote'), $('#clientAttentionReason')].forEach(input => input.addEventListener('input', () => {
   clearTimeout(clientLabelReasonTimer);
   clientLabelReasonTimer = setTimeout(saveClientLabels, 450);
-});
+}));
 document.addEventListener('input', event => {
-  const reason = event.target.closest('[data-booking-attention-reason]');
+  const reason = event.target.closest('[data-booking-favorite-note],[data-booking-vip-note],[data-booking-attention-reason]');
   if (!reason) return;
   clearTimeout(clientLabelReasonTimer);
   clientLabelReasonTimer = setTimeout(() => saveBookingClientLabels(reason.closest('[data-booking-client-labels]')), 450);
@@ -2987,4 +3016,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=71'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=72'));
