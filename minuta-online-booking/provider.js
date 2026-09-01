@@ -228,6 +228,16 @@ function persistClientLabels(userId = currentUser?.id) {
   } catch {}
 }
 function clientLabel(phone) { return normalizeClientLabel(clientLabels.get(normalizePhone(phone))); }
+function clientHighlightClasses(phone) {
+  const value = clientLabel(phone);
+  return `${value.favorite ? ' client-favorite' : ''}${value.vip ? ' client-vip' : ''}${value.attention ? ' client-attention' : ''}`;
+}
+function applyClientHighlightClasses(element, phone, prefix = 'client-') {
+  const value = clientLabel(phone);
+  element?.classList.toggle(`${prefix}favorite`, value.favorite);
+  element?.classList.toggle(`${prefix}vip`, value.vip);
+  element?.classList.toggle(`${prefix}attention`, value.attention);
+}
 function clientIsNew(phone) {
   const normalized = normalizePhone(phone);
   const now = new Date();
@@ -527,7 +537,9 @@ function renderAnalytics() {
   const noShows = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'no_show');
   const cancelled = items.filter(item => item.status === 'cancelled');
   const revenue = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+  const completedValue = completed.reduce((sum, item) => sum + bookingSessionTotal(item), 0);
   $('#reportRevenue').textContent = money(revenue);
+  $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportCompleted').textContent = String(completed.length);
   $('#reportUnpaid').textContent = String(unpaid.length);
   $('#reportCancelled').textContent = String(cancelled.length);
@@ -1047,9 +1059,9 @@ function renderTimeline(items) {
       ? 'Занятое время'
       : `<span class="timeline-client-name">${escapeHtml(item.client_name)} · </span><span class="timeline-client-phone">${escapeHtml(item.client_phone)}</span><span class="timeline-client-duration"> · ${duration} мин</span>`;
     const ariaDetails = note ? `${clientDetails}, заметка: ${note}` : clientDetails;
-    const vip = !block && clientLabel(item.client_phone).vip;
+    const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block ? '' : clientBadgeText(item.client_phone);
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}${vip ? ' client-vip' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}">
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}">
       <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
       <span class="timeline-booking-copy"><strong>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${clientDetailsMarkup}</small>${block ? '' : clientBadgeMarkup(item.client_phone)}</span>${note ? `<small class="timeline-booking-note"><span class="timeline-note-client">${escapeHtml(block ? '' : `${item.client_name} · `)}</span><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}</span>
       <span class="timeline-booking-status">${statusText}</span>
@@ -1077,7 +1089,7 @@ function renderBookingList(items) {
     const resultSummary = outcomeSummary(item);
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${!block && clientLabel(item.client_phone).vip ? ' client-vip' : ''}">
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
       ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone)}</span><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(bookingSessionTotal(item))}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
@@ -1099,7 +1111,7 @@ function openBookingSheet(id) {
   const outcome = bookingOutcome(item);
   const amount = Number(outcome.amount_rub || bookingSessionTotal(item));
   $('#bookingSheet').classList.remove('booking-sheet-wide');
-  $('#bookingSheet').classList.toggle('booking-sheet-vip', !isScheduleBlock(item) && clientLabel(item.client_phone).vip);
+  applyClientHighlightClasses($('#bookingSheet'), isScheduleBlock(item) ? '' : item.client_phone, 'booking-sheet-');
   if (isScheduleBlock(item)) {
     $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
       <h2 id="bookingSheetTitle">${escapeHtml(item.client_name || 'Перерыв')}</h2>
@@ -1397,7 +1409,7 @@ function openBookingEditor(id) {
   const block = isScheduleBlock(item);
   bookingEditTime = String(item.booking_time).slice(0, 5);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
-  $('#bookingSheet').classList.toggle('booking-sheet-vip', !block && clientLabel(item.client_phone).vip);
+  applyClientHighlightClasses($('#bookingSheet'), block ? '' : item.client_phone, 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small></div><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}">
@@ -1698,7 +1710,7 @@ function renderClients() {
     const upcoming = clientUpcoming(client);
     const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientLabel(client.phone).vip ? ' client-vip' : ''}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${escapeHtml(client.name.slice(0,1).toUpperCase())}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${escapeHtml(client.name.slice(0,1).toUpperCase())}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
   }).join('');
 }
 
@@ -1715,7 +1727,7 @@ function renderClientDetail(phone) {
   $('#clientPhone').href = `tel:${client.phone}`;
   $('#clientProfileBadges').innerHTML = clientBadgeMarkup(client.phone, { limit:4, showLabels:true });
   const labels = clientLabel(client.phone);
-  $('#clientProfileContent').closest('.client-profile').classList.toggle('client-vip-profile', labels.vip);
+  applyClientHighlightClasses($('#clientProfileContent').closest('.client-profile'), client.phone, 'client-profile-');
   $('#clientLabelFavorite').checked = labels.favorite;
   $('#clientLabelVip').checked = labels.vip;
   $('#clientLabelAttention').checked = labels.attention;
@@ -1808,11 +1820,11 @@ function refreshClientLabelPresentation(phone) {
   renderClients();
   if (selectedClientPhone === phone) {
     $('#clientProfileBadges').innerHTML = clientBadgeMarkup(phone, { limit:4, showLabels:true });
-    $('#clientProfileContent').closest('.client-profile').classList.toggle('client-vip-profile', clientLabel(phone).vip);
+    applyClientHighlightClasses($('#clientProfileContent').closest('.client-profile'), phone, 'client-profile-');
   }
   const editor = $('[data-booking-client-labels]');
   if (editor && normalizePhone(editor.dataset.bookingClientLabels) === phone) {
-    $('#bookingSheet').classList.toggle('booking-sheet-vip', clientLabel(phone).vip);
+    applyClientHighlightClasses($('#bookingSheet'), phone, 'booking-sheet-');
     const summary = editor.closest('.booking-labels-disclosure')?.querySelector('.booking-labels-summary');
     if (summary) summary.innerHTML = clientBadgeMarkup(phone, { limit:3 }) || `${uiIcon('plus')}<span>Добавить</span>`;
   }
@@ -3325,4 +3337,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=75'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=76'));

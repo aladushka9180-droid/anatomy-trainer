@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '75';
+const version = '76';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -85,6 +85,8 @@ assert.match(provider, /data-booking-favorite-note/, 'Комментарий л�
 assert.match(provider, /data-booking-vip-note/, 'Комментарий VIP-клиента недоступен из записи');
 assert.match(provider, /attention_reason\.length < 3/, 'Метка «Требует внимания» сохраняется без причины');
 assert.match(provider, /client-vip/, 'VIP-записи не имеют отдельного минималистичного оформления');
+assert.match(provider, /client-favorite/, 'Любимые клиенты не получают отдельного оформления');
+assert.match(provider, /client-attention/, 'Клиенты с меткой «Внимание» не получают отдельного оформления');
 assert.match(provider, /Метки клиента: \$\{escapeHtml\(fullText\)\}/, 'Компактные метки недоступны скринридеру');
 assert.match(provider, /метки клиента: \$\{escapeHtml\(badgeDetails\)\}/, 'Метки не включены в доступное имя записи расписания');
 assert.doesNotMatch(provider, /<span>Номер записи<\/span>/, 'Технический номер показывается в карточке исполнителя');
@@ -107,6 +109,8 @@ assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерыв
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
+assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
+assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
 assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Двойное нажатие может случайно увеличить страницу');
@@ -134,6 +138,8 @@ assert.match(provider, /function sessionConflict/, 'Дополнительная
 assert.match(provider, /пересекаются со следующей записью/, 'Пользователь не получает понятного предупреждения о пересечении');
 assert.match(provider, /function compactBookingColorPicker/, 'Большой выбор цвета не свёрнут в компактную строку');
 assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумма состава не используется в карточке и оплате');
+assert.match(providerHtml, /id="reportCompletedValue"/, 'В статистике не показана стоимость состоявшихся визитов');
+assert.match(provider, /const completedValue = completed\.reduce[\s\S]*bookingSessionTotal\(item\)/, 'Стоимость состоявшихся визитов считается без итогового состава сеанса');
 assert.match(provider, /timeline-client-phone/, 'Телефон клиента нельзя независимо разместить в мобильной карточке');
 assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт телефону всю доступную ширину');
 assert.match(styles, /timeline-client-duration\s*\{\s*display:none/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');

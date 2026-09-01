@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=75">
+  <link rel="stylesheet" href="styles.css?v=76">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -199,10 +199,11 @@
 
         <section class="provider-view" data-provider-panel="analytics" hidden>
           <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="primary compact-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать отчёт</span></button></div>
-          <p class="view-description">Доход считается по записям, где отмечены состоявшийся визит и полученная оплата.</p>
+          <p class="view-description">Стоимость состоявшихся визитов и фактически полученная оплата учитываются отдельно.</p>
           <div class="report-periods" aria-label="Период отчёта"><button class="active" type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="all">Всё время</button></div>
           <div class="report-summary">
             <article><small>Получено</small><strong id="reportRevenue">0 ₽</strong></article>
+            <article><small>Состоялось на</small><strong id="reportCompletedValue">0 ₽</strong></article>
             <article><small>Визитов</small><strong id="reportCompleted">0</strong></article>
             <article><small>Не оплачено</small><strong id="reportUnpaid">0</strong></article>
             <article><small>Отменено</small><strong id="reportCancelled">0</strong></article>
@@ -326,8 +327,8 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=75"></script>
-  <script src="reliability.js?v=75"></script>
-  <script src="provider.js?v=75" defer></script>
+  <script src="config.js?v=76"></script>
+  <script src="reliability.js?v=76"></script>
+  <script src="provider.js?v=76" defer></script>
 </body>
 </html>
