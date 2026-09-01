@@ -113,7 +113,7 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#saveClientLabels',
+  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#saveClientLabels', '[data-save-booking-client-labels]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
@@ -261,6 +261,24 @@ function clientBadgeMarkup(phone, { limit = 2, showLabels = false } = {}) {
     const title = item.detail ? `${item.label}: ${item.detail}` : item.label;
     return `<span class="client-badge badge-${item.key}" role="listitem" title="${escapeHtml(title)}">${uiIcon(item.icon)}<span>${item.label}</span>${item.detail ? `<span class="sr-only">: ${escapeHtml(item.detail)}</span>` : ''}</span>`;
   }).join('')}${rest > 0 ? `<span class="client-badge-more" aria-hidden="true">+${rest}</span><span class="sr-only">Остальные метки: ${escapeHtml(definitions.slice(limit).map(item => item.detail ? `${item.label}: ${item.detail}` : item.label).join(', '))}</span>` : ''}</span>`;
+}
+function bookingClientLabelsMarkup(phone, bookingId) {
+  const normalizedPhone = normalizePhone(phone);
+  const value = clientLabel(normalizedPhone);
+  const summary = clientBadgeMarkup(normalizedPhone, { limit:3 }) || `${uiIcon('plus')}<span>Добавить</span>`;
+  return `<details class="booking-sheet-disclosure booking-labels-disclosure">
+    <summary><div><small>О клиенте</small><strong>Метки клиента</strong></div><span class="booking-labels-summary">${summary}</span></summary>
+    <div class="booking-labels-editor" data-booking-client-labels="${escapeHtml(normalizedPhone)}" data-booking-id="${escapeHtml(bookingId)}">
+      <div class="client-label-options">
+        <label class="client-label-option label-favorite"><input data-booking-label-favorite type="checkbox" ${value.favorite ? 'checked' : ''}><span>${uiIcon('heart')}</span><strong>Любимый</strong></label>
+        <label class="client-label-option label-vip"><input data-booking-label-vip type="checkbox" ${value.vip ? 'checked' : ''}><span>${uiIcon('star')}</span><strong>VIP</strong></label>
+        <label class="client-label-option label-attention"><input data-booking-label-attention type="checkbox" ${value.attention ? 'checked' : ''}><span>${uiIcon('shield-alert')}</span><strong>Внимание</strong></label>
+      </div>
+      <label class="client-attention-reason" data-booking-attention-reason-field ${value.attention ? '' : 'hidden'}>Причина<textarea data-booking-attention-reason maxlength="500" rows="2" placeholder="Например, нужна предоплата или часто опаздывает">${escapeHtml(value.attention_reason)}</textarea></label>
+      <p class="form-error" data-booking-labels-error hidden></p>
+      <button class="secondary-button client-labels-save" type="button" data-save-booking-client-labels>Сохранить метки</button>
+    </div>
+  </details>`;
 }
 function bookingColorStorageKey(userId = currentUser?.id) { return `massage-booking-colors-v1:${userId || 'anonymous'}`; }
 function validBookingColor(value) { return BOOKING_COLOR_KEYS.includes(String(value)) ? String(value) : BOOKING_COLOR_DEFAULT; }
@@ -1022,6 +1040,7 @@ function openBookingSheet(id) {
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
     <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}<a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>Стоимость</small><strong>${money(item.services?.price_rub || 0)}</strong></div></div>
+    ${bookingClientLabelsMarkup(item.client_phone, item.id)}
     ${bookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
     <details class="booking-sheet-disclosure booking-note-disclosure" ${note ? 'open' : ''}>
       <summary><div><small>О клиенте</small><strong>Заметка</strong></div><span class="booking-note-state">${note ? 'Добавлена' : 'Добавить'}</span></summary>
@@ -1606,6 +1625,44 @@ async function saveClientLabels() {
   button.disabled = false;
   button.textContent = 'Сохранить метки';
   renderBookingData();
+  notify(error ? 'Метки сохранены на этом устройстве' : 'Метки клиента сохранены');
+}
+
+async function saveBookingClientLabels(button) {
+  if (!requireWrites()) return;
+  const editor = button.closest('[data-booking-client-labels]');
+  if (!editor) return;
+  const errorElement = editor.querySelector('[data-booking-labels-error]');
+  errorElement.hidden = true;
+  const phone = normalizePhone(editor.dataset.bookingClientLabels);
+  const value = normalizeClientLabel({
+    favorite:editor.querySelector('[data-booking-label-favorite]').checked,
+    vip:editor.querySelector('[data-booking-label-vip]').checked,
+    attention:editor.querySelector('[data-booking-label-attention]').checked,
+    attention_reason:editor.querySelector('[data-booking-attention-reason]').value
+  });
+  if (value.attention && value.attention_reason.length < 3) {
+    errorElement.textContent = 'Кратко укажите, почему клиент требует внимания.';
+    errorElement.hidden = false;
+    editor.querySelector('[data-booking-attention-reason]').focus();
+    return;
+  }
+  if (!value.attention) value.attention_reason = '';
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const bookingId = editor.dataset.bookingId;
+  clientLabels.set(phone, value);
+  pendingClientLabels.add(phone);
+  persistClientLabels();
+  renderBookingData();
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' });
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (!error) pendingClientLabels.delete(phone);
+  persistClientLabels();
+  renderBookingData();
+  openBookingSheet(bookingId);
   notify(error ? 'Метки сохранены на этом устройстве' : 'Метки клиента сохранены');
 }
 
@@ -2682,6 +2739,7 @@ document.addEventListener('click', async event => {
   const remove = event.target.closest('[data-delete-service]');
   const removeDayOff = event.target.closest('[data-delete-day-off]');
   const booking = event.target.closest('[data-booking-status]');
+  const saveBookingLabels = event.target.closest('[data-save-booking-client-labels]');
   const client = event.target.closest('[data-client-phone]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
@@ -2754,6 +2812,7 @@ document.addEventListener('click', async event => {
     clearFormError('#newBookingError');
   }
   if (closeSheet) closeBookingSheet();
+  if (saveBookingLabels) await saveBookingClientLabels(saveBookingLabels);
   if (editService) openServiceEditor(editService.dataset.editService);
   if (client) renderClientDetail(client.dataset.clientPhone);
   if (repeat) {
@@ -2790,6 +2849,14 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('change', async event => {
+  const attentionInput = event.target.closest('[data-booking-label-attention]');
+  if (attentionInput) {
+    const editor = attentionInput.closest('[data-booking-client-labels]');
+    const field = editor?.querySelector('[data-booking-attention-reason-field]');
+    if (field) field.hidden = !attentionInput.checked;
+    if (attentionInput.checked) editor?.querySelector('[data-booking-attention-reason]')?.focus();
+    else if (editor) editor.querySelector('[data-booking-labels-error]').hidden = true;
+  }
   const colorInput = event.target.closest('[data-booking-color-id]');
   if (!colorInput) return;
   if (!requireWrites()) return;
@@ -2903,4 +2970,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=68'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=69'));

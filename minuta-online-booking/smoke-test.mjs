@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '68';
+const version = '69';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -75,6 +75,8 @@ assert.match(provider, /pendingBookingNotes\.has\(item\.id\)/, 'Синхрони
 assert.match(provider, /function clientBadgeMarkup/, 'В записях не отображаются метки клиента');
 assert.match(provider, /function clientIsNew/, 'Новый клиент не определяется автоматически');
 assert.match(providerHtml, /id="saveClientLabels"/, 'В карточке клиента нет сохранения меток');
+assert.match(provider, /function bookingClientLabelsMarkup/, 'В карточке записи нельзя открыть метки клиента');
+assert.match(provider, /data-save-booking-client-labels/, 'Метки нельзя сохранить прямо из карточки записи');
 assert.match(provider, /attention_reason\.length < 3/, 'Метка «Требует внимания» сохраняется без причины');
 assert.match(provider, /client-vip/, 'VIP-записи не имеют отдельного минималистичного оформления');
 assert.match(provider, /Метки клиента: \$\{escapeHtml\(fullText\)\}/, 'Компактные метки недоступны скринридеру');
