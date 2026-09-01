@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '55';
+const version = '56';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -63,6 +63,10 @@ assert.match(provider, /async function saveBookingSheetNote/, 'Заметку н
 assert.match(provider, /class="booking-editor-heading"/, 'Навигация и заголовок редактора записи не разделены');
 assert.doesNotMatch(provider, /id="editBookingNote"/, 'Редактор времени всё ещё перегружен отдельным полем заметки');
 assert.doesNotMatch(provider, /<span>Номер записи<\/span>/, 'Технический номер показывается в карточке исполнителя');
+assert.match(provider, /class="booking-sheet-summary"/, 'Клиент и стоимость не собраны в компактное резюме');
+assert.match(provider, /booking-note-disclosure/, 'Пустая заметка занимает слишком много места');
+assert.match(provider, /booking-outcome-disclosure/, 'Раздел после визита нельзя свернуть');
+assert.match(provider, /booking-cancel-action/, 'Отмена записи визуально конкурирует с основными действиями');
 assert.match(provider, /timelineTimeFromClick/, 'Время клика по расписанию не вычисляется');
 assert.match(provider, /Math\.floor\(rawMinute \/ 60\) \* 60/, 'Клик по расписанию не округляется вниз до начала часа');
 const timelineFunctionSource = provider.match(/function timelineTimeFromClick\(stage, event\) \{[\s\S]*?\n\}/)?.[0];
