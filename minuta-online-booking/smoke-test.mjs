@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '54';
+const version = '55';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -62,6 +62,7 @@ assert.match(provider, /id="bookingSheetNoteForm"/, 'Заметка о клие�
 assert.match(provider, /async function saveBookingSheetNote/, 'Заметку нельзя сохранить из основной карточки записи');
 assert.match(provider, /class="booking-editor-heading"/, 'Навигация и заголовок редактора записи не разделены');
 assert.doesNotMatch(provider, /id="editBookingNote"/, 'Редактор времени всё ещё перегружен отдельным полем заметки');
+assert.doesNotMatch(provider, /<span>Номер записи<\/span>/, 'Технический номер показывается в карточке исполнителя');
 assert.match(provider, /timelineTimeFromClick/, 'Время клика по расписанию не вычисляется');
 assert.match(provider, /Math\.floor\(rawMinute \/ 60\) \* 60/, 'Клик по расписанию не округляется вниз до начала часа');
 const timelineFunctionSource = provider.match(/function timelineTimeFromClick\(stage, event\) \{[\s\S]*?\n\}/)?.[0];
@@ -146,11 +147,14 @@ assert.equal(renderSuggestion({ loadingAvailability: false, date: '2026-09-01', 
 assert.match(suggestionHolder.innerHTML, /Сегодня мест нет[\s\S]*завтра, 12:00[\s\S]*data-suggested-date="2026-09-02"/, 'Подсказка не ведёт одним кликом на ближайшее время');
 
 const index = readFileSync(join(root, 'index.html'), 'utf8');
+const bookingHtml = readFileSync(join(root, 'booking.html'), 'utf8');
 assert.match(index, /id="portfolioSection"/, 'На публичной странице нет раздела портфолио');
 assert.match(index, /Услуга[\s\S]*Время[\s\S]*Контакты/, 'На форме нет понятного прогресса из трёх этапов');
 assert.match(index, /id="submitBooking"[^>]*disabled/, 'Кнопка подтверждения активна до корректных контактов');
 assert.match(index, /id="availabilityHint"/, 'В форме нет места для подсказки ближайшего времени');
 assert.match(index, /id="durationNote"/, 'В форме нет пояснения длительности выбранного интервала');
+assert.doesNotMatch(index, /id="successCode"/, 'Технический номер показывается клиенту после записи');
+assert.doesNotMatch(bookingHtml, /id="manageCode"|Номер записи/, 'Технический номер показывается на странице управления записью');
 assert.match(index, /class="booking-footer"[\s\S]*provider\.html/, 'Исполнитель потерял доступ к своему кабинету');
 const clientHeader = index.match(/<header class="site-header booking-client-header">[\s\S]*?<\/header>/)?.[0] || '';
 assert.doesNotMatch(clientHeader, /provider-link|provider\.html/, 'Вход исполнителя снова отвлекает клиента в шапке');

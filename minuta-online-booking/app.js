@@ -483,14 +483,12 @@ async function submitBooking(event) {
     }
     return;
   }
-  const code = data?.[0]?.booking_code || 'создан';
   const manageToken = data?.[0]?.manage_token;
   clearBookingAttempt();
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
   $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
   $('#successDetails').innerHTML = `${escapeHtml(serviceName(service.name))} · ${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}<br>${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}`;
-  $('#successCode').innerHTML = `Номер записи: <strong>${escapeHtml(code)}</strong>`;
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
     manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
@@ -508,7 +506,6 @@ async function submitBooking(event) {
       $('#successDetails').innerHTML = `${escapeHtml(current.service_name)} · ${escapeHtml(current.performer_name || 'Мастер')}<br>${escapeHtml(currentDateLabel)}, ${timeRange(current.booking_time.slice(0, 5), current.duration_minutes)}`;
       if (current.status === 'cancelled') {
         $('#successTitle').textContent = 'Эта запись уже отменена';
-        $('#successCode').innerHTML = `Номер отменённой записи: <strong>${escapeHtml(code)}</strong>`;
       }
     }
     if (!current || current.status !== 'cancelled') notifyTelegramEvent('confirmation', manageToken);
@@ -578,4 +575,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=54'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=55'));

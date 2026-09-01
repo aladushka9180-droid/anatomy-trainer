@@ -61,7 +61,6 @@ function renderBooking() {
   $('#managePerformer').textContent = item.performer_name;
   $('#manageDuration').textContent = `${item.duration_minutes} мин`;
   $('#managePrice').textContent = money(item.price_rub);
-  $('#manageCode').textContent = item.booking_code;
   const cancelled = item.status === 'cancelled';
   $('#openReschedule').disabled = cancelled || !item.reschedule_allowed;
   $('#cancelBooking').disabled = cancelled || !item.cancel_allowed;
@@ -231,9 +230,9 @@ function calendarTimestamp(date, time, addMinutes = 0) {
 
 function addToCalendar() {
   const item = state.booking;
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MassageIzhevsk//Booking//RU', 'BEGIN:VEVENT', `UID:${item.booking_code}@massage-izhevsk`, `DTSTART:${calendarTimestamp(item.booking_date, item.booking_time)}`, `DTEND:${calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)}`, `SUMMARY:${item.service_name} — Массаж в Ижевске`, `DESCRIPTION:Исполнитель: ${item.performer_name}. Номер записи: ${item.booking_code}`, 'LOCATION:Ижевск, ул. Карла Маркса, 304б', 'END:VEVENT', 'END:VCALENDAR'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//MassageIzhevsk//Booking//RU', 'BEGIN:VEVENT', `UID:${item.booking_code}@massage-izhevsk`, `DTSTART:${calendarTimestamp(item.booking_date, item.booking_time)}`, `DTEND:${calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)}`, `SUMMARY:${item.service_name} — Массаж в Ижевске`, `DESCRIPTION:Исполнитель: ${item.performer_name}`, 'LOCATION:Ижевск, ул. Карла Маркса, 304б', 'END:VEVENT', 'END:VCALENDAR'];
   const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' }));
-  const link = document.createElement('a'); link.href = url; link.download = `massage-${item.booking_code}.ics`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const link = document.createElement('a'); link.href = url; link.download = `massage-${item.booking_date}-${String(item.booking_time).slice(0, 5).replace(':', '-')}.ics`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 document.addEventListener('click', event => {
@@ -251,4 +250,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=54'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=55'));
