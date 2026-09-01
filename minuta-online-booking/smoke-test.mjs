@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '105';
+const version = '106';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -140,7 +140,9 @@ assert.match(providerHtml, /id="reportUnpaid"/, 'Статистика не по�
 assert.match(provider, /function applyAutomaticVisitOutcomes/, 'Прошедшие визиты не отмечаются автоматически после рабочего дня');
 assert.match(provider, /completion_source:'auto'/, 'Автоматическое завершение нельзя отличить от ручного');
 assert.match(provider, /Будет учтён автоматически/, 'Карточка не объясняет автоматический учёт визита');
-assert.match(provider, /payment_method:'unpaid', amount_rub:0, completion_source:'auto'/, 'Автоматический визит ошибочно считается оплаченным');
+assert.match(provider, /payment_method:outcome\.payment_method === 'unpaid' \? 'cash' : outcome\.payment_method, amount_rub:bookingCalculatedValue\(item\), completion_source:'auto'/, 'Автоматический визит не получает оплату и полную стоимость');
+assert.match(provider, /outcome\.completion_source === 'auto' && \(outcome\.payment_method === 'unpaid' \|\| Number\(outcome\.amount_rub \|\| 0\) <= 0\)/, 'Старые автоматически завершённые визиты не исправляются');
+assert.match(provider, /completionSource === 'auto' && method !== 'unpaid'\) return 'Оплачено'/, 'Автоматически завершённый визит не показывает оплату');
 assert.match(provider, /function bookingSessionMarkup/, 'В карточке записи нет состава сеанса');
 assert.match(provider, /const addons = items\.slice\(1\)/, 'Основная услуга повторно выводится в составе сеанса');
 assert.match(provider, /booking-session-addons/, 'Дополнительные услуги не отделены от основной');

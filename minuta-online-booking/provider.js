@@ -422,7 +422,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=105#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=106#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -518,7 +518,10 @@ function bookingStatusClass(item) {
   if (outcome.visit_status === 'no_show') return 'no-show';
   return bookingIsCompleted(item) ? 'needs-result' : item.status;
 }
-function paymentMethodLabel(method) { return ({ cash: 'Наличные', card: 'Карта', transfer: 'Перевод', unpaid: 'Не оплачено' })[method] || 'Не оплачено'; }
+function paymentMethodLabel(method, completionSource = 'manual') {
+  if (completionSource === 'auto' && method !== 'unpaid') return 'Оплачено';
+  return ({ cash: 'Наличные', card: 'Карта', transfer: 'Перевод', unpaid: 'Не оплачено' })[method] || 'Не оплачено';
+}
 function outcomeVisitLabel(outcome) {
   if (outcome.visit_status === 'completed') return outcome.completion_source === 'auto' ? 'Состоялся автоматически' : 'Состоялся';
   if (outcome.visit_status === 'no_show') return 'Не пришёл';
@@ -529,7 +532,7 @@ function outcomeSummary(item) {
   if (outcome.visit_status === 'no_show') return 'Клиент не пришёл';
   if (outcome.visit_status !== 'completed') return '';
   const actualTime = isPerMinuteBooking(item) && outcome.actual_duration_minutes ? `${outcome.actual_duration_minutes} мин · ${money(bookingCalculatedValue(item))} · ` : '';
-  return `${actualTime}${paymentMethodLabel(outcome.payment_method)}${outcome.amount_rub ? ` · получено ${money(outcome.amount_rub)}` : ''}`;
+  return `${actualTime}${paymentMethodLabel(outcome.payment_method, outcome.completion_source)}${outcome.amount_rub ? ` · получено ${money(outcome.amount_rub)}` : ''}`;
 }
 
 function reportBookings() {
@@ -583,7 +586,7 @@ function exportBookingsCsv() {
     const outcome = bookingOutcome(item);
     const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
     const block = isScheduleBlock(item);
-    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : bookingSession(item).map(entry => entry.title).join(' + '), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method), block ? 0 : (outcome.amount_rub || 0), block ? 0 : bookingSessionTotal(item)];
+    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : bookingSession(item).map(entry => entry.title).join(' + '), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method, outcome.completion_source), block ? 0 : (outcome.amount_rub || 0), block ? 0 : bookingSessionTotal(item)];
   });
   const csv = [header, ...rows].map(row => row.map(csvCell).join(';')).join('\r\n');
   const url = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }));
@@ -1178,6 +1181,7 @@ function openBookingSheet(id) {
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+  if (outcome.completion_source === 'auto' && outcome.payment_method === 'cash') $('#outcomePaymentMethod option[value="cash"]').textContent = 'Оплачено';
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
   $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
   $('#bookingSheetNoteForm')?.addEventListener('submit', saveBookingSheetNote);
@@ -2012,16 +2016,23 @@ async function persistBookingOutcome(record) {
 }
 
 async function applyAutomaticVisitOutcomes() {
-  if (!bookingPolicy.auto_complete_visits || !currentUser || !writesAllowed) return 0;
+  if (!currentUser || !writesAllowed) return 0;
   const now = new Date();
-  const items = allBookings.filter(item => bookingWillCompleteAutomatically(item) && bookingSessionEnd(item) <= now);
+  const items = allBookings.filter(item => {
+    if (isScheduleBlock(item) || item.status === 'cancelled') return false;
+    const outcome = bookingOutcome(item);
+    const needsAutomaticCompletion = bookingPolicy.auto_complete_visits && outcome.visit_status === 'scheduled' && bookingSessionEnd(item) <= now;
+    const needsPaymentRepair = outcome.visit_status === 'completed' && outcome.completion_source === 'auto' && (outcome.payment_method === 'unpaid' || Number(outcome.amount_rub || 0) <= 0);
+    return needsAutomaticCompletion || needsPaymentRepair;
+  });
   if (!items.length) return 0;
   const updatedAt = now.toISOString();
   for (const item of items) {
-    const record = { booking_id:item.id, performer_id:currentUser.id, visit_status:'completed', payment_method:'unpaid', amount_rub:0, completion_source:'auto', updated_at:updatedAt };
+    const outcome = bookingOutcome(item);
+    const record = { booking_id:item.id, performer_id:currentUser.id, visit_status:'completed', payment_method:outcome.payment_method === 'unpaid' ? 'cash' : outcome.payment_method, amount_rub:bookingCalculatedValue(item), completion_source:'auto', updated_at:updatedAt };
     if (isPerMinuteBooking(item)) {
-      record.actual_duration_minutes = 0;
-      record.calculated_amount_rub = 0;
+      record.actual_duration_minutes = Number(outcome.actual_duration_minutes || 0);
+      record.calculated_amount_rub = Number(outcome.calculated_amount_rub || 0);
     }
     await persistBookingOutcome(record);
     bookingOutcomes.set(item.id, record);
@@ -3552,4 +3563,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=105'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=106'));
