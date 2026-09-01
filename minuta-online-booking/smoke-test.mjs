@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '109';
+const version = '110';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -86,6 +86,25 @@ assert.match(provider, /pendingBookingNotes\.has\(item\.id\)/, 'Синхрони
 assert.match(provider, /function clientBadgeMarkup/, 'В записях не отображаются метки клиента');
 assert.match(provider, /class="booking-sheet-client-name"[\s\S]*clientBadgeMarkup\(item\.client_phone, \{ limit:3, showLabels:true \}\)/, 'Метки в карточке записи не стоят в строке с именем');
 assert.match(provider, /function clientIsNew/, 'Новый клиент не определяется автоматически');
+assert.match(provider, /const VISIT_WINDOW_DAYS = 30;/, 'Номер визита не ограничен последними 30 днями');
+assert.match(provider, /const REGULAR_CLIENT_COMPLETED_VISITS = 10;/, 'Постоянный клиент определяется раньше 10 завершённых сеансов');
+assert.match(provider, /bookingOutcome\(item\)\.visit_status === 'completed'/, 'В визиты попадают незавершённые записи');
+assert.match(provider, /provider_display_preferences/, 'Оформление кабинета не сохраняется в аккаунте мастера');
+assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
+assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"/, 'В настройках доступны не все пять тем');
+assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
+const visitClassifierSource = provider.match(/function classifyVisitHistory\(referenceTimestamp, completedTimestamps, currentCompleted = false\) \{[\s\S]*?\n\}/)?.[0];
+assert.ok(visitClassifierSource, 'Не удалось извлечь расчёт номера визита для проверки');
+const classifyVisitHistory = Function(`const VISIT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; const REGULAR_CLIENT_COMPLETED_VISITS = 10; ${visitClassifierSource}; return classifyVisitHistory;`)();
+const visitReference = Date.parse('2026-09-02T12:00:00Z');
+const visitDay = 24 * 60 * 60 * 1000;
+assert.deepEqual(classifyVisitHistory(visitReference, [], false), { visitNumber:1, completedInWindow:0, isRegular:false, clientType:'Новый клиент' });
+assert.deepEqual(classifyVisitHistory(visitReference, [visitReference - 40 * visitDay], false), { visitNumber:1, completedInWindow:0, isRegular:false, clientType:'После перерыва' });
+const nineRecentVisits = Array.from({ length:9 }, (_, index) => visitReference - (index + 1) * visitDay);
+assert.equal(classifyVisitHistory(visitReference, nineRecentVisits, false).isRegular, false, 'До завершения 10-го сеанса клиент не должен стать постоянным');
+assert.equal(classifyVisitHistory(visitReference, nineRecentVisits, true).isRegular, true, 'После завершения 10-го сеанса клиент должен стать постоянным');
+const tenRecentVisits = Array.from({ length:10 }, (_, index) => visitReference - (index + 1) * visitDay);
+assert.deepEqual(classifyVisitHistory(visitReference, tenRecentVisits, false), { visitNumber:11, completedInWindow:10, isRegular:true, clientType:'Постоянный клиент' });
 assert.match(providerHtml, /id="clientLabelsSaveStatus"/, 'В карточке клиента нет статуса автосохранения меток');
 assert.match(provider, /function bookingClientLabelsMarkup/, 'В карточке записи нельзя открыть метки клиента');
 assert.match(provider, /clientLabelVip'\)\.addEventListener\('change'/, 'VIP-метка не сохраняется сразу после выбора');
@@ -123,6 +142,8 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
+for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
 assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Двойное нажатие может случайно увеличить страницу');
@@ -184,7 +205,7 @@ assert.match(provider, /bookingColorPicker\('newBookingColor'/, 'В новой �
 assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
 assert.match(provider, /data-booking-color-id/, 'Цвет существующей записи нельзя изменить из карточки');
 assert.match(styles, /color-lavender[\s\S]*background:#f2edfa/, 'Палитра нежных цветов не оформлена');
-assert.match(provider, /timeline-booking-client-row[\s\S]*<\/span>\$\{block \? '' : clientBadgeMarkup/, 'Метки клиента снова растягивают строку и срезают заметку');
+assert.match(provider, /timeline-booking-client-row[\s\S]*<\/span>\$\{block \|\| !displayPreferences\.show_client_labels \? '' : clientBadgeMarkup/, 'Метки клиента снова растягивают строку и срезают заметку');
 assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]*transform:translateY\(-50%\)/, 'Метки клиента не вынесены из потока карточки');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
