@@ -960,6 +960,29 @@ html.requires-top-level.top-level body { visibility:visible; }
 .booking-sheet-summary+.booking-color-picker,
 .booking-sheet-block+.booking-color-picker { margin-top:14px; padding:13px; border:1px solid #e0e8e2; border-radius:13px; background:#fafcfb; }
 
+/* Компактное редактирование записи и перерыва */
+.booking-edit-form-compact { gap:10px; margin-top:15px; }
+.booking-edit-form-compact>label { font-size:10px; }
+.booking-edit-form-compact input,
+.booking-edit-form-compact select,
+.booking-edit-form-compact textarea { min-height:42px; margin-top:5px; }
+.booking-edit-form-compact textarea { min-height:62px; padding-top:9px; }
+.booking-edit-form-compact .booking-color-picker { padding:9px 0 2px; border-top:1px solid #e7ede9; }
+.booking-edit-form-compact .booking-color-picker legend { margin-bottom:7px; font-size:10px; }
+.booking-edit-form-compact .booking-color-options { display:flex; flex-wrap:wrap; gap:7px; }
+.booking-edit-form-compact .booking-color-option { width:64px; min-height:50px; padding:5px 3px; border-radius:11px; }
+.booking-edit-form-compact .booking-color-option>span { width:21px; height:21px; }
+.booking-edit-form-compact .booking-color-option small { display:block; max-width:58px; font-size:10px; }
+.booking-edit-form-compact .booking-editor-times { max-height:126px; padding:8px; }
+.booking-edit-form-compact .repeat-times { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; }
+.booking-edit-form-compact .repeat-times button { min-width:0; min-height:34px; padding:0 5px; font-size:10px; }
+.booking-edit-form-compact .primary { min-height:45px; }
+.booking-edit-form-compact+.form-error { margin-top:0; }
+
+@media (max-width:760px) {
+  .booking-edit-form-compact .repeat-times { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+
 .provider-body .services-layout { margin-top:12px; }
 .provider-body .service-catalog { padding:8px 18px; }
 .provider-body .service-catalog .panel-head { padding:10px 0 6px; }

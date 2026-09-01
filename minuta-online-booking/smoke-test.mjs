@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '66';
+const version = '67';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -65,7 +65,12 @@ assert.match(provider, /data-create-booking-at/, 'Клик по свободно
 assert.match(provider, /id="bookingSheetNoteForm"/, 'Заметка о клиенте недоступна из основной карточки записи');
 assert.match(provider, /async function saveBookingSheetNote/, 'Заметку нельзя сохранить из основной карточки записи');
 assert.match(provider, /class="booking-editor-heading"/, 'Навигация и заголовок редактора записи не разделены');
-assert.doesNotMatch(provider, /id="editBookingNote"/, 'Редактор времени всё ещё перегружен отдельным полем заметки');
+assert.match(provider, /id="editBookingNote"/, 'Заметка недоступна при редактировании записи или перерыва');
+assert.match(provider, /id="bookingBlockNoteForm"/, 'Заметка к перерыву недоступна из основной карточки');
+assert.match(provider, /blockDurationOptions/, 'При редактировании перерыва всё ещё показываются названия массажей вместо длительности');
+assert.match(provider, /bookingNoteStorageKey\(userId\).*localStorage\.removeItem/s, 'Заметки к перерывам остаются на общем устройстве после выхода');
+assert.match(provider, /Заметка сохранена на этом устройстве/, 'Интерфейс скрывает ошибку серверного сохранения заметки');
+assert.match(provider, /pendingBookingNotes\.has\(item\.id\)/, 'Синхронизация может затереть локальную заметку после ошибки RPC');
 assert.doesNotMatch(provider, /<span>Номер записи<\/span>/, 'Технический номер показывается в карточке исполнителя');
 assert.match(provider, /class="booking-sheet-summary"/, 'Клиент и стоимость не собраны в компактное резюме');
 assert.match(provider, /booking-note-disclosure/, 'Пустая заметка занимает слишком много места');
@@ -236,6 +241,11 @@ const bookingColorMigration = readFileSync(join(root, 'supabase-migration-v48.sq
 assert.match(bookingColorMigration, /add column if not exists color_key text/, 'Цвет записи не сохраняется на сервере');
 assert.match(bookingColorMigration, /create or replace function public\.set_booking_color/, 'Нет защищённой RPC смены цвета записи');
 assert.match(bookingColorMigration, /performer_id = \(select auth\.uid\(\)\)/, 'Исполнитель может изменить цвет чужой записи');
+
+const bookingNoteMigration = readFileSync(join(root, 'supabase-migration-v49.sql'), 'utf8');
+assert.match(bookingNoteMigration, /add column if not exists provider_note text/, 'Заметка к перерыву не сохраняется на сервере');
+assert.match(bookingNoteMigration, /create or replace function public\.set_booking_note/, 'Нет защищённой RPC сохранения заметки к перерыву');
+assert.match(bookingNoteMigration, /char_length\(provider_note\) <= 1000/, 'Длина заметки к перерыву не ограничена');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');

@@ -24,6 +24,8 @@ let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
 let bookingOutcomes = new Map();
 let bookingColors = new Map();
+let bookingNotes = new Map();
+let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
 let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '' };
 let serverNotificationTemplates = {};
@@ -201,11 +203,28 @@ function persistBookingColors(userId = currentUser?.id) {
   if (!userId) return;
   try { localStorage.setItem(bookingColorStorageKey(userId), JSON.stringify(Object.fromEntries(bookingColors))); } catch {}
 }
+function bookingNoteStorageKey(userId = currentUser?.id) { return `massage-booking-notes-v1:${userId || 'anonymous'}`; }
+function bookingNotePendingStorageKey(userId = currentUser?.id) { return `massage-booking-notes-pending-v1:${userId || 'anonymous'}`; }
+function loadBookingNotes(userId = currentUser?.id) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(bookingNoteStorageKey(userId)) || '{}');
+    bookingNotes = new Map(Object.entries(saved).map(([id, note]) => [id, String(note || '').slice(0, 1000)]));
+  } catch { bookingNotes = new Map(); }
+  try { pendingBookingNotes = new Set(JSON.parse(localStorage.getItem(bookingNotePendingStorageKey(userId)) || '[]')); }
+  catch { pendingBookingNotes = new Set(); }
+}
+function persistBookingNotes(userId = currentUser?.id) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(bookingNoteStorageKey(userId), JSON.stringify(Object.fromEntries(bookingNotes)));
+    localStorage.setItem(bookingNotePendingStorageKey(userId), JSON.stringify([...pendingBookingNotes]));
+  } catch {}
+}
 function bookingColor(item) { return validBookingColor(item?.color_key || bookingColors.get(item?.id)); }
 function bookingColorPicker(name, selected, bookingId = '') {
   const labels = { auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль' };
   const current = validBookingColor(selected);
-  return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}"><input type="radio" name="${name}" value="${color}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${labels[color]}</small></label>`).join('')}</div></fieldset>`;
+  return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}" title="${labels[color]}"><input type="radio" name="${name}" value="${color}" aria-label="${labels[color]}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${labels[color]}</small></label>`).join('')}</div></fieldset>`;
 }
 async function saveBookingColor(id, color, { rerender = true } = {}) {
   const selected = validBookingColor(color);
@@ -217,11 +236,28 @@ async function saveBookingColor(id, color, { rerender = true } = {}) {
   const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
   return !error;
 }
+async function saveBookingNote(id, note, { rerender = true } = {}) {
+  const value = String(note || '').trim().slice(0, 1000);
+  bookingNotes.set(id, value);
+  persistBookingNotes();
+  const item = allBookings.find(booking => booking.id === id);
+  if (item) item.provider_note = value;
+  if (rerender) renderBookingData();
+  const { error } = await db.rpc('set_booking_note', { p_booking: id, p_note: value });
+  if (error) pendingBookingNotes.add(id);
+  else pendingBookingNotes.delete(id);
+  persistBookingNotes();
+  return !error;
+}
 async function loadRemoteBookingColors(userId, generation) {
-  const { data, error } = await db.from('bookings').select('id,color_key').eq('performer_id', userId).not('color_key', 'is', null);
+  const { data, error } = await db.from('bookings').select('id,color_key,provider_note').eq('performer_id', userId);
   if (error || !sessionIsCurrent(userId, generation)) return false;
-  (data || []).forEach(item => bookingColors.set(item.id, validBookingColor(item.color_key)));
+  (data || []).forEach(item => {
+    bookingColors.set(item.id, validBookingColor(item.color_key));
+    if (!pendingBookingNotes.has(item.id)) bookingNotes.set(item.id, String(item.provider_note || '').slice(0, 1000));
+  });
   persistBookingColors(userId);
+  persistBookingNotes(userId);
   return true;
 }
 function isScheduleBlock(item) {
@@ -807,6 +843,12 @@ function bookingClientNote(item) {
   return String(clientNotes.get(normalizePhone(item?.client_phone)) || '').trim();
 }
 
+function bookingDisplayNote(item) {
+  return isScheduleBlock(item)
+    ? String(item?.provider_note || bookingNotes.get(item?.id) || '').trim()
+    : bookingClientNote(item);
+}
+
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
@@ -830,7 +872,7 @@ function renderTimeline(items) {
     const statusClass = bookingStatusClass(item);
     const compact = height < 46 ? ' compact' : '';
     const block = isScheduleBlock(item);
-    const note = block ? '' : bookingClientNote(item);
+    const note = bookingDisplayNote(item);
     const clientDetails = block ? 'Занятое время' : `${item.client_name} · ${item.client_phone} · ${duration} мин`;
     const ariaDetails = note ? `${clientDetails}, заметка: ${note}` : clientDetails;
     return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${note ? ' has-note' : ''}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}">
@@ -860,11 +902,11 @@ function renderBookingList(items) {
     const whatsapp = escapeHtml(whatsappLink(item));
     const resultSummary = outcomeSummary(item);
     const block = isScheduleBlock(item);
-    const note = block ? '' : bookingClientNote(item);
+    const note = bookingDisplayNote(item);
     return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}">
       <div class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></div>
       <div class="booking-main"><div class="provider-booking-top"><h3>${escapeHtml(block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга'))}</h3><span class="booking-status">${statusText}</span></div>
-      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
+      ${block ? `<p><strong>Занятое время</strong><span>${Number(item.duration_minutes || item.services?.duration_minutes || 60)} мин</span></p><small>Без клиента и телефона</small>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}` : `<p><strong>${escapeHtml(item.client_name)}</strong><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></p>${note ? `<small class="provider-booking-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}<small>${money(item.services?.price_rub || 0)}</small>${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">Предоплата: ${item.payment_status === 'paid' ? 'получена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}`}</div>
       ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-actions">${whatsapp ? `<a class="whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}<button type="button" data-edit-booking="${item.id}">Изменить</button><button class="danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">${block ? 'Освободить' : 'Отменить'}</button></div>` : ''}
     </article>`;
   }).join('');
@@ -879,7 +921,7 @@ function openBookingSheet(id) {
   const statusClass = bookingStatusClass(item);
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
   const whatsapp = escapeHtml(whatsappLink(item));
-  const note = clientNotes.get(normalizePhone(item.client_phone)) || '';
+  const note = bookingDisplayNote(item);
   const outcome = bookingOutcome(item);
   const amount = Number(outcome.amount_rub || item.services?.price_rub || 0);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
@@ -889,9 +931,17 @@ function openBookingSheet(id) {
       <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-block">Занято</span></div>
       <div class="booking-sheet-block"><span>◼</span><div><small>Блокировка времени</small><strong>Клиенты не смогут записаться на этот интервал.</strong></div></div>
       ${bookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
+      <details class="booking-sheet-disclosure booking-note-disclosure" ${note ? 'open' : ''}>
+        <summary><div><small>О перерыве</small><strong>Заметка</strong></div><span class="booking-note-state">${note ? 'Добавлена' : 'Добавить'}</span></summary>
+        <form class="booking-sheet-note-editor" id="bookingBlockNoteForm" data-booking-id="${item.id}">
+          <label class="sr-only" for="bookingBlockNote">Заметка к перерыву</label><textarea id="bookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело">${escapeHtml(note)}</textarea>
+          <button class="secondary-button" type="submit">Сохранить заметку</button>
+        </form>
+      </details>
       ${item.status !== 'cancelled' ? `<div class="booking-sheet-actions"><button class="primary" type="button" data-edit-booking="${item.id}">Изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Освободить время</button></div>` : ''}`;
     $('#bookingSheet').hidden = false;
     document.body.classList.add('booking-sheet-open');
+    $('#bookingBlockNoteForm')?.addEventListener('submit', saveBookingBlockNote);
     return;
   }
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
@@ -918,6 +968,24 @@ function openBookingSheet(id) {
   toggleOutcomePaymentFields();
 }
 
+async function saveBookingBlockNote(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const id = event.currentTarget.dataset.bookingId;
+  const note = $('#bookingBlockNote')?.value.trim() || '';
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const remoteSaved = await saveBookingNote(id, note);
+  button.disabled = false;
+  button.textContent = 'Сохранить заметку';
+  const state = $('.booking-note-state');
+  if (state) state.textContent = note ? 'Добавлена' : 'Добавить';
+  notify(remoteSaved
+    ? (note ? 'Заметка сохранена' : 'Заметка удалена')
+    : 'Заметка сохранена на этом устройстве');
+}
+
 async function saveBookingSheetNote(event) {
   event.preventDefault();
   if (!requireWrites()) return;
@@ -942,6 +1010,18 @@ async function saveBookingSheetNote(event) {
 function serviceOptions(selectedId, activeOnly = false) {
   const services = activeOnly ? ownServices.filter(item => item.active) : ownServices;
   return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${item.duration_minutes} мин · ${money(item.price_rub)}</option>`).join('');
+}
+
+function blockDurationOptions(selectedId, activeOnly = false) {
+  const selected = ownServices.find(item => item.id === selectedId);
+  const source = activeOnly ? ownServices.filter(item => item.active) : ownServices;
+  const byDuration = new Map();
+  source.forEach(item => {
+    const duration = Number(item.duration_minutes || 60);
+    if (!byDuration.has(duration)) byDuration.set(duration, item);
+  });
+  if (selected) byDuration.set(Number(selected.duration_minutes || 60), selected);
+  return [...byDuration.entries()].sort(([a], [b]) => a - b).map(([duration, item]) => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${duration} минут</option>`).join('');
 }
 
 function durationOptions(selected) {
@@ -1021,9 +1101,10 @@ function openBookingEditor(id) {
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small></div><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
-    <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
+    <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}">
       ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
-      <label>${block ? 'Длительность' : 'Услуга'}<select id="editBookingService" required>${serviceOptions(item.service_id)}</select></label>
+      <label>${block ? 'Длительность' : 'Услуга'}<select id="editBookingService" required>${block ? blockDurationOptions(item.service_id) : serviceOptions(item.service_id)}</select></label>
+      <label>${block ? 'Заметка к перерыву' : 'Заметка о клиенте'}<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="${block ? 'Например, обед или личное дело' : 'Пожелания, особенности или важная информация'}">${escapeHtml(bookingDisplayNote(item))}</textarea></label>
       ${bookingColorPicker('editBookingColor', bookingColor(item))}
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
       <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
@@ -1049,9 +1130,10 @@ async function saveBookingChanges(event) {
   const service = ownServices.find(entry => entry.id === $('#editBookingService').value);
   const date = $('#editBookingDate').value;
   const color = $('[name="editBookingColor"]:checked')?.value || bookingColor(item);
+  const note = $('#editBookingNote')?.value.trim() || '';
   const blockTitle = block ? ($('#editBookingBlockTitle')?.value.trim() || '') : '';
   if (!item || !service || !date || !bookingEditTime || (block && blockTitle.length < 2)) {
-    showFormError('#bookingEditError', 'Выберите услугу, дату и свободное время.');
+    showFormError('#bookingEditError', block ? 'Выберите длительность, дату и свободное время.' : 'Выберите услугу, дату и свободное время.');
     return;
   }
   const button = event.submitter;
@@ -1070,9 +1152,20 @@ async function saveBookingChanges(event) {
   }
   if (!block) notifyTelegramClient(id, 'rescheduled');
   await saveBookingColor(id, color, { rerender:false });
+  let noteRemoteSaved = true;
+  if (block) {
+    noteRemoteSaved = await saveBookingNote(id, note, { rerender:false });
+  } else {
+    const normalizedPhone = normalizePhone(item.client_phone);
+    const { error:noteError } = await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
+    noteRemoteSaved = !noteError;
+    if (!noteError) clientNotes.set(normalizedPhone, note);
+  }
   selectScheduleDate(date);
   await refreshAfterWrite();
-  notify('Запись обновлена');
+  notify(noteRemoteSaved
+    ? (block ? 'Перерыв обновлён' : 'Запись обновлена')
+    : (block ? 'Перерыв обновлён. Заметка сохранена на этом устройстве' : 'Запись обновлена, но заметку сохранить не удалось'));
   openBookingSheet(id);
 }
 
@@ -1126,9 +1219,15 @@ function setNewBookingMode(mode) {
   $('#newBookingPhone').required = !block;
   $('#newBookingBlockTitle').required = block;
   $('#newBookingSheetTitle').textContent = block ? 'Занять время' : 'Новый клиент';
-  $('#newBookingServiceCaption').textContent = block ? 'Длительность (по услуге)' : 'Услуга';
+  $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
+  $('#newBookingSectionSubtitle').textContent = block ? 'Название, заметка и длительность' : 'Основная информация о записи';
+  $('#newBookingServiceCaption').textContent = block ? 'Длительность' : 'Услуга';
+  const serviceSelect = $('#newBookingService');
+  const selectedService = serviceSelect.value;
+  serviceSelect.innerHTML = block ? blockDurationOptions(selectedService, true) : serviceOptions(selectedService, true);
   $('#newBookingSubmit').textContent = block ? 'Занять время' : 'Создать запись';
   clearFormError('#newBookingError');
+  loadNewBookingSlots();
 }
 
 function openNewBookingSheet(preferredTime = '') {
@@ -1144,9 +1243,9 @@ function openNewBookingSheet(preferredTime = '') {
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
-        <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong>Клиент и услуга</strong><small>Основная информация о записи</small></div></div>
+        <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Основная информация о записи</small></div></div>
           <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div><label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label></div>
-          <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято, и клиенты не смогут на него записаться.</p></div>
+          <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><label>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
           ${bookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT)}
         </section>
@@ -1215,7 +1314,7 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', message);
     return;
   }
-  const note = block ? '' : $('#newBookingNote').value.trim();
+  const note = block ? ($('#newBookingBlockNote')?.value.trim() || '') : $('#newBookingNote').value.trim();
   const normalizedPhone = normalizePhone(phone);
   if (!block && note) {
     await db.from('client_notes').upsert({ performer_id: userId, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
@@ -1226,8 +1325,18 @@ async function createNewBooking(event) {
   closeBookingSheet();
   await refreshAfterWrite();
   const createdBooking = [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone));
-  if (createdBooking) await saveBookingColor(createdBooking.id, color);
-  notify(block ? 'Время занято' : 'Новая запись создана');
+  let blockNoteLocalOnly = false;
+  if (createdBooking) {
+    await saveBookingColor(createdBooking.id, color, { rerender:false });
+    if (block) {
+      const remoteSaved = await saveBookingNote(createdBooking.id, note);
+      blockNoteLocalOnly = !remoteSaved && Boolean(note);
+    }
+    else renderBookingData();
+  }
+  notify(block
+    ? (blockNoteLocalOnly ? 'Перерыв создан. Заметка сохранена на этом устройстве' : 'Время занято')
+    : 'Новая запись создана');
 }
 
 function closeBookingSheet() {
@@ -1636,7 +1745,11 @@ async function clearProviderDeviceData(userId) {
   try { await reliability?.removePrefix(`provider:${userId}:`); } catch {}
   try {
     Object.keys(localStorage).forEach(key => {
-      if (key.startsWith(`massage-notifications-${userId}-`) || key === `massage-booking-outcomes-${userId}`) localStorage.removeItem(key);
+      if (key.startsWith(`massage-notifications-${userId}-`)
+        || key === `massage-booking-outcomes-${userId}`
+        || key === bookingColorStorageKey(userId)
+        || key === bookingNoteStorageKey(userId)
+        || key === bookingNotePendingStorageKey(userId)) localStorage.removeItem(key);
     });
   } catch {}
 }
@@ -1663,8 +1776,14 @@ async function handleSession(session) {
   });
   setWritesAllowed(false);
   currentUser = session?.user || null;
-  if (currentUser) loadBookingColors(currentUser.id);
-  else bookingColors = new Map();
+  if (currentUser) {
+    loadBookingColors(currentUser.id);
+    loadBookingNotes(currentUser.id);
+  } else {
+    bookingColors = new Map();
+    bookingNotes = new Map();
+    pendingBookingNotes = new Set();
+  }
   scheduleDirty = false;
   if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId);
   if (generation !== sessionGeneration) return;
@@ -2630,4 +2749,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=66'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=67'));
