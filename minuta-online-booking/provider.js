@@ -474,14 +474,11 @@ function bookingCalculatedValue(item) {
   const outcome = bookingOutcome(item);
   return isPerMinuteBooking(item) && Number(outcome.calculated_amount_rub) > 0 ? Number(outcome.calculated_amount_rub) : bookingSessionTotal(item);
 }
-function bookingWorkdayEnd(item) {
-  const date = parseLocalIsoDate(item.booking_date);
-  const weekday = ((date.getDay() + 6) % 7) + 1;
-  const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
-  const scheduleEnd = minutesFromTime(schedule?.end_time || '20:00');
-  const appointmentEnd = minutesFromTime(item.booking_time) + Number(item.duration_minutes || item.services?.duration_minutes || 60);
-  const end = Math.max(scheduleEnd, appointmentEnd);
-  return new Date(new Date(`${item.booking_date}T00:00:00+04:00`).getTime() + end * 60000);
+function bookingSessionEnd(item) {
+  const time = String(item.booking_time || '00:00').slice(0, 5);
+  const start = new Date(`${item.booking_date}T${time}:00+04:00`);
+  const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+  return new Date(start.getTime() + duration * 60000);
 }
 function bookingWillCompleteAutomatically(item) {
   return Boolean(bookingPolicy.auto_complete_visits)
@@ -491,7 +488,7 @@ function bookingWillCompleteAutomatically(item) {
 }
 function automaticOutcomeHint(item) {
   if (!bookingWillCompleteAutomatically(item)) return '';
-  return bookingWorkdayEnd(item) <= new Date() ? 'Учитывается автоматически' : 'Будет учтён автоматически';
+  return bookingSessionEnd(item) <= new Date() ? 'Учитывается автоматически' : 'Будет учтён автоматически';
 }
 function bookingIsCompleted(item) {
   if (isScheduleBlock(item)) return false;
@@ -2006,7 +2003,7 @@ async function persistBookingOutcome(record) {
 async function applyAutomaticVisitOutcomes() {
   if (!bookingPolicy.auto_complete_visits || !currentUser || !writesAllowed) return 0;
   const now = new Date();
-  const items = allBookings.filter(item => bookingWillCompleteAutomatically(item) && bookingWorkdayEnd(item) <= now);
+  const items = allBookings.filter(item => bookingWillCompleteAutomatically(item) && bookingSessionEnd(item) <= now);
   if (!items.length) return 0;
   const updatedAt = now.toISOString();
   for (const item of items) {
@@ -3472,4 +3469,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=99'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=101'));

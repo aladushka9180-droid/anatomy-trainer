@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v100`;
+const CACHE = `${CACHE_PREFIX}v101`;
 const ASSETS = [
   './',
   './index.html',
@@ -12,7 +12,7 @@ const ASSETS = [
   './config.js?v=99',
   './reliability.js?v=99',
   './app.js?v=100',
-  './provider.js?v=99',
+  './provider.js?v=101',
   './booking.js?v=100',
   './my-bookings.js?v=99',
   './waitlist.js?v=99',
