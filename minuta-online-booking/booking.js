@@ -248,7 +248,7 @@ function androidCalendarUrl() {
   const toIso = value => value.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/, '$1-$2-$3T$4:$5:$6Z');
   const start = Date.parse(toIso(event.start));
   const end = Date.parse(toIso(event.end));
-  return `intent://insert#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${start};l.endTime=${end};S.browser_fallback_url=${encodeURIComponent(location.href)};end`;
+  return `intent://com.android.calendar/events#Intent;scheme=content;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${start};l.endTime=${end};end`;
 }
 
 function appleCalendarFile() {
@@ -271,7 +271,11 @@ function addToCalendar() {
   dialog.showModal();
 }
 function addToAndroidCalendar() {
-  location.href = androidCalendarUrl();
+  const link = document.createElement('a');
+  link.href = androidCalendarUrl();
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
   $('#calendarDialog').close();
 }
 
@@ -294,11 +298,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (sessionStorage.getItem('minuta-sw-reloaded')) return;
-    sessionStorage.setItem('minuta-sw-reloaded', '1');
-    location.reload();
-  });
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=92'));
-}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=93'));

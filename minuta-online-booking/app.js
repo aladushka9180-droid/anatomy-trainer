@@ -650,11 +650,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (sessionStorage.getItem('minuta-sw-reloaded')) return;
-    sessionStorage.setItem('minuta-sw-reloaded', '1');
-    location.reload();
-  });
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=92'));
-}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=93'));

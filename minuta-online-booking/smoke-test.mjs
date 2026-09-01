@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '92';
+const version = '93';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -260,7 +260,8 @@ assert.match(booking, /action=android\.intent\.action\.INSERT;type=vnd\.android\
 assert.match(booking, /S\.title=\$\{encodeURIComponent\(event\.title\)\}/, 'Данные системного календаря Android не кодируются безопасно');
 assert.doesNotMatch(booking, /calendar\.google\.com\/calendar\/render/, 'Android всё ещё отправляется в браузерный Google Календарь');
 assert.match(booking, /typeof dialog\.showModal !== 'function'/, 'Старые мобильные браузеры не получают запасной календарный файл');
-assert.match(booking, /navigator\.serviceWorker\.addEventListener\('controllerchange'/, 'Страница записи не обновляется после установки новой версии');
+assert.doesNotMatch(booking, /controllerchange[\s\S]*location\.reload/, 'Обновление Service Worker перезагружает страницу вместо открытия календаря');
+assert.match(booking, /intent:\/\/com\.android\.calendar\/events#Intent;scheme=content/, 'Android intent не указывает системный календарь');
 
 const migration = readFileSync(join(root, 'supabase-migration-v41.sql'), 'utf8');
 assert.match(migration, /create table if not exists public\.booking_policies/, 'Нет серверного хранения правил записи');
