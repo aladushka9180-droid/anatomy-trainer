@@ -1556,7 +1556,7 @@ function openNewBookingSheet(preferredTime = '') {
   newBookingHour = '';
   newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime)) ? String(preferredTime) : '';
   newBookingMode = 'client';
-  $('#bookingSheet').classList.add('booking-sheet-wide');
+  $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   $('#bookingSheet').classList.remove('booking-sheet-vip');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручное расписание</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">Новый клиент</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
@@ -1660,7 +1660,7 @@ async function createNewBooking(event) {
 
 function closeBookingSheet() {
   $('#bookingSheet').hidden = true;
-  $('#bookingSheet').classList.remove('booking-sheet-wide', 'booking-sheet-vip');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'booking-sheet-vip', 'new-booking-sheet');
   document.body.classList.remove('booking-sheet-open');
 }
 
