@@ -1,0 +1,29 @@
+{
+  "captured_at": "2026-09-02",
+  "project_ref": "cawexmmrqjvothcbgjxr",
+  "function": "public.provider_delete_booking(uuid)",
+  "function_acl": "{postgres=X/postgres,authenticated=X/postgres}",
+  "tables": {
+    "bookings": {
+      "row_count": 44,
+      "id_digest": "f68bdbff0bfce99d3dff5ecb790e8ad9"
+    },
+    "booking_reviews": {
+      "row_count": 0,
+      "id_digest": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "booking_waitlist_requests": {
+      "row_count": 0,
+      "id_digest": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+  },
+  "optional_tables_absent": [
+    "payments",
+    "payment_events"
+  ],
+  "post_verification": {
+    "v64_installed": true,
+    "foreign_booking_delete_blocked": true,
+    "counts_and_id_digests_unchanged": true
+  }
+}

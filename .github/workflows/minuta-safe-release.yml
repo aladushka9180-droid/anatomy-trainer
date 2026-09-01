@@ -187,7 +187,7 @@ jobs:
           esac
           MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.booking_reviews') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regprocedure('public.provider_delete_booking(uuid)') is not null and to_regprocedure('public.get_client_bookings_v2(text)') is not null;" \
+            "select to_regclass('public.booking_reviews') is not null and to_regprocedure('public.provider_delete_booking(uuid)') is not null and to_regprocedure('public.get_client_bookings_v2(text)') is not null;" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
