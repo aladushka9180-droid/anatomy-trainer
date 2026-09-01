@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '76';
+const version = '77';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -132,6 +132,8 @@ assert.match(provider, /completion_source:'auto'/, 'Автоматическое
 assert.match(provider, /Будет учтён автоматически/, 'Карточка не объясняет автоматический учёт визита');
 assert.match(provider, /payment_method:'unpaid', amount_rub:0, completion_source:'auto'/, 'Автоматический визит ошибочно считается оплаченным');
 assert.match(provider, /function bookingSessionMarkup/, 'В карточке записи нет состава сеанса');
+assert.match(provider, /const addons = items\.slice\(1\)/, 'Основная услуга повторно выводится в составе сеанса');
+assert.match(provider, /booking-session-addons/, 'Дополнительные услуги не отделены от основной');
 assert.match(provider, /data-edit-booking-session/, 'Состав конкретной записи нельзя изменить');
 assert.match(provider, /Дополнительная услуга/, 'В состав нельзя добавить дополнительную услугу');
 assert.match(provider, /function sessionConflict/, 'Дополнительная длительность не проверяется на пересечение');

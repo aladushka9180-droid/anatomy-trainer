@@ -367,7 +367,9 @@ function bookingSessionDuration(items) {
 }
 function bookingSessionMarkup(item) {
   const items = bookingSession(item);
-  return `<section class="booking-session-summary"><div class="booking-session-heading"><div><small>Состав сеанса</small><strong>${items.length} ${items.length === 1 ? 'позиция' : items.length < 5 ? 'позиции' : 'позиций'}</strong></div><button type="button" data-edit-booking-session="${item.id}">Изменить</button></div><div class="booking-session-lines">${items.map((entry, index) => `<div><span><b>${escapeHtml(entry.title)}</b><small>${entry.duration_minutes} мин${index > 0 && !entry.extends_duration ? ' · без увеличения времени' : ''}</small></span><strong>${money(entry.price_rub)}</strong></div>`).join('')}</div><div class="booking-session-total"><span>Итого</span><strong>${money(bookingSessionTotal(item))}</strong></div></section>`;
+  const addons = items.slice(1);
+  const countLabel = `${items.length} ${items.length === 1 ? 'услуга' : items.length < 5 ? 'услуги' : 'услуг'}`;
+  return `<section class="booking-session-summary"><div class="booking-session-heading"><div><small>Состав сеанса</small><strong>${countLabel} · ${bookingSessionDuration(items)} мин</strong></div><button type="button" data-edit-booking-session="${item.id}"><span>Изменить</span>${uiIcon('arrow-right')}</button></div>${addons.length ? `<div class="booking-session-addons"><small>Дополнительно</small>${addons.map(entry => `<div><span><b>${escapeHtml(entry.title)}</b><small>${entry.extends_duration ? `+${entry.duration_minutes} мин` : 'без увеличения времени'}</small></span><strong>+ ${money(entry.price_rub)}</strong></div>`).join('')}</div>` : ''}</section>`;
 }
 async function saveBookingColor(id, color, { rerender = true } = {}) {
   const selected = validBookingColor(color);
@@ -3337,4 +3339,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=76'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=77'));

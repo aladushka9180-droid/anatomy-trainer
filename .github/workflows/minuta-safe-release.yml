@@ -15,7 +15,7 @@ on:
       expected_version:
         description: Ожидаемая версия опубликованных ресурсов
         required: true
-        default: "76"
+        default: "77"
         type: string
       observation_minutes:
         description: Длительность наблюдения production
