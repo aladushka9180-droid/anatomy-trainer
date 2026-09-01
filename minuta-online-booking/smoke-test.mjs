@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'privacy.html'];
-const version = '95';
+const version = '96';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -171,6 +171,8 @@ assert.match(provider, /bookingColorPicker\('newBookingColor'/, 'В новой �
 assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
 assert.match(provider, /data-booking-color-id/, 'Цвет существующей записи нельзя изменить из карточки');
 assert.match(styles, /color-lavender[\s\S]*background:#f2edfa/, 'Палитра нежных цветов не оформлена');
+assert.match(provider, /timeline-booking-client-row[\s\S]*<\/span>\$\{block \? '' : clientBadgeMarkup/, 'Метки клиента снова растягивают строку и срезают заметку');
+assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]*transform:translateY\(-50%\)/, 'Метки клиента не вынесены из потока карточки');
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');

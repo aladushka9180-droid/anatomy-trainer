@@ -1218,3 +1218,19 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .policy-grid label>span:first-child { min-height:0; }
   .provider-body .settings-card { padding:15px; }
 }
+
+/* Метки не увеличивают высоту строки и не срезают заметку. */
+.provider-body .timeline-booking-copy { position:relative; padding-right:76px; }
+.provider-body .timeline-booking .client-badges { position:absolute; top:50%; right:0; flex-wrap:nowrap; transform:translateY(-50%); }
+.provider-body .timeline-booking.compact .timeline-booking-copy { padding-right:58px; }
+
+@media (max-width:760px) {
+  .provider-body .timeline-booking-copy { padding-right:0; }
+  .provider-body .timeline-booking .client-badges { right:8px; gap:4px; max-width:62px; }
+  .provider-body .timeline-booking-copy>strong,
+  .provider-body .timeline-booking-client-row,
+  .provider-body .timeline-booking-note { padding-right:70px; }
+  .provider-body .timeline-booking.compact .timeline-booking-copy>strong,
+  .provider-body .timeline-booking.compact .timeline-booking-client-row,
+  .provider-body .timeline-booking.compact .timeline-booking-note { padding-right:60px; }
+}
