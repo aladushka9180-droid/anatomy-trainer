@@ -255,7 +255,7 @@ function clientBadgeDefinitions(phone) {
   const value = clientLabel(phone);
   return [
     value.attention ? { key:'attention', icon:'shield-alert', label:'Требует внимания', detail:value.attention_reason } : null,
-    value.vip ? { key:'vip', icon:'star', label:'VIP', detail:value.vip_note } : null,
+    value.vip ? { key:'vip', icon:'crown', label:'VIP', detail:value.vip_note } : null,
     value.favorite ? { key:'favorite', icon:'heart', label:'Любимый клиент', detail:value.favorite_note } : null,
     clientIsNew(phone) ? { key:'new', icon:'spark', label:'Новый клиент' } : null
   ].filter(Boolean);
@@ -289,7 +289,7 @@ function bookingClientLabelsMarkup(phone, bookingId) {
     <div class="booking-labels-editor" data-booking-client-labels="${escapeHtml(normalizedPhone)}" data-booking-id="${escapeHtml(bookingId)}">
       <div class="client-label-options">
         <label class="client-label-option label-favorite"><input data-booking-label-favorite type="checkbox" ${value.favorite ? 'checked' : ''}><span>${uiIcon('heart')}</span><strong>Любимый</strong></label>
-        <label class="client-label-option label-vip"><input data-booking-label-vip type="checkbox" ${value.vip ? 'checked' : ''}><span>${uiIcon('star')}</span><strong>VIP</strong></label>
+        <label class="client-label-option label-vip"><input data-booking-label-vip type="checkbox" ${value.vip ? 'checked' : ''}><span>${uiIcon('crown')}</span><strong>VIP</strong></label>
         <label class="client-label-option label-attention"><input data-booking-label-attention type="checkbox" ${value.attention ? 'checked' : ''}><span>${uiIcon('shield-alert')}</span><strong>Внимание</strong></label>
       </div>
       <label class="client-attention-reason" data-booking-favorite-note-field ${value.favorite ? '' : 'hidden'}>Что нравится клиенту<textarea data-booking-favorite-note maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита">${escapeHtml(value.favorite_note)}</textarea></label>
@@ -418,7 +418,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=95#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }

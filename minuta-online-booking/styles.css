@@ -792,6 +792,57 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 html.requires-top-level body { visibility:hidden; }
 html.requires-top-level.top-level body { visibility:visible; }
 
+/* Заметные метки клиентов v95 */
+.client-badges { gap:6px; max-width:100%; }
+.client-badge {
+  width:30px;
+  height:30px;
+  border-width:1px;
+  border-radius:10px;
+  box-shadow:0 3px 9px rgba(39,55,47,.12),inset 0 1px 0 rgba(255,255,255,.88);
+}
+.client-badge .ui-icon { width:18px; height:18px; stroke-width:2.15; }
+.client-badge.badge-favorite { background:linear-gradient(145deg,#fff7fa,#f7dce5); color:#b73e64; }
+.client-badge.badge-favorite .ui-icon { fill:currentColor; }
+.client-badge.badge-vip { background:linear-gradient(145deg,#fffdf1,#f5df92); color:#82600b; }
+.client-badge.badge-vip .ui-icon { fill:#f2c94c; stroke:#75570b; }
+.client-badge.badge-attention { background:linear-gradient(145deg,#fff9f2,#ffd9b8); color:#a44e18; }
+.client-badge.badge-attention .ui-icon { stroke-width:2.4; }
+.client-badge.badge-new { background:linear-gradient(145deg,#f7fff9,#d9f1e2); }
+.client-badges.with-labels .client-badge { min-height:32px; padding:0 10px; gap:6px; border-radius:10px; }
+.client-badges.with-labels .client-badge>span { font-size:10px; }
+.client-label-option { min-height:54px; gap:9px; padding:8px 10px; }
+.client-label-option>span { width:34px; height:34px; border-radius:11px; }
+.client-label-option .ui-icon { width:20px; height:20px; stroke-width:2.1; }
+.client-label-option.label-favorite:has(input:checked)>span .ui-icon { fill:currentColor; }
+.client-label-option.label-vip:has(input:checked)>span .ui-icon { fill:#f2c94c; stroke:#75570b; }
+.booking-labels-summary .client-badges { gap:5px; }
+.booking-labels-summary .client-badge { width:28px; height:28px; border-radius:9px; }
+.booking-labels-summary .client-badge .ui-icon { width:17px; height:17px; }
+.timeline-booking.compact .client-badge { width:24px; height:24px; border-radius:8px; }
+.timeline-booking.compact .client-badge .ui-icon { width:15px; height:15px; }
+
+@media (max-width:760px) {
+  .client-badge { width:28px; height:28px; border-radius:9px; }
+  .client-badge .ui-icon { width:17px; height:17px; }
+  .provider-body .timeline-booking .client-badges { right:8px; gap:4px; max-width:62px; flex-wrap:nowrap; }
+  .provider-body .timeline-booking-copy>strong,
+  .provider-body .timeline-booking-client-row,
+  .provider-body .timeline-booking-note { padding-right:70px; }
+  .provider-body .timeline-booking.compact .timeline-booking-copy>strong,
+  .provider-body .timeline-booking.compact .timeline-booking-client-row,
+  .provider-body .timeline-booking.compact .timeline-booking-note { padding-right:60px; }
+  .client-label-options { gap:6px; }
+  .client-label-option { min-height:52px; padding:7px; gap:6px; }
+  .client-label-option>span { width:32px; height:32px; }
+  .client-label-option .ui-icon { width:19px; height:19px; }
+}
+
+@media (max-width:380px) {
+  .client-label-option { flex-direction:column; justify-content:center; min-height:68px; text-align:center; }
+  .client-label-option strong { max-width:100%; font-size:9px; }
+}
+
 .success-payment { display:grid; gap:10px; margin:18px 0 8px; padding:17px; border:1px solid #cfe1d5; border-radius:15px; background:#f1f8f3; text-align:left; }
 .success-payment small { color:#718178; font-size:10px; font-weight:850; text-transform:uppercase; letter-spacing:.08em; }
 .success-payment strong { font-size:18px; }.success-payment .primary { width:100%; margin:0; text-align:center; }.success-payment p { margin:0; color:#6b7d73; font-size:10px; line-height:1.5; }
