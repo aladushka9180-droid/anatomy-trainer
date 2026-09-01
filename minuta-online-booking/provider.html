@@ -15,7 +15,7 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=49">
+  <link rel="stylesheet" href="styles.css?v=50">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -44,7 +44,7 @@
         <p class="recovery-note">Мы отправим письмо со ссылкой для создания нового пароля.</p>
         <p class="form-error" id="recoveryError" hidden></p>
         <button class="primary" type="submit">Отправить ссылку</button>
-        <button class="auth-back-button" type="button" data-back-to-login>← Вернуться ко входу</button>
+        <button class="auth-back-button" type="button" data-back-to-login><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Вернуться ко входу</span></button>
       </form>
       <form id="resetPasswordForm" class="auth-form" hidden>
         <label>Новый пароль<input id="recoveryNewPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required></label>
@@ -52,25 +52,25 @@
         <p class="form-error" id="resetPasswordError" hidden></p>
         <button class="primary" type="submit">Сохранить новый пароль</button>
       </form>
-      <div class="recovery-sent" id="recoverySent" hidden><span>✓</span><strong>Письмо отправлено</strong><p>Откройте письмо и нажмите ссылку. После этого здесь можно будет создать новый пароль.</p><button class="auth-back-button" type="button" data-back-to-login>Вернуться ко входу</button></div>
-      <a class="back-to-booking" href="index.html">← Вернуться к записи клиента</a>
+      <div class="recovery-sent" id="recoverySent" hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg></span><strong>Письмо отправлено</strong><p>Откройте письмо и нажмите ссылку. После этого здесь можно будет создать новый пароль.</p><button class="auth-back-button" type="button" data-back-to-login>Вернуться ко входу</button></div>
+      <a class="back-to-booking" href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Вернуться к записи клиента</span></a>
     </section>
 
     <section class="provider-app" id="dashboard" hidden>
       <aside class="provider-sidebar">
         <a class="brand provider-brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>для исполнителя</small></span></a>
         <nav class="provider-nav" aria-label="Разделы кабинета">
-          <button class="active" type="button" data-provider-view="bookings"><span aria-hidden="true">▣</span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
-          <button type="button" data-provider-view="clients"><span aria-hidden="true">♙</span><span>Клиенты</span><b id="clientsBadge">0</b></button>
-          <button type="button" data-provider-view="notifications"><span aria-hidden="true">◉</span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
-          <button type="button" data-provider-view="analytics"><span aria-hidden="true">↗</span><span>Статистика</span></button>
-          <button type="button" data-provider-view="schedule"><span aria-hidden="true">◷</span><span>Расписание</span></button>
-          <button type="button" data-provider-view="services"><span aria-hidden="true">✦</span><span>Услуги</span><b id="servicesBadge">0</b></button>
-          <button type="button" data-provider-view="portfolio"><span aria-hidden="true">▧</span><span>Портфолио</span><b id="portfolioBadge">0</b></button>
-          <button type="button" data-provider-view="settings"><span aria-hidden="true">⚙</span><span>Настройки</span></button>
+          <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
+          <button type="button" data-provider-view="clients"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Клиенты</span><b id="clientsBadge">0</b></button>
+          <button type="button" data-provider-view="notifications"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
+          <button type="button" data-provider-view="analytics"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-chart"></use></svg></span><span>Статистика</span></button>
+          <button type="button" data-provider-view="schedule"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Расписание</span></button>
+          <button type="button" data-provider-view="services"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></span><span>Услуги</span><b id="servicesBadge">0</b></button>
+          <button type="button" data-provider-view="portfolio"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-image"></use></svg></span><span>Портфолио</span><b id="portfolioBadge">0</b></button>
+          <button type="button" data-provider-view="settings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-settings"></use></svg></span><span>Настройки</span></button>
         </nav>
         <div class="sidebar-bottom">
-          <a href="index.html"><span aria-hidden="true">↗</span> Страница клиента</a>
+          <a href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Страница клиента</span></a>
           <div class="provider-user"><span class="user-avatar" id="userAvatar">М</span><div><strong id="sidebarName">Исполнитель</strong><small id="accountEmail"></small></div></div>
           <button class="logout-button" id="logoutButton" type="button">Выйти</button>
         </div>
@@ -79,11 +79,11 @@
       <div class="provider-workspace">
         <header class="provider-topbar">
           <div><small id="todayLabel">Сегодня</small><h1 id="welcomeName">Здравствуйте!</h1></div>
-          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link" href="index.html">Открыть онлайн-запись ↗</a></div>
+          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link" href="index.html"><span>Открыть онлайн-запись</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
         </header>
 
         <section class="provider-view active" data-provider-panel="bookings">
-          <div class="view-title"><div><span>Журнал записей</span><h2>Расписание</h2></div><div class="view-title-actions"><button class="primary compact-button" id="newBookingButton" type="button">＋ Новая запись</button><button class="refresh-button" id="refreshBookings" type="button" aria-label="Обновить записи">↻</button></div></div>
+          <div class="view-title"><div><span>Журнал записей</span><h2>Расписание</h2></div><div class="view-title-actions"><button class="primary compact-button" id="newBookingButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая запись</span></button><button class="refresh-button" id="refreshBookings" type="button" aria-label="Обновить записи"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg></button></div></div>
           <div class="dashboard-summary" aria-label="Сводка">
             <div><strong id="todayBookingsCount">0</strong><span>сегодня</span></div>
             <i></i><div><strong id="newBookingsCount">0</strong><span>впереди</span></div>
@@ -91,16 +91,16 @@
           </div>
           <section class="schedule-card">
             <div class="date-navigation" role="group" aria-label="Навигация по расписанию">
-              <button class="date-nav-button" type="button" data-date-shift="-7" aria-label="Показать предыдущую неделю"><span aria-hidden="true">←</span><span>Предыдущая</span></button>
+              <button class="date-nav-button" type="button" data-date-shift="-7" aria-label="Показать предыдущую неделю"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Предыдущая</span></button>
               <button class="date-today-button" type="button" data-date-today>Сегодня</button>
               <label class="schedule-date-picker"><span>Календарь</span><input id="scheduleDatePicker" type="date" aria-label="Выбрать дату в календаре"></label>
-              <button class="date-nav-button" type="button" data-date-shift="7" aria-label="Показать следующую неделю"><span>Следующая</span><span aria-hidden="true">→</span></button>
+              <button class="date-nav-button" type="button" data-date-shift="7" aria-label="Показать следующую неделю"><span>Следующая</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
             </div>
             <div class="date-strip" id="dateStrip" role="group" aria-label="Выбор даты"></div>
             <div class="schedule-toolbar">
               <div><strong id="selectedDateTitle">Сегодня</strong><span id="selectedDateSummary">Записей нет</span></div>
               <div class="schedule-controls">
-                <div class="journal-mode-toggle" role="group" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline" aria-pressed="true"><span aria-hidden="true">◷</span> Лента</button><button type="button" data-journal-mode="list" aria-pressed="false"><span aria-hidden="true">☷</span> Список</button></div>
+                <div class="journal-mode-toggle" role="group" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Лента</span></button><button type="button" data-journal-mode="list" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-list"></use></svg><span>Список</span></button></div>
                 <div class="booking-filters" role="group" aria-label="Фильтр записей"><button class="active" type="button" data-filter="day" aria-pressed="true">День</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все</button></div>
               </div>
             </div>
@@ -113,11 +113,11 @@
           <p class="view-description">История посещений, заметки и быстрая повторная запись в одном месте.</p>
           <div class="clients-layout">
             <section class="panel clients-directory">
-              <label class="client-search"><span class="sr-only">Найти клиента</span><input id="clientSearch" type="search" autocomplete="off" placeholder="Поиск по имени или телефону"><i aria-hidden="true">⌕</i></label>
+              <label class="client-search"><span class="sr-only">Найти клиента</span><input id="clientSearch" type="search" autocomplete="off" placeholder="Поиск по имени или телефону"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg></label>
               <div class="clients-list" id="clientsList"></div>
             </section>
             <section class="panel client-profile">
-              <div class="client-profile-empty" id="clientProfileEmpty"><span>♙</span><strong>Выберите клиента</strong><small>Справа появятся контакты, история и заметки.</small></div>
+              <div class="client-profile-empty" id="clientProfileEmpty"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-user"></use></svg></span><strong>Выберите клиента</strong><small>Справа появятся контакты, история и заметки.</small></div>
               <div id="clientProfileContent" hidden>
                 <div class="client-profile-head"><span class="client-avatar" id="clientAvatar">К</span><div><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><a id="clientPhone" href="tel:">Телефон</a></div></div>
                 <div class="client-summary"><article><strong id="clientVisits">0</strong><small>посещений</small></article><article><strong id="clientNext">—</strong><small>ближайшая запись</small></article></div>
@@ -144,7 +144,7 @@
         </section>
 
         <section class="provider-view" data-provider-panel="notifications" hidden>
-          <div class="view-title"><div><span>Связь с клиентами</span><h2>Уведомления</h2></div><div class="view-title-actions"><span class="notification-total" id="notificationCount">0</span><button class="secondary-button notification-settings-button" type="button" data-open-notification-templates>Настроить сообщения</button><button class="refresh-button" id="refreshNotifications" type="button" aria-label="Обновить уведомления">↻</button></div></div>
+          <div class="view-title"><div><span>Связь с клиентами</span><h2>Уведомления</h2></div><div class="view-title-actions"><span class="notification-total" id="notificationCount">0</span><button class="secondary-button notification-settings-button" type="button" data-open-notification-templates>Настроить сообщения</button><button class="refresh-button" id="refreshNotifications" type="button" aria-label="Обновить уведомления"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg></button></div></div>
           <p class="view-description">Ручные сообщения клиентам через WhatsApp и состояние автоматических уведомлений мастеру.</p>
           <section class="panel notification-queue-panel" id="automaticNotificationPanel" hidden>
             <div class="notification-toolbar"><div><small>Автоматически</small><h3>Telegram мастеру</h3></div><span class="notification-total" id="automaticNotificationCount">Очередь обработана</span></div>
@@ -182,7 +182,7 @@
                 <div class="day-off-time" id="dayOffTime" hidden><label>С<input id="dayOffStart" type="time" value="13:00"></label><label>До<input id="dayOffEnd" type="time" value="15:00"></label></div>
                 <label>Комментарий<input id="dayOffNote" maxlength="120" placeholder="Например, личное время"></label>
                 <p class="form-error" id="dayOffError" hidden></p>
-                <button class="secondary-button" type="submit">＋ Закрыть время</button>
+                <button class="secondary-button icon-label-button" type="submit"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Закрыть время</span></button>
               </form>
               <div class="days-off-list" id="daysOffList"></div>
             </section>
@@ -190,7 +190,7 @@
         </section>
 
         <section class="provider-view" data-provider-panel="analytics" hidden>
-          <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="primary compact-button" id="exportBookings" type="button">Скачать отчёт</button></div>
+          <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="primary compact-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать отчёт</span></button></div>
           <p class="view-description">Доход считается по записям, где отмечены состоявшийся визит и полученная оплата.</p>
           <div class="report-periods" aria-label="Период отчёта"><button class="active" type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="all">Всё время</button></div>
           <div class="report-summary">
@@ -203,14 +203,14 @@
         </section>
 
         <section class="provider-view" data-provider-panel="services" hidden>
-          <div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><div class="view-title-actions"><span class="panel-count" id="servicesCount">0</span><button class="primary compact-button" type="button" data-open-service-creator>＋ Добавить услугу</button></div></div>
+          <div class="view-title"><div><span>Каталог</span><h2>Мои услуги</h2></div><div class="view-title-actions"><span class="panel-count" id="servicesCount">0</span><button class="primary compact-button" type="button" data-open-service-creator><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить услугу</span></button></div></div>
           <div class="services-layout">
             <section class="panel service-catalog"><div class="panel-head"><div><small>В онлайн-записи</small><h3>Список услуг</h3></div></div><div class="service-manage-list" id="serviceManageList"></div></section>
           </div>
         </section>
 
         <section class="provider-view" data-provider-panel="portfolio" hidden>
-          <div class="view-title"><div><span>Работы мастера</span><h2>Портфолио</h2></div><div class="view-title-actions"><span class="panel-count" id="portfolioCount">0</span><button class="primary compact-button" type="button" data-open-portfolio-editor>＋ Добавить работу</button></div></div>
+          <div class="view-title"><div><span>Работы мастера</span><h2>Портфолио</h2></div><div class="view-title-actions"><span class="panel-count" id="portfolioCount">0</span><button class="primary compact-button" type="button" data-open-portfolio-editor><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить работу</span></button></div></div>
           <p class="view-description">Показывайте результат честно: подписи «До» и «После N сеансов» можно менять без повторной загрузки фото.</p>
           <p class="portfolio-availability" id="portfolioAvailability" role="status" aria-live="polite" hidden></p>
           <div class="portfolio-manage-list" id="portfolioManageList"></div>
@@ -221,7 +221,7 @@
           <div class="view-title"><div><span>Безопасность</span><h2>Настройки</h2></div></div>
           <div class="settings-layout">
             <section class="panel settings-card booking-rules-card">
-              <div class="settings-icon" aria-hidden="true">◷</div>
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></div>
               <div class="settings-heading"><small>Правила онлайн-записи</small><h3>Отмена, перенос и предоплата</h3><p>Ограничения проверяются на сервере и не обходятся через старую ссылку.</p></div>
               <form id="bookingPolicyForm" class="booking-policy-form">
                 <div class="form-row"><label>Отмена не позднее чем за, часов<input id="cancelCutoffHours" type="number" min="0" max="168" step="1" required></label><label>Перенос не позднее чем за, часов<input id="rescheduleCutoffHours" type="number" min="0" max="168" step="1" required></label></div>
@@ -237,7 +237,7 @@
               </form>
             </section>
             <section class="panel settings-card">
-              <div class="settings-icon" aria-hidden="true">●</div>
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div>
               <div class="settings-heading"><small>Аккаунт исполнителя</small><h3>Сменить пароль</h3><p>После сохранения используйте новый пароль при следующем входе.</p></div>
               <form id="passwordForm" class="password-form">
                 <label>Текущий пароль<input id="currentPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Введите текущий пароль" required></label>
@@ -254,32 +254,32 @@
         <section class="provider-view" data-provider-panel="more" hidden>
           <div class="view-title"><div><span>Дополнительно</span><h2>Ещё</h2></div></div>
           <div class="mobile-more-grid">
-            <button type="button" data-provider-view="services"><span>✦</span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
-            <button type="button" data-provider-view="portfolio"><span>▧</span><strong>Портфолио</strong><small>Фото работ и количество сеансов</small></button>
-            <button type="button" data-provider-view="analytics"><span>↗</span><strong>Статистика</strong><small>Доход, визиты и выгрузка записей</small></button>
-            <button type="button" data-provider-view="settings"><span>⚙</span><strong>Настройки</strong><small>Пароль и безопасность кабинета</small></button>
+            <button type="button" data-provider-view="services"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
+            <button type="button" data-provider-view="portfolio"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span><strong>Портфолио</strong><small>Фото работ и количество сеансов</small></button>
+            <button type="button" data-provider-view="analytics"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-chart"></use></svg></span><strong>Статистика</strong><small>Доход, визиты и выгрузка записей</small></button>
+            <button type="button" data-provider-view="settings"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-settings"></use></svg></span><strong>Настройки</strong><small>Пароль и безопасность кабинета</small></button>
           </div>
         </section>
       </div>
 
       <nav class="provider-mobile-nav" aria-label="Разделы кабинета">
-        <button class="active" type="button" data-provider-view="bookings"><span>▣</span>Записи</button>
-        <button type="button" data-provider-view="notifications"><span>◉</span>Сообщения</button>
-        <button type="button" data-provider-view="clients"><span>♙</span>Клиенты</button>
-        <button type="button" data-provider-view="schedule"><span>◷</span>Расписание</button>
-        <button type="button" data-provider-view="more"><span>•••</span>Ещё</button>
+        <button class="active" type="button" data-provider-view="bookings"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg><span>Записи</span></button>
+        <button type="button" data-provider-view="notifications"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg><span>Сообщения</span></button>
+        <button type="button" data-provider-view="clients"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg><span>Клиенты</span></button>
+        <button type="button" data-provider-view="schedule"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Расписание</span></button>
+        <button type="button" data-provider-view="more"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Ещё</span></button>
       </nav>
     </section>
   </main>
   <dialog class="portfolio-editor-dialog" id="portfolioEditorDialog" aria-labelledby="portfolioEditorTitle">
-    <div class="notification-template-dialog-head"><div><small>Портфолио</small><h2 id="portfolioEditorTitle">Новая работа</h2></div><button type="button" data-close-portfolio-editor aria-label="Закрыть">×</button></div>
+    <div class="notification-template-dialog-head"><div><small>Портфолио</small><h2 id="portfolioEditorTitle">Новая работа</h2></div><button type="button" data-close-portfolio-editor aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <form id="portfolioForm" class="portfolio-form">
       <input id="portfolioItemId" type="hidden">
       <div class="form-row"><label>Процедура<input id="portfolioProcedure" maxlength="120" placeholder="Например, Лазерная эпиляция" required></label><label>Зона<input id="portfolioArea" maxlength="120" placeholder="Например, Голени"></label></div>
       <label>Количество проведённых сеансов<input id="portfolioSessions" type="number" min="1" max="999" inputmode="numeric" placeholder="Например, 6"><small>Если заполнить, на результате появится метка «После 6 сеансов».</small></label>
       <div class="portfolio-photo-fields">
-        <label class="portfolio-photo-field" data-portfolio-photo-field="before"><span>Фото «До»</span><input id="portfolioBeforeFile" type="file" accept="image/jpeg,image/png,image/webp"><span class="portfolio-photo-placeholder">＋ Выбрать фотографию</span><img id="portfolioBeforePreview" alt="Предпросмотр фотографии до" hidden></label>
-        <label class="portfolio-photo-field" data-portfolio-photo-field="after"><span>Фото «После»</span><input id="portfolioAfterFile" type="file" accept="image/jpeg,image/png,image/webp"><span class="portfolio-photo-placeholder">＋ Выбрать фотографию</span><img id="portfolioAfterPreview" alt="Предпросмотр фотографии после" hidden></label>
+        <label class="portfolio-photo-field" data-portfolio-photo-field="before"><span>Фото «До»</span><input id="portfolioBeforeFile" type="file" accept="image/jpeg,image/png,image/webp"><span class="portfolio-photo-placeholder"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-upload"></use></svg> Выбрать фотографию</span><img id="portfolioBeforePreview" alt="Предпросмотр фотографии до" hidden></label>
+        <label class="portfolio-photo-field" data-portfolio-photo-field="after"><span>Фото «После»</span><input id="portfolioAfterFile" type="file" accept="image/jpeg,image/png,image/webp"><span class="portfolio-photo-placeholder"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-upload"></use></svg> Выбрать фотографию</span><img id="portfolioAfterPreview" alt="Предпросмотр фотографии после" hidden></label>
       </div>
       <p class="portfolio-photo-help">JPEG, PNG или WebP до 12 МБ. Перед загрузкой сайт уменьшит фото и удалит EXIF, включая геолокацию.</p>
       <label>Описание<textarea id="portfolioDescription" maxlength="1200" rows="4" placeholder="Что изменилось и за какой период"></textarea></label>
@@ -290,7 +290,7 @@
     </form>
   </dialog>
   <dialog class="notification-template-dialog" id="notificationTemplatesDialog" aria-labelledby="notificationTemplatesTitle">
-    <div class="notification-template-dialog-head"><div><small>Ваши тексты</small><h2 id="notificationTemplatesTitle">Шаблоны сообщений</h2></div><button type="button" data-close-notification-templates aria-label="Закрыть">×</button></div>
+    <div class="notification-template-dialog-head"><div><small>Ваши тексты</small><h2 id="notificationTemplatesTitle">Шаблоны сообщений</h2></div><button type="button" data-close-notification-templates aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <p class="template-help">Переменные: <b>{имя}</b>, <b>{услуга}</b>, <b>{дата}</b>, <b>{время}</b>, <b>{адрес}</b>.</p>
     <form id="notificationTemplatesForm" class="notification-template-form">
       <label>Подтверждение записи<textarea id="templateConfirmation" rows="4" maxlength="900"></textarea></label>
@@ -301,7 +301,7 @@
     <p class="notification-device-note">WhatsApp не сообщает сайту о доставке — отметку об отправке ставите вы.</p>
   </dialog>
   <dialog class="service-creator-dialog" id="serviceCreatorDialog" aria-labelledby="serviceCreatorTitle">
-    <div class="notification-template-dialog-head"><div><small>Каталог</small><h2 id="serviceCreatorTitle">Новая услуга</h2></div><button type="button" data-close-service-creator aria-label="Закрыть">×</button></div>
+    <div class="notification-template-dialog-head"><div><small>Каталог</small><h2 id="serviceCreatorTitle">Новая услуга</h2></div><button type="button" data-close-service-creator aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <form id="serviceForm" class="service-form">
       <label>Название услуги<input id="serviceName" placeholder="Например, Спортивный массаж" maxlength="120" required></label>
       <div class="form-row"><label>Длительность<select id="serviceDuration"><option value="5">5 мин</option><option value="10">10 мин</option><option value="20">20 мин</option><option value="30">30 мин</option><option value="40">40 мин</option><option value="60" selected>60 мин</option><option value="90">90 мин</option><option value="120">120 мин</option><option value="180">180 мин</option></select></label><label>Цена, ₽<input id="servicePrice" type="number" min="0" max="1000000" step="50" placeholder="2500" required></label></div>
@@ -312,14 +312,14 @@
     <button class="booking-sheet-backdrop" type="button" data-close-booking-sheet aria-label="Закрыть карточку записи"></button>
     <section class="booking-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bookingSheetTitle">
       <div class="booking-sheet-handle" aria-hidden="true"></div>
-      <button class="booking-sheet-close" type="button" data-close-booking-sheet aria-label="Закрыть">×</button>
+      <button class="booking-sheet-close" type="button" data-close-booking-sheet aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
       <div id="bookingSheetContent"></div>
     </section>
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=49"></script>
-  <script src="reliability.js?v=49"></script>
-  <script src="provider.js?v=49" defer></script>
+  <script src="config.js?v=50"></script>
+  <script src="reliability.js?v=50"></script>
+  <script src="provider.js?v=50" defer></script>
 </body>
 </html>

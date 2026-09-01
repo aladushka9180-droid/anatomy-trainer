@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), loadingAvailability: false };
+const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -55,6 +55,8 @@ function clearBookingAttempt() {
 }
 
 function bookingInputChanged() {
+  $('#formError').hidden = true;
+  updateSubmitAvailability();
   if (!bookingResultUncertain) return;
   bookingResultUncertain = false;
   if (state.step === 3 && !selectionValidationBlocked) setSelectionValidationState('ready');
@@ -96,12 +98,42 @@ function setSelectionValidationState(kind) {
   const submit = $('#submitBooking');
   if (!submit) return;
   if (kind === 'ready') {
-    submit.disabled = false;
-    submit.textContent = bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись';
+    setSubmitLabel(bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись');
   } else {
-    submit.disabled = true;
-    submit.textContent = kind === 'checking' ? 'Проверяем выбранное время…' : 'Сначала обновите расписание';
+    setSubmitLabel(kind === 'checking' ? 'Проверяем выбранное время…' : 'Сначала обновите расписание');
   }
+  updateSubmitAvailability();
+}
+
+function setSubmitLabel(text) {
+  const submit = $('#submitBooking');
+  if (!submit) return;
+  const label = submit.querySelector('span');
+  const icon = submit.querySelector('use');
+  if (label) label.textContent = text;
+  else submit.textContent = text;
+  if (icon) icon.setAttribute('href', /провер|сохраня|обновите/i.test(text) ? 'ui-icons.svg#icon-clock' : 'ui-icons.svg#icon-check');
+}
+
+function contactFormIsComplete() {
+  const name = $('#clientName')?.value.trim() || '';
+  const phoneDigits = ($('#clientPhone')?.value || '').replace(/\D/g, '');
+  return name.length >= 2 && phoneDigits.length === 11 && Boolean($('#dataConsent')?.checked);
+}
+
+function updateSubmitAvailability() {
+  const submit = $('#submitBooking');
+  if (!submit) return;
+  submit.disabled = selectionValidationPending || selectionValidationBlocked || !contactFormIsComplete();
+  const phone = $('#clientPhone');
+  const hint = $('#phoneHint');
+  if (!phone || !hint) return;
+  const digits = phone.value.replace(/\D/g, '');
+  const valid = digits.length === 11;
+  phone.classList.toggle('input-valid', valid);
+  phone.classList.toggle('input-incomplete', Boolean(digits.length) && !valid);
+  hint.textContent = valid ? 'Номер заполнен' : 'Введите 10 цифр после +7';
+  hint.classList.toggle('valid', valid);
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
@@ -202,7 +234,7 @@ async function loadPublicPortfolio() {
 function renderServices() {
   const holder = $('#services');
   if (!state.services.length) {
-    holder.innerHTML = '<div class="empty-service"><span class="empty-service-mark">＋</span><strong>Услуги скоро появятся</strong><span>Исполнитель ещё не добавил услуги в свой кабинет.</span><a href="provider.html">Войти исполнителю</a></div>';
+    holder.innerHTML = '<div class="empty-service"><span class="empty-service-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg></span><strong>Услуги скоро появятся</strong><span>Исполнитель ещё не добавил услуги в свой кабинет.</span><a href="provider.html">Войти исполнителю</a></div>';
     $('#toDate').disabled = true;
     return;
   }
@@ -259,13 +291,38 @@ function renderTimes() {
     if (state.time && !state.time.endsWith(':00')) $('#minutePicker').open = true;
   }
   $('#continueBooking').disabled = !state.time || state.loadingAvailability;
-  $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length);
+  const suggestionShown = renderAvailabilitySuggestion(times);
+  $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length) || suggestionShown;
+}
+
+function renderAvailabilitySuggestion(times) {
+  const holder = $('#availabilityHint');
+  if (!holder) return false;
+  if (state.loadingAvailability || times.length) {
+    holder.hidden = true;
+    holder.innerHTML = '';
+    return false;
+  }
+  const nearest = dates.find(item => item.iso !== state.date && (state.availability.get(item.iso) || []).length);
+  if (!nearest) {
+    holder.hidden = true;
+    holder.innerHTML = '';
+    return false;
+  }
+  const nearestTime = [...(state.availability.get(nearest.iso) || [])].sort()[0];
+  const isToday = state.date === dates[0].iso;
+  const isTomorrow = nearest.iso === dates[1]?.iso;
+  const dateText = isTomorrow ? 'завтра' : `${nearest.weekday}, ${nearest.label}`;
+  holder.innerHTML = `<div class="availability-suggestion-icon"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></div><div><strong>${isToday ? 'Сегодня мест нет' : 'На выбранный день мест нет'}</strong><span>Ближайшее окно — ${escapeHtml(dateText)}, ${escapeHtml(nearestTime)}</span></div><button type="button" data-suggested-date="${nearest.iso}" data-suggested-time="${nearestTime}"><span>Показать это время</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>`;
+  holder.hidden = false;
+  return true;
 }
 
 async function loadAvailability() {
   const service = selectedService();
   const revision = ++availabilityLoadRevision;
   state.availability = new Map();
+  state.availabilityServiceId = '';
   state.time = '';
   state.hour = '';
   state.period = 'all';
@@ -281,8 +338,7 @@ async function loadAvailability() {
     const time = String(item.booking_time).slice(0, 5);
     state.availability.set(date, [...(state.availability.get(date) || []), time]);
   });
-  const firstAvailable = dates.find(item => (state.availability.get(item.iso) || []).length);
-  if (!(state.availability.get(state.date) || []).length && firstAvailable) state.date = firstAvailable.iso;
+  if (!error) state.availabilityServiceId = service.id;
   state.loadingAvailability = false;
   renderDates();
   renderTimes();
@@ -299,12 +355,24 @@ async function loadAvailability() {
 async function showStep(step) {
   state.step = step;
   const titles = { 1: 'Выберите услугу', 2: 'Выберите дату и время', 3: 'Ваши контактные данные' };
+  const kickers = { 1: 'Услуга', 2: 'Время', 3: 'Контакты' };
   $$('.step').forEach(item => item.classList.toggle('active', Number(item.dataset.step) === step));
   $$('.progress i').forEach((item, index) => item.classList.toggle('active', index < step));
+  $$('[data-progress-label]').forEach(item => item.classList.toggle('active', Number(item.dataset.progressLabel) <= step));
   $('#bookingTitle').textContent = titles[step];
-  $('#stepLabel').textContent = `Шаг ${step} из 3`;
-  if (step === 2) await loadAvailability();
-  if (step === 3) { setSelectionValidationState('ready'); renderSummary(); }
+  $('#stepKicker').textContent = kickers[step];
+  $('#stepLabel').textContent = `${step} из 3`;
+  if (step === 2) {
+    if (state.availabilityServiceId === state.serviceId && state.availability.size) {
+      renderDates();
+      renderTimes();
+    } else await loadAvailability();
+  }
+  if (step === 3) {
+    renderSummary();
+    await validateCurrentSelection();
+    updateSubmitAvailability();
+  }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -370,11 +438,11 @@ async function submitBooking(event) {
   const attempt = await currentBookingAttempt(service, name, phone);
   const submit = $('#submitBooking');
   submit.disabled = true;
-  submit.textContent = bookingResultUncertain ? 'Проверяем…' : 'Сохраняем…';
+  setSubmitLabel(bookingResultUncertain ? 'Проверяем…' : 'Сохраняем…');
   $('#formError').hidden = true;
   const { data, error } = await db.rpc('book_appointment', { p_request_id: attempt.requestId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone });
-  submit.disabled = false;
-  submit.textContent = bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись';
+  setSubmitLabel(bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись');
+  updateSubmitAvailability();
   if (error) {
     if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
       clearBookingAttempt();
@@ -385,8 +453,8 @@ async function submitBooking(event) {
       showError('Параметры записи изменились. Проверьте услугу, дату и время, затем повторите отправку.');
     } else {
       bookingResultUncertain = true;
-      submit.disabled = false;
-      submit.textContent = 'Проверить результат';
+      setSubmitLabel('Проверить результат');
+      updateSubmitAvailability();
       showError('Сервер не подтвердил результат. Нажмите «Проверить результат»: повторный запрос безопасно вернёт уже созданную запись и не создаст дубль.');
     }
     return;
@@ -424,7 +492,7 @@ async function submitBooking(event) {
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#copyManageBooking').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -434,11 +502,30 @@ document.addEventListener('click', event => {
   const serviceDetails = event.target.closest('#serviceDetailsButton');
   const closeServiceDetails = event.target.closest('[data-close-service-details]');
   const chooseServiceDetails = event.target.closest('[data-choose-service-details]');
+  const suggestedDate = event.target.closest('[data-suggested-date]');
   const next = event.target.closest('[data-next]');
   const back = event.target.closest('[data-back]');
   const retryServices = event.target.closest('#retryServices');
-  if (service) { bookingInputChanged(); state.serviceId = service.dataset.service; state.availability = new Map(); renderServices(); }
+  if (service) {
+    bookingInputChanged();
+    if (state.serviceId !== service.dataset.service) {
+      state.serviceId = service.dataset.service;
+      state.availability = new Map();
+      state.availabilityServiceId = '';
+      state.time = '';
+    }
+    renderServices();
+  }
   if (date && !date.disabled) { bookingInputChanged(); state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
+  if (suggestedDate) {
+    bookingInputChanged();
+    state.date = suggestedDate.dataset.suggestedDate;
+    state.time = suggestedDate.dataset.suggestedTime;
+    state.hour = state.time.slice(0, 2);
+    state.period = 'all';
+    renderDates();
+    renderTimes();
+  }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
   if (serviceDetails) openServiceDetails();
@@ -449,7 +536,8 @@ document.addEventListener('click', event => {
   if (retryServices) loadServices();
 });
 $('#clientName').addEventListener('input', bookingInputChanged);
-$('#clientPhone').addEventListener('input', event => { bookingInputChanged(); event.target.value = formatPhone(event.target.value); });
+$('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
+$('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
 $('#newBooking').addEventListener('click', resetFlow);
 $('#copyManageBooking').addEventListener('click', async () => {
@@ -461,9 +549,9 @@ $('#copyManageBooking').addEventListener('click', async () => {
   } catch { showError('Не удалось скопировать ссылку. Откройте страницу управления и сохраните её в закладках.'); }
 });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
-window.addEventListener('online', () => { loadServices(); loadPublicPortfolio(); });
+window.addEventListener('online', loadServices);
 renderDates();
 renderTimes();
 loadServices();
-loadPublicPortfolio();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=49'));
+updateSubmitAvailability();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=50'));

@@ -194,6 +194,7 @@ function escapeHtml(value) {
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -455,7 +456,7 @@ function renderNotifications() {
     return true;
   });
   if (!filtered.length) {
-    holder.innerHTML = `<div class="provider-empty notification-empty"><span>✓</span><strong>${notificationFilter === 'sent' ? 'Отправленных пока нет' : notificationFilter === 'all' ? 'Уведомлений пока нет' : 'Всё отправлено'}</strong><small>${notificationFilter === 'pending' ? 'Новых сообщений, требующих внимания, сейчас нет.' : 'Здесь появятся сообщения по записям клиентов.'}</small></div>`;
+    holder.innerHTML = `<div class="provider-empty notification-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>${notificationFilter === 'sent' ? 'Отправленных пока нет' : notificationFilter === 'all' ? 'Уведомлений пока нет' : 'Всё отправлено'}</strong><small>${notificationFilter === 'pending' ? 'Новых сообщений, требующих внимания, сейчас нет.' : 'Здесь появятся сообщения по записям клиентов.'}</small></div>`;
     return;
   }
   const typeLabels = { confirmation: 'Подтверждение', reminder: 'Напоминание', cancellation: 'Отмена' };
@@ -466,9 +467,9 @@ function renderNotifications() {
     const link = escapeHtml(whatsappLink(item, task.type));
     const status = task.mark === 'sent' ? 'Отправлено' : task.isDue ? 'К отправке' : 'Позже';
     return `<article class="notification-card notification-${task.type} status-${task.mark || (task.isDue ? 'due' : 'scheduled')}">
-      <span class="notification-card-icon">${task.type === 'cancellation' ? '×' : task.type === 'reminder' ? '◷' : '✓'}</span>
+      <span class="notification-card-icon">${uiIcon(task.type === 'cancellation' ? 'close' : task.type === 'reminder' ? 'clock' : 'check')}</span>
       <div class="notification-card-main"><div class="notification-card-head"><span>${typeLabels[task.type]}</span><b>${status}</b></div><h3>${escapeHtml(item.client_name)}</h3><p>${escapeHtml(serviceName(item.services?.name || 'Услуга'))} · ${start.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${String(item.booking_time).slice(0, 5)} · ${notificationDueLabel(task)}</p><details class="notification-preview"><summary>Посмотреть текст</summary><blockquote>${escapeHtml(message).replace(/\n/g, '<br>')}</blockquote></details></div>
-      <div class="notification-card-actions">${link ? `<a class="whatsapp-action" href="${link}" target="_blank" rel="noopener noreferrer" data-open-notification="${escapeHtml(task.key)}">Открыть WhatsApp</a>` : '<span class="notification-phone-error">Проверьте телефон</span>'}${task.mark === 'sent' ? `<button class="notification-restore-button" type="button" data-restore-notification="${escapeHtml(task.key)}">Вернуть</button>` : `<button class="notification-done-button" type="button" data-sent-notification="${escapeHtml(task.key)}" aria-label="Отметить отправленным" title="Отметить отправленным">✓</button>`}</div>
+      <div class="notification-card-actions">${link ? `<a class="whatsapp-action" href="${link}" target="_blank" rel="noopener noreferrer" data-open-notification="${escapeHtml(task.key)}">Открыть WhatsApp</a>` : '<span class="notification-phone-error">Проверьте телефон</span>'}${task.mark === 'sent' ? `<button class="notification-restore-button" type="button" data-restore-notification="${escapeHtml(task.key)}">Вернуть</button>` : `<button class="notification-done-button" type="button" data-sent-notification="${escapeHtml(task.key)}" aria-label="Отметить отправленным" title="Отметить отправленным">${uiIcon('check')}</button>`}</div>
     </article>`;
   }).join('');
 }
@@ -793,14 +794,14 @@ function renderTimeline(items) {
     </button>`;
   }).join('');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">＋ Нажмите на свободное время</span>${cards || '<div class="timeline-empty-state"><span>＋</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>'}</div></div>`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
 }
 
 function renderBookingList(items) {
   const holder = $('#providerBookings');
   holder.className = 'provider-bookings schedule-list';
   if (!items.length) {
-    holder.innerHTML = '<div class="provider-empty schedule-empty"><span>✓</span><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>';
+    holder.innerHTML = `<div class="provider-empty schedule-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>`;
     return;
   }
   const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
@@ -852,7 +853,7 @@ function openBookingSheet(id) {
     <div class="booking-sheet-code"><span>Номер записи</span><strong>${escapeHtml(item.booking_code)}</strong><span>Стоимость</span><strong>${money(item.services?.price_rub || 0)}</strong></div>
     ${note ? `<div class="booking-sheet-note"><small>Заметка о клиенте</small><p>${escapeHtml(note)}</p></div>` : ''}
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
-    ${item.status !== 'cancelled' ? `<form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}"><div class="booking-outcome-heading"><div><small>После визита</small><h3>Результат и оплата</h3></div><span>${outcome.visit_status === 'completed' ? '✓ Состоялся' : outcome.visit_status === 'no_show' ? '× Не пришёл' : '◷ Запланирован'}</span></div><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Клиент не пришёл</option></select></label><div class="booking-outcome-payment" id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="50" value="${amount}"></label></div><button class="primary" type="submit">Сохранить результат</button><p>${outcomesRemoteAvailable ? 'Данные доступны в кабинете исполнителя.' : 'Пока сохраняется на этом устройстве.'}</p></form>` : ''}
+    ${item.status !== 'cancelled' ? `<form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}"><div class="booking-outcome-heading"><div><small>После визита</small><h3>Результат и оплата</h3></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован'}</span></div><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Клиент не пришёл</option></select></label><div class="booking-outcome-payment" id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="50" value="${amount}"></label></div><button class="primary" type="submit">Сохранить результат</button><p>${outcomesRemoteAvailable ? 'Данные доступны в кабинете исполнителя.' : 'Пока сохраняется на этом устройстве.'}</p></form>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">Написать в WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести или изменить</button><button class="secondary-button danger" type="button" data-booking-status="cancelled" data-booking-id="${item.id}">Отменить запись</button></div>` : ''}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -943,7 +944,7 @@ function openBookingEditor(id) {
   bookingEditTime = String(item.booking_time).slice(0, 5);
   const note = block ? '' : (clientNotes.get(normalizePhone(item.client_phone)) || '');
   $('#bookingSheet').classList.remove('booking-sheet-wide');
-  $('#bookingSheetContent').innerHTML = `<button class="booking-editor-back" type="button" data-back-booking="${item.id}">← К записи</button>
+  $('#bookingSheetContent').innerHTML = `<button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form" id="bookingEditForm" data-booking-id="${item.id}">
       ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
@@ -1084,7 +1085,7 @@ function openNewBookingSheet(preferredTime = '') {
         </section>
       </div>
       <p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
-    </form>` : '<div class="provider-empty booking-sheet-empty"><span>＋</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>'}`;
+    </form>` : `<div class="provider-empty booking-sheet-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>`}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   if (!services.length) return;
@@ -1207,7 +1208,7 @@ function renderClients() {
   $('#clientsCount').textContent = String(clients.length);
   $('#clientsBadge').textContent = String(clients.length);
   if (!filtered.length) {
-    $('#clientsList').innerHTML = `<div class="provider-empty compact-empty"><span>♙</span><strong>${clients.length ? 'Ничего не найдено' : 'Клиентов пока нет'}</strong><small>${clients.length ? 'Попробуйте изменить запрос.' : 'Они появятся после первой записи.'}</small></div>`;
+    $('#clientsList').innerHTML = `<div class="provider-empty compact-empty"><span class="provider-empty-icon">${uiIcon('user')}</span><strong>${clients.length ? 'Ничего не найдено' : 'Клиентов пока нет'}</strong><small>${clients.length ? 'Попробуйте изменить запрос.' : 'Они появятся после первой записи.'}</small></div>`;
     return;
   }
   $('#clientsList').innerHTML = filtered.map(client => {
@@ -1890,13 +1891,13 @@ async function saveSchedule() {
 function renderDaysOff() {
   const holder = $('#daysOffList');
   if (!daysOff.length) {
-    holder.innerHTML = '<div class="provider-empty compact-empty"><span>✓</span><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div>';
+    holder.innerHTML = `<div class="provider-empty compact-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div>`;
     return;
   }
   holder.innerHTML = daysOff.map(item => {
     const date = new Date(`${item.off_date}T12:00:00`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' });
     const period = item.all_day ? 'Весь день' : `${shortTime(item.start_time, '')}–${shortTime(item.end_time, '')}`;
-    return `<article class="day-off-item"><div><strong>${date}</strong><span>${period}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</span></div><button type="button" data-delete-day-off="${item.id}" aria-label="Удалить исключение">×</button></article>`;
+    return `<article class="day-off-item"><div><strong>${date}</strong><span>${period}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</span></div><button type="button" data-delete-day-off="${item.id}" aria-label="Удалить исключение">${uiIcon('trash')}</button></article>`;
   }).join('');
 }
 
@@ -1967,11 +1968,11 @@ function renderPortfolio() {
   availability.hidden = portfolioRemoteAvailable;
   availability.textContent = portfolioRemoteAvailable ? '' : 'Портфолио пока недоступно: серверная часть ещё не подключена или связь прервана.';
   if (!portfolioRemoteAvailable) {
-    list.innerHTML = '<div class="provider-empty"><span>▧</span><strong>Портфолио не загружено</strong><small>Основные функции кабинета продолжают работать.</small></div>';
+    list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('image')}</span><strong>Портфолио не загружено</strong><small>Основные функции кабинета продолжают работать.</small></div>`;
     return;
   }
   if (!portfolioItems.length) {
-    list.innerHTML = '<div class="provider-empty"><span>＋</span><strong>Работ пока нет</strong><small>Добавьте фотографии «До» и «После» и укажите число сеансов.</small></div>';
+    list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Работ пока нет</strong><small>Добавьте фотографии «До» и «После» и укажите число сеансов.</small></div>`;
     return;
   }
   list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
@@ -2235,10 +2236,10 @@ function renderOwnServices() {
   $('#servicesBadge').textContent = String(ownServices.length);
   $('#activeServicesCount').textContent = String(activeCount);
   if (!ownServices.length) {
-    list.innerHTML = '<div class="provider-empty"><span>＋</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>';
+    list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>`;
     return;
   }
-  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">✦</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)} · ${item.active ? 'доступна клиентам' : 'скрыта'}</small></div></div><div class="manage-actions"><button class="edit-service-button" type="button" data-edit-service="${item.id}">Изменить</button><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
+  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><div class="service-info"><span class="service-dot">${uiIcon('spark')}</span><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${item.duration_minutes} мин · ${money(item.price_rub)} · ${item.active ? 'доступна клиентам' : 'скрыта'}</small></div></div><div class="manage-actions"><button class="edit-service-button" type="button" data-edit-service="${item.id}">Изменить</button><button type="button" data-toggle-service="${item.id}" data-active="${item.active}">${item.active ? 'Скрыть' : 'Показать'}</button><button class="danger" type="button" data-delete-service="${item.id}">Удалить</button></div></article>`).join('');
 }
 
 async function loadOwnServices(options = {}) {
@@ -2541,4 +2542,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=49'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=50'));

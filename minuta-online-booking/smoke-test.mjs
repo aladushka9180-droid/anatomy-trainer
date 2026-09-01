@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'privacy.html'];
-const version = '49';
+const version = '50';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -89,6 +89,7 @@ assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker н�
 for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
+assert.match(worker, /\.\/ui-icons\.svg/, 'Service Worker не кэширует единый набор иконок');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
 assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');
 assert.match(worker, /!new URL\(request\.url\)\.search/, 'Навигация с секретными параметрами может попасть в кэш');
@@ -104,9 +105,39 @@ assert.doesNotMatch(app, /sessionStorage\.setItem\([^\n]*(?:clientName|clientPho
 assert.match(app, /loadPublicPortfolio/, 'Публичное портфолио не загружается');
 assert.match(app, /createSignedUrl\(photo\.storage_path/, 'Публичные фотографии не используют временные ссылки');
 assert.match(app, /После \$\{count\} \$\{word\}/, 'Количество сеансов не выводится на фотографии «После»');
+assert.match(app, /function contactFormIsComplete\(\)/, 'Кнопка подтверждения не зависит от полноты контактов');
+assert.match(app, /phoneDigits\.length === 11/, 'Номер телефона не проверяется полностью до активации кнопки');
+assert.match(app, /Boolean\(\$\('#dataConsent'\)\?\.checked\)/, 'Кнопка подтверждения не учитывает согласие клиента');
+assert.match(app, /availabilityServiceId === state\.serviceId/, 'При возврате к времени выбранный слот загружается заново и может потеряться');
+assert.doesNotMatch(app, /firstAvailable/, 'Расписание всё ещё молча переключает клиента на другую дату');
+assert.match(app, /data-suggested-date/, 'Нет однокнопочной подсказки ближайшего времени');
+assert.match(app, /Сегодня мест нет/, 'Подсказка не объясняет отсутствие мест сегодня');
+assert.match(app, /Показать это время/, 'Подсказка ближайшего времени не содержит понятного действия');
+assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфолио отвлекает клиента во время записи');
+
+const suggestionFunctionSource = app.match(/function renderAvailabilitySuggestion\(times\) \{[\s\S]*?\n\}/)?.[0];
+assert.ok(suggestionFunctionSource, 'Не удалось извлечь умную подсказку для проверки');
+const suggestionHolder = { hidden: true, innerHTML: '' };
+const suggestionDates = [
+  { iso: '2026-09-01', weekday: 'вт', label: '1 сентября' },
+  { iso: '2026-09-02', weekday: 'ср', label: '2 сентября' }
+];
+const renderSuggestion = Function('state', 'dates', 'holder', `const $ = () => holder; const escapeHtml = value => String(value); ${suggestionFunctionSource}; return renderAvailabilitySuggestion([]);`);
+assert.equal(renderSuggestion({ loadingAvailability: false, date: '2026-09-01', availability: new Map([['2026-09-01', []], ['2026-09-02', ['12:00']]]) }, suggestionDates, suggestionHolder), true, 'Подсказка не находит ближайшее окно');
+assert.match(suggestionHolder.innerHTML, /Сегодня мест нет[\s\S]*завтра, 12:00[\s\S]*data-suggested-date="2026-09-02"/, 'Подсказка не ведёт одним кликом на ближайшее время');
 
 const index = readFileSync(join(root, 'index.html'), 'utf8');
 assert.match(index, /id="portfolioSection"/, 'На публичной странице нет раздела портфолио');
+assert.match(index, /Услуга[\s\S]*Время[\s\S]*Контакты/, 'На форме нет понятного прогресса из трёх этапов');
+assert.match(index, /id="submitBooking"[^>]*disabled/, 'Кнопка подтверждения активна до корректных контактов');
+assert.match(index, /id="availabilityHint"/, 'В форме нет места для подсказки ближайшего времени');
+assert.match(index, /class="booking-footer"[\s\S]*provider\.html/, 'Исполнитель потерял доступ к своему кабинету');
+const clientHeader = index.match(/<header class="site-header booking-client-header">[\s\S]*?<\/header>/)?.[0] || '';
+assert.doesNotMatch(clientHeader, /provider-link|provider\.html/, 'Вход исполнителя снова отвлекает клиента в шапке');
+assert.ok(existsSync(join(root, 'ui-icons.svg')), 'Единый набор иконок отсутствует');
+assert.match(index, /ui-icons\.svg#icon-/, 'Клиентская форма не использует новые иконки');
+assert.match(providerHtml, /ui-icons\.svg#icon-(?:grid|users|bell|chart)/, 'Навигация кабинета не использует новые иконки');
+assert.match(provider, /function uiIcon\(name/, 'Динамические элементы кабинета не используют единый набор иконок');
 
 const booking = readFileSync(join(root, 'booking.js'), 'utf8');
 assert.match(booking, /booking\.html#token=/, 'Токен управления не переносится из query-параметра во fragment');
