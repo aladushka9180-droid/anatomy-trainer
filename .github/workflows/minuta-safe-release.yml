@@ -62,6 +62,9 @@ jobs:
           node --check minuta-online-booking/payment-foundation-static-test.mjs
           node --check minuta-online-booking/provider-delete-v64-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
+          node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
+          node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
+          node --check minuta-online-booking/organization.js
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
@@ -71,6 +74,9 @@ jobs:
           node minuta-online-booking/payment-foundation-static-test.mjs
           node minuta-online-booking/provider-delete-v64-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
+          node minuta-online-booking/multi-tenant-v66-static-test.mjs
+          node minuta-online-booking/multi-tenant-v67-static-test.mjs
+          node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
           node minuta-online-booking/smoke-test.mjs
@@ -153,6 +159,14 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-multi-tenant-v67.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_invitations') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-multi-tenant-v66.sql
+          fi
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-multi-tenant-v65.sql
           legacy_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -172,6 +186,43 @@ jobs:
           test "$v65_snapshot" = "$v65_snapshot_after"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/multi-tenant-v65-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v66.sql
+          v66_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|', (select md5(coalesce(string_agg(to_jsonb(invitation)::text, ',' order by invitation.id), '')) from public.organization_invitations invitation), (select md5(coalesce(string_agg(to_jsonb(audit)::text, ',' order by audit.id), '')) from public.organization_audit_log audit), (select md5(coalesce(string_agg(to_jsonb(organization)::text, ',' order by organization.id), '')) from public.organizations organization), (select md5(coalesce(string_agg(to_jsonb(location)::text, ',' order by location.id), '')) from public.locations location), (select md5(coalesce(string_agg(to_jsonb(membership)::text, ',' order by membership.organization_id, membership.user_id), '')) from public.organization_memberships membership));")"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v66.sql
+          v66_snapshot_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|', (select md5(coalesce(string_agg(to_jsonb(invitation)::text, ',' order by invitation.id), '')) from public.organization_invitations invitation), (select md5(coalesce(string_agg(to_jsonb(audit)::text, ',' order by audit.id), '')) from public.organization_audit_log audit), (select md5(coalesce(string_agg(to_jsonb(organization)::text, ',' order by organization.id), '')) from public.organizations organization), (select md5(coalesce(string_agg(to_jsonb(location)::text, ',' order by location.id), '')) from public.locations location), (select md5(coalesce(string_agg(to_jsonb(membership)::text, ',' order by membership.organization_id, membership.user_id), '')) from public.organization_memberships membership));")"
+          test "$v66_snapshot" = "$v66_snapshot_after"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/multi-tenant-v66-integration.sql
+          bash minuta-online-booking/multi-tenant-v66-concurrency-test.sh
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v67.sql
+          v67_definition="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select md5(pg_get_functiondef('public.get_public_minuta_catalog(text)'::regprocedure));")"
+          v67_org_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|', public_booking_enabled::text, updated_at::text) from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f';")"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v67.sql
+          v67_definition_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select md5(pg_get_functiondef('public.get_public_minuta_catalog(text)'::regprocedure));")"
+          v67_org_snapshot_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|', public_booking_enabled::text, updated_at::text) from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f';")"
+          test "$v67_definition" = "$v67_definition_after"
+          test "$v67_org_snapshot" = "$v67_org_snapshot_after"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/multi-tenant-v67-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-multi-tenant-v67.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_public_minuta_catalog(text)') is null and not exists (select 1 from public.organizations where public_booking_enabled);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v66.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v67.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regclass('public.client_labels') is not null and to_regclass('public.booking_session_items') is not null and to_regclass('public.booking_session_revisions') is not null and to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='favorite_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='vip_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='total_price_rub') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='client_account_id') and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null and to_regprocedure('public.set_booking_note(uuid,text)') is not null and to_regprocedure('public.save_booking_session(uuid,jsonb)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
@@ -182,7 +233,13 @@ jobs:
             "select p.prorettype = 'text'::regtype and p.prosecdef and position('return ''review_protected''' in pg_get_functiondef(p.oid)) > 0 and position('delete from public.payment_events' in pg_get_functiondef(p.oid)) > 0 and position('booking_delete_failed' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE') from pg_proc p where p.oid = 'public.provider_delete_booking(uuid)'::regprocedure;" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.organizations') is not null and to_regclass('public.locations') is not null and to_regclass('public.organization_memberships') is not null and (select count(*) = 3 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid = class.relnamespace where namespace.nspname = 'public' and class.relname in ('organizations','locations','organization_memberships')) and not has_table_privilege('anon', 'public.organizations', 'SELECT') and not has_table_privilege('anon', 'public.locations', 'SELECT') and not has_table_privilege('anon', 'public.organization_memberships', 'SELECT') and not has_table_privilege('authenticated', 'public.organizations', 'INSERT') and not has_table_privilege('authenticated', 'public.locations', 'UPDATE') and not has_table_privilege('authenticated', 'public.organization_memberships', 'DELETE') and not exists (select 1 from public.organizations where public_booking_enabled) and not exists (select 1 from public.performer_profiles profile where not exists (select 1 from public.organization_memberships membership where membership.user_id = profile.id and membership.active)) and not exists (select 1 from public.organizations organization where organization.legacy_performer_id is not null and (not exists (select 1 from public.organization_memberships membership where membership.organization_id = organization.id and membership.user_id = organization.legacy_performer_id and membership.role = 'owner' and membership.is_bookable and membership.active) or not exists (select 1 from public.locations location where location.organization_id = organization.id and location.is_primary))) and (select count(*) = 2 and bool_and(p.prosecdef and position('SET search_path TO ''''' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE')) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('is_organization_member','has_organization_role'));" \
+            "select to_regclass('public.organizations') is not null and to_regclass('public.locations') is not null and to_regclass('public.organization_memberships') is not null and (select count(*) = 3 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid = class.relnamespace where namespace.nspname = 'public' and class.relname in ('organizations','locations','organization_memberships')) and not has_table_privilege('anon', 'public.organizations', 'SELECT') and not has_table_privilege('anon', 'public.locations', 'SELECT') and not has_table_privilege('anon', 'public.organization_memberships', 'SELECT') and not has_table_privilege('authenticated', 'public.organizations', 'INSERT') and not has_table_privilege('authenticated', 'public.locations', 'UPDATE') and not has_table_privilege('authenticated', 'public.organization_memberships', 'DELETE') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug <> 'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f') and (select count(*) from public.organizations where public_booking_enabled) <= 1 and not exists (select 1 from public.performer_profiles profile where not exists (select 1 from public.organization_memberships membership where membership.user_id = profile.id and membership.active) and not exists (select 1 from auth.users account join public.organization_invitations invitation on lower(invitation.email) = lower(account.email) where account.id = profile.id and invitation.status = 'pending' and invitation.expires_at > now())) and not exists (select 1 from public.organizations organization where organization.legacy_performer_id is not null and (not exists (select 1 from public.organization_memberships membership where membership.organization_id = organization.id and membership.user_id = organization.legacy_performer_id and membership.role = 'owner' and membership.is_bookable and membership.active) or not exists (select 1 from public.locations location where location.organization_id = organization.id and location.is_primary))) and (select count(*) = 2 and bool_and(p.prosecdef and position('SET search_path TO ''''' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE')) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('is_organization_member','has_organization_role'));" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_invitations') is not null and to_regclass('public.organization_audit_log') is not null and (select count(*) = 2 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid = class.relnamespace where namespace.nspname='public' and class.relname in ('organization_invitations','organization_audit_log')) and not has_table_privilege('authenticated','public.organization_invitations','SELECT') and not has_table_privilege('authenticated','public.organization_audit_log','INSERT') and not has_table_privilege('anon','public.organization_invitations','SELECT') and to_regprocedure('public.get_minuta_workspace()') is not null and to_regprocedure('public.update_minuta_organization(uuid,text)') is not null and to_regprocedure('public.create_minuta_location(uuid,text,text,text)') is not null and to_regprocedure('public.update_minuta_location(uuid,text,text,text,boolean,boolean)') is not null and to_regprocedure('public.invite_minuta_member(uuid,text,text,boolean)') is not null and to_regprocedure('public.update_minuta_member(uuid,uuid,text,boolean,boolean)') is not null and to_regprocedure('public.cancel_minuta_invitation(uuid)') is not null and to_regprocedure('public.accept_minuta_invitation(uuid)') is not null and (select count(*) = 8 and bool_and(p.prosecdef and position('SET search_path TO ''''' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated',p.oid,'EXECUTE') and not has_function_privilege('anon',p.oid,'EXECUTE') and not has_function_privilege('service_role',p.oid,'EXECUTE')) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('get_minuta_workspace','update_minuta_organization','create_minuta_location','update_minuta_location','invite_minuta_member','update_minuta_member','cancel_minuta_invitation','accept_minuta_invitation')) and exists (select 1 from pg_trigger where tgname='organization_memberships_protect_last_owner' and not tgisinternal);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t
 
   production-migration:
@@ -215,8 +272,36 @@ jobs:
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
-          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v65.sql
+          v65_table_count="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (to_regclass('public.organizations') is not null)::int + (to_regclass('public.locations') is not null)::int + (to_regclass('public.organization_memberships') is not null)::int;")"
+          case "$v65_table_count" in
+            0)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v65.sql
+              ;;
+            3)
+              echo "v65 foundation already exists; preserving invitations and memberships"
+              ;;
+            *)
+              echo "Partial v65 foundation detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
+          v66_object_count="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (to_regclass('public.organization_invitations') is not null)::int + (to_regclass('public.organization_audit_log') is not null)::int + (to_regprocedure('public.get_minuta_workspace()') is not null)::int + (exists (select 1 from pg_trigger where tgname='organization_memberships_protect_last_owner' and not tgisinternal))::int;")"
+          case "$v66_object_count" in
+            0)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v66.sql
+              ;;
+            4)
+              echo "v66 team layer already exists; preserving invitations, audit, and public state"
+              ;;
+            *)
+              echo "Partial v66 team layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='actual_duration_minutes') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='calculated_amount_rub') and to_regprocedure('public.bootstrap_client_access(uuid,text)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
@@ -227,7 +312,15 @@ jobs:
             "select p.prorettype = 'text'::regtype and p.prosecdef and position('return ''review_protected''' in pg_get_functiondef(p.oid)) > 0 and position('delete from public.payment_events' in pg_get_functiondef(p.oid)) > 0 and position('booking_delete_failed' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE') from pg_proc p where p.oid = 'public.provider_delete_booking(uuid)'::regprocedure;" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.organizations') is not null and to_regclass('public.locations') is not null and to_regclass('public.organization_memberships') is not null and (select count(*) = 3 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid = class.relnamespace where namespace.nspname = 'public' and class.relname in ('organizations','locations','organization_memberships')) and not has_table_privilege('anon', 'public.organizations', 'SELECT') and not has_table_privilege('anon', 'public.locations', 'SELECT') and not has_table_privilege('anon', 'public.organization_memberships', 'SELECT') and not has_table_privilege('authenticated', 'public.organizations', 'INSERT') and not has_table_privilege('authenticated', 'public.locations', 'UPDATE') and not has_table_privilege('authenticated', 'public.organization_memberships', 'DELETE') and not exists (select 1 from public.organizations where public_booking_enabled) and not exists (select 1 from public.performer_profiles profile where not exists (select 1 from public.organization_memberships membership where membership.user_id = profile.id and membership.active)) and not exists (select 1 from public.organizations organization where organization.legacy_performer_id is not null and (not exists (select 1 from public.organization_memberships membership where membership.organization_id = organization.id and membership.user_id = organization.legacy_performer_id and membership.role = 'owner' and membership.is_bookable and membership.active) or not exists (select 1 from public.locations location where location.organization_id = organization.id and location.is_primary))) and (select count(*) = 2 and bool_and(p.prosecdef and position('SET search_path TO ''''' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE')) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('is_organization_member','has_organization_role'));" \
+            "select to_regclass('public.organizations') is not null and to_regclass('public.locations') is not null and to_regclass('public.organization_memberships') is not null and (select count(*) = 3 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid = class.relnamespace where namespace.nspname = 'public' and class.relname in ('organizations','locations','organization_memberships')) and not has_table_privilege('anon', 'public.organizations', 'SELECT') and not has_table_privilege('anon', 'public.locations', 'SELECT') and not has_table_privilege('anon', 'public.organization_memberships', 'SELECT') and not has_table_privilege('authenticated', 'public.organizations', 'INSERT') and not has_table_privilege('authenticated', 'public.locations', 'UPDATE') and not has_table_privilege('authenticated', 'public.organization_memberships', 'DELETE') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug <> 'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f') and (select count(*) from public.organizations where public_booking_enabled) <= 1 and not exists (select 1 from public.performer_profiles profile where not exists (select 1 from public.organization_memberships membership where membership.user_id = profile.id and membership.active) and not exists (select 1 from auth.users account join public.organization_invitations invitation on lower(invitation.email) = lower(account.email) where account.id = profile.id and invitation.status = 'pending' and invitation.expires_at > now())) and not exists (select 1 from public.organizations organization where organization.legacy_performer_id is not null and (not exists (select 1 from public.organization_memberships membership where membership.organization_id = organization.id and membership.user_id = organization.legacy_performer_id and membership.role = 'owner' and membership.is_bookable and membership.active) or not exists (select 1 from public.locations location where location.organization_id = organization.id and location.is_primary))) and (select count(*) = 2 and bool_and(p.prosecdef and position('SET search_path TO ''''' in pg_get_functiondef(p.oid)) > 0 and has_function_privilege('authenticated', p.oid, 'EXECUTE') and not has_function_privilege('anon', p.oid, 'EXECUTE') and not has_function_privilege('service_role', p.oid, 'EXECUTE') and not exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) privilege where privilege.grantee = 0 and privilege.privilege_type = 'EXECUTE')) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('is_organization_member','has_organization_role'));" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_invitations') is not null and to_regclass('public.organization_audit_log') is not null and not has_table_privilege('authenticated','public.organization_invitations','SELECT') and not has_table_privilege('authenticated','public.organization_audit_log','INSERT') and to_regprocedure('public.get_minuta_workspace()') is not null and to_regprocedure('public.accept_minuta_invitation(uuid)') is not null and (select count(*) = 8 and bool_and(p.prosecdef and has_function_privilege('authenticated',p.oid,'EXECUTE') and not has_function_privilege('anon',p.oid,'EXECUTE') and not has_function_privilege('service_role',p.oid,'EXECUTE')) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('get_minuta_workspace','update_minuta_organization','create_minuta_location','update_minuta_location','invite_minuta_member','update_minuta_member','cancel_minuta_invitation','accept_minuta_invitation')) and exists (select 1 from pg_trigger where tgname='organization_memberships_protect_last_owner' and not tgisinternal);" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v67.sql
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t
 
   diagnose-client-links:

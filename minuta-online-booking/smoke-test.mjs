@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '113';
+const version = '114';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -38,6 +38,26 @@ const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
+assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
+assert.match(app, /function performerOptions\(\)/, 'Специалисты не собираются из активных услуг');
+assert.match(app, /function visibleServices\(\)/, 'Услуги нельзя отфильтровать по специалисту');
+assert.match(app, /data-performer=/, 'Выбор специалиста не отрисовывается');
+assert.match(app, /const performer = event\.target\.closest\('\[data-performer\]'\)/, 'Нажатие на специалиста не обрабатывается');
+assert.match(app, /function renderRepeatBookingNotice\(\)/, 'Баннер повторной записи не синхронизируется с текущей услугой');
+assert.match(app, /holder\.innerHTML = services\.map[\s\S]*renderRepeatBookingNotice\(\)/, 'Смена услуги не обновляет баннер повторной записи');
+const specialistFunctionsSource = app.match(/function performerOptions\(\) \{[\s\S]*?\r?\n\}\r?\nfunction visibleServices\(\) \{[\s\S]*?\r?\n\}/)?.[0];
+assert.ok(specialistFunctionsSource, 'Не удалось извлечь фильтр специалистов для проверки');
+const specialistState = {
+  performerId: 'performer-b',
+  services: [
+    { id: 'a1', performer_id: 'performer-a', performer_profiles: { display_name: 'Анна' } },
+    { id: 'a2', performer_id: 'performer-a', performer_profiles: { display_name: 'Анна' } },
+    { id: 'b1', performer_id: 'performer-b', performer_profiles: { display_name: 'Борис' } }
+  ]
+};
+const specialistFunctions = Function('state', `${specialistFunctionsSource}; return { performerOptions, visibleServices };`)(specialistState);
+assert.deepEqual(specialistFunctions.performerOptions().map(item => item.id), ['performer-a', 'performer-b'], 'Один специалист дублируется для каждой своей услуги');
+assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b1'], 'Фильтр показывает услуги другого специалиста');
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
@@ -225,7 +245,8 @@ assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker н�
 for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
-assert.match(worker, /\.\/ui-icons\.svg/, 'Service Worker не кэширует единый набор иконок');
+assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');
+assert.match(worker, new RegExp(`'\\./ui-icons\\.svg\\?v=${version}',`), 'Service Worker не кэширует версионированный URL иконок');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
 assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');
 assert.match(worker, /!new URL\(request\.url\)\.search/, 'Навигация с секретными параметрами может попасть в кэш');

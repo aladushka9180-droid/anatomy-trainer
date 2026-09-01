@@ -1,0 +1,29 @@
+{
+  "tested_at": "2026-09-02T03:31:02+04:00",
+  "base_commit": "69f195688b521f75f383e1f543fda2ee2c97238f",
+  "migration": "supabase-migration-v67.sql",
+  "migration_sha256": "6a51cb367f74e7307abcb9abe3b7d3b42774d84ee1eb0c030415f7401861716f",
+  "integration_sha256": "9c2071c2c9ea9418ce142b70d92a9dc99d4da66bc8eae35986a5e47958f59bcd",
+  "rollback_sha256": "0bea41713569558c2391aa005e01e35cc17d441d3811f06c662da0604bbe6c93",
+  "mode": "production_transaction_with_rollback",
+  "production_applied": false,
+  "trial_results": {
+    "migration_and_integration_result": "multi-tenant v67 integration test: OK",
+    "disabled_catalog_hidden_from_anon": true,
+    "enabled_catalog_visible_to_anon": true,
+    "enabled_catalog_services": 9,
+    "public_rpc_requires_v66": true,
+    "private_team_fields_not_returned": true,
+    "repeat_migration_preserved_organization_updated_at": true,
+    "rollback_disabled_public_booking_before_dropping_rpc": true,
+    "full_v67_v66_v65_rollback_chain": true
+  },
+  "final_production_state": {
+    "organizations_table_absent": true,
+    "organization_invitations_table_absent": true,
+    "public_catalog_rpc_absent": true,
+    "bookings": 44,
+    "services": 9
+  },
+  "release_status": "Transaction-tested and included after v66 in the guarded release; production remains unapplied until the external backup gate passes."
+}

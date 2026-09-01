@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceId: '', performerId: '', teamMode: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -12,6 +12,11 @@ const CLIENT_CONTACT_KEY = 'minuta-client-contact-v1';
 const CLIENT_CONTACT_TTL = 90 * 24 * 60 * 60 * 1000;
 const bookingQuery = new URLSearchParams(location.search);
 const requestedServiceId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '';
+const organizationSlugFromQuery = bookingQuery.get('org') || '';
+const organizationSlugFromConfig = window.MINUTA_CONFIG.defaultOrganizationSlug || '';
+const requestedOrganizationSlug = /^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromQuery)
+  ? organizationSlugFromQuery
+  : (/^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromConfig) ? organizationSlugFromConfig : '');
 const isRepeatBooking = bookingQuery.get('repeat') === '1' && Boolean(requestedServiceId);
 let bookingAttempt = loadBookingAttempt();
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -110,6 +115,17 @@ const dates = createDates();
 state.date = dates[0].iso;
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function selectedService() { return state.services.find(item => item.id === state.serviceId); }
+function performerOptions() {
+  const unique = new Map();
+  state.services.forEach(service => {
+    if (!service.performer_id || unique.has(service.performer_id)) return;
+    unique.set(service.performer_id, { id: service.performer_id, name: service.performer_profiles?.display_name || 'Специалист' });
+  });
+  return [...unique.values()];
+}
+function visibleServices() {
+  return state.performerId ? state.services.filter(item => item.performer_id === state.performerId) : state.services;
+}
 function selectedDate() { return dates.find(item => item.iso === state.date); }
 function timeRange(time, duration) {
   const [hours, minutes] = String(time).split(':').map(Number);
@@ -195,7 +211,25 @@ async function loadServices() {
   if (state.step === 3) setSelectionValidationState('checking');
   setBookingStatus('checking', 'Проверяем расписание…');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем услуги…</span></div>';
-  const { data, error } = await db.from('services').select('id, performer_id, name, duration_minutes, price_rub, performer_profiles(display_name)').eq('active', true).order('created_at', { ascending: true });
+  let data;
+  let error;
+  state.teamMode = false;
+  state.organization = null;
+  if (requestedOrganizationSlug) {
+    const catalogResult = await db.rpc('get_public_minuta_catalog', { p_slug: requestedOrganizationSlug });
+    if (!catalogResult.error) {
+      state.organization = catalogResult.data?.organization || null;
+      state.teamMode = Boolean(state.organization);
+      data = state.teamMode && Array.isArray(catalogResult.data?.services) ? catalogResult.data.services : [];
+      error = null;
+    } else if (/PGRST202|42883|get_public_minuta_catalog|function .* does not exist/i.test(`${catalogResult.error.code || ''} ${catalogResult.error.message || ''} ${catalogResult.error.details || ''}`)) {
+      ({ data, error } = await db.from('services').select('id, performer_id, name, duration_minutes, price_rub, performer_profiles(display_name)').eq('active', true).order('created_at', { ascending: true }));
+    } else {
+      ({ data, error } = catalogResult);
+    }
+  } else {
+    ({ data, error } = await db.from('services').select('id, performer_id, name, duration_minutes, price_rub, performer_profiles(display_name)').eq('active', true).order('created_at', { ascending: true }));
+  }
   if (revision !== servicesLoadRevision) return;
   if (error) {
     if (state.step === 3) setSelectionValidationState('failed');
@@ -204,6 +238,10 @@ async function loadServices() {
     return;
   }
   state.services = data || [];
+  const requestedService = state.services.find(item => item.id === requestedServiceId);
+  const performers = performerOptions();
+  if (isRepeatBooking && requestedService) state.performerId = requestedService.performer_id || '';
+  if (state.performerId && !performers.some(item => item.id === state.performerId)) state.performerId = '';
   const selectionWasRemoved = Boolean(previousServiceId) && !state.services.some(item => item.id === previousServiceId);
   if (!previousServiceId) {
     state.serviceId = isRepeatBooking && requestedServiceId
@@ -212,15 +250,8 @@ async function loadServices() {
   }
   else if (selectionWasRemoved) state.serviceId = '';
   setBookingStatus(state.services.length ? 'open' : 'closed', state.services.length ? 'Запись открыта' : 'Запись пока закрыта');
+  renderSpecialists();
   renderServices();
-  const repeatNotice = $('#repeatBookingNotice');
-  if (repeatNotice && isRepeatBooking) {
-    const requestedService = state.services.find(item => item.id === requestedServiceId);
-    repeatNotice.hidden = false;
-    repeatNotice.innerHTML = requestedService
-      ? `<strong>Услуга выбрана</strong><span>${escapeHtml(serviceName(requestedService.name))} · теперь выберите удобное время.</span>`
-      : '<strong>Услуга больше недоступна</strong><span>Выберите другую услугу.</span>';
-  }
   if (selectionWasRemoved) {
     state.time = '';
     state.availability = new Map();
@@ -305,14 +336,47 @@ async function loadPublicReviews() {
 
 function renderServices() {
   const holder = $('#services');
-  if (!state.services.length) {
-    holder.innerHTML = '<div class="empty-service"><span class="empty-service-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg></span><strong>Услуги скоро появятся</strong><span>Исполнитель ещё не добавил услуги в свой кабинет.</span><a href="provider.html">Войти исполнителю</a></div>';
+  const services = visibleServices();
+  if (!services.length) {
+    holder.innerHTML = state.services.length
+      ? '<div class="empty-service"><strong>У специалиста пока нет активных услуг</strong><span>Выберите другого специалиста или покажите всю команду.</span></div>'
+      : '<div class="empty-service"><span class="empty-service-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg></span><strong>Услуги скоро появятся</strong><span>Исполнитель ещё не добавил услуги в свой кабинет.</span><a href="provider.html">Войти исполнителю</a></div>';
     $('#toDate').disabled = true;
+    $('#serviceDetailsButton').hidden = true;
+    renderRepeatBookingNotice();
     return;
   }
   $('#toDate').disabled = !selectedService();
-  holder.innerHTML = state.services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : `${item.duration_minutes} мин`} · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>`).join('');
+  holder.innerHTML = services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : `${item.duration_minutes} мин`} · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>`).join('');
   $('#serviceDetailsButton').hidden = !selectedService();
+  renderRepeatBookingNotice();
+}
+
+function renderRepeatBookingNotice() {
+  const notice = $('#repeatBookingNotice');
+  if (!notice || !isRepeatBooking) return;
+  const service = selectedService();
+  notice.hidden = false;
+  notice.innerHTML = service
+    ? `<strong>Услуга выбрана</strong><span>${escapeHtml(serviceName(service.name))} · теперь выберите удобное время.</span>`
+    : '<strong>Услуга больше недоступна</strong><span>Выберите другую услугу.</span>';
+}
+
+function renderSpecialists() {
+  const section = $('#specialistFilter');
+  const holder = $('#specialists');
+  if (!section || !holder) return;
+  const performers = performerOptions();
+  if (!state.teamMode) state.performerId = '';
+  section.hidden = !state.teamMode || performers.length < 2;
+  if (section.hidden) {
+    holder.innerHTML = '';
+    return;
+  }
+  holder.innerHTML = [
+    `<button type="button" data-performer="" aria-pressed="${!state.performerId}" class="${!state.performerId ? 'selected' : ''}"><span>Все</span><small>${performers.length} специалиста</small></button>`,
+    ...performers.map(item => `<button type="button" data-performer="${escapeHtml(item.id)}" aria-pressed="${item.id === state.performerId}" class="${item.id === state.performerId ? 'selected' : ''}"><span>${escapeHtml(item.name)}</span><small>${state.services.filter(service => service.performer_id === item.id).length} услуг</small></button>`)
+  ].join('');
 }
 
 function openServiceDetails() {
@@ -740,6 +804,7 @@ async function submitBooking(event) {
 
 function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
 document.addEventListener('click', event => {
+  const performer = event.target.closest('[data-performer]');
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
   const time = event.target.closest('[data-time]');
@@ -754,6 +819,20 @@ document.addEventListener('click', event => {
   const retryServices = event.target.closest('#retryServices');
   const openWaitlist = event.target.closest('#openWaitlist');
   const closeWaitlist = event.target.closest('[data-close-waitlist]');
+  if (performer) {
+    const nextPerformer = performer.dataset.performer || '';
+    if (state.performerId !== nextPerformer) {
+      state.performerId = nextPerformer;
+      const services = visibleServices();
+      if (!services.some(item => item.id === state.serviceId)) state.serviceId = services[0]?.id || '';
+      state.availability = new Map();
+      state.availabilityServiceId = '';
+      state.time = '';
+      renderSpecialists();
+      renderServices();
+      setBookingStatus(services.length ? 'open' : 'closed', services.length ? 'Запись открыта' : 'У специалиста пока нет услуг');
+    }
+  }
   if (service) {
     bookingInputChanged();
     if (state.serviceId !== service.dataset.service) {
@@ -805,4 +884,4 @@ renderTimes();
 loadServices();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=113'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=114'));

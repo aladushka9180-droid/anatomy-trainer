@@ -1,0 +1,35 @@
+{
+  "tested_at": "2026-09-02T03:06:39+04:00",
+  "base_commit": "69f195688b521f75f383e1f543fda2ee2c97238f",
+  "migrations": [
+    "supabase-migration-v65.sql",
+    "supabase-migration-v66.sql"
+  ],
+  "v65_sha256": "05b44914413069dcf8ab9ebfffe7a88254a3af879d71cb2028c61b07d83f16f8",
+  "v66_sha256": "dee5e3bd876c85e44cb0159f74a9fce7904cff02c8ea9eaf5b5fd6f105a98ad7",
+  "integration_sha256": "1d59cc3b93396d68a73732fb022023a538e839dd8240fc948cf76121eec7105c",
+  "rollback_sha256": "278233a07e77341ba2af549e2aec454d21c0c63c9bd30d62af24cb16a0d4dc8b",
+  "mode": "production_transaction_with_rollback",
+  "production_applied": false,
+  "trial_results": {
+    "migration_and_integration_result": "multi-tenant v66 integration test: OK",
+    "explicit_confirmed_email_acceptance": true,
+    "pending_invitation_does_not_grant_membership": true,
+    "pending_invitation_prevents_duplicate_personal_organization": true,
+    "owner_admin_specialist_isolation": true,
+    "single_primary_location": true,
+    "last_owner_rpc_update_blocked": true,
+    "last_owner_direct_update_blocked": true,
+    "last_owner_direct_delete_blocked": true,
+    "direct_client_table_access_blocked": true,
+    "audit_log_written": true,
+    "ordered_v66_then_v65_rollback": true
+  },
+  "final_production_state": {
+    "organizations_table_absent": true,
+    "organization_invitations_table_absent": true,
+    "bookings": 44,
+    "services": 9
+  },
+  "release_blocker": "Production application requires a confirmed external backup."
+}

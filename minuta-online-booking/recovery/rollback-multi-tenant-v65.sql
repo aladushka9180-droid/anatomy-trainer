@@ -1,10 +1,18 @@
 begin;
 
 -- v65 does not alter legacy booking data. This rollback removes only the additive
--- organization foundation while the v66 tenant-aware UI is still disabled. Refuse
+-- organization foundation while the tenant-aware UI is still disabled. Refuse
 -- rollback as soon as team, location or public-booking data has been customized.
 do $$
 begin
+  if to_regclass('public.organization_invitations') is not null
+     or to_regclass('public.organization_audit_log') is not null
+     or to_regprocedure('public.get_minuta_workspace()') is not null then
+    raise exception using
+      errcode = 'P0001',
+      message = 'v65_rollback_blocked_v66_must_be_rolled_back_first';
+  end if;
+
   if to_regclass('public.organizations') is null
      and to_regclass('public.locations') is null
      and to_regclass('public.organization_memberships') is null then

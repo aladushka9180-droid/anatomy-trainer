@@ -145,6 +145,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
+  '[data-organization-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
 ];
@@ -546,7 +547,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=113#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=114#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -953,7 +954,7 @@ function showRecoverySent() {
 }
 function setProviderView(view) {
   $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
-  if (view === 'services' || view === 'portfolio' || view === 'settings' || view === 'analytics' || view === 'waitlist') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
+  if (view === 'services' || view === 'organization' || view === 'portfolio' || view === 'settings' || view === 'analytics' || view === 'waitlist') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
@@ -963,6 +964,10 @@ function setProviderView(view) {
   if (view === 'analytics') renderAnalytics();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
   if (view === 'waitlist') renderWaitlist();
+  if (view === 'organization') {
+    if (organizationController.availability === null) organizationController.load();
+    else organizationController.render();
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function setFilter(filter) {
@@ -2424,7 +2429,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.availability === null ? Promise.resolve({ ok:true, optional:true }) : organizationController.load()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -2504,6 +2509,7 @@ async function handleSession(session) {
     if (control.id === 'saveSchedule') control.textContent = 'Сохранить';
   });
   setWritesAllowed(false);
+  organizationController.reset();
   currentUser = session?.user || null;
   if (currentUser) {
     loadBookingColors(currentUser.id);
@@ -3586,6 +3592,20 @@ window.addEventListener('online', synchronizeProvider);
 new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
 
+const organizationController = window.MinutaOrganization.createController({
+  db,
+  $,
+  $$,
+  escapeHtml,
+  notify,
+  requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability
+});
+organizationController.bind();
+
 $('#loginForm').addEventListener('submit', login);
 $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
@@ -3700,4 +3720,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=113'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=114'));

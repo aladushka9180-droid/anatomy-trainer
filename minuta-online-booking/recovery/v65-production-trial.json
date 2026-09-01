@@ -4,7 +4,7 @@
   "migration": "supabase-migration-v65.sql",
   "migration_sha256": "05b44914413069dcf8ab9ebfffe7a88254a3af879d71cb2028c61b07d83f16f8",
   "integration_sha256": "8d3eba8756b7894793fb8385fdf15b9fde9fd432469a9b5f2765aa43816c20e0",
-  "rollback_sha256": "db3214e6096c40a0b30a242c7d7165d82d34fca5482ea23a0fac2681f3f00037",
+  "rollback_sha256": "f38ca4548d8f12ea5256c3a7890cfb87342dccb9f57182e0947e2c38b5feda71",
   "mode": "production_transaction_with_rollback",
   "production_applied": false,
   "baseline": {

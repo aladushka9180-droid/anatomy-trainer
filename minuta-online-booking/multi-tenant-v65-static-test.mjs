@@ -87,5 +87,5 @@ assert.equal(evidence.rollback_sha256, sha256(rollback), 'production trial must 
 console.log('multi-tenant v65 static test: OK');
 
 function sha256(value) {
-  return createHash('sha256').update(value).digest('hex');
+  return createHash('sha256').update(value.replace(/\r\n/g, '\n')).digest('hex');
 }
