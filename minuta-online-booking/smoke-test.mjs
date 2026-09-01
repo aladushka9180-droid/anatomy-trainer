@@ -218,6 +218,9 @@ assert.match(app, /function successDetailsMarkup\(service, performer, dateLabel,
 const clientHtml = readFileSync(join(root, 'index.html'), 'utf8');
 assert.match(clientHtml, /class="success-appointment"/, 'Детали успешной записи не собраны в компактный блок');
 assert.match(clientHtml, /class="success-actions"/, 'Действия успешной записи не собраны по приоритету');
+assert.match(clientHtml, /id="saveSuccessCalendar"[\s\S]*Сохранить в календарь/, 'После создания записи нет кнопки сохранения в календарь');
+assert.match(app, /function androidCalendarIntent\(event\)/, 'Экран успешной записи не открывает календарь Android');
+assert.match(app, /function openCalendarFile\(file = successCalendarFile\(\)\)/, 'Экран успешной записи не открывает календарный файл на iPhone');
 assert.match(clientHtml, />Управлять записью</, 'Ссылка на управление записью названа непонятно');
 assert.doesNotMatch(clientHtml, /copyManageBooking|Скопировать ссылку/, 'На экране успеха осталось лишнее действие копирования ссылки');
 assert.match(clientHtml, /class="ui-icon telegram-connect-arrow"/, 'В Telegram-действии нет понятного направления перехода');
@@ -277,10 +280,9 @@ assert.match(waitlistMigration, /create table if not exists public\.booking_wait
 assert.match(waitlistMigration, /confirm_booking_by_token/, 'Нет серверного подтверждения визита клиентом');
 assert.match(bookingHtml, /id="addAppleCalendar"[\s\S]*id="addAndroidCalendar"/, 'Нет отдельных вариантов календаря для iPhone и Android');
 assert.match(booking, /new File\([\s\S]*type: 'text\/calendar'/, 'Для телефонов не создаётся календарный файл');
-assert.match(booking, /navigator\.canShare\?\.\(\{ files: \[file\] \}\)/, 'Android не проверяет системное меню приложений для файла');
-assert.match(booking, /navigator\.share\(\{ files: \[file\]/, 'Android не передаёт событие в системное меню телефона');
-assert.match(booking, /downloadCalendarFile\(file\)/, 'Для Android нет резервного скачивания события');
-assert.doesNotMatch(booking, /calendar\.google\.com\/calendar\/render|intent:\/\//, 'Android использует ненадёжную браузерную или intent-ссылку');
+assert.match(booking, /intent:\/\/com\.android\.calendar\/events/, 'Android не открывает установленное приложение календаря');
+assert.match(booking, /S\.browser_fallback_url=/, 'Для Android нет резервного перехода в календарь Google');
+assert.doesNotMatch(booking, /link\.download = file\.name/, 'iPhone по-прежнему принудительно скачивает календарный файл');
 assert.match(booking, /typeof dialog\.showModal !== 'function'/, 'Старые мобильные браузеры не получают запасной календарный файл');
 assert.doesNotMatch(booking, /controllerchange[\s\S]*location\.reload/, 'Обновление Service Worker перезагружает страницу вместо открытия календаря');
 

@@ -73,10 +73,19 @@
         </div>
         <a class="telegram-connect-button" id="telegramConnect" href="#" target="_blank" rel="noopener noreferrer" hidden><span class="telegram-connect-mark" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"/></svg></span><span><strong>Напоминания в Telegram</strong><small>Получить подтверждение и напоминание</small></span><svg class="ui-icon telegram-connect-arrow" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></a>
         <section class="client-access-result" id="clientAccessResult" hidden><small>Доступ к записям</small><strong id="clientAccessCode"></strong><p id="clientAccessNote"></p><div class="client-access-share" id="clientAccessShare" hidden><button id="clientAccessDownload" type="button">Сохранить код в файл</button><a id="clientAccessWhatsapp" href="#" target="_blank" rel="noopener noreferrer">Отправить в WhatsApp</a><a id="clientAccessTelegram" href="#" target="_blank" rel="noopener noreferrer">Отправить в Telegram</a></div></section>
-        <div class="success-actions"><a class="primary manage-booking-link" id="myBookingsSuccess" href="my-bookings.html" hidden>Все мои записи</a><a class="success-manage-link manage-booking-link" id="manageBooking" href="booking.html" hidden><span>Управлять записью</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></a><button class="manage-secondary" type="button" id="newBooking">Создать ещё запись</button></div>
+        <div class="success-actions"><button class="primary manage-booking-link" id="saveSuccessCalendar" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"/></svg><span>Сохранить в календарь</span></button><a class="primary manage-booking-link" id="myBookingsSuccess" href="my-bookings.html" hidden>Все мои записи</a><a class="success-manage-link manage-booking-link" id="manageBooking" href="booking.html" hidden><span>Управлять записью</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></a><button class="manage-secondary" type="button" id="newBooking">Создать ещё запись</button></div>
       </div>
     </section>
   </main>
+  <dialog class="calendar-dialog" id="calendarDialog" aria-labelledby="calendarDialogTitle">
+    <button class="calendar-dialog-close" id="closeCalendarDialog" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"/></svg></button>
+    <small>Напоминание о записи</small><h2 id="calendarDialogTitle">Куда добавить?</h2>
+    <p>Выберите календарь на вашем телефоне.</p>
+    <div class="calendar-options">
+      <button class="calendar-option" id="addAppleCalendar" type="button"><strong>iPhone / iPad</strong><span>Открыть событие в календаре устройства</span></button>
+      <a class="calendar-option" id="addAndroidCalendar" href="#"><strong>Android</strong><span>Открыть запись в установленном календаре</span></a>
+    </div>
+  </dialog>
   <section class="public-portfolio" id="portfolioSection" aria-labelledby="portfolioTitle" hidden>
     <div class="public-portfolio-heading"><div><small>Результаты работы</small><h2 id="portfolioTitle">Портфолио</h2></div><p>Количество сеансов указано мастером для каждого результата.</p></div>
     <div class="public-portfolio-list" id="publicPortfolioList"></div>
@@ -107,6 +116,6 @@
     <div class="waitlist-success" id="waitlistSuccess" hidden aria-live="polite"><span class="success-mark"><svg class="ui-icon"><use href="ui-icons.svg#icon-check"/></svg></span><small>Заявка принята</small><h2>Вы в листе ожидания</h2><p id="waitlistSuccessText"></p><a class="primary" id="waitlistManageLink" href="waitlist.html">Управлять заявкой</a></div>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=99"></script><script src="reliability.js?v=99"></script><script src="app.js?v=99" defer></script>
+  <script src="config.js?v=99"></script><script src="reliability.js?v=99"></script><script src="app.js?v=100" defer></script>
 </body>
 </html>

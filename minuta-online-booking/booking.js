@@ -243,11 +243,12 @@ async function cancelBooking() {
   notify('Запись отменена'); await loadBooking();
 }
 
-function calendarTimestamp(date, time, addMinutes = 0) {
+function calendarStartMs(date, time, addMinutes = 0) {
   const [year, month, day] = String(date).split('-').map(Number);
   const [hour, minute] = String(time).slice(0, 5).split(':').map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour - 4, minute + addMinutes)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  return Date.UTC(year, month - 1, day, hour - 4, minute + addMinutes);
 }
+function calendarTimestamp(date, time, addMinutes = 0) { return new Date(calendarStartMs(date, time, addMinutes)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
 
 function calendarUtcTimestamp() { return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
 function calendarText(value) { return String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1'); }
@@ -258,6 +259,8 @@ function calendarEvent() {
     title: `${item.service_name} — Массаж в Ижевске`,
     description: `Исполнитель: ${item.performer_name}`,
     location: 'Ижевск, ул. Карла Маркса, 304б',
+    startMs: calendarStartMs(item.booking_date, item.booking_time),
+    endMs: calendarStartMs(item.booking_date, item.booking_time, item.duration_minutes),
     start: calendarTimestamp(item.booking_date, item.booking_time),
     end: calendarTimestamp(item.booking_date, item.booking_time, item.duration_minutes)
   };
@@ -271,31 +274,38 @@ function calendarFile() {
   return new File([lines.join('\r\n')], name, { type: 'text/calendar' });
 }
 
-function downloadCalendarFile(file = calendarFile()) {
+function openCalendarFile(file = calendarFile()) {
   const url = URL.createObjectURL(file);
   const link = document.createElement('a');
   link.href = url;
-  link.download = file.name;
+  link.type = 'text/calendar';
   document.body.appendChild(link);
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
-function appleCalendarFile() { downloadCalendarFile(); }
+function appleCalendarFile() { openCalendarFile(); }
+
+function googleCalendarUrl(event) {
+  const url = new URL('https://calendar.google.com/calendar/render');
+  url.searchParams.set('action', 'TEMPLATE');
+  url.searchParams.set('text', event.title);
+  url.searchParams.set('dates', `${event.start}/${event.end}`);
+  url.searchParams.set('details', event.description);
+  url.searchParams.set('location', event.location);
+  return url.href;
+}
+
+function androidCalendarIntent(event) {
+  return `intent://com.android.calendar/events#Intent;scheme=content;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${event.startMs};l.endTime=${event.endMs};S.browser_fallback_url=${encodeURIComponent(googleCalendarUrl(event))};end`;
+}
 
 function addToCalendar() {
   const dialog = $('#calendarDialog');
   if (!dialog || typeof dialog.showModal !== 'function') { appleCalendarFile(); return; }
+  $('#addAndroidCalendar').href = androidCalendarIntent(calendarEvent());
   dialog.showModal();
-}
-async function addToAndroidCalendar() {
-  const file = calendarFile();
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Добавить запись в календарь' }); return; } catch (error) { if (error.name === 'AbortError') return; }
-  }
-  downloadCalendarFile(file);
-  notify('Откройте скачанный файл через приложение «Календарь»');
 }
 
 document.addEventListener('click', event => {
@@ -310,7 +320,7 @@ $('#cancelBooking').addEventListener('click', cancelBooking);
 $('#confirmAttendance').addEventListener('click', confirmAttendance);
 $('#addCalendar').addEventListener('click', addToCalendar);
 $('#addAppleCalendar').addEventListener('click', () => { appleCalendarFile(); $('#calendarDialog').close(); });
-$('#addAndroidCalendar').addEventListener('click', addToAndroidCalendar);
+$('#addAndroidCalendar').addEventListener('click', () => $('#calendarDialog').close());
 $('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').close());
 $('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 $('#retryManage').addEventListener('click', loadBooking);
@@ -318,4 +328,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=99'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=100'));

@@ -505,6 +505,63 @@ function renderSuccessPayment(item) {
 function successDetailsMarkup(service, performer, dateLabel, range) {
   return `<strong>${escapeHtml(service)}</strong><span>${escapeHtml(performer)}</span><b>${escapeHtml(dateLabel)} · ${escapeHtml(range)}</b>`;
 }
+let currentSuccessCalendarEvent = null;
+function calendarStartMs(date, time, addMinutes = 0) {
+  const [year, month, day] = String(date).split('-').map(Number);
+  const [hour, minute] = String(time).slice(0, 5).split(':').map(Number);
+  return Date.UTC(year, month - 1, day, hour - 4, minute + addMinutes);
+}
+function calendarTimestamp(date, time, addMinutes = 0) { return new Date(calendarStartMs(date, time, addMinutes)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
+function calendarUtcTimestamp() { return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
+function calendarText(value) { return String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1'); }
+function buildSuccessCalendarEvent({ service, performer, date, time, duration, uid }) {
+  return {
+    uid,
+    date,
+    time: String(time).slice(0, 5),
+    title: `${service} — Массаж в Ижевске`,
+    description: `Исполнитель: ${performer}`,
+    location: 'Ижевск, ул. Карла Маркса, 304б',
+    startMs: calendarStartMs(date, time),
+    endMs: calendarStartMs(date, time, duration),
+    start: calendarTimestamp(date, time),
+    end: calendarTimestamp(date, time, duration)
+  };
+}
+function successCalendarFile() {
+  const event = currentSuccessCalendarEvent;
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'PRODID:-//MassageIzhevsk//Booking//RU', 'BEGIN:VEVENT', `UID:${calendarText(event.uid)}@massage-izhevsk`, `DTSTAMP:${calendarUtcTimestamp()}`, `DTSTART:${event.start}`, `DTEND:${event.end}`, `SUMMARY:${calendarText(event.title)}`, `DESCRIPTION:${calendarText(event.description)}`, `LOCATION:${calendarText(event.location)}`, 'END:VEVENT', 'END:VCALENDAR', ''];
+  return new File([lines.join('\r\n')], `massage-${event.date}-${event.time.replace(':', '-')}.ics`, { type: 'text/calendar' });
+}
+function openCalendarFile(file = successCalendarFile()) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.type = 'text/calendar';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function googleCalendarUrl(event) {
+  const url = new URL('https://calendar.google.com/calendar/render');
+  url.searchParams.set('action', 'TEMPLATE');
+  url.searchParams.set('text', event.title);
+  url.searchParams.set('dates', `${event.start}/${event.end}`);
+  url.searchParams.set('details', event.description);
+  url.searchParams.set('location', event.location);
+  return url.href;
+}
+function androidCalendarIntent(event) {
+  return `intent://com.android.calendar/events#Intent;scheme=content;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/event;S.title=${encodeURIComponent(event.title)};S.description=${encodeURIComponent(event.description)};S.eventLocation=${encodeURIComponent(event.location)};l.beginTime=${event.startMs};l.endTime=${event.endMs};S.browser_fallback_url=${encodeURIComponent(googleCalendarUrl(event))};end`;
+}
+function openSuccessCalendar() {
+  if (!currentSuccessCalendarEvent) return;
+  const dialog = $('#calendarDialog');
+  if (!dialog || typeof dialog.showModal !== 'function') { openCalendarFile(); return; }
+  $('#addAndroidCalendar').href = androidCalendarIntent(currentSuccessCalendarEvent);
+  dialog.showModal();
+}
 async function validateCurrentSelection() {
   const service = selectedService();
   const selectedTime = state.time;
@@ -612,6 +669,7 @@ async function submitBooking(event) {
     return;
   }
   const manageToken = data?.[0]?.manage_token;
+  currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: serviceName(service.name), performer: service.performer_profiles?.display_name || 'Мастер', date: state.date, time: state.time, duration: service.duration_minutes, uid: manageToken || attempt.requestId });
   saveClientContact(name, phone);
   clearBookingAttempt();
   $('#bookingFlow').hidden = true;
@@ -630,6 +688,7 @@ async function submitBooking(event) {
     const current = management?.[0];
     renderSuccessPayment(current);
     if (current) {
+      currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: current.service_name, performer: current.performer_name || 'Мастер', date: current.booking_date, time: current.booking_time, duration: current.duration_minutes, uid: current.booking_code || manageToken });
       const currentDate = new Date(`${current.booking_date}T00:00:00`);
       const currentDateLabel = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
       $('#successDetails').innerHTML = successDetailsMarkup(current.service_name, current.performer_name || 'Мастер', currentDateLabel, timeRange(current.booking_time.slice(0, 5), current.duration_minutes));
@@ -642,7 +701,7 @@ async function submitBooking(event) {
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
+function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
 document.addEventListener('click', event => {
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -696,6 +755,11 @@ $('#bookingForm').addEventListener('submit', submitBooking);
 $('#waitlistPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#waitlistForm').addEventListener('submit', submitWaitlist);
 $('#newBooking').addEventListener('click', resetFlow);
+$('#saveSuccessCalendar').addEventListener('click', openSuccessCalendar);
+$('#addAppleCalendar').addEventListener('click', () => { openCalendarFile(); $('#calendarDialog').close(); });
+$('#addAndroidCalendar').addEventListener('click', () => $('#calendarDialog').close());
+$('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').close());
+$('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
 window.addEventListener('online', loadServices);
 restoreClientContact();
@@ -703,4 +767,4 @@ renderDates();
 renderTimes();
 loadServices();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=99'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=100'));
