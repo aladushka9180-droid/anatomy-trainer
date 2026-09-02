@@ -12,15 +12,9 @@ do $$ begin
      or to_regclass('public.payments') is null
      or to_regclass('public.booking_page_visits') is null
      or to_regprocedure('public.register_public_booking_visit(text)') is null
-     or not exists(
-       select 1 from pg_constraint constraint_row
-       where constraint_row.conrelid='public.bookings'::regclass
-         and constraint_row.conname='bookings_color_key_check'
-         and pg_get_constraintdef(constraint_row.oid) like '%graphite%'
-     )
      or to_regprocedure('public.write_minuta_benefit_audit(uuid,text,uuid,jsonb)') is null
      or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='organization_id') then
-    raise exception using errcode='P0001',message='v76_requires_v75';
+    raise exception using errcode='P0001',message='v76_requires_v74_and_v73';
   end if;
 end $$;
 
