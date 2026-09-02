@@ -112,6 +112,7 @@ let synchronizationGeneration = -1;
 let synchronizationQueued = false;
 let writesAllowed = false;
 let teamCalendarController = null;
+let batchBookingsController = null;
 let timelineBookingDrag = null;
 let timelineMovePending = false;
 let scheduleDaySwipe = null;
@@ -180,7 +181,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
-  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-inventory-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
+  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-inventory-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '[data-batch-booking-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-cancel-booking-series]', '#bookingSeriesCancelForm button[type="submit"]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
@@ -3055,6 +3056,7 @@ function renderClientDetail(phone) {
   const upcoming = clientUpcoming(client);
   $('#clientVisits').textContent = String(visits);
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
+  batchBookingsController?.setClient(client);
   $('#clientNote').value = clientNotes.get(phone) || '';
   $('#repeatDate').value = businessTodayIso();
   $('#repeatDate').min = businessTodayIso();
@@ -5093,6 +5095,20 @@ const retentionController = window.MinutaRetention?.createController ? window.Mi
 }) : { bind() {}, setOrganization() {}, reset() {} };
 retentionController.bind();
 
+batchBookingsController = window.MinutaBatchBookings?.createController ? window.MinutaBatchBookings.createController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability,
+  onCreated: async data => {
+    const first = Array.isArray(data?.created) ? data.created[0] : null;
+    if (first?.date) selectScheduleDate(first.date);
+    await refreshAfterWrite();
+  }
+}) : { bind() {}, load() { return Promise.resolve({ ok:true, optional:true }); }, setOrganization() {}, setClient() {} };
+batchBookingsController.bind();
+
 const bookingPolicyController = window.MinutaBookingPolicies?.createController ? window.MinutaBookingPolicies.createController({
   db, $, escapeHtml, notify, requireWrites,
   getCurrentUser: () => currentUser,
@@ -5131,6 +5147,7 @@ const organizationController = window.MinutaOrganization.createController({
     loyaltyController.setOrganization(organization);
     inventoryController.setOrganization(organization);
     retentionController.setOrganization(organization);
+    batchBookingsController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
   }

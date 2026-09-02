@@ -25,6 +25,7 @@ const ASSETS = [
   './loyalty-management.js?v=170',
   './inventory-management.js?v=170',
   './retention-management.js?v=170',
+  './batch-bookings.js?v=170',
   './booking-policy-management.js?v=170',
   './team-calendar.js?v=170',
   './free-slots-share.js?v=170',

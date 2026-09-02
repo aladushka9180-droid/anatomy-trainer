@@ -177,6 +177,20 @@
                     </form>
                   </section>
                 </details>
+                <details class="client-disclosure batch-booking-composer" id="batchBookingComposer" hidden>
+                  <summary><span>Несколько произвольных дат</span><small>Создать пакет записей</small></summary>
+                  <form id="batchBookingForm" class="batch-booking-form">
+                    <p>Клиент: <strong id="batchBookingClientName">Клиент</strong>. Все окна проверяются вместе: если хотя бы одно недоступно, не создастся ни одной записи.</p>
+                    <div class="repeat-booking-fields"><label>Филиал<select id="batchBookingLocation" required></select></label><label>Услуга и специалист<select id="batchBookingService" required></select></label></div>
+                    <label>Общий комментарий<textarea id="batchBookingComment" maxlength="500" rows="2" placeholder="Добавится ко всем визитам"></textarea></label>
+                    <div class="batch-booking-heading"><strong>Даты и время</strong><span id="batchBookingCount">2 из 12</span></div>
+                    <div class="batch-booking-rows" id="batchBookingRows"></div>
+                    <button class="secondary-button batch-booking-add" id="addBatchBookingRow" type="button" data-batch-booking-write>Добавить дату</button>
+                    <p class="form-error" id="batchBookingError" role="alert" hidden></p>
+                    <div class="batch-booking-result" id="batchBookingResult" role="status" aria-live="polite" hidden></div>
+                    <button class="primary" id="createBatchBookings" type="submit" data-batch-booking-write>Создать весь пакет</button>
+                  </form>
+                </details>
                 <details class="client-disclosure">
                   <summary><span>История записей</span><small>Все визиты клиента</small></summary>
                   <section class="client-history"><div id="clientHistory"></div></section>
@@ -533,6 +547,16 @@
             <button type="button" data-section-target="accountSettingsCard">Безопасность</button>
           </nav>
           <div class="settings-layout">
+            <section class="panel settings-card batch-booking-settings-card" id="batchBookingSettingsCard" hidden>
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></div>
+              <div class="settings-heading"><small>Несколько произвольных дат</small><h3>Пакетные записи</h3><p id="batchBookingSettingNote">Функция выключена. Обычные записи не изменяются.</p></div>
+              <form id="batchBookingSettingsForm" class="batch-booking-settings-form">
+                <label class="settings-check"><input id="batchBookingsEnabled" type="checkbox" data-batch-booking-write><span><strong>Разрешить пакетные записи в кабинете</strong><small>По умолчанию выключено. Включить может только владелец.</small></span></label>
+                <label>Максимум записей в пакете<input id="batchBookingsMaxItems" type="number" min="2" max="24" step="1" value="12" required></label>
+                <button class="primary" id="batchBookingSettingsSubmit" type="submit" data-batch-booking-write>Сохранить</button>
+              </form>
+              <details class="batch-booking-journal"><summary>Последние пакеты</summary><div id="batchBookingRecentList"></div></details>
+            </section>
             <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
               <div class="settings-heading"><small>Внешний вид кабинета</small><h3>Структура, тема и карточки</h3><p>Сначала выберите компоновку интерфейса, затем независимо примените к ней цветную или фактурную тему. Оформление меняется сразу.</p></div>
@@ -793,6 +817,7 @@
   <script src="loyalty-management.js?v=170" defer></script>
   <script src="inventory-management.js?v=170" defer></script>
   <script src="retention-management.js?v=170" defer></script>
+  <script src="batch-bookings.js?v=170" defer></script>
   <script src="booking-policy-management.js?v=170" defer></script>
   <script src="team-calendar.js?v=170" defer></script>
   <script src="free-slots-share.js?v=170" defer></script>
