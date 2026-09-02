@@ -98,6 +98,8 @@ const ownerOrganization = { id: 'org-1', current_role: 'owner', can_manage: true
   assert.match(dom.elements.providerBookings.innerHTML, /10:00<small>до 11:00<\/small>/, 'Командная карточка должна показывать время окончания');
   assert.match(dom.elements.providerBookings.innerHTML, /status-no-show/, 'Статус неявки должен использовать общий CSS-класс кабинета');
   assert.match(dom.elements.providerBookings.innerHTML, /Кабинет 1/, 'Карточка должна показывать назначенный ресурс');
+  assert.match(dom.elements.providerBookings.innerHTML, /team-calendar-client-line[\s\S]*\+70000000000 · 60 мин/, 'Телефон и длительность должны собираться в компактную строку без ведущего разделителя');
+  assert.doesNotMatch(dom.elements.providerBookings.innerHTML, /<span> · \+/, 'Контакты командной записи не должны начинаться с висячей точки');
   assert.equal(dom.elements.teamCalendarResourceField.hidden, false, 'Фильтр ресурсов должен появиться только для v69-календаря');
   assert.doesNotMatch(dom.elements.providerBookings.innerHTML, /data-open-booking|data-booking-action/, 'Чужая запись не должна получать действия личного журнала');
   dom.elements.teamCalendarPerformer.value = 'user-a';

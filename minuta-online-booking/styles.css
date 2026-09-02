@@ -2753,3 +2753,110 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-sheet-block,.booking-sheet-note-editor,.booking-sheet-disclosure,.booking-prepayment-form,.booking-session-summary) { border-color:var(--mobile-luxury-line); background:var(--mobile-luxury-panel-alt); color:var(--mobile-luxury-ink); }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-meta>span:not(.booking-status) { border-radius:0; background:#2b2112; color:var(--mobile-luxury-gold-light); }
 }
+
+/* Mobile Luxury schedule refinement: timeline, list and team calendar. */
+@media (max-width:760px) {
+  /* В ленте длительность остаётся видна высотой карточки, а текст собран у её начала. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-copy {
+    top:9px;
+    right:0;
+    left:0;
+    align-items:flex-start;
+    padding:0 10px!important;
+    overflow:hidden;
+    text-align:left;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-copy>strong {
+    display:-webkit-box;
+    width:100%;
+    overflow:hidden;
+    color:var(--mobile-luxury-ink);
+    font:700 11.5px/1.18 Georgia,"Times New Roman",serif;
+    text-align:left;
+    white-space:normal;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-client-row { display:block!important; width:100%; margin-top:3px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-client { color:var(--mobile-luxury-muted); font-size:8.5px; line-height:1.2; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .client-badges { display:none!important; }
+
+  /* Обычный список: меньше высота, но название и метки больше не обрезаются посреди слова. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) { padding:0; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .provider-booking-open {
+    grid-template-columns:60px minmax(0,1fr) 24px;
+    align-items:center;
+    gap:8px;
+    min-height:96px;
+    padding:10px 6px;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .booking-time-column { align-self:stretch; padding-right:8px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .booking-time-column strong { font-size:18px; line-height:1; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .provider-booking-top { display:grid; gap:4px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .provider-booking-top h3 {
+    display:-webkit-box;
+    overflow:hidden;
+    font-size:14px;
+    line-height:1.16;
+    overflow-wrap:normal;
+    word-break:normal;
+    white-space:normal;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:3;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .provider-booking-client-line { gap:2px; margin-top:4px; font-size:9.5px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) .provider-booking-signals { display:flex; flex-flow:row wrap; gap:4px; margin-top:4px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) :is(.booking-client-visit,.booking-outcome-summary,.booking-prepayment-badge) { width:auto; max-width:100%; padding:3px 6px; font-size:7.5px; }
+
+  /* Командный календарь использует ту же двухколоночную сетку, что и личный список. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-toolbar { padding:10px; border-bottom:1px solid var(--mobile-luxury-line); background:var(--mobile-luxury-panel); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-mode { gap:0; padding:0; border-color:var(--mobile-luxury-line); background:var(--mobile-luxury-bg); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-mode button { min-height:42px; border-radius:0; color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-mode button.active { background:linear-gradient(135deg,#af7724,#e9c264); color:#160f06; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-filters { gap:7px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-filters label { color:var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-filters select { border-radius:0; border-color:var(--mobile-luxury-line); background:var(--mobile-luxury-bg); color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-status { color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-list { display:grid; gap:12px; padding:10px 0 0; overflow:visible; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-group { gap:0; border-top:1px solid var(--mobile-luxury-line); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-group-head { min-height:38px; padding:7px 8px; border-bottom:1px solid #3e311c; background:#12100c; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-group-head h3 { color:var(--mobile-luxury-ink); font:700 13px/1.2 Georgia,"Times New Roman",serif; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-group-head>span { border-radius:50%; background:var(--mobile-luxury-gold); color:#160f06; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list .team-calendar-booking {
+    display:grid!important;
+    grid-template-columns:72px minmax(0,1fr)!important;
+    align-items:start;
+    gap:10px;
+    min-height:104px;
+    margin:0;
+    padding:11px 8px;
+    border:0!important;
+    border-bottom:1px solid var(--mobile-luxury-line)!important;
+    background:linear-gradient(90deg,#12100c 0 80px,#090a0b 80px)!important;
+    color:var(--mobile-luxury-ink)!important;
+    opacity:1;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .booking-time-column { align-self:stretch; justify-content:flex-start; padding:0 8px 0 0; border-right:1px solid var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .booking-time-column strong { font-size:18px; line-height:1; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .booking-time-column strong small { margin-top:5px; font-size:8px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .booking-time-column>span { margin-top:7px; color:var(--mobile-luxury-muted); font-size:8px; line-height:1.25; white-space:normal; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .booking-main { display:block; min-width:0; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .provider-booking-top { display:grid; justify-items:start; gap:5px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .provider-booking-top h3 {
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    color:var(--mobile-luxury-ink);
+    font:700 14px/1.16 Georgia,"Times New Roman",serif;
+    overflow-wrap:normal;
+    word-break:normal;
+    white-space:normal;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:3;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .booking-status { justify-self:start; min-height:21px; padding:3px 7px; font-size:7.5px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .team-calendar-client-line { display:block; margin-top:6px; color:var(--mobile-luxury-muted); font-size:9px; line-height:1.3; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .team-calendar-client-line strong,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .team-calendar-client-line span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-resource { width:auto; max-width:100%; margin-top:5px; padding:3px 6px; border-radius:0; border-color:var(--mobile-luxury-line); background:#21190d; color:var(--mobile-luxury-gold-light); font-size:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+}

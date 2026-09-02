@@ -264,12 +264,13 @@
       const startTime = String(item.booking_time).slice(0, 5);
       const durationMinutes = Number(item.duration_minutes || 0);
       const endTime = timeFromMinutes(minutesFromTime(startTime) + durationMinutes);
-      const duration = durationMinutes > 0 ? ` · ${durationMinutes} мин` : '';
-      const phone = item.client_phone ? ` · ${escapeHtml(item.client_phone)}` : '';
+      const duration = durationMinutes > 0 ? `${durationMinutes} мин` : '';
+      const phone = item.client_phone ? escapeHtml(item.client_phone) : '';
+      const clientMeta = [phone, duration].filter(Boolean).join(' · ');
       const resourceNames = item.resources.map(resource => resource.name).filter(Boolean);
       const resourceLine = resourceNames.length ? `<span class="team-calendar-resource">${escapeHtml(resourceNames.join(' · '))}</span>` : '';
       const statusClass = String(item.status || 'new').replaceAll('_', '-');
-      return `<article class="provider-booking team-calendar-booking status-${escapeHtml(statusClass)}"><div class="booking-time-column"><strong>${escapeHtml(startTime)}${durationMinutes > 0 ? `<small>до ${escapeHtml(endTime)}</small>` : ''}</strong><span>${escapeHtml(item.location_name)}</span></div><div class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(item.service_name)}</h3><span class="booking-status">${escapeHtml(statusLabels[item.status] || item.status)}</span></span><span class="provider-booking-client-line"><strong>${escapeHtml(item.client_name)}</strong><span>${phone}${escapeHtml(duration)}</span></span>${resourceLine}</div></article>`;
+      return `<article class="provider-booking team-calendar-booking status-${escapeHtml(statusClass)}"><div class="booking-time-column"><strong>${escapeHtml(startTime)}${durationMinutes > 0 ? `<small>до ${escapeHtml(endTime)}</small>` : ''}</strong><span>${escapeHtml(item.location_name)}</span></div><div class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(item.service_name)}</h3><span class="booking-status">${escapeHtml(statusLabels[item.status] || item.status)}</span></span><span class="provider-booking-client-line team-calendar-client-line"><strong>${escapeHtml(item.client_name)}</strong>${clientMeta ? `<span>${clientMeta}</span>` : ''}</span>${resourceLine}</div></article>`;
     }
 
     async function setMode(nextMode) {
