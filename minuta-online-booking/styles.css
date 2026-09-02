@@ -2699,18 +2699,20 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme] .timeline-booking-copy,
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-copy {
     position:absolute;
-    top:8px;
+    top:50%;
     right:0;
     left:0;
     display:flex!important;
     flex-direction:column;
-    justify-content:flex-start;
+    justify-content:center;
     gap:2px;
     width:auto;
     height:auto;
+    max-height:calc(100% - 12px);
     min-width:0;
     padding:0 44px 0 12px!important;
     overflow:hidden;
+    transform:translateY(-50%);
   }
   .provider-body[data-provider-theme] .timeline-booking-copy>strong,
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-copy>strong {
@@ -2731,6 +2733,13 @@ html.requires-top-level.top-level body { visibility:visible; }
     -webkit-line-clamp:2;
   }
   .provider-body[data-provider-theme] .timeline-service-variant { display:inline; }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-copy>strong {
+    display:block;
+    overflow-wrap:anywhere;
+    text-overflow:clip;
+    white-space:normal;
+    -webkit-line-clamp:unset;
+  }
   .provider-body[data-provider-theme] .timeline-booking-client-row,
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-client-row {
     display:block!important;
@@ -2751,6 +2760,12 @@ html.requires-top-level.top-level body { visibility:visible; }
     line-height:1.15;
     text-overflow:ellipsis;
     white-space:nowrap;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-client-row { overflow:visible; }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-client {
+    overflow-wrap:anywhere;
+    text-overflow:clip;
+    white-space:normal;
   }
   .provider-body[data-provider-theme] .timeline-mobile-time { display:inline; color:inherit; font-weight:850; opacity:1; }
   .provider-body[data-provider-theme] .timeline-client-visit { display:inline; padding:0; background:transparent!important; color:inherit!important; font-size:inherit; }
