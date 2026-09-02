@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '119';
+const version = '120';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -70,8 +70,17 @@ assert.match(provider, /class="provider-booking-open"[\s\S]*data-open-booking/, 
 assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:/, 'Компактная запись не показывает заметку');
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
+assert.match(provider, /const timeRange = `\$\{startTime\}–\$\{endTime\}`/, 'Карточка записи не рассчитывает интервал начала и окончания');
+assert.match(provider, /class="timeline-booking-time">\$\{timeRange\}/, 'На большом экране не показывается полный интервал записи');
+assert.match(provider, /class="timeline-mobile-time">\$\{timeRange\}/, 'На телефоне не показывается полный интервал записи');
+assert.match(provider, /class="booking-time-column"><strong>\$\{time\}<small>до \$\{endTime\}/, 'В режиме списка не показывается время окончания записи');
+const providerTimeFromMinutesSource = provider.match(/function timeFromMinutes\(value\) \{[\s\S]*?\n\}/)?.[0];
+assert.ok(providerTimeFromMinutesSource, 'Не удалось извлечь расчёт времени окончания записи');
+const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; return timeFromMinutes;`)();
+assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
+assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=119"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=120"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.equal(providerManifest.start_url, './provider.html', 'Установленное приложение открывает не кабинет');

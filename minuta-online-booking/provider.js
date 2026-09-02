@@ -603,7 +603,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=119#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=120#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1171,6 +1171,11 @@ function minutesFromTime(value) {
   return (hours * 60) + minutes;
 }
 
+function timeFromMinutes(value) {
+  const normalized = ((Math.round(Number(value) || 0) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
+}
+
 function timelineBounds(items) {
   const date = new Date(`${selectedDate}T12:00:00`);
   const weekday = ((date.getDay() + 6) % 7) + 1;
@@ -1252,6 +1257,9 @@ function renderTimeline(items) {
   const cards = items.map(item => {
     const itemStart = minutesFromTime(item.booking_time);
     const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+    const startTime = String(item.booking_time).slice(0, 5);
+    const endTime = timeFromMinutes(itemStart + duration);
+    const timeRange = `${startTime}–${endTime}`;
     const top = ((itemStart - start) / 60) * hourHeight;
     const height = Math.max(36, (duration / 60) * hourHeight - 4);
     const statusText = bookingStatus(item);
@@ -1272,9 +1280,9 @@ function renderTimeline(items) {
     const timelineStatus = statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${visibleNote ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, ${String(item.booking_time).slice(0, 5)}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}">
-      <span class="timeline-booking-time">${String(item.booking_time).slice(0, 5)}</span>
-      <span class="timeline-booking-copy"><strong>${block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга')}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client">${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${visibleNote ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}">
+      <span class="timeline-booking-time">${timeRange}</span>
+      <span class="timeline-booking-copy"><strong>${block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга')}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}
     </button>`;
   }).join('');
@@ -1293,6 +1301,8 @@ function renderBookingList(items) {
   holder.innerHTML = items.map(item => {
     const itemDate = new Date(`${item.booking_date}T12:00:00`);
     const time = String(item.booking_time).slice(0, 5);
+    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+    const endTime = timeFromMinutes(minutesFromTime(time) + duration);
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const phone = escapeHtml(String(item.client_phone || ''));
@@ -1301,12 +1311,11 @@ function renderBookingList(items) {
     const note = bookingDisplayNote(item);
     const visibleNote = displayPreferences.show_notes ? note : '';
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
-    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
     const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
     const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
     return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}">
-      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, ${time}, ${escapeHtml(details)}. Открыть подробности">
-        <span class="booking-time-column"><strong>${time}</strong><span>${dateFormat.format(itemDate)}</span></span>
+      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
+        <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
         ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1 }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
         <span class="provider-booking-signals">${visibleNote ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(visibleNote)}</span>` : ''}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
@@ -3788,4 +3797,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=119'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=120'));
