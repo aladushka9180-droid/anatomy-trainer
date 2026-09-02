@@ -1062,6 +1062,13 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .booking-sheet-summary { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:18px; margin-top:21px; padding:16px 0; border-top:1px solid #e5ece7; border-bottom:1px solid #e5ece7; }
 .booking-sheet-summary .booking-sheet-client { margin:0; }
 .booking-sheet-client-name { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-width:0; margin-top:3px; }
+/* Аватар привязан к строке имени: центры круга и имени всегда совпадают. */
+.booking-sheet-client { grid-template-rows:auto auto auto; column-gap:12px; row-gap:0; }
+.booking-sheet-client>.booking-client-avatar-control { grid-column:1; grid-row:2; align-self:center; transform:none; }
+.booking-sheet-client>div { display:contents; }
+.booking-sheet-client>div>small { grid-column:2; grid-row:1; }
+.booking-sheet-client>div>.booking-sheet-client-name { grid-column:2; grid-row:2; align-self:center; margin-top:0; }
+.booking-sheet-client>div>a { grid-column:2; grid-row:3; margin-top:4px; }
 .booking-sheet-client-name>strong { min-width:0; margin:0; }
 .booking-sheet-client-name .client-badges.with-labels { display:inline-flex; flex:none; flex-wrap:wrap; gap:4px; margin:0; }
 .booking-sheet-client-name .client-badges.with-labels .client-badge { width:auto; min-height:22px; padding:0 6px; gap:3px; border-radius:999px; box-shadow:none; }
