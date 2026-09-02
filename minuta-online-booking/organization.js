@@ -222,6 +222,11 @@
       holder.hidden = true;
     }
 
+    function providerInviteLink() {
+      try { return new URL('provider.html?invite=team', window.location.href).href; }
+      catch { return 'provider.html?invite=team'; }
+    }
+
     async function mutate(rpc, parameters, button, successMessage, errorSelector) {
       if (!requireWrites()) return false;
       const userId = getCurrentUser()?.id;
@@ -270,6 +275,8 @@
         if (result) {
           if (result.status === 'already_member') notify('Этот сотрудник уже состоит в команде');
           else notify(result.status === 'joined' ? 'Сотрудник добавлен' : 'Приглашение создано на 14 дней');
+          const share = $('#memberInviteShare');
+          if (share) share.hidden = result.status !== 'invited';
           event.target.reset(); $('#memberBookable').checked = true; $('#memberCreator').open = false;
         }
       }
@@ -294,6 +301,15 @@
       if (cancel) await mutate('cancel_minuta_invitation', { p_invitation: cancel.dataset.cancelInvitation }, cancel, 'Приглашение отменено');
       const accept = event.target.closest('[data-accept-invitation]');
       if (accept) await mutate('accept_minuta_invitation', { p_invitation: accept.dataset.acceptInvitation }, accept, 'Вы присоединились к команде');
+      const copyInvite = event.target.closest('#copyMemberInviteLink');
+      if (copyInvite) {
+        try {
+          await navigator.clipboard.writeText(providerInviteLink());
+          notify('Ссылка для сотрудника скопирована');
+        } catch {
+          notify('Не удалось скопировать ссылку. Откройте кабинет и передайте его адрес сотруднику.');
+        }
+      }
     }
 
     function handleChange(event) {

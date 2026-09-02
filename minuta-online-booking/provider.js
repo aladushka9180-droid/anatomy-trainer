@@ -14,6 +14,7 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
+const SERVICE_SYNC_INTERVAL_MS = 30000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v5';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
@@ -1361,6 +1362,8 @@ function showRecoveryReset() {
 function showRecoverySent() {
   $('#recoveryForm').hidden = true;
   $('#recoverySent').hidden = false;
+  const address = $('#recoverySentAddress');
+  if (address) address.textContent = $('#recoveryEmail').value.trim().toLowerCase();
   $('#authTitle').textContent = 'Проверьте почту.';
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
@@ -3287,7 +3290,7 @@ function startLiveUpdates() {
   syncTimer = setInterval(() => {
     refreshBusinessDay();
     if (!document.hidden && navigator.onLine) synchronizeProvider();
-  }, 60000);
+  }, SERVICE_SYNC_INTERVAL_MS);
 }
 
 function synchronizeProvider() {
@@ -3496,7 +3499,8 @@ async function signup(event) {
 async function requestPasswordReset(event) {
   event.preventDefault();
   clearFormError('#recoveryError');
-  const email = $('#recoveryEmail').value.trim();
+  const email = $('#recoveryEmail').value.trim().toLowerCase();
+  $('#recoveryEmail').value = email;
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Отправляем…';
@@ -3506,7 +3510,8 @@ async function requestPasswordReset(event) {
   button.disabled = false;
   button.textContent = 'Отправить ссылку';
   if (error) {
-    showFormError('#recoveryError', 'Не удалось отправить письмо. Подождите немного и попробуйте снова.');
+    const limited = error?.status === 429 || /rate|limit|security purposes/i.test(`${error?.message || ''}`);
+    showFormError('#recoveryError', limited ? 'Слишком много запросов. Подождите минуту и попробуйте снова.' : 'Не удалось отправить письмо. Проверьте адрес и попробуйте снова.');
     return;
   }
   showRecoverySent();
@@ -4749,6 +4754,7 @@ $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
+$('#retryPasswordRecovery').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
 $('#refreshBookings').addEventListener('click', synchronizeProvider);

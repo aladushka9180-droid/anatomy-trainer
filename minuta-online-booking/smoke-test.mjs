@@ -37,6 +37,7 @@ assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7Oho
 const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const organization = readFileSync(join(root, 'organization.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
@@ -69,6 +70,10 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
+assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 30000/, 'Резервная синхронизация между устройствами выполняется слишком редко');
+assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
+assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
+assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
 assert.match(providerHtml, /team-calendar\.js\?v=155/, 'Кабинет не подключает контроллер командного календаря');
 assert.match(providerHtml, /resource-management\.js\?v=155/, 'Кабинет не подключает безопасный контроллер ресурсов');
 assert.match(providerHtml, /shift-management\.js\?v=155/, 'Кабинет не подключает контроллер смен команды');

@@ -93,6 +93,7 @@ jobs:
           node --check minuta-online-booking/notification-outbox-static-test.mjs
           node --check minuta-online-booking/payment-foundation-static-test.mjs
           node --check minuta-online-booking/provider-delete-v64-static-test.mjs
+          node --check minuta-online-booking/readiness-v78-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -123,6 +124,7 @@ jobs:
           node minuta-online-booking/notification-outbox-static-test.mjs
           node minuta-online-booking/payment-foundation-static-test.mjs
           node minuta-online-booking/provider-delete-v64-static-test.mjs
+          node minuta-online-booking/readiness-v78-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -388,6 +390,13 @@ jobs:
             "select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null and has_function_privilege('service_role','public.get_telegram_reminder_secret_hash()','EXECUTE') and not has_function_privilege('anon','public.get_telegram_reminder_secret_hash()','EXECUTE') and exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%x-reminder-secret%');" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v78.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v78.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select relreplident='f' from pg_class where oid='public.services'::regclass) and exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='services');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/booking-policies-v76-integration.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-telegram-reminder-security-v77.sql
@@ -514,6 +523,7 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v75.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v76.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v77.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v78.sql
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
@@ -766,6 +776,11 @@ jobs:
           esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null and has_function_privilege('service_role','public.get_telegram_reminder_secret_hash()','EXECUTE') and not has_function_privilege('anon','public.get_telegram_reminder_secret_hash()','EXECUTE') and exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%x-reminder-secret%');" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v78.sql
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select relreplident='f' from pg_class where oid='public.services'::regclass) and exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='services');" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \

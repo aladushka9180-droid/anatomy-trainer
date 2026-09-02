@@ -105,6 +105,27 @@ const apiHeaders = {
 const authResult = await checkedFetch(new URL('/auth/v1/health', supabaseUrl), { headers: { apikey: supabaseKey } });
 const authHealth = await authResult.response.json();
 assert.ok(authHealth?.name === 'GoTrue', 'Сервис авторизации Supabase не подтвердил готовность');
+const authSettingsResult = await checkedFetch(new URL('/auth/v1/settings', supabaseUrl), { headers: { apikey: supabaseKey } });
+const authSettings = await authSettingsResult.response.json();
+assert.equal(authSettings?.external?.email, true, 'Вход и восстановление доступа по email выключены');
+assert.equal(authSettings?.disable_signup, false, 'Регистрация новых исполнителей выключена');
+
+async function probeProtectedRpc(name, payload) {
+  const result = await timedFetch(new URL(`/rest/v1/rpc/${name}`, supabaseUrl), {
+    method: 'POST', headers: apiHeaders, body: JSON.stringify(payload)
+  });
+  const body = await result.response.json().catch(() => ({}));
+  assert.ok([401, 403].includes(result.response.status), `${name}: анонимный запрос вернул HTTP ${result.response.status}`);
+  assert.doesNotMatch(body?.code || '', /^PGRST202$/, `${name}: защищённая RPC не найдена`);
+  assert.match(`${body?.message || ''}`, /permission denied|authentication_required/i, `${name}: сервер не подтвердил защиту авторизацией`);
+  return result.elapsed;
+}
+
+const protectedRpcTimings = await Promise.all([
+  probeProtectedRpc('provider_delete_service', { p_service: crypto.randomUUID() }),
+  probeProtectedRpc('invite_minuta_member', { p_organization: crypto.randomUUID(), p_email: 'health@example.invalid', p_role: 'specialist', p_is_bookable: true }),
+  probeProtectedRpc('accept_minuta_invitation', { p_invitation: crypto.randomUUID() })
+]);
 
 const servicesUrl = new URL('/rest/v1/services?select=id&active=eq.true&limit=1', supabaseUrl);
 const servicesResult = await checkedFetch(servicesUrl, { headers: apiHeaders });
@@ -172,7 +193,7 @@ if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   assert.match(probe?.message || '', /invalid input syntax for type uuid/i, 'Идемпотентная RPC версии 43 не подтвердила UUID-параметр');
 }
 
-console.log(`Minuta production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
+console.log(`Minuta production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; auth-settings ${authSettingsResult.elapsed}мс; protected-rpc ${Math.max(...protectedRpcTimings)}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
 } catch (error) {
   console.error(`Minuta production health: FAIL; ${error?.message || error}`);
   process.exitCode = 1;

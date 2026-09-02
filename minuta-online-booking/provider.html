@@ -58,7 +58,7 @@
         <p class="form-error" id="resetPasswordError" hidden></p>
         <button class="primary" type="submit">Сохранить новый пароль</button>
       </form>
-      <div class="recovery-sent" id="recoverySent" hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg></span><strong>Письмо отправлено</strong><p>Откройте письмо и нажмите ссылку. После этого здесь можно будет создать новый пароль.</p><button class="auth-back-button" type="button" data-back-to-login>Вернуться ко входу</button></div>
+      <div class="recovery-sent" id="recoverySent" hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg></span><strong>Письмо отправлено</strong><p>Ссылка отправлена на <b id="recoverySentAddress"></b>. Если письма нет до 5 минут, проверьте папку «Спам» и правильность адреса.</p><button class="secondary-button" id="retryPasswordRecovery" type="button">Проверить адрес или отправить ещё раз</button><button class="auth-back-button" type="button" data-back-to-login>Вернуться ко входу</button></div>
       <a class="back-to-booking" href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Вернуться к записи клиента</span></a>
     </section>
 
@@ -292,8 +292,9 @@
                 <div class="organization-list" id="membersList"></div>
                 <details class="organization-create" id="memberCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Пригласить сотрудника</span></summary>
-                  <form id="memberInviteForm"><label>Email<input id="memberEmail" type="email" maxlength="320" autocomplete="email" placeholder="specialist@example.com" required></label><div class="form-row"><label>Роль<select id="memberRole"><option value="specialist">Специалист</option><option value="admin">Администратор</option><option value="owner">Владелец</option></select></label><label class="settings-check member-bookable-check"><input id="memberBookable" type="checkbox" checked><span><strong>Принимает клиентов</strong><small>Можно будет добавить в онлайн-запись.</small></span></label></div><p class="organization-invite-help">Доступ не выдаётся автоматически. Сотрудник должен войти с подтверждённым email и сам принять приглашение.</p><p class="form-error" id="memberInviteError" hidden></p><button class="primary" type="submit">Пригласить</button></form>
+                  <form id="memberInviteForm"><label>Email<input id="memberEmail" type="email" maxlength="320" autocomplete="email" placeholder="specialist@example.com" required></label><div class="form-row"><label>Роль<select id="memberRole"><option value="specialist">Специалист</option><option value="admin">Администратор</option><option value="owner">Владелец</option></select></label><label class="settings-check member-bookable-check"><input id="memberBookable" type="checkbox" checked><span><strong>Принимает клиентов</strong><small>Можно будет добавить в онлайн-запись.</small></span></label></div><p class="organization-invite-help">Отдельная оплата не требуется. Сотрудник входит или регистрируется с указанным email и принимает приглашение.</p><p class="form-error" id="memberInviteError" hidden></p><button class="primary" type="submit">Пригласить</button></form>
                 </details>
+                <div class="organization-invite-share" id="memberInviteShare" hidden><div><strong>Передайте сотруднику ссылку</strong><small>Он должен войти с приглашённым email и открыть раздел «Команда».</small></div><button class="secondary-button" id="copyMemberInviteLink" type="button">Скопировать ссылку</button></div>
               </section>
             </div>
 
