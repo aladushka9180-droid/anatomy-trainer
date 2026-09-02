@@ -3195,3 +3195,168 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-booking .team-calendar-client-line span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-resource { width:auto; max-width:100%; margin-top:5px; padding:3px 6px; border-radius:0; border-color:var(--mobile-luxury-line); background:#21190d; color:var(--mobile-luxury-gold-light); font-size:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 }
+
+/* Mobile Sage Studio + Мягкий минимализм: отдельная полноширинная композиция. */
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] {
+    --theme-bg:#f3f6f2;
+    --theme-surface:#fff;
+    --theme-surface-alt:#f7f9f7;
+    --theme-ink:#17382a;
+    --theme-muted:#68776f;
+    --theme-line:#dbe4de;
+    --theme-accent:#1f6244;
+    --theme-accent-soft:#e8f1eb;
+    background:var(--theme-bg);
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .provider-app {
+    display:block;
+    grid-template-columns:none;
+    width:100%;
+    max-width:none;
+    padding:0 0 calc(86px + env(safe-area-inset-bottom));
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .provider-workspace {
+    width:100%;
+    max-width:none;
+    padding:0 12px 30px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .provider-view {
+    width:100%;
+    max-width:none;
+    padding-top:16px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-card {
+    margin-top:12px;
+    overflow:hidden;
+    border:1px solid var(--theme-line);
+    border-radius:18px!important;
+    background:var(--theme-surface);
+    box-shadow:0 10px 28px rgba(31,74,51,.07);
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .date-strip {
+    margin:0!important;
+    padding:8px 4px;
+    background:var(--theme-surface-alt);
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .date-strip button {
+    flex-basis:60px;
+    min-height:64px;
+    border-radius:14px!important;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-toolbar {
+    margin:8px 8px 0!important;
+    padding:11px;
+    border:1px solid var(--theme-line);
+    border-radius:16px!important;
+    background:var(--theme-surface);
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] :is(.journal-mode-toggle,.booking-filters button) {
+    border-radius:12px!important;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) {
+    padding:6px 10px 12px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking {
+    border:0;
+    border-bottom:1px solid var(--theme-line);
+    border-radius:0!important;
+    background:var(--theme-surface)!important;
+    box-shadow:none!important;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking:last-child {
+    border-bottom:0;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking-open {
+    grid-template-columns:78px minmax(0,1fr) 18px;
+    align-items:center;
+    gap:10px;
+    min-height:108px;
+    padding:13px 4px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .booking-time-column {
+    align-self:stretch;
+    justify-content:center;
+    padding-right:10px;
+    border-right:1px solid var(--theme-line);
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .booking-time-column strong {
+    color:var(--theme-ink);
+    font-size:19px;
+    line-height:1;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking-top {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    align-items:start;
+    justify-items:start;
+    gap:4px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking-top h3 {
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    color:var(--theme-ink);
+    font-size:14px;
+    line-height:1.2;
+    overflow-wrap:normal;
+    word-break:normal;
+    white-space:normal;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .booking-status {
+    max-width:78px;
+    min-height:21px;
+    padding:3px 7px;
+    border-radius:999px;
+    font-size:7px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking-client-line {
+    display:flex;
+    align-items:center;
+    flex-flow:row wrap;
+    gap:4px 7px;
+    margin-top:6px;
+    overflow:hidden;
+    color:var(--theme-muted);
+    font-size:9.5px;
+    line-height:1.25;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .booking-client-name-row {
+    width:auto;
+    max-width:100%;
+    overflow:hidden;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .booking-client-name-row>strong,
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .provider-booking-phone {
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .schedule-list:not(.team-calendar-list) .booking-client-visit {
+    max-width:100%;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    color:var(--theme-accent);
+    font-size:9px;
+    text-overflow:ellipsis;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .provider-booking-chevron {
+    color:#829088;
+    font-size:20px;
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .provider-mobile-nav {
+    left:12px;
+    right:12px;
+    border-radius:18px!important;
+    background:rgba(255,255,255,.96);
+    box-shadow:0 12px 32px rgba(28,63,44,.14);
+  }
+  .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] .provider-mobile-nav :is(button,a) {
+    border-radius:12px!important;
+  }
+}
