@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '215';
+const version = '216';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -322,7 +322,7 @@ assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(-
 assert.match(styles, /\.provider-body \.journal-mode-toggle:not\(\[hidden\]\) \{ display:flex!important;[^}]*grid-row:2/, 'Переключатель «Лента / Список» скрыт на мобильном');
 assert.doesNotMatch(styles, /\.provider-body \.journal-mode-toggle \{ display:none!important; \}/, 'Переключатель режима расписания принудительно скрыт');
 assert.match(styles, /data-provider-theme\] \.timeline-view :is\([^)]*\.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
-assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy>strong[\s\S]*?-webkit-line-clamp:1/, 'Длинное название снова ломает компактную мобильную карточку');
+assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy>strong[\s\S]*?white-space:normal[\s\S]*?-webkit-line-clamp:2/, 'Длинное название мобильной записи не переносится на две строки');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-note[\s\S]*?text-overflow:ellipsis;[\s\S]*?white-space:nowrap/, 'Длинная заметка не ограничена одной строкой на телефоне');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy[\s\S]*?position:absolute;[\s\S]*?top:8px;/, 'Содержимое длинной мобильной записи снова плавает по высоте');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking \.client-badges \{[\s\S]*?top:0;[\s\S]*?right:9px;/, 'Метка клиента перекрывает текст длинной мобильной карточки');
