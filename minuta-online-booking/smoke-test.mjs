@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '199';
+const version = '200';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -288,6 +288,9 @@ assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20"
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:10px;/, 'Кнопка фотографии снова расположена слишком низко');
 assert.match(styles, /connection-log-dialog[\s\S]*connection-log-entry/, 'Журнал связи не оформлен для кабинета');
+assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-dialog \{[\s\S]*provider-luxury-marble-v4\.webp/, 'Журнал связи не получил поверхность Luxury');
+assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-entry \{[\s\S]*background:linear-gradient/, 'Записи журнала связи не оформлены для Luxury');
+assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-actions \{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/, 'Действия журнала связи не выровнены в Luxury');
 assert.match(styles, /\.schedule-empty-create/, 'Кнопка пустого расписания не оформлена');
 const providerThemes = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
 assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech'], 'Набор тем кабинета неожиданно изменился');
