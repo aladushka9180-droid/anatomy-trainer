@@ -931,7 +931,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=180#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=181#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2901,7 +2901,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   const draft = preset.clientName ? null : readNewBookingDraft();
   const selectedService = services.find(item => item.id === (preset.serviceId || draft?.serviceId)) || services[0];
   const defaultDate = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(draft?.date || '')) && draft.date >= businessTodayIso() ? draft.date : defaultDate;
+  const presetDate = /^\d{4}-\d{2}-\d{2}$/.test(String(preset.date || '')) && preset.date >= businessTodayIso() ? preset.date : '';
+  const date = presetDate || (/^\d{4}-\d{2}-\d{2}$/.test(String(draft?.date || '')) && draft.date >= businessTodayIso() ? draft.date : defaultDate);
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
@@ -4026,6 +4027,7 @@ async function clearProviderDeviceData(userId) {
 async function logout() {
   const userId = currentUser?.id;
   ++sessionGeneration;
+  window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -4040,6 +4042,7 @@ async function logout() {
 async function handleSession(session) {
   const previousUserId = currentUser?.id;
   const generation = ++sessionGeneration;
+  window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -5478,6 +5481,49 @@ const freeSlotsController = window.MinutaFreeSlots.createController({
   }
 });
 
+window.MinutaProviderAssistant = Object.freeze({
+  getReadOnlySnapshot() {
+    const organization = organizationController.getActiveOrganization();
+    return {
+      authenticated:Boolean(currentUser),
+      synchronized:Boolean(currentUser && writesAllowed && bookingCreationReady),
+      sessionGeneration,
+      today:businessTodayIso(),
+      selectedDate,
+      organizationName:String(organization?.name || ''),
+      services:ownServices.filter(item => item.active).map(item => ({
+        id:String(item.id),
+        name:serviceName(item.name || 'Услуга'),
+        durationMinutes:Number(item.duration_minutes || 60)
+      })),
+      bookings:allBookings.filter(item => !isScheduleBlock(item)).map(item => ({
+        id:String(item.id),
+        clientName:String(item.client_name || 'Клиент'),
+        date:String(item.booking_date || ''),
+        time:String(item.booking_time || '').slice(0, 5),
+        durationMinutes:Number(item.duration_minutes || item.services?.duration_minutes || 60),
+        serviceName:serviceName(item.services?.name || 'Услуга'),
+        status:String(item.status || 'confirmed')
+      }))
+    };
+  },
+  prepareBookingDraft(plan = {}) {
+    if (!currentUser || !writesAllowed || !bookingCreationReady) return { ok:false, reason:'not_synchronized' };
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(plan.date || '')) && plan.date >= businessTodayIso() ? String(plan.date) : businessTodayIso();
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(plan.time || '')) ? String(plan.time) : '';
+    const service = ownServices.find(item => item.active && item.id === plan.serviceId) || null;
+    setProviderView('bookings');
+    selectScheduleDate(date);
+    openNewBookingSheet(time, {
+      clientName:String(plan.clientName || '').slice(0, 80),
+      serviceId:service?.id || '',
+      date
+    });
+    return { ok:true };
+  }
+});
+window.dispatchEvent(new CustomEvent('minuta:provider-assistant-ready'));
+
 $('#loginForm').addEventListener('submit', login);
 $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
@@ -5658,4 +5704,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=180'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=181'));

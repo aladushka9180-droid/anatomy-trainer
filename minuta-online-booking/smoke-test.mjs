@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '180';
+const version = '181';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -37,6 +37,7 @@ assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7Oho
 const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const voiceAssistant = readFileSync(join(root, 'voice-assistant.js'), 'utf8');
 const organization = readFileSync(join(root, 'organization.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
@@ -78,6 +79,18 @@ assert.match(provider, /bookingReady = results\.slice\(0, 4\)\.every[\s\S]*setBo
 assert.match(provider, /Связь прервалась\. Данные остались в форме/, 'Черновик записи теряется при обрыве связи');
 assert.match(providerHtml, /id="syncState"[\s\S]*id="manualSyncButton"/, 'В кабинете нет понятного ручного обновления');
 assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList"/, 'Журнал проблем со связью недоступен пользователю');
+assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDialog"[\s\S]*id="voiceListenButton"/, 'В кабинете нет голосового помощника');
+assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
+assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
+assert.match(provider, /if \(!currentUser \|\| !writesAllowed \|\| !bookingCreationReady\) return \{ ok:false, reason:'not_synchronized' \}/, 'Черновик голосового помощника можно открыть до полной синхронизации');
+assert.doesNotMatch(voiceAssistant, /\.from\(|\.rpc\(|fetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
+assert.doesNotMatch(voiceAssistant, /localStorage|sessionStorage|indexedDB/, 'Голосовая команда сохраняется в браузере');
+assert.match(voiceAssistant, /bridge\.prepareBookingDraft/, 'Голосовой помощник не использует ограниченный интерфейс черновика');
+assert.match(voiceAssistant, /minuta:provider-session-reset/, 'Голосовой помощник не очищается при выходе или смене аккаунта');
+assert.match(voiceAssistant, /recognition\?\.abort\(\)/, 'Распознавание речи не прерывается безопасно при закрытии');
+assert.match(voiceAssistant, /!snapshot\.synchronized/, 'Голосовой помощник может показать устаревшие данные');
+assert.match(voiceAssistant, /Object\.is\(currentSnapshot\.sessionGeneration, lastSessionGeneration\)/, 'Старый голосовой черновик можно открыть в новой сессии');
+assert.doesNotMatch(voiceAssistant, /createNewBooking|provider_delete_booking|delete_minuta/, 'Голосовой помощник получил прямой доступ к критическим операциям');
 assert.match(provider, /sessionStorage\.setItem\(bookingDraftKey\(\), JSON\.stringify\(draft\)\)/, 'Черновик новой записи не переживает перезагрузку вкладки');
 assert.doesNotMatch(provider, /localStorage\.setItem\(bookingDraftKey/, 'Персональные данные черновика сохраняются надолго');
 assert.match(provider, /clearNewBookingDraft\(userId\)[\s\S]*closeBookingSheet\(\)/, 'Созданная запись оставляет персональный черновик на устройстве');

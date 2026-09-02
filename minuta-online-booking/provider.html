@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=180" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=181" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=180&amp;layoutfix=1">
+  <link rel="stylesheet" href="styles.css?v=181&amp;layoutfix=1">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -91,7 +91,7 @@
       <div class="provider-workspace">
         <header class="provider-topbar">
           <div><small id="todayLabel">Сегодня</small><h1 id="welcomeName">Здравствуйте!</h1></div>
-          <div class="provider-topbar-actions"><button class="sync-state is-checking" id="syncState" type="button" aria-live="polite" aria-label="Открыть журнал связи"><i></i><span>Подключаемся…</span></button><button class="sync-tool-button" id="manualSyncButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
+          <div class="provider-topbar-actions"><button class="voice-assistant-open" id="openVoiceAssistant" type="button" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Голосовой помощник</span></button><button class="sync-state is-checking" id="syncState" type="button" aria-live="polite" aria-label="Открыть журнал связи"><i></i><span>Подключаемся…</span></button><button class="sync-tool-button" id="manualSyncButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
         </header>
 
         <section class="provider-view active" data-provider-panel="bookings">
@@ -160,7 +160,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=180#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=181#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -812,6 +812,26 @@
       <div id="bookingSheetContent"></div>
     </section>
   </div>
+  <dialog class="voice-assistant-dialog" id="voiceAssistantDialog" aria-labelledby="voiceAssistantTitle">
+    <div class="voice-assistant-head">
+      <div><small>Безопасный помощник</small><h2 id="voiceAssistantTitle">Скажите, что нужно сделать</h2></div>
+      <button type="button" data-close-voice-assistant aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
+    </div>
+    <p class="voice-assistant-lead">Помощник понимает команды о расписании и готовит действия. Он не создаёт, не переносит и не удаляет записи без вашего подтверждения.</p>
+    <form class="voice-assistant-form" id="voiceAssistantForm">
+      <button class="voice-listen-button" id="voiceListenButton" type="button" aria-describedby="voiceAssistantStatus"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Говорить</span></button>
+      <label class="voice-transcript-field"><span class="sr-only">Распознанная команда</span><textarea id="voiceAssistantInput" rows="3" maxlength="500" placeholder="Например: запиши Анну завтра в 10:30 на спортивный массаж"></textarea></label>
+      <button class="primary voice-understand-button" type="submit">Понять команду</button>
+    </form>
+    <p class="voice-assistant-status" id="voiceAssistantStatus" role="status" aria-live="polite">Нажмите «Говорить» или введите команду текстом.</p>
+    <section class="voice-assistant-result" id="voiceAssistantResult" aria-live="polite" hidden></section>
+    <div class="voice-assistant-examples" aria-label="Примеры команд">
+      <button type="button" data-voice-example="Какие записи сегодня?">Какие записи сегодня?</button>
+      <button type="button" data-voice-example="Найди свободное время завтра на массаж 60 минут">Найди окно завтра</button>
+      <button type="button" data-voice-example="Запиши Анну завтра в 10:30 на массаж">Подготовить запись</button>
+    </div>
+    <p class="voice-assistant-privacy"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><span>Команда не сохраняется в журнале или базе «Минуты». Подставленные в форму данные отправятся только после вашего подтверждения. Голос и результат распознавания могут обрабатываться службой браузера, операционной системы или её внешним поставщиком.</span></p>
+  </dialog>
   <dialog class="connection-log-dialog" id="connectionLogDialog" aria-labelledby="connectionLogTitle">
     <div class="connection-log-head"><div><small>Диагностика</small><h2 id="connectionLogTitle">Журнал связи</h2></div><button type="button" data-close-connection-log aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <p class="connection-log-lead">Здесь сохраняются только технические события без имён и телефонов клиентов.</p>
@@ -820,21 +840,22 @@
   </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=180"></script>
-  <script src="reliability.js?v=180"></script>
-  <script src="resource-management.js?v=180" defer></script>
-  <script src="shift-management.js?v=180" defer></script>
-  <script src="organization.js?v=180" defer></script>
-  <script src="payroll-management.js?v=180" defer></script>
-  <script src="benefit-management.js?v=180" defer></script>
-  <script src="loyalty-management.js?v=180" defer></script>
-  <script src="inventory-management.js?v=180" defer></script>
-  <script src="retention-management.js?v=180" defer></script>
-  <script src="batch-bookings.js?v=180" defer></script>
-  <script src="booking-policy-management.js?v=180" defer></script>
-  <script src="team-calendar.js?v=180" defer></script>
-  <script src="free-slots-share.js?v=180" defer></script>
-  <script src="group-bookings.js?v=180" defer></script>
-  <script src="provider.js?v=180&amp;iconfix=1" defer></script>
+  <script src="config.js?v=181"></script>
+  <script src="reliability.js?v=181"></script>
+  <script src="resource-management.js?v=181" defer></script>
+  <script src="shift-management.js?v=181" defer></script>
+  <script src="organization.js?v=181" defer></script>
+  <script src="payroll-management.js?v=181" defer></script>
+  <script src="benefit-management.js?v=181" defer></script>
+  <script src="loyalty-management.js?v=181" defer></script>
+  <script src="inventory-management.js?v=181" defer></script>
+  <script src="retention-management.js?v=181" defer></script>
+  <script src="batch-bookings.js?v=181" defer></script>
+  <script src="booking-policy-management.js?v=181" defer></script>
+  <script src="team-calendar.js?v=181" defer></script>
+  <script src="free-slots-share.js?v=181" defer></script>
+  <script src="group-bookings.js?v=181" defer></script>
+  <script src="provider.js?v=181&amp;iconfix=1" defer></script>
+  <script src="voice-assistant.js?v=181" defer></script>
 </body>
 </html>
