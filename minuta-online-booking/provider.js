@@ -4221,7 +4221,6 @@ document.addEventListener('click', async event => {
   const retryOutboxNotification = event.target.closest('[data-retry-notification-outbox]');
   const filter = event.target.closest('[data-filter]');
   const journalView = event.target.closest('[data-journal-mode]');
-  const date = event.target.closest('[data-booking-date]');
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
@@ -4296,7 +4295,6 @@ document.addEventListener('click', async event => {
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
   if (dateToday) selectScheduleDate(businessTodayIso());
-  if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) {
     if (journalMode === 'split' && currentFilter === 'day' && window.matchMedia('(min-width: 761px)').matches) {
       splitBookingId = openBooking.dataset.openBooking;
@@ -4596,6 +4594,12 @@ $('#clientSearch').addEventListener('input', renderClients);
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
+$('#dateStrip').addEventListener('click', event => {
+  const dateButton = event.target.closest('[data-booking-date]');
+  if (!dateButton) return;
+  event.preventDefault();
+  selectScheduleDate(dateButton.dataset.bookingDate);
+});
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
@@ -4675,4 +4679,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=145'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=146'));

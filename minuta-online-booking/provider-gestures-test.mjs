@@ -39,8 +39,10 @@ const daySwipeRuntime = new Function(`let currentFilter = 'day'; let timelineBoo
 const clearSwipeTarget = { closest:() => null };
 assert.equal(daySwipeRuntime.run({ pointerType:'mouse', button:0, pointerId:1, clientX:120, clientY:40, target:clearSwipeTarget }), null, 'обычный клик мышью не должен запускать распознавание свайпа');
 assert.equal(daySwipeRuntime.run({ pointerType:'touch', button:0, pointerId:2, clientX:120, clientY:40, target:clearSwipeTarget })?.pointerId, 2, 'свайп пальцем должен сохраниться');
-assert.match(providerHtml, /provider\.js\?v=145/, 'кабинет должен загрузить исправленный обработчик, а не старый кэш');
-assert.match(serviceWorker, /provider\.js\?v=145/, 'исправленный обработчик должен быть доступен офлайн');
+assert.match(providerHtml, /provider\.js\?v=146/, 'кабинет должен загрузить исправленный обработчик, а не старый кэш');
+assert.match(serviceWorker, /provider\.js\?v=146/, 'исправленный обработчик должен быть доступен офлайн');
+assert.match(source, /\$\('#dateStrip'\)\.addEventListener\('click',[\s\S]*selectScheduleDate\(dateButton\.dataset\.bookingDate\)/, 'даты должны иметь отдельный обработчик клика');
+assert.doesNotMatch(source.match(/document\.addEventListener\('click',[\s\S]*?\n\}\);/)?.[0] || '', /const date = event\.target\.closest\('\[data-booking-date\]'\)/, 'общий обработчик страницы не должен повторно обрабатывать дату');
 assert.match(source, /state\.active = true;\s*state\.surface\.setPointerCapture/, 'захват указателя допустим только после распознавания свайпа');
 assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
 assert.match(source, /bookingPlacementIssue\(item, state\.date, state\.targetMinute\)/);

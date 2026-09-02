@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
 const version = '144';
-const workerVersion = '145';
+const workerVersion = '146';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -288,7 +288,7 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true }, 'Старый выбор Bento переносится неверно');
 assert.match(styles, /data-provider-theme\] \.settings-check strong \{ color:var\(--theme-ink\); \}/, 'Основной текст настроек окрашен акцентом и теряет контраст');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
