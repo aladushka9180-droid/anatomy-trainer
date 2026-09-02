@@ -1,4 +1,5 @@
 name: Minuta safe release gate
+run-name: Minuta safe release — ${{ inputs.phase }} — ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -33,6 +34,16 @@ on:
         required: false
         default: ""
         type: string
+      backup_run_id:
+        description: ID успешного свежего запуска Minuta Supabase encrypted backup на этом commit
+        required: false
+        default: ""
+        type: string
+      validation_run_id:
+        description: ID успешной validate-production-rollback на этом commit
+        required: false
+        default: ""
+        type: string
       migration_target:
         description: Последний слой схемы для production-migration
         required: true
@@ -44,9 +55,10 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: minuta-safe-release-${{ github.ref }}
+  group: minuta-production-database
   cancel-in-progress: false
 
 jobs:
@@ -54,6 +66,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Запретить доступ к production не из main
+        env:
+          MINUTA_PHASE: ${{ inputs.phase }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$MINUTA_PHASE" in
+            validate-production-rollback|production-migration|diagnose-client-links|observe-production)
+              test "$GITHUB_REF" = "refs/heads/main"
+              ;;
+          esac
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
@@ -79,6 +102,7 @@ jobs:
           node --check minuta-online-booking/multi-tenant-v71-static-test.mjs
           node --check minuta-online-booking/payroll-v72-static-test.mjs
           node --check minuta-online-booking/benefits-v73-static-test.mjs
+          node --check minuta-online-booking/booking-policies-v76-static-test.mjs
           node --check minuta-online-booking/organization.js
           node --check minuta-online-booking/team-calendar.js
           node --check minuta-online-booking/resource-management.js
@@ -87,6 +111,8 @@ jobs:
           node --check minuta-online-booking/payroll-management-controller-test.mjs
           node --check minuta-online-booking/benefit-management.js
           node --check minuta-online-booking/benefit-management-controller-test.mjs
+          node --check minuta-online-booking/booking-policy-management.js
+          node --check minuta-online-booking/booking-policy-management-controller-test.mjs
           node --check minuta-online-booking/resource-management-controller-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
@@ -105,11 +131,13 @@ jobs:
           node minuta-online-booking/multi-tenant-v71-static-test.mjs
           node minuta-online-booking/payroll-v72-static-test.mjs
           node minuta-online-booking/benefits-v73-static-test.mjs
+          node minuta-online-booking/booking-policies-v76-static-test.mjs
           node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/team-calendar-controller-test.mjs
           node minuta-online-booking/resource-management-controller-test.mjs
           node minuta-online-booking/payroll-management-controller-test.mjs
           node minuta-online-booking/benefit-management-controller-test.mjs
+          node minuta-online-booking/booking-policy-management-controller-test.mjs
           bash -n minuta-online-booking/multi-tenant-v69-concurrency-test.sh
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
@@ -193,6 +221,14 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_booking_policy_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-booking-policies-v76.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.booking_page_visits') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-visitor-presence-v74.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_benefit_settings') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-benefits-v73.sql
@@ -322,6 +358,39 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/benefits-v73-integration.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v74.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v74.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_page_visits') is not null and exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled') and to_regprocedure('public.register_public_booking_visit(text)') is not null and has_function_privilege('anon','public.register_public_booking_visit(text)','EXECUTE') and not has_table_privilege('anon','public.booking_page_visits','SELECT');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v75.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v75.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select exists(select 1 from pg_constraint constraint_row where constraint_row.conrelid='public.bookings'::regclass and constraint_row.conname='bookings_color_key_check' and pg_get_constraintdef(constraint_row.oid) like '%graphite%') and to_regprocedure('public.set_booking_color(uuid,text)') is not null;" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v76.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v76.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=3 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_booking_policy_settings','organization_booking_policy_rules','organization_booking_policy_audit_log')) and to_regprocedure('public.get_minuta_booking_policy_workspace(uuid)') is not null and to_regprocedure('public.get_booking_management_v2(uuid)') is not null and to_regprocedure('public.expire_minuta_unpaid_bookings(integer)') is not null and not has_table_privilege('anon','public.organization_booking_policy_rules','SELECT') and not has_table_privilege('authenticated','public.organization_booking_policy_rules','INSERT') and not coalesce((select bool_or(enabled) from public.organization_booking_policy_settings),false);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/booking-policies-v76-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-booking-policies-v76.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_booking_policy_settings') is null and to_regprocedure('public.get_minuta_booking_policy_workspace(uuid)') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='booking_policy_snapshot');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-visitor-presence-v74.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_page_visits') is null and to_regprocedure('public.register_public_booking_visit(text)') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-benefits-v73.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.organization_benefit_settings') is null and to_regclass('public.client_benefit_instruments') is null and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is null;" \
@@ -396,17 +465,18 @@ jobs:
             | grep -qx t
 
   validate-production-rollback:
-    if: inputs.phase == 'validate-production-rollback'
+    if: inputs.phase == 'validate-production-rollback' && github.ref == 'refs/heads/main'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: minuta-production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Проверить v72 и v73 в откатываемой транзакции production
+      - name: Проверить v72–v76 в откатываемой транзакции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -427,22 +497,57 @@ jobs:
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/payroll-v72-integration.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v73.sql
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/benefits-v73-integration.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v74.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v75.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v76.sql
+            sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -f "$validation_sql"
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select not exists(select 1 from public.bookings where request_id in ('00000000-0000-4000-8000-000000007201'::uuid,'00000000-0000-4000-8000-000000007301'::uuid));" \
+            "select not exists(select 1 from public.bookings where request_id in ('00000000-0000-4000-8000-000000007201'::uuid,'00000000-0000-4000-8000-000000007301'::uuid,'00000000-0000-4000-8000-000000007601'::uuid));" \
             | grep -qx t
 
   production-migration:
-    if: inputs.phase == 'production-migration'
+    if: inputs.phase == 'production-migration' && github.ref == 'refs/heads/main'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: minuta-production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Подтвердить свежий backup и откатываемую проверку этого commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MINUTA_BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+          MINUTA_VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$MINUTA_VALIDATION_RUN_ID" =~ ^[0-9]+$ ]]
+          check_run() {
+            local run_id="$1" expected_path="$2" expected_title="$3" max_age="$4"
+            local run_json created now
+            run_json="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
+            test "$(jq -r '.head_sha' <<<"$run_json")" = "$GITHUB_SHA"
+            test "$(jq -r '.path' <<<"$run_json")" = "$expected_path"
+            jq -er --arg title "$expected_title" '.display_title | contains($title)' <<<"$run_json" >/dev/null
+            created="$(date -u -d "$(jq -r '.created_at' <<<"$run_json")" +%s)"
+            now="$(date -u +%s)"
+            test "$((now-created))" -le "$max_age"
+          }
+          check_run "$MINUTA_BACKUP_RUN_ID" ".github/workflows/minuta-supabase-backup.yml" "Minuta Supabase encrypted backup" 21600
+          check_run "$MINUTA_VALIDATION_RUN_ID" ".github/workflows/minuta-safe-release.yml" "validate-production-rollback" 21600
+          artifacts="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$MINUTA_BACKUP_RUN_ID/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired == false)] | length' <<<"$artifacts")" -gt 0
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Применить миграции production
@@ -582,6 +687,42 @@ jobs:
               exit 1
               ;;
           esac
+          v74_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select to_regclass('public.booking_page_visits') is not null has_visits,exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled') has_setting,to_regprocedure('public.register_public_booking_visit(text)') is not null has_rpc) select case when not has_visits and not has_setting and not has_rpc then 'absent' when has_visits and has_setting and has_rpc then 'complete' else 'partial' end from state;")"
+          case "$v74_layer_state" in
+            absent|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v74.sql
+              ;;
+            partial|*)
+              echo "Partial v74 visitor presence layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
+          v75_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select exists(select 1 from pg_constraint constraint_row where constraint_row.conrelid='public.bookings'::regclass and constraint_row.conname='bookings_color_key_check') has_constraint,exists(select 1 from pg_constraint constraint_row where constraint_row.conrelid='public.bookings'::regclass and constraint_row.conname='bookings_color_key_check' and pg_get_constraintdef(constraint_row.oid) like '%graphite%') has_graphite,to_regprocedure('public.set_booking_color(uuid,text)') is not null has_rpc) select case when has_constraint and has_graphite and has_rpc then 'complete' when has_constraint and not has_graphite and has_rpc then 'legacy' else 'partial' end from state;")"
+          case "$v75_layer_state" in
+            legacy|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v75.sql
+              ;;
+            partial|*)
+              echo "Partial v75 booking color layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
+          v76_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select (select count(*) from (values (to_regclass('public.organization_booking_policy_settings')),(to_regclass('public.organization_booking_policy_rules')),(to_regclass('public.organization_booking_policy_audit_log'))) item(oid) where oid is not null) table_count,exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='booking_policy_snapshot') has_snapshot) select case when table_count=0 and not has_snapshot and to_regprocedure('public.get_minuta_booking_policy_workspace(uuid)') is null then 'absent' when table_count=3 and has_snapshot and to_regprocedure('public.get_minuta_booking_policy_workspace(uuid)') is not null and to_regprocedure('public.get_booking_management_v2(uuid)') is not null then 'complete' else 'partial' end from state;")"
+          case "$v76_layer_state" in
+            absent|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v76.sql
+              ;;
+            partial|*)
+              echo "Partial v76 booking policy layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t
@@ -600,16 +741,20 @@ jobs:
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_benefit_settings','benefit_products','benefit_product_services','client_benefit_instruments','benefit_instrument_service_balances','benefit_redemptions','benefit_ledger','benefit_audit_log')) and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is not null and to_regprocedure('public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)') is not null and not has_table_privilege('anon','public.benefit_products','SELECT') and not has_table_privilege('authenticated','public.benefit_products','INSERT');" \
             | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=3 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_booking_policy_settings','organization_booking_policy_rules','organization_booking_policy_audit_log')) and to_regprocedure('public.get_minuta_booking_policy_workspace(uuid)') is not null and to_regprocedure('public.get_booking_management_v2(uuid)') is not null and to_regprocedure('public.get_reschedule_slots_v5(uuid,date,date)') is not null and to_regprocedure('public.expire_minuta_unpaid_bookings(integer)') is not null and not has_table_privilege('anon','public.organization_booking_policy_rules','SELECT') and not has_table_privilege('authenticated','public.organization_booking_policy_rules','INSERT');" \
+            | grep -qx t
           else
             test "$MINUTA_MIGRATION_TARGET" = "client-avatars-v70"
             echo "Production migration intentionally stopped after v70"
           fi
 
   diagnose-client-links:
-    if: inputs.phase == 'diagnose-client-links'
+    if: inputs.phase == 'diagnose-client-links' && github.ref == 'refs/heads/main'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: minuta-production
     steps:
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -714,10 +859,11 @@ jobs:
           SQL
 
   observe-production:
-    if: inputs.phase == 'observe-production'
+    if: inputs.phase == 'observe-production' && github.ref == 'refs/heads/main'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 70
+    environment: minuta-production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

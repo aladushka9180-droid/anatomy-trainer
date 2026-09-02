@@ -9,14 +9,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: minuta-supabase-backup
+  group: minuta-production-database
   cancel-in-progress: false
 
 jobs:
   backup:
-    if: github.event_name == 'workflow_dispatch' || vars.MINUTA_BACKUPS_ENABLED == 'true'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.MINUTA_BACKUPS_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: minuta-production
     env:
       AWS_EC2_METADATA_DISABLED: "true"
       MINUTA_BACKUP_S3_PREFIX: ${{ vars.MINUTA_BACKUP_S3_PREFIX || 'minuta' }}

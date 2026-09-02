@@ -1,0 +1,59 @@
+name: Minuta unpaid booking expiry
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  expire:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: minuta-production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Установить клиент PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Освободить просроченные неоплаченные окна
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          case "$SUPABASE_DB_URL" in
+            *cawexmmrqjvothcbgjxr*) ;;
+            *) echo "Строка подключения не соответствует production проекту" >&2; exit 1 ;;
+          esac
+          MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
+          if test "$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.expire_minuta_unpaid_bookings(integer)') is not null;")" != "t"; then
+            echo "v76 ещё не установлена; освобождать нечего"
+            exit 0
+          fi
+          total=0
+          for attempt in {1..10}; do
+            expired="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc "select public.expire_minuta_unpaid_bookings(500);")"
+            test "$expired" -ge 0
+            total="$((total+expired))"
+            test "$expired" -eq 500 || break
+          done
+          remaining="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc "select count(*) from public.bookings booking where booking.status<>'cancelled' and booking.payment_status='pending' and booking.payment_due_at<=now() and booking.expired_unpaid_at is null and not exists(select 1 from public.benefit_redemptions redemption where redemption.booking_id=booking.id and redemption.status='redeemed');")"
+          test "$remaining" -eq 0
+          echo "Освобождено неоплаченных окон: $total"
+      - name: Сообщить об ошибке в Telegram
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MINUTA_ALERT_TOPIC: автоотмена неоплаченных записей
+        run: node minuta-online-booking/notify-health-failure.mjs

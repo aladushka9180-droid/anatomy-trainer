@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {dirname,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const root=dirname(fileURLToPath(import.meta.url));
+const migration=await readFile(join(root,'supabase-migration-v76.sql'),'utf8');
+const rollback=await readFile(join(root,'recovery','rollback-booking-policies-v76.sql'),'utf8');
+const integration=await readFile(join(root,'booking-policies-v76-integration.sql'),'utf8');
+const provider=await readFile(join(root,'provider.js'),'utf8');
+const booking=await readFile(join(root,'booking.js'),'utf8');
+const clientBookings=await readFile(join(root,'my-bookings.js'),'utf8');
+const styles=await readFile(join(root,'styles.css'),'utf8');
+assert.match(migration,/to_regclass\('public\.booking_page_visits'\)[\s\S]*to_regprocedure\('public\.register_public_booking_visit\(text\)'\)[\s\S]*bookings_color_key_check[\s\S]*graphite[\s\S]*v76_requires_v75/i);
+for(const table of ['organization_booking_policy_settings','organization_booking_policy_rules','organization_booking_policy_audit_log']){
+  assert.match(migration,new RegExp(`create table if not exists public\\.${table}`,'i'));
+  assert.match(migration,new RegExp(`alter table public\\.${table} enable row level security`,'i'));
+}
+for(const column of ['booking_policy_snapshot','payment_due_at','expired_unpaid_at','cancellation_reason','refund_status'])assert.match(migration,new RegExp(`add column if not exists ${column}`,'i'));
+for(const rpc of ['get_minuta_booking_policy_workspace','set_minuta_booking_policies_enabled','upsert_minuta_booking_policy_rule','delete_minuta_booking_policy_rule','get_booking_management_v2','get_reschedule_slots_v5','reschedule_booking_v2','cancel_booking_v2','provider_set_booking_status_v2','get_client_bookings_v3','expire_minuta_unpaid_booking','expire_minuta_unpaid_bookings','release_minuta_reserved_benefit_for_booking','cancel_minuta_booking_core','protect_minuta_direct_cancellation','reconcile_minuta_cancelled_payment'])assert.match(migration,new RegExp(`create or replace function public\\.${rpc}`,'i'));
+assert.match(migration,/booking_policy_rule_scope_unique_idx/i);
+assert.match(migration,/booking_policy_snapshot:=v_policy-'payment_url_template'/i);
+assert.match(migration,/create or replace function public\.apply_minuta_benefit\([\s\S]*?pg_advisory_xact_lock\(hashtextextended\(p_booking::text,7302\)\)[\s\S]*?pg_advisory_xact_lock\(hashtextextended\(p_instrument::text,7300\)\)/i);
+assert.match(migration,/create or replace function public\.reschedule_booking_v2\([\s\S]*?select booking\.id into v_id[\s\S]*?pg_advisory_xact_lock\(hashtextextended\(v_id::text,7302\)\)[\s\S]*?for update/i);
+assert.match(migration,/create or replace function public\.substitute_minuta_booking\([\s\S]*?pg_advisory_xact_lock\(hashtextextended\(p_booking::text,7302\)\)[\s\S]*?pg_advisory_xact_lock\(hashtextextended\(p_organization::text,7100\)\)[\s\S]*?for update/i);
+assert.match(migration,/release_minuta_reserved_benefit_for_booking[\s\S]*status='reserved'[\s\S]*remaining_amount_rub=remaining_amount_rub\+v_amount/i);
+assert.match(migration,/create or replace function public\.cancel_booking\(p_token uuid\)[\s\S]*cancel_booking_v2/i);
+assert.match(migration,/create or replace function public\.reschedule_booking\(p_token uuid,p_date date,p_time time without time zone\)[\s\S]*reschedule_booking_v2/i);
+assert.match(migration,/payments_reconcile_cancelled_booking/i);
+assert.match(migration,/zz_bookings_protect_direct_cancellation_v76/i);
+assert.match(migration,/update public\.bookings set expired_unpaid_at=now\(\)[\s\S]*cancellation_reason='payment_expired' and expired_unpaid_at is null;[\s\S]*return found;/i);
+assert.match(integration,/benefit_redemptions[\s\S]*<>'released'/i);
+assert.match(integration,/v76_late_payment_refund_not_queued/i);
+assert.match(integration,/refund_status='pending' and expired_unpaid_at is null/i);
+assert.match(integration,/v_second is not false/i);
+assert.match(migration,/organization_booking_policy_settings[\s\S]*enabled boolean not null default false/i);
+assert.doesNotMatch(migration,/create\s+or\s+replace\s+function\s+public\.provider_delete_booking/i);
+assert.match(rollback,/disable_booking_policies_before_rollback/i);
+assert.match(rollback,/cancellation_reason is not null[\s\S]*refund_status<>'not_required'/i);
+assert.doesNotMatch(rollback,/\bcascade\b/i);
+assert.match(provider,/provider_set_booking_status_v2/);
+assert.match(booking,/const canPay = !cancelled[\s\S]*dueAt > Date\.now\(\)/);
+assert.match(booking,/cancelledWithoutCharge[\s\S]*Оплата отменена/);
+assert.match(clientBookings,/isMissingRpc\(error, 'get_client_bookings_v3'\)/);
+assert.match(clientBookings,/item\.status === 'cancelled'[\s\S]*return 'оплата отменена'/);
+assert.match(styles,/#organizationBookingPolicyPanel \{ grid-column:1\/-1; min-width:0; \}/);
+console.log('booking policies v76 static test: OK');

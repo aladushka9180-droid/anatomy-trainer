@@ -88,11 +88,16 @@ function renderBooking() {
   payment.hidden = deposit <= 0;
   if (deposit > 0) {
     const labels = { pending: 'Ожидается', paid: 'Оплачено', refunded: 'Возвращено', not_required: 'Не требуется' };
+    const refundLabels = { pending: 'Возврат оформляется', refunded: 'Возвращено', denied: 'Без возврата' };
     $('#manageDeposit').textContent = money(deposit);
-    $('#managePaymentStatus').textContent = labels[item.payment_status] || item.payment_status;
-    $('#managePaymentStatus').className = `payment-status status-${item.payment_status}`;
+    const cancelledWithoutCharge = cancelled && item.payment_status === 'pending' && (!item.refund_status || item.refund_status === 'not_required');
+    const paymentLabel = cancelledWithoutCharge ? 'Оплата отменена' : refundLabels[item.refund_status]
+      || (item.payment_status === 'pending' && item.payment_due_at ? `Оплатить до ${deadlineLabel(item.payment_due_at)}` : labels[item.payment_status] || item.payment_status);
+    $('#managePaymentStatus').textContent = paymentLabel;
+    $('#managePaymentStatus').className = `payment-status status-${cancelledWithoutCharge || item.refund_status === 'refunded' ? 'refunded' : item.payment_status}`;
     const link = $('#managePaymentLink');
-    const canPay = item.payment_status === 'pending' && /^https:\/\//i.test(item.payment_url || '');
+    const dueAt = item.payment_due_at ? new Date(item.payment_due_at).getTime() : Number.POSITIVE_INFINITY;
+    const canPay = !cancelled && item.payment_status === 'pending' && dueAt > Date.now() && /^https:\/\//i.test(item.payment_url || '');
     link.hidden = !canPay;
     if (canPay) link.href = item.payment_url;
   }
@@ -124,7 +129,8 @@ async function loadBooking(options = {}) {
     $('#manageError').hidden = true;
   }
   if (!/^[0-9a-f-]{36}$/i.test(token)) { if (!options.silent) showNotFound(); return false; }
-  const { data, error } = await db.rpc('get_booking_management', { p_token: token });
+  let { data, error } = await db.rpc('get_booking_management_v2', { p_token: token });
+  if (error && isMissingRpc(error, 'get_booking_management_v2')) ({ data, error } = await db.rpc('get_booking_management', { p_token: token }));
   if (revision !== bookingLoadRevision) return false;
   if (error) { if (!options.silent) showLoadError(); else markBookingStale(); return false; }
   if (!data?.length) { if (!options.silent) showNotFound(); else markBookingStale('Запись больше не найдена — обновите страницу или свяжитесь с исполнителем.'); return false; }
@@ -177,7 +183,10 @@ async function openReschedule() {
   $('#manageDates').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободные даты…</span></div>';
   $('#manageTimes').innerHTML = '';
   const parameters = { p_token: token, p_start: state.dates[0].iso, p_end: state.dates[state.dates.length - 1].iso };
-  let { data, error } = await db.rpc('get_reschedule_slots_v4', parameters);
+  let { data, error } = await db.rpc('get_reschedule_slots_v5', parameters);
+  if (error && isMissingRpc(error, 'get_reschedule_slots_v5')) {
+    ({ data, error } = await db.rpc('get_reschedule_slots_v4', parameters));
+  }
   if (error && isMissingRpc(error, 'get_reschedule_slots_v4')) {
     ({ data, error } = await db.rpc('get_reschedule_slots_v3', parameters));
   }
@@ -205,7 +214,8 @@ async function confirmReschedule() {
   button.disabled = true; button.textContent = 'Сохраняем…';
   const requestedDate = state.date;
   const requestedTime = state.time;
-  const { error } = await db.rpc('reschedule_booking', { p_token: token, p_date: requestedDate, p_time: `${requestedTime}:00` });
+  let { error } = await db.rpc('reschedule_booking_v2', { p_token: token, p_date: requestedDate, p_time: `${requestedTime}:00` });
+  if (error && isMissingRpc(error, 'reschedule_booking_v2')) ({ error } = await db.rpc('reschedule_booking', { p_token: token, p_date: requestedDate, p_time: `${requestedTime}:00` }));
   button.textContent = 'Сохранить новое время';
   button.disabled = false;
   if (error) {
@@ -236,7 +246,8 @@ async function confirmReschedule() {
 async function cancelBooking() {
   if (!confirm('Отменить эту запись?')) return;
   const button = $('#cancelBooking'); button.disabled = true; button.textContent = 'Отменяем…';
-  const { error } = await db.rpc('cancel_booking', { p_token: token });
+  let { error } = await db.rpc('cancel_booking_v2', { p_token: token });
+  if (error && isMissingRpc(error, 'cancel_booking_v2')) ({ error } = await db.rpc('cancel_booking', { p_token: token }));
   if (error) {
     if (error.message?.includes('cancel_too_late')) {
       notify('Срок самостоятельной отмены закончился — свяжитесь с исполнителем');
@@ -339,4 +350,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=151'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=152'));

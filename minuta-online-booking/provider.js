@@ -6,6 +6,10 @@ const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window
 });
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+function isMissingRpc(error, name) {
+  const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
+}
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
@@ -172,13 +176,18 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
-  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
+  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-organization-policy-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
 ];
 function applyWriteAvailability() {
   $$(writeSelectors.join(',')).forEach(control => {
+    if (control.dataset.ownerOnly === 'true' && control.dataset.ownerAuthorized !== 'true') {
+      control.disabled = true;
+      delete control.dataset.reliabilityDisabled;
+      return;
+    }
     if (!writesAllowed && !control.disabled) {
       control.disabled = true;
       control.dataset.reliabilityDisabled = 'true';
@@ -815,7 +824,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=151#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=152#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3095,6 +3104,7 @@ async function saveBookingPolicy(event) {
     return;
   }
   const button = event.submitter;
+  const buttonLabel = button.textContent;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
   let { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
@@ -3104,7 +3114,7 @@ async function saveBookingPolicy(event) {
     ({ error } = await db.from('booking_policies').upsert(compatibleRecord, { onConflict:'performer_id' }));
   }
   button.disabled = false;
-  button.textContent = 'Сохранить правила';
+  button.textContent = buttonLabel;
   if (error) { showFormError('#bookingPolicyError', 'Не удалось сохранить правила.'); return; }
   bookingPolicy = record;
   localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
@@ -4516,7 +4526,10 @@ document.addEventListener('click', async event => {
   }
   if (booking) {
     const bookingItem = allBookings.find(item => item.id === booking.dataset.bookingId);
-    const { error } = await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId).eq('performer_id', currentUser.id);
+    let { error } = await db.rpc('provider_set_booking_status_v2', { p_booking:booking.dataset.bookingId, p_status:booking.dataset.bookingStatus });
+    if (error && isMissingRpc(error, 'provider_set_booking_status_v2')) {
+      ({ error } = await db.from('bookings').update({ status: booking.dataset.bookingStatus }).eq('id', booking.dataset.bookingId).eq('performer_id', currentUser.id));
+    }
     if (error) { notify('Не удалось обновить запись'); return; }
     if (!isScheduleBlock(bookingItem) && booking.dataset.bookingStatus === 'cancelled') notifyTelegramClient(booking.dataset.bookingId, 'cancelled');
     if (!isScheduleBlock(bookingItem) && booking.dataset.bookingStatus === 'confirmed') notifyTelegramClient(booking.dataset.bookingId, 'confirmation');
@@ -4650,6 +4663,15 @@ const benefitController = window.MinutaBenefits?.createController ? window.Minut
 }) : { bind() {}, setOrganization() {}, reset() {} };
 benefitController.bind();
 
+const bookingPolicyController = window.MinutaBookingPolicies?.createController ? window.MinutaBookingPolicies.createController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability
+}) : { bind() {}, setOrganization() {}, reset() {} };
+bookingPolicyController.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -4667,6 +4689,7 @@ const organizationController = window.MinutaOrganization.createController({
     shiftController.setOrganization(organization);
     payrollController.setOrganization(organization);
     benefitController.setOrganization(organization);
+    bookingPolicyController.setOrganization(organization);
   }
 });
 organizationController.bind();
@@ -4802,4 +4825,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=151'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=152'));

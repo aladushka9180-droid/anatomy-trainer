@@ -187,6 +187,19 @@ Deno.serve(async (request: Request) => {
     // An empty or invalid body uses the safe default batch size.
   }
 
+  // v74 uses the already scheduled worker tick to release slots whose required
+  // prepayment expired. Older schemas do not expose the RPC, so rollout remains
+  // backward-compatible while the migration is being applied.
+  let expiredUnpaid = 0;
+  try {
+    expiredUnpaid = Number(await rpc<number>("expire_minuta_unpaid_bookings", { p_limit: 500 }, secretKey) || 0);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (!/PGRST202|42883|expire_minuta_unpaid_bookings.*does not exist/i.test(message)) {
+      return json({ ok: false, error: "unpaid_expiry_failed" }, 502);
+    }
+  }
+
   let jobs: OutboxJob[];
   try {
     jobs = await rpc<OutboxJob[]>("claim_notification_outbox", { p_performer: performerId, p_limit: requestedLimit }, secretKey);
@@ -241,5 +254,5 @@ Deno.serve(async (request: Request) => {
     }
   }
 
-  return json({ ok: failed === 0, claimed: jobs.length, sent, retried, failed }, failed ? 207 : 200);
+  return json({ ok: failed === 0, expired_unpaid: expiredUnpaid, claimed: jobs.length, sent, retried, failed }, failed ? 207 : 200);
 });
