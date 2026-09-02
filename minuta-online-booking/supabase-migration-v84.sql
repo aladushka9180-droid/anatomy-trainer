@@ -16,6 +16,14 @@ begin
     raise exception using errcode='P0001',message='v84_requires_v73_and_v81_benefits';
   end if;
 
+  -- Keep the conflict scan and trigger installation inside one write barrier.
+  -- Without it, a concurrent redemption could commit after the scan but before
+  -- the new triggers become visible at this transaction's commit.
+  lock table public.benefit_redemptions,
+    public.loyalty_redemptions,
+    public.loyalty_promo_redemptions
+    in share row exclusive mode;
+
   with benefit_sources as (
     select organization_id,booking_id,'benefit'::text as source
     from public.benefit_redemptions

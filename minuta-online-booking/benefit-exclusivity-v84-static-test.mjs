@@ -19,6 +19,7 @@ for (const prerequisite of [
 assert.match(migration, /having count\(distinct source\)>1/);
 assert.match(migration, /v84_existing_booking_benefit_conflict/);
 assert.match(migration, /status in \('reserved','redeemed'\)/);
+assert.match(migration, /lock table public\.benefit_redemptions,[\s\S]*public\.loyalty_redemptions,[\s\S]*public\.loyalty_promo_redemptions[\s\S]*in share row exclusive mode;/);
 assert.match(migration, /pg_advisory_xact_lock\([\s\S]*hashtextextended\(new\.organization_id::text\|\|':'\|\|new\.booking_id::text,8400\)/);
 
 for (const trigger of [
