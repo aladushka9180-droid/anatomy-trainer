@@ -104,6 +104,14 @@ assert.match(provider, /function providerAppIsAndroid\(\)/, 'Нет отдель
 assert.match(provider, /function providerAppHasSecureOrigin\(\)/, 'Не проверяется защищённый адрес перед установкой');
 assert.match(provider, /showProviderInstallGuide\('iosInstallGuide'\)/, 'Кнопка не открывает инструкцию для iPhone');
 assert.match(provider, /showProviderInstallGuide\('androidInstallGuide'\)/, 'Кнопка не открывает инструкцию для Android');
+const installDetectionSource = ['providerAppIsIos', 'providerAppIsAndroid', 'providerAppIsInAppBrowser']
+  .map(name => provider.match(new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\n\\}`))?.[0])
+  .join('\n');
+assert.ok(!installDetectionSource.includes('undefined'), 'Не удалось извлечь определение мобильной платформы');
+const detectInstallPlatform = navigator => Function('navigator', `${installDetectionSource}; return { ios:providerAppIsIos(), android:providerAppIsAndroid(), inApp:providerAppIsInAppBrowser() };`)(navigator);
+assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36', platform:'Linux armv8l', maxTouchPoints:5 }), { ios:false, android:true, inApp:false }, 'Chrome на Android определяется неверно');
+assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1', platform:'iPhone', maxTouchPoints:5 }), { ios:true, android:false, inApp:false }, 'Safari на iPhone определяется неверно');
+assert.equal(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Instagram 325.0.0.0', platform:'Linux armv8l', maxTouchPoints:5 }).inApp, true, 'Встроенный браузер Android не распознаётся');
 assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v4'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
 assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента времени не является режимом расписания по умолчанию');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
@@ -272,7 +280,9 @@ assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px;
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
 assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 60 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
-assert.match(styles, /timeline-booking-time \{ display:grid;[^}]*align-self:start; align-items:baseline;/, 'Интервал записи не выровнен с верхней строкой карточки');
+assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; align-items:baseline;/, 'Интервал записи не выровнен по центру карточки');
+assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');
+assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текст записи не выровнен по центру карточки');
 assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
