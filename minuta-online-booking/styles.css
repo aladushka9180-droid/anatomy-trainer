@@ -1483,6 +1483,24 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .organization-audit-list small { margin-top:2px; color:#839087; font-size:8px; }
 .provider-body .organization-resources { display:grid; gap:16px; }
 .provider-body .organization-shifts { display:grid; gap:16px; }
+.provider-body .organization-payroll,.provider-body .payroll-workspace { display:grid; gap:16px; }
+.provider-body .payroll-toolbar { display:grid; grid-template-columns:minmax(150px,220px) minmax(150px,220px) minmax(300px,1fr); align-items:end; gap:10px; }
+.provider-body .payroll-toolbar>label:not(.settings-check),.provider-body .payroll-adjustment form>label { color:#667a6f; font-size:9px; font-weight:800; }
+.provider-body .payroll-toolbar input,.provider-body .payroll-adjustment :is(input,select) { min-height:42px; margin-top:5px; font-size:12px; }
+.provider-body .payroll-management-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.provider-body .payroll-management-grid>section { min-width:0; }
+.provider-body .payroll-adjustment { padding:14px; border:1px solid #e0e8e2; border-radius:13px; background:#fbfcfb; }
+.provider-body .payroll-adjustment form { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)) auto; align-items:end; gap:9px; margin-top:10px; }
+.provider-body .payroll-adjustment .form-error { grid-column:1/-1; margin:0; }
+.provider-body .payroll-adjustment button { min-height:42px; margin:0; }
+.provider-body .payroll-items { padding:0; overflow:hidden; }
+.provider-body .payroll-items>summary { display:flex; align-items:center; justify-content:space-between; min-height:62px; padding:13px 18px; cursor:pointer; list-style:none; }
+.provider-body .payroll-items>summary::-webkit-details-marker { display:none; }
+.provider-body .payroll-items>summary small,.provider-body .payroll-items>summary strong { display:block; }
+.provider-body .payroll-items>summary small { color:#829087; font-size:8px; }
+.provider-body .payroll-items>summary strong { color:#2d4c3b; font-size:13px; }
+.provider-body .payroll-items>summary>span:last-child { color:#65766d; font-size:8px; font-weight:850; }
+.provider-body .payroll-items>.organization-list { padding:0 18px 16px; }
 .provider-body .shift-workspace { display:grid; gap:16px; }
 .provider-body .shift-toolbar { display:grid; grid-template-columns:minmax(150px,.5fr) minmax(170px,.5fr) minmax(280px,1.4fr); gap:12px; align-items:end; }
 .provider-body .shift-toolbar>label:not(.settings-check) { display:grid; gap:6px; color:#6f746f; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
@@ -1537,6 +1555,10 @@ html.requires-top-level.top-level body { visibility:visible; }
 
 @media (max-width:980px) {
   .provider-body .organization-grid { grid-template-columns:1fr; }
+  .provider-body .payroll-management-grid { grid-template-columns:1fr; }
+  .provider-body .payroll-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .provider-body .payroll-enable-field { grid-column:1/-1; }
+  .provider-body .payroll-adjustment form { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .provider-body .resource-management-grid { grid-template-columns:1fr; }
   .provider-body .shift-management-grid,.provider-body .shift-toolbar { grid-template-columns:1fr; }
   .provider-body .shift-substitution form { grid-template-columns:1fr; }
@@ -1599,6 +1621,8 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .organization-tags { width:100%; margin-left:0; justify-content:flex-start; }
   .provider-body .organization-tags .organization-role,.provider-body .organization-tags .organization-status { margin-left:0; }
   .provider-body .organization-checks { grid-template-columns:1fr; }
+  .provider-body .payroll-toolbar,.provider-body .payroll-adjustment form { grid-template-columns:1fr; }
+  .provider-body .payroll-enable-field { grid-column:auto; }
   .provider-body .organization-create .form-row { grid-template-columns:1fr; }
   .provider-body .resource-requirement-list { grid-template-columns:1fr; }
   .provider-body .resource-inline-error { align-items:stretch; flex-direction:column; }

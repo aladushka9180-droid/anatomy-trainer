@@ -177,7 +177,10 @@ async function openReschedule() {
   $('#manageDates').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободные даты…</span></div>';
   $('#manageTimes').innerHTML = '';
   const parameters = { p_token: token, p_start: state.dates[0].iso, p_end: state.dates[state.dates.length - 1].iso };
-  let { data, error } = await db.rpc('get_reschedule_slots_v3', parameters);
+  let { data, error } = await db.rpc('get_reschedule_slots_v4', parameters);
+  if (error && isMissingRpc(error, 'get_reschedule_slots_v4')) {
+    ({ data, error } = await db.rpc('get_reschedule_slots_v3', parameters));
+  }
   if (error && isMissingRpc(error, 'get_reschedule_slots_v3')) {
     ({ data, error } = await db.rpc('get_reschedule_slots', parameters));
   }
@@ -336,4 +339,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=139'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=140'));

@@ -12,6 +12,7 @@ $$;
 
 drop function if exists public.get_public_minuta_catalog_v4(text);
 drop function if exists public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date);
+drop function if exists public.get_reschedule_slots_v4(uuid,date,date);
 drop function if exists public.substitute_minuta_booking(uuid,uuid,uuid);
 drop function if exists public.set_minuta_branch_shifts_enabled(uuid,boolean);
 drop function if exists public.cancel_minuta_staff_absence(uuid);

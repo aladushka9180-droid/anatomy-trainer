@@ -24,7 +24,13 @@ assert.match(migration, /create trigger bookings_enforce_active_shift[\s\S]*afte
 assert.match(migration, /minuta_booking_fits_active_shift[\s\S]*staff_absences[\s\S]*staff_location_shifts[\s\S]*break_start/i, 'availability must account for shifts, absence and breaks');
 assert.match(migration, /set_minuta_branch_shifts_enabled[\s\S]*existing_bookings_outside_shifts/i, 'activation must preserve all existing bookings');
 assert.match(migration, /substitute_minuta_booking[\s\S]*for update[\s\S]*update public\.bookings set service_id=p_new_service,performer_id=v_performer/i, 'substitution must update the original booking atomically');
+assert.match(migration, /booking_substitution_addons_require_manual_remap/i, 'substitution must fail closed when add-ons cannot be safely remapped');
+assert.match(migration, /delete from public\.notification_marks where booking_id=p_booking/i, 'substitution must reset stale notification state without moving another performer’s marks');
+assert.match(migration, /primary_duration_minutes[\s\S]*booking_session_items/i, 'substitution must compare the primary service duration, not total add-on duration');
 assert.match(migration, /get_public_minuta_available_slots_v4[\s\S]*get_public_minuta_available_slots_v3[\s\S]*minuta_booking_fits_active_shift/i, 'v4 availability must enrich v69 rather than replace it');
+assert.match(migration, /get_reschedule_slots_v4[\s\S]*get_reschedule_slots_v3[\s\S]*minuta_booking_fits_active_shift/i, 'reschedule options must respect active branch shifts');
+assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\([\s\S]*7100/i, 'booking and schedule mutations must share an organization lock');
+assert.doesNotMatch(migration, /insert into public\.staff_absences[\s\S]{0,800}update public\.staff_location_shifts set active=false/i, 'temporary absence must not destroy configured shifts');
 assert.match(migration, /get_public_minuta_catalog_v4[\s\S]*get_public_minuta_catalog_v3/i, 'v4 catalog must preserve the v69 resource catalog');
 
 for (const protectedRpc of ['provider_delete_booking', 'book_appointment', 'book_minuta_appointment', 'get_available_slots', 'get_minuta_team_calendar_v2', 'get_public_minuta_available_slots_v3']) {

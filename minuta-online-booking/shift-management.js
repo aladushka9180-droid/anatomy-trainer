@@ -28,6 +28,7 @@
     let revision = 0;
     let pending = false;
     let pendingOrganization;
+    let editingShiftId = null;
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_shift_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -46,6 +47,7 @@
       payload = null;
       pending = false;
       pendingOrganization = undefined;
+      editingShiftId = null;
       $('#shiftsPanel').hidden = true;
       $('#shiftWorkspace').hidden = true;
       $('#shiftsUnavailable').hidden = true;
@@ -114,7 +116,7 @@
       const performer = nameOf(payload.performers, item.performer_id, 'Специалист');
       const location = nameOf(payload.locations, item.location_id, 'Филиал');
       const breakText = item.break_start ? ` · перерыв ${shortTime(item.break_start)}–${shortTime(item.break_end)}` : '';
-      return `<article class="organization-row shift-row ${item.active ? '' : 'is-muted'}"><div class="organization-row-main"><strong>${escapeHtml(dateLabel(item.shift_date))} · ${escapeHtml(shortTime(item.start_time))}–${escapeHtml(shortTime(item.end_time))}</strong><small>${escapeHtml(performer)} · ${escapeHtml(location)}${escapeHtml(breakText)}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</small></div>${item.active ? `<button class="organization-cancel" type="button" data-cancel-shift="${escapeHtml(item.id)}" data-shift-write>Отменить</button>` : '<span class="organization-status">Отменена</span>'}</article>`;
+      return `<article class="organization-row shift-row ${item.active ? '' : 'is-muted'}"><div class="organization-row-main"><strong>${escapeHtml(dateLabel(item.shift_date))} · ${escapeHtml(shortTime(item.start_time))}–${escapeHtml(shortTime(item.end_time))}</strong><small>${escapeHtml(performer)} · ${escapeHtml(location)}${escapeHtml(breakText)}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</small></div>${item.active ? `<span class="organization-tags"><button class="organization-cancel" type="button" data-edit-shift="${escapeHtml(item.id)}" data-shift-write>Изменить</button><button class="organization-cancel" type="button" data-cancel-shift="${escapeHtml(item.id)}" data-shift-write>Отменить</button></span>` : '<span class="organization-status">Отменена</span>'}</article>`;
     }
 
     function absenceCard(item) {
@@ -139,10 +141,10 @@
       const panel = $('#shiftSubstitutionPanel');
       panel.hidden = !canManage;
       if (!canManage) return;
-      const active = payload.bookings.filter(item => item.status !== 'cancelled');
+      const active = payload.bookings.filter(item => item.status !== 'cancelled' && !item.has_addons);
       $('#substitutionBooking').innerHTML = active.length ? options(active, '', item => `${dateLabel(item.booking_date)} ${shortTime(item.booking_time)} · ${item.service_name || item.booking_code}`) : '<option value="">Нет записей в периоде</option>';
       const booking = active.find(item => item.id === $('#substitutionBooking').value) || active[0];
-      const alternatives = booking ? payload.services.filter(service => service.performer_id !== booking.performer_id && Number(service.duration_minutes) === Number(booking.duration_minutes)) : [];
+      const alternatives = booking ? payload.services.filter(service => service.performer_id !== booking.performer_id && Number(service.duration_minutes) === Number(booking.primary_duration_minutes || booking.duration_minutes)) : [];
       $('#substitutionService').innerHTML = alternatives.length ? options(alternatives, '', item => `${item.name} · ${nameOf(payload.performers, item.performer_id, 'Специалист')}`) : '<option value="">Нет другого специалиста</option>';
       panel.querySelector('button').disabled = !booking || !alternatives.length;
     }
@@ -232,8 +234,8 @@
       if (event.target.id === 'shiftForm') {
         event.preventDefault();
         const hasBreak = $('#shiftHasBreak').checked;
-        const saved = await mutate('upsert_minuta_staff_shift', { p_organization: organization.id, p_shift: null, p_location: $('#shiftLocation').value, p_performer: $('#shiftPerformer').value, p_date: $('#shiftDate').value, p_start: $('#shiftStart').value, p_end: $('#shiftEnd').value, p_break_start: hasBreak ? $('#shiftBreakStart').value : null, p_break_end: hasBreak ? $('#shiftBreakEnd').value : null, p_note: $('#shiftNote').value.trim() }, event.submitter, 'Смена добавлена', '#shiftError');
-        if (saved) { $('#shiftNote').value = ''; $('#shiftCreator').open = false; }
+        const saved = await mutate('upsert_minuta_staff_shift', { p_organization: organization.id, p_shift: editingShiftId, p_location: $('#shiftLocation').value, p_performer: $('#shiftPerformer').value, p_date: $('#shiftDate').value, p_start: $('#shiftStart').value, p_end: $('#shiftEnd').value, p_break_start: hasBreak ? $('#shiftBreakStart').value : null, p_break_end: hasBreak ? $('#shiftBreakEnd').value : null, p_note: $('#shiftNote').value.trim() }, event.submitter, editingShiftId ? 'Смена изменена' : 'Смена добавлена', '#shiftError');
+        if (saved) { editingShiftId = null; $('#shiftNote').value = ''; $('#shiftCreator').open = false; event.submitter.textContent = 'Создать смену'; }
       }
       if (event.target.id === 'absenceForm') {
         event.preventDefault();
@@ -251,6 +253,25 @@
       if (reload) await load();
       const shift = event.target.closest('[data-cancel-shift]');
       if (shift) await mutate('cancel_minuta_staff_shift', { p_shift: shift.dataset.cancelShift }, shift, 'Смена отменена');
+      const edit = event.target.closest('[data-edit-shift]');
+      if (edit) {
+        const item = payload?.shifts.find(row => row.id === edit.dataset.editShift);
+        if (item) {
+          editingShiftId = item.id;
+          $('#shiftPerformer').value = item.performer_id;
+          $('#shiftLocation').value = item.location_id;
+          $('#shiftDate').value = item.shift_date;
+          $('#shiftStart').value = shortTime(item.start_time);
+          $('#shiftEnd').value = shortTime(item.end_time);
+          $('#shiftHasBreak').checked = Boolean(item.break_start);
+          $('#shiftBreakFields').hidden = !item.break_start;
+          if (item.break_start) { $('#shiftBreakStart').value = shortTime(item.break_start); $('#shiftBreakEnd').value = shortTime(item.break_end); }
+          $('#shiftNote').value = item.note || '';
+          $('#shiftCreator').open = true;
+          $('#shiftForm button[type="submit"]').textContent = 'Сохранить смену';
+          $('#shiftCreator').scrollIntoView({ behavior:'smooth', block:'nearest' });
+        }
+      }
       const absence = event.target.closest('[data-cancel-absence]');
       if (absence) await mutate('cancel_minuta_staff_absence', { p_absence: absence.dataset.cancelAbsence }, absence, 'Отсутствие отменено');
     }

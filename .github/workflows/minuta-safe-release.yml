@@ -76,10 +76,13 @@ jobs:
           node --check minuta-online-booking/multi-tenant-v69-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v70-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v71-static-test.mjs
+          node --check minuta-online-booking/payroll-v72-static-test.mjs
           node --check minuta-online-booking/organization.js
           node --check minuta-online-booking/team-calendar.js
           node --check minuta-online-booking/resource-management.js
           node --check minuta-online-booking/shift-management.js
+          node --check minuta-online-booking/payroll-management.js
+          node --check minuta-online-booking/payroll-management-controller-test.mjs
           node --check minuta-online-booking/resource-management-controller-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
@@ -96,9 +99,11 @@ jobs:
           node minuta-online-booking/multi-tenant-v69-static-test.mjs
           node minuta-online-booking/multi-tenant-v70-static-test.mjs
           node minuta-online-booking/multi-tenant-v71-static-test.mjs
+          node minuta-online-booking/payroll-v72-static-test.mjs
           node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/team-calendar-controller-test.mjs
           node minuta-online-booking/resource-management-controller-test.mjs
+          node minuta-online-booking/payroll-management-controller-test.mjs
           bash -n minuta-online-booking/multi-tenant-v69-concurrency-test.sh
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
@@ -278,7 +283,21 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v71.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT') and not coalesce((select bool_or(enabled) from public.organization_shift_settings),false);" \
+            "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and to_regprocedure('public.get_reschedule_slots_v4(uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT') and not coalesce((select bool_or(enabled) from public.organization_shift_settings),false);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v72.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v72.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_payroll_settings','payroll_plans','payroll_plan_tiers','payroll_periods','payroll_period_plan_snapshots','payroll_items','payroll_adjustments','payroll_audit_log')) and to_regprocedure('public.get_minuta_payroll_workspace(uuid,date,date)') is not null and to_regprocedure('public.calculate_minuta_payroll_period(uuid,uuid,uuid,date,date,text)') is not null and not has_table_privilege('anon','public.payroll_periods','SELECT') and not coalesce((select bool_or(enabled) from public.organization_payroll_settings),false);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/payroll-v72-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-payroll-v72.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_payroll_settings') is null and to_regclass('public.payroll_periods') is null and to_regprocedure('public.get_minuta_payroll_workspace(uuid,date,date)') is null;" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-branch-shifts-v71.sql
@@ -457,7 +476,7 @@ jobs:
             | grep -qx t
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
           v71_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "with state as (select (select count(*) from (values (to_regclass('public.organization_shift_settings')),(to_regclass('public.staff_location_shifts')),(to_regclass('public.staff_absences')),(to_regclass('public.staff_schedule_audit_log'))) item(oid) where oid is not null) table_count,(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('get_minuta_schedule_role','write_minuta_schedule_audit','minuta_booking_fits_active_shift','enforce_minuta_booking_shift','get_minuta_shift_workspace','upsert_minuta_staff_shift','cancel_minuta_staff_shift','create_minuta_staff_absence','cancel_minuta_staff_absence','set_minuta_branch_shifts_enabled','substitute_minuta_booking','get_public_minuta_available_slots_v4','get_public_minuta_catalog_v4')) function_count,exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) booking_trigger,(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log') and c.relrowsecurity) rls_count) select case when table_count=0 and function_count=0 and not booking_trigger then 'absent' when table_count=4 and function_count=13 and booking_trigger and rls_count=4 then 'complete' else 'partial' end from state;")"
+            "with state as (select (select count(*) from (values (to_regclass('public.organization_shift_settings')),(to_regclass('public.staff_location_shifts')),(to_regclass('public.staff_absences')),(to_regclass('public.staff_schedule_audit_log'))) item(oid) where oid is not null) table_count,(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('get_minuta_schedule_role','write_minuta_schedule_audit','minuta_booking_fits_active_shift','enforce_minuta_booking_shift','get_minuta_shift_workspace','upsert_minuta_staff_shift','cancel_minuta_staff_shift','create_minuta_staff_absence','cancel_minuta_staff_absence','set_minuta_branch_shifts_enabled','substitute_minuta_booking','get_public_minuta_available_slots_v4','get_reschedule_slots_v4','get_public_minuta_catalog_v4')) function_count,exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) booking_trigger,(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log') and c.relrowsecurity) rls_count) select case when table_count=0 and function_count=0 and not booking_trigger then 'absent' when table_count=4 and function_count=14 and booking_trigger and rls_count=4 then 'complete' else 'partial' end from state;")"
           case "$v71_layer_state" in
             absent|complete)
               psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
@@ -465,6 +484,18 @@ jobs:
               ;;
             partial|*)
               echo "Partial v71 branch shift layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
+          v72_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select (select count(*) from (values (to_regclass('public.organization_payroll_settings')),(to_regclass('public.payroll_plans')),(to_regclass('public.payroll_plan_tiers')),(to_regclass('public.payroll_periods')),(to_regclass('public.payroll_period_plan_snapshots')),(to_regclass('public.payroll_items')),(to_regclass('public.payroll_adjustments')),(to_regclass('public.payroll_audit_log'))) item(oid) where oid is not null) table_count) select case when table_count=0 and to_regprocedure('public.get_minuta_payroll_workspace(uuid,date,date)') is null then 'absent' when table_count=8 and to_regprocedure('public.get_minuta_payroll_workspace(uuid,date,date)') is not null then 'complete' else 'partial' end from state;")"
+          case "$v72_layer_state" in
+            absent|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v72.sql
+              ;;
+            partial|*)
+              echo "Partial v72 payroll layer detected; refusing production migration" >&2
               exit 1
               ;;
           esac
@@ -478,7 +509,7 @@ jobs:
             "select to_regclass('public.resource_groups') is not null and to_regclass('public.resources') is not null and to_regclass('public.service_resource_requirements') is not null and to_regclass('public.booking_resource_allocations') is not null and to_regclass('public.resource_audit_log') is not null and (select count(*)=5 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('resource_groups','resources','service_resource_requirements','booking_resource_allocations','resource_audit_log')) and (select count(*)=14 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_minuta_resource_manager','write_minuta_resource_audit','allocate_minuta_booking_resources','sync_minuta_booking_resources','get_minuta_resource_workspace','create_minuta_resource_group','update_minuta_resource_group','create_minuta_resource','update_minuta_resource','replace_minuta_service_resource_requirements','get_public_minuta_available_slots_v3','get_public_minuta_catalog_v3','get_minuta_team_calendar_v2','get_reschedule_slots_v3')) and exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) and exists(select 1 from pg_constraint where conname='bookings_id_organization_location_key' and conrelid='public.bookings'::regclass) and exists(select 1 from pg_constraint where conname='booking_resources_active_no_overlap' and conrelid='public.booking_resource_allocations'::regclass) and has_function_privilege('anon','public.get_public_minuta_catalog_v3(text)','EXECUTE') and has_function_privilege('anon','public.get_public_minuta_available_slots_v3(text,uuid,uuid,date,date)','EXECUTE') and has_function_privilege('authenticated','public.get_minuta_resource_workspace(uuid)','EXECUTE') and not has_table_privilege('anon','public.resources','SELECT') and not has_table_privilege('authenticated','public.resources','INSERT');" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT');" \
+            "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and to_regprocedure('public.get_reschedule_slots_v4(uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT');" \
             | grep -qx t
           else
             test "$MINUTA_MIGRATION_TARGET" = "client-avatars-v70"

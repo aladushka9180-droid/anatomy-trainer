@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=139" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=140" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=139&amp;layoutfix=1">
+  <link rel="stylesheet" href="styles.css?v=140&amp;layoutfix=1">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -141,7 +141,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=139#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=140#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -341,6 +341,31 @@
               </div>
             </section>
 
+            <section class="panel organization-section organization-payroll" id="payrollPanel" hidden>
+              <div class="panel-head"><div><small>Проценты и мотивация команды</small><h3>Зарплаты</h3></div><span class="panel-count" id="payrollPeriodsCount">0</span></div>
+              <p class="organization-invite-help">Расчёт создаётся вручную только по завершённым визитам. До утверждения его можно перепроверить и скорректировать.</p>
+              <div class="loading-state compact" id="payrollLoading" hidden><i></i><span>Загружаем зарплаты…</span></div>
+              <div class="resource-inline-error" id="payrollUnavailable" role="status" hidden><div><strong>Зарплаты временно недоступны</strong><small id="payrollUnavailableText"></small></div><button class="secondary-button" id="reloadPayroll" type="button">Повторить</button></div>
+              <div class="payroll-workspace" id="payrollWorkspace" hidden>
+                <div class="payroll-toolbar">
+                  <label>С даты<input id="payrollStartDate" type="date"></label>
+                  <label>По дату<input id="payrollEndDate" type="date"></label>
+                  <label class="settings-check payroll-enable-field" id="payrollEnabledField"><input id="payrollEnabled" type="checkbox" data-payroll-write><span><strong>Включить расчёт зарплат</strong><small id="payrollEnabledHint">Записи и деньги не изменяются до включения.</small></span></label>
+                </div>
+                <div class="payroll-management-grid">
+                  <section><div class="resource-subhead"><div><small>Процент и ступени выручки</small><strong>Планы мотивации</strong></div><span class="panel-count" id="payrollPlansCount">0</span></div><div class="organization-list" id="payrollPlansList"></div>
+                    <details class="organization-create" id="payrollPlanCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить план</span></summary><form id="payrollPlanForm"><input id="payrollPlanId" type="hidden"><div class="form-row"><label>Специалист<select id="payrollPlanPerformer" required></select></label><label>Название<input id="payrollPlanName" maxlength="120" value="Основной план" required></label></div><div class="form-row"><label>Действует с<input id="payrollPlanFrom" type="date" required></label><label>Действует по<input id="payrollPlanTo" type="date"></label></div><label>Базовый процент<input id="payrollPlanRate" type="number" min="0" max="100" step="0.01" value="40" required></label><label>Ступени мотивации<textarea id="payrollPlanTiers" rows="3" maxlength="1000" placeholder="100000 — 45&#10;200000 — 50"></textarea><small>По одной строке: выручка — процент.</small></label><p class="form-error" id="payrollPlanError" hidden></p><button class="primary" type="submit" data-payroll-write>Сохранить план</button></form></details>
+                  </section>
+                  <section><div class="resource-subhead"><div><small>Проверка перед выплатой</small><strong>Расчётные периоды</strong></div></div><div class="organization-list" id="payrollPeriodsList"></div>
+                    <details class="organization-create" id="payrollPeriodCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Рассчитать зарплату</span></summary><form id="payrollPeriodForm"><label>Название<input id="payrollPeriodName" maxlength="120" placeholder="Например, Август 2026" required></label><label>Филиал<select id="payrollPeriodLocation"></select></label><p class="organization-invite-help">Даты берутся из фильтра выше. Повторный расчёт черновика не создаёт дубли.</p><p class="form-error" id="payrollPeriodError" hidden></p><button class="primary" type="submit" data-payroll-write>Рассчитать</button></form></details>
+                  </section>
+                </div>
+                <section class="payroll-adjustment" id="payrollAdjustmentPanel"><div class="resource-subhead"><div><small>Премия или удержание</small><strong>Корректировка черновика</strong></div></div><form id="payrollAdjustmentForm"><label>Период<select id="payrollAdjustmentPeriod" required></select></label><label>Специалист<select id="payrollAdjustmentPerformer" required></select></label><label>Сумма, ₽<input id="payrollAdjustmentAmount" type="number" min="-1000000" max="1000000" step="1" required></label><label>Причина<input id="payrollAdjustmentReason" maxlength="500" required></label><p class="form-error" id="payrollAdjustmentError" hidden></p><button class="secondary-button" type="submit" data-payroll-write>Добавить</button></form></section>
+                <details class="resource-audit payroll-items"><summary><span><small>Из чего сложился расчёт</small><strong>Начисления по визитам</strong></span><span>Детали</span></summary><div class="organization-list" id="payrollItemsList"></div></details>
+                <details class="resource-audit" id="payrollAuditPanel"><summary><span><small>Защита от незаметных изменений</small><strong>Журнал зарплат</strong></span><span id="payrollAuditCount">0</span></summary><div class="organization-audit-list" id="payrollAuditList"></div></details>
+              </div>
+            </section>
+
             <section class="panel organization-section organization-pending" id="invitationsPanel" hidden>
               <div class="panel-head"><div><small>Ожидают регистрации</small><h3>Приглашения</h3></div><span class="panel-count" id="invitationsCount">0</span></div><div class="organization-list" id="invitationsList"></div>
             </section>
@@ -533,12 +558,13 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=139"></script>
-  <script src="reliability.js?v=139"></script>
-  <script src="resource-management.js?v=139" defer></script>
-  <script src="shift-management.js?v=139" defer></script>
-  <script src="organization.js?v=139" defer></script>
-  <script src="team-calendar.js?v=139" defer></script>
-  <script src="provider.js?v=139&amp;iconfix=1" defer></script>
+  <script src="config.js?v=140"></script>
+  <script src="reliability.js?v=140"></script>
+  <script src="resource-management.js?v=140" defer></script>
+  <script src="shift-management.js?v=140" defer></script>
+  <script src="organization.js?v=140" defer></script>
+  <script src="payroll-management.js?v=140" defer></script>
+  <script src="team-calendar.js?v=140" defer></script>
+  <script src="provider.js?v=140&amp;iconfix=1" defer></script>
 </body>
 </html>

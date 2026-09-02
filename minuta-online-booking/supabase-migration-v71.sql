@@ -197,6 +197,9 @@ revoke all on function public.minuta_booking_fits_active_shift(uuid,uuid,uuid,da
 create or replace function public.enforce_minuta_booking_shift()
 returns trigger language plpgsql security definer set search_path to '' as $$
 begin
+  if new.organization_id is not null then
+    perform pg_advisory_xact_lock(hashtextextended(new.organization_id::text,7100));
+  end if;
   if new.status <> 'cancelled' and new.organization_id is not null and new.location_id is not null
      and not public.minuta_booking_fits_active_shift(new.organization_id,new.location_id,new.performer_id,
        new.booking_date,new.booking_time,new.duration_minutes) then
@@ -239,7 +242,7 @@ begin
     'absences',coalesce((select jsonb_agg(jsonb_build_object('id',absence.id,'performer_id',absence.performer_id,'starts_on',absence.starts_on,'ends_on',absence.ends_on,'kind',absence.kind,'note',absence.note,'active',absence.active) order by absence.starts_on,absence.performer_id)
       from public.staff_absences absence where absence.organization_id=p_organization and absence.starts_on<=p_end and absence.ends_on>=p_start
         and (v_role in ('owner','admin') or absence.performer_id=v_user)),'[]'::jsonb),
-    'bookings',coalesce((select jsonb_agg(jsonb_build_object('id',booking.id,'booking_code',booking.booking_code,'location_id',booking.location_id,'performer_id',booking.performer_id,'service_id',booking.service_id,'booking_date',booking.booking_date,'booking_time',booking.booking_time,'duration_minutes',booking.duration_minutes,'service_name',service.name,'status',booking.status) order by booking.booking_date,booking.booking_time,booking.id)
+    'bookings',coalesce((select jsonb_agg(jsonb_build_object('id',booking.id,'booking_code',booking.booking_code,'location_id',booking.location_id,'performer_id',booking.performer_id,'service_id',booking.service_id,'booking_date',booking.booking_date,'booking_time',booking.booking_time,'duration_minutes',booking.duration_minutes,'primary_duration_minutes',coalesce((select item.duration_minutes from public.booking_session_items item where item.booking_id=booking.id and item.item_kind='primary' order by item.position,item.id limit 1),service.duration_minutes),'has_addons',exists(select 1 from public.booking_session_items item where item.booking_id=booking.id and item.item_kind='addon'),'service_name',service.name,'status',booking.status) order by booking.booking_date,booking.booking_time,booking.id)
       from public.bookings booking join public.services service on service.id=booking.service_id
       where booking.organization_id=p_organization and booking.booking_date between p_start and p_end and booking.status<>'cancelled'
         and (v_role in ('owner','admin') or booking.performer_id=v_user)),'[]'::jsonb),
@@ -263,9 +266,10 @@ create or replace function public.upsert_minuta_staff_shift(
   p_start time without time zone,p_end time without time zone,
   p_break_start time without time zone default null,p_break_end time without time zone default null,p_note text default ''
 ) returns uuid language plpgsql security definer set search_path to '' as $$
-declare v_role text; v_id uuid; v_conflict uuid;
+declare v_role text; v_id uuid; v_conflict uuid; v_old public.staff_location_shifts%rowtype;
 begin
   v_role:=public.get_minuta_schedule_role(p_organization);
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text,7100));
   if v_role='specialist' and p_performer<>auth.uid() then raise exception using errcode='42501', message='foreign_performer_denied'; end if;
   if not exists(select 1 from public.organization_memberships where organization_id=p_organization and user_id=p_performer and active and is_bookable)
      or not exists(select 1 from public.locations where id=p_location and organization_id=p_organization and active) then
@@ -278,12 +282,16 @@ begin
     insert into public.staff_location_shifts(organization_id,location_id,performer_id,shift_date,start_time,end_time,break_start,break_end,note,created_by)
     values(p_organization,p_location,p_performer,p_date,p_start,p_end,p_break_start,p_break_end,trim(coalesce(p_note,'')),auth.uid()) returning id into v_id;
   else
+    select * into v_old from public.staff_location_shifts where id=p_shift and organization_id=p_organization for update;
+    if v_old.id is null or (v_role='specialist' and v_old.performer_id<>auth.uid()) then raise exception using errcode='42501', message='foreign_shift_denied'; end if;
     update public.staff_location_shifts set location_id=p_location,performer_id=p_performer,shift_date=p_date,start_time=p_start,end_time=p_end,break_start=p_break_start,break_end=p_break_end,note=trim(coalesce(p_note,'')),active=true,updated_at=now()
     where id=p_shift and organization_id=p_organization and (v_role in ('owner','admin') or performer_id=auth.uid()) returning id into v_id;
     if v_id is null then raise exception using errcode='42501', message='foreign_shift_denied'; end if;
   end if;
   select booking.id into v_conflict from public.bookings booking
-  where booking.organization_id=p_organization and booking.performer_id=p_performer and booking.booking_date=p_date and booking.status<>'cancelled'
+  where booking.organization_id=p_organization and booking.status<>'cancelled'
+    and ((booking.performer_id=p_performer and booking.booking_date=p_date)
+      or (v_old.id is not null and booking.performer_id=v_old.performer_id and booking.booking_date=v_old.shift_date))
     and not public.minuta_booking_fits_active_shift(p_organization,booking.location_id,booking.performer_id,booking.booking_date,booking.booking_time,booking.duration_minutes)
   limit 1;
   if v_conflict is not null and coalesce((select enabled from public.organization_shift_settings where organization_id=p_organization),false) then
@@ -296,11 +304,14 @@ $$;
 
 create or replace function public.cancel_minuta_staff_shift(p_shift uuid)
 returns boolean language plpgsql security definer set search_path to '' as $$
-declare v_row public.staff_location_shifts%rowtype; v_role text;
+declare v_row public.staff_location_shifts%rowtype; v_role text; v_organization uuid;
 begin
-  select * into v_row from public.staff_location_shifts where id=p_shift for update;
+  select organization_id into v_organization from public.staff_location_shifts where id=p_shift;
+  if v_organization is null then return false; end if;
+  v_role:=public.get_minuta_schedule_role(v_organization);
+  perform pg_advisory_xact_lock(hashtextextended(v_organization::text,7100));
+  select * into v_row from public.staff_location_shifts where id=p_shift and organization_id=v_organization for update;
   if v_row.id is null then return false; end if;
-  v_role:=public.get_minuta_schedule_role(v_row.organization_id);
   if v_role='specialist' and v_row.performer_id<>auth.uid() then raise exception using errcode='42501', message='foreign_shift_denied'; end if;
   if coalesce((select enabled from public.organization_shift_settings where organization_id=v_row.organization_id),false)
      and exists(select 1 from public.bookings booking where booking.organization_id=v_row.organization_id and booking.performer_id=v_row.performer_id and booking.location_id=v_row.location_id and booking.booking_date=v_row.shift_date and booking.status<>'cancelled'
@@ -319,12 +330,12 @@ create or replace function public.create_minuta_staff_absence(
 declare v_role text; v_id uuid;
 begin
   v_role:=public.get_minuta_schedule_role(p_organization);
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text,7100));
   if v_role='specialist' and p_performer<>auth.uid() then raise exception using errcode='42501', message='foreign_performer_denied'; end if;
   if not exists(select 1 from public.organization_memberships where organization_id=p_organization and user_id=p_performer and active) then raise exception using errcode='42501', message='foreign_performer_denied'; end if;
   if exists(select 1 from public.bookings where organization_id=p_organization and performer_id=p_performer and booking_date between p_start and p_end and status<>'cancelled') then raise exception using errcode='P0001', message='absence_has_bookings'; end if;
   insert into public.staff_absences(organization_id,performer_id,starts_on,ends_on,kind,note,created_by)
   values(p_organization,p_performer,p_start,p_end,p_kind,trim(coalesce(p_note,'')),auth.uid()) returning id into v_id;
-  update public.staff_location_shifts set active=false,updated_at=now() where organization_id=p_organization and performer_id=p_performer and shift_date between p_start and p_end and active;
   perform public.write_minuta_schedule_audit(p_organization,'absence_created',v_id,jsonb_build_object('performer_id',p_performer,'starts_on',p_start,'ends_on',p_end,'kind',p_kind));
   return v_id;
 end;
@@ -332,11 +343,14 @@ $$;
 
 create or replace function public.cancel_minuta_staff_absence(p_absence uuid)
 returns boolean language plpgsql security definer set search_path to '' as $$
-declare v_row public.staff_absences%rowtype; v_role text;
+declare v_row public.staff_absences%rowtype; v_role text; v_organization uuid;
 begin
-  select * into v_row from public.staff_absences where id=p_absence for update;
+  select organization_id into v_organization from public.staff_absences where id=p_absence;
+  if v_organization is null then return false; end if;
+  v_role:=public.get_minuta_schedule_role(v_organization);
+  perform pg_advisory_xact_lock(hashtextextended(v_organization::text,7100));
+  select * into v_row from public.staff_absences where id=p_absence and organization_id=v_organization for update;
   if v_row.id is null then return false; end if;
-  v_role:=public.get_minuta_schedule_role(v_row.organization_id);
   if v_role='specialist' and v_row.performer_id<>auth.uid() then raise exception using errcode='42501', message='foreign_absence_denied'; end if;
   update public.staff_absences set active=false,updated_at=now() where id=p_absence;
   perform public.write_minuta_schedule_audit(v_row.organization_id,'absence_cancelled',p_absence,jsonb_build_object('performer_id',v_row.performer_id));
@@ -349,6 +363,7 @@ returns boolean language plpgsql security definer set search_path to '' as $$
 declare v_role text;
 begin
   v_role:=public.get_minuta_schedule_role(p_organization);
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text,7100));
   if v_role<>'owner' then raise exception using errcode='42501', message='owner_required'; end if;
   if p_enabled and exists(select 1 from public.bookings booking where booking.organization_id=p_organization and booking.status<>'cancelled' and booking.booking_date>=current_date
     and (exists(select 1 from public.staff_absences absence where absence.organization_id=p_organization and absence.performer_id=booking.performer_id and absence.active and booking.booking_date between absence.starts_on and absence.ends_on)
@@ -366,14 +381,36 @@ $$;
 
 create or replace function public.substitute_minuta_booking(p_organization uuid,p_booking uuid,p_new_service uuid)
 returns boolean language plpgsql security definer set search_path to '' as $$
-declare v_role text; v_booking public.bookings%rowtype; v_performer uuid;
+declare v_role text; v_booking public.bookings%rowtype; v_performer uuid; v_primary_duration integer;
 begin
   v_role:=public.get_minuta_schedule_role(p_organization);
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text,7100));
   if v_role not in ('owner','admin') then raise exception using errcode='42501', message='booking_substitution_denied'; end if;
   select * into v_booking from public.bookings where id=p_booking and organization_id=p_organization and status<>'cancelled' for update;
   if v_booking.id is null then raise exception using errcode='P0001', message='booking_not_found'; end if;
-  select service.performer_id into v_performer from public.services service join public.organization_memberships membership on membership.organization_id=p_organization and membership.user_id=service.performer_id and membership.active and membership.is_bookable where service.id=p_new_service and service.active and service.duration_minutes=v_booking.duration_minutes;
+  if v_booking.booking_date < current_date or exists(select 1 from public.booking_outcomes outcome where outcome.booking_id=p_booking and outcome.visit_status<>'scheduled') then
+    raise exception using errcode='P0001', message='completed_booking_substitution_denied';
+  end if;
+  if exists(select 1 from public.booking_session_items item where item.booking_id=p_booking and item.item_kind='addon') then
+    raise exception using errcode='55000', message='booking_substitution_addons_require_manual_remap';
+  end if;
+  select coalesce((select item.duration_minutes from public.booking_session_items item
+    where item.booking_id=p_booking and item.item_kind='primary' order by item.position,item.id limit 1),
+    (select service.duration_minutes from public.services service where service.id=v_booking.service_id))
+    into v_primary_duration;
+  select service.performer_id into v_performer from public.services service join public.organization_memberships membership on membership.organization_id=p_organization and membership.user_id=service.performer_id and membership.active and membership.is_bookable where service.id=p_new_service and service.active and service.duration_minutes=v_primary_duration;
   if v_performer is null then raise exception using errcode='42501', message='foreign_service_denied'; end if;
+  update public.booking_session_items item set performer_id=v_performer,
+    service_id=case when item.item_kind='primary' then p_new_service else item.service_id end,
+    title=case when item.item_kind='primary' then (select name from public.services where id=p_new_service) else item.title end
+    where item.booking_id=p_booking;
+  insert into public.booking_session_revisions(booking_id,performer_id,items,total_price_rub,total_duration_minutes)
+  select p_booking,v_performer,jsonb_agg(jsonb_build_object('kind',item.item_kind,'service_id',item.service_id,'title',item.title,'duration_minutes',item.duration_minutes,'price_rub',item.price_rub,'extends_duration',item.extends_duration) order by item.position),sum(item.price_rub)::integer,
+    (sum(item.duration_minutes) filter(where item.item_kind='primary')+coalesce(sum(item.duration_minutes) filter(where item.item_kind='addon' and item.extends_duration),0))::integer
+  from public.booking_session_items item where item.booking_id=p_booking having count(*)>0;
+  delete from public.notification_marks where booking_id=p_booking;
+  update public.notification_outbox set status='failed',last_error_code='booking_substituted',last_error='Доставка отменена: специалист записи изменён',locked_at=null,lock_token=null
+    where booking_id=p_booking and status in ('pending','sending');
   update public.bookings set service_id=p_new_service,performer_id=v_performer where id=p_booking;
   perform public.write_minuta_schedule_audit(p_organization,'booking_substituted',p_booking,jsonb_build_object('old_performer_id',v_booking.performer_id,'new_performer_id',v_performer,'old_service_id',v_booking.service_id,'new_service_id',p_new_service));
   return true;
@@ -408,6 +445,20 @@ language sql stable security definer set search_path to '' as $$
 $$;
 revoke all on function public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date) from public, anon, authenticated, service_role;
 grant execute on function public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date) to anon, authenticated;
+
+create or replace function public.get_reschedule_slots_v4(p_token uuid,p_start date,p_end date)
+returns table(booking_date date,booking_time time without time zone)
+language sql stable security definer set search_path to '' as $$
+  select slot.booking_date,slot.booking_time
+  from public.bookings booking
+  join public.services service on service.id=booking.service_id
+  cross join lateral public.get_reschedule_slots_v3(p_token,p_start,p_end) slot
+  where booking.manage_token=p_token and booking.status<>'cancelled'
+    and public.minuta_booking_fits_active_shift(booking.organization_id,booking.location_id,booking.performer_id,slot.booking_date,slot.booking_time,booking.duration_minutes)
+  order by slot.booking_date,slot.booking_time;
+$$;
+revoke all on function public.get_reschedule_slots_v4(uuid,date,date) from public, anon, authenticated, service_role;
+grant execute on function public.get_reschedule_slots_v4(uuid,date,date) to anon, authenticated;
 
 create or replace function public.get_public_minuta_catalog_v4(p_slug text)
 returns jsonb language sql stable security definer set search_path to '' as $$
