@@ -14,6 +14,10 @@ begin
      or to_regclass('public.payment_events') is null
      or to_regprocedure('public.has_organization_role(uuid,text[])') is null
      or not exists (
+       select 1 from pg_catalog.pg_trigger
+       where tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal
+     )
+     or not exists (
        select 1 from information_schema.columns
        where table_schema='public' and table_name='bookings' and column_name='organization_id'
      )
@@ -21,7 +25,7 @@ begin
        select 1 from information_schema.columns
        where table_schema='public' and table_name='bookings' and column_name='payment_due_at'
      ) then
-    raise exception using errcode='P0001',message='v87_missing_payment_prerequisites';
+    raise exception using errcode='P0001',message='v87_requires_v86_payment_prerequisites';
   end if;
 end $$;
 
