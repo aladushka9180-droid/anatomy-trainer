@@ -4,6 +4,7 @@ import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=dirname(fileURLToPath(import.meta.url));
+const colorMigration=await readFile(join(root,'supabase-migration-v75.sql'),'utf8');
 const migration=await readFile(join(root,'supabase-migration-v76.sql'),'utf8');
 const rollback=await readFile(join(root,'recovery','rollback-booking-policies-v76.sql'),'utf8');
 const integration=await readFile(join(root,'booking-policies-v76-integration.sql'),'utf8');
@@ -11,6 +12,7 @@ const provider=await readFile(join(root,'provider.js'),'utf8');
 const booking=await readFile(join(root,'booking.js'),'utf8');
 const clientBookings=await readFile(join(root,'my-bookings.js'),'utf8');
 const styles=await readFile(join(root,'styles.css'),'utf8');
+assert.match(colorMigration,/add column if not exists color_key text[\s\S]*alter column color_key set not null[\s\S]*set_booking_color/i);
 assert.match(migration,/to_regclass\('public\.booking_page_visits'\)[\s\S]*to_regprocedure\('public\.register_public_booking_visit\(text\)'\)[\s\S]*bookings_color_key_check[\s\S]*graphite[\s\S]*v76_requires_v75/i);
 for(const table of ['organization_booking_policy_settings','organization_booking_policy_rules','organization_booking_policy_audit_log']){
   assert.match(migration,new RegExp(`create table if not exists public\\.${table}`,'i'));

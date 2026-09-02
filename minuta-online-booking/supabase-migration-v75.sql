@@ -4,12 +4,22 @@ set local search_path = public, pg_catalog;
 
 do $$
 begin
-  if to_regclass('public.bookings') is null
-     or to_regprocedure('public.set_booking_color(uuid,text)') is null then
-    raise exception using errcode = 'P0001', message = 'v75_requires_v48';
+  if to_regclass('public.bookings') is null then
+    raise exception using errcode = 'P0001', message = 'v75_requires_bookings';
   end if;
 end;
 $$;
+
+alter table public.bookings
+  add column if not exists color_key text;
+
+update public.bookings
+set color_key = 'auto'
+where color_key is null;
+
+alter table public.bookings
+  alter column color_key set default 'auto',
+  alter column color_key set not null;
 
 alter table public.bookings
   drop constraint if exists bookings_color_key_check;
