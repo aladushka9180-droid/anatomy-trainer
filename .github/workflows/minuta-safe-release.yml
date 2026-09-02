@@ -32,6 +32,14 @@ on:
         required: false
         default: ""
         type: string
+      migration_target:
+        description: Последний слой схемы для production-migration
+        required: true
+        default: latest
+        type: choice
+        options:
+          - latest
+          - client-avatars-v70
 
 permissions:
   contents: read
@@ -351,6 +359,7 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MINUTA_BACKUP_CONFIRM: ${{ inputs.backup_confirm }}
+          MINUTA_MIGRATION_TARGET: ${{ inputs.migration_target }}
         shell: bash
         run: |
           set -euo pipefail
@@ -446,6 +455,7 @@ jobs:
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.client_avatars') is not null and (select relrowsecurity from pg_class where oid='public.client_avatars'::regclass) and not has_table_privilege('anon','public.client_avatars','SELECT') and has_table_privilege('authenticated','public.client_avatars','SELECT') and exists(select 1 from storage.buckets where id='client-avatars' and not public and file_size_limit=2097152 and allowed_mime_types=array['image/webp']);" \
             | grep -qx t
+          if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
           v71_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "with state as (select (select count(*) from (values (to_regclass('public.organization_shift_settings')),(to_regclass('public.staff_location_shifts')),(to_regclass('public.staff_absences')),(to_regclass('public.staff_schedule_audit_log'))) item(oid) where oid is not null) table_count,(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('get_minuta_schedule_role','write_minuta_schedule_audit','minuta_booking_fits_active_shift','enforce_minuta_booking_shift','get_minuta_shift_workspace','upsert_minuta_staff_shift','cancel_minuta_staff_shift','create_minuta_staff_absence','cancel_minuta_staff_absence','set_minuta_branch_shifts_enabled','substitute_minuta_booking','get_public_minuta_available_slots_v4','get_public_minuta_catalog_v4')) function_count,exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) booking_trigger,(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log') and c.relrowsecurity) rls_count) select case when table_count=0 and function_count=0 and not booking_trigger then 'absent' when table_count=4 and function_count=13 and booking_trigger and rls_count=4 then 'complete' else 'partial' end from state;")"
           case "$v71_layer_state" in
@@ -470,6 +480,10 @@ jobs:
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT');" \
             | grep -qx t
+          else
+            test "$MINUTA_MIGRATION_TARGET" = "client-avatars-v70"
+            echo "Production migration intentionally stopped after v70"
+          fi
 
   diagnose-client-links:
     if: inputs.phase == 'diagnose-client-links'

@@ -48,7 +48,7 @@ let bookingColors = new Map();
 let bookingNotes = new Map();
 let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
-let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false };
+let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false };
 let displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
 let displayPreferencesSaveTimer = null;
 let displayPreferencesSaveRevision = 0;
@@ -57,6 +57,8 @@ let serverNotificationMarks = {};
 let notificationSettingsRemoteAvailable = false;
 let notificationOutbox = [];
 let notificationOutboxRemoteAvailable = false;
+let visitorVisits = [];
+let visitorVisitsRemoteAvailable = false;
 let ownServices = [];
 let portfolioItems = [];
 let providerReviews = [];
@@ -696,7 +698,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=138#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=139#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1661,6 +1663,7 @@ function openBookingSheet(id) {
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
     <div class="booking-sheet-summary"><div class="booking-sheet-client">${clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)}<div><small>Клиент</small><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
+    <div class="booking-sheet-actions booking-repeat-actions"><button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
     ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}
     ${compactBookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
@@ -1674,7 +1677,6 @@ function openBookingSheet(id) {
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button></div>` : ''}
-    <div class="booking-sheet-actions booking-repeat-actions"><button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -2093,7 +2095,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime)) ? String(preferredTime) : '';
   newBookingMode = 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
-  $('#bookingSheet').classList.remove('booking-sheet-vip');
+  applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.clientName ? 'Повторный визит' : 'Ручное расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.clientName ? 'Повторная запись' : 'Новый клиент'}</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
@@ -2125,7 +2127,6 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     $('#newBookingSheetTitle').textContent = 'Повторная запись';
     $('#newBookingSectionSubtitle').textContent = 'Клиент и услуга уже выбраны';
   }
-  loadNewBookingSlots();
   setTimeout(() => (preset.clientName ? $('#newBookingDate') : $('#newBookingName'))?.focus(), 0);
 }
 
@@ -2133,6 +2134,10 @@ function openRepeatBookingFromSheet(id) {
   if (!requireWrites()) return;
   const item = allBookings.find(booking => booking.id === id);
   if (!item || isScheduleBlock(item)) return;
+  if (!ownServices.some(service => service.id === item.service_id && service.active)) {
+    notify('Эта услуга сейчас отключена. Сначала включите её в разделе «Услуги».');
+    return;
+  }
   openNewBookingSheet('', {
     clientName: item.client_name,
     clientPhone: item.client_phone,
@@ -2213,7 +2218,8 @@ async function createNewBooking(event) {
 
 function closeBookingSheet() {
   $('#bookingSheet').hidden = true;
-  $('#bookingSheet').classList.remove('booking-sheet-wide', 'booking-sheet-vip', 'new-booking-sheet');
+  $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet');
+  applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   document.body.classList.remove('booking-sheet-open');
 }
 
@@ -2381,7 +2387,7 @@ async function loadClientNotes() {
 
 async function signedClientAvatarUrl(path) {
   const { data, error } = await db.storage.from(CLIENT_AVATAR_BUCKET).createSignedUrl(path, 3600);
-  return error ? '' : data?.signedUrl || '';
+  return { url:error ? '' : data?.signedUrl || '', expiresAt:Date.now() + 55 * 60 * 1000 };
 }
 
 async function loadClientAvatars() {
@@ -2392,13 +2398,20 @@ async function loadClientAvatars() {
   if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
   if (error) {
     clientAvatarsRemoteAvailable = false;
+    clientAvatars = new Map();
+    renderClients();
+    if (selectedClientPhone) renderClientDetail(selectedClientPhone);
     return { ok:false, optional:true };
   }
-  const entries = await Promise.all((data || []).map(async item => ({
-    ...item,
-    client_phone: normalizePhone(item.client_phone),
-    signed_url: await signedClientAvatarUrl(item.storage_path)
-  })));
+  const entries = await Promise.all((data || []).map(async item => {
+    const clientPhone = normalizePhone(item.client_phone);
+    const cached = clientAvatars.get(clientPhone);
+    if (cached?.storage_path === item.storage_path && cached.signed_url && cached.signed_url_expires_at > Date.now()) {
+      return { ...item, client_phone:clientPhone, signed_url:cached.signed_url, signed_url_expires_at:cached.signed_url_expires_at };
+    }
+    const signed = await signedClientAvatarUrl(item.storage_path);
+    return { ...item, client_phone:clientPhone, signed_url:signed.url, signed_url_expires_at:signed.expiresAt };
+  }));
   if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
   clientAvatars = new Map(entries.filter(item => item.client_phone).map(item => [item.client_phone, item]));
   clientAvatarsRemoteAvailable = true;
@@ -2445,17 +2458,19 @@ async function saveClientAvatar(input) {
   try {
     const prepared = await prepareClientAvatar(file);
     if (!sessionIsCurrent(userId, generation)) return;
-    path = `${userId}/${phone}/${createPortfolioPhotoId()}.webp`;
-    const { error: uploadError } = await db.storage.from(CLIENT_AVATAR_BUCKET).upload(path, prepared.blob, { contentType:'image/webp', cacheControl:'31536000', upsert:false });
+    path = `${userId}/${phone}/avatar.webp`;
+    const { error: uploadError } = await db.storage.from(CLIENT_AVATAR_BUCKET).upload(path, prepared.blob, { contentType:'image/webp', cacheControl:'3600', upsert:true });
+    if (!sessionIsCurrent(userId, generation)) return;
     if (uploadError) throw uploadError;
     const { error: saveError } = await db.from('client_avatars').upsert({ performer_id:userId, client_phone:phone, storage_path:path, width:prepared.width, height:prepared.height, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' });
+    if (!sessionIsCurrent(userId, generation)) return;
     if (saveError) {
-      await db.storage.from(CLIENT_AVATAR_BUCKET).remove([path]);
+      if (!existing) await db.storage.from(CLIENT_AVATAR_BUCKET).remove([path]);
       throw saveError;
     }
+    const signed = await signedClientAvatarUrl(path);
     if (!sessionIsCurrent(userId, generation)) return;
-    if (existing?.storage_path && existing.storage_path !== path) await db.storage.from(CLIENT_AVATAR_BUCKET).remove([existing.storage_path]);
-    clientAvatars.set(phone, { client_phone:phone, storage_path:path, width:prepared.width, height:prepared.height, signed_url:await signedClientAvatarUrl(path) });
+    clientAvatars.set(phone, { client_phone:phone, storage_path:path, width:prepared.width, height:prepared.height, signed_url:signed.url, signed_url_expires_at:signed.expiresAt });
     renderBookingData();
     if (bookingId && !$('#bookingSheet').hidden) openBookingSheet(bookingId);
     notify(existing ? 'Фото клиента обновлено' : 'Фото клиента добавлено');
@@ -2468,21 +2483,23 @@ async function saveClientAvatar(input) {
   }
 }
 
-async function removeClientAvatar(phone, bookingId = '') {
+async function removeClientAvatar(phone, bookingId = '', options = {}) {
   if (!requireWrites() || !clientAvatarsRemoteAvailable) return;
   const normalizedPhone = normalizePhone(phone);
   const existing = clientAvatar(normalizedPhone);
-  if (!existing || !confirm('Удалить фото клиента?')) return;
+  if (!existing || (options.confirm !== false && !confirm('Удалить фото клиента?'))) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
+  const { error:storageError } = await db.storage.from(CLIENT_AVATAR_BUCKET).remove([existing.storage_path]);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (storageError) { notify('Не удалось удалить файл фото клиента'); return; }
   const { error } = await db.from('client_avatars').delete().eq('performer_id', userId).eq('client_phone', normalizedPhone);
   if (!sessionIsCurrent(userId, generation)) return;
-  if (error) { notify('Не удалось удалить фото клиента'); return; }
-  await db.storage.from(CLIENT_AVATAR_BUCKET).remove([existing.storage_path]);
+  if (error) { notify('Файл удалён, но карточка фото не очистилась. Повторите удаление.'); return; }
   clientAvatars.delete(normalizedPhone);
   renderBookingData();
   if (bookingId && !$('#bookingSheet').hidden) openBookingSheet(bookingId);
-  notify('Фото клиента удалено');
+  if (!options.silent) notify('Фото клиента удалено');
 }
 
 async function loadClientLabels() {
@@ -3020,6 +3037,8 @@ async function handleSession(session) {
   setWritesAllowed(false);
   teamCalendarController.reset();
   organizationController.reset();
+  clientAvatars = new Map();
+  clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
   if (currentUser) {
     loadBookingColors(currentUser.id);
@@ -3033,8 +3052,6 @@ async function handleSession(session) {
     bookingNotes = new Map();
     pendingBookingNotes = new Set();
     clientLabels = new Map();
-    clientAvatars = new Map();
-    clientAvatarsRemoteAvailable = false;
     pendingClientLabels = new Set();
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
   }
@@ -3066,12 +3083,14 @@ async function handleSession(session) {
     bookingOutcomes = new Map();
     bookingSessionItems = new Map();
     sessionItemsRemoteAvailable = false;
-    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false };
+    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false };
     serverNotificationTemplates = {};
     serverNotificationMarks = {};
     notificationSettingsRemoteAvailable = false;
     notificationOutbox = [];
     notificationOutboxRemoteAvailable = false;
+    visitorVisits = [];
+    visitorVisitsRemoteAvailable = false;
     return;
   }
   const userId = currentUser.id;
@@ -4128,6 +4147,9 @@ document.addEventListener('click', async event => {
     writeLocalSessionItems();
     persistBookingColors();
     persistBookingNotes();
+    if (!isScheduleBlock(item) && !allBookings.some(entry => normalizePhone(entry.client_phone) === normalizePhone(item.client_phone))) {
+      await removeClientAvatar(item.client_phone, '', { confirm:false, silent:true });
+    }
     closeBookingSheet();
     renderBookingData();
     notify(isScheduleBlock(item) ? 'Занятое время удалено' : 'Запись удалена');
@@ -4391,4 +4413,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=138'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=139'));

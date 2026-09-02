@@ -15,8 +15,23 @@ create table if not exists public.client_avatars (
   height integer not null check (height > 0 and height <= 1024),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  primary key (performer_id, client_phone)
+  primary key (performer_id, client_phone),
+  constraint client_avatars_storage_path_scope_check
+    check (storage_path = performer_id::text || '/' || client_phone || '/avatar.webp')
 );
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.client_avatars'::regclass
+      and conname = 'client_avatars_storage_path_scope_check'
+  ) then
+    alter table public.client_avatars
+      add constraint client_avatars_storage_path_scope_check
+      check (storage_path = performer_id::text || '/' || client_phone || '/avatar.webp');
+  end if;
+end $$;
 
 drop trigger if exists client_avatars_touch_updated_at on public.client_avatars;
 create trigger client_avatars_touch_updated_at before update on public.client_avatars
