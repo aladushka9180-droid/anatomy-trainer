@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '116';
+const version = '117';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -38,6 +38,7 @@ const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
+const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
 assert.match(app, /function performerOptions\(\)/, 'Специалисты не собираются из активных услуг');
 assert.match(app, /function visibleServices\(\)/, 'Услуги нельзя отфильтровать по специалисту');
@@ -70,6 +71,18 @@ assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=117"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
+assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
+assert.equal(providerManifest.start_url, './provider.html', 'Установленное приложение открывает не кабинет');
+assert.equal(providerManifest.display, 'standalone', 'Кабинет не запускается как отдельное приложение');
+for (const icon of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-icon-maskable-512.png']) {
+  assert.ok(providerManifest.icons.some(item => item.src === icon), `В манифесте нет иконки ${icon}`);
+  assert.ok(existsSync(join(root, icon)), `Отсутствует иконка приложения ${icon}`);
+}
+assert.match(provider, /beforeinstallprompt/, 'Браузерное предложение установки не сохраняется');
+assert.match(provider, /await prompt\.prompt\(\)/, 'Кнопка не запускает системную установку приложения');
+assert.match(provider, /appinstalled/, 'Интерфейс не узнаёт об успешной установке');
 assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v4'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
 assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента времени не является режимом расписания по умолчанию');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');

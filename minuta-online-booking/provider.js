@@ -31,6 +31,7 @@ let currentFilter = restoreScheduleFilter();
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
+let deferredInstallPrompt = null;
 let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
@@ -294,6 +295,61 @@ function renderDisplayPreferencesForm() {
   $('#showBookingClientLabels').checked = displayPreferences.show_client_labels;
   $('#showBookingNotes').checked = displayPreferences.show_notes;
 }
+function providerAppIsInstalled() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function providerAppIsIos() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function refreshInstallAppCard() {
+  const button = $('#installAppButton');
+  const status = $('#installAppStatus');
+  const guide = $('#iosInstallGuide');
+  if (!button || !status || !guide) return;
+  button.disabled = false;
+  guide.hidden = true;
+  if (providerAppIsInstalled()) {
+    button.disabled = true;
+    button.querySelector('span').textContent = 'Приложение установлено';
+    status.textContent = 'Кабинет уже открывается как отдельное приложение.';
+    return;
+  }
+  if (deferredInstallPrompt) {
+    button.querySelector('span').textContent = 'Установить приложение';
+    status.textContent = 'Установка займёт несколько секунд и не требует магазина приложений.';
+    return;
+  }
+  if (providerAppIsIos()) {
+    button.querySelector('span').textContent = 'Установить на iPhone';
+    status.textContent = 'На iPhone установка выполняется через меню «Поделиться» в Safari.';
+    return;
+  }
+  button.querySelector('span').textContent = 'Установить приложение';
+  status.textContent = 'Если окно не появится, выберите «Установить приложение» в меню браузера.';
+}
+async function installProviderApp() {
+  const guide = $('#iosInstallGuide');
+  if (providerAppIsInstalled()) {
+    notify('Приложение уже установлено');
+    return;
+  }
+  if (deferredInstallPrompt) {
+    const prompt = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    await prompt.prompt();
+    const choice = await prompt.userChoice;
+    refreshInstallAppCard();
+    notify(choice.outcome === 'accepted' ? 'Установка приложения началась' : 'Установка отменена');
+    return;
+  }
+  if (providerAppIsIos()) {
+    guide.hidden = false;
+    guide.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    return;
+  }
+  $('#installAppStatus').textContent = 'Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран».';
+  notify('Откройте меню браузера и выберите установку приложения');
+}
 function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
@@ -546,7 +602,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=116#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=117#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3617,6 +3673,7 @@ $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
+$('#installAppButton').addEventListener('click', installProviderApp);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
@@ -3717,5 +3774,17 @@ db.auth.onAuthStateChange((event, session) => {
   }
   setTimeout(() => handleSession(session), 0);
 });
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  refreshInstallAppCard();
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  refreshInstallAppCard();
+  notify('Приложение установлено');
+});
+window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
+refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=116'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=117'));
