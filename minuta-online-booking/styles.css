@@ -1335,6 +1335,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .timeline-booking.compact .timeline-booking-time { align-self:center; }
 .provider-body .timeline-booking.compact .timeline-booking-copy { display:grid; align-content:center; min-height:0; }
 .provider-body .timeline-booking.compact .timeline-booking-copy strong { line-height:1.15; }
+.provider-body .timeline-booking.minute-only { grid-template-columns:minmax(0,1fr); place-items:center; padding:2px 12px; }
+.provider-body .timeline-booking.minute-only .timeline-booking-minute-copy { display:block; width:100%; min-width:0; padding:0; text-align:center; }
+.provider-body .timeline-booking.minute-only .timeline-booking-minute-copy strong { display:block; overflow:hidden; line-height:1.1; text-overflow:ellipsis; white-space:nowrap; }
 .provider-body .timeline-booking.compact .timeline-booking-client { display:block; margin-top:1px; font-size:10px; }
 .provider-body .timeline-booking.compact.has-note .timeline-booking-client-row { display:none; }
 .provider-body .timeline-booking.compact.has-note .timeline-booking-note { display:block; margin-top:2px; overflow:hidden; font-size:9px; line-height:1.15; text-overflow:ellipsis; white-space:nowrap; }
@@ -1995,6 +1998,13 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-copy {
     top:50%;
     justify-content:center;
+    transform:translateY(-50%);
+  }
+  .provider-body[data-provider-theme] .timeline-booking.minute-only .timeline-booking-minute-copy {
+    top:50%;
+    align-items:center;
+    padding:0 10px!important;
+    text-align:center;
     transform:translateY(-50%);
   }
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-note { display:none!important; }

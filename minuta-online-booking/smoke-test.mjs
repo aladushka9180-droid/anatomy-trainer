@@ -79,6 +79,8 @@ assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone
 assert.match(provider, /const timeRange = `\$\{startTime\}–\$\{endTime\}`/, 'Карточка записи не рассчитывает интервал начала и окончания');
 assert.match(provider, /class="timeline-booking-time"><b>\$\{startTime\}<\/b><small>–\$\{endTime\}<\/small>/, 'На большом экране не показывается полный интервал записи');
 assert.match(provider, /class="timeline-mobile-time">\$\{timeRange\}/, 'На телефоне не показывается полный интервал записи');
+assert.match(provider, /const minuteOnly = duration <= 1;/, 'Одноминутная запись не определяется отдельно');
+assert.match(provider, /minuteOnly\s*\? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong>\$\{serviceMarkup\}<\/strong><\/span>`/, 'Одноминутная запись содержит лишние данные');
 assert.match(provider, /class="booking-time-column"><strong>\$\{time\}<small>до \$\{endTime\}/, 'В режиме списка не показывается время окончания записи');
 const providerTimeFromMinutesSource = provider.match(/function timeFromMinutes\(value\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(providerTimeFromMinutesSource, 'Не удалось извлечь расчёт времени окончания записи');
@@ -283,6 +285,7 @@ assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; align-items:baseline;/, 'Интервал записи не выровнен по центру карточки');
 assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');
 assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текст записи не выровнен по центру карточки');
+assert.match(styles, /timeline-booking\.minute-only \{[^}]*place-items:center;/, 'Название одноминутной записи не центрируется');
 assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');

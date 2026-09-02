@@ -1306,6 +1306,7 @@ function renderTimeline(items) {
     const startTime = String(item.booking_time).slice(0, 5);
     const endTime = timeFromMinutes(itemStart + duration);
     const timeRange = `${startTime}–${endTime}`;
+    const minuteOnly = duration <= 1;
     const top = ((itemStart - start) / 60) * hourHeight;
     const height = Math.max(36, (duration / 60) * hourHeight - 4);
     const statusText = bookingStatus(item);
@@ -1326,10 +1327,14 @@ function renderTimeline(items) {
     const timelineStatus = statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${visibleNote ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}">
-      <span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy"><strong>${block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга')}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
-      ${timelineStatus}
+    const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
+    const cardContent = minuteOnly
+      ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong>${serviceMarkup}</strong></span>`
+      : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
+      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
+      ${timelineStatus}`;
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}">
+      ${cardContent}
     </button>`;
   }).join('');
   holder.className = 'provider-bookings timeline-view';
