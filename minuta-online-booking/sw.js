@@ -22,6 +22,7 @@ const ASSETS = [
   './organization.js?v=160',
   './payroll-management.js?v=160',
   './benefit-management.js?v=160',
+  './loyalty-management.js?v=160',
   './booking-policy-management.js?v=160',
   './team-calendar.js?v=160',
   './free-slots-share.js?v=160',

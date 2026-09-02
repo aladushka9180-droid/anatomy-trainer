@@ -181,7 +181,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
-  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
+  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-cancel-booking-series]', '#bookingSeriesCancelForm button[type="submit"]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
@@ -5029,6 +5029,15 @@ const benefitController = window.MinutaBenefits?.createController ? window.Minut
 }) : { bind() {}, setOrganization() {}, reset() {} };
 benefitController.bind();
 
+const loyaltyController = window.MinutaLoyalty?.createController ? window.MinutaLoyalty.createController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability
+}) : { bind() {}, setOrganization() {}, reset() {} };
+loyaltyController.bind();
+
 const bookingPolicyController = window.MinutaBookingPolicies?.createController ? window.MinutaBookingPolicies.createController({
   db, $, escapeHtml, notify, requireWrites,
   getCurrentUser: () => currentUser,
@@ -5064,6 +5073,7 @@ const organizationController = window.MinutaOrganization.createController({
     shiftController.setOrganization(organization);
     payrollController.setOrganization(organization);
     benefitController.setOrganization(organization);
+    loyaltyController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
   }

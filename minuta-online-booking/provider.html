@@ -417,6 +417,32 @@
               </div>
             </section>
 
+            <section class="panel organization-section organization-loyalty" id="loyaltyPanel" hidden>
+              <div class="panel-head"><div><small>Возврат клиентов и контролируемые скидки</small><h3>Бонусы и промокоды</h3></div><span class="panel-count">v81</span></div>
+              <p class="organization-invite-help">Бонусы начисляются только после завершённого оплаченного визита. Начисления, списания и ручные корректировки остаются в неизменяемом журнале.</p>
+              <div class="loading-state compact" id="loyaltyLoading" hidden><i></i><span>Загружаем программу лояльности…</span></div>
+              <div class="resource-inline-error" id="loyaltyUnavailable" role="status" hidden><div><strong>Бонусы временно недоступны</strong><small id="loyaltyUnavailableText"></small></div><button class="secondary-button" id="reloadLoyalty" type="button">Повторить</button></div>
+              <div class="loyalty-workspace" id="loyaltyWorkspace" hidden>
+                <label class="settings-check loyalty-enable-field"><input id="loyaltyEnabled" type="checkbox" data-loyalty-write><span><strong>Включить бонусную программу</strong><small>По умолчанию выключено. Старые визиты не начисляют бонусы задним числом.</small></span></label>
+                <form class="loyalty-rule-form" id="loyaltyRuleForm">
+                  <div class="resource-subhead"><div><small>Начисление и безопасное списание</small><strong>Правила программы</strong></div></div>
+                  <input id="loyaltyRuleName" type="hidden" value="Основная программа">
+                  <div class="loyalty-form-grid"><label>Начислять, %<input id="loyaltyEarnPercent" type="number" min="0.01" max="100" step="0.01" required></label><label>Минимальная оплата, ₽<input id="loyaltyMinPaid" type="number" min="0" max="10000000" step="1" required></label><label>Списывать не более, %<input id="loyaltyMaxRedeemPercent" type="number" min="0" max="100" step="0.01" required></label></div>
+                  <p class="form-error" id="loyaltyRuleError" hidden></p><button class="primary" type="submit" data-loyalty-write>Сохранить правила</button>
+                </form>
+                <div class="loyalty-management-grid" id="loyaltyActions">
+                  <section><div class="resource-subhead"><div><small>Текущий остаток</small><strong>Балансы клиентов</strong></div></div><div class="organization-list" id="loyaltyBalancesList"></div></section>
+                  <section><div class="resource-subhead"><div><small>С обязательной причиной</small><strong>Ручная корректировка</strong></div></div><form id="loyaltyAdjustmentForm"><label>Клиент<select id="loyaltyAdjustmentClient" required></select></label><div class="form-row"><label>Бонусы<input id="loyaltyAdjustmentPoints" type="number" min="-1000000" max="1000000" step="1" required></label><label>Причина<input id="loyaltyAdjustmentReason" maxlength="500" minlength="8" required></label></div><p class="form-error" id="loyaltyAdjustmentError" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Скорректировать</button></form></section>
+                  <section><div class="resource-subhead"><div><small>1 бонус = 1 ₽</small><strong>Списать на визит</strong></div></div><form id="loyaltyRedeemForm"><label>Клиент<select id="loyaltyRedeemClient" required></select></label><label>Завершённый визит<select id="loyaltyRedeemBooking" required></select></label><label>Списать бонусов<input id="loyaltyRedeemPoints" type="number" min="1" max="10000000" step="1" required></label><p class="form-error" id="loyaltyRedeemError" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Списать</button></form></section>
+                </div>
+                <section class="loyalty-promotions"><div class="resource-subhead"><div><small>Период, общий и клиентский лимиты</small><strong>Промокоды</strong></div></div><div class="organization-list" id="loyaltyPromotionsList"></div>
+                  <details class="organization-create"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать промокод</span></summary><form id="loyaltyPromoForm"><div class="form-row"><label>Код<input id="loyaltyPromoCode" maxlength="32" placeholder="WELCOME10" required></label><label>Тип<select id="loyaltyPromoKind"><option value="percent">Процент</option><option value="fixed">Сумма</option></select></label></div><label><span id="loyaltyPromoValueLabel">Скидка, %</span><input id="loyaltyPromoValue" type="number" min="0.01" max="10000000" step="0.01" required></label><div class="form-row"><label>Действует с<input id="loyaltyPromoFrom" type="date" required></label><label>Действует по<input id="loyaltyPromoUntil" type="date" required></label></div><div class="form-row"><label>Общий лимит<input id="loyaltyPromoTotalLimit" type="number" min="1" max="1000000" step="1" placeholder="Без лимита"></label><label>На одного клиента<input id="loyaltyPromoClientLimit" type="number" min="1" max="10000" step="1" placeholder="Без лимита"></label></div><p class="form-error" id="loyaltyPromoError" hidden></p><button class="primary" type="submit" data-loyalty-write>Сохранить промокод</button></form></details>
+                  <details class="organization-create"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg><span>Проверить и применить</span></summary><form id="loyaltyPromoApplyForm"><label>Клиент<select id="loyaltyPromoClient" required></select></label><label>Запись<select id="loyaltyPromoBooking" required></select></label><label>Промокод<input id="loyaltyPromoApplyCode" maxlength="32" required></label><p class="form-error" id="loyaltyPromoApplyError" hidden></p><button class="secondary-button" type="submit" data-loyalty-write>Проверить и применить</button></form></details>
+                </section>
+                <details class="resource-audit"><summary><span><small>Защита от незаметных изменений</small><strong>Журнал бонусов</strong></span><span>Последние 100</span></summary><div class="organization-audit-list" id="loyaltyLedgerList"></div></details>
+              </div>
+            </section>
+
             <section class="panel organization-section organization-pending" id="invitationsPanel" hidden>
               <div class="panel-head"><div><small>Ожидают регистрации</small><h3>Приглашения</h3></div><span class="panel-count" id="invitationsCount">0</span></div><div class="organization-list" id="invitationsList"></div>
             </section>
@@ -696,6 +722,7 @@
   <script src="organization.js?v=160" defer></script>
   <script src="payroll-management.js?v=160" defer></script>
   <script src="benefit-management.js?v=160" defer></script>
+  <script src="loyalty-management.js?v=160" defer></script>
   <script src="booking-policy-management.js?v=160" defer></script>
   <script src="team-calendar.js?v=160" defer></script>
   <script src="free-slots-share.js?v=160" defer></script>
