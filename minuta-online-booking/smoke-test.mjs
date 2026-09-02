@@ -71,6 +71,11 @@ assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить ко�
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
 assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 30000/, 'Резервная синхронизация между устройствами выполняется слишком редко');
+assert.match(provider, /PROVIDER_CACHE_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Офлайн-копия записей хранится недостаточно долго');
+assert.doesNotMatch(provider, /removeMatching\?\.\('provider:', ':bookings'\)/, 'Офлайн-копия записей периодически удаляется');
+assert.match(provider, /hydrateCachedBookings\(userId\)[\s\S]*if \(!navigator\.onLine\) return cached/, 'Записи не показываются из кэша до сетевого запроса');
+assert.match(provider, /bookingReady = results\.slice\(0, 4\)\.every[\s\S]*setBookingCreationReady\(bookingReady\)/, 'Создание записи зависит от необязательных разделов кабинета');
+assert.match(provider, /Связь прервалась\. Данные остались в форме/, 'Черновик записи теряется при обрыве связи');
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
@@ -119,7 +124,7 @@ assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запис�
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
 assert.match(providerHtml, new RegExp(`rel="manifest" href="provider\\.webmanifest\\?v=${version}"`), 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(provider, /data-create-empty-booking/, 'В пустом расписании нет кнопки создания записи');
-assert.match(provider, /if \(createEmptyBooking && requireWrites\(\)\) openNewBookingSheet\(\)/, 'Кнопка пустого расписания не открывает форму новой записи');
+assert.match(provider, /if \(createEmptyBooking && requireBookingWrites\(\)\) openNewBookingSheet\(\)/, 'Кнопка пустого расписания не открывает форму новой записи');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');

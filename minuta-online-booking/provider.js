@@ -112,7 +112,9 @@ let bookingsRequestRevision = 0;
 let synchronizationPromise = null;
 let synchronizationGeneration = -1;
 let synchronizationQueued = false;
+let synchronizationRetryTimer = null;
 let writesAllowed = false;
+let bookingCreationReady = false;
 let teamCalendarController = null;
 let batchBookingsController = null;
 let timelineBookingDrag = null;
@@ -124,12 +126,10 @@ const TIMELINE_TOUCH_HOLD_MS = 380;
 const TIMELINE_DRAG_THRESHOLD_PX = 5;
 const SCHEDULE_SWIPE_THRESHOLD_PX = 58;
 const reliability = window.MinutaReliability;
-const PROVIDER_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+const PROVIDER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const providerCacheMaintenance = (async () => {
   await reliability?.removeExpired?.('provider:', PROVIDER_CACHE_MAX_AGE);
-  try { await reliability?.removeMatching?.('provider:', ':bookings'); } catch {}
 })().catch(() => {});
-setInterval(() => { reliability?.removeMatching?.('provider:', ':bookings')?.catch(() => {}); }, 60000);
 const weekdayNames = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 const notificationAddress = 'Ижевск, ул. Карла Маркса, 304Б';
 const PORTFOLIO_BUCKET = 'portfolio-images';
@@ -176,6 +176,14 @@ async function readProviderCache(name, userId = currentUser?.id) {
     return cached;
   } catch { return null; }
 }
+async function hydrateCachedBookings(userId = currentUser?.id) {
+  const cached = await readProviderCache('bookings', userId);
+  if (!cached?.data || currentUser?.id !== userId) return null;
+  allBookings = cached.data;
+  renderBookingData();
+  return cached;
+}
+const bookingCreationWriteSelector = '#newBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking]';
 const writeSelectors = [
   '#newBookingButton', '[data-create-empty-booking]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
@@ -196,10 +204,11 @@ function applyWriteAvailability() {
       delete control.dataset.reliabilityDisabled;
       return;
     }
-    if (!writesAllowed && !control.disabled) {
+    const controlAllowed = writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector));
+    if (!controlAllowed && !control.disabled) {
       control.disabled = true;
       control.dataset.reliabilityDisabled = 'true';
-    } else if (writesAllowed && control.dataset.reliabilityDisabled === 'true') {
+    } else if (controlAllowed && control.dataset.reliabilityDisabled === 'true') {
       control.disabled = false;
       delete control.dataset.reliabilityDisabled;
     }
@@ -209,9 +218,22 @@ function setWritesAllowed(value) {
   writesAllowed = Boolean(value);
   applyWriteAvailability();
 }
+function setBookingCreationReady(value) {
+  bookingCreationReady = Boolean(value);
+  applyWriteAvailability();
+}
 function requireWrites() {
   if (writesAllowed && navigator.onLine && currentUser) return true;
   notify('Изменения временно заблокированы до полной синхронизации');
+  return false;
+}
+function requireBookingWrites() {
+  if ((writesAllowed || bookingCreationReady) && navigator.onLine && currentUser) return true;
+  if (!navigator.onLine) notify('Нет интернета · записи доступны только для просмотра');
+  else {
+    notify('Проверяем записи и расписание · повторите через несколько секунд');
+    synchronizeProvider();
+  }
   return false;
 }
 async function notifyTelegramClient(bookingId, event) {
@@ -2066,7 +2088,7 @@ function beginScheduleDaySwipe(event, surface) {
 }
 
 function openTimelineBooking(stage, event) {
-  if (!requireWrites()) return;
+  if (!requireBookingWrites()) return;
   if (selectedDate < businessTodayIso()) {
     notify('Нельзя создать запись в прошлом');
     return;
@@ -2838,7 +2860,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
 }
 
 function openRepeatBookingFromSheet(id) {
-  if (!requireWrites()) return;
+  if (!requireBookingWrites()) return;
   const item = allBookings.find(booking => booking.id === id);
   if (!item || isScheduleBlock(item)) return;
   if (!ownServices.some(service => service.id === item.service_id && service.active)) {
@@ -2854,7 +2876,7 @@ function openRepeatBookingFromSheet(id) {
 
 async function createNewBooking(event) {
   event.preventDefault();
-  if (!requireWrites()) return;
+  if (!requireBookingWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
   const block = newBookingMode === 'block';
@@ -2900,7 +2922,10 @@ async function createNewBooking(event) {
       button.disabled = false;
       button.textContent = `Создать серию из ${occurrenceCount}`;
       const reason = String(error.message || '');
-      const message = reason.includes('series_slot_unavailable') || reason.includes('slot_unavailable')
+      const connectionError = !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch/i.test(reason);
+      const message = connectionError
+        ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать» ещё раз.'
+        : reason.includes('series_slot_unavailable') || reason.includes('slot_unavailable')
         ? 'Одно из времён серии занято. Измените дату, время или интервал.'
         : reason.includes('invalid_recurring_booking')
           ? 'Проверьте количество и интервал: последний визит должен быть не дальше двух лет.'
@@ -2938,14 +2963,17 @@ async function createNewBooking(event) {
     button.disabled = false;
     button.textContent = block ? 'Занять время' : 'Создать запись';
     const reason = String(error.message || '');
-    const message = reason.includes('slot_unavailable')
+    const connectionError = !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch/i.test(reason);
+    const message = connectionError
+      ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать запись» ещё раз.'
+      : reason.includes('slot_unavailable')
       ? 'Это время уже занято. Выберите другое.'
       : reason.includes('service_unavailable')
         ? 'Услуга недоступна для записи. Обновите список услуг.'
         : reason.includes('invalid_client_data')
         ? (block ? 'Не удалось занять время.' : 'Проверьте имя и номер телефона клиента.')
           : 'Не удалось создать запись. Обновите страницу и попробуйте ещё раз.';
-    await loadNewBookingSlots();
+    if (!connectionError) await loadNewBookingSlots();
     showFormError('#newBookingError', message);
     return;
   }
@@ -3712,7 +3740,7 @@ async function saveClientNote() {
 
 async function createRepeatBooking(event) {
   event.preventDefault();
-  if (!requireWrites()) return;
+  if (!requireBookingWrites()) return;
   clearFormError('#repeatBookingError');
   const client = buildClients().find(item => item.phone === selectedClientPhone);
   if (!client || !repeatTime) { showFormError('#repeatBookingError', 'Выберите свободное время.'); return; }
@@ -3794,16 +3822,25 @@ function synchronizeProvider() {
     freeSlotsController.refresh();
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
+    const bookingReady = results.slice(0, 4).every(result => result?.ok);
     const skipped = requiredResults.some(result => result?.skipped);
     const degraded = results.some(result => result?.optional && !result?.ok);
+    setBookingCreationReady(bookingReady);
     setWritesAllowed(complete);
     if (complete) {
+      clearTimeout(synchronizationRetryTimer);
+      synchronizationRetryTimer = null;
       await applyAutomaticVisitOutcomes();
       setSyncState(skipped || degraded ? 'warning' : 'online', skipped ? 'Есть несохранённое расписание · серверная сверка приостановлена' : degraded ? 'Основные данные синхронизированы · дополнительные данные сохранены на этом устройстве' : `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
       if (!bookingsChannel) startLiveUpdates();
+    } else if (bookingReady) {
+      setSyncState('warning', 'Записи и расписание синхронизированы · дополнительные разделы обновятся автоматически');
+      if (!bookingsChannel) startLiveUpdates();
+      scheduleSynchronizationRetry();
     } else {
       const cached = results.filter(result => result?.cached).map(result => result.savedAt).filter(Boolean).sort()[0];
       setSyncState(navigator.onLine ? 'warning' : 'offline', cached ? `${navigator.onLine ? 'Не все данные обновлены' : 'Офлайн'} · копия на ${reliability?.savedAtLabel(cached) || 'последнюю синхронизацию'} · только чтение` : 'Данные не синхронизированы · только чтение');
+      scheduleSynchronizationRetry();
     }
     return complete;
   })();
@@ -3820,6 +3857,14 @@ function synchronizeProvider() {
     }
   });
   return run;
+}
+
+function scheduleSynchronizationRetry() {
+  if (synchronizationRetryTimer || !currentUser || !navigator.onLine) return;
+  synchronizationRetryTimer = setTimeout(() => {
+    synchronizationRetryTimer = null;
+    if (currentUser && navigator.onLine) synchronizeProvider();
+  }, 8000);
 }
 
 async function refreshAfterWrite() {
@@ -3851,6 +3896,8 @@ async function logout() {
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
+  clearTimeout(synchronizationRetryTimer);
+  synchronizationRetryTimer = null;
   stopLiveUpdates();
   setWritesAllowed(false);
   await clearProviderDeviceData(userId);
@@ -3863,6 +3910,8 @@ async function handleSession(session) {
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
+  clearTimeout(synchronizationRetryTimer);
+  synchronizationRetryTimer = null;
   stopLiveUpdates();
   $$('[data-operation-disabled]').forEach(control => {
     control.disabled = false;
@@ -3870,6 +3919,7 @@ async function handleSession(session) {
     if (control.id === 'saveSchedule') control.textContent = 'Сохранить';
   });
   setWritesAllowed(false);
+  setBookingCreationReady(false);
   teamCalendarController.reset();
   groupBookingsController.reset();
   organizationController.reset();
@@ -3932,7 +3982,12 @@ async function handleSession(session) {
     return;
   }
   const userId = currentUser.id;
-  const { data: profile } = await db.from('performer_profiles').select('display_name').eq('id', currentUser.id).single();
+  const cachedBookings = await hydrateCachedBookings(userId);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (cachedBookings) setSyncState(navigator.onLine ? 'checking' : 'offline', navigator.onLine ? `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем` : `${cachedStateText(cachedBookings.savedAt)} · только чтение`);
+  else if (!navigator.onLine) setSyncState('offline', 'Нет интернета и сохранённой копии · только чтение');
+  let profile = null;
+  if (navigator.onLine) ({ data: profile } = await db.from('performer_profiles').select('display_name').eq('id', currentUser.id).single());
   if (!sessionIsCurrent(userId, generation)) return;
   const name = profile?.display_name || 'исполнитель';
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
@@ -4630,7 +4685,10 @@ async function loadBookings(options = {}) {
   const generation = sessionGeneration;
   const revision = ++bookingsRequestRevision;
   if (!userId) return { ok: false };
-  if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
+  const cached = await hydrateCachedBookings(userId);
+  if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
+  if (!options.silent && !cached) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
+  if (!navigator.onLine) return cached ? { ok: false, cached: true, savedAt: cached.savedAt } : { ok: false };
   let { data, error } = await db.from('bookings')
     .select('id,booking_code,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)')
     .eq('performer_id', userId)
@@ -4648,11 +4706,7 @@ async function loadBookings(options = {}) {
     .order('booking_time', { ascending:true }));
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (error) {
-    const cached = await readProviderCache('bookings', userId);
-    if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
     if (cached?.data) {
-      allBookings = cached.data;
-      renderBookingData();
       return { ok: false, cached: true, savedAt: cached.savedAt };
     }
     holder.innerHTML = '<div class="provider-empty"><strong>Не удалось загрузить записи</strong><small>Соединение с сервером не установлено. Попробуйте ещё раз.</small></div>';
@@ -4925,7 +4979,7 @@ document.addEventListener('click', async event => {
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
-  if (createEmptyBooking && requireWrites()) openNewBookingSheet();
+  if (createEmptyBooking && requireBookingWrites()) openNewBookingSheet();
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
   if (cancelBookingSeriesButton) openBookingSeriesCancellation(cancelBookingSeriesButton.dataset.cancelBookingSeries);
@@ -5116,7 +5170,7 @@ document.addEventListener('visibilitychange', () => {
     synchronizeProvider();
   }
 });
-window.addEventListener('offline', () => { setWritesAllowed(false); setSyncState('offline', 'Офлайн · показана сохранённая копия · только чтение'); });
+window.addEventListener('offline', () => { clearTimeout(synchronizationRetryTimer); synchronizationRetryTimer = null; setBookingCreationReady(false); setWritesAllowed(false); setSyncState('offline', allBookings.length ? 'Офлайн · показана сохранённая копия · только чтение' : 'Нет интернета и сохранённой копии · только чтение'); });
 window.addEventListener('online', () => {
   queueDisplayPreferencesSync(0);
   synchronizeProvider();
