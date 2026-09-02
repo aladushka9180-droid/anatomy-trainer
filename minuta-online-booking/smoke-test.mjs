@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '141';
+const version = '142';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,10 +69,10 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=141/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=141/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=141/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=141/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=142/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=142/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=142/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=142/, 'Кабинет не подключает контроллер зарплат');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
 }
@@ -97,7 +97,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=141"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=142"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -203,13 +203,13 @@ assert.match(provider, /booking-note-disclosure/, 'Пустая заметка �
 assert.match(provider, /booking-outcome-disclosure/, 'Раздел после визита нельзя свернуть');
 assert.match(provider, /booking-cancel-action/, 'Отмена записи визуально конкурирует с основными действиями');
 assert.match(provider, /timelineTimeFromClick/, 'Время клика по расписанию не вычисляется');
-assert.match(provider, /Math\.floor\(rawMinute \/ 60\) \* 60/, 'Клик по расписанию не округляется вниз до начала часа');
+assert.match(provider, /Math\.round\(rawMinute \/ step\) \* step/, 'Клик по расписанию не округляется до выбранного шага записи');
 const timelineFunctionSource = provider.match(/function timelineTimeFromClick\(stage, event\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(timelineFunctionSource, 'Не удалось извлечь расчёт времени клика для проверки');
-const timelineTimeFromClick = Function(`${timelineFunctionSource}; return timelineTimeFromClick;`)();
+const timelineTimeFromClick = Function(`const selectedDate = '2026-09-02'; function scheduleStepForDate(){ return 5; } ${timelineFunctionSource}; return timelineTimeFromClick;`)();
 const timelineStage = { dataset: { timelineStart: '600', timelineEnd: '1200' }, getBoundingClientRect: () => ({ top: 0, height: 600 }) };
-assert.equal(timelineTimeFromClick(timelineStage, { clientY: 205 }), '13:00', 'Клик в 13:25 должен сначала выбирать 13:00');
-assert.equal(timelineTimeFromClick(timelineStage, { clientY: 239 }), '13:00', 'Клик в конце часа должен выбирать его начало');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 205 }), '13:25', 'Клик в 13:25 должен выбирать ближайший шаг 13:25');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 239 }), '14:00', 'Клик в конце часа должен выбирать ближайший шаг');
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 240 }), '14:00', 'Клик ровно в начале часа не должен сдвигаться');
 assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безопасного маркера занятого времени');
 assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
@@ -264,6 +264,11 @@ assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-booking-sta
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-booking-copy strong,\.provider-booking h3,\.provider-booking-open h3\) \{[^}]*color:#fff8eb/, 'Заголовок записи Luxury не использует молочно-белый цвет');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\s*\.view-description,[\s\S]*?\) \{ color:#c7baa4; \}/, 'Описания разделов Luxury остаются бледными');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\s*\.client-list-item\.client-favorite[\s\S]*?\.client-list-item\.client-vip[\s\S]*?\.client-list-item\.client-attention[\s\S]*?background:linear-gradient\(110deg,rgba\(24,24,24,\.96\)/, 'Особые клиенты Luxury снова получают белую карточку');
+assert.match(styles, /Mobile Luxury \+ Строгая геометрия:[\s\S]*?\.provider-mobile-nav \{[\s\S]*?padding:6px 6px max\(6px,env\(safe-area-inset-bottom\)\)/, 'Мобильная навигация Luxury не учитывает безопасную область');
+assert.match(styles, /Mobile Luxury \+ Строгая геометрия:[\s\S]*?\.timeline-booking\.compact[\s\S]*?\.timeline-booking-client-row[\s\S]*?display:none!important/, 'Короткие записи снова допускают наложение подробного текста');
+assert.match(styles, /Mobile Luxury \+ Строгая геометрия:[\s\S]*?\.status-cancelled \.booking-status \{[^}]*background:#1b1c1e/, 'Отменённая запись Luxury снова выделяется белым');
+assert.match(providerHtml, /id="clientsLayout"[\s\S]*id="clientProfileBack"/, 'На мобильном нельзя вернуться из карточки клиента к списку');
+assert.match(providerHtml, /class="slot-step-options"[\s\S]*data-slot-interval="60"/, 'Мобильный выбор шага записи не заменяет системное меню');
 assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
 const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
@@ -335,7 +340,8 @@ assert.match(styles, /timeline-booking-status\.timeline-booking-status-icon \{ d
 assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px; margin:0;/, 'Поле календаря не выровнено с подписью и иконкой');
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
-assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 60 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
+assert.match(provider, /const mobileTimeline = window\.matchMedia\('\(max-width: 760px\)'\)\.matches;[\s\S]*?hourHeight = mobileTimeline \? 72 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
+assert.match(provider, /mobileTimeline && duration < 30 \? 24/, 'Короткие записи снова получают высоту, вызывающую наложение текста');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; align-items:baseline;/, 'Интервал записи не выровнен по центру карточки');
 assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');
 assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текст записи не выровнен по центру карточки');

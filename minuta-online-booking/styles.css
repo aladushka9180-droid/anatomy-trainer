@@ -2545,3 +2545,211 @@ html.requires-top-level.top-level body { visibility:visible; }
 @media (max-width:760px) {
   .timeline-drag-label { left:8px; min-width:78px; padding:4px 7px; font-size:9px; }
 }
+
+/* Mobile Luxury + Строгая геометрия: единый финальный слой. */
+.slot-step-options,.client-profile-back { display:none; }
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] {
+    --mobile-luxury-bg:#050607;
+    --mobile-luxury-panel:#090a0b;
+    --mobile-luxury-panel-alt:#0d0e10;
+    --mobile-luxury-line:#745a2b;
+    --mobile-luxury-gold:#d9aa51;
+    --mobile-luxury-gold-light:#f1ca74;
+    --mobile-luxury-ink:#fff8eb;
+    --mobile-luxury-muted:#c7baa4;
+    font-family:"Segoe UI",Arial,sans-serif;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(h1,h2,h3,.provider-booking h3,.client-list-main strong,.client-profile-head h3) {
+    font-family:Georgia,"Times New Roman",serif;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-app {
+    padding-bottom:calc(88px + env(safe-area-inset-bottom));
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-workspace {
+    padding:0 12px calc(98px + env(safe-area-inset-bottom));
+    scroll-padding-bottom:calc(98px + env(safe-area-inset-bottom));
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-topbar {
+    min-height:0;
+    padding:12px 2px 11px;
+    border:0;
+    border-bottom:1px solid var(--mobile-luxury-line);
+    background:var(--mobile-luxury-bg);
+    background-image:none;
+    box-shadow:none;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-topbar h1 { font-size:22px; line-height:1.12; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-topbar small { color:var(--mobile-luxury-muted); font:600 11px/1.35 "Segoe UI",Arial,sans-serif; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.topbar-client-link,.sync-state) {
+    border-radius:0!important;
+    background:var(--mobile-luxury-panel);
+    color:var(--mobile-luxury-ink);
+    font-family:"Segoe UI",Arial,sans-serif;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .topbar-client-link { width:44px; min-width:44px; height:44px; padding:0; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-view { padding-top:18px; padding-bottom:8px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .view-title { align-items:flex-start; gap:10px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .view-title h2 { font-size:30px; line-height:1.02; overflow-wrap:normal; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .view-title>div:first-child>span:not(.panel-count) { color:var(--mobile-luxury-gold); font:800 10px/1.2 "Segoe UI",Arial,sans-serif; letter-spacing:.16em; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .view-description { margin-top:7px; color:var(--mobile-luxury-muted); font-size:12px; line-height:1.5; }
+
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(
+    .panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.appearance-settings-card,
+    .booking-rules-card,.weekly-schedule-panel,.days-off-panel,.provider-layout-option,.provider-theme-option,
+    .provider-display-form .settings-check,.booking-policy-form .settings-check,.booking-step-setting,.schedule-day,
+    .new-booking-mode-toggle,.new-booking-mode-toggle button,.new-booking-section,.new-booking-block-fields,
+    .booking-time-picker,.booking-time-hours button,.booking-time-slots button,.booking-sheet-panel,
+    .booking-sheet-block,.booking-sheet-note-editor,.booking-sheet-disclosure,.booking-prepayment-form,
+    .booking-session-summary,.client-list-item,.client-search input,.client-profile-back,.provider-mobile-nav,
+    .provider-mobile-nav button,.booking-status,.booking-client-visit,.timeline-client-visit,
+    .booking-outcome-summary,.booking-prepayment-badge,.provider-booking-chevron,.timeline-empty-state span
+  ) { border-radius:0!important; box-shadow:none!important; }
+
+  /* Нижняя навигация: цельная панель, не перекрывающая контент. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-mobile-nav {
+    left:0;
+    right:0;
+    bottom:0;
+    min-height:68px;
+    padding:6px 6px max(6px,env(safe-area-inset-bottom));
+    border:0;
+    border-top:1px solid var(--mobile-luxury-line);
+    background:#070809;
+    backdrop-filter:none;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-mobile-nav button {
+    min-height:48px;
+    padding:5px 2px;
+    color:#827d73;
+    font-family:"Segoe UI",Arial,sans-serif;
+    font-size:9px;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-mobile-nav button.active {
+    background:#2b2112;
+    color:var(--mobile-luxury-gold-light);
+    box-shadow:inset 0 2px 0 var(--mobile-luxury-gold)!important;
+  }
+  .provider-body.booking-sheet-open[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-mobile-nav { visibility:hidden; pointer-events:none; }
+
+  /* Настройки внешнего вида: компактные строки вместо высоких плиток. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .settings-layout { gap:12px; margin-top:15px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .settings-card { grid-template-columns:36px minmax(0,1fr); gap:12px; padding:14px 12px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .settings-icon { width:36px; height:36px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .settings-heading h3 { font-size:20px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .settings-heading p { margin-top:5px; color:var(--mobile-luxury-muted); font-size:11px; line-height:1.45; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-options,.provider-theme-options) { grid-template-columns:1fr; gap:7px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option) {
+    display:grid;
+    grid-template-columns:68px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    align-items:center;
+    min-height:68px;
+    gap:0 11px;
+    padding:8px;
+    background:var(--mobile-luxury-panel-alt);
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option):last-child { grid-column:auto; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option) .layout-preview,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option) .theme-swatch { grid-row:1/3; width:68px; height:48px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option) strong { align-self:end; margin:0; color:var(--mobile-luxury-ink); font-size:11px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option) small { align-self:start; margin-top:3px; color:var(--mobile-luxury-muted); font-size:9px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option):has(input:checked) { border-color:var(--mobile-luxury-gold); box-shadow:inset 3px 0 0 var(--mobile-luxury-gold)!important; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-layout-option,.provider-theme-option):has(input:checked)::after { border-radius:0; background:var(--mobile-luxury-gold); color:#160f06; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-card-options { grid-template-columns:1fr; gap:7px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-display-form .settings-check,.booking-policy-form .settings-check) { padding:10px; background:var(--mobile-luxury-panel-alt); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-display-form,.booking-policy-form) input[type="checkbox"] { accent-color:var(--mobile-luxury-gold); }
+
+  /* Правила записи и рабочая неделя. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-policy-form { gap:9px; margin-top:14px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .policy-grid { gap:8px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .field-with-unit { min-height:46px; background:var(--mobile-luxury-panel-alt); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-policy-form .primary,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] #saveSchedule { position:sticky; z-index:8; bottom:calc(76px + env(safe-area-inset-bottom)); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-settings-layout { gap:12px; margin-top:15px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-step-setting { display:block; margin-top:14px; padding:12px; background:var(--mobile-luxury-panel-alt); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .slot-step-label { display:none; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .slot-step-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:11px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .slot-step-options button { min-height:40px; border:1px solid var(--mobile-luxury-line); background:var(--mobile-luxury-bg); color:var(--mobile-luxury-muted); font:750 12px/1 "Segoe UI",Arial,sans-serif; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .slot-step-options button[aria-selected="true"] { border-color:var(--mobile-luxury-gold-light); background:linear-gradient(135deg,#b88029,#edc569 52%,#b37b25); color:#130c03; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .weekly-schedule { gap:6px; margin-top:12px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-day { grid-template-columns:minmax(104px,1fr) auto; gap:8px; min-height:0; padding:10px; background:var(--mobile-luxury-panel-alt); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-day .day-hours { justify-content:flex-end; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-day .break-toggle,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-day .break-hours,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-day .day-off-label { grid-column:1/-1; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .day-toggle input:checked+span { background:var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.break-toggle input,.all-day-control input) { accent-color:var(--mobile-luxury-gold); }
+
+  /* Клиенты: на телефоне список и карточка открываются отдельно. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .clients-layout:not(.is-detail) .client-profile,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .clients-layout.is-detail .clients-directory { display:none; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .clients-layout.is-detail .client-profile { display:block; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-profile-back { display:flex; align-items:center; gap:8px; width:100%; min-height:42px; margin:0 0 12px; padding:0 10px; border:1px solid var(--mobile-luxury-line); background:var(--mobile-luxury-panel); color:var(--mobile-luxury-gold-light); font:750 12px/1 "Segoe UI",Arial,sans-serif; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-profile-back .ui-icon { width:16px; height:16px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .clients-directory { padding:0; border:0; background:transparent; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-search input { min-height:44px; padding-left:13px; background:var(--mobile-luxury-panel); color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-search input::placeholder { color:#8f887d; opacity:1; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-search>.ui-icon { color:var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .clients-list { gap:0; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-item,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-item:is(.client-favorite,.client-vip,.client-attention) { min-height:82px; margin:0; padding:11px 10px; border:0; border-bottom:1px solid #3d301b; background:rgba(8,9,10,.96); color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-item.active { background:#12100c; box-shadow:inset 3px 0 0 var(--mobile-luxury-gold)!important; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-main strong { color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-main small { color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-main i { color:var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-list-item>b { background:linear-gradient(135deg,#b88029,#e9c264); color:#130c03; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.client-list-avatar,.client-avatar,.provider-user-avatar,.brand-mark) { border-color:var(--mobile-luxury-gold-light); background:linear-gradient(135deg,#b88029,#efca71 55%,#b07821)!important; color:#fff8eb!important; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .client-profile { padding:12px; background:var(--mobile-luxury-panel); }
+
+  /* Расписание: читаемые карточки, статусы и короткие визиты без наложений. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.timeline-view,.timeline-stage,.schedule-list) { background-color:var(--mobile-luxury-bg)!important; background-image:none!important; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-grid-line { background:#46371e; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-create-hint { border-color:#5b4523; background:#241b0e; color:var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-empty-state { inset:76px 12px auto; place-content:start center; color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-empty-state span { background:#2b2112; color:var(--mobile-luxury-gold); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-empty-state strong { color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-empty-state small { color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.compact:not(.minute-only) .timeline-booking-copy,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.minute-only .timeline-booking-copy { top:50%; right:0; left:0; display:block!important; padding:0 8px!important; overflow:hidden; transform:translateY(-50%); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.compact :is(.timeline-booking-client-row,.timeline-booking-note,.client-badges,.timeline-booking-status),
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.minute-only :is(.timeline-booking-time,.timeline-booking-client-row,.timeline-booking-status) { display:none!important; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.compact .timeline-booking-copy>strong,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.minute-only .timeline-booking-copy>strong { overflow:hidden; line-height:1.1; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list .provider-booking { margin:0; border:0!important; border-bottom:1px solid var(--mobile-luxury-line)!important; background:linear-gradient(90deg,#12100c 0 72px,#090a0b 72px)!important; color:var(--mobile-luxury-ink)!important; opacity:1; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-booking-open { grid-template-columns:64px minmax(0,1fr) 26px; gap:8px; min-height:130px; padding:10px 6px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-booking-top { display:grid; align-content:start; justify-items:start; gap:5px; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-booking-top h3 { display:-webkit-box; margin:0; overflow:hidden; overflow-wrap:normal; word-break:normal; font-size:18px; line-height:1.12; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-booking-top .booking-status { justify-self:start; max-width:100%; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-client-visit,.booking-outcome-summary,.booking-prepayment-badge) { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-booking.status-cancelled { opacity:.82; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .status-cancelled .booking-status { border:1px solid #5f5a51; background:#1b1c1e; color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.status-visited .booking-status,.status-completed .booking-status,.timeline-booking-status-icon) { border-color:var(--mobile-luxury-gold); background:linear-gradient(135deg,#a8701f,#e8bd5e); color:#160f06!important; }
+
+  /* Карточка и форма новой записи: никаких белых/зелёных поверхностей. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet { align-items:stretch; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-backdrop { background:rgba(0,0,0,.82); backdrop-filter:blur(5px); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-panel,
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-wide .booking-sheet-panel { width:100%; height:100dvh; max-height:100dvh; margin:0; padding:24px 14px calc(24px + env(safe-area-inset-bottom)); border:0; border-left:1px solid var(--mobile-luxury-line); border-right:1px solid var(--mobile-luxury-line); background:#070809; color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-handle { margin:-12px auto 15px; background:#9d793b; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-close { width:42px; height:42px; border:1px solid var(--mobile-luxury-gold-light); border-radius:50%!important; background:linear-gradient(135deg,#b88029,#edc66d); color:#160f06; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-editor-form,.new-booking-form) { font-family:"Segoe UI",Arial,sans-serif; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-mode-toggle { gap:0; padding:0; border:1px solid var(--mobile-luxury-line); background:var(--mobile-luxury-panel); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-mode-toggle button { min-height:46px; background:transparent; color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-mode-toggle button.active { background:linear-gradient(135deg,#b47d28,#edc66d); color:#160f06; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-section { padding:14px 12px; border-color:var(--mobile-luxury-line); background:var(--mobile-luxury-panel); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-section-title>span { border-radius:0; background:#2b2112; color:var(--mobile-luxury-gold-light); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-section-title strong { color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-section-title small { color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.new-booking-form input,.new-booking-form select,.new-booking-form textarea,.booking-editor-form input,.booking-editor-form select,.booking-editor-form textarea) { border-color:var(--mobile-luxury-line); border-radius:0; background:#0a0b0c; color:var(--mobile-luxury-ink); caret-color:var(--mobile-luxury-gold-light); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.new-booking-form input,.new-booking-form textarea,.booking-editor-form input,.booking-editor-form textarea)::placeholder { color:#817b72; opacity:1; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-block-fields { background:var(--mobile-luxury-panel-alt); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .new-booking-block-fields p { color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-time-picker { border-color:var(--mobile-luxury-line); background:#070809; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-time-guide strong,.booking-time-guide span) { color:var(--mobile-luxury-muted); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-time-hours button,.booking-time-slots button) { border-color:var(--mobile-luxury-line); background:var(--mobile-luxury-panel-alt); color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-time-hours button.active,.booking-time-slots button.active) { border-color:var(--mobile-luxury-gold-light); background:linear-gradient(135deg,#ae7724,#edc66d); color:#160f06; }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.booking-sheet-block,.booking-sheet-note-editor,.booking-sheet-disclosure,.booking-prepayment-form,.booking-session-summary) { border-color:var(--mobile-luxury-line); background:var(--mobile-luxury-panel-alt); color:var(--mobile-luxury-ink); }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .booking-sheet-meta>span:not(.booking-status) { border-radius:0; background:#2b2112; color:var(--mobile-luxury-gold-light); }
+}

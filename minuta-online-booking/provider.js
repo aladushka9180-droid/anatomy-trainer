@@ -156,7 +156,7 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
+  '#newBookingButton', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
@@ -697,7 +697,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=141#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=142#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1103,8 +1103,18 @@ function showRecoverySent() {
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
 function setProviderView(view) {
-  $$('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
-  if (view === 'services' || view === 'organization' || view === 'portfolio' || view === 'settings' || view === 'analytics' || view === 'waitlist') $('.provider-mobile-nav [data-provider-view="more"]')?.classList.add('active');
+  $$('[data-provider-view]').forEach(button => {
+    const active = button.dataset.providerView === view;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  if (view === 'services' || view === 'organization' || view === 'portfolio' || view === 'settings' || view === 'analytics' || view === 'waitlist') {
+    const moreButton = $('.provider-mobile-nav [data-provider-view="more"]');
+    moreButton?.classList.add('active');
+    moreButton?.setAttribute('aria-current', 'page');
+  }
+  if (view === 'clients') $('#clientsLayout')?.classList.remove('is-detail');
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
@@ -1295,6 +1305,12 @@ function scheduleStepForDate(dateIso) {
   return Number.isInteger(step) && step >= 5 && step <= 60 ? step : 5;
 }
 
+function syncSlotIntervalOptions(value = $('#slotInterval')?.value) {
+  $$('.slot-step-options [data-slot-interval]').forEach(button => {
+    button.setAttribute('aria-selected', String(button.dataset.slotInterval === String(value || '5')));
+  });
+}
+
 function timelineTimeFromClick(stage, event) {
   const start = Number(stage.dataset.timelineStart);
   const end = Number(stage.dataset.timelineEnd);
@@ -1302,9 +1318,9 @@ function timelineTimeFromClick(stage, event) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || rect.height <= 0) return '';
   const position = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
   const rawMinute = start + ((position / rect.height) * (end - start));
-  const hourStart = Math.floor(rawMinute / 60) * 60;
-  const latestHour = Math.floor((end - 1) / 60) * 60;
-  const snapped = Math.max(start, Math.min(latestHour, hourStart));
+  const step = scheduleStepForDate(selectedDate);
+  const snappedMinute = Math.round(rawMinute / step) * step;
+  const snapped = Math.max(start, Math.min(end - step, snappedMinute));
   return `${String(Math.floor(snapped / 60)).padStart(2, '0')}:${String(snapped % 60).padStart(2, '0')}`;
 }
 
@@ -1534,7 +1550,8 @@ function bookingDisplayNote(item) {
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
-  const hourHeight = window.matchMedia('(max-width: 760px)').matches ? 60 : 76;
+  const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
+  const hourHeight = mobileTimeline ? 72 : 76;
   const totalHeight = ((end - start) / 60) * hourHeight;
   const labels = [];
   const lines = [];
@@ -1553,7 +1570,8 @@ function renderTimeline(items) {
     const timeRange = `${startTime}–${endTime}`;
     const minuteOnly = duration <= 1;
     const top = ((itemStart - start) / 60) * hourHeight;
-    const height = Math.max(36, (duration / 60) * hourHeight - 4);
+    const naturalHeight = (duration / 60) * hourHeight;
+    const height = mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const compact = height < 44 ? ' compact' : '';
@@ -3294,6 +3312,7 @@ async function loadSchedule() {
     if (cached?.data?.length) {
       scheduleRows = cached.data;
       $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
+      syncSlotIntervalOptions();
       renderSchedule();
       renderBookings();
       return { ok: false, cached: true, savedAt: cached.savedAt };
@@ -3305,6 +3324,7 @@ async function loadSchedule() {
   await saveProviderCache('schedule', scheduleRows, userId);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
+  syncSlotIntervalOptions();
   renderSchedule();
   renderBookings();
   return { ok: true };
@@ -4004,6 +4024,8 @@ document.addEventListener('click', async event => {
   const waitlistStatus = event.target.closest('[data-waitlist-status]');
   const reviewVisibility = event.target.closest('[data-review-visibility]');
   const client = event.target.closest('[data-client-phone]');
+  const clientProfileBack = event.target.closest('#clientProfileBack');
+  const slotIntervalButton = event.target.closest('[data-slot-interval]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) setProviderView(view.dataset.providerView);
@@ -4090,7 +4112,19 @@ document.addEventListener('click', async event => {
   }
   if (closeSheet) closeBookingSheet();
   if (editService) openServiceEditor(editService.dataset.editService);
-  if (client) renderClientDetail(client.dataset.clientPhone);
+  if (client) {
+    $('#clientsLayout')?.classList.add('is-detail');
+    renderClientDetail(client.dataset.clientPhone);
+  }
+  if (clientProfileBack) {
+    $('#clientsLayout')?.classList.remove('is-detail');
+    $$('[data-client-phone]').find(button => button.dataset.clientPhone === selectedClientPhone)?.focus();
+  }
+  if (slotIntervalButton) {
+    const slotInterval = $('#slotInterval');
+    slotInterval.value = slotIntervalButton.dataset.slotInterval;
+    slotInterval.dispatchEvent(new Event('change', { bubbles:true }));
+  }
   if (repeat) {
     repeatTime = repeat.dataset.repeatTime;
     $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
@@ -4355,7 +4389,7 @@ $('#exportBookings').addEventListener('click', exportBookingsCsv);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
-$('#slotInterval').addEventListener('change', () => { scheduleDirty = true; });
+$('#slotInterval').addEventListener('change', event => { scheduleDirty = true; syncSlotIntervalOptions(event.target.value); });
 $('#dayOffDate').min = businessTodayIso();
 $('#weeklySchedule').addEventListener('change', event => {
   const card = event.target.closest('[data-schedule-day]');
@@ -4422,4 +4456,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=141'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=142'));
