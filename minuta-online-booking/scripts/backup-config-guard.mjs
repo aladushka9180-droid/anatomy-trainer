@@ -48,17 +48,20 @@ function validatesProjectRef(name) {
 }
 
 try {
-  const endpoint = new URL(required('MINUTA_BACKUP_S3_ENDPOINT'));
-  assert(endpoint.protocol === 'https:', 'MINUTA_BACKUP_S3_ENDPOINT должен использовать HTTPS');
-  assert(!endpoint.username && !endpoint.password, 'Учётные данные нельзя помещать в MINUTA_BACKUP_S3_ENDPOINT');
-  assert(!endpoint.search && !endpoint.hash, 'MINUTA_BACKUP_S3_ENDPOINT не должен содержать query или fragment');
-  assert(endpoint.pathname === '/' || endpoint.pathname === '', 'MINUTA_BACKUP_S3_ENDPOINT не должен содержать путь');
+  const artifactOnly = mode === 'backup' && String(process.env.MINUTA_BACKUP_ARTIFACT_ONLY || '').trim() === 'true';
+  if (!artifactOnly) {
+    const endpoint = new URL(required('MINUTA_BACKUP_S3_ENDPOINT'));
+    assert(endpoint.protocol === 'https:', 'MINUTA_BACKUP_S3_ENDPOINT должен использовать HTTPS');
+    assert(!endpoint.username && !endpoint.password, 'Учётные данные нельзя помещать в MINUTA_BACKUP_S3_ENDPOINT');
+    assert(!endpoint.search && !endpoint.hash, 'MINUTA_BACKUP_S3_ENDPOINT не должен содержать query или fragment');
+    assert(endpoint.pathname === '/' || endpoint.pathname === '', 'MINUTA_BACKUP_S3_ENDPOINT не должен содержать путь');
 
-  const bucket = required('MINUTA_BACKUP_S3_BUCKET');
-  assert(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket), 'MINUTA_BACKUP_S3_BUCKET имеет недопустимый формат');
-  required('MINUTA_BACKUP_S3_ACCESS_KEY_ID');
-  required('MINUTA_BACKUP_S3_SECRET_ACCESS_KEY');
-  required('MINUTA_BACKUP_S3_REGION');
+    const bucket = required('MINUTA_BACKUP_S3_BUCKET');
+    assert(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket), 'MINUTA_BACKUP_S3_BUCKET имеет недопустимый формат');
+    required('MINUTA_BACKUP_S3_ACCESS_KEY_ID');
+    required('MINUTA_BACKUP_S3_SECRET_ACCESS_KEY');
+    required('MINUTA_BACKUP_S3_REGION');
+  }
 
   const prefix = required('MINUTA_BACKUP_S3_PREFIX');
   assert(!prefix.startsWith('/') && !prefix.endsWith('/'), 'MINUTA_BACKUP_S3_PREFIX не должен начинаться или заканчиваться символом /');

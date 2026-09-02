@@ -21,6 +21,7 @@ jobs:
       AWS_EC2_METADATA_DISABLED: "true"
       MINUTA_BACKUP_S3_PREFIX: ${{ vars.MINUTA_BACKUP_S3_PREFIX || 'minuta' }}
       MINUTA_BACKUP_RETENTION_DAYS: ${{ vars.MINUTA_BACKUP_RETENTION_DAYS || '35' }}
+      MINUTA_BACKUP_ARTIFACT_ONLY: ${{ vars.MINUTA_BACKUP_ARTIFACT_ONLY || 'false' }}
       PGSSLMODE: require
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -115,6 +116,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Сохранить копию во внешнем S3-хранилище с неизменяемым сроком
+        if: env.MINUTA_BACKUP_ARTIFACT_ONLY != 'true'
         shell: bash
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.MINUTA_BACKUP_S3_ACCESS_KEY_ID }}
