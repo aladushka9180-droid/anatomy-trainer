@@ -43,7 +43,7 @@ assert.match(privacy, /без имени, телефона и идентифик
 assert.match(telegramWorker, /payload\.table === "booking_page_visits"/);
 assert.match(telegramWorker, /Новый посетитель сайта/);
 assert.match(telegramWorker, /x-booking-secret/);
-assert.match(sw, /massage-izhevsk-.*v146/s);
+assert.match(sw, /massage-izhevsk-.*v147/s);
 assert.match(sw, /addEventListener\('notificationclick'/);
 
 console.log('visitor-presence-v73 static checks passed');

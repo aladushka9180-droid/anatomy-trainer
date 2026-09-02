@@ -4594,11 +4594,19 @@ $('#clientSearch').addEventListener('input', renderClients);
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
-$('#dateStrip').addEventListener('click', event => {
-  const dateButton = event.target.closest('[data-booking-date]');
-  if (!dateButton) return;
-  event.preventDefault();
+function selectDateFromStripTarget(target) {
+  const dateButton = target.closest?.('[data-booking-date]');
+  if (!dateButton) return false;
   selectScheduleDate(dateButton.dataset.bookingDate);
+  return true;
+}
+$('#dateStrip').addEventListener('pointerup', event => {
+  if (event.pointerType !== 'mouse' || event.button !== 0) return;
+  if (selectDateFromStripTarget(event.target)) event.preventDefault();
+}, { capture:true });
+$('#dateStrip').addEventListener('click', event => {
+  if (event.pointerType === 'mouse') return;
+  if (selectDateFromStripTarget(event.target)) event.preventDefault();
 });
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
@@ -4679,4 +4687,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=146'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=147'));
