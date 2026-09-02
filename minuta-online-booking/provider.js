@@ -2755,7 +2755,9 @@ function renderTimeline(items) {
     const top = ((itemStart - start) / 60) * hourHeight;
     const naturalHeight = (duration / 60) * hourHeight;
     const minuteOnly = duration <= 1;
-    const height = minuteOnly ? 36 : mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
+    // Реальная высота одной минуты слишком мала для текста. Оставляем точные
+    // время и длительность, но даём такой записи безопасную визуальную карточку.
+    const height = minuteOnly ? (mobileTimeline ? 44 : 40) : mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
     return { item, index, duration, top, visualTop:top, height, minuteOnly };
   });
   stackMinuteTimelineItems(timelineItems);

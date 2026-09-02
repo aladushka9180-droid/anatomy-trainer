@@ -501,12 +501,14 @@ assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
 assert.match(provider, /const mobileTimeline = window\.matchMedia\('\(max-width: 760px\)'\)\.matches;[\s\S]*?hourHeight = mobileTimeline \? 72 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
 assert.match(provider, /mobileTimeline && duration < 30 \? 24/, 'Короткие записи снова получают высоту, вызывающую наложение текста');
+assert.match(provider, /minuteOnly \? \(mobileTimeline \? 44 : 40\)/, 'Одноминутная запись снова получает слишком низкую карточку');
 assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; align-items:baseline;/, 'Интервал записи не выровнен по центру карточки');
 assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');
 assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текст записи не выровнен по центру карточки');
 assert.match(styles, /provider-body \.timeline-booking\.compact \{ grid-template-columns:88px minmax\(0,1fr\); padding:4px 14px; \}/, 'У короткой записи снова слишком большие вертикальные отступы');
 assert.match(styles, /timeline-booking\.minute-only \{[^}]*grid-template-columns:94px minmax\(0,1fr\);[^}]*place-items:center stretch;/, 'Время и название одноминутной записи не выровнены');
 assert.match(styles, /timeline-booking\.minute-only \.timeline-booking-minute-copy \{[^}]*text-align:left;/, 'Название одноминутной записи не выровнено как у остальных записей');
+assert.match(styles, /Одноминутная запись всегда показывает точное время[\s\S]*?timeline-booking\.minute-only \.timeline-booking-time \{[\s\S]*?display:flex!important;[\s\S]*?timeline-booking\.minute-only \.timeline-booking-minute-copy \{[\s\S]*?position:static!important;[\s\S]*?transform:none!important;/, 'Мобильная тема снова накладывает время на название одноминутной записи');
 assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
