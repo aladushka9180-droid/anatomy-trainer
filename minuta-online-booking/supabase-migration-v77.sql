@@ -13,7 +13,9 @@ begin
   if to_regprocedure('cron.schedule(text,text,text)') is null then
     raise exception using errcode = 'P0001', message = 'v77_requires_cron_schedule';
   end if;
-  if to_regprocedure('vault.create_secret(text,text,text)') is null then
+  -- Vault versions differ in the exact declared argument types while keeping
+  -- the same callable create_secret API with optional name and description.
+  if to_regproc('vault.create_secret') is null then
     raise exception using errcode = 'P0001', message = 'v77_requires_vault_create_secret';
   end if;
 end;
