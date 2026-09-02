@@ -10,7 +10,7 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
-const JOURNAL_MODE_KEY = 'massage-journal-mode-v2';
+const JOURNAL_MODE_KEY = 'massage-journal-mode-v3';
 const PROVIDER_THEME_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ sage: 'linear', nordic: 'soft', warm: 'editorial', graphite: 'bento', lavender: 'capsule' });
 const VISIT_WINDOW_DAYS = 30;
@@ -31,7 +31,7 @@ let currentFilter = restoreScheduleFilter();
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
-let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || (window.matchMedia('(max-width: 760px)').matches ? 'list' : 'timeline');
+let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
 if (currentFilter !== 'day') journalMode = 'list';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
@@ -1851,7 +1851,7 @@ function renderBookings() {
   $('#selectedDateSummary').textContent = currentFilter === 'day'
     ? (daySummary || 'Свободный день')
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
-  if (!window.matchMedia('(max-width: 760px)').matches && currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
+  if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else renderBookingList(items);
 }
 

@@ -1558,12 +1558,11 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .schedule-toolbar>div:first-child strong { font-size:14px; }
   .provider-body .schedule-toolbar>div:first-child span { margin-top:2px; font-size:9px; }
   .provider-body .schedule-controls { display:contents; }
-  .provider-body .booking-filters { display:grid; grid-column:1/-1; grid-row:2; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; width:100%; }
+  .provider-body .booking-filters { display:grid; grid-column:1/-1; grid-row:3; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; width:100%; }
   .provider-body .booking-filters button { min-width:0; min-height:38px; padding:0 6px; border-radius:11px; font-size:10px; }
-  .provider-body .journal-mode-toggle { grid-column:2; grid-row:1; align-self:center; gap:2px; padding:2px; border-radius:10px; }
-  .provider-body .journal-mode-toggle { display:none!important; }
-  .provider-body .journal-mode-toggle button { justify-content:center; width:38px; min-height:34px; padding:0; border-radius:8px; }
-  .provider-body .journal-mode-toggle button span { display:none; }
+  .provider-body .journal-mode-toggle { display:flex!important; grid-column:1/-1; grid-row:2; align-self:center; width:100%; gap:3px; padding:3px; border-radius:12px; }
+  .provider-body .journal-mode-toggle button { flex:1; justify-content:center; width:auto; min-height:40px; padding:0 10px; border-radius:9px; }
+  .provider-body .journal-mode-toggle button span { display:inline; }
   .provider-body .journal-mode-toggle .ui-icon { width:16px; height:16px; }
 
   .provider-body .schedule-list { gap:0; padding:0 12px 12px; overflow:hidden; }
