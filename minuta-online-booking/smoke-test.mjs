@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '178';
+const version = '179';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -691,6 +691,7 @@ assert.match(clientBookingsMigration, /coalesce\(booking\.total_price_rub, servi
 const clientAccount = readFileSync(join(root, 'my-bookings.js'), 'utf8');
 assert.match(clientAccount, /login_client_access/, 'Клиентская зона не выполняет вход по телефону и коду');
 assert.match(clientAccount, /get_client_bookings/, 'Клиентская зона не загружает все записи');
+assert.match(clientAccount, /\['get_client_bookings_v3', 'get_client_bookings_v2', 'get_client_bookings'\][\s\S]*if \(!error\) break/, 'Клиентская зона не восстанавливается при ошибке новой версии списка записей');
 assert.match(clientAccount, /sessionStorage\.setItem\(SESSION_KEY/, 'Сессия клиента не сохраняется до закрытия вкладки');
 assert.match(clientAccount, /localStorage\.removeItem\(SESSION_KEY/, 'Старая постоянная сессия клиента не очищается');
 assert.doesNotMatch(clientAccount, /localStorage\.setItem\(SESSION_KEY/, 'Bearer-сессия клиента не должна постоянно храниться в localStorage');

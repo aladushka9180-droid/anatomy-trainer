@@ -45,7 +45,7 @@ assert.doesNotMatch(rollback,/\bcascade\b/i);
 assert.match(provider,/provider_set_booking_status_v2/);
 assert.match(booking,/const canPay = !cancelled[\s\S]*dueAt > Date\.now\(\)/);
 assert.match(booking,/cancelledWithoutCharge[\s\S]*Оплата отменена/);
-assert.match(clientBookings,/isMissingRpc\(error, 'get_client_bookings_v3'\)/);
+assert.match(clientBookings,/\['get_client_bookings_v3', 'get_client_bookings_v2', 'get_client_bookings'\][\s\S]*if \(!error\) break/);
 assert.match(clientBookings,/item\.status === 'cancelled'[\s\S]*return 'оплата отменена'/);
 assert.match(styles,/#organizationBookingPolicyPanel \{ grid-column:1\/-1; min-width:0; \}/);
 console.log('booking policies v76 static test: OK');

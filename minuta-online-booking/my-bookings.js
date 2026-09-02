@@ -30,7 +30,6 @@ function clearSessionToken() {
   } catch {}
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
-function isMissingRpc(error, name) { const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`; return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text); }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
 function formatPhone(value) { let digits = value.replace(/\D/g, '').slice(0, 11); if (!digits) return ''; if (digits[0] === '8') digits = `7${digits.slice(1)}`; if (digits[0] !== '7') digits = `7${digits}`.slice(0, 11); const part = digits.slice(1); return `+7${part.length ? ` (${part.slice(0, 3)}` : ''}${part.length >= 3 ? ')' : ''}${part.length > 3 ? ` ${part.slice(3, 6)}` : ''}${part.length > 6 ? `-${part.slice(6, 8)}` : ''}${part.length > 8 ? `-${part.slice(8, 10)}` : ''}`; }
 function displayPhone(value) { return formatPhone(String(value || '')); }
@@ -76,9 +75,12 @@ function renderBookings(items) {
 async function loadBookings() {
   $('#clientBookingsLoading').hidden = false;
   $('#clientBookingsError').hidden = true;
-  let { data, error } = await db.rpc('get_client_bookings_v3', { p_session_token: sessionToken });
-  if (error && isMissingRpc(error, 'get_client_bookings_v3')) ({ data, error } = await db.rpc('get_client_bookings_v2', { p_session_token: sessionToken }));
-  if (error && isMissingRpc(error, 'get_client_bookings_v2')) ({ data, error } = await db.rpc('get_client_bookings', { p_session_token: sessionToken }));
+  let data = null;
+  let error = null;
+  for (const rpcName of ['get_client_bookings_v3', 'get_client_bookings_v2', 'get_client_bookings']) {
+    ({ data, error } = await db.rpc(rpcName, { p_session_token: sessionToken }));
+    if (!error) break;
+  }
   $('#clientBookingsLoading').hidden = true;
   if (error) { showError($('#clientBookingsError'), navigator.onLine ? 'Не удалось загрузить записи. Повторите попытку.' : 'Нет соединения с интернетом.'); return false; }
   renderBookings(data || []);
@@ -187,4 +189,4 @@ $('#reviewForm').addEventListener('submit', submitReview);
 $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=178'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=179'));
