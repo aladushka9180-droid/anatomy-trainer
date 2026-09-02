@@ -18,8 +18,8 @@ async function sameSecret(actual: string, expected: string) {
   return difference === 0;
 }
 
-export default {
-  async fetch(req: Request) {
+Deno.serve(async (req: Request) => {
+    if (req.method === "OPTIONS") return new Response("ok");
     if (req.method !== "POST") return Response.json({ ok:false, error:"Method not allowed" }, { status:405 });
     const expectedSecret = Deno.env.get("BOOKING_WEBHOOK_SECRET") || "";
     if (!await sameSecret(req.headers.get("x-booking-secret") || "", expectedSecret)) return Response.json({ ok:false, error:"Unauthorized" }, { status:401 });
@@ -49,5 +49,4 @@ export default {
     const result = await response.json();
     if (!response.ok || !result.ok) return Response.json({ ok:false, error:"Telegram delivery failed" }, { status:502 });
     return Response.json({ ok:true });
-  },
-};
+});

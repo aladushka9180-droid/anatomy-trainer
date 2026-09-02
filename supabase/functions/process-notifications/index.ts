@@ -151,6 +151,7 @@ function isRetryableTelegramStatus(status?: number): boolean {
 }
 
 Deno.serve(async (request: Request) => {
+  if (request.method === "OPTIONS") return new Response("ok");
   if (request.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
   let workerSecret: string;

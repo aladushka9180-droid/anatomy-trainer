@@ -110,6 +110,38 @@ const authSettings = await authSettingsResult.response.json();
 assert.equal(authSettings?.external?.email, true, 'Вход и восстановление доступа по email выключены');
 assert.equal(authSettings?.disable_signup, false, 'Регистрация новых исполнителей выключена');
 
+async function probeEdgeFunction(name) {
+  const result = await timedFetch(new URL(`/functions/v1/${name}`, supabaseUrl), { method: 'OPTIONS' });
+  const body = await result.response.text();
+  assert.equal(result.response.status, 200, `${name}: Edge Function недоступна, HTTP ${result.response.status}: ${body.slice(0, 200)}`);
+  assert.equal(body.trim(), 'ok', `${name}: Edge Function не подтвердила готовность`);
+  return result.elapsed;
+}
+
+const edgeFunctionTimings = await Promise.all([
+  probeEdgeFunction('telegram-client-notify'),
+  probeEdgeFunction('telegram-booking-notify'),
+  probeEdgeFunction('process-notifications')
+]);
+
+async function probeConfiguredEdgeFunction(name, path, payload, expectedStatus, expectedError) {
+  const result = await timedFetch(new URL(`/functions/v1/${name}${path}`, supabaseUrl), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const body = await result.response.json().catch(() => ({}));
+  assert.equal(result.response.status, expectedStatus, `${name}: конфигурация Edge Function не подтверждена, HTTP ${result.response.status}`);
+  assert.equal(body?.error, expectedError, `${name}: неожиданный диагностический ответ`);
+  return result.elapsed;
+}
+
+const configuredEdgeFunctionTimings = await Promise.all([
+  probeConfiguredEdgeFunction('telegram-client-notify', '/event', { event: 'confirmation' }, 404, 'booking_not_found'),
+  probeConfiguredEdgeFunction('telegram-booking-notify', '', {}, 401, 'Unauthorized'),
+  probeConfiguredEdgeFunction('process-notifications', '', {}, 401, 'unauthorized')
+]);
+
 async function probeProtectedRpc(name, payload) {
   const result = await timedFetch(new URL(`/rest/v1/rpc/${name}`, supabaseUrl), {
     method: 'POST', headers: apiHeaders, body: JSON.stringify(payload)
@@ -193,7 +225,7 @@ if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   assert.match(probe?.message || '', /invalid input syntax for type uuid/i, 'Идемпотентная RPC версии 43 не подтвердила UUID-параметр');
 }
 
-console.log(`Minuta production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; auth-settings ${authSettingsResult.elapsed}мс; protected-rpc ${Math.max(...protectedRpcTimings)}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
+console.log(`Minuta production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; auth-settings ${authSettingsResult.elapsed}мс; edge-functions ${Math.max(...edgeFunctionTimings)}мс; edge-config ${Math.max(...configuredEdgeFunctionTimings)}мс; protected-rpc ${Math.max(...protectedRpcTimings)}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
 } catch (error) {
   console.error(`Minuta production health: FAIL; ${error?.message || error}`);
   process.exitCode = 1;

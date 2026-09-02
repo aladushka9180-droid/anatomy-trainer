@@ -5,11 +5,12 @@ import path from 'node:path';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const repository = path.resolve(directory, '..');
-const [migration, provider, providerHtml, worker, config, documentation] = await Promise.all([
+const [migration, provider, providerHtml, worker, bookingNotifier, config, documentation] = await Promise.all([
   readFile(path.join(directory, 'supabase-migration-v46.sql'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
   readFile(path.join(directory, 'provider.html'), 'utf8'),
   readFile(path.join(repository, 'supabase/functions/process-notifications/index.ts'), 'utf8'),
+  readFile(path.join(repository, 'supabase/functions/telegram-booking-notify/index.ts'), 'utf8'),
   readFile(path.join(repository, 'supabase/config.toml'), 'utf8'),
   readFile(path.join(repository, 'supabase/functions/process-notifications/README.md'), 'utf8')
 ]);
@@ -50,6 +51,11 @@ assert.match(worker, /claim_notification_outbox/);
 assert.match(worker, /ack_notification_outbox/);
 assert.match(worker, /fail_notification_outbox/);
 assert.match(worker, /x-worker-secret/);
+assert.match(worker, /Deno\.serve\(/, 'notification worker must use the Supabase Deno.serve entry point');
+assert.match(worker, /request\.method === "OPTIONS"/, 'notification worker must expose a non-mutating liveness probe');
+assert.match(bookingNotifier, /Deno\.serve\(/, 'booking notifier must use the Supabase Deno.serve entry point');
+assert.match(bookingNotifier, /req\.method === "OPTIONS"/, 'booking notifier must expose a non-mutating liveness probe');
+assert.doesNotMatch(bookingNotifier, /export default\s*\{/, 'booking notifier must not use a Cloudflare-style entry point');
 assert.match(worker, /replaceAll\(botToken, "\[redacted\]"\)/);
 assert.doesNotMatch(worker, /\b\d{6,}:[A-Za-z0-9_-]{20,}\b/, 'a Telegram bot token must never be committed');
 assert.match(documentation, /как минимум один раз/i);

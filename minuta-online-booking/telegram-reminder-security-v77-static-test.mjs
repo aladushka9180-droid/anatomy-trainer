@@ -14,6 +14,8 @@ assert.match(migration, /grant execute on function public\.get_telegram_reminder
 assert.match(edge, /get_telegram_reminder_secret_hash/);
 assert.match(edge, /x-reminder-secret/);
 assert.match(edge, /MAX_JSON_BYTES/);
+assert.match(edge, /Deno\.serve\(/, 'Telegram client Edge Function должна использовать поддерживаемую точку входа Deno.serve');
+assert.doesNotMatch(edge, /export default\s*\{/, 'Cloudflare-style export default не должен использоваться в Supabase Edge Function');
 assert.match(rollback, /cron\.unschedule/);
 assert.match(rollback, /drop function if exists public\.get_telegram_reminder_secret_hash\(\)/);
 

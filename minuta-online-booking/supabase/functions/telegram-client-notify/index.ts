@@ -330,8 +330,7 @@ async function remindersRequest(req: Request) {
   return json({ ok: true, delivered });
 }
 
-export default {
-  async fetch(req: Request) {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (!supabaseUrl || !serviceRoleKey || !botToken) return json({ ok: false, error: "not_configured" }, 503);
     const path = new URL(req.url).pathname.replace(/\/+$/, "");
@@ -348,5 +347,4 @@ export default {
       if ((error as Error).message === "invalid_json") return json({ ok: false, error: "invalid_json" }, 400);
       return json({ ok: false, error: "internal_error" }, 500);
     }
-  },
-};
+});

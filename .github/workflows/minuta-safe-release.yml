@@ -119,6 +119,7 @@ jobs:
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
+          deno check supabase/functions/telegram-booking-notify/index.ts
           deno check supabase/functions/payment-webhook/index.ts
           deno check minuta-online-booking/supabase/functions/telegram-client-notify/index.ts
           node minuta-online-booking/notification-outbox-static-test.mjs
