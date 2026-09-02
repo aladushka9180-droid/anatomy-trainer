@@ -281,9 +281,12 @@ begin
   select * into v_existing from public.booking_batches batch
   where batch.organization_id=p_organization and batch.request_id=p_request_id for update;
   if found then
-    if v_existing.location_id<>p_location or v_existing.service_id<>p_service
-       or v_existing.client_name<>btrim(p_client_name) or v_existing.phone_digits<>v_phone_digits
-       or v_existing.comment<>v_batch_comment or v_existing.items_payload<>v_normalized then
+    if (v_role='specialist' and v_existing.performer_id is distinct from auth.uid()) then
+      raise exception using errcode='42501',message='batch_booking_access_denied';
+    end if;
+    if v_existing.location_id is distinct from p_location or v_existing.service_id is distinct from p_service
+       or v_existing.client_name is distinct from btrim(p_client_name) or v_existing.phone_digits is distinct from v_phone_digits
+       or v_existing.comment is distinct from v_batch_comment or v_existing.items_payload is distinct from v_normalized then
       raise exception using errcode='22023',message='batch_booking_idempotency_mismatch';
     end if;
     return jsonb_build_object('batch_id',v_existing.id,'created_count',v_existing.item_count,'idempotent',true,
@@ -317,6 +320,19 @@ begin
   ) then raise exception using errcode='23P01',message='batch_booking_items_overlap'; end if;
 
   perform pg_advisory_xact_lock(hashtextextended(v_performer::text,8502));
+  -- Match book_appointment's lock order before taking any performer/date lock:
+  -- request id -> legacy performer/date -> group-event performer/date. Taking
+  -- every key in a stable order prevents deadlocks with concurrent single visits.
+  for v_item_request in
+    select (item->>'request_id')::uuid from jsonb_array_elements(v_normalized) item order by 1
+  loop
+    perform pg_advisory_xact_lock(hashtextextended('booking-request:'||v_item_request::text,0));
+  end loop;
+  for v_lock_date in
+    select distinct (item->>'date')::date from jsonb_array_elements(v_normalized) item order by 1
+  loop
+    perform pg_advisory_xact_lock(hashtextextended(v_performer::text||v_lock_date::text,0));
+  end loop;
   -- v80's legacy booking trigger can run before the tenant-scope trigger. Batch
   -- creation therefore takes the same per-day lock as group events and checks
   -- them with the already validated effective tenant scope before inserting.

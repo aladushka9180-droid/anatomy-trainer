@@ -19,10 +19,16 @@ assert.match(migration, /max_items integer not null default 12 check \(max_items
 assert.match(migration, /unique \(organization_id,request_id\)/i, 'top-level idempotency key must be tenant-scoped');
 assert.match(migration, /unique \(batch_id,request_id\)/i, 'item idempotency keys must be unique inside a batch');
 assert.match(migration, /batch_booking_idempotency_mismatch/i, 'a replay with a changed payload must fail');
+assert.match(migration, /v_existing\.location_id is distinct from p_location/i, 'replay scope comparison must be null-safe');
+assert.match(migration, /v_role='specialist'[\s\S]{0,120}v_existing\.performer_id is distinct from auth\.uid\(\)/i, 'specialists must not replay another performer batch');
 assert.match(migration, /batch_booking_items_overlap/i, 'overlaps inside one batch must fail');
 assert.match(migration, /batch_slot_unavailable/i, 'slot conflicts must have an atomic batch error');
 assert.match(migration, /public\.book_appointment\(v_item_request,p_service,v_date,v_time/i, 'protected booking core must create every visit');
 assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\(v_performer::text\|\|':'\|\|v_lock_date::text,8001\)\)/i, 'group-event day lock must be shared with v80');
+const requestLock = migration.indexOf("hashtextextended('booking-request:'||v_item_request::text,0)");
+const legacyDayLock = migration.indexOf('hashtextextended(v_performer::text||v_lock_date::text,0)');
+const groupDayLock = migration.indexOf("hashtextextended(v_performer::text||':'||v_lock_date::text,8001)");
+assert.ok(requestLock >= 0 && legacyDayLock > requestLock && groupDayLock > legacyDayLock, 'batch locks must follow single-booking lock order');
 assert.match(migration, /join public\.group_booking_events event on event\.organization_id=p_organization[\s\S]*event\.location_id=p_location[\s\S]*event\.performer_id=v_performer/i, 'group overlap must use the effective tenant scope before legacy triggers run');
 assert.match(migration, /update public\.bookings set provider_note=concat_ws/i, 'batch and per-visit comments must reach the booking card');
 assert.doesNotMatch(migration, /update public\.bookings[\s\S]{0,160}series_id\s*=/i, 'v85 must not attach or modify recurring series');
