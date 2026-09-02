@@ -3428,6 +3428,15 @@ html.requires-top-level.top-level body { visibility:visible; }
   }
 }
 
+.retention-workspace,.retention-list-section,.retention-settings-form{display:grid;gap:16px}
+.retention-settings-form{padding:18px;border:1px solid var(--line,#dce5df);border-radius:18px;background:var(--surface-alt,#f7f9f7)}
+.retention-settings-form textarea{resize:vertical}
+.retention-list-section{margin-top:8px}
+.retention-row-actions{display:flex;align-items:center;justify-content:flex-end;flex-flow:row wrap;gap:8px}
+.retention-row-actions select{min-width:138px}
+.retention-delivery-row .organization-row-main small:first-of-type{max-width:760px;white-space:normal}
+@media (max-width:760px){.retention-settings-form{padding:14px}.retention-row-actions{width:100%;justify-content:flex-start}.retention-row-actions :is(select,button,a){width:100%}}
+
 /* Mobile Sage Studio + Мягкий минимализм: отдельная полноширинная композиция. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] {

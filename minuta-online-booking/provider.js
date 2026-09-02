@@ -836,7 +836,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=166#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=167#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5007,6 +5007,15 @@ const inventoryController = window.MinutaInventory?.createController ? window.Mi
 }) : { bind() {}, setOrganization() {}, reset() {} };
 inventoryController.bind();
 
+const retentionController = window.MinutaRetention?.createController ? window.MinutaRetention.createController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability
+}) : { bind() {}, setOrganization() {}, reset() {} };
+retentionController.bind();
+
 const bookingPolicyController = window.MinutaBookingPolicies?.createController ? window.MinutaBookingPolicies.createController({
   db, $, escapeHtml, notify, requireWrites,
   getCurrentUser: () => currentUser,
@@ -5044,6 +5053,7 @@ const organizationController = window.MinutaOrganization.createController({
     benefitController.setOrganization(organization);
     loyaltyController.setOrganization(organization);
     inventoryController.setOrganization(organization);
+    retentionController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
   }
@@ -5203,4 +5213,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=166'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=167'));
