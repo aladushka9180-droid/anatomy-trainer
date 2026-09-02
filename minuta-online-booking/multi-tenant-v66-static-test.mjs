@@ -73,8 +73,8 @@ assert.match(providerHtml, /id="organizationLoading"[\s\S]*aria-live="polite"/i,
 assert.match(providerHtml, /id="organizationUnavailable"[^>]*role="status"[^>]*aria-live="polite"/i, 'organization errors must be announced');
 assert.match(providerHtml, /id="organizationPersonalInvites"[^>]*role="status"[^>]*aria-live="polite"/i, 'personal invitations must be announced');
 assert.match(providerHtml, /id="reloadOrganization"/i, 'organization error state must be retryable');
-assert.match(providerHtml, /organization\.js\?v=114/i, 'provider must load the v114 organization controller');
-assert.match(serviceWorker, /organization\.js\?v=114/i, 'service worker must cache the organization controller');
+assert.match(providerHtml, /organization\.js\?v=115/i, 'provider must load the v115 organization controller');
+assert.match(serviceWorker, /organization\.js\?v=115/i, 'service worker must cache the organization controller');
 
 assert.match(providerJs, /view === 'organization'[\s\S]*organizationController\.load\(\)/i, 'organization view must load lazily');
 assert.match(providerJs, /if \(organizationController\.availability === null\) organizationController\.load\(\);\s*else organizationController\.render\(\);/, 'first organization view must load before rendering empty state');

@@ -10,7 +10,7 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
-const JOURNAL_MODE_KEY = 'massage-journal-mode-v3';
+const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
 const PROVIDER_THEME_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ sage: 'linear', nordic: 'soft', warm: 'editorial', graphite: 'bento', lavender: 'capsule' });
 const VISIT_WINDOW_DAYS = 30;
@@ -32,7 +32,6 @@ let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
 let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
-if (currentFilter !== 'day') journalMode = 'list';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
@@ -547,7 +546,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=114#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=115#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -972,7 +971,6 @@ function setProviderView(view) {
 }
 function setFilter(filter) {
   currentFilter = filter;
-  if (filter !== 'day' && journalMode === 'timeline') journalMode = 'list';
   try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
   $$('[data-filter]').forEach(button => {
     const active = button.dataset.filter === filter;
@@ -3720,4 +3718,4 @@ db.auth.onAuthStateChange((event, session) => {
   setTimeout(() => handleSession(session), 0);
 });
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=114'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=115'));

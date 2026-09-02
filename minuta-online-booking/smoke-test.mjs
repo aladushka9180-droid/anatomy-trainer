@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '114';
+const version = '115';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -70,8 +70,10 @@ assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v3'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
+assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v4'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
 assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента времени не является режимом расписания по умолчанию');
+assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
+assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');
 assert.match(provider, /height < 58 \? ' compact'/, 'Короткие записи не получают компактную раскладку');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
@@ -169,7 +171,7 @@ for (const theme of ['linear', 'soft', 'capsule', 'editorial', 'bento']) assert.
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
-assert.match(styles, /\.provider-body \.journal-mode-toggle \{ display:flex!important;[^}]*grid-row:2/, 'Переключатель «Лента / Список» скрыт на мобильном');
+assert.match(styles, /\.provider-body \.journal-mode-toggle:not\(\[hidden\]\) \{ display:flex!important;[^}]*grid-row:2/, 'Переключатель «Лента / Список» скрыт на мобильном');
 assert.doesNotMatch(styles, /\.provider-body \.journal-mode-toggle \{ display:none!important; \}/, 'Переключатель режима расписания принудительно скрыт');
 assert.match(styles, /data-provider-theme\] \.timeline-view \.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
 assert.match(styles, /data-provider-theme="linear"\][\s\S]*?\.provider-nav button\.active/, 'Строгая геометрия не оформляет активный раздел');
@@ -214,6 +216,8 @@ assert.match(provider, /пересекаются со следующей зап�
 assert.match(provider, /function compactBookingColorPicker/, 'Большой выбор цвета не свёрнут в компактную строку');
 assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумма состава не используется в карточке и оплате');
 assert.match(providerHtml, /id="reportCompletedValue"/, 'В статистике не показана стоимость состоявшихся визитов');
+assert.match(providerHtml, /class="mobile-settings-shortcut"[\s\S]*data-provider-view="settings"[\s\S]*Стиль, карточки записей, правила, предоплата и пароль/, 'Полные настройки кабинета не вынесены в мобильные разделы');
+for (const mobileView of ['bookings', 'clients', 'notifications', 'schedule', 'services', 'organization', 'portfolio', 'analytics', 'waitlist', 'settings']) assert.match(providerHtml, new RegExp(`class="mobile-more-grid"[\\s\\S]*data-provider-view="${mobileView}"`), `В мобильном меню нет раздела ${mobileView}`);
 assert.match(provider, /const completedValue = completed\.reduce[\s\S]*bookingSessionTotal\(item\)/, 'Стоимость состоявшихся визитов считается без итогового состава сеанса');
 assert.match(provider, /timeline-client-phone/, 'Телефон клиента нельзя независимо разместить в мобильной карточке');
 assert.match(provider, /function timelineServiceNameMarkup/, 'Название услуги нельзя адаптировать для мобильной карточки');
