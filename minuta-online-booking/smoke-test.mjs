@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '127';
+const version = '128';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -66,7 +66,7 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=127/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /team-calendar\.js\?v=128/, 'Кабинет не подключает контроллер командного календаря');
 assert.match(provider, /teamCalendarController\?\.isTeamMode[\s\S]*teamCalendarController\.render\(holder\)/, 'Журнал не передаёт существующий контейнер командному календарю');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
@@ -88,7 +88,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=127"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=128"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -211,7 +211,8 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
-for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'linear', 'soft', 'capsule', 'editorial', 'bento', 'luxury', 'loft', 'eco', 'hitech']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) assert.match(styles, new RegExp(`data-provider-layout="${layout}"`), `Нет CSS структуры ${layout}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
@@ -226,7 +227,30 @@ assert.match(styles, /timeline-booking\.compact \.client-badges \{ top:50%; tran
 assert.match(styles, /data-provider-theme="graphite"\][\s\S]*?color-scheme:dark/, 'Тёмная цветная тема не включает тёмную системную палитру');
 assert.match(styles, /data-provider-theme\] :is\(\.notification-card,\.waitlist-provider-card,\.report-summary article,\.portfolio-card,\.provider-review-card/, 'Карточки отдельных разделов не продолжают выбранную тему');
 assert.match(styles, /data-provider-theme\] :is\(\.notification-summary,\.notification-filters,\.report-periods\)/, 'Сводки и фильтры разделов не продолжают выбранную тему');
-assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Промежуточный выбор оформления не переносится на цветные темы');
+assert.match(providerHtml, /name="providerLayout" value="linear"[\s\S]*name="providerLayout" value="bento"/, 'Пять структур интерфейса не вынесены в отдельный выбор');
+assert.match(providerHtml, /name="providerTheme" value="luxury"[\s\S]*name="providerTheme" value="hitech"/, 'Фактурные темы не вынесены в независимый выбор');
+assert.match(provider, /const PROVIDER_LAYOUT_KEYS = \['linear', 'soft', 'capsule', 'editorial', 'bento'\]/, 'Список структур интерфейса неполный');
+assert.doesNotMatch(provider, /const PROVIDER_THEME_KEYS = \[[^\]]*'linear'/, 'Структура снова смешана с цветовой темой');
+assert.match(provider, /document\.body\.dataset\.providerLayout = displayPreferences\.layout/, 'Выбранная структура не применяется независимо от темы');
+assert.match(styles, /data-provider-theme\]\[data-provider-layout="linear"\]/, 'Строгая геометрия не поддерживает независимую тему');
+assert.match(styles, /data-provider-theme\]\[data-provider-layout="bento"\]/, 'Bento не поддерживает независимую тему');
+assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
+const appearanceSources = [
+  provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
+  provider.match(/const PROVIDER_THEME_KEYS = [^;]+;/)?.[0],
+  provider.match(/const LEGACY_PROVIDER_THEME_MAP = [^;]+;/)?.[0],
+  provider.match(/const DEFAULT_DISPLAY_PREFERENCES = Object\.freeze\([\s\S]*?\);/)?.[0],
+  provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
+];
+assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
+const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
+for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) {
+  for (const theme of ['luxury', 'loft', 'eco', 'hitech']) {
+    assert.deepEqual(normalizeAppearance({ layout, theme }).layout, layout, `Структура ${layout} потерялась с темой ${theme}`);
+    assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
+  }
+}
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true }, 'Старый выбор Bento переносится неверно');
 assert.match(styles, /data-provider-theme\] \.settings-check strong \{ color:var\(--theme-ink\); \}/, 'Основной текст настроек окрашен акцентом и теряет контраст');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');

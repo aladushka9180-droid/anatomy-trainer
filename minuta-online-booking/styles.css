@@ -11,17 +11,17 @@
 /* Оформление кабинета и состав карточек записи. */
 .provider-body .appearance-settings-card { grid-template-columns:40px minmax(0,1fr); margin-bottom:10px; }
 .provider-display-form { display:grid; grid-column:1/-1; gap:18px; margin-top:18px; }
-.provider-theme-picker,.booking-card-settings { min-width:0; margin:0; padding:0; border:0; }
-.provider-theme-picker>legend,.booking-card-settings>legend { margin-bottom:9px; color:var(--ink); font-size:11px; font-weight:900; }
-.provider-theme-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; align-items:stretch; }
-.provider-theme-option { position:relative; display:flex; min-width:0; min-height:116px; padding:8px; border:1px solid var(--line); border-radius:13px; background:#fff; cursor:pointer; flex-direction:column; transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
-.provider-theme-option:hover { transform:translateY(-1px); }
-.provider-theme-option input { position:absolute; width:1px!important; height:1px!important; margin:0!important; opacity:0; pointer-events:none; }
-.provider-theme-option:has(input:checked) { border-color:var(--theme-preview-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-preview-accent) 17%,transparent); }
-.provider-theme-option:has(input:checked)::after { content:'✓'; position:absolute; top:12px; right:12px; display:grid; place-items:center; width:17px; height:17px; border-radius:50%; background:var(--theme-preview-accent); color:#fff; font-size:10px; font-weight:950; }
-.provider-theme-option strong,.provider-theme-option small { display:block; overflow:visible; white-space:normal; }
-.provider-theme-option strong { margin-top:7px; font-size:9px; line-height:1.25; }
-.provider-theme-option small { margin-top:3px; color:var(--muted); font-size:7px; line-height:1.3; }
+.provider-layout-picker,.provider-theme-picker,.booking-card-settings { min-width:0; margin:0; padding:0; border:0; }
+.provider-layout-picker>legend,.provider-theme-picker>legend,.booking-card-settings>legend { margin-bottom:9px; color:var(--ink); font-size:11px; font-weight:900; }
+.provider-layout-options,.provider-theme-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; align-items:stretch; }
+:is(.provider-layout-option,.provider-theme-option) { position:relative; display:flex; min-width:0; min-height:116px; padding:8px; border:1px solid var(--line); border-radius:13px; background:#fff; cursor:pointer; flex-direction:column; transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
+:is(.provider-layout-option,.provider-theme-option):hover { transform:translateY(-1px); }
+:is(.provider-layout-option,.provider-theme-option) input { position:absolute; width:1px!important; height:1px!important; margin:0!important; opacity:0; pointer-events:none; }
+:is(.provider-layout-option,.provider-theme-option):has(input:checked) { border-color:var(--theme-preview-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-preview-accent) 17%,transparent); }
+:is(.provider-layout-option,.provider-theme-option):has(input:checked)::after { content:'✓'; position:absolute; top:12px; right:12px; display:grid; place-items:center; width:17px; height:17px; border-radius:50%; background:var(--theme-preview-accent); color:#fff; font-size:10px; font-weight:950; }
+:is(.provider-layout-option,.provider-theme-option) :is(strong,small) { display:block; overflow:visible; white-space:normal; }
+:is(.provider-layout-option,.provider-theme-option) strong { margin-top:7px; font-size:9px; line-height:1.25; }
+:is(.provider-layout-option,.provider-theme-option) small { margin-top:3px; color:var(--muted); font-size:7px; line-height:1.3; }
 .theme-swatch { position:relative; display:grid; grid-template-columns:20px 1fr; height:56px; overflow:hidden; border:1px solid var(--theme-preview-line); border-radius:var(--theme-preview-radius,9px); background:var(--theme-preview-bg); }
 .theme-swatch::before { content:''; grid-row:1/4; background:var(--theme-preview-surface); border-right:1px solid var(--theme-preview-line); }
 .theme-swatch i { display:block; height:7px; margin:6px 7px 0; border-radius:var(--theme-preview-item-radius,4px); background:var(--theme-preview-surface); }
@@ -63,11 +63,6 @@
 .provider-body[data-provider-theme="warm"] { --theme-bg:#f6f1ea; --theme-surface:#fffdfa; --theme-surface-alt:#faf6f0; --theme-ink:#332923; --theme-muted:#78695f; --theme-line:#eadfd4; --theme-accent:#a9664c; --theme-accent-soft:#f2e6dd; --theme-shadow:rgba(92,65,48,.14); }
 .provider-body[data-provider-theme="graphite"] { --theme-bg:#11171b; --theme-surface:#1a2228; --theme-surface-alt:#161d22; --theme-ink:#f1f4f6; --theme-muted:#99a7b1; --theme-line:#2d3941; --theme-accent:#8b7cf6; --theme-accent-soft:#292741; --theme-shadow:rgba(0,0,0,.38); color-scheme:dark; }
 .provider-body[data-provider-theme="lavender"] { --theme-bg:#f5f3fb; --theme-surface:#fff; --theme-surface-alt:#faf9fd; --theme-ink:#2c2740; --theme-muted:#756f87; --theme-line:#e5e0ef; --theme-accent:#7660cc; --theme-accent-soft:#eeeafb; --theme-shadow:rgba(73,54,122,.14); }
-.provider-body[data-provider-theme="linear"] { --theme-bg:#f1f4f2; --theme-surface:#fff; --theme-surface-alt:#f7f9f8; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#cfd9d2; --theme-accent:#235b40; --theme-accent-soft:#e6ede8; --theme-shadow:rgba(29,70,48,.1); }
-.provider-body[data-provider-theme="soft"] { --theme-bg:#eef4f0; --theme-surface:#fff; --theme-surface-alt:#f7faf8; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#dfe8e2; --theme-accent:#39735a; --theme-accent-soft:#e7f0eb; --theme-shadow:rgba(29,70,48,.11); }
-.provider-body[data-provider-theme="capsule"] { --theme-bg:#edf3ef; --theme-surface:#fff; --theme-surface-alt:#f3f7f4; --theme-ink:#26392f; --theme-muted:#697a70; --theme-line:#d7e3db; --theme-accent:#7660cc; --theme-accent-soft:#eeeafb; --theme-shadow:rgba(63,53,105,.11); }
-.provider-body[data-provider-theme="editorial"] { --theme-bg:#fff; --theme-surface:#fff; --theme-surface-alt:#f8f6f1; --theme-ink:#17241d; --theme-muted:#69736d; --theme-line:#ced7d1; --theme-accent:#17241d; --theme-accent-soft:#edf0ee; --theme-shadow:rgba(23,36,29,.08); }
-.provider-body[data-provider-theme="bento"] { --theme-bg:#e6eee8; --theme-surface:#fff; --theme-surface-alt:#f4f8f5; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#cfddd3; --theme-accent:#235b40; --theme-accent-soft:#e4eee7; --theme-shadow:rgba(29,70,48,.1); }
 .provider-body[data-provider-theme="luxury"] { --theme-bg:#090a0c; --theme-surface:#15171a; --theme-surface-alt:#101214; --theme-ink:#f6f0e3; --theme-muted:#b8ae9b; --theme-line:#5d4929; --theme-accent:#d0a14b; --theme-accent-soft:#33291b; --theme-shadow:rgba(0,0,0,.48); color-scheme:dark; }
 .provider-body[data-provider-theme="loft"] { --theme-bg:#292a28; --theme-surface:#373633; --theme-surface-alt:#2e2e2b; --theme-ink:#f1eee8; --theme-muted:#b8b1a7; --theme-line:#5b5750; --theme-accent:#b2784d; --theme-accent-soft:#49382c; --theme-shadow:rgba(0,0,0,.38); color-scheme:dark; }
 .provider-body[data-provider-theme="eco"] { --theme-bg:#f1ece2; --theme-surface:#fbf8f1; --theme-surface-alt:#f2eee3; --theme-ink:#33402f; --theme-muted:#6c7463; --theme-line:#d9cfbd; --theme-accent:#70815b; --theme-accent-soft:#e4e7d5; --theme-shadow:rgba(86,75,52,.14); }
@@ -77,13 +72,13 @@
 .provider-body[data-provider-theme] :is(.provider-sidebar,.panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.provider-mobile-nav,.booking-sheet-panel,.notification-template-dialog,.service-creator-dialog) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
 .provider-body[data-provider-theme] :is(.provider-topbar,.provider-brand,.sidebar-bottom,.schedule-toolbar,.date-strip,.date-navigation,.journal-head,.password-form) { border-color:var(--theme-line); }
 .provider-body[data-provider-theme] :is(.date-strip,.date-navigation,.schedule-empty,.provider-user,.service-form,.booking-sheet-client,.booking-sheet-note-editor,.client-labels-panel,.provider-display-hint) { background:var(--theme-surface-alt); }
-.provider-body[data-provider-theme] :is(.sync-state,.topbar-client-link,.logout-button,.date-nav-button,.date-today-button,.schedule-date-picker,.refresh-button,.journal-mode-toggle,.booking-filters button,.provider-theme-option,.provider-display-form .settings-check,.account-settings-card,.field-with-unit,input,select,textarea) { border-color:var(--theme-line); background-color:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.sync-state,.topbar-client-link,.logout-button,.date-nav-button,.date-today-button,.schedule-date-picker,.refresh-button,.journal-mode-toggle,.booking-filters button,.provider-layout-option,.provider-theme-option,.provider-display-form .settings-check,.account-settings-card,.field-with-unit,input,select,textarea) { border-color:var(--theme-line); background-color:var(--theme-surface); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .provider-nav button { color:var(--theme-muted); }
 .provider-body[data-provider-theme] .provider-nav button.active { background:var(--theme-accent-soft); color:var(--theme-accent); }
 .provider-body[data-provider-theme] .provider-nav button.active>span:first-child { background:var(--theme-surface); color:var(--theme-accent); }
 .provider-body[data-provider-theme] :is(.brand-mark,.user-avatar,.primary,.date-strip button.active,.journal-mode-toggle button.active,.booking-filters button.active) { border-color:var(--theme-accent); background:var(--theme-accent); color:#fff; }
 .provider-body[data-provider-theme] :is(.settings-icon,.panel-count,.dashboard-summary,.provider-display-form .settings-check,.booking-client-visit,.timeline-client-visit) { background:var(--theme-accent-soft); color:var(--theme-accent); }
-.provider-body[data-provider-theme] :is(.provider-topbar small,.view-title>div:first-child>span:not(.panel-count),.settings-heading p,.provider-theme-option small,.provider-display-form .settings-check small,.booking-time-column span,.booking-time-column strong small,.schedule-toolbar>div:first-child>span) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(.provider-topbar small,.view-title>div:first-child>span:not(.panel-count),.settings-heading p,.provider-layout-option small,.provider-theme-option small,.provider-display-form .settings-check small,.booking-time-column span,.booking-time-column strong small,.schedule-toolbar>div:first-child>span) { color:var(--theme-muted); }
 .provider-body[data-provider-theme] :is(.primary,.journal-mode-toggle button.active)>span { color:#fff; }
 .provider-body[data-provider-theme="graphite"] :is(.timeline-booking.color-auto,.provider-booking.color-auto) { border-color:#365046; background:#1c302b; color:#e9f4ef; }
 .provider-body[data-provider-theme="graphite"] :is(.timeline-booking.status-new.color-auto,.provider-booking.status-new.color-auto) { border-color:#67532e; background:#3b3121; color:#f7e7bf; }
@@ -91,10 +86,10 @@
 .provider-body[data-provider-theme="graphite"] .booking-client-visit.is-regular,.provider-body[data-provider-theme="graphite"] .timeline-client-visit.is-regular { background:#3b3522; color:#e4c968; }
 
 @media (max-width:760px) {
-  .provider-theme-options { grid-template-columns:1fr 1fr; }
+  .provider-layout-options,.provider-theme-options { grid-template-columns:1fr 1fr; }
   .booking-card-options { grid-template-columns:1fr; }
-  .provider-theme-option strong { font-size:10px; }
-  .provider-theme-option small { font-size:8px; }
+  :is(.provider-layout-option,.provider-theme-option) strong { font-size:10px; }
+  :is(.provider-layout-option,.provider-theme-option) small { font-size:8px; }
   .provider-body .provider-booking-client-line .booking-client-visit { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
   .provider-body .timeline-client-visit { padding:0; background:transparent!important; color:inherit!important; font-size:inherit; font-weight:750; }
 }
@@ -118,10 +113,10 @@
 .team-calendar-booking { cursor:default; }
 .team-calendar-booking .booking-main { min-width:0; }
 .team-calendar-booking .provider-booking-client-line>span { overflow-wrap:anywhere; }
-.provider-body[data-provider-theme="linear"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
-.provider-body[data-provider-theme="capsule"] :is(.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select) { border-radius:999px; }
-.provider-body[data-provider-theme="editorial"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
-.provider-body[data-provider-theme="bento"] .team-calendar-toolbar { border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); box-shadow:0 8px 24px rgba(29,70,48,.05); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select) { border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .team-calendar-toolbar { border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); box-shadow:0 8px 24px rgba(29,70,48,.05); }
 
 @media (max-width:760px) {
   .team-calendar-toolbar { align-items:stretch; flex-direction:column; padding:11px 12px; }
@@ -132,7 +127,7 @@
   .team-calendar-filters select { width:100%; min-height:44px; }
   .team-calendar-status { margin-left:0; text-align:left; }
   .team-calendar-booking { grid-template-columns:68px minmax(0,1fr); }
-  .provider-body[data-provider-theme="bento"] .team-calendar-toolbar { border-radius:15px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .team-calendar-toolbar { border-radius:15px; }
 }
 
 @media (max-width:430px) {
@@ -1793,108 +1788,108 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] .provider-topbar-actions,.provider-body[data-provider-theme] .view-title-actions,.provider-body[data-provider-theme] .schedule-controls { min-width:0; flex-wrap:wrap; justify-content:flex-end; }
 
 /* 01. Строгая геометрия */
-.provider-body[data-provider-theme="linear"] .provider-app { background-color:#f1f4f2; background-image:linear-gradient(rgba(29,70,48,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(29,70,48,.025) 1px,transparent 1px); background-size:24px 24px; }
-.provider-body[data-provider-theme="linear"] :is(.provider-sidebar,.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button,.organization-row,.organization-create,.organization-checks label,.organization-avatar,.member-avatar,.organization-role,.organization-status) { border-radius:0; box-shadow:none; }
-.provider-body[data-provider-theme="linear"] .provider-sidebar { border-right-color:#cbd6cf; }
-.provider-body[data-provider-theme="linear"] .provider-nav { gap:0; }
-.provider-body[data-provider-theme="linear"] .provider-nav button { min-height:50px; border-bottom:1px solid var(--theme-line); border-radius:0; }
-.provider-body[data-provider-theme="linear"] .provider-nav button.active { box-shadow:inset 3px 0 0 var(--theme-accent); }
-.provider-body[data-provider-theme="linear"] .provider-nav button.active>span:first-child { border-radius:0; box-shadow:none; }
-.provider-body[data-provider-theme="linear"] .schedule-card { border-color:#c7d2cb; }
-.provider-body[data-provider-theme="linear"] .date-strip button { border-radius:0; }
-.provider-body[data-provider-theme="linear"] .schedule-list .provider-booking { border-left:3px solid color-mix(in srgb,var(--theme-accent) 42%,var(--theme-line)); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-app { grid-template-columns:248px minmax(0,1fr); gap:0; padding:0; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.provider-sidebar,.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button,.organization-row,.organization-create,.organization-checks label,.organization-avatar,.member-avatar,.organization-role,.organization-status) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-sidebar { top:0; min-height:100vh; padding:26px 18px 18px; border-right-color:var(--theme-line); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-workspace { padding:0 38px 70px; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-nav { gap:0; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-nav button { min-height:50px; border-bottom:1px solid var(--theme-line); border-radius:0; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-nav button.active { box-shadow:inset 3px 0 0 var(--theme-accent); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .provider-nav button.active>span:first-child { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .schedule-card { border-color:var(--theme-line); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .date-strip button { border-radius:0; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .schedule-list .provider-booking { border-left:3px solid color-mix(in srgb,var(--theme-accent) 42%,var(--theme-line)); }
 
 /* 02. Мягкий минимализм */
-.provider-body[data-provider-theme="soft"] { --theme-bg:#eef4f0; --theme-surface-alt:#f7faf8; --theme-shadow:rgba(29,70,48,.11); }
-.provider-body[data-provider-theme="soft"] .provider-app { background:var(--theme-bg); }
-.provider-body[data-provider-theme="soft"] .provider-sidebar { box-shadow:8px 0 28px rgba(29,70,48,.055); }
-.provider-body[data-provider-theme="soft"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-color:#e3eae5; border-radius:24px; box-shadow:0 14px 38px rgba(29,70,48,.07); }
-.provider-body[data-provider-theme="soft"] :is(.provider-nav button,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.provider-display-form .settings-check) { border-radius:15px; }
-.provider-body[data-provider-theme="soft"] :is(.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button) { border-radius:13px; }
-.provider-body[data-provider-theme="soft"] .date-strip { margin:0 10px; }
-.provider-body[data-provider-theme="soft"] .schedule-toolbar { margin:8px 10px 0; border:1px solid var(--theme-line); }
-.provider-body[data-provider-theme="soft"] .schedule-list { padding:10px 20px 16px; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] .provider-app { grid-template-columns:248px minmax(0,1fr); gap:0; padding:0; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] .provider-sidebar { top:0; min-height:100vh; padding:26px 18px 18px; box-shadow:8px 0 28px color-mix(in srgb,var(--theme-shadow) 45%,transparent); }
+.provider-body[data-provider-theme][data-provider-layout="soft"] .provider-workspace { padding:0 38px 70px; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-color:var(--theme-line); border-radius:24px; box-shadow:0 14px 38px color-mix(in srgb,var(--theme-shadow) 55%,transparent); }
+.provider-body[data-provider-theme][data-provider-layout="soft"] :is(.provider-nav button,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.provider-display-form .settings-check) { border-radius:15px; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] :is(.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button) { border-radius:13px; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] .date-strip { margin:0 10px; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] .schedule-toolbar { margin:8px 10px 0; border:1px solid var(--theme-line); }
+.provider-body[data-provider-theme][data-provider-layout="soft"] .schedule-list { padding:10px 20px 16px; }
 
 /* 03. Капсульный Flow */
 @media (min-width:761px) {
-  .provider-body[data-provider-theme="capsule"] .provider-app { grid-template-columns:220px minmax(0,1fr); gap:18px; padding:18px; background:#edf3ef; }
-  .provider-body[data-provider-theme="capsule"] .provider-sidebar { top:18px; min-height:calc(100vh - 36px); padding:20px 14px 16px; border:1px solid var(--theme-line); border-radius:34px; box-shadow:0 16px 42px rgba(29,70,48,.08); }
-  .provider-body[data-provider-theme="capsule"] .provider-workspace { padding:0 20px 52px; }
-  .provider-body[data-provider-theme="capsule"] .provider-topbar { min-height:78px; margin-bottom:8px; padding:0 24px; border:1px solid var(--theme-line); border-radius:999px; background:var(--theme-surface); }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-app { grid-template-columns:220px minmax(0,1fr); gap:18px; padding:18px; }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-sidebar { top:18px; min-height:calc(100vh - 36px); padding:20px 14px 16px; border:1px solid var(--theme-line); border-radius:34px; box-shadow:0 16px 42px color-mix(in srgb,var(--theme-shadow) 55%,transparent); }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-workspace { padding:0 20px 52px; }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-topbar { min-height:78px; margin-bottom:8px; padding:0 24px; border:1px solid var(--theme-line); border-radius:999px; }
 }
-.provider-body[data-provider-theme="capsule"] .provider-brand { margin:0 4px; }
-.provider-body[data-provider-theme="capsule"] .provider-nav { gap:8px; }
-.provider-body[data-provider-theme="capsule"] .provider-nav button { min-height:46px; border-radius:999px; }
-.provider-body[data-provider-theme="capsule"] .provider-nav button>span:first-child,.provider-body[data-provider-theme="capsule"] :is(.provider-user,.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button,.journal-mode-toggle,.journal-mode-toggle button,.panel-count,.sync-state,.topbar-client-link) { border-radius:999px; }
-.provider-body[data-provider-theme="capsule"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-radius:28px; box-shadow:0 12px 34px rgba(29,70,48,.06); }
-.provider-body[data-provider-theme="capsule"] .date-strip { margin:0 12px; border-radius:999px; }
-.provider-body[data-provider-theme="capsule"] .date-strip button { border-radius:999px; }
-.provider-body[data-provider-theme="capsule"] .schedule-toolbar { margin:8px 12px 0; border:0; border-radius:22px; background:var(--theme-surface-alt); }
-.provider-body[data-provider-theme="capsule"] .schedule-list { padding:8px 14px 16px; }
-.provider-body[data-provider-theme="capsule"] :is(.timeline-booking,.schedule-list .provider-booking) { border-radius:22px; }
-.provider-body[data-provider-theme="capsule"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:20px; }
-.provider-body[data-provider-theme="capsule"] :is(.organization-role,.organization-status,.organization-cancel) { border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-brand { margin:0 4px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-nav { gap:8px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-nav button { min-height:46px; border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-nav button>span:first-child,.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.provider-user,.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button,.journal-mode-toggle,.journal-mode-toggle button,.panel-count,.sync-state,.topbar-client-link) { border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-radius:28px; box-shadow:0 12px 34px color-mix(in srgb,var(--theme-shadow) 48%,transparent); }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .date-strip { margin:0 12px; border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .date-strip button { border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .schedule-toolbar { margin:8px 12px 0; border:0; border-radius:22px; background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .schedule-list { padding:8px 14px 16px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.timeline-booking,.schedule-list .provider-booking) { border-radius:22px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:20px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.organization-role,.organization-status,.organization-cancel) { border-radius:999px; }
 
 /* 04. Редакционный журнал */
-.provider-body[data-provider-theme="editorial"] { --theme-line:#ced7d1; }
-.provider-body[data-provider-theme="editorial"] .provider-app { grid-template-columns:224px minmax(0,1fr); background:#fff; }
-.provider-body[data-provider-theme="editorial"] .provider-sidebar { border-right:1px solid #17241d; }
-.provider-body[data-provider-theme="editorial"] :is(.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.client-profile-head h3,.organization-overview-copy h3) { font-family:Georgia,"Times New Roman",serif; font-weight:500; letter-spacing:-.025em; }
-.provider-body[data-provider-theme="editorial"] .provider-topbar { border-bottom:2px solid #17241d; }
-.provider-body[data-provider-theme="editorial"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button,.organization-row,.organization-create,.organization-checks label,.organization-avatar,.member-avatar,.organization-role,.organization-status) { border-radius:0; box-shadow:none; }
-.provider-body[data-provider-theme="editorial"] .provider-nav { gap:0; }
-.provider-body[data-provider-theme="editorial"] .provider-nav button { min-height:51px; border-bottom:1px solid var(--theme-line); border-radius:0; }
-.provider-body[data-provider-theme="editorial"] .provider-nav button.active { background:transparent; color:#17241d; box-shadow:inset 0 -2px 0 #17241d; }
-.provider-body[data-provider-theme="editorial"] .provider-nav button.active::after { content:'→'; font-size:14px; }
-.provider-body[data-provider-theme="editorial"] .provider-nav button.active>b { display:none; }
-.provider-body[data-provider-theme="editorial"] .provider-nav button.active>span:first-child { background:transparent; box-shadow:none; }
-.provider-body[data-provider-theme="editorial"] .view-title { padding-bottom:12px; border-bottom:1px solid #17241d; }
-.provider-body[data-provider-theme="editorial"] .schedule-card { border-width:0 0 1px; }
-.provider-body[data-provider-theme="editorial"] .date-strip button { border-left:1px solid var(--theme-line); border-radius:0; }
-.provider-body[data-provider-theme="editorial"] .date-strip button:first-child { border-left:0; }
-.provider-body[data-provider-theme="editorial"] .schedule-list .provider-booking { background:#fff; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-app { grid-template-columns:224px minmax(0,1fr); gap:0; padding:0; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-sidebar { top:0; min-height:100vh; padding:26px 18px 18px; border-right:1px solid var(--theme-ink); }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-workspace { padding:0 38px 70px; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.client-profile-head h3,.organization-overview-copy h3) { font-family:Georgia,"Times New Roman",serif; font-weight:500; letter-spacing:-.025em; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-topbar { min-height:96px; padding:0; border-bottom:2px solid var(--theme-ink); }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button,.organization-row,.organization-create,.organization-checks label,.organization-avatar,.member-avatar,.organization-role,.organization-status) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav { gap:0; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button { min-height:51px; border-bottom:1px solid var(--theme-line); border-radius:0; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button.active { background:transparent; color:var(--theme-ink); box-shadow:inset 0 -2px 0 var(--theme-accent); }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button.active::after { content:'→'; font-size:14px; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button.active>b { display:none; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button.active>span:first-child { background:transparent; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .view-title { padding-bottom:12px; border-bottom:1px solid var(--theme-ink); }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .schedule-card { border-width:0 0 1px; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .date-strip button { border-left:1px solid var(--theme-line); border-radius:0; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .date-strip button:first-child { border-left:0; }
 
 /* 05. Модульный Bento */
 @media (min-width:761px) {
-  .provider-body[data-provider-theme="bento"] .provider-app { grid-template-columns:230px minmax(0,1fr); gap:16px; padding:16px; background:#e6eee8; }
-  .provider-body[data-provider-theme="bento"] .provider-sidebar { top:16px; min-height:calc(100vh - 32px); border:1px solid var(--theme-line); border-radius:24px; box-shadow:0 12px 36px rgba(29,70,48,.08); }
-  .provider-body[data-provider-theme="bento"] .provider-workspace { padding:0 0 48px; }
-  .provider-body[data-provider-theme="bento"] .provider-topbar { min-height:80px; padding:0 24px; border:1px solid var(--theme-line); border-radius:22px; background:var(--theme-surface); }
-  .provider-body[data-provider-theme="bento"] .provider-view { width:100%; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-app { grid-template-columns:230px minmax(0,1fr); gap:16px; padding:16px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-sidebar { top:16px; min-height:calc(100vh - 32px); border:1px solid var(--theme-line); border-radius:24px; box-shadow:0 12px 36px color-mix(in srgb,var(--theme-shadow) 52%,transparent); }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-workspace { padding:0 0 48px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-topbar { min-height:80px; padding:0 24px; border:1px solid var(--theme-line); border-radius:22px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-view { width:100%; }
 }
-.provider-body[data-provider-theme="bento"] :is(.panel,.settings-card,.clients-directory,.client-profile) { border-radius:22px; box-shadow:0 8px 26px rgba(29,70,48,.055); }
-.provider-body[data-provider-theme="bento"] .provider-nav button { border-radius:13px; }
-.provider-body[data-provider-theme="bento"] .schedule-card { display:grid; gap:10px; overflow:visible; border:0; background:transparent; box-shadow:none; }
-.provider-body[data-provider-theme="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { margin:0; border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); box-shadow:0 8px 24px rgba(29,70,48,.05); }
-.provider-body[data-provider-theme="bento"] .date-strip { padding:10px; }
-.provider-body[data-provider-theme="bento"] .schedule-list { padding:8px 18px 12px; }
-.provider-body[data-provider-theme="bento"] .schedule-list .provider-booking { border-radius:14px; }
-.provider-body[data-provider-theme="bento"] :is(.dashboard-summary,.notification-summary,.report-summary article,.provider-display-form .settings-check) { border-radius:15px; }
-.provider-body[data-provider-theme="bento"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:15px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.panel,.settings-card,.clients-directory,.client-profile) { border-radius:22px; box-shadow:0 8px 26px color-mix(in srgb,var(--theme-shadow) 45%,transparent); }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .provider-nav button { border-radius:13px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-card { display:grid; gap:10px; overflow:visible; border:0; background:transparent; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { margin:0; border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); box-shadow:0 8px 24px rgba(29,70,48,.05); }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .date-strip { padding:10px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-list { padding:8px 18px 12px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-list .provider-booking { border-radius:14px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.dashboard-summary,.notification-summary,.report-summary article,.provider-display-form .settings-check) { border-radius:15px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:15px; }
 
 @media (max-width:980px) and (min-width:761px) {
-  .provider-body[data-provider-theme="capsule"] .provider-app { grid-template-columns:190px minmax(0,1fr); }
-  .provider-body[data-provider-theme="bento"] .provider-app { grid-template-columns:200px minmax(0,1fr); }
-  .provider-body[data-provider-theme="editorial"] .provider-app { grid-template-columns:200px minmax(0,1fr); }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-app { grid-template-columns:190px minmax(0,1fr); }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-app { grid-template-columns:200px minmax(0,1fr); }
+  .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-app { grid-template-columns:200px minmax(0,1fr); }
 }
 
 @media (max-width:760px) {
-  .provider-theme-options { grid-template-columns:1fr 1fr; gap:9px; }
-  .provider-theme-option { min-height:124px; }
-  .provider-theme-option:last-child { grid-column:1/-1; }
+  .provider-layout-options,.provider-theme-options { grid-template-columns:1fr 1fr; gap:9px; }
+  :is(.provider-layout-option,.provider-theme-option) { min-height:124px; }
+  :is(.provider-layout-option,.provider-theme-option):last-child { grid-column:1/-1; }
   .provider-body[data-provider-theme] .provider-topbar-actions,.provider-body[data-provider-theme] .view-title-actions { flex-wrap:nowrap; }
-  .provider-body[data-provider-theme="soft"] .date-strip,.provider-body[data-provider-theme="capsule"] .date-strip { margin:0; }
-  .provider-body[data-provider-theme="soft"] .schedule-toolbar,.provider-body[data-provider-theme="capsule"] .schedule-toolbar { margin:0; }
-  .provider-body[data-provider-theme="capsule"] .provider-topbar { border-radius:20px; }
-  .provider-body[data-provider-theme="capsule"] .provider-mobile-nav { border-radius:999px; }
-  .provider-body[data-provider-theme="capsule"] .provider-mobile-nav :is(button,a) { border-radius:999px; }
-  .provider-body[data-provider-theme="bento"] .provider-app { padding:8px 8px 84px; background:#e6eee8; }
-  .provider-body[data-provider-theme="bento"] .provider-workspace { padding:0; }
-  .provider-body[data-provider-theme="bento"] .provider-topbar { padding:12px; border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); }
-  .provider-body[data-provider-theme="bento"] .provider-mobile-nav { left:8px; right:8px; }
-  .provider-body[data-provider-theme="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { border-radius:15px; }
-  .provider-body[data-provider-theme="editorial"] .provider-app { display:block; }
-  .provider-body[data-provider-theme="editorial"] .provider-topbar { border-bottom-width:2px; }
+  .provider-body[data-provider-theme][data-provider-layout="soft"] .date-strip,.provider-body[data-provider-theme][data-provider-layout="capsule"] .date-strip { margin:0; }
+  .provider-body[data-provider-theme][data-provider-layout="soft"] .schedule-toolbar,.provider-body[data-provider-theme][data-provider-layout="capsule"] .schedule-toolbar { margin:0; }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-topbar { border-radius:20px; }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-mobile-nav { border-radius:999px; }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-mobile-nav :is(button,a) { border-radius:999px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-app { padding:8px 8px 84px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-workspace { padding:0; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-topbar { padding:12px; border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-mobile-nav { left:8px; right:8px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { border-radius:15px; }
+  .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-app { display:block; }
+  .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-topbar { border-bottom-width:2px; }
 }
 
 /* Мобильная лента: длинные записи начинаются сверху, короткие не переполняются. */
@@ -2063,7 +2058,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .primary,.secondary-button,.refresh-button,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,
   .journal-mode-toggle button,.booking-filters button,.notification-filters,.notification-filters button,.report-periods,
   .report-periods button,.logout-button,.topbar-client-link,.sync-state,input,select,textarea,.field-with-unit,
-  .provider-display-form .settings-check,.provider-theme-option,.notification-card-actions button,.client-disclosure summary
+  .provider-display-form .settings-check,.provider-layout-option,.provider-theme-option,.notification-card-actions button,.client-disclosure summary
 ) { border-radius:var(--material-control-radius); }
 .provider-body:is([data-provider-theme="luxury"],[data-provider-theme="loft"],[data-provider-theme="eco"],[data-provider-theme="hitech"]) :is(
   .notification-card,.waitlist-provider-card,.portfolio-card,.provider-review-card,.service-editor,.organization-row,
@@ -2285,4 +2280,33 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme="loft"] .provider-mobile-nav button.active { border-radius:2px; background:#34334f; color:#afa8ff; }
   .provider-body[data-provider-theme="eco"] .provider-mobile-nav button.active { background:#e6e8d7; color:#536b45; }
   .provider-body[data-provider-theme="hitech"] .provider-mobile-nav button.active { background:#d4f2ff; color:#078fd9; box-shadow:0 0 13px rgba(0,156,236,.22); }
+}
+
+/* Структура интерфейса — самостоятельный слой поверх любой цветной или фактурной темы. */
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(
+  .panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,
+  .date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.primary,.secondary-button,
+  .date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,
+  .booking-filters button,.organization-row,.organization-create,.organization-checks label
+) { border-radius:0!important; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-radius:24px!important; }
+.provider-body[data-provider-theme][data-provider-layout="soft"] :is(.provider-nav button,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button) { border-radius:15px!important; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile) { border-radius:28px!important; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.timeline-booking,.provider-booking,.schedule-list .provider-booking) { border-radius:22px!important; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.provider-nav button,.provider-user,.primary,.secondary-button,.date-nav-button,.date-today-button,.schedule-date-picker,.booking-filters button,.journal-mode-toggle,.journal-mode-toggle button,.panel-count,.sync-state,.topbar-client-link) { border-radius:999px!important; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(
+  .panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,
+  .date-navigation,.date-strip,.schedule-toolbar,.timeline-booking,.provider-booking,.primary,.secondary-button,
+  .date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,
+  .booking-filters button,.organization-row,.organization-create,.organization-checks label
+) { border-radius:0!important; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.panel,.settings-card,.clients-directory,.client-profile) { border-radius:22px!important; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { border-radius:18px!important; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.timeline-booking,.provider-booking,.schedule-list .provider-booking) { border-radius:14px!important; }
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-topbar { border-radius:20px!important; }
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-mobile-nav,
+  .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-mobile-nav :is(button,a) { border-radius:999px!important; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { border-radius:15px!important; }
 }

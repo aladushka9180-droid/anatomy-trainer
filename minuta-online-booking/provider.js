@@ -11,12 +11,14 @@ const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
-const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'linear', 'soft', 'capsule', 'editorial', 'bento', 'luxury', 'loft', 'eco', 'hitech'];
+const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
+const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const REGULAR_CLIENT_COMPLETED_VISITS = 10;
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
+  layout: 'soft',
   theme: 'sage',
   show_phone: true,
   show_visit_number: true,
@@ -264,7 +266,10 @@ function providerDisplayStorageKey(userId = currentUser?.id) { return `massage-p
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const storedTheme = String(source.theme || '');
+  const storedLayout = String(source.layout || '');
+  const legacyLayout = PROVIDER_LAYOUT_KEYS.includes(storedTheme) ? storedTheme : '';
   return {
+    layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme: PROVIDER_THEME_KEYS.includes(storedTheme) ? storedTheme : LEGACY_PROVIDER_THEME_MAP[storedTheme] || DEFAULT_DISPLAY_PREFERENCES.theme,
     show_phone: source.show_phone ?? DEFAULT_DISPLAY_PREFERENCES.show_phone,
     show_visit_number: source.show_visit_number ?? DEFAULT_DISPLAY_PREFERENCES.show_visit_number,
@@ -283,12 +288,15 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
-  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', linear:'#f1f4f2', soft:'#eef4f0', capsule:'#edf3ef', editorial:'#ffffff', bento:'#e6eee8', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
+  document.body.dataset.providerLayout = displayPreferences.layout;
+  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
   if (!form) return;
+  const layout = form.querySelector(`input[name="providerLayout"][value="${displayPreferences.layout}"]`);
+  if (layout) layout.checked = true;
   const theme = form.querySelector(`input[name="providerTheme"][value="${displayPreferences.theme}"]`);
   if (theme) theme.checked = true;
   $('#showBookingPhone').checked = displayPreferences.show_phone;
@@ -399,6 +407,7 @@ async function installProviderApp() {
 }
 function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
+    layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
     show_visit_number: $('#showBookingVisitNumber').checked,
@@ -649,7 +658,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=127#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=128#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3881,4 +3890,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=127'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=128'));
