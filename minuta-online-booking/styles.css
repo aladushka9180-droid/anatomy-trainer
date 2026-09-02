@@ -4342,6 +4342,19 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="graphite"] .voice-assistant-result.is-error .voice-result-heading p,
 .provider-body[data-provider-theme="loft"] .voice-assistant-result.is-error .voice-result-heading p { color:#e7baba; }
 
+/* Финальный цветовой слой Luxury: старые зелёные значения не проходят в служебные тексты. */
+.provider-body[data-provider-theme="luxury"] :is(
+  .booking-step-setting strong,.all-day-control,.password-form label,
+  .booking-policy-form label,.organization-policy-workspace>.settings-check
+) { color:var(--theme-ink); }
+.provider-body[data-provider-theme="luxury"] :is(
+  .dashboard-summary span,.journal-mode-toggle button:not(.active),.password-hint,
+  .recovery-note,.recovery-sent p
+) { color:var(--theme-muted); }
+.provider-body[data-provider-theme="luxury"] :is(.forgot-password-button,.auth-back-button) { color:var(--theme-accent); }
+.provider-body[data-provider-theme="luxury"] .provider-nav #waitlistBadge { color:#211608; }
+.provider-body[data-provider-theme="luxury"] .provider-mobile-nav :is(button,a):not(.active) { color:var(--theme-muted); }
+
 @media (max-width:1100px) and (min-width:761px) {
   .voice-assistant-open { width:40px; min-height:40px; padding:0; }
   .voice-assistant-open span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
