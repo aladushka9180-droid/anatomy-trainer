@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=136" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=137" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=136">
+  <link rel="stylesheet" href="styles.css?v=137">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -141,7 +141,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=136#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=137#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -313,6 +313,31 @@
                 <summary><span><small>История кабинетов и оборудования</small><strong>Изменения ресурсов</strong></span><span id="resourceAuditCount">0</span></summary>
                 <div class="organization-audit-list" id="resourceAuditList"></div>
               </details>
+              </div>
+            </section>
+
+            <section class="panel organization-section organization-shifts" id="shiftsPanel" hidden>
+              <div class="panel-head"><div><small>Расписание по филиалам</small><h3>Смены команды</h3></div><span class="panel-count" id="shiftsCount">0</span></div>
+              <p class="organization-invite-help">Смены, перерывы и отсутствия учитываются в онлайн-записи. Один специалист не сможет работать одновременно в двух филиалах.</p>
+              <div class="loading-state compact" id="shiftsLoading" hidden><i></i><span>Загружаем смены…</span></div>
+              <div class="resource-inline-error" id="shiftsUnavailable" role="status" hidden><div><strong>Смены временно недоступны</strong><small id="shiftsUnavailableText"></small></div><button class="secondary-button" id="reloadShifts" type="button">Повторить</button></div>
+              <div class="shift-workspace" id="shiftWorkspace" hidden>
+                <div class="shift-toolbar">
+                  <label>Период<select id="shiftPeriod"><option value="14">14 дней</option><option value="31">31 день</option><option value="62">62 дня</option></select></label>
+                  <label>С даты<input id="shiftStartDate" type="date"></label>
+                  <label class="settings-check shift-enable-field" id="shiftEnableField"><input id="shiftSchedulingEnabled" type="checkbox" data-shift-write><span><strong>Учитывать смены при записи</strong><small id="shiftEnableHint">Включает строгую проверку только после подготовки расписания.</small></span></label>
+                </div>
+                <div class="shift-summary" id="shiftUtilization"></div>
+                <div class="shift-management-grid">
+                  <section><div class="resource-subhead"><div><small>Рабочие часы и перерывы</small><strong>Смены</strong></div></div><div class="organization-list" id="shiftsList"></div>
+                    <details class="organization-create" id="shiftCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить смену</span></summary><form id="shiftForm"><div class="form-row"><label>Специалист<select id="shiftPerformer" required></select></label><label>Филиал<select id="shiftLocation" required></select></label></div><div class="form-row"><label>Дата<input id="shiftDate" type="date" required></label><label>Часы<div class="shift-time-pair"><input id="shiftStart" type="time" value="10:00" required><span>—</span><input id="shiftEnd" type="time" value="20:00" required></div></label></div><label class="settings-check"><input id="shiftHasBreak" type="checkbox"><span><strong>Перерыв</strong><small>Запись не попадёт внутрь этого интервала.</small></span></label><div class="form-row" id="shiftBreakFields" hidden><label>Начало<input id="shiftBreakStart" type="time" value="14:00"></label><label>Конец<input id="shiftBreakEnd" type="time" value="15:00"></label></div><label>Комментарий<input id="shiftNote" maxlength="500" placeholder="Необязательно"></label><p class="form-error" id="shiftError" hidden></p><button class="primary" type="submit" data-shift-write>Создать смену</button></form></details>
+                  </section>
+                  <section><div class="resource-subhead"><div><small>Отпуск, больничный, недоступность</small><strong>Отсутствия</strong></div></div><div class="organization-list" id="absencesList"></div>
+                    <details class="organization-create" id="absenceCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить отсутствие</span></summary><form id="absenceForm"><label>Специалист<select id="absencePerformer" required></select></label><div class="form-row"><label>С<input id="absenceStart" type="date" required></label><label>По<input id="absenceEnd" type="date" required></label></div><label>Причина<select id="absenceKind"><option value="vacation">Отпуск</option><option value="sick">Больничный</option><option value="unavailable">Недоступен</option></select></label><label>Комментарий<input id="absenceNote" maxlength="500" placeholder="Необязательно"></label><p class="form-error" id="absenceError" hidden></p><button class="primary" type="submit" data-shift-write>Добавить отсутствие</button></form></details>
+                  </section>
+                </div>
+                <section class="shift-substitution" id="shiftSubstitutionPanel"><div class="resource-subhead"><div><small>Без удаления записи клиента</small><strong>Замена специалиста</strong></div></div><form id="substitutionForm"><label>Запись<select id="substitutionBooking"></select></label><label>Новая услуга и специалист<select id="substitutionService"></select></label><p class="organization-invite-help">Сохраняются запись, клиент и код управления. Сервер заново проверит смену, занятость и ресурсы.</p><p class="form-error" id="substitutionError" hidden></p><button class="secondary-button" type="submit" data-shift-write>Заменить специалиста</button></form></section>
+                <details class="resource-audit" id="shiftAuditPanel"><summary><span><small>Изменения расписания</small><strong>Журнал смен</strong></span><span id="shiftAuditCount">0</span></summary><div class="organization-audit-list" id="shiftAuditList"></div></details>
               </div>
             </section>
 
@@ -508,11 +533,12 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=136"></script>
-  <script src="reliability.js?v=136"></script>
-  <script src="resource-management.js?v=136" defer></script>
-  <script src="organization.js?v=136" defer></script>
-  <script src="team-calendar.js?v=136" defer></script>
-  <script src="provider.js?v=136" defer></script>
+  <script src="config.js?v=137"></script>
+  <script src="reliability.js?v=137"></script>
+  <script src="resource-management.js?v=137" defer></script>
+  <script src="shift-management.js?v=137" defer></script>
+  <script src="organization.js?v=137" defer></script>
+  <script src="team-calendar.js?v=137" defer></script>
+  <script src="provider.js?v=137" defer></script>
 </body>
 </html>

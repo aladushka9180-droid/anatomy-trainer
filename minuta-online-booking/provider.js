@@ -696,7 +696,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=136#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=137#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4236,6 +4236,15 @@ const resourceController = window.MinutaResources?.createController ? window.Min
 }) : { bind() {}, setOrganization() {} };
 resourceController.bind();
 
+const shiftController = window.MinutaShifts?.createController ? window.MinutaShifts.createController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability
+}) : { bind() {}, setOrganization() {}, reset() {} };
+shiftController.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -4250,6 +4259,7 @@ const organizationController = window.MinutaOrganization.createController({
   onActiveOrganizationChange: organization => {
     teamCalendarController.setOrganization(organization);
     resourceController.setOrganization(organization);
+    shiftController.setOrganization(organization);
   }
 });
 organizationController.bind();
@@ -4381,4 +4391,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=136'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=137'));

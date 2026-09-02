@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -134,15 +134,21 @@ function visibleServices() {
   });
 }
 
-function loadPublicSlots(service, start, end, locationId = state.locationId) {
+async function loadPublicSlots(service, start, end, locationId = state.locationId) {
   if (state.resourceScheduling) {
-    return db.rpc('get_public_minuta_available_slots_v3', {
+    const parameters = {
       p_slug: requestedOrganizationSlug,
       p_location: locationId,
       p_service: service.id,
       p_start: start,
       p_end: end
-    });
+    };
+    if (state.branchShiftScheduling) {
+      const result = await db.rpc('get_public_minuta_available_slots_v4', parameters);
+      if (!isMissingRpc(result.error, 'get_public_minuta_available_slots_v4')) return result;
+      state.branchShiftScheduling = false;
+    }
+    return db.rpc('get_public_minuta_available_slots_v3', parameters);
   }
   return db.rpc('get_available_slots', { p_service: service.id, p_start: start, p_end: end });
 }
@@ -256,11 +262,17 @@ async function loadServices() {
   let error;
   state.teamMode = false;
   state.resourceScheduling = false;
+  state.branchShiftScheduling = false;
   state.organization = null;
   state.locations = [];
   state.locationId = '';
   if (requestedOrganizationSlug) {
-    let catalogResult = await db.rpc('get_public_minuta_catalog_v3', { p_slug: requestedOrganizationSlug });
+    let catalogResult = await db.rpc('get_public_minuta_catalog_v4', { p_slug: requestedOrganizationSlug });
+    let shiftAwareCatalog = !catalogResult.error;
+    if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v4')) {
+      catalogResult = await db.rpc('get_public_minuta_catalog_v3', { p_slug: requestedOrganizationSlug });
+      shiftAwareCatalog = false;
+    }
     let branchAwareCatalog = !catalogResult.error;
     let resourceAwareCatalog = !catalogResult.error && catalogResult.data?.resource_scheduling === true;
     if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v3')) {
@@ -280,6 +292,7 @@ async function loadServices() {
       // an empty location list means booking is unavailable, never legacy fallback.
       state.teamMode = Boolean(state.organization && branchAwareCatalog);
       state.resourceScheduling = Boolean(state.teamMode && resourceAwareCatalog);
+      state.branchShiftScheduling = Boolean(state.resourceScheduling && shiftAwareCatalog && catalogResult.data?.branch_shift_scheduling === true);
       if (state.locations.some(item => item.id === previousLocationId)) state.locationId = previousLocationId;
       data = state.organization && Array.isArray(catalogResult.data?.services) ? catalogResult.data.services : [];
       error = null;
@@ -993,4 +1006,4 @@ renderTimes();
 loadServices();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=136'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=137'));
