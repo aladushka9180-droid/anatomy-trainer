@@ -3788,6 +3788,8 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body [data-provider-panel="settings"] .provider-section-marker { grid-column:1/-1; }
 .group-booking-settings-card { grid-template-columns:44px minmax(0,1fr) minmax(280px,.85fr); align-items:center; gap:0 16px; }
 .group-booking-settings-card .settings-icon { width:44px; height:44px; }
+.group-booking-settings-card .group-booking-purpose { max-width:620px; margin-top:8px; color:var(--theme-muted,#718178); font-size:10px; line-height:1.55; }
+.group-booking-settings-card .group-booking-status { display:inline-flex; width:max-content; max-width:100%; margin-top:9px; padding:5px 8px; border-radius:999px; background:var(--theme-accent-soft,#edf4ef); color:var(--theme-accent,#2f7654); font-size:8px; font-weight:850; line-height:1.35; }
 .group-booking-toggle { display:grid; grid-column:3; grid-row:1; grid-template-columns:20px minmax(0,1fr); align-items:start; gap:10px; min-width:0; min-height:64px; margin:0; padding:13px 14px; border:1px solid var(--theme-line,#dce7df); border-radius:13px; background:var(--theme-surface-alt,#f6f9f7); color:var(--theme-ink,#244535); cursor:pointer; }
 .group-booking-toggle input { width:18px!important; min-height:18px!important; height:18px!important; margin:1px 0 0!important; padding:0!important; accent-color:var(--theme-accent,#2f7654); }
 .group-booking-toggle span { display:grid; gap:4px; min-width:0; }
