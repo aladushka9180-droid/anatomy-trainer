@@ -2426,6 +2426,41 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] .repeat-booking-notice span { color:var(--theme-muted); }
 .provider-body[data-provider-theme] .provider-booking-open:focus-visible { outline-color:color-mix(in srgb,var(--theme-accent) 34%,transparent); }
 
+/* Все служебные тексты кабинета наследуют выбранную палитру, а не старые зелёные значения. */
+.provider-body[data-provider-theme] :is(
+  .provider-nav button:not(.active),.provider-nav button:not(.active)>span:first-child,.provider-nav-group-label,
+  .sidebar-bottom>a,.provider-user small,.sync-state,.sync-tool-button,.connection-log-head small,.connection-log-lead,.connection-log-entry small,
+  .new-booking-draft-status,.stat-grid small,.date-strip button:not(.active),.schedule-toolbar>div:first-child>span,
+  .timeline-booking-client,.timeline-booking-note,.provider-booking-client-line,.provider-booking-phone,.provider-booking-note,.provider-booking-note-flag,.provider-booking-note-full,
+  .booking-series-scope legend,.booking-series-scope small,.booking-series-slot-hint,.booking-time-guide span,.booking-color-option,.booking-color-compact>summary>span,
+  .client-label-option,.client-labels-autosave,.client-badge-more,.client-booking-meta,.client-booking-when span,.client-disclosure summary::after,
+  .notification-card-head>span,.notification-card p,.notification-card blockquote,.notification-toolbar small,.template-help,.mobile-more-intro,
+  .waitlist-provider-date span,.waitlist-provider-client small,.waitlist-context span,.free-slots-status,.free-slots-help,.free-slots-link small,
+  .report-service-row small,.portfolio-card-status,.portfolio-photo-help,.portfolio-photo-placeholder,
+  .organization-unavailable small,.organization-personal-invites>div:first-child small,.organization-personal-invites p,.organization-switcher>span,
+  .organization-overview-copy small,.organization-overview-copy div>span,.organization-row-main strong em,.organization-row-main small,
+  .organization-role,.organization-status,.organization-editor>summary::after,.organization-checks label,.organization-invite-help,.organization-invite-share small,
+  .organization-audit>summary small,.organization-audit>summary>span:last-child,.organization-audit-list small,
+  .payroll-items>summary small,.payroll-items>summary>span:last-child,.resource-subhead small,.resource-requirement-row small,
+  .resource-audit>summary small,.resource-audit>summary>span:last-child,.install-app-status,.install-guide ol,.install-guide p,
+  .account-settings-card>summary::after
+) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(
+  .connection-log-dialog,.new-booking-recurrence strong,.booking-series-scope strong,.booking-color-picker legend,
+  .booking-editor-form label,.booking-outcome-form label,.booking-prepayment-form label,
+  .organization-unavailable strong,.organization-personal-invites h3,.organization-switcher select,.organization-overview-copy h3,
+  .organization-row-main strong,.organization-invite-share strong,.organization-audit>summary strong,.organization-audit-list strong,
+  .payroll-items>summary strong,.resource-subhead strong,.resource-requirement-row strong,.resource-audit>summary strong
+) { color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(
+  .notification-card-head>b,.client-labels-heading>span,.client-history-item.status-confirmed>span,.client-history-item.status-visited>span,
+  .status-confirmed .booking-status,.status-visited .booking-status,.booking-outcome-heading>span,.booking-sheet-disclosure>summary>span,
+  .booking-session-heading button,.session-add-button,.booking-repeat-action,.new-booking-advanced>summary,.minute-picker>summary,
+  .more-dates-button,.booking-editor-back,.provider-review-card>button,.service-details-button,.organization-policy-editor>summary,
+  .client-access-share a,.client-access-share button,.client-booking-action,.free-slots-link a
+) { color:var(--theme-accent); }
+.provider-body[data-provider-theme] .notification-card-head>b::before { color:color-mix(in srgb,var(--theme-muted) 55%,var(--theme-line)); }
+
 .provider-body[data-provider-theme="graphite"] :is(.notification-card-icon,.client-profile-empty>span,.mobile-more-grid button>span) { background:#292741; color:#b0a5ff; }
 .provider-body[data-provider-theme="graphite"] .notification-reminder .notification-card-icon { background:#3a3020; color:#e7c370; }
 .provider-body[data-provider-theme="graphite"] .notification-cancellation .notification-card-icon { background:#3a2729; color:#e79a98; }
