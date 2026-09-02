@@ -1453,7 +1453,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .timeline-booking-note { max-width:680px; margin-top:3px; color:#395447; font-size:10px; opacity:1; text-overflow:ellipsis; white-space:nowrap; }
 .provider-body .timeline-booking-note b { font-weight:900; }
 .provider-body .timeline-note-client { display:none; }
-.provider-body .timeline-booking.compact { grid-template-columns:88px minmax(0,1fr); }
+.provider-body .timeline-booking.compact { grid-template-columns:88px minmax(0,1fr); padding:4px 14px; }
 .provider-body .timeline-booking.compact .timeline-booking-time { align-self:center; }
 .provider-body .timeline-booking.compact .timeline-booking-copy { display:grid; align-content:center; min-height:0; }
 .provider-body .timeline-booking.compact .timeline-booking-copy strong { line-height:1.15; }
