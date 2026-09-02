@@ -50,6 +50,8 @@ let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
 let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false };
 let displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
+let displayPreferencesUpdatedAt = 0;
+let displayPreferencesPending = false;
 let displayPreferencesSaveTimer = null;
 let displayPreferencesSaveRevision = 0;
 let serverNotificationTemplates = {};
@@ -318,13 +320,123 @@ function normalizeDisplayPreferences(value = {}) {
     show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes
   };
 }
+function displayPreferencesEqual(left, right) {
+  const a = normalizeDisplayPreferences(left);
+  const b = normalizeDisplayPreferences(right);
+  return a.layout === b.layout
+    && a.theme === b.theme
+    && a.show_phone === b.show_phone
+    && a.show_visit_number === b.show_visit_number
+    && a.show_client_type === b.show_client_type
+    && a.show_client_labels === b.show_client_labels
+    && a.show_notes === b.show_notes;
+}
+function normalizeDisplayPreferencesRecord(value = {}, exists = true) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const storedPreferences = source.preferences && typeof source.preferences === 'object' && !Array.isArray(source.preferences)
+    ? source.preferences
+    : source;
+  const timestamp = Number(source.updated_at ?? storedPreferences.updated_at ?? 0);
+  return {
+    exists: Boolean(exists),
+    preferences: normalizeDisplayPreferences(storedPreferences),
+    updatedAt: Number.isFinite(timestamp) && timestamp > 0 ? Math.floor(timestamp) : 0,
+    pending: source.pending === true
+  };
+}
+function resolveDisplayPreferenceRecords(localRecord, remoteRecord, now = Date.now()) {
+  const local = localRecord || normalizeDisplayPreferencesRecord({}, false);
+  const remote = remoteRecord || normalizeDisplayPreferencesRecord({}, false);
+  const samePreferences = local.exists && remote.exists && displayPreferencesEqual(local.preferences, remote.preferences);
+  if (samePreferences && local.updatedAt === remote.updatedAt) {
+    return { exists:true, preferences:local.preferences, updatedAt:local.updatedAt, pending:false };
+  }
+  if (local.exists && local.pending) {
+    const timestamp = !samePreferences && local.updatedAt <= remote.updatedAt
+      ? Math.max(Number(now) || Date.now(), remote.updatedAt + 1, 1)
+      : local.updatedAt || Math.max(Number(now) || Date.now(), 1);
+    return { exists:true, preferences:local.preferences, updatedAt:timestamp, pending:true };
+  }
+  if (remote.exists && (!local.exists || remote.updatedAt > local.updatedAt)) {
+    return { exists:true, preferences:remote.preferences, updatedAt:remote.updatedAt, pending:false };
+  }
+  if (local.exists) {
+    if (samePreferences) return { exists:true, preferences:local.preferences, updatedAt:local.updatedAt, pending:false };
+    const timestamp = local.updatedAt <= remote.updatedAt
+      ? Math.max(Number(now) || Date.now(), remote.updatedAt + 1, 1)
+      : local.updatedAt;
+    return { exists:true, preferences:local.preferences, updatedAt:timestamp, pending:true };
+  }
+  if (remote.exists) return { exists:true, preferences:remote.preferences, updatedAt:remote.updatedAt, pending:false };
+  return { exists:false, preferences:{ ...DEFAULT_DISPLAY_PREFERENCES }, updatedAt:0, pending:false };
+}
 function loadLocalDisplayPreferences(userId = currentUser?.id) {
-  try { displayPreferences = normalizeDisplayPreferences(JSON.parse(localStorage.getItem(providerDisplayStorageKey(userId)) || '{}')); }
-  catch { displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES }; }
+  try {
+    const stored = localStorage.getItem(providerDisplayStorageKey(userId));
+    return normalizeDisplayPreferencesRecord(stored ? JSON.parse(stored) : {}, Boolean(stored));
+  } catch {
+    return normalizeDisplayPreferencesRecord({}, false);
+  }
 }
 function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
-  try { localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify(displayPreferences)); } catch {}
+  try {
+    localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
+      version: 2,
+      preferences: displayPreferences,
+      updated_at: displayPreferencesUpdatedAt,
+      pending: displayPreferencesPending
+    }));
+  } catch {}
+}
+function restoreDisplayPreferences(user = currentUser) {
+  const local = loadLocalDisplayPreferences(user?.id);
+  const remoteValue = user?.user_metadata?.provider_display_preferences;
+  const remoteExists = Boolean(remoteValue && typeof remoteValue === 'object' && !Array.isArray(remoteValue) && Object.keys(remoteValue).length);
+  const remote = normalizeDisplayPreferencesRecord(remoteValue || {}, remoteExists);
+  const resolved = resolveDisplayPreferenceRecords(local, remote);
+  displayPreferences = resolved.preferences;
+  displayPreferencesUpdatedAt = resolved.updatedAt;
+  displayPreferencesPending = resolved.pending;
+  if (resolved.exists) persistLocalDisplayPreferences(user?.id);
+  return resolved;
+}
+function displayPreferencesServerSnapshot() {
+  return {
+    ...displayPreferences,
+    version: 2,
+    updated_at: displayPreferencesUpdatedAt
+  };
+}
+function queueDisplayPreferencesSync(delay = 350) {
+  clearTimeout(displayPreferencesSaveTimer);
+  displayPreferencesSaveTimer = null;
+  const revision = ++displayPreferencesSaveRevision;
+  const status = $('#providerDisplayStatus');
+  if (!displayPreferencesPending) return;
+  if (!currentUser || !navigator.onLine) {
+    if (status) status.textContent = 'Сохранено на этом устройстве · синхронизируется при подключении';
+    return;
+  }
+  const userId = currentUser.id;
+  const preferencesSnapshot = displayPreferencesServerSnapshot();
+  if (status) status.textContent = 'Сохраняем…';
+  displayPreferencesSaveTimer = setTimeout(async () => {
+    displayPreferencesSaveTimer = null;
+    const { data, error } = await db.auth.updateUser({ data: { provider_display_preferences: preferencesSnapshot } });
+    if (revision !== displayPreferencesSaveRevision || currentUser?.id !== userId) return;
+    if (error) {
+      if (status) status.textContent = 'Сохранено на этом устройстве · синхронизируется при подключении';
+      return;
+    }
+    if (data?.user) currentUser = data.user;
+    if (displayPreferencesUpdatedAt === preferencesSnapshot.updated_at
+      && displayPreferencesEqual(displayPreferences, preferencesSnapshot)) {
+      displayPreferencesPending = false;
+      persistLocalDisplayPreferences(userId);
+      if (status) status.textContent = 'Сохранено в аккаунте';
+    }
+  }, Math.max(0, Number(delay) || 0));
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
@@ -458,24 +570,12 @@ function displayPreferencesFromForm() {
 }
 function saveDisplayPreferences() {
   displayPreferences = displayPreferencesFromForm();
+  displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
+  displayPreferencesPending = true;
   persistLocalDisplayPreferences();
   applyDisplayPreferences();
   renderBookings();
-  const status = $('#providerDisplayStatus');
-  if (status) status.textContent = 'Сохраняем…';
-  clearTimeout(displayPreferencesSaveTimer);
-  const revision = ++displayPreferencesSaveRevision;
-  if (!currentUser || !navigator.onLine) {
-    if (status) status.textContent = 'Сохранено на этом устройстве';
-    return;
-  }
-  const preferencesSnapshot = { ...displayPreferences };
-  displayPreferencesSaveTimer = setTimeout(async () => {
-    const { data, error } = await db.auth.updateUser({ data: { provider_display_preferences: preferencesSnapshot } });
-    if (revision !== displayPreferencesSaveRevision) return;
-    if (!error && data?.user) currentUser = data.user;
-    if (status) status.textContent = error ? 'Сохранено на этом устройстве' : 'Сохранено в аккаунте';
-  }, 350);
+  queueDisplayPreferencesSync();
 }
 function classifyVisitHistory(referenceTimestamp, completedTimestamps, currentCompleted = false) {
   const reference = Number(referenceTimestamp);
@@ -697,7 +797,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=144#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=145#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3057,13 +3157,12 @@ async function handleSession(session) {
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
+  let displayPreferencesNeedSync = false;
   if (currentUser) {
     loadBookingColors(currentUser.id);
     loadBookingNotes(currentUser.id);
     loadLocalClientLabels(currentUser.id);
-    loadLocalDisplayPreferences(currentUser.id);
-    displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, ...(currentUser.user_metadata?.provider_display_preferences || {}) });
-    persistLocalDisplayPreferences(currentUser.id);
+    displayPreferencesNeedSync = restoreDisplayPreferences(currentUser).pending;
   } else {
     bookingColors = new Map();
     bookingNotes = new Map();
@@ -3071,9 +3170,12 @@ async function handleSession(session) {
     clientLabels = new Map();
     pendingClientLabels = new Set();
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
+    displayPreferencesUpdatedAt = 0;
+    displayPreferencesPending = false;
   }
   applyDisplayPreferences();
   renderDisplayPreferencesForm();
+  if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
   scheduleDirty = false;
   if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId);
   if (generation !== sessionGeneration) return;
@@ -4260,10 +4362,16 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   refreshBusinessDay();
   renderNotifications();
-  if (navigator.onLine) synchronizeProvider();
+  if (navigator.onLine) {
+    queueDisplayPreferencesSync(0);
+    synchronizeProvider();
+  }
 });
 window.addEventListener('offline', () => { setWritesAllowed(false); setSyncState('offline', 'Офлайн · показана сохранённая копия · только чтение'); });
-window.addEventListener('online', synchronizeProvider);
+window.addEventListener('online', () => {
+  queueDisplayPreferencesSync(0);
+  synchronizeProvider();
+});
 new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
 
@@ -4466,4 +4574,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=144'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=145'));

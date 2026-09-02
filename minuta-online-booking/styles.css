@@ -2306,6 +2306,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .service-info small,.portfolio-card p,.portfolio-card small,.provider-review-card p,
   .install-app-status,.install-guide p,.install-guide ol,.organization-invite-help
 ) { color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] .client-list-main i { color:#d9aa51!important; }
 .provider-body[data-provider-theme="luxury"] :is(
   .timeline-booking-client,.timeline-booking-copy small,.timeline-booking-note,.provider-booking-phone,
   .provider-booking-note,.provider-booking-note-full,.provider-booking-client-line>strong

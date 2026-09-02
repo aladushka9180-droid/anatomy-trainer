@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '144';
+const version = '145';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,10 +69,10 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=144/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=144/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=144/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=144/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=145/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=145/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=145/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=145/, 'Кабинет не подключает контроллер зарплат');
 assert.match(providerHtml, new RegExp(`benefit-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер абонементов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
@@ -102,7 +102,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=144"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=145"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -264,6 +264,7 @@ assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty,\.emp
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty-icon,\.empty-service-mark\) \{[^}]*background:linear-gradient/, 'Иконки пустых состояний Luxury не используют золотой акцент');
 assert.match(styles, /data-provider-theme="luxury"\] \.timeline-client-name \{[^}]*color:#d5c9b6/, 'Имя клиента в расписании Luxury недостаточно контрастное');
 assert.match(styles, /data-provider-theme="luxury"\] \.timeline-client-duration \{[^}]*color:#d9aa51/, 'Длительность записи Luxury не выделена приглушённым золотом');
+assert.match(styles, /data-provider-theme="luxury"\] \.client-list-main i \{[^}]*color:#d9aa51!important/, 'Дата следующей записи клиента Luxury снова стала зелёной');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.booking-client-visit,\.timeline-client-visit\) \{[^}]*font-size:9px/, 'Метка визита Luxury не стала заметнее');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-booking-status-icon,\.provider-booking-chevron\) \{[^}]*background:linear-gradient/, 'Галочка завершённой записи Luxury не использует золотой акцент');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-booking-copy strong,\.provider-booking h3,\.provider-booking-open h3\) \{[^}]*color:#fff8eb/, 'Заголовок записи Luxury не использует молочно-белый цвет');
@@ -294,6 +295,25 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) {
   }
 }
 assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true }, 'Старый выбор Bento переносится неверно');
+const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
+const luxuryLinear = { layout:'linear', theme:'luxury', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true };
+const ecoCapsule = { layout:'capsule', theme:'eco', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true };
+const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
+const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
+assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
+assert.equal(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).pending, true, 'Несохранённая тема не ставится на повторную синхронизацию');
+const cleanLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:ecoCapsule, updated_at:100, pending:false }, true);
+const newerRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...luxuryLinear, version:2, updated_at:200 }, true);
+assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(cleanLocalAppearance, newerRemoteAppearance, 300).preferences, luxuryLinear, 'Более новая тема аккаунта не применяется на другом устройстве');
+const legacyLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord(luxuryLinear, true);
+const legacyRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord(ecoCapsule, true);
+const resolvedLegacyAppearance = displayPreferenceResolver.resolveDisplayPreferenceRecords(legacyLocalAppearance, legacyRemoteAppearance, 300);
+assert.deepEqual(resolvedLegacyAppearance.preferences, luxuryLinear, 'Миграция старых настроек снова отдаёт приоритет устаревшей серверной теме');
+assert.equal(resolvedLegacyAppearance.pending, true, 'Старые локальные настройки не переводятся в новую синхронизацию');
+assert.match(provider, /pending: displayPreferencesPending/, 'Локальная тема не хранит признак незавершённой синхронизации');
+assert.match(provider, /updated_at: displayPreferencesUpdatedAt/, 'Для темы не сохраняется время последнего изменения');
+assert.match(provider, /window\.addEventListener\('online',[\s\S]*?queueDisplayPreferencesSync\(0\)/, 'Офлайн-изменение темы не отправляется после восстановления интернета');
+assert.doesNotMatch(provider, /normalizeDisplayPreferences\(\{ \.\.\.displayPreferences, \.\.\.\(currentUser\.user_metadata\?\.provider_display_preferences/, 'Устаревшая тема аккаунта снова безусловно перезаписывает локальный выбор');
 assert.match(styles, /data-provider-theme\] \.settings-check strong \{ color:var\(--theme-ink\); \}/, 'Основной текст настроек окрашен акцентом и теряет контраст');
 assert.match(styles, /\.service-creator-dialog select:focus\s*\{[^}]*box-shadow:none/, 'Выбор длительности сохраняет лишнее двойное выделение');
 assert.match(styles, /text-size-adjust:100%/, 'Мобильное масштабирование текста не стабилизировано');
