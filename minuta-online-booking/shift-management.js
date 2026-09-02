@@ -22,7 +22,9 @@
   }
 
   function createController(options) {
-    const { db, $, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
+    function $(selector) { return select(selector); }
     let organization = null;
     let payload = null;
     let revision = 0;

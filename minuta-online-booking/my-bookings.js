@@ -167,4 +167,4 @@ $('#reviewForm').addEventListener('submit', submitReview);
 $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=140'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=141'));
