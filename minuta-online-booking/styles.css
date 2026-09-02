@@ -1803,7 +1803,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .organization-audit-list strong,.provider-body .organization-audit-list small { display:block; }
 .provider-body .organization-audit-list strong { color:#3c5548; font-size:10px; }
 .provider-body .organization-audit-list small { margin-top:2px; color:#839087; font-size:8px; }
-.provider-body .organization-resources { display:grid; gap:16px; }
+.provider-body .organization-resources { display:grid; gap:10px; }
+.provider-body .organization-resources>.panel-head { margin-bottom:0; }
+.provider-body .organization-resources>.organization-invite-help { max-width:760px; }
 .provider-body .organization-shifts { display:grid; gap:16px; }
 .provider-body .organization-payroll,.provider-body .payroll-workspace { display:grid; gap:16px; }
 .provider-body .organization-benefits,.provider-body .benefits-workspace { display:grid; gap:16px; }
@@ -1945,6 +1947,8 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .resource-workspace { display:grid; gap:16px; }
 .provider-body .resource-management-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .provider-body .resource-management-grid>section { min-width:0; }
+.provider-body .resource-management-grid>section[hidden] { display:none; }
+.provider-body .resource-management-grid[data-resource-step="groups"] { grid-template-columns:minmax(0,720px); }
 .provider-body .resource-subhead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
 .provider-body .resource-subhead small,.provider-body .resource-subhead strong { display:block; }
 .provider-body .resource-subhead small { color:#829087; font-size:8px; font-weight:750; }
@@ -1964,6 +1968,14 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .resource-requirement-row strong { color:#315241; font-size:10px; }
 .provider-body .resource-requirement-row small { margin-top:2px; color:#7a8980; font-size:8px; }
 .provider-body .resource-requirement-row input { width:68px; min-height:38px; margin:0; text-align:center; }
+.provider-body .resource-requirement-actions { display:flex; justify-content:flex-end; }
+.provider-body .resource-requirement-actions .primary { width:auto; min-width:190px; margin:0; }
+.provider-body .resource-create-summary-copy { display:grid; gap:2px; min-width:0; text-align:left; }
+.provider-body .resource-create-summary-copy strong,.provider-body .resource-create-summary-copy small { display:block; }
+.provider-body .resource-create-summary-copy strong { color:inherit; font-size:10px; }
+.provider-body .resource-create-summary-copy small { color:var(--theme-muted,#718078); font-size:8px; font-weight:650; }
+.provider-body .resource-create-step[data-empty-action="true"] { margin-top:0; border-style:solid; background:var(--theme-surface-alt,#f8fbf9); }
+.provider-body .resource-create-step[data-empty-action="true"]>summary { justify-content:flex-start; min-height:64px; padding:10px 14px; }
 .provider-body .organization-tags { display:flex; flex:none; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
 .provider-body .resource-audit { border:1px solid #e3eae5; border-radius:13px; overflow:hidden; background:#fff; }
 .provider-body .resource-audit>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:58px; padding:12px 14px; cursor:pointer; list-style:none; }
@@ -2053,6 +2065,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .organization-invite-share { align-items:stretch; flex-direction:column; }
   .provider-body .organization-invite-share .secondary-button { width:100%; }
   .provider-body .resource-requirement-list { grid-template-columns:1fr; }
+  .provider-body .resource-requirement-actions .primary { width:100%; }
   .provider-body .resource-inline-error { align-items:stretch; flex-direction:column; }
   .provider-body .resource-inline-error .secondary-button { width:100%; }
   .provider-body .organization-cancel { width:100%; margin-top:3px; }

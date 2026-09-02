@@ -25,9 +25,9 @@ class MockElement {
 
 const ids = [
   'resourcesPanel','resourcesLoading','resourcesUnavailable','resourcesUnavailableText','resourcesCount',
-  'resourceGroupsCount','resourceGroupsList','resourcesList','resourceGroupCreator','resourceCreator',
+  'resourceManagementGrid','resourceGroupsSection','resourceObjectsSection','resourceGroupsCount','resourceGroupsList','resourcesList','resourceGroupCreator','resourceGroupCreatorLabel','resourceGroupCreatorHint','resourceCreator','resourceCreatorLabel','resourceCreatorHint',
   'resourceRequirementsPanel','resourceLocation','resourceGroup','resourceForm','resourceCreateHelp',
-  'resourceRequirementService','resourceRequirementsList','resourceRequirementSubmit','resourceRequirementError'
+  'resourceRequirementService','resourceRequirementsList','resourceRequirementSubmit','resourceRequirementError','resourceAuditPanel','resourceAuditCount','resourceAuditList'
 ];
 function makeDom() {
   const elements = Object.fromEntries(ids.map(id => [id, new MockElement(id)]));
@@ -94,6 +94,28 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '
   assert.equal(dom.elements.resourcesPanel.hidden, false);
   assert.match(dom.elements.resourcesList.innerHTML, /&lt;Кабинет 1&gt;/, 'resource names must be escaped');
   assert.doesNotMatch(dom.elements.resourcesList.innerHTML, /<Кабинет 1>/);
+  assert.equal(dom.elements.resourceObjectsSection.hidden, false);
+  assert.equal(dom.elements.resourceRequirementsPanel.hidden, false);
+}
+
+{
+  const dom = makeDom();
+  const controller = window.MinutaResources.createController({
+    db: { rpc: async () => ({ data:workspace('org-empty', { groups:[], resources:[], requirements:[], audit:[] }), error:null }) },
+    ...dom, escapeHtml, notify() {}, requireWrites: () => true,
+    getCurrentUser: () => ({ id:'owner' }), getSessionGeneration: () => 21,
+    sessionIsCurrent: () => true, applyWriteAvailability() {}
+  });
+  await controller.setOrganization({ id:'org-empty', can_manage:true });
+  assert.equal(dom.elements.resourcesCount.hidden, true, 'Нулевой счётчик ресурсов не должен отвлекать');
+  assert.equal(dom.elements.resourceGroupsCount.hidden, true, 'Нулевой счётчик групп не должен отвлекать');
+  assert.equal(dom.elements.resourceGroupsList.innerHTML, '', 'Пустая карточка не должна дублировать первый шаг');
+  assert.equal(dom.elements.resourceGroupCreator.hidden, false);
+  assert.equal(dom.elements.resourceGroupCreator.dataset.emptyAction, 'true');
+  assert.match(dom.elements.resourceGroupCreatorLabel.textContent, /Создать группу ресурсов/);
+  assert.equal(dom.elements.resourceObjectsSection.hidden, true, 'Следующий шаг скрыт до создания группы');
+  assert.equal(dom.elements.resourceRequirementsPanel.hidden, true, 'Требования скрыты до создания ресурсов');
+  assert.equal(dom.elements.resourceAuditPanel.hidden, true, 'Пустой журнал скрыт');
 }
 
 {
