@@ -1268,6 +1268,68 @@ let activeIosTransition = null;
 let activeIosTransitionCleanup = null;
 const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'];
 
+function providerViewFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('section') || params.get('view');
+  return PROVIDER_VIEW_ORDER.includes(requested) ? requested : 'bookings';
+}
+
+function syncProviderViewHistory(view, mode = 'push') {
+  if (mode === 'none') return;
+  const url = new URL(window.location.href);
+  url.searchParams.delete('view');
+  if (view === 'bookings') url.searchParams.delete('section');
+  else url.searchParams.set('section', view);
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl && mode !== 'replace') return;
+  window.history[mode === 'replace' ? 'replaceState' : 'pushState']({ providerView:view }, '', nextUrl);
+}
+
+function focusProviderViewHeading(view) {
+  const panel = $(`[data-provider-panel="${view}"]`);
+  const heading = panel?.querySelector('.view-title h2');
+  if (!heading) return;
+  heading.setAttribute('tabindex', '-1');
+  requestAnimationFrame(() => heading.focus({ preventScroll:true }));
+}
+
+function refreshSectionNavigation() {
+  $$('.provider-section-nav').forEach(nav => {
+    const buttons = [...nav.querySelectorAll('[data-section-target]')];
+    buttons.forEach(button => {
+      const target = document.getElementById(button.dataset.sectionTarget);
+      const shouldHide = !target || target.hidden;
+      if (button.hidden !== shouldHide) button.hidden = shouldHide;
+      if (shouldHide) {
+        button.classList.remove('active');
+        button.removeAttribute('aria-current');
+      }
+    });
+    const visible = buttons.filter(button => !button.hidden);
+    if (!visible.length) return;
+    if (!visible.some(button => button.classList.contains('active'))) visible[0].classList.add('active');
+  });
+}
+
+function scrollToProviderSection(button) {
+  const target = document.getElementById(button?.dataset.sectionTarget || '');
+  if (!target || target.hidden) return;
+  const nav = button.closest('.provider-section-nav');
+  nav?.querySelectorAll('[data-section-target]').forEach(item => {
+    const active = item === button;
+    item.classList.toggle('active', active);
+    if (active) item.setAttribute('aria-current', 'location');
+    else item.removeAttribute('aria-current');
+  });
+  const focusTarget = target.classList.contains('provider-section-marker')
+    ? target.nextElementSibling?.querySelector('summary') || target.nextElementSibling
+    : target;
+  focusTarget?.setAttribute('tabindex', '-1');
+  target.scrollIntoView({ behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
+  requestAnimationFrame(() => focusTarget?.focus({ preventScroll:true }));
+}
+
 function canUseIosTransitions() {
   return displayPreferences?.ios_transitions !== false
     && typeof document.startViewTransition === 'function'
@@ -1378,7 +1440,7 @@ function showRecoverySent() {
   $('#authTitle').textContent = 'Проверьте почту.';
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
-function setProviderViewImmediate(view) {
+function setProviderViewImmediate(view, focusHeading = false) {
   $$('[data-provider-view]').forEach(button => {
     const active = button.dataset.providerView === view;
     button.classList.toggle('active', active);
@@ -1404,18 +1466,23 @@ function setProviderViewImmediate(view) {
     if (organizationController.availability === null) organizationController.load();
     else organizationController.render();
   }
+  refreshSectionNavigation();
   window.scrollTo({ top: 0, behavior: 'auto' });
+  if (focusHeading) focusProviderViewHeading(view);
 }
-function setProviderView(view) {
+function setProviderView(view, { historyMode = 'push', focusHeading = true } = {}) {
+  const nextView = PROVIDER_VIEW_ORDER.includes(view) ? view : 'bookings';
   const currentPanel = $$('[data-provider-panel]').find(panel => !panel.hidden);
   const previousView = currentPanel?.dataset.providerPanel;
-  const update = () => setProviderViewImmediate(view);
-  if (previousView && previousView !== view && !$('#dashboard').hidden) {
+  const changed = previousView !== nextView;
+  const update = () => setProviderViewImmediate(nextView, focusHeading && changed);
+  if (changed || historyMode === 'replace' || providerViewFromLocation() !== nextView) syncProviderViewHistory(nextView, historyMode);
+  if (previousView && changed && !$('#dashboard').hidden) {
     const previousIndex = PROVIDER_VIEW_ORDER.indexOf(previousView);
-    const nextIndex = PROVIDER_VIEW_ORDER.indexOf(view);
+    const nextIndex = PROVIDER_VIEW_ORDER.indexOf(nextView);
     return runIosTransition({
       current: currentPanel,
-      next: () => $$('[data-provider-panel]').find(panel => panel.dataset.providerPanel === view),
+      next: () => $$('[data-provider-panel]').find(panel => panel.dataset.providerPanel === nextView),
       update,
       direction: previousIndex >= 0 && nextIndex >= 0 && nextIndex < previousIndex ? 'backward' : 'forward'
     });
@@ -1533,6 +1600,8 @@ function updateCalendarViewControls() {
   });
   const strip = $('#dateStrip');
   if (strip) strip.hidden = calendarView !== 'day' || currentFilter !== 'day';
+  const filters = $('.booking-filters');
+  if (filters) filters.hidden = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day';
   const labels = calendarView === 'day'
     ? ['Показать предыдущий день', 'Показать следующий день']
     : calendarView === 'week'
@@ -1626,8 +1695,11 @@ function updateBookingStats() {
   const upcomingCount = active.filter(item => item.booking_date >= today).length;
   $('#todayBookingsCount').textContent = String(todayCount);
   $('#newBookingsCount').textContent = String(upcomingCount);
-  $('#newBookingsBadge').textContent = String(upcomingCount);
-  $('#newBookingsBadge').hidden = upcomingCount === 0;
+  const sidebarBadge = $('#newBookingsBadge');
+  if (sidebarBadge) {
+    sidebarBadge.textContent = String(upcomingCount);
+    sidebarBadge.hidden = true;
+  }
 }
 
 function filteredBookings() {
@@ -2893,7 +2965,7 @@ function setTeamCalendarMode(active) {
   const filters = $('.booking-filters');
   const createButton = $('#newBookingButton');
   if (modeToggle) modeToggle.hidden = teamMode || currentFilter !== 'day' || calendarView !== 'day';
-  if (filters) filters.hidden = teamMode;
+  if (filters) filters.hidden = teamMode || calendarView !== 'day';
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
   renderBookings();
@@ -2927,7 +2999,7 @@ function renderClients() {
   const search = $('#clientSearch').value.trim().toLowerCase();
   const filtered = clients.filter(client => `${client.name} ${client.displayPhone} ${client.phone}`.toLowerCase().includes(search));
   $('#clientsCount').textContent = String(clients.length);
-  $('#clientsBadge').textContent = String(clients.length);
+  if ($('#clientsBadge')) $('#clientsBadge').textContent = String(clients.length);
   if (!filtered.length) {
     $('#clientsList').innerHTML = `<div class="provider-empty compact-empty"><span class="provider-empty-icon">${uiIcon('user')}</span><strong>${clients.length ? 'Ничего не найдено' : 'Клиентов пока нет'}</strong><small>${clients.length ? 'Попробуйте изменить запрос.' : 'Они появятся после первой записи.'}</small></div>`;
     return;
@@ -3767,7 +3839,7 @@ async function handleSession(session) {
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
   if (!bookingsChannel) startLiveUpdates();
-  if (new URLSearchParams(window.location.search).get('view') === 'notifications') setProviderView('notifications');
+  setProviderView(providerViewFromLocation(), { historyMode:'replace', focusHeading:false });
 }
 
 async function login(event) {
@@ -4105,7 +4177,7 @@ function renderPortfolio() {
   if (!list) return;
   const publishedCount = portfolioItems.filter(item => item.published).length;
   $('#portfolioCount').textContent = String(portfolioItems.length);
-  $('#portfolioBadge').textContent = String(portfolioItems.length);
+  if ($('#portfolioBadge')) $('#portfolioBadge').textContent = String(portfolioItems.length);
   const availability = $('#portfolioAvailability');
   availability.hidden = portfolioRemoteAvailable;
   availability.textContent = portfolioRemoteAvailable ? '' : 'Портфолио пока недоступно: серверная часть ещё не подключена или связь прервана.';
@@ -4406,7 +4478,7 @@ function renderOwnServices() {
   populateRepeatServices();
   const activeCount = ownServices.filter(item => item.active).length;
   $('#servicesCount').textContent = String(ownServices.length);
-  $('#servicesBadge').textContent = String(ownServices.length);
+  if ($('#servicesBadge')) $('#servicesBadge').textContent = String(ownServices.length);
   $('#activeServicesCount').textContent = String(activeCount);
   if (!ownServices.length) {
     list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Добавьте первую — она сразу появится у клиентов.</small></div>`;
@@ -4631,6 +4703,7 @@ document.addEventListener('click', async event => {
   }
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
+  const sectionTarget = event.target.closest('[data-section-target]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
@@ -4682,6 +4755,10 @@ document.addEventListener('click', async event => {
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) setProviderView(view.dataset.providerView);
+  if (sectionTarget) {
+    event.preventDefault();
+    scrollToProviderSection(sectionTarget);
+  }
   if (notificationFilterButton) {
     notificationFilter = notificationFilterButton.dataset.notificationFilter;
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
@@ -5208,9 +5285,15 @@ window.addEventListener('appinstalled', () => {
   notify('Приложение установлено');
 });
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
+window.addEventListener('popstate', () => {
+  if (!currentUser || $('#dashboard').hidden) return;
+  setProviderView(providerViewFromLocation(), { historyMode:'none', focusHeading:true });
+});
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
   if (event.data?.type === 'open-provider-view' && event.data.view === 'notifications' && currentUser) setProviderView('notifications');
 });
+new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attributes:true, subtree:true, attributeFilter:['hidden'] });
+refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=168'));

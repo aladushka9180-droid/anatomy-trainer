@@ -66,15 +66,19 @@
       <aside class="provider-sidebar">
         <a class="brand provider-brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>для исполнителя</small></span></a>
         <nav class="provider-nav" aria-label="Разделы кабинета">
-          <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span><b id="newBookingsBadge" hidden>0</b></button>
-          <button type="button" data-provider-view="clients"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Клиенты</span><b id="clientsBadge">0</b></button>
+          <span class="provider-nav-group-label">Работа</span>
+          <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span></button>
+          <button type="button" data-provider-view="clients"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Клиенты</span></button>
           <button type="button" data-provider-view="notifications"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></span><span>Уведомления</span><b id="notificationBadge" hidden>0</b></button>
           <button type="button" data-provider-view="waitlist"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Лист ожидания</span><b id="waitlistBadge" hidden>0</b></button>
+          <span class="provider-nav-group-label">Управление</span>
+          <button type="button" data-provider-view="schedule"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Рабочие часы</span></button>
+          <button type="button" data-provider-view="services"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></span><span>Услуги</span></button>
+          <button type="button" data-provider-view="organization"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Сотрудники и филиалы</span></button>
+          <span class="provider-nav-group-label">Развитие</span>
           <button type="button" data-provider-view="analytics"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-chart"></use></svg></span><span>Статистика</span></button>
-          <button type="button" data-provider-view="schedule"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><span>Расписание</span></button>
-          <button type="button" data-provider-view="services"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></span><span>Услуги</span><b id="servicesBadge">0</b></button>
-          <button type="button" data-provider-view="organization"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></span><span>Команда</span><b id="teamBadge">1</b></button>
-          <button type="button" data-provider-view="portfolio"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-image"></use></svg></span><span>Портфолио</span><b id="portfolioBadge">0</b></button>
+          <button type="button" data-provider-view="portfolio"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-image"></use></svg></span><span>Портфолио</span></button>
+          <span class="provider-nav-group-label">Система</span>
           <button type="button" data-provider-view="settings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-settings"></use></svg></span><span>Настройки</span></button>
         </nav>
         <div class="sidebar-bottom">
@@ -87,16 +91,16 @@
       <div class="provider-workspace">
         <header class="provider-topbar">
           <div><small id="todayLabel">Сегодня</small><h1 id="welcomeName">Здравствуйте!</h1></div>
-          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link" href="index.html" aria-label="Открыть онлайн-запись"><span>Открыть онлайн-запись</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
+          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link" href="index.html" aria-label="Открыть страницу клиента"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
         </header>
 
         <section class="provider-view active" data-provider-panel="bookings">
-          <div class="view-title schedule-view-title"><div><span>Журнал записей</span><div class="schedule-title-line"><h2>Расписание</h2><div class="dashboard-summary" aria-label="Сводка"><div><strong id="todayBookingsCount">0</strong><span>сегодня</span></div><i></i><div><strong id="newBookingsCount">0</strong><span>впереди</span></div><i></i><div><strong id="activeServicesCount">0</strong><span>услуг</span></div></div></div></div><div class="view-title-actions"><button class="secondary-button compact-button free-slots-open-button" id="openFreeSlots" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Свободные окна</span></button><button class="primary compact-button" id="newBookingButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая запись</span></button><button class="refresh-button" id="refreshBookings" type="button" aria-label="Обновить записи"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg></button></div></div>
+          <div class="view-title schedule-view-title"><div><span>Журнал записей</span><div class="schedule-title-line"><h2 tabindex="-1">Расписание</h2><div class="dashboard-summary" aria-label="Сводка"><div><strong id="todayBookingsCount">0</strong><span>сегодня</span></div><i></i><div><strong id="newBookingsCount">0</strong><span>впереди</span></div><i></i><div><strong id="activeServicesCount">0</strong><span>услуг</span></div></div></div></div><div class="view-title-actions"><button class="secondary-button compact-button free-slots-open-button" id="openFreeSlots" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Поделиться свободным временем</span></button><button class="primary compact-button" id="newBookingButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая запись</span></button><button class="refresh-button" id="refreshBookings" type="button" aria-label="Обновить записи"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg></button></div></div>
           <section class="schedule-card">
             <div class="team-calendar-toolbar" id="teamCalendarToolbar" hidden>
               <div class="team-calendar-mode" role="group" aria-label="Режим календаря">
                 <button class="active" type="button" data-calendar-mode="personal" aria-pressed="true">Мои записи</button>
-                <button type="button" data-calendar-mode="team" aria-pressed="false">Команда</button>
+                <button type="button" data-calendar-mode="team" aria-pressed="false">Расписание команды</button>
               </div>
               <fieldset class="team-calendar-filters" id="teamCalendarFilters" hidden>
                 <legend class="sr-only">Фильтры командного календаря</legend>
@@ -122,7 +126,7 @@
               <div><strong id="selectedDateTitle">Сегодня</strong><span id="selectedDateSummary">Записей нет</span></div>
               <div class="schedule-controls">
                 <div class="journal-mode-toggle" role="group" aria-label="Вид журнала"><button class="active" type="button" data-journal-mode="timeline" aria-label="Временная лента" aria-pressed="true"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Лента</span></button><button type="button" data-journal-mode="list" aria-label="Компактный список" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-list"></use></svg><span>Список</span></button></div>
-                <div class="booking-filters" role="group" aria-label="Фильтр записей"><button class="active" type="button" data-filter="day" aria-pressed="true">День</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все</button></div>
+                <div class="booking-filters" role="group" aria-label="Какие записи показать"><button class="active" type="button" data-filter="day" aria-pressed="true">Выбранный день</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все записи</button></div>
               </div>
             </div>
             <div class="provider-bookings schedule-list" id="providerBookings"></div>
@@ -266,7 +270,7 @@
         </section>
 
         <section class="provider-view" data-provider-panel="organization" hidden>
-          <div class="view-title"><div><span>Организация</span><h2>Филиалы и команда</h2></div><span class="panel-count" id="organizationRoleBadge">Загрузка</span></div>
+          <div class="view-title"><div><span>Организация</span><h2 tabindex="-1">Сотрудники и филиалы</h2></div><span class="panel-count" id="organizationRoleBadge">Загрузка</span></div>
           <p class="view-description">Управляйте местами работы, доступами и тем, кто доступен для онлайн-записи.</p>
           <section class="organization-state panel" id="organizationLoading" aria-live="polite"><div class="loading-state"><i></i><span>Загружаем организацию…</span></div></section>
           <section class="organization-state panel organization-unavailable" id="organizationUnavailable" role="status" aria-live="polite" hidden>
@@ -280,13 +284,22 @@
 
           <div class="organization-workspace" id="organizationWorkspace" hidden>
             <label class="organization-switcher" id="organizationSwitcherField" hidden><span>Текущая организация</span><select id="organizationSwitcher"></select></label>
-            <section class="panel organization-overview">
+            <nav class="provider-section-nav" aria-label="Навигация по сотрудникам и филиалам">
+              <button class="active" type="button" data-section-target="organizationOverviewSection">Главное</button>
+              <button type="button" data-section-target="organizationPeopleSection">Люди и филиалы</button>
+              <button type="button" data-section-target="resourcesPanel">Ресурсы</button>
+              <button type="button" data-section-target="shiftsPanel">График команды</button>
+              <button type="button" data-section-target="payrollPanel">Финансы</button>
+              <button type="button" data-section-target="benefitsPanel">Клиенты</button>
+              <button type="button" data-section-target="inventoryPanel">Склад</button>
+            </nav>
+            <section class="panel organization-overview provider-section-anchor" id="organizationOverviewSection">
               <div class="organization-overview-copy"><span class="organization-avatar" id="organizationAvatar">М</span><div><small id="organizationPublicState">Онлайн-запись команды пока выключена</small><h3 id="organizationTitle">Организация</h3><span id="organizationSlug"></span></div></div>
               <form id="organizationForm" class="organization-name-form"><label>Название<input id="organizationName" maxlength="120" required></label><button class="primary compact-button" type="submit">Сохранить</button></form>
               <p class="form-error" id="organizationError" hidden></p>
             </section>
 
-            <div class="organization-grid">
+            <div class="organization-grid provider-section-anchor" id="organizationPeopleSection">
               <section class="panel organization-section">
                 <div class="panel-head"><div><small>Адреса и часовые пояса</small><h3>Филиалы</h3></div><span class="panel-count" id="locationsCount">0</span></div>
                 <div class="organization-list" id="locationsList"></div>
@@ -511,14 +524,21 @@
         </section>
 
         <section class="provider-view" data-provider-panel="settings" hidden>
-          <div class="view-title"><div><span>Безопасность</span><h2>Настройки</h2></div></div>
+          <div class="view-title"><div><span>Параметры кабинета</span><h2 tabindex="-1">Настройки</h2></div></div>
+          <nav class="provider-section-nav" aria-label="Навигация по настройкам">
+            <button class="active" type="button" data-section-target="appearanceSettingsCard">Оформление</button>
+            <button type="button" data-section-target="visitorAlertSettingsCard">Уведомления</button>
+            <button type="button" data-section-target="installAppCard">Приложение</button>
+            <button type="button" data-section-target="bookingRulesCard">Правила записи</button>
+            <button type="button" data-section-target="accountSettingsCard">Безопасность</button>
+          </nav>
           <div class="settings-layout">
             <section class="panel settings-card group-booking-settings-card" id="groupBookingSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></div>
               <div class="settings-heading"><small>Групповые события</small><h3>Открывать запись по местам</h3><p id="groupBookingsSettingNote">Функция выключена: события не видны клиентам.</p></div>
               <label class="settings-check group-booking-toggle"><input id="groupBookingsEnabled" type="checkbox" data-group-booking-write><span><strong>Показывать групповые события клиентам</strong><small>Включить может только владелец организации. Изменение не затрагивает обычные записи.</small></span></label>
             </section>
-            <section class="panel settings-card appearance-settings-card">
+            <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
               <div class="settings-heading"><small>Внешний вид кабинета</small><h3>Структура, тема и карточки</h3><p>Сначала выберите компоновку интерфейса, затем независимо примените к ней цветную или фактурную тему. Оформление меняется сразу.</p></div>
               <form id="providerDisplayForm" class="provider-display-form">
@@ -576,7 +596,7 @@
                 <span class="provider-display-status" id="providerDisplayStatus" role="status" aria-live="polite">Сохраняется автоматически</span>
               </form>
             </section>
-            <section class="panel settings-card visitor-alert-settings-card" id="visitorAlertSettingsCard" hidden>
+            <section class="panel settings-card visitor-alert-settings-card provider-section-anchor" id="visitorAlertSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></div>
               <div class="settings-heading"><small>Посетители страницы записи</small><h3>Сообщать, когда кто-то смотрит сайт</h3><p>Кабинет покажет обезличенное уведомление. Имя, телефон и данные устройства для этого не собираются.</p></div>
               <form id="visitorNotificationForm" class="visitor-notification-form">
@@ -586,7 +606,7 @@
                 <button class="primary" type="submit">Сохранить уведомления</button>
               </form>
             </section>
-            <section class="panel settings-card install-app-card">
+            <section class="panel settings-card install-app-card provider-section-anchor" id="installAppCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-download"></use></svg></div>
               <div class="settings-heading"><small>Быстрый доступ</small><h3>Установить приложение</h3><p>Кабинет появится на главном экране и будет открываться как отдельное приложение.</p></div>
               <div class="install-app-content">
@@ -608,7 +628,7 @@
                 </div>
               </div>
             </section>
-            <section class="panel settings-card booking-rules-card">
+            <section class="panel settings-card booking-rules-card provider-section-anchor" id="bookingRulesCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></div>
               <div class="settings-heading"><small>Правила онлайн-записи</small><h3>Отмена, перенос и предоплата</h3><p>Ограничения проверяются на сервере и не обходятся через старую ссылку.</p></div>
               <div id="organizationBookingPolicyPanel" hidden>
@@ -648,6 +668,7 @@
                 <button class="primary" type="submit">Сохранить автоматизацию</button>
               </form>
             </section>
+            <span class="provider-section-marker" id="accountSettingsCard" aria-hidden="true"></span>
             <details class="panel settings-card account-settings-card">
               <summary><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Аккаунт исполнителя</small><h3>Сменить пароль</h3><p>Открывайте этот раздел только когда нужно обновить пароль.</p></div></summary>
               <form id="passwordForm" class="password-form">
@@ -670,9 +691,9 @@
             <button type="button" data-provider-view="bookings"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg></span><strong>Записи</strong><small>Лента времени, список и управление визитами</small></button>
             <button type="button" data-provider-view="clients"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg></span><strong>Клиенты</strong><small>История, контакты, заметки и личные метки</small></button>
             <button type="button" data-provider-view="notifications"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg></span><strong>Уведомления</strong><small>Сообщения клиентам и шаблоны</small></button>
-            <button type="button" data-provider-view="schedule"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></span><strong>Расписание</strong><small>Рабочие часы, перерывы и выходные</small></button>
+            <button type="button" data-provider-view="schedule"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></span><strong>Рабочие часы</strong><small>Доступность, перерывы и выходные</small></button>
             <button type="button" data-provider-view="services"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></span><strong>Услуги</strong><small>Цены, длительность и доступность</small></button>
-            <button type="button" data-provider-view="organization"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg></span><strong>Команда</strong><small>Организация, филиалы и роли</small></button>
+            <button type="button" data-provider-view="organization"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg></span><strong>Сотрудники и филиалы</strong><small>Команда, места работы и роли</small></button>
             <button type="button" data-provider-view="portfolio"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span><strong>Портфолио</strong><small>Фото работ и количество сеансов</small></button>
             <button type="button" data-provider-view="analytics"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-chart"></use></svg></span><strong>Статистика</strong><small>Доход, визиты и выгрузка записей</small></button>
             <button type="button" data-provider-view="waitlist"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg></span><strong>Лист ожидания</strong><small>Заявки клиентов на занятые даты</small></button>
@@ -682,9 +703,9 @@
 
       <nav class="provider-mobile-nav" aria-label="Разделы кабинета">
         <button class="active" type="button" data-provider-view="bookings"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg><span>Записи</span></button>
-        <button type="button" data-provider-view="notifications"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg><span>Сообщения</span></button>
+        <button type="button" data-provider-view="notifications"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg><span>Уведомления</span></button>
         <button type="button" data-provider-view="clients"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg><span>Клиенты</span></button>
-        <button type="button" data-provider-view="schedule"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Расписание</span></button>
+        <button type="button" data-provider-view="schedule"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Рабочие часы</span></button>
         <button type="button" data-provider-view="more"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Разделы</span></button>
       </nav>
     </section>

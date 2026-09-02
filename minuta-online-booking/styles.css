@@ -31,6 +31,8 @@
 .calendar-overview-booking strong,.calendar-overview-booking small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .calendar-overview-booking strong { font-size:10px; }
 .calendar-overview-booking small { margin-top:3px; color:var(--theme-muted,#64756c); font-size:9px; }
+.calendar-overview-week .calendar-overview-booking { min-height:56px; align-items:center; }
+.calendar-overview-week .calendar-overview-booking strong { display:-webkit-box; overflow:hidden; white-space:normal; line-height:1.25; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .calendar-overview-booking.status-block { background:repeating-linear-gradient(135deg,var(--theme-surface-alt,#f3f6f4),var(--theme-surface-alt,#f3f6f4) 7px,var(--theme-surface,#fff) 7px,var(--theme-surface,#fff) 14px); }
 .calendar-overview-more { width:100%; min-height:38px; border:0; border-radius:8px; background:var(--theme-surface-alt,#f4f7f5); color:var(--theme-accent,#235b40); cursor:pointer; font-size:9px; font-weight:900; }
 .calendar-overview-month .calendar-overview-day { min-height:132px; }
@@ -479,11 +481,20 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-brand { padding:0 10px 24px; border-bottom:1px solid #edf1ee; }
 .provider-brand .brand-mark { width:42px; height:42px; border-radius:13px; }
 .provider-nav { display:grid; gap:7px; margin-top:24px; }
+.provider-nav-group-label { margin:10px 12px 1px; color:#7b8a82; font-size:9px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; }
+.provider-nav-group-label:first-child { margin-top:0; }
 .provider-nav button { display:grid; grid-template-columns:30px 1fr auto; align-items:center; width:100%; min-height:48px; padding:0 12px; border:0; border-radius:13px; background:transparent; color:#5d6e65; cursor:pointer; text-align:left; font-size:13px; font-weight:800; }
 .provider-nav button>span:first-child { display:grid; place-items:center; width:28px; height:28px; border-radius:9px; color:#6f8077; }
 .provider-nav button.active { background:#e8f3ec; color:#174b34; }
 .provider-nav button.active>span:first-child { background:#fff; color:#2e7655; box-shadow:0 3px 10px rgba(27,73,51,.08); }
 .provider-nav b { min-width:23px; padding:4px 6px; border-radius:999px; background:#fff; color:#357458; text-align:center; font-size:10px; }
+.provider-section-nav { position:sticky; z-index:12; top:10px; display:flex; gap:6px; margin:16px 0; padding:7px; overflow-x:auto; border:1px solid var(--theme-line,#dce7df); border-radius:14px; background:color-mix(in srgb,var(--theme-surface,#fff) 94%,transparent); box-shadow:0 8px 24px color-mix(in srgb,var(--theme-shadow,rgba(24,52,39,.14)) 38%,transparent); backdrop-filter:blur(14px); scrollbar-width:thin; }
+.provider-section-nav button { flex:0 0 auto; min-height:38px; padding:0 13px; border:1px solid transparent; border-radius:10px; background:transparent; color:var(--theme-muted,#66786e); cursor:pointer; font:850 10px/1.2 inherit; white-space:nowrap; }
+.provider-section-nav button:hover { border-color:var(--theme-line,#dce7df); color:var(--theme-ink,#173b2a); }
+.provider-section-nav button.active { border-color:var(--theme-accent,#235b40); background:var(--theme-accent,#235b40); color:#fff; }
+.provider-section-anchor { scroll-margin-top:78px; }
+.provider-section-anchor:focus { outline:none; }
+.provider-section-marker { display:block; height:0; scroll-margin-top:78px; }
 .sidebar-bottom { display:grid; gap:13px; margin-top:auto; padding-top:20px; border-top:1px solid #edf1ee; }
 .sidebar-bottom>a { display:flex; align-items:center; gap:9px; padding:0 10px; color:#52675c; text-decoration:none; font-size:12px; font-weight:750; }
 .provider-user { display:grid; grid-template-columns:38px minmax(0,1fr); align-items:center; gap:10px; padding:12px 10px; border-radius:13px; background:#f6f8f6; }
@@ -509,6 +520,11 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .view-title>div:first-child>span:not(.panel-count) { color:#718278; font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
 .view-title h2 { margin:4px 0 0; font-size:30px; letter-spacing:-.05em; }
 .view-title .refresh-button { width:42px; height:42px; background:#fff; }
+@media (min-width:761px) {
+  .schedule-view-title { padding:14px 16px; border:1px solid var(--theme-line,#dce7df); border-radius:16px; background:var(--theme-surface,#fff); box-shadow:0 10px 28px color-mix(in srgb,var(--theme-shadow,rgba(24,52,39,.14)) 30%,transparent); }
+  .provider-body[data-provider-layout="linear"] .schedule-view-title,
+  .provider-body[data-provider-layout="editorial"] .schedule-view-title { border-radius:0; box-shadow:none; }
+}
 
 .stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin-top:22px; }
 .stat-grid article { display:flex; align-items:center; gap:13px; min-height:82px; padding:16px; border:1px solid #e1e9e3; border-radius:17px; background:#fff; }
@@ -764,8 +780,11 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   input,select,textarea { font-size:16px!important; }
   .provider-mobile-nav { position:fixed; z-index:20; left:10px; right:10px; bottom:max(10px,env(safe-area-inset-bottom)); display:grid; grid-template-columns:repeat(5,1fr); padding:7px; border:1px solid rgba(224,232,226,.9); border-radius:18px; background:rgba(255,255,255,.94); box-shadow:0 12px 45px rgba(24,52,39,.18); backdrop-filter:blur(18px); }
   .provider-mobile-nav button,.provider-mobile-nav a { display:grid; justify-items:center; gap:3px; padding:6px 4px; border:0; border-radius:12px; background:transparent; color:#718077; text-decoration:none; font-size:9px; font-weight:800; }
+  .provider-mobile-nav button,.provider-mobile-nav a { min-height:48px; }
   .provider-mobile-nav span { font-size:16px; }
   .provider-mobile-nav button.active { background:#e8f3ec; color:#245e43; }
+  .provider-section-nav { top:6px; margin:12px 0; padding:5px; border-radius:12px; }
+  .provider-section-nav button { min-height:44px; padding:0 12px; font-size:10px; }
 }
 
 /* Отзывы: удобные цели касания и управление публикацией в кабинете. */
@@ -3826,6 +3845,51 @@ html.requires-top-level.top-level body { visibility:visible; }
   font-weight:700;
   text-shadow:0 1px 0 rgba(255,255,255,.32);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -2px 5px rgba(91,52,10,.2),0 8px 22px rgba(214,166,77,.24)!important;
+}
+
+/* Навигация и рабочие поверхности: фактура остаётся фоном, содержимое — спокойным и читаемым. */
+.provider-body[data-provider-theme="luxury"] :is(
+  .panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,
+  .report-summary article,.portfolio-card,.provider-review-card,.provider-empty,.empty-service,.timeline-stage,
+  .organization-overview,.organization-editor>form,.resource-audit,.install-guide
+) {
+  background-color:rgba(8,9,10,.96)!important;
+  background-image:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,0))!important;
+}
+.provider-body[data-provider-theme="luxury"] .schedule-view-title {
+  border-color:#745a2b;
+  background:#08090a;
+  color:#f5efe3;
+}
+.provider-body[data-provider-theme="luxury"] .provider-nav-group-label {
+  color:#a99168;
+}
+.provider-body[data-provider-theme="luxury"] .provider-section-nav {
+  border-color:#745a2b;
+  background:rgba(8,9,10,.96);
+  box-shadow:0 10px 28px rgba(0,0,0,.38);
+}
+.provider-body[data-provider-theme="luxury"] .provider-section-nav button {
+  color:#c7baa4;
+}
+.provider-body[data-provider-theme="luxury"] .provider-section-nav button:hover {
+  border-color:#745a2b;
+  color:#fff8eb;
+}
+.provider-body[data-provider-theme="luxury"] .provider-section-nav button.active {
+  border-color:#e0b35e;
+  background:linear-gradient(145deg,#a9772e,#d9a950 58%,#8b6022);
+  color:#1c1207;
+}
+.provider-body[data-provider-theme="luxury"] :is(
+  .settings-heading small,.panel-head small,.resource-subhead small,.organization-personal-invites>div>small,
+  .provider-display-status,.visitor-notification-permission
+) {
+  color:#d6a64d!important;
+}
+.provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] :is(.provider-section-nav,.provider-section-nav button) {
+  border-radius:0!important;
+  box-shadow:none;
 }
 
 @media (min-width:1100px) {

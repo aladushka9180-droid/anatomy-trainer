@@ -54,7 +54,7 @@
       $('#organizationPersonalInvites').hidden = true;
       $('#organizationWorkspace').hidden = true;
       $('#organizationRoleBadge').textContent = 'Загрузка';
-      $('#teamBadge').textContent = '0';
+      if ($('#teamBadge')) $('#teamBadge').textContent = '0';
       emitActiveOrganization();
     }
 
@@ -70,7 +70,7 @@
       $('#organizationUnavailable').hidden = false;
       $('#organizationUnavailableText').textContent = message;
       $('#organizationRoleBadge').textContent = unsupported ? 'Не активировано' : 'Нет связи';
-      $('#teamBadge').textContent = '0';
+      if ($('#teamBadge')) $('#teamBadge').textContent = '0';
       emitActiveOrganization();
     }
 
@@ -142,7 +142,7 @@
       const switcher = $('#organizationSwitcher');
 
       $('#organizationRoleBadge').textContent = roleLabels[organization.current_role] || 'Участник';
-      $('#teamBadge').textContent = String(members.filter(item => item.active).length || 1);
+      if ($('#teamBadge')) $('#teamBadge').textContent = String(members.filter(item => item.active).length || 1);
       $('#organizationTitle').textContent = organization.name;
       $('#organizationAvatar').textContent = organization.name.slice(0, 1).toUpperCase();
       $('#organizationSlug').textContent = `Адрес в системе: ${organization.public_slug}`;

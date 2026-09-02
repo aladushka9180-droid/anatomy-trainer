@@ -399,6 +399,17 @@ assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумм
 assert.match(providerHtml, /id="reportCompletedValue"/, 'В статистике не показана стоимость состоявшихся визитов');
 assert.match(providerHtml, /class="mobile-settings-shortcut"[\s\S]*data-provider-view="settings"[\s\S]*Стиль, карточки записей, правила, предоплата и пароль/, 'Полные настройки кабинета не вынесены в мобильные разделы');
 for (const mobileView of ['bookings', 'clients', 'notifications', 'schedule', 'services', 'organization', 'portfolio', 'analytics', 'waitlist', 'settings']) assert.match(providerHtml, new RegExp(`class="mobile-more-grid"[\\s\\S]*data-provider-view="${mobileView}"`), `В мобильном меню нет раздела ${mobileView}`);
+for (const group of ['Работа', 'Управление', 'Развитие', 'Система']) assert.match(providerHtml, new RegExp(`provider-nav-group-label">${group}`), `В боковом меню нет группы «${group}»`);
+assert.match(providerHtml, /data-calendar-mode="team"[^>]*>Расписание команды</, 'Командный календарь не отличается по названию от управления сотрудниками');
+assert.match(providerHtml, /data-provider-view="organization"[\s\S]*Сотрудники и филиалы/, 'Управление сотрудниками и филиалами осталось неоднозначным');
+assert.match(providerHtml, /data-filter="day"[^>]*>Выбранный день<[\s\S]*data-filter="all"[^>]*>Все записи</, 'Фильтр записей по-прежнему дублирует название масштаба календаря');
+assert.match(provider, /filters\.hidden = Boolean\(teamCalendarController\?\.isTeamMode\) \|\| calendarView !== 'day'/, 'Фильтр выбранного дня остаётся видимым в недельном или месячном календаре');
+assert.match(provider, /function providerViewFromLocation[\s\S]*searchParams\.set\('section', view\)[\s\S]*addEventListener\('popstate'/, 'Открытый раздел не восстанавливается через URL и кнопку «Назад»');
+assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по сотрудникам и филиалам"/, 'В длинном разделе сотрудников нет внутренней навигации');
+assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
+assert.doesNotMatch(providerHtml, /id="(?:newBookingsBadge|clientsBadge|servicesBadge|teamBadge|portfolioBadge)"/, 'В боковом меню остались неинформативные общие и нулевые счётчики');
+assert.match(styles, /calendar-overview-week \.calendar-overview-booking strong[\s\S]*-webkit-line-clamp:2/, 'Название записи в недельном календаре не получает две строки');
+assert.match(styles, /Навигация и рабочие поверхности:[\s\S]*background-image:linear-gradient\(180deg,[^}]*!important;/, 'Внутренние поверхности Luxury не отделены от мраморного фона');
 assert.match(provider, /const completedValue = completed\.reduce[\s\S]*bookingSessionTotal\(item\)/, 'Стоимость состоявшихся визитов считается без итогового состава сеанса');
 assert.match(provider, /timeline-client-phone/, 'Телефон клиента нельзя независимо разместить в мобильной карточке');
 assert.match(provider, /function timelineServiceNameMarkup/, 'Название услуги нельзя адаптировать для мобильной карточки');
