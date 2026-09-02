@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '223';
+const version = '224';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -473,11 +473,11 @@ assert.match(providerHtml, /class="mobile-settings-shortcut"[\s\S]*data-provider
 for (const mobileView of ['bookings', 'clients', 'notifications', 'schedule', 'services', 'organization', 'portfolio', 'analytics', 'waitlist', 'settings']) assert.match(providerHtml, new RegExp(`class="mobile-more-grid"[\\s\\S]*data-provider-view="${mobileView}"`), `В мобильном меню нет раздела ${mobileView}`);
 for (const group of ['Работа', 'Управление', 'Развитие', 'Система']) assert.match(providerHtml, new RegExp(`provider-nav-group-label">${group}`), `В боковом меню нет группы «${group}»`);
 assert.match(providerHtml, /data-calendar-mode="team"[^>]*>Расписание команды</, 'Командный календарь не отличается по названию от управления сотрудниками');
-assert.match(providerHtml, /data-provider-view="organization"[\s\S]*Сотрудники и филиалы/, 'Управление сотрудниками и филиалами осталось неоднозначным');
+assert.match(providerHtml, /data-provider-view="organization"[\s\S]*Организация/, 'Широкий раздел управления бизнесом должен называться «Организация»');
 assert.match(providerHtml, /data-filter="day"[^>]*>Выбранный день<[\s\S]*data-filter="all"[^>]*>Все записи</, 'Фильтр записей по-прежнему дублирует название масштаба календаря');
 assert.match(provider, /filters\.hidden = Boolean\(teamCalendarController\?\.isTeamMode\) \|\| calendarView !== 'day'/, 'Фильтр выбранного дня остаётся видимым в недельном или месячном календаре');
 assert.match(provider, /function providerViewFromLocation[\s\S]*searchParams\.set\('section', view\)[\s\S]*addEventListener\('popstate'/, 'Открытый раздел не восстанавливается через URL и кнопку «Назад»');
-assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по сотрудникам и филиалам"/, 'В длинном разделе сотрудников нет внутренней навигации');
+assert.match(providerHtml, /class="provider-section-nav" aria-label="Разделы организации"/, 'В разделе организации нет внутренней навигации');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
 assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 2, 'Ссылки на страницу клиента не объединены общей логикой');
 assert.match(providerHtml, /provider-client-link[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'Страница клиента не открывается безопасно в новой вкладке');

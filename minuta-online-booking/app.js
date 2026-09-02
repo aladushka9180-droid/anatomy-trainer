@@ -552,6 +552,10 @@ function renderTimes() {
   }
   $('#continueBooking').disabled = !state.time || state.loadingAvailability;
   const suggestionShown = renderAvailabilitySuggestion(times);
+  // Не заставляем клиента прокручивать сетку заведомо недоступных часов.
+  // Загрузка остаётся видимой, а при отсутствии окон сразу показывается
+  // ближайшее предложение, сообщение об ошибке или лист ожидания.
+  $('#timeHours').hidden = !state.loadingAvailability && !times.length;
   $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length) || suggestionShown;
   const waitlistCta = $('#waitlistCta');
   if (waitlistCta) waitlistCta.hidden = state.teamMode || state.loadingAvailability || state.availabilityError || !state.date || Boolean(times.length);
@@ -1062,6 +1066,7 @@ document.addEventListener('click', event => {
     state.period = 'all';
     renderDates();
     renderTimes();
+    void showStep(3);
   }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
@@ -1120,4 +1125,4 @@ loadServices();
 publicGroupBookingsController.load();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=223'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=224'));

@@ -20,6 +20,13 @@ const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
+const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
+const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
+const PROVIDER_SECTION_COMPANIONS = Object.freeze({
+  organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
+  benefitsPanel:['loyaltyPanel', 'retentionPanel'],
+  bookingRulesCard:['groupBookingSettingsCard']
+});
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -137,6 +144,8 @@ let timelineMovePending = false;
 let scheduleDaySwipe = null;
 let gestureClickSuppressedUntil = 0;
 let sectionNavigationFrame = 0;
+const providerSectionSelections = new Map();
+const providerSectionPresentation = new WeakMap();
 const TIMELINE_TOUCH_HOLD_MS = 380;
 const TIMELINE_DRAG_THRESHOLD_PX = 5;
 const SCHEDULE_SWIPE_THRESHOLD_PX = 58;
@@ -1282,7 +1291,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=223#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=224#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1908,11 +1917,114 @@ function focusProviderViewHeading(view) {
   requestAnimationFrame(() => heading.focus({ preventScroll:true }));
 }
 
+function providerSectionViewKey(nav) {
+  return nav?.closest('[data-provider-panel]')?.dataset.providerPanel || '';
+}
+
+function providerSectionStorageKey(nav) {
+  const view = providerSectionViewKey(nav);
+  return view ? `${PROVIDER_SECTION_STORAGE_PREFIX}:${view}` : '';
+}
+
+function rememberedProviderSection(nav) {
+  const view = providerSectionViewKey(nav);
+  if (!view) return '';
+  if (providerSectionSelections.has(view)) return providerSectionSelections.get(view);
+  const key = providerSectionStorageKey(nav);
+  let target = '';
+  try { target = localStorage.getItem(key) || ''; } catch {}
+  if (target) providerSectionSelections.set(view, target);
+  return target;
+}
+
+function rememberProviderSection(button) {
+  const nav = button?.closest('.provider-section-nav');
+  const view = providerSectionViewKey(nav);
+  const target = button?.dataset.sectionTarget || '';
+  if (!nav || !view || !target) return;
+  providerSectionSelections.set(view, target);
+  try { localStorage.setItem(providerSectionStorageKey(nav), target); } catch {}
+}
+
+function preferredProviderSectionTarget(buttons, rememberedTarget = '') {
+  const visible = buttons.filter(button => !button.hidden);
+  return visible.find(button => button.dataset.sectionTarget === rememberedTarget)
+    || visible.find(button => button.classList.contains('active'))
+    || visible[0]
+    || null;
+}
+
+function providerSectionElements(button) {
+  const targetId = button?.dataset.sectionTarget || '';
+  const target = document.getElementById(targetId);
+  if (!target) return [];
+  const elements = [target];
+  if (target.classList.contains('provider-section-marker') && target.nextElementSibling) elements.push(target.nextElementSibling);
+  (PROVIDER_SECTION_COMPANIONS[targetId] || []).forEach(id => {
+    const companion = document.getElementById(id);
+    if (companion) elements.push(companion);
+  });
+  return [...new Set(elements)];
+}
+
+function setProviderSectionElementVisible(element, visible) {
+  if (!providerSectionPresentation.has(element)) {
+    providerSectionPresentation.set(element, {
+      display:element.style.display,
+      ariaHidden:element.getAttribute('aria-hidden'),
+      inert:element.hasAttribute('inert')
+    });
+  }
+  const original = providerSectionPresentation.get(element);
+  if (visible) {
+    element.style.display = original.display;
+    if (original.ariaHidden === null) element.removeAttribute('aria-hidden');
+    else element.setAttribute('aria-hidden', original.ariaHidden);
+    if (original.inert) element.setAttribute('inert', '');
+    else element.removeAttribute('inert');
+    return;
+  }
+  element.style.display = 'none';
+  element.setAttribute('aria-hidden', 'true');
+  element.setAttribute('inert', '');
+}
+
+function restoreProviderSectionDisclosure(nav) {
+  const elements = [...new Set([...nav.querySelectorAll('[data-section-target]')].flatMap(providerSectionElements))];
+  elements.forEach(element => {
+    const original = providerSectionPresentation.get(element);
+    if (!original) return;
+    element.style.display = original.display;
+    if (original.ariaHidden === null) element.removeAttribute('aria-hidden');
+    else element.setAttribute('aria-hidden', original.ariaHidden);
+    if (original.inert) element.setAttribute('inert', '');
+    else element.removeAttribute('inert');
+    providerSectionPresentation.delete(element);
+  });
+}
+
+function refreshProviderSectionDisclosure(nav) {
+  const buttons = [...nav.querySelectorAll('[data-section-target]')];
+  if (!providerSectionMobileQuery.matches) {
+    restoreProviderSectionDisclosure(nav);
+    return;
+  }
+  const selected = preferredProviderSectionTarget(buttons, rememberedProviderSection(nav));
+  buttons.forEach(button => {
+    const active = button === selected;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'location');
+    else button.removeAttribute('aria-current');
+    providerSectionElements(button).forEach(element => setProviderSectionElementVisible(element, active));
+  });
+}
+
 function refreshSectionNavigation() {
   $$('.provider-section-nav').forEach(nav => {
     const buttons = [...nav.querySelectorAll('[data-section-target]')];
     buttons.forEach(button => {
       const target = document.getElementById(button.dataset.sectionTarget);
+      if (target) button.setAttribute('aria-controls', target.id);
       const shouldHide = !target || target.hidden;
       if (button.hidden !== shouldHide) button.hidden = shouldHide;
       if (shouldHide) {
@@ -1926,6 +2038,7 @@ function refreshSectionNavigation() {
       visible[0].classList.add('active');
       visible[0].setAttribute('aria-current', 'location');
     }
+    refreshProviderSectionDisclosure(nav);
   });
   scheduleSectionNavigationUpdate();
 }
@@ -1934,12 +2047,14 @@ function scrollToProviderSection(button) {
   const target = document.getElementById(button?.dataset.sectionTarget || '');
   if (!target || target.hidden) return;
   const nav = button.closest('.provider-section-nav');
+  rememberProviderSection(button);
   nav?.querySelectorAll('[data-section-target]').forEach(item => {
     const active = item === button;
     item.classList.toggle('active', active);
     if (active) item.setAttribute('aria-current', 'location');
     else item.removeAttribute('aria-current');
   });
+  if (nav && providerSectionMobileQuery.matches) refreshProviderSectionDisclosure(nav);
   const focusTarget = target.classList.contains('provider-section-marker')
     ? target.nextElementSibling?.querySelector('summary') || target.nextElementSibling
     : target;
@@ -1949,6 +2064,7 @@ function scrollToProviderSection(button) {
 }
 
 function updateActiveSectionNavigation() {
+  if (providerSectionMobileQuery.matches) return;
   $$('.provider-section-nav').forEach(nav => {
     if (!nav.offsetParent) return;
     const buttons = [...nav.querySelectorAll('[data-section-target]')].filter(button => !button.hidden);
@@ -2087,6 +2203,7 @@ function showRecoverySent() {
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
 function setProviderViewImmediate(view, focusHeading = false) {
+  $('#dashboard').dataset.activeView = view;
   $$('[data-provider-view]').forEach(button => {
     const active = button.dataset.providerView === view;
     button.classList.toggle('active', active);
@@ -6461,6 +6578,8 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 window.addEventListener('scroll', scheduleSectionNavigationUpdate, { passive:true });
 window.addEventListener('resize', scheduleSectionNavigationUpdate);
+if (typeof providerSectionMobileQuery.addEventListener === 'function') providerSectionMobileQuery.addEventListener('change', refreshSectionNavigation);
+else providerSectionMobileQuery.addListener?.(refreshSectionNavigation);
 window.addEventListener('popstate', () => {
   if (!currentUser || $('#dashboard').hidden) return;
   const nextFilter = restoreScheduleFilter();
@@ -6486,4 +6605,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=223'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=224'));
