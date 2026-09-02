@@ -1,12 +1,43 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey);
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
+const yookassaPaymentEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/yookassa-create-payment`;
 const $ = selector => document.querySelector(selector);
 const token = new URLSearchParams(location.search).get('token') || new URLSearchParams(location.hash.slice(1)).get('token') || '';
 if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `booking.html#token=${encodeURIComponent(token)}`);
-const state = { booking: null, dates: [], availability: new Map(), date: '', time: '' };
+const state = { booking: null, paymentCapability: null, dates: [], availability: new Map(), date: '', time: '' };
 let bookingLoadRevision = 0;
 
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
+function createRequestId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+function httpsPaymentUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' && url.hostname && !url.username && !url.password ? url.href : '';
+  } catch { return ''; }
+}
+function paymentRequestId(manageToken) {
+  const key = `minuta-payment-request-v1:${manageToken}`;
+  try {
+    const saved = sessionStorage.getItem(key);
+    if (/^[0-9a-f-]{36}$/i.test(saved || '')) return saved;
+    const created = createRequestId();
+    sessionStorage.setItem(key, created);
+    return created;
+  } catch { return createRequestId(); }
+}
+async function getPaymentCapability() {
+  try {
+    const { data, error } = await db.rpc('get_yookassa_payment_capability', { p_manage_token: token });
+    return error || !data || typeof data !== 'object' || Array.isArray(data) ? null : data;
+  } catch { return null; }
+}
 function isMissingRpc(error, name) {
   const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
   return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
@@ -42,6 +73,44 @@ function markBookingStale(text = 'Не удалось обновить данн�
   $('#confirmAttendance').disabled = true;
   $('#reschedulePanel').hidden = true;
   $('#manageActions').hidden = false;
+  $('#managePaymentLink').hidden = true;
+  delete $('#managePaymentLink').dataset.paymentToken;
+}
+
+async function startOnlinePayment(link) {
+  if (link.getAttribute('aria-busy') === 'true') return;
+  const fallbackUrl = httpsPaymentUrl(link.getAttribute('href'));
+  if (!navigator.onLine) {
+    if (fallbackUrl) location.href = fallbackUrl;
+    else notify('Для оплаты требуется интернет');
+    return;
+  }
+  link.setAttribute('aria-busy', 'true');
+  const previous = link.textContent;
+  link.textContent = 'Открываем оплату…';
+  try {
+    const response = await fetch(yookassaPaymentEndpoint, {
+      method:'POST',
+      headers:{ 'content-type':'application/json', apikey:window.MINUTA_CONFIG.supabaseKey },
+      body:JSON.stringify({ manage_token:token, request_id:paymentRequestId(token) })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok && result?.ok && result.status === 'succeeded') {
+      link.removeAttribute('aria-busy');
+      link.textContent = previous;
+      await loadBooking({ silent:true });
+      notify('Оплата уже подтверждена');
+      return;
+    }
+    const paymentUrl = httpsPaymentUrl(result?.payment_url);
+    if (!response.ok || !result?.ok || !paymentUrl) throw new Error(result?.error || 'payment_unavailable');
+    location.href = paymentUrl;
+  } catch {
+    link.removeAttribute('aria-busy');
+    link.textContent = previous;
+    if (fallbackUrl) location.href = fallbackUrl;
+    else notify('Не удалось открыть оплату. Попробуйте снова позже.');
+  }
 }
 
 function createDates() {
@@ -97,9 +166,16 @@ function renderBooking() {
     $('#managePaymentStatus').className = `payment-status status-${cancelledWithoutCharge || item.refund_status === 'refunded' ? 'refunded' : item.payment_status}`;
     const link = $('#managePaymentLink');
     const dueAt = item.payment_due_at ? new Date(item.payment_due_at).getTime() : Number.POSITIVE_INFINITY;
-    const canPay = !cancelled && item.payment_status === 'pending' && dueAt > Date.now() && /^https:\/\//i.test(item.payment_url || '');
+    const legacyUrl = httpsPaymentUrl(item.payment_url);
+    const capabilityUrl = httpsPaymentUrl(state.paymentCapability?.payment_url);
+    const fallbackUrl = httpsPaymentUrl(state.paymentCapability?.fallback_url) || legacyUrl;
+    const eligible = !cancelled && item.payment_status === 'pending' && dueAt > Date.now();
+    const canPay = eligible && (state.paymentCapability ? state.paymentCapability.available === true : Boolean(legacyUrl));
+    const canCreate = canPay && state.paymentCapability?.can_create === true;
     link.hidden = !canPay;
-    if (canPay) link.href = item.payment_url;
+    link.href = capabilityUrl || fallbackUrl || '#';
+    delete link.dataset.paymentToken;
+    if (canCreate) link.dataset.paymentToken = token;
   }
   setFreshness('fresh', `Проверено в ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
   if (cancelled) $('#manageActions').classList.add('cancelled');
@@ -129,12 +205,15 @@ async function loadBooking(options = {}) {
     $('#manageError').hidden = true;
   }
   if (!/^[0-9a-f-]{36}$/i.test(token)) { if (!options.silent) showNotFound(); return false; }
+  const paymentCapabilityPromise = getPaymentCapability();
   let { data, error } = await db.rpc('get_booking_management_v2', { p_token: token });
   if (error && isMissingRpc(error, 'get_booking_management_v2')) ({ data, error } = await db.rpc('get_booking_management', { p_token: token }));
+  const paymentCapability = await paymentCapabilityPromise;
   if (revision !== bookingLoadRevision) return false;
   if (error) { if (!options.silent) showLoadError(); else markBookingStale(); return false; }
   if (!data?.length) { if (!options.silent) showNotFound(); else markBookingStale('Запись больше не найдена — обновите страницу или свяжитесь с исполнителем.'); return false; }
   state.booking = data[0];
+  state.paymentCapability = paymentCapability;
   $('#manageLoading').hidden = true;
   $('#manageContent').hidden = false;
   $('#manageTelegramConnect').href = telegramConnectUrl();
@@ -343,6 +422,11 @@ $('#closeReschedule').addEventListener('click', closeReschedule);
 $('#confirmReschedule').addEventListener('click', confirmReschedule);
 $('#cancelBooking').addEventListener('click', cancelBooking);
 $('#confirmAttendance').addEventListener('click', confirmAttendance);
+$('#managePaymentLink').addEventListener('click', event => {
+  if (!event.currentTarget.dataset.paymentToken) return;
+  event.preventDefault();
+  void startOnlinePayment(event.currentTarget);
+});
 $('#addCalendar').addEventListener('click', addToCalendar);
 $('#addAppleCalendar').addEventListener('click', () => { appleCalendarFile(); $('#calendarDialog').close(); });
 $('#addAndroidCalendar').addEventListener('click', () => $('#calendarDialog').close());

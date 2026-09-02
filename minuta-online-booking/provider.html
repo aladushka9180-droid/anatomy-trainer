@@ -150,6 +150,20 @@
         <section class="provider-view" data-provider-panel="clients" hidden>
           <div class="view-title"><div><span>Клиентская база</span><h2>Клиенты</h2></div><span class="panel-count" id="clientsCount">0</span></div>
           <p class="view-description">История посещений, заметки и быстрая повторная запись в одном месте.</p>
+          <details class="panel client-fields-settings" id="clientFieldsSettings" hidden>
+            <summary><span><small>Карточка организации</small><strong>Дополнительные поля клиента</strong></span><span>Настроить</span></summary>
+            <div class="client-fields-settings-body">
+              <label class="settings-check"><input id="clientFieldsEnabled" type="checkbox"><span><strong>Использовать дополнительные поля</strong><small>По умолчанию выключено. Доступ регулируется ролями организации.</small></span></label>
+              <div class="organization-list" id="clientFieldDefinitionsList"></div>
+              <form id="clientFieldDefinitionForm" class="client-field-definition-form">
+                <div class="form-row"><label>Название<input id="clientFieldLabel" maxlength="80" required placeholder="Например, Аллергии"></label><label>Ключ<input id="clientFieldKey" maxlength="40" pattern="[a-z][a-z0-9_]{1,39}" required placeholder="allergies"></label></div>
+                <div class="form-row"><label>Тип<select id="clientFieldType"><option value="text">Короткий текст</option><option value="textarea">Комментарий</option><option value="number">Число</option><option value="date">Дата</option><option value="boolean">Переключатель</option><option value="select">Список</option></select></label><label>Порядок<input id="clientFieldSort" type="number" min="-1000" max="1000" value="0"></label></div>
+                <label>Варианты через запятую<input id="clientFieldOptions" maxlength="1000" placeholder="Только для типа «Список»"></label>
+                <label class="settings-check"><input id="clientFieldRequired" type="checkbox"><span><strong>Обязательное поле</strong><small>Потребуется при сохранении дополнительных данных.</small></span></label>
+                <button class="secondary-button" type="submit">Добавить поле</button>
+              </form>
+            </div>
+          </details>
           <div class="clients-layout" id="clientsLayout">
             <section class="panel clients-directory">
               <label class="client-search"><span class="sr-only">Найти клиента</span><input id="clientSearch" type="search" autocomplete="off" placeholder="Имя или телефон"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg></label>
@@ -176,6 +190,10 @@
                 </section>
                 <label class="client-note-label">Заметка<textarea id="clientNote" maxlength="1000" rows="4" placeholder="Предпочтения, важные детали или пожелания клиента"></textarea></label>
                 <button class="secondary-button client-note-save" id="saveClientNote" type="button">Сохранить заметку</button>
+                <section class="client-custom-fields" id="clientCustomFields" hidden>
+                  <div><small>Карточка организации</small><strong>Дополнительные данные</strong></div>
+                  <form id="clientCustomFieldsForm"></form>
+                </section>
                 <details class="client-disclosure">
                   <summary><span>Записать снова</span><small>Создать новую запись</small></summary>
                   <section class="repeat-booking">
@@ -213,6 +231,16 @@
         <section class="provider-view" data-provider-panel="notifications" hidden>
           <div class="view-title"><div><span>Связь с клиентами</span><h2>Уведомления</h2></div><div class="view-title-actions"><span class="notification-total" id="notificationCount">0</span><button class="secondary-button notification-settings-button" type="button" data-open-notification-templates>Настроить сообщения</button><button class="refresh-button" id="refreshNotifications" type="button" aria-label="Обновить уведомления"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg></button></div></div>
           <p class="view-description">Ручные сообщения клиентам через WhatsApp и состояние автоматических уведомлений мастеру.</p>
+          <section class="panel unified-notification-panel" id="unifiedNotificationPanel" hidden>
+            <div class="panel-head"><div><small>Подключаемые каналы</small><h3>Единый центр доставки</h3></div><span class="panel-count" id="unifiedNotificationState">Выключен</span></div>
+            <p>Telegram, email, SMS, MAX и push используют одну очередь, статусы доставки и безопасный повтор. Канал нельзя включить, пока сервер не подтвердит адрес получателя.</p>
+            <div class="resource-inline-error" id="unifiedNotificationUnavailable" hidden><div><strong>Центр каналов временно недоступен</strong><small id="unifiedNotificationUnavailableText"></small></div><button class="secondary-button" id="reloadUnifiedNotifications" type="button">Повторить</button></div>
+            <div id="unifiedNotificationWorkspace" hidden>
+              <label class="settings-check"><input id="unifiedNotificationsEnabled" type="checkbox"><span><strong>Включить единую очередь</strong><small>Сначала подключите конкретные каналы. По умолчанию всё выключено.</small></span></label>
+              <div class="unified-notification-channels" id="unifiedNotificationChannels"></div>
+              <details class="resource-audit"><summary><span><small>Последние 100 событий</small><strong>Доставка по каналам</strong></span></summary><div class="organization-audit-list" id="unifiedNotificationDeliveries"></div></details>
+            </div>
+          </section>
           <section class="panel notification-queue-panel" id="automaticNotificationPanel" hidden>
             <div class="notification-toolbar"><div><small>Автоматически</small><h3>Telegram мастеру</h3></div><span class="notification-total" id="automaticNotificationCount">Очередь обработана</span></div>
             <div class="notification-list" id="automaticNotificationList" aria-live="polite"></div>
@@ -314,6 +342,7 @@
               <button type="button" data-section-target="resourcesPanel">Ресурсы</button>
               <button type="button" data-section-target="shiftsPanel">График команды</button>
               <button type="button" data-section-target="payrollPanel">Финансы</button>
+              <button type="button" data-section-target="paymentProviderPanel">Платежи</button>
               <button type="button" data-section-target="benefitsPanel">Клиенты</button>
               <button type="button" data-section-target="inventoryPanel">Склад</button>
             </nav>
@@ -420,6 +449,24 @@
                 <section class="payroll-adjustment" id="payrollAdjustmentPanel"><div class="resource-subhead"><div><small>Премия или удержание</small><strong>Корректировка черновика</strong></div></div><form id="payrollAdjustmentForm"><label>Период<select id="payrollAdjustmentPeriod" required></select></label><label>Специалист<select id="payrollAdjustmentPerformer" required></select></label><label>Сумма, ₽<input id="payrollAdjustmentAmount" type="number" min="-1000000" max="1000000" step="1" required></label><label>Причина<input id="payrollAdjustmentReason" maxlength="500" required></label><p class="form-error" id="payrollAdjustmentError" hidden></p><button class="secondary-button" type="submit" data-payroll-write>Добавить</button></form></section>
                 <details class="resource-audit payroll-items"><summary><span><small>Из чего сложился расчёт</small><strong>Начисления по визитам</strong></span><span>Детали</span></summary><div class="organization-list" id="payrollItemsList"></div></details>
                 <details class="resource-audit" id="payrollAuditPanel"><summary><span><small>Защита от незаметных изменений</small><strong>Журнал зарплат</strong></span><span id="payrollAuditCount">0</span></summary><div class="organization-audit-list" id="payrollAuditList"></div></details>
+              </div>
+            </section>
+
+            <section class="panel organization-section payment-provider-panel" id="paymentProviderPanel" hidden>
+              <div class="panel-head"><div><small>Интернет-эквайринг</small><h3>ЮKassa</h3></div><span class="panel-count" id="paymentProviderState">Выключена</span></div>
+              <p class="organization-invite-help">Ключи хранятся только в Supabase Secrets. Браузер получает ссылку на оплату, но никогда не видит Shop ID или Secret Key.</p>
+              <div class="resource-inline-error" id="paymentProviderUnavailable" hidden><div><strong>Платёжный модуль временно недоступен</strong><small id="paymentProviderUnavailableText"></small></div><button class="secondary-button" id="reloadPaymentProvider" type="button">Повторить</button></div>
+              <div id="paymentProviderWorkspace" hidden>
+                <form id="paymentProviderSettingsForm" class="payment-provider-settings">
+                  <label class="settings-check"><input id="paymentProviderEnabled" type="checkbox"><span><strong>Принимать предоплату через ЮKassa</strong><small>Включайте только после добавления секретов и тестового платежа.</small></span></label>
+                  <div id="paymentProviderControls">
+                    <div class="form-row"><label>Режим<select id="paymentProviderEnvironment"><option value="test">Тестовый магазин</option><option value="production">Рабочий магазин</option></select></label><label class="settings-check"><input id="paymentFiscalizationEnabled" type="checkbox"><span><strong>Чеки от ЮKassa</strong><small>Требует подтверждённых настроек бухгалтера.</small></span></label></div>
+                    <div class="payment-fiscalization-fields" id="paymentFiscalizationFields" hidden><label>Система налогообложения<select id="paymentTaxation"><option value="usn_income">УСН доходы</option><option value="usn_income_outcome">УСН доходы минус расходы</option><option value="osn">ОСН</option><option value="esn">ЕСХН</option><option value="patent">Патент</option></select></label><label>НДС<select id="paymentVatCode"><option value="1">Без НДС</option><option value="2">0%</option><option value="3">10%</option><option value="4">20%</option><option value="5">10/110</option><option value="6">20/120</option><option value="7">5%</option><option value="8">7%</option><option value="9">5/105</option><option value="10">7/107</option><option value="11">22%</option><option value="12">22/122</option></select></label><label>Способ расчёта<select id="paymentMode"><option value="full_prepayment">Полная предоплата</option><option value="partial_prepayment">Частичная предоплата</option><option value="full_payment">Полный расчёт</option></select></label></div>
+                    <button class="primary" type="submit">Сохранить настройки</button>
+                  </div>
+                </form>
+                <section><div class="resource-subhead"><div><small>Без данных карты клиента</small><strong>Последние операции</strong></div></div><div class="organization-list" id="paymentAttemptsList"></div></section>
+                <form id="paymentRefundForm" class="payment-refund-form" hidden><div class="resource-subhead"><div><small>Полный или частичный</small><strong>Оформить возврат</strong></div></div><label>Платёж<select id="paymentRefundAttempt" required></select></label><label>Сумма, ₽<input id="paymentRefundAmount" type="number" min="1" step="0.01" required></label><label>Причина<input id="paymentRefundReason" minlength="8" maxlength="500" required></label><button class="secondary-button" type="submit">Вернуть через ЮKassa</button></form>
               </div>
             </section>
 
@@ -858,6 +905,9 @@
   <script src="loyalty-management.js?v=212" defer></script>
   <script src="inventory-management.js?v=212" defer></script>
   <script src="retention-management.js?v=212" defer></script>
+  <script src="payment-management.js?v=212" defer></script>
+  <script src="notification-center.js?v=212" defer></script>
+  <script src="client-fields.js?v=212" defer></script>
   <script src="batch-bookings.js?v=212" defer></script>
   <script src="booking-policy-management.js?v=212" defer></script>
   <script src="team-calendar.js?v=212" defer></script>

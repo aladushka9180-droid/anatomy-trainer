@@ -1,5 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
+const yookassaPaymentEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/yookassa-create-payment`;
 const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
@@ -706,14 +707,91 @@ function renderSummary() {
   const locationLabel = location ? ` · ${escapeHtml(location.name || 'Филиал')}` : '';
   $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}${locationLabel} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
 }
-function renderSuccessPayment(item) {
+function httpsPaymentUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' && url.hostname && !url.username && !url.password ? url.href : '';
+  } catch { return ''; }
+}
+async function getPaymentCapability(manageToken) {
+  if (!/^[0-9a-f-]{36}$/i.test(manageToken || '')) return null;
+  try {
+    const { data, error } = await db.rpc('get_yookassa_payment_capability', { p_manage_token: manageToken });
+    return error || !data || typeof data !== 'object' || Array.isArray(data) ? null : data;
+  } catch { return null; }
+}
+function renderSuccessPayment(item, capability = null, manageToken = '') {
   const holder = $('#successPayment');
   if (!holder) return;
-  const pending = item?.payment_status === 'pending' && Number(item.deposit_amount_rub || 0) > 0 && /^https:\/\//i.test(item.payment_url || '');
-  holder.hidden = !pending;
-  if (!pending) return;
-  $('#successDeposit').textContent = `Предоплата ${money(item.deposit_amount_rub)}`;
-  $('#successPaymentLink').href = item.payment_url;
+  const link = $('#successPaymentLink');
+  const legacyUrl = httpsPaymentUrl(item?.payment_url);
+  const capabilityUrl = httpsPaymentUrl(capability?.payment_url);
+  const fallbackUrl = httpsPaymentUrl(capability?.fallback_url) || legacyUrl;
+  const pending = item?.payment_status === 'pending' && Number(item.deposit_amount_rub || 0) > 0;
+  const available = capability ? capability.available === true && (!item || pending) : pending && Boolean(legacyUrl);
+  const canCreate = available && capability?.can_create === true && /^[0-9a-f-]{36}$/i.test(manageToken || '');
+  holder.hidden = !available;
+  const note = holder.querySelector('p');
+  if (note) note.textContent = 'После оплаты статус обновится автоматически. Сохраните чек до подтверждения.';
+  link.removeAttribute('aria-busy');
+  delete link.dataset.paymentToken;
+  if (!available) { link.href = '#'; return; }
+  $('#successDeposit').textContent = `Предоплата ${money(capability?.deposit_amount_rub ?? item?.deposit_amount_rub ?? 0)}`;
+  link.href = capabilityUrl || fallbackUrl || '#';
+  if (canCreate) link.dataset.paymentToken = manageToken;
+}
+
+function paymentRequestId(manageToken) {
+  const key = `minuta-payment-request-v1:${manageToken}`;
+  try {
+    const saved = sessionStorage.getItem(key);
+    if (/^[0-9a-f-]{36}$/i.test(saved || '')) return saved;
+    const created = createRequestId();
+    sessionStorage.setItem(key, created);
+    return created;
+  } catch { return createRequestId(); }
+}
+
+async function startOnlinePayment(link) {
+  if (link.getAttribute('aria-busy') === 'true') return;
+  const manageToken = link.dataset.paymentToken;
+  const fallbackUrl = httpsPaymentUrl(link.getAttribute('href'));
+  if (!/^[0-9a-f-]{36}$/i.test(manageToken || '') || !navigator.onLine) {
+    if (fallbackUrl) location.href = fallbackUrl;
+    else {
+      const note = $('#successPayment')?.querySelector('p');
+      if (note) note.textContent = 'Для оплаты требуется интернет. Запись уже сохранена.';
+    }
+    return;
+  }
+  link.setAttribute('aria-busy', 'true');
+  const previous = link.textContent;
+  link.textContent = 'Открываем оплату…';
+  try {
+    const response = await fetch(yookassaPaymentEndpoint, {
+      method:'POST',
+      headers:{ 'content-type':'application/json', apikey:window.MINUTA_CONFIG.supabaseKey },
+      body:JSON.stringify({ manage_token:manageToken, request_id:paymentRequestId(manageToken) })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (response.ok && result?.ok && result.status === 'succeeded') {
+      link.removeAttribute('aria-busy');
+      link.textContent = previous;
+      $('#successPayment').hidden = true;
+      return;
+    }
+    const paymentUrl = httpsPaymentUrl(result?.payment_url);
+    if (!response.ok || !result?.ok || !paymentUrl) throw new Error(result?.error || 'payment_unavailable');
+    location.href = paymentUrl;
+  } catch {
+    link.removeAttribute('aria-busy');
+    link.textContent = previous;
+    if (fallbackUrl) location.href = fallbackUrl;
+    else {
+      const note = $('#successPayment')?.querySelector('p');
+      if (note) note.textContent = 'Не удалось открыть оплату. Запись сохранена — попробуйте снова позже.';
+    }
+  }
 }
 function successDetailsMarkup(service, performer, dateLabel, range) {
   return `<strong>${escapeHtml(service)}</strong><span>${escapeHtml(performer)}</span><b>${escapeHtml(dateLabel)} · ${escapeHtml(range)}</b>`;
@@ -911,9 +989,12 @@ async function submitBooking(event) {
     $('#telegramConnect').href = telegramConnectUrl(manageToken);
     $('#telegramConnect').hidden = false;
     await bootstrapClientAccess(manageToken, phone);
-    const { data: management } = await db.rpc('get_booking_management', { p_token: manageToken });
+    const [{ data: management }, paymentCapability] = await Promise.all([
+      db.rpc('get_booking_management', { p_token: manageToken }),
+      getPaymentCapability(manageToken)
+    ]);
     const current = management?.[0];
-    renderSuccessPayment(current);
+    renderSuccessPayment(current, paymentCapability, manageToken);
     if (current) {
       currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: current.service_name, performer: current.performer_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: current.booking_date, time: current.booking_time, duration: current.duration_minutes, uid: current.booking_code || manageToken });
       const currentDate = new Date(`${current.booking_date}T00:00:00`);
@@ -945,6 +1026,8 @@ document.addEventListener('click', event => {
   const retryServices = event.target.closest('#retryServices');
   const openWaitlist = event.target.closest('#openWaitlist');
   const closeWaitlist = event.target.closest('[data-close-waitlist]');
+  const paymentLink = event.target.closest('#successPaymentLink[data-payment-token]');
+  if (paymentLink) { event.preventDefault(); void startOnlinePayment(paymentLink); return; }
   if (performer) {
     const nextPerformer = performer.dataset.performer || '';
     if (state.performerId !== nextPerformer) {

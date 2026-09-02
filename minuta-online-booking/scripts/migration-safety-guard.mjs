@@ -12,6 +12,7 @@ const releaseWorkflow = join(repositoryRoot, '.github', 'workflows', 'minuta-saf
 const PINNED_PROVIDER_DELETE_VERSION = 64;
 const PINNED_PROVIDER_DELETE_FILE = `supabase-migration-v${PINNED_PROVIDER_DELETE_VERSION}.sql`;
 const PROVIDER_DELETE_DEFINITION = /create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\s*\.\s*)?"?provider_delete_booking"?\s*\(/i;
+const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89];
 
 // Эти пары исторически хранят одну миграцию в двух системах имён.
 // Новую пару можно разрешить только явным изменением этого списка.
@@ -39,6 +40,7 @@ const contents = new Map(allMigrations.map(path => [path, readFileSync(path)]));
 
 checkExactDuplicates();
 checkProviderDeleteDefinitions();
+checkHistoricalIdempotencyContracts();
 checkReleaseOrder();
 
 if (errors.length) {
@@ -90,6 +92,37 @@ function checkProviderDeleteDefinitions() {
   }
 }
 
+function checkHistoricalIdempotencyContracts() {
+  const v49Path = join(bookingRoot, 'supabase-migration-v49.sql');
+  const v80Path = join(bookingRoot, 'supabase-migration-v80.sql');
+
+  if (!existsSync(v49Path)) {
+    errors.push('Обязательная миграция supabase-migration-v49.sql не найдена.');
+  } else {
+    const v49 = readFileSync(v49Path, 'utf8');
+    if (/drop\s+constraint\s+if\s+exists\s+bookings_provider_note_length_check/i.test(v49)) {
+      errors.push('v49 не должна пересоздавать bookings_provider_note_length_check при каждом повторном применении.');
+    }
+    if (!/v49_provider_note_constraint_mismatch/i.test(v49)) {
+      errors.push('v49 должна блокировать несовместимое определение bookings_provider_note_length_check.');
+    }
+    if (!/revoke\s+all\s+on\s+function\s+public\.set_booking_note\s*\(\s*uuid\s*,\s*text\s*\)\s+from\s+public\s*,\s*anon\s*,\s*authenticated\s*,\s*service_role/i.test(v49)) {
+      errors.push('v49 должна очищать ACL set_booking_note перед выдачей доступа authenticated.');
+    }
+  }
+
+  if (!existsSync(v80Path)) {
+    errors.push('Обязательная миграция supabase-migration-v80.sql не найдена.');
+  } else {
+    const v80 = readFileSync(v80Path, 'utf8');
+    if (!/zz_bookings_group_event_overlap_v86/i.test(v80)
+      || !/if\s+v86_trigger\s+is\s+null\s+then/i.test(v80)
+      || !/v80_detected_invalid_v86_trigger/i.test(v80)) {
+      errors.push('v80 должна сохранять валидный триггер v86 и блокировать его повреждённое состояние.');
+    }
+  }
+}
+
 function checkReleaseOrder() {
   if (!existsSync(releaseWorkflow)) {
     errors.push(`Не найден release workflow: ${relative(repositoryRoot, releaseWorkflow)}.`);
@@ -117,6 +150,30 @@ function checkReleaseOrder() {
     const lastDefinition = definingReferences.at(-1);
     if (lastDefinition?.file !== PINNED_PROVIDER_DELETE_FILE) {
       errors.push(`В job ${jobName} последнее определение provider_delete_booking приходит из ${lastDefinition?.file || 'ниоткуда'}, а должно из ${PINNED_PROVIDER_DELETE_FILE}.`);
+    }
+
+    const expectedCounts = jobName === 'test-migration'
+      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2]])
+      : new Map([[49, 1], [87, 1], [88, 1], [89, 1]]);
+    for (const [version, expectedCount] of expectedCounts) {
+      const actualCount = chain.filter(reference => reference.version === version).length;
+      if (actualCount !== expectedCount) {
+        errors.push(`Job ${jobName} должен применять v${version} ${expectedCount} раз, найдено: ${actualCount}.`);
+      }
+    }
+
+    for (const [left, right] of REQUIRED_RELEASE_TAIL.slice(0, -1).map((version, index) => [version, REQUIRED_RELEASE_TAIL[index + 1]])) {
+      const lastLeft = chain.findLastIndex(reference => reference.version === left);
+      const firstRight = chain.findIndex(reference => reference.version === right);
+      if (lastLeft < 0 || firstRight < 0 || lastLeft >= firstRight) {
+        errors.push(`Job ${jobName} должен применять последний v${left} раньше первого v${right}.`);
+      }
+    }
+
+    const lastV80 = chain.findLastIndex(reference => reference.version === 80);
+    const firstV86 = chain.findIndex(reference => reference.version === 86);
+    if (lastV80 < 0 || firstV86 < 0 || lastV80 >= firstV86) {
+      errors.push(`Job ${jobName} не должен повторно применять v80 после v86.`);
     }
   });
 }

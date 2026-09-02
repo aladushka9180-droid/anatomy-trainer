@@ -11,11 +11,25 @@ alter table public.bookings
   alter column provider_note set default '',
   alter column provider_note set not null;
 
-alter table public.bookings
-  drop constraint if exists bookings_provider_note_length_check;
-alter table public.bookings
-  add constraint bookings_provider_note_length_check
-  check (char_length(provider_note) <= 1000);
+-- Do not drop and rebuild a valid constraint on every release. Rebuilding it
+-- takes a stronger table lock and needlessly scans all historical bookings.
+do $$
+declare v_definition text;
+begin
+  select pg_get_constraintdef(constraint_row.oid,true) into v_definition
+  from pg_constraint constraint_row
+  where constraint_row.conrelid='public.bookings'::regclass
+    and constraint_row.conname='bookings_provider_note_length_check';
+  if v_definition is null then
+    alter table public.bookings add constraint bookings_provider_note_length_check
+      check (char_length(provider_note) <= 1000);
+  elsif regexp_replace(lower(v_definition),'\s','','g') not in (
+    'check(char_length(provider_note)<=1000)',
+    'check((char_length(provider_note)<=1000))'
+  ) then
+    raise exception using errcode='P0001',message='v49_provider_note_constraint_mismatch';
+  end if;
+end $$;
 
 create or replace function public.set_booking_note(p_booking uuid, p_note text)
 returns text
@@ -45,7 +59,7 @@ begin
 end;
 $$;
 
-revoke all on function public.set_booking_note(uuid, text) from public;
+revoke all on function public.set_booking_note(uuid, text) from public, anon, authenticated, service_role;
 grant execute on function public.set_booking_note(uuid, text) to authenticated;
 
 commit;

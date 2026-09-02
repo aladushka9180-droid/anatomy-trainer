@@ -161,8 +161,28 @@ begin
 end $$;
 revoke all on function public.prevent_minuta_group_event_booking_overlap() from public,anon,authenticated,service_role;
 drop trigger if exists bookings_group_event_overlap on public.bookings;
-create trigger bookings_group_event_overlap before insert or update of organization_id,location_id,performer_id,booking_date,booking_time,duration_minutes,status
-on public.bookings for each row execute function public.prevent_minuta_group_event_booking_overlap();
+-- v86 deliberately renamed this trigger so PostgreSQL runs tenant scoping first.
+-- A repeated v80 must never recreate the old name beside the v86 trigger.
+do $$
+declare v86_trigger oid;
+begin
+  select trigger_row.oid into v86_trigger
+  from pg_trigger trigger_row
+  where trigger_row.tgrelid='public.bookings'::regclass
+    and trigger_row.tgname='zz_bookings_group_event_overlap_v86'
+    and not trigger_row.tgisinternal;
+  if v86_trigger is null then
+    create trigger bookings_group_event_overlap before insert or update of organization_id,location_id,performer_id,booking_date,booking_time,duration_minutes,status
+    on public.bookings for each row execute function public.prevent_minuta_group_event_booking_overlap();
+  elsif not exists (
+    select 1 from pg_trigger trigger_row
+    where trigger_row.oid=v86_trigger
+      and trigger_row.tgfoid=to_regprocedure('public.prevent_minuta_group_event_booking_overlap()')
+      and trigger_row.tgenabled<>'D'
+  ) then
+    raise exception using errcode='P0001',message='v80_detected_invalid_v86_trigger';
+  end if;
+end $$;
 
 alter table public.organization_group_booking_settings enable row level security;
 alter table public.group_booking_events enable row level security;

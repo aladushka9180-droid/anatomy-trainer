@@ -1,7 +1,16 @@
 [functions.payment-webhook]
 verify_jwt = false
 
+[functions.yookassa-create-payment]
+verify_jwt = false
+
+[functions.yookassa-refund]
+verify_jwt = false
+
 [functions.process-notifications]
+verify_jwt = false
+
+[functions.notification-dispatcher]
 verify_jwt = false
 
 [functions.telegram-booking-notify]

@@ -4488,3 +4488,38 @@ html.requires-top-level.top-level body { visibility:visible; }
   .voice-assistant-open,.voice-listen-button,.voice-assistant-head button,.voice-assistant-examples button { border:1px solid ButtonText; }
   .voice-listen-button.is-listening { outline:3px solid Highlight; outline-offset:2px; }
 }
+
+/* ЮKassa, единая доставка и дополнительные поля клиентов. */
+.payment-provider-settings,.payment-refund-form,.client-field-definition-form,.client-custom-fields form { display:grid; gap:12px; }
+.payment-provider-settings { margin-bottom:20px; }
+.payment-provider-settings>.settings-check,.unified-notification-panel>.settings-check { margin-bottom:4px; }
+.payment-fiscalization-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:14px; border:1px solid var(--theme-line,#dce7df); border-radius:15px; background:var(--theme-surface-alt,#f7faf8); }
+.payment-fiscalization-fields label,.payment-refund-form label,.client-field-definition-form label,.client-custom-fields form label { display:grid; gap:7px; color:var(--theme-muted,#62756a); font-size:10px; font-weight:800; }
+.payment-provider-settings input,.payment-provider-settings select,.payment-refund-form input,.payment-refund-form select,.client-field-definition-form input,.client-field-definition-form select,.client-custom-fields :is(input,select,textarea) { width:100%; min-height:44px; padding:9px 12px; border:1px solid var(--theme-line,#dce7df); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173b2c); font:650 12px/1.35 inherit; }
+.payment-refund-form { margin-top:18px; padding-top:18px; border-top:1px solid var(--theme-line,#dce7df); }
+.payment-attempt-row,.unified-notification-delivery { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.payment-attempt-row small,.unified-notification-delivery small { display:block; margin-top:4px; color:var(--theme-muted,#718278); }
+.payment-attempt-row span,.unified-notification-delivery span { flex:0 0 auto; text-align:right; }
+.unified-notification-channels { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:14px 0 18px; }
+.unified-channel-card { display:flex; align-items:flex-start; gap:10px; min-width:0; padding:13px; border:1px solid var(--theme-line,#dce7df); border-radius:14px; background:var(--theme-surface-alt,#f7faf8); cursor:pointer; }
+.unified-channel-card input { flex:0 0 auto; margin-top:2px; accent-color:var(--theme-accent,#235b40); }
+.unified-channel-card span { display:grid; min-width:0; gap:4px; }
+.unified-channel-card strong { color:var(--theme-ink,#173b2c); font-size:11px; }
+.unified-channel-card small { color:var(--theme-muted,#718278); font-size:9px; line-height:1.4; }
+.unified-channel-card:has(input:disabled) { cursor:not-allowed; opacity:.7; }
+.client-fields-settings { margin-bottom:18px; }
+.client-fields-settings>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; }
+.client-fields-settings>summary::-webkit-details-marker { display:none; }
+.client-fields-settings>summary span:first-child { display:grid; gap:4px; }
+.client-fields-settings>summary small,.client-custom-fields>div small { color:var(--theme-muted,#718278); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+.client-fields-settings-body { display:grid; gap:16px; margin-top:16px; padding-top:16px; border-top:1px solid var(--theme-line,#dce7df); }
+.client-field-definition-form { padding:14px; border:1px solid var(--theme-line,#dce7df); border-radius:15px; background:var(--theme-surface-alt,#f7faf8); }
+.client-custom-fields { display:grid; gap:12px; margin-top:18px; padding:16px; border:1px solid var(--theme-line,#dce7df); border-radius:16px; background:var(--theme-surface-alt,#f7faf8); }
+.client-custom-fields>div { display:grid; gap:4px; }
+.client-custom-fields textarea { min-height:82px; resize:vertical; }
+
+@media (max-width:760px) {
+  .payment-fiscalization-fields,.unified-notification-channels { grid-template-columns:1fr; }
+  .payment-attempt-row,.unified-notification-delivery { display:grid; }
+  .payment-attempt-row span,.unified-notification-delivery span { text-align:left; }
+}

@@ -3850,6 +3850,7 @@ function renderClientDetail(phone) {
   $('#clientVisits').textContent = String(visits);
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
   batchBookingsController?.setClient(client);
+  clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = clientNotes.get(phone) || '';
   $('#repeatDate').value = businessTodayIso();
   $('#repeatDate').min = businessTodayIso();
@@ -4286,8 +4287,9 @@ async function saveBookingPolicy(event) {
     showFormError('#bookingPolicyError', 'Проверьте ограничения отмены и переноса.');
     return;
   }
-  if (depositEnabled && (record.deposit_amount_rub <= 0 || !/^https:\/\//i.test(record.payment_url_template))) {
-    showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и безопасную ссылку, начинающуюся с https://.');
+  const managedCheckoutEnabled = paymentController?.isCheckoutEnabled?.() === true;
+  if (depositEnabled && (record.deposit_amount_rub <= 0 || (!/^https:\/\//i.test(record.payment_url_template) && !managedCheckoutEnabled))) {
+    showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и HTTPS-ссылку либо сначала включите ЮKassa в разделе «Платежи».');
     return;
   }
   const button = event.submitter;
@@ -4611,6 +4613,9 @@ async function handleSession(session) {
   setBookingCreationReady(false);
   teamCalendarController.reset();
   groupBookingsController.reset();
+  paymentController.reset();
+  notificationCenterController.reset();
+  clientFieldsController.setOrganization(null);
   organizationController.reset();
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
@@ -6053,6 +6058,21 @@ const groupBookingsController = window.MinutaGroupBookings?.createProviderContro
 }) : { bind() {}, load() { return Promise.resolve({ ok:true, optional:true }); }, setOrganization() {}, reset() {} };
 groupBookingsController.bind();
 
+const paymentController = window.MinutaPayments?.createController ? window.MinutaPayments.createController({
+  db, $, escapeHtml, notify, requireWrites, refreshNavigation:refreshSectionNavigation
+}) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {}, isCheckoutEnabled() { return false; } };
+paymentController.bind();
+
+const notificationCenterController = window.MinutaNotificationCenter?.createController ? window.MinutaNotificationCenter.createController({
+  db, $, escapeHtml, notify, requireWrites
+}) : { bind() {}, load() { return Promise.resolve(); }, setOrganization() {}, reset() {} };
+notificationCenterController.bind();
+
+const clientFieldsController = window.createMinutaClientFieldsUIController ? window.createMinutaClientFieldsUIController({
+  db, $, escapeHtml, notify, requireWrites
+}) : { bind() {}, setOrganization() {}, setClient() {}, render() {} };
+clientFieldsController.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -6077,6 +6097,9 @@ const organizationController = window.MinutaOrganization.createController({
     batchBookingsController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
+    paymentController.setOrganization(organization);
+    notificationCenterController.setOrganization(organization);
+    clientFieldsController.setOrganization(organization);
   }
 });
 organizationController.bind();

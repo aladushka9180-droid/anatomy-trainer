@@ -61,8 +61,12 @@ function requireInteger(value: unknown, field: string): number {
 // This generic adapter is safe for a gateway controlled by Minuta. A real
 // payment provider normally defines its own canonical string and signature
 // headers, so add a separate named adapter before selecting that provider.
-export async function verifyAndMapPaymentWebhook(request: Request, rawBody: string): Promise<PaymentWebhookEvent> {
-  const adapter = requiredEnv("PAYMENT_WEBHOOK_ADAPTER");
+export async function verifyAndMapPaymentWebhook(
+  request: Request,
+  rawBody: string,
+  adapterOverride?: "generic-hmac-sha256-v1",
+): Promise<PaymentWebhookEvent> {
+  const adapter = adapterOverride ?? requiredEnv("PAYMENT_WEBHOOK_ADAPTER");
   if (adapter !== "generic-hmac-sha256-v1") {
     throw new WebhookConfigurationError("Unsupported payment webhook adapter");
   }

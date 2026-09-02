@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const root = new URL('./', import.meta.url);
-const [migration, rollback, v80Rollback] = await Promise.all([
+const [migration, rollback, v80Migration, v80Rollback] = await Promise.all([
   readFile(new URL('supabase-migration-v86.sql', root), 'utf8'),
   readFile(new URL('supabase-migration-v86-rollback.sql', root), 'utf8'),
+  readFile(new URL('supabase-migration-v80.sql', root), 'utf8'),
   readFile(new URL('recovery/rollback-group-bookings-v80.sql', root), 'utf8')
 ]);
 
@@ -19,6 +20,9 @@ assert.ok(
 );
 assert.match(rollback, /drop trigger if exists zz_bookings_group_event_overlap_v86/i);
 assert.match(rollback, /create trigger bookings_group_event_overlap[\s\S]*prevent_minuta_group_event_booking_overlap\(\)/i);
+assert.match(v80Migration, /zz_bookings_group_event_overlap_v86/i);
+assert.match(v80Migration, /if\s+v86_trigger\s+is\s+null\s+then/i);
+assert.match(v80Migration, /v80_detected_invalid_v86_trigger/i);
 assert.match(v80Rollback, /drop trigger if exists zz_bookings_group_event_overlap_v86/i);
 
 console.log('v86 group overlap trigger order static contract: ok');
