@@ -8,6 +8,7 @@ const migration = await readFile(join(root, 'supabase-migration-v83.sql'), 'utf8
 const rollback = await readFile(join(root, 'recovery', 'rollback-retention-v83.sql'), 'utf8');
 const controller = await readFile(join(root, 'retention-management.js'), 'utf8');
 const html = await readFile(join(root, 'provider.html'), 'utf8');
+const styles = await readFile(join(root, 'styles.css'), 'utf8');
 
 assert.match(migration, /v83_requires_v65_and_client_accounts/i);
 for (const table of ['organization_retention_settings', 'client_marketing_consents', 'retention_deliveries', 'retention_audit_log']) {
@@ -34,6 +35,8 @@ assert.match(html, /id="retentionPanel"/);
 assert.match(html, /retention-management\.js\?v=/);
 assert.match(html, /id="retentionSaveStatus"/);
 assert.match(html, /class="settings-check retention-toggle"/);
+assert.match(styles, /\.provider-body \.organization-section \.retention-toggle\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px[^}]*width:100%/i);
+assert.match(styles, /\.provider-body \.organization-section \.retention-toggle>input\s*\{[^}]*grid-column:2[^}]*width:44px!important[^}]*height:24px!important/i);
 assert.match(controller, /class="retention-consent-field"/);
 assert.doesNotMatch(html, /Сохранить настройки<\/button>/);
 assert.match(controller, /settingsSaveTimer/);

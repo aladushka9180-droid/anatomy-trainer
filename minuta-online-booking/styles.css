@@ -3792,15 +3792,15 @@ html.requires-top-level.top-level body { visibility:visible; }
 
 .retention-workspace,.retention-list-section,.retention-settings-form{display:grid;gap:14px}
 .retention-settings-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:14px;border:1px solid var(--theme-line,var(--line,#dce5df));border-radius:18px;background:var(--theme-surface-alt,var(--surface-alt,#f7f9f7))}
-.retention-toggle{grid-column:1/-1;display:grid!important;grid-template-columns:minmax(0,1fr) 44px;align-items:center;gap:14px;margin:0!important;padding:13px 15px!important;border:1px solid var(--theme-line,var(--line));background:var(--theme-surface,var(--surface))!important;cursor:pointer}
-.retention-toggle>span{display:grid;grid-column:1;grid-row:1;gap:3px;min-width:0}
-.retention-toggle>span strong,.retention-number-field strong{color:var(--theme-ink,var(--ink));font-size:11px;line-height:1.35}
-.retention-toggle>span small,.retention-number-field small{color:var(--theme-muted,var(--muted));font-size:9px;font-weight:650;line-height:1.4}
-.retention-toggle>input{appearance:none;grid-column:2;grid-row:1;position:relative;width:44px!important;min-height:24px!important;height:24px!important;margin:0!important;padding:0!important;border:1px solid var(--theme-line,var(--line));border-radius:999px;background:color-mix(in srgb,var(--theme-muted,var(--muted)) 18%,var(--theme-surface,#fff));cursor:pointer;transition:background .16s ease,border-color .16s ease}
-.retention-toggle>input::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--theme-surface,#fff);box-shadow:0 1px 4px var(--theme-shadow,rgba(28,55,42,.18));transition:transform .16s ease}
-.retention-toggle>input:checked{border-color:var(--theme-accent,var(--green));background:var(--theme-accent,var(--green))}
-.retention-toggle>input:checked::after{transform:translateX(20px)}
-.retention-toggle:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--theme-accent,var(--green)) 26%,transparent);outline-offset:2px}
+.provider-body .organization-section .retention-toggle{grid-column:1/-1;display:grid!important;grid-template-columns:minmax(0,1fr) 44px;align-items:center;gap:14px;width:100%;min-width:0;margin:0!important;padding:13px 15px!important;border:1px solid var(--theme-line,var(--line));background:var(--theme-surface,var(--surface))!important;cursor:pointer}
+.provider-body .organization-section .retention-toggle>span{display:grid;grid-column:1;grid-row:1;gap:3px;min-width:0}
+.provider-body .organization-section .retention-toggle>span strong,.retention-number-field strong{color:var(--theme-ink,var(--ink));font-size:11px;line-height:1.35}
+.provider-body .organization-section .retention-toggle>span small,.retention-number-field small{color:var(--theme-muted,var(--muted));font-size:9px;font-weight:650;line-height:1.4}
+.provider-body .organization-section .retention-toggle>input{appearance:none;grid-column:2;grid-row:1;position:relative;width:44px!important;min-height:24px!important;height:24px!important;margin:0!important;padding:0!important;border:1px solid var(--theme-line,var(--line));border-radius:999px;background:color-mix(in srgb,var(--theme-muted,var(--muted)) 18%,var(--theme-surface,#fff));cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.provider-body .organization-section .retention-toggle>input::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--theme-surface,#fff);box-shadow:0 1px 4px var(--theme-shadow,rgba(28,55,42,.18));transition:transform .16s ease}
+.provider-body .organization-section .retention-toggle>input:checked{border-color:var(--theme-accent,var(--green));background:var(--theme-accent,var(--green))}
+.provider-body .organization-section .retention-toggle>input:checked::after{transform:translateX(20px)}
+.provider-body .organization-section .retention-toggle:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--theme-accent,var(--green)) 26%,transparent);outline-offset:2px}
 .retention-thresholds{display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .retention-number-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin:0;padding:11px 12px 11px 15px;border:1px solid var(--theme-line,var(--line));border-radius:13px;background:var(--theme-surface,var(--surface))}
 .retention-number-field>span:first-child{display:grid;gap:3px;min-width:0}
