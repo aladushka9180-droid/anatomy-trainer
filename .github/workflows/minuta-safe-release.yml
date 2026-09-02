@@ -490,7 +490,7 @@ jobs:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Проверить v72–v76 в откатываемой транзакции production
+      - name: Проверить v47 и v71–v77 в откатываемой транзакции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -506,6 +506,7 @@ jobs:
           trap 'rm -f "$validation_sql"' EXIT
           {
             echo 'begin;'
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v47.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v71.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v72.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v73.sql
@@ -581,6 +582,21 @@ jobs:
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.booking_reviews') is not null and to_regprocedure('public.provider_delete_booking(uuid)') is not null and to_regprocedure('public.get_client_bookings_v2(text)') is not null;" \
             | grep -qx t
+          v47_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select to_regclass('public.payments') is not null has_payments,to_regclass('public.payment_events') is not null has_events,to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null has_webhook) select case when not has_payments and not has_events and not has_webhook then 'absent' when has_payments and has_events and has_webhook then 'complete' else 'partial' end from state;")"
+          case "$v47_layer_state" in
+            absent)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v47.sql
+              ;;
+            complete)
+              echo "v47 payment foundation already exists; preserving the payment journal"
+              ;;
+            partial|*)
+              echo "Partial v47 payment layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
           v65_table_count="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
