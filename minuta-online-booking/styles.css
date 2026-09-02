@@ -510,6 +510,9 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-workspace { min-width:0; padding:0 38px 70px; }
 .provider-topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; min-height:96px; border-bottom:1px solid #e1e8e3; }
 .provider-topbar small { display:block; color:#718278; font-size:11px; font-weight:750; text-transform:capitalize; }
+.provider-topbar .provider-current-moment { display:flex; align-items:center; gap:7px; }
+.provider-current-moment time { color:var(--theme-accent,var(--green)); font-variant-numeric:tabular-nums; font-weight:900; }
+.provider-current-moment-separator { color:var(--theme-line,var(--line)); }
 .provider-topbar h1 { margin:5px 0 0; font-size:21px; letter-spacing:-.035em; }
 .provider-topbar-actions { display:flex; align-items:center; gap:10px; }
 .sync-state { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border:1px solid #dce7df; border-radius:999px; background:#fff; color:#577064; font-size:9px; font-weight:850; font-family:inherit; white-space:nowrap; cursor:pointer; }

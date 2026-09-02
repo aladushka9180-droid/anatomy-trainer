@@ -47,6 +47,7 @@ let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
+let topbarClockTimer = null;
 let deferredInstallPrompt = null;
 let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
@@ -355,6 +356,28 @@ function businessTodayIso(date = new Date()) {
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
+}
+function renderTopbarDateTime() {
+  const now = new Date();
+  const dateLabel = $('#todayLabel');
+  const timeLabel = $('#currentTimeLabel');
+  if (dateLabel) dateLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', weekday:'long', day:'numeric', month:'long' }).format(now);
+  if (timeLabel) {
+    timeLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', hour12:false }).format(now);
+    timeLabel.dateTime = now.toISOString();
+  }
+}
+function stopTopbarClock() {
+  clearTimeout(topbarClockTimer);
+  topbarClockTimer = null;
+}
+function startTopbarClock() {
+  stopTopbarClock();
+  const tick = () => {
+    renderTopbarDateTime();
+    topbarClockTimer = setTimeout(tick, 60050 - (Date.now() % 60000));
+  };
+  tick();
 }
 function normalizePhone(value) {
   let digits = String(value || '').replace(/\D/g, '');
@@ -938,7 +961,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=194#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=195#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4175,6 +4198,8 @@ async function handleSession(session) {
   if (generation !== sessionGeneration) return;
   clearInterval(notificationTimer);
   notificationTimer = currentUser ? setInterval(renderNotifications, 60000) : null;
+  if (currentUser) startTopbarClock();
+  else stopTopbarClock();
   if (recoveryMode) { showRecoveryReset(); return; }
   $('#authCard').hidden = Boolean(currentUser);
   $('#dashboard').hidden = !currentUser;
@@ -4221,7 +4246,7 @@ async function handleSession(session) {
   $('#sidebarName').textContent = name;
   $('#userAvatar').textContent = name.slice(0, 1).toUpperCase();
   $('#accountEmail').textContent = currentUser.email || '';
-  $('#todayLabel').textContent = parseLocalIsoDate(businessTodayIso()).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  renderTopbarDateTime();
   renderDateStrip();
   renderNotificationTemplates();
   renderBookingPolicyForm();
@@ -5397,6 +5422,7 @@ document.addEventListener('keydown', event => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
   refreshBusinessDay();
+  renderTopbarDateTime();
   renderNotifications();
   if (navigator.onLine) {
     queueDisplayPreferencesSync(0);
@@ -5816,4 +5842,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=194'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=195'));
