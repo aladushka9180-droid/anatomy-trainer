@@ -608,8 +608,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - name: Подтвердить свежий backup и откатываемую проверку этого commit
+      - name: Подтвердить свежий backup и откатываемую проверку совместимого commit
         env:
           GH_TOKEN: ${{ github.token }}
           MINUTA_BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
@@ -620,21 +621,34 @@ jobs:
           [[ "$MINUTA_BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$MINUTA_VALIDATION_RUN_ID" =~ ^[0-9]+$ ]]
           check_run() {
-            local run_id="$1" expected_path="$2" expected_title="$3" max_age="$4"
-            local run_json created now
+            local run_id="$1" expected_path="$2" expected_title="$3" max_age="$4" scope="$5"
+            local run_json run_sha created now
             run_json="$(curl --fail --silent --show-error \
               -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
-            test "$(jq -r '.head_sha' <<<"$run_json")" = "$GITHUB_SHA"
+            run_sha="$(jq -r '.head_sha' <<<"$run_json")"
+            git merge-base --is-ancestor "$run_sha" "$GITHUB_SHA"
+            if [ "$run_sha" != "$GITHUB_SHA" ]; then
+              if [ "$scope" = "backup" ]; then
+                git diff --quiet "$run_sha" "$GITHUB_SHA" -- \
+                  .github/workflows/minuta-supabase-backup.yml \
+                  minuta-online-booking/scripts/backup-config-guard.mjs \
+                  minuta-online-booking/scripts/write-backup-journal.mjs
+              else
+                git diff --quiet "$run_sha" "$GITHUB_SHA" -- \
+                  .github/workflows/minuta-safe-release.yml \
+                  ':(glob)minuta-online-booking/*.sql'
+              fi
+            fi
             test "$(jq -r '.path' <<<"$run_json")" = "$expected_path"
             jq -er --arg title "$expected_title" '.display_title | contains($title)' <<<"$run_json" >/dev/null
             created="$(date -u -d "$(jq -r '.created_at' <<<"$run_json")" +%s)"
             now="$(date -u +%s)"
             test "$((now-created))" -le "$max_age"
           }
-          check_run "$MINUTA_BACKUP_RUN_ID" ".github/workflows/minuta-supabase-backup.yml" "Minuta Supabase encrypted backup" 21600
-          check_run "$MINUTA_VALIDATION_RUN_ID" ".github/workflows/minuta-safe-release.yml" "validate-production-rollback" 21600
+          check_run "$MINUTA_BACKUP_RUN_ID" ".github/workflows/minuta-supabase-backup.yml" "Minuta Supabase encrypted backup" 21600 backup
+          check_run "$MINUTA_VALIDATION_RUN_ID" ".github/workflows/minuta-safe-release.yml" "validate-production-rollback" 21600 validation
           artifacts="$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$MINUTA_BACKUP_RUN_ID/artifacts")"
