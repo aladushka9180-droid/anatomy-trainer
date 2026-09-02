@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '193';
+const version = '194';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -161,6 +161,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
+assert.match(provider, /\$\{visual\}<small aria-hidden="true">\$\{uiIcon\('image'\)\}<\/small>/, 'Кнопка фотографии в карточке записи снова смещает содержимое аватара');
 assert.match(providerHtml, new RegExp(`rel="manifest" href="provider\\.webmanifest\\?v=${version}"`), 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(provider, /data-create-empty-booking/, 'В пустом расписании нет кнопки создания записи');
 assert.match(provider, /if \(createEmptyBooking && requireBookingWrites\(\)\) openNewBookingSheet\(\)/, 'Кнопка пустого расписания не открывает форму новой записи');

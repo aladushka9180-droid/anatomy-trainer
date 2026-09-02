@@ -382,7 +382,7 @@ function clientAvatarEditorMarkup(phone, name, bookingId = '') {
   return `<span class="client-avatar-control booking-client-avatar-control">
     <label class="client-avatar-picker" title="${avatar ? 'Сменить фото клиента' : 'Добавить фото клиента'}">
       <input type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input data-client-phone="${escapeHtml(normalizedPhone)}" data-booking-id="${escapeHtml(bookingId)}" aria-label="${avatar ? 'Сменить фото клиента' : 'Добавить фото клиента'}">
-      ${visual}<small>${uiIcon('image')} ${avatar ? 'Сменить' : 'Фото'}</small>
+      ${visual}<small aria-hidden="true">${uiIcon('image')}</small>
     </label>
     ${avatar ? `<button class="client-avatar-remove" type="button" data-remove-client-avatar="${escapeHtml(normalizedPhone)}" data-booking-id="${escapeHtml(bookingId)}" aria-label="Удалить фото клиента">${uiIcon('close')}</button>` : ''}
   </span>`;
@@ -938,7 +938,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=193#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=194#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5816,4 +5816,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=193'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=194'));
