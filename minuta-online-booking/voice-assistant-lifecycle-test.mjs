@@ -42,8 +42,16 @@ const speechSynthesis = {
   cancelCount:0,
   speakCount:0,
   lastUtterance:null,
+  voices:[
+    { name:'Ting-Ting', lang:'zh-CN', default:true, localService:true },
+    { name:'Google русский', lang:'ru-RU', default:false, localService:true }
+  ],
+  listeners:new Map(),
   cancel() { this.cancelCount += 1; },
-  speak(utterance) { this.speakCount += 1; this.lastUtterance = utterance; }
+  speak(utterance) { this.speakCount += 1; this.lastUtterance = utterance; },
+  getVoices() { return this.voices; },
+  addEventListener(type, listener) { this.listeners.set(type, listener); },
+  removeEventListener(type, listener) { if (this.listeners.get(type) === listener) this.listeners.delete(type); }
 };
 globalThis.SpeechSynthesisUtterance = FakeUtterance;
 globalThis.speechSynthesis = speechSynthesis;
@@ -163,6 +171,8 @@ assert.match(resultHtml, /Клиент А/, 'актуальный снимок �
 assert.ok(speakButton, 'для ответа должна быть доступна отдельная кнопка озвучивания');
 speakButton.emit('click');
 assert.equal(speechSynthesis.speakCount, 1, 'озвучивание должно запускаться только по явному нажатию');
+assert.equal(speechSynthesis.lastUtterance.voice.lang, 'ru-RU', 'озвучивание должно явно выбирать русский голос');
+assert.equal(speechSynthesis.lastUtterance.lang, 'ru-RU');
 assert.equal(speakButton.textContent, 'Остановить голос', 'во время речи кнопка должна предлагать остановку');
 speakButton.emit('click');
 assert.equal(speakButton.textContent, 'Озвучить ответ', 'повторное нажатие должно останавливать голос');

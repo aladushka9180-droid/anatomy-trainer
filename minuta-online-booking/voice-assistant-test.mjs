@@ -169,6 +169,20 @@ assert.equal(
   'нужно выбирать осмысленную команду, а не только первую гипотезу распознавания'
 );
 
+assert.equal(voice.supportsDirectRecognition(function Recognition() {}, { userAgent:'Mozilla/5.0 (Linux; Android 15) Chrome/140 Mobile' }, true), true);
+assert.equal(voice.supportsDirectRecognition(function Recognition() {}, { userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Version/18.0 Mobile Safari/604.1', standalone:true }, true), false, 'iOS Home Screen не должен попадать в неработающий Web Speech API');
+assert.equal(voice.supportsDirectRecognition(function Recognition() {}, { userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) CriOS/140 Mobile Safari/604.1' }, false), false, 'iOS WKWebView должен использовать системную диктовку');
+assert.equal(voice.supportsDirectRecognition(null, {}, false), false);
+
+const russianVoice = { name:'Google русский', lang:'ru-RU', localService:true };
+const selectedVoice = voice.selectRussianVoice([
+  { name:'Ting-Ting', lang:'zh-CN', default:true, localService:true },
+  russianVoice,
+  { name:'English', lang:'en-US', localService:true }
+]);
+assert.equal(selectedVoice, russianVoice, 'озвучивание не должно выбирать китайский или системный голос вместо русского');
+assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
+
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
 
 console.log('Voice assistant functional tests passed');
