@@ -54,6 +54,8 @@ let bookingSearchQuery = '';
 let bookingStatusFilter = 'all';
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
+let bookingsSnapshotSavedAt = '';
+let bookingsSnapshotFromCache = false;
 let waitlistRequests = [];
 let waitlistRemoteAvailable = false;
 let bookingOutcomes = new Map();
@@ -164,8 +166,8 @@ function cachePayload(name, data) {
     : { ...item, booking_code: '', client_name: 'Клиент', client_phone: '' });
 }
 async function saveProviderCache(name, data, userId = currentUser?.id) {
-  if (!userId) return;
-  try { await reliability?.put(providerCacheKey(name, userId), cachePayload(name, data)); } catch {}
+  if (!userId) return null;
+  try { return await reliability?.put(providerCacheKey(name, userId), cachePayload(name, data)) || null; } catch { return null; }
 }
 async function readProviderCache(name, userId = currentUser?.id) {
   if (!userId) return null;
@@ -184,6 +186,8 @@ async function hydrateCachedBookings(userId = currentUser?.id) {
   const cached = await readProviderCache('bookings', userId);
   if (!cached?.data || currentUser?.id !== userId) return null;
   allBookings = cached.data;
+  bookingsSnapshotSavedAt = String(cached.savedAt || '');
+  bookingsSnapshotFromCache = true;
   renderBookingData();
   return cached;
 }
@@ -223,7 +227,7 @@ function saveNewBookingDraft() {
   if (!form || !currentUser) return;
   const draft = {
     savedAt:Date.now(), mode:newBookingMode, name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
-    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || '',
+    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || newBookingPreferredTime || '',
     occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT
   };
   try { sessionStorage.setItem(bookingDraftKey(), JSON.stringify(draft)); } catch {}
@@ -931,7 +935,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=182#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=183#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2832,6 +2836,10 @@ async function loadNewBookingSlots() {
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
+  if (!navigator.onLine) {
+    holder.innerHTML = `<span>${preferredTime ? `Офлайн-черновик сохранит время ${escapeHtml(preferredTime)}. После подключения проверим, свободно ли оно.` : 'Офлайн нельзя подтвердить свободное время. После подключения варианты обновятся.'}</span>`;
+    return;
+  }
   holder.innerHTML = '<span>Ищем свободное время…</span>';
   const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date });
   if (error || !data?.length) {
@@ -4028,6 +4036,8 @@ async function logout() {
   const userId = currentUser?.id;
   ++sessionGeneration;
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
+  bookingsSnapshotSavedAt = '';
+  bookingsSnapshotFromCache = false;
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -4043,6 +4053,8 @@ async function handleSession(session) {
   const previousUserId = currentUser?.id;
   const generation = ++sessionGeneration;
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
+  bookingsSnapshotSavedAt = '';
+  bookingsSnapshotFromCache = false;
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -4852,8 +4864,10 @@ async function loadBookings(options = {}) {
   allBookings = data || [];
   await loadRemoteBookingColors(userId, generation);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
-  await saveProviderCache('bookings', allBookings, userId);
+  const savedSnapshot = await saveProviderCache('bookings', allBookings, userId);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
+  bookingsSnapshotSavedAt = String(savedSnapshot?.savedAt || new Date().toISOString());
+  bookingsSnapshotFromCache = false;
   renderBookingData();
   return { ok: true };
 }
@@ -5315,6 +5329,7 @@ window.addEventListener('offline', () => { connectionWasOffline = true; clearTim
 window.addEventListener('online', async () => {
   queueDisplayPreferencesSync(0);
   const complete = await synchronizeProvider();
+  if ($('#newBookingForm')) await loadNewBookingSlots();
   if (connectionWasOffline) notify(complete ? 'Интернет восстановлен · данные обновлены' : 'Интернет восстановлен · продолжаем синхронизацию');
   connectionWasOffline = false;
 });
@@ -5484,9 +5499,17 @@ const freeSlotsController = window.MinutaFreeSlots.createController({
 window.MinutaProviderAssistant = Object.freeze({
   getReadOnlySnapshot() {
     const organization = organizationController.getActiveOrganization();
+    const snapshotTime = new Date(bookingsSnapshotSavedAt).getTime();
+    const snapshotCurrent = Number.isFinite(snapshotTime) && Date.now() - snapshotTime <= PROVIDER_CACHE_MAX_AGE;
+    const synchronized = Boolean(currentUser && writesAllowed && bookingCreationReady && navigator.onLine);
+    const offline = Boolean(currentUser && !navigator.onLine);
     return {
       authenticated:Boolean(currentUser),
-      synchronized:Boolean(currentUser && writesAllowed && bookingCreationReady),
+      synchronized,
+      offline,
+      offlineReadable:Boolean(offline && snapshotCurrent),
+      lastUpdatedAt:snapshotCurrent ? bookingsSnapshotSavedAt : '',
+      snapshotSource:bookingsSnapshotFromCache ? 'cache' : 'live',
       sessionGeneration,
       today:businessTodayIso(),
       selectedDate,
@@ -5498,7 +5521,7 @@ window.MinutaProviderAssistant = Object.freeze({
       })),
       bookings:allBookings.filter(item => !isScheduleBlock(item)).map(item => ({
         id:String(item.id),
-        clientName:String(item.client_name || 'Клиент'),
+        clientName:offline ? 'Клиент' : String(item.client_name || 'Клиент'),
         date:String(item.booking_date || ''),
         time:String(item.booking_time || '').slice(0, 5),
         durationMinutes:Number(item.duration_minutes || item.services?.duration_minutes || 60),
@@ -5508,7 +5531,10 @@ window.MinutaProviderAssistant = Object.freeze({
     };
   },
   prepareBookingDraft(plan = {}) {
-    if (!currentUser || !writesAllowed || !bookingCreationReady) return { ok:false, reason:'not_synchronized' };
+    const snapshotTime = new Date(bookingsSnapshotSavedAt).getTime();
+    const offlineDraftAllowed = Boolean(currentUser && !navigator.onLine && Number.isFinite(snapshotTime) && Date.now() - snapshotTime <= PROVIDER_CACHE_MAX_AGE);
+    const synchronized = Boolean(currentUser && navigator.onLine && writesAllowed && bookingCreationReady);
+    if (!synchronized && !offlineDraftAllowed) return { ok:false, reason:'not_synchronized' };
     const date = /^\d{4}-\d{2}-\d{2}$/.test(String(plan.date || '')) && plan.date >= businessTodayIso() ? String(plan.date) : businessTodayIso();
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(plan.time || '')) ? String(plan.time) : '';
     const service = ownServices.find(item => item.active && item.id === plan.serviceId) || null;
@@ -5519,7 +5545,13 @@ window.MinutaProviderAssistant = Object.freeze({
       serviceId:service?.id || '',
       date
     });
-    return { ok:true };
+    if (offlineDraftAllowed) {
+      saveNewBookingDraft();
+      const draftStatus = $('#newBookingDraftStatus');
+      if (draftStatus) draftStatus.textContent = 'Офлайн-черновик сохранён в этой вкладке · время проверим после подключения';
+      applyWriteAvailability();
+    }
+    return { ok:true, offline:offlineDraftAllowed };
   }
 });
 window.dispatchEvent(new CustomEvent('minuta:provider-assistant-ready'));
@@ -5704,4 +5736,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=182'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=183'));

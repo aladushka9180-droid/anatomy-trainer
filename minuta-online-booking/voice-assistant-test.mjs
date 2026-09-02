@@ -101,10 +101,26 @@ assert.equal(summary.kind, 'schedule_summary');
 assert.equal(summary.total, 2);
 assert.deepEqual(summary.items.map(item => item.id), ['early', 'late']);
 
+const offlineSummary = voice.applyOfflineContext(summary, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' });
+assert.equal(offlineSummary.offline, true);
+assert.match(offlineSummary.message, /сохранённая копия/i);
+assert.match(offlineSummary.message, /имена и телефоны скрыты/i);
+
+const offlineSlots = voice.applyOfflineContext(slots, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' });
+assert.equal(offlineSlots.kind, 'offline_notice');
+assert.equal(Boolean(offlineSlots.canPrepare), false);
+assert.match(offlineSlots.message, /нельзя гарантировать/i);
+
+const offlineDraft = voice.applyOfflineContext(booking, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' });
+assert.equal(offlineDraft.kind, 'booking_draft');
+assert.equal(offlineDraft.canPrepare, true);
+assert.match(offlineDraft.message, /только черновик/i);
+
 const client = voice.interpretCommand('найди клиента анну петрову', snapshot, now);
 assert.equal(client.kind, 'client_search');
 assert.equal(client.total, 1);
 assert.equal(client.items[0].id, 'late');
+assert.equal(voice.applyOfflineContext(client, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' }).kind, 'offline_notice');
 
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
 

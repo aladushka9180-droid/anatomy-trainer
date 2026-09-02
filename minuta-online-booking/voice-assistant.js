@@ -238,6 +238,12 @@
     return new Date(year, month - 1, day, 12).toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' });
   }
 
+  function snapshotTimeLabel(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'время последней синхронизации неизвестно';
+    return date.toLocaleString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
   function activeBookings(snapshot, date) {
     return (snapshot.bookings || []).filter(item => item.date === date && item.status !== 'cancelled').sort((a, b) => String(a.time).localeCompare(String(b.time)));
   }
@@ -308,6 +314,42 @@
     };
   }
 
+  function applyOfflineContext(model, snapshot) {
+    if (!snapshot?.offlineReadable) return model;
+    const updated = snapshotTimeLabel(snapshot.lastUpdatedAt);
+    if (model.kind === 'client_search') {
+      return {
+        kind:'offline_notice',
+        title:'Поиск клиента офлайн недоступен',
+        message:`В сохранённой копии имена и телефоны скрыты. Последнее обновление: ${updated}. Подключитесь к интернету для поиска.` ,
+        offline:true
+      };
+    }
+    if (model.kind === 'find_slots') {
+      return {
+        kind:'offline_notice',
+        title:'Свободное время нужно перепроверить',
+        message:`Сейчас нет интернета. По копии на ${updated} нельзя гарантировать, что окно осталось свободным. После подключения повторите запрос.`,
+        offline:true
+      };
+    }
+    if (model.kind === 'schedule_summary') {
+      return {
+        ...model,
+        message:`${model.message} Это сохранённая копия на ${updated}; имена и телефоны скрыты.`,
+        offline:true
+      };
+    }
+    if (model.kind === 'booking_draft') {
+      return {
+        ...model,
+        message:`Офлайн можно сохранить только черновик. Данные на ${updated}; свободное время будет проверено после подключения.`,
+        offline:true
+      };
+    }
+    return { ...model, offline:true, message:`${model.message} Используется сохранённая копия на ${updated}.` };
+  }
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, symbol => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[symbol]);
   }
@@ -354,6 +396,7 @@
 
     function reset() {
       close();
+      try { global.speechSynthesis?.cancel(); } catch {}
       input.value = '';
       result.hidden = true;
       result.replaceChildren();
@@ -384,18 +427,29 @@
     function renderModel(model, sessionGeneration = null) {
       lastModel = model;
       lastSessionGeneration = sessionGeneration;
-      const action = model.canPrepare ? '<button class="primary" type="button" data-voice-prepare>Открыть черновик</button>' : '';
+      const prepareAction = model.canPrepare ? '<button class="primary" type="button" data-voice-prepare>Открыть черновик</button>' : '';
+      const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance ? '<button class="secondary-button" type="button" data-voice-speak>Озвучить ответ</button>' : '';
+      const actions = prepareAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${speakAction}</div>` : '';
+      const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       result.className = `voice-assistant-result is-${model.kind}`;
-      result.innerHTML = `<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${action}`;
+      result.innerHTML = `${offlineNotice}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${actions}`;
       result.hidden = false;
+      result.querySelector('[data-voice-speak]')?.addEventListener('click', () => {
+        const spokenItems = (lastModel?.items || []).slice(0, 12).map(item => `${item.time || ''}, ${item.serviceName || 'услуга'}`).join('. ');
+        const utterance = new global.SpeechSynthesisUtterance([lastModel?.title, lastModel?.message, spokenItems].filter(Boolean).join('. ').slice(0, 1200));
+        utterance.lang = 'ru-RU';
+        try { global.speechSynthesis.cancel(); global.speechSynthesis.speak(utterance); } catch { status.textContent = 'Не удалось озвучить ответ на этом устройстве.'; }
+      });
       result.querySelector('[data-voice-prepare]')?.addEventListener('click', () => {
         const currentSnapshot = bridge.getReadOnlySnapshot();
-        if (!currentSnapshot?.authenticated || !currentSnapshot?.synchronized || !Object.is(currentSnapshot.sessionGeneration, lastSessionGeneration)) {
+        const sameSession = Object.is(currentSnapshot?.sessionGeneration, lastSessionGeneration);
+        const offlineDraftAllowed = Boolean(lastModel?.offline && lastModel?.kind === 'booking_draft' && currentSnapshot?.offlineReadable);
+        if (!currentSnapshot?.authenticated || !sameSession || (!currentSnapshot.synchronized && !offlineDraftAllowed)) {
           lastModel = null;
           lastSessionGeneration = null;
           result.hidden = true;
           result.replaceChildren();
-          status.textContent = 'Сессия или данные кабинета изменились. Повторите команду после полной синхронизации.';
+          status.textContent = 'Сессия или данные кабинета изменились. Повторите команду после синхронизации.';
           return;
         }
         const response = bridge.prepareBookingDraft(lastModel?.plan || {});
@@ -413,14 +467,14 @@
         renderModel({ kind:'error', title:'Нужно войти в кабинет', message:'После входа помощник сможет прочитать актуальное расписание.' });
         return;
       }
-      if (!snapshot.synchronized) {
+      if (!snapshot.synchronized && !snapshot.offlineReadable) {
         renderModel({ kind:'error', title:'Данные ещё синхронизируются', message:'Дождитесь полной синхронизации кабинета и повторите команду.' }, snapshot.sessionGeneration);
         status.textContent = 'Помощник не показывает устаревшие данные.';
         return;
       }
-      const model = interpretCommand(input.value, snapshot, new Date());
+      const model = applyOfflineContext(interpretCommand(input.value, snapshot, new Date()), snapshot);
       renderModel(model, snapshot.sessionGeneration);
-      status.textContent = model.kind === 'error' ? 'Команда не распознана.' : 'Готово. Проверьте результат перед следующим действием.';
+      status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : model.kind === 'error' ? 'Команда не распознана.' : 'Готово. Проверьте результат перед следующим действием.';
     }
 
     function startRecognition() {
@@ -490,7 +544,7 @@
     return { bind, destroy, understand, reset };
   }
 
-  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, interpretCommand, createController });
+  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, interpretCommand, applyOfflineContext, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

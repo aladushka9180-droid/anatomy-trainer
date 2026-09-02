@@ -177,14 +177,40 @@ form.emit('submit');
 assert.doesNotMatch(resultHtml, /Устаревший клиент/, 'несинхронизированный снимок нельзя показывать');
 assert.match(resultHtml, /Данные ещё синхронизируются/);
 
-currentSnapshot = { ...currentSnapshot, synchronized:true, sessionGeneration:3, bookings:[] };
+currentSnapshot = {
+  authenticated:true,
+  synchronized:false,
+  offline:true,
+  offlineReadable:true,
+  lastUpdatedAt:'2026-09-02T14:40:00+04:00',
+  sessionGeneration:3,
+  today:'2026-09-02',
+  services,
+  bookings:[{ date:'2026-09-02', time:'10:00', status:'confirmed', clientName:'Клиент', serviceName:'Массаж' }]
+};
+input.value = 'какие записи сегодня';
+form.emit('submit');
+assert.match(resultHtml, /Офлайн · сведения могут быть устаревшими/, 'офлайн-копия должна быть явно помечена');
+assert.match(resultHtml, /сохранённая копия/i, 'должно отображаться время сохранённой копии');
+
+input.value = 'запиши Анну завтра в 10:30 на массаж';
+form.emit('submit');
+const offlinePrepareButton = prepareButton;
+assert.ok(offlinePrepareButton, 'офлайн-команда должна разрешать только явное открытие черновика');
+offlinePrepareButton.emit('click');
+assert.equal(prepareCalls, 1, 'офлайн-черновик должен открываться только после явного нажатия');
+
+openButton.emit('click');
+prepareCalls = 0;
+
+currentSnapshot = { ...currentSnapshot, synchronized:true, offline:false, offlineReadable:false, sessionGeneration:4, bookings:[] };
 input.value = 'запиши Анну завтра в 10:30 на массаж';
 form.emit('submit');
 const stalePrepareButton = prepareButton;
 assert.ok(stalePrepareButton, 'распознанная команда должна предложить явное открытие черновика');
 assert.equal(prepareCalls, 0, 'до явного действия черновик не должен подготавливаться');
 
-currentSnapshot = { ...currentSnapshot, sessionGeneration:4 };
+currentSnapshot = { ...currentSnapshot, sessionGeneration:5 };
 stalePrepareButton.emit('click');
 assert.equal(prepareCalls, 0, 'черновик из предыдущего поколения сессии должен быть отклонён');
 assert.equal(result.hidden, true, 'устаревшее предложение должно быть удалено');
