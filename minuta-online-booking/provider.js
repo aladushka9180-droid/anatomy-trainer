@@ -124,6 +124,10 @@ let synchronizationRetryTimer = null;
 let writesAllowed = false;
 let bookingCreationReady = false;
 let connectionWasOffline = false;
+let offlineBookingQueue = [];
+let offlineBookingFlushPromise = null;
+let offlineBookingSavePromise = Promise.resolve();
+let offlineBookingInputsReady = false;
 let lastConnectionLogSignature = '';
 let teamCalendarController = null;
 let batchBookingsController = null;
@@ -137,6 +141,7 @@ const TIMELINE_DRAG_THRESHOLD_PX = 5;
 const SCHEDULE_SWIPE_THRESHOLD_PX = 58;
 const reliability = window.MinutaReliability;
 const PROVIDER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const OFFLINE_BOOKING_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const providerCacheMaintenance = (async () => {
   await reliability?.removeExpired?.('provider:', PROVIDER_CACHE_MAX_AGE);
 })().catch(() => {});
@@ -195,6 +200,28 @@ async function hydrateCachedBookings(userId = currentUser?.id) {
   renderBookingData();
   return cached;
 }
+async function hydrateOfflineBookingInputs(userId, generation, cachedBookings) {
+  if (!userId || navigator.onLine || !cachedBookings) return false;
+  const [cachedServices, cachedSchedule, cachedDaysOff] = await Promise.all([
+    readProviderCache('services', userId),
+    readProviderCache('schedule', userId),
+    readProviderCache('days-off', userId)
+  ]);
+  if (!sessionIsCurrent(userId, generation)) return false;
+  if (!Array.isArray(cachedServices?.data) || !cachedSchedule?.data?.length || !Array.isArray(cachedDaysOff?.data)) return false;
+  ownServices = cachedServices.data;
+  scheduleRows = cachedSchedule.data;
+  daysOff = cachedDaysOff.data;
+  offlineBookingInputsReady = true;
+  $('#slotInterval').value = String(scheduleRows[0]?.slot_interval_minutes || 5);
+  syncSlotIntervalOptions();
+  renderOwnServices();
+  renderSchedule();
+  renderDaysOff();
+  renderBookings();
+  applyWriteAvailability();
+  return true;
+}
 function connectionLogKey(userId = currentUser?.id) { return `minuta-provider-connection-log-v1:${userId || 'anonymous'}`; }
 function bookingDraftKey(userId = currentUser?.id) { return `minuta-provider-booking-draft-v1:${userId || 'anonymous'}`; }
 function readConnectionLog(userId = currentUser?.id) {
@@ -239,6 +266,250 @@ function saveNewBookingDraft() {
   if (status) status.textContent = `Черновик сохранён · ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
 }
 function clearNewBookingDraft(userId = currentUser?.id) { try { if (userId) sessionStorage.removeItem(bookingDraftKey(userId)); } catch {} }
+function createOfflineBookingId() {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+function offlineBookingQueueKey(userId = currentUser?.id) { return `minuta-offline-bookings-v1:${userId || 'anonymous'}`; }
+function offlineBookingSnapshotFresh() {
+  const savedAt = new Date(bookingsSnapshotSavedAt).getTime();
+  return Number.isFinite(savedAt) && Date.now() - savedAt <= PROVIDER_CACHE_MAX_AGE;
+}
+function canQueueOfflineBooking() {
+  return Boolean(currentUser && !navigator.onLine && offlineBookingInputsReady && offlineBookingSnapshotFresh() && ownServices.some(item => item.active));
+}
+async function saveOfflineBookingQueue(userId = currentUser?.id, { generation = sessionGeneration, verify = false } = {}) {
+  if (!userId || !reliability?.put || !reliability?.get || !sessionIsCurrent(userId, generation)) return false;
+  const key = offlineBookingQueueKey(userId);
+  const payload = offlineBookingQueue.filter(item => item?.userId === userId);
+  const save = offlineBookingSavePromise.catch(() => {}).then(async () => {
+    try {
+      if (!sessionIsCurrent(userId, generation)) return false;
+      await reliability.put(key, payload);
+      if (!sessionIsCurrent(userId, generation)) {
+        await reliability.remove?.(key);
+        return false;
+      }
+      if (verify) {
+        const stored = await reliability.get(key);
+        if (!sessionIsCurrent(userId, generation)) {
+          await reliability.remove?.(key);
+          return false;
+        }
+        const storedIds = Array.isArray(stored?.data) ? stored.data.map(item => item?.id).filter(Boolean).sort() : [];
+        const expectedIds = payload.map(item => item.id).sort();
+        if (JSON.stringify(storedIds) !== JSON.stringify(expectedIds)) return false;
+      }
+      return true;
+    } catch { return false; }
+  });
+  offlineBookingSavePromise = save;
+  return save;
+}
+async function loadOfflineBookingQueue(userId = currentUser?.id, generation = sessionGeneration) {
+  if (!userId) { offlineBookingQueue = []; renderOfflineBookingQueue(); return []; }
+  try {
+    const saved = await reliability?.get(offlineBookingQueueKey(userId));
+    const now = Date.now();
+    const nextQueue = Array.isArray(saved?.data) ? saved.data.filter(item => item?.userId === userId).map(item => {
+      if (now - Number(item.createdAt || 0) <= OFFLINE_BOOKING_MAX_AGE || item.status === 'notification_pending') return item;
+      return { ...item, status:'conflict', reason:'queue_expired' };
+    }) : [];
+    if (!sessionIsCurrent(userId, generation)) return [];
+    offlineBookingQueue = nextQueue;
+  } catch {
+    if (!sessionIsCurrent(userId, generation)) return [];
+    offlineBookingQueue = [];
+  }
+  if (!sessionIsCurrent(userId, generation)) return [];
+  renderOfflineBookingQueue();
+  return offlineBookingQueue;
+}
+function offlineBookingServiceName(item) {
+  return serviceName(ownServices.find(service => service.id === item.serviceId)?.name || item.serviceName || 'Услуга');
+}
+function offlineBookingConflictText(reason) {
+  return ({ slot_unavailable:'Выбранное время уже занято', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
+}
+function renderOfflineBookingQueue() {
+  const panel = $('#offlineBookingQueuePanel');
+  const list = $('#offlineBookingQueueList');
+  const status = $('#offlineBookingQueueStatus');
+  if (!panel || !list || !status) return;
+  panel.hidden = !offlineBookingQueue.length;
+  if (!offlineBookingQueue.length) { list.replaceChildren(); return; }
+  const conflicts = offlineBookingQueue.filter(item => item.status === 'conflict').length;
+  const notifications = offlineBookingQueue.filter(item => item.status === 'notification_pending').length;
+  const pending = offlineBookingQueue.length - conflicts - notifications;
+  status.textContent = [pending ? `${pending} ожидают синхронизации` : '', notifications ? `${notifications} ожидают уведомления` : '', conflicts ? `${conflicts} требуют внимания` : ''].filter(Boolean).join(' · ');
+  list.innerHTML = offlineBookingQueue.map(item => {
+    const date = parseLocalIsoDate(item.date);
+    const dateLabel = date ? date.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }) : item.date;
+    const state = item.status === 'conflict' ? `<small class="offline-booking-conflict" role="alert">${escapeHtml(offlineBookingConflictText(item.reason))}</small>` : item.status === 'syncing' ? '<small>Проверяем время на сервере…</small>' : item.status === 'server_check_pending' ? '<small>Запись принята сервером · подтверждаем результат</small>' : item.status === 'notification_pending' ? '<small>Запись создана · повторим уведомление клиенту</small>' : '<small>Будет проверено при подключении</small>';
+    const notificationOnly = item.status === 'notification_pending';
+    const label = notificationOnly ? `Не повторять уведомление о записи на ${dateLabel} в ${item.time}` : `Удалить отложенную запись ${item.clientName} на ${dateLabel} в ${item.time}`;
+    const removalLocked = item.status === 'syncing' || item.status === 'server_check_pending';
+    return `<article class="offline-booking-item is-${item.status === 'conflict' ? 'conflict' : 'pending'}"><div><strong>${escapeHtml(item.clientName)}</strong><span>${escapeHtml(dateLabel)} · ${escapeHtml(item.time)} · ${escapeHtml(offlineBookingServiceName(item))}</span>${state}</div><button type="button" data-remove-offline-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" ${removalLocked ? 'disabled' : ''}>${notificationOnly ? 'Не повторять' : 'Удалить'}</button></article>`;
+  }).join('');
+  const retry = $('#retryOfflineBookings');
+  if (retry) retry.disabled = !navigator.onLine || !currentUser || offlineBookingQueue.some(item => item.status === 'syncing');
+}
+async function queueOfflineBooking(payload) {
+  const userId = currentUser?.id;
+  if (!userId || !canQueueOfflineBooking()) return { ok:false };
+  const duplicate = offlineBookingQueue.find(item => item.serviceId === payload.serviceId && item.date === payload.date && item.time === payload.time && normalizePhone(item.clientPhone) === normalizePhone(payload.clientPhone));
+  if (duplicate) return { ok:true, duplicate:true };
+  offlineBookingQueue.push({
+    id:createOfflineBookingId(), userId, createdAt:Date.now(), status:'pending', attempts:0,
+    clientName:String(payload.clientName || '').slice(0, 80), clientPhone:String(payload.clientPhone || '').slice(0, 40),
+    serviceId:String(payload.serviceId || ''), serviceName:String(payload.serviceName || '').slice(0, 120), date:String(payload.date || ''), time:String(payload.time || '').slice(0, 5),
+    note:String(payload.note || '').slice(0, 1000), color:BOOKING_COLOR_KEYS.includes(payload.color) ? payload.color : BOOKING_COLOR_DEFAULT
+  });
+  const saved = await saveOfflineBookingQueue(userId, { verify:true });
+  if (!saved) { offlineBookingQueue.pop(); return { ok:false }; }
+  renderOfflineBookingQueue();
+  return { ok:true };
+}
+function queuedBookingMatch(item) {
+  return allBookings.find(booking => booking.status !== 'cancelled' && String(booking.request_id || '') === item.id) || null;
+}
+function queuedBookingSlotMatch(item) {
+  return allBookings.find(booking => booking.status !== 'cancelled'
+    && booking.service_id === item.serviceId
+    && booking.booking_date === item.date
+    && String(booking.booking_time).slice(0, 5) === item.time) || null;
+}
+function bookingConnectionError(error) {
+  const reason = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch|connection/i.test(reason);
+}
+async function finalizeQueuedBooking(item, booking, userId, generation) {
+  if (!sessionIsCurrent(userId, generation) || !offlineBookingQueue.some(entry => entry.id === item.id)) return false;
+  const clientLabel = item.clientName || 'клиента';
+  if (item.note) {
+    await db.from('client_notes').upsert({ performer_id:item.userId, client_phone:normalizePhone(item.clientPhone), note:item.note, updated_at:new Date().toISOString() });
+    if (!sessionIsCurrent(userId, generation)) return false;
+    clientNotes.set(normalizePhone(item.clientPhone), item.note);
+  }
+  if (booking?.id) await saveBookingColor(booking.id, item.color, { rerender:false });
+  if (!sessionIsCurrent(userId, generation)) return false;
+  const notification = booking?.id ? await deliverTelegramClientNotification(booking.id, 'confirmation') : { delivered:false, retryable:true, reason:'booking_missing' };
+  if (!sessionIsCurrent(userId, generation)) return false;
+  if (notification.retryable) {
+    const notificationAttempts = Number(item.notificationAttempts || 0) + 1;
+    item.status = 'notification_pending';
+    item.reason = 'notification_retry';
+    item.serverBookingId = booking?.id || item.serverBookingId || '';
+    item.notificationAttempts = notificationAttempts;
+    item.notificationNextAttemptAt = Date.now() + Math.min(60 * 60 * 1000, 5 * 60 * 1000 * (2 ** Math.min(notificationAttempts - 1, 4)));
+    item.clientName = 'Клиент';
+    item.clientPhone = '';
+    item.note = '';
+    await saveOfflineBookingQueue(userId, { generation });
+    renderOfflineBookingQueue();
+    recordConnectionEvent('warning', `Отложенная запись на ${item.date} ${item.time} создана · уведомление будет повторено`);
+    notify(`Запись ${clientLabel} создана · уведомление клиенту повторим автоматически`);
+    return false;
+  }
+  offlineBookingQueue = offlineBookingQueue.filter(entry => entry.id !== item.id);
+  await saveOfflineBookingQueue(userId, { generation });
+  if (!sessionIsCurrent(userId, generation)) return false;
+  renderOfflineBookingQueue();
+  recordConnectionEvent('online', `Отложенная запись на ${item.date} ${item.time} создана${notification.delivered ? ' · уведомление отправлено' : ''}`);
+  notify(notification.delivered ? `Запись ${clientLabel} создана · уведомление отправлено` : `Запись ${clientLabel} создана · клиент ещё не подключил Telegram`);
+  return true;
+}
+async function flushOfflineBookings({ retryConflicts = false } = {}) {
+  if (offlineBookingFlushPromise) return offlineBookingFlushPromise;
+  if (!currentUser || !navigator.onLine || !(writesAllowed || bookingCreationReady)) return false;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const run = (async () => {
+    for (const item of [...offlineBookingQueue]) {
+      if (!sessionIsCurrent(userId, generation) || !navigator.onLine) break;
+      if (item.status === 'conflict' && !retryConflicts) continue;
+      if (item.status === 'notification_pending' && !retryConflicts && Date.now() < Number(item.notificationNextAttemptAt || 0)) continue;
+      if (!offlineBookingQueue.some(entry => entry.id === item.id)) continue;
+      const existing = queuedBookingMatch(item);
+      if (existing) {
+        item.status = 'syncing';
+        renderOfflineBookingQueue();
+        await saveOfflineBookingQueue(userId, { generation });
+        if (!sessionIsCurrent(userId, generation) || !offlineBookingQueue.some(entry => entry.id === item.id)) break;
+        await finalizeQueuedBooking(item, existing, userId, generation);
+        continue;
+      }
+      if (item.date < businessTodayIso()) {
+        item.status = 'conflict'; item.reason = 'date_expired';
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        continue;
+      }
+      if (item.status === 'notification_pending') {
+        item.status = 'conflict'; item.reason = 'unexpected_error';
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        continue;
+      }
+      const previousStatus = item.status;
+      const previousReason = item.reason || '';
+      if (queuedBookingSlotMatch(item)) {
+        item.status = 'conflict'; item.reason = 'slot_unavailable';
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        continue;
+      }
+      item.status = 'syncing'; item.reason = ''; item.attempts = Number(item.attempts || 0) + 1; item.lastAttemptAt = Date.now();
+      renderOfflineBookingQueue();
+      await saveOfflineBookingQueue(userId, { generation });
+      if (!sessionIsCurrent(userId, generation) || !offlineBookingQueue.some(entry => entry.id === item.id)) break;
+      const params = { p_service:item.serviceId, p_date:item.date, p_time:`${item.time}:00`, p_client_name:item.clientName, p_client_phone:item.clientPhone };
+      const { error } = await db.rpc('book_appointment', { p_request_id:item.id, ...params });
+      if (!sessionIsCurrent(userId, generation)) return false;
+      if (error) {
+        if (bookingConnectionError(error)) {
+          item.status = previousStatus === 'conflict' ? 'conflict' : 'pending';
+          item.reason = previousStatus === 'conflict' ? previousReason : '';
+          await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+          break;
+        }
+        const reason = String(error.message || '');
+        if (reason.includes('slot_unavailable') || reason.includes('service_unavailable') || reason.includes('invalid_client_data')) {
+          item.status = 'conflict';
+          item.reason = reason.includes('slot_unavailable') ? 'slot_unavailable' : reason.includes('service_unavailable') ? 'service_unavailable' : 'invalid_client_data';
+          await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+          notify(`Отложенная запись ${item.clientName} требует внимания: ${offlineBookingConflictText(item.reason).toLocaleLowerCase('ru-RU')}`);
+          continue;
+        }
+        item.status = 'conflict'; item.reason = 'unexpected_error';
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        notify(`Отложенная запись ${item.clientName} отклонена сервером · проверьте данные`);
+        continue;
+      }
+      const refreshed = await loadBookings({ silent:true });
+      if (!sessionIsCurrent(userId, generation)) return false;
+      if (!refreshed?.ok) {
+        item.status = 'server_check_pending';
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        break;
+      }
+      const booking = queuedBookingMatch(item);
+      if (!booking) {
+        item.status = 'server_check_pending';
+        await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        break;
+      }
+      await finalizeQueuedBooking(item, booking, userId, generation);
+    }
+    renderBookingData();
+    return !offlineBookingQueue.some(item => item.status === 'pending' || item.status === 'syncing' || item.status === 'server_check_pending' || item.status === 'notification_pending');
+  })();
+  offlineBookingFlushPromise = run;
+  try { return await run; }
+  finally { if (offlineBookingFlushPromise === run) offlineBookingFlushPromise = null; }
+}
+const offlineBookingCreateSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"]';
 const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client]';
 const writeSelectors = [
   '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
@@ -260,7 +531,7 @@ function applyWriteAvailability() {
       delete control.dataset.reliabilityDisabled;
       return;
     }
-    const controlAllowed = writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector));
+    const controlAllowed = writesAllowed || (bookingCreationReady && control.matches(bookingCreationWriteSelector)) || (canQueueOfflineBooking() && control.matches(offlineBookingCreateSelector));
     if (!controlAllowed && !control.disabled) {
       control.disabled = true;
       control.dataset.reliabilityDisabled = 'true';
@@ -285,24 +556,33 @@ function requireWrites() {
 }
 function requireBookingWrites() {
   if ((writesAllowed || bookingCreationReady) && navigator.onLine && currentUser) return true;
-  if (!navigator.onLine) notify('Нет интернета · записи доступны только для просмотра');
+  if (canQueueOfflineBooking()) return true;
+  if (!navigator.onLine) notify('Нет интернета и свежей сохранённой копии · запись пока нельзя отложить');
   else {
     notify('Проверяем записи и расписание · повторите через несколько секунд');
     synchronizeProvider();
   }
   return false;
 }
-async function notifyTelegramClient(bookingId, event) {
+async function deliverTelegramClientNotification(bookingId, event) {
   try {
     const { data } = await db.auth.getSession();
     const accessToken = data.session?.access_token;
-    if (!accessToken) return;
-    await fetch(`${telegramClientEndpoint}/event`, {
+    if (!accessToken) return { delivered:false, retryable:true, reason:'session_unavailable' };
+    const response = await fetch(`${telegramClientEndpoint}/event`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', apikey: window.MINUTA_CONFIG.supabaseKey, authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ event, booking_id: bookingId })
     });
-  } catch {}
+    const result = await response.json().catch(() => ({}));
+    if (response.ok && (result.delivered || result.reason === 'already_sent')) return { delivered:true, retryable:false, reason:String(result.reason || 'delivered') };
+    if (response.ok && result.reason === 'not_connected') return { delivered:false, retryable:false, reason:'not_connected' };
+    return { delivered:false, retryable:true, reason:String(result.reason || `http_${response.status}`) };
+  } catch { return { delivered:false, retryable:true, reason:'network_error' }; }
+}
+async function notifyTelegramClient(bookingId, event) {
+  const result = await deliverTelegramClientNotification(bookingId, event);
+  return result.delivered;
 }
 function setSyncState(kind, text) {
   const element = $('#syncState');
@@ -321,6 +601,7 @@ async function manualSynchronizeProvider() {
   recordConnectionEvent('manual', 'Запущено ручное обновление');
   try {
     const complete = await synchronizeProvider();
+    if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
     notify(complete ? 'Все данные обновлены' : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
     return complete;
   } catch {
@@ -961,7 +1242,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=195#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=196#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2917,6 +3198,35 @@ async function saveBookingChanges(event) {
   openBookingSheet(id);
 }
 
+function offlineCandidateSlots(serviceId, dateIso) {
+  const service = ownServices.find(item => item.id === serviceId && item.active);
+  const date = parseLocalIsoDate(dateIso);
+  if (!service || !date || dateIso < businessTodayIso()) return [];
+  const weekday = ((date.getDay() + 6) % 7) + 1;
+  const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+  if (schedule?.enabled === false) return [];
+  const step = scheduleStepForDate(dateIso);
+  const duration = Math.max(1, Number(service.duration_minutes || 60));
+  const start = minutesFromTime(schedule?.start_time || '10:00');
+  const end = minutesFromTime(schedule?.end_time || '20:00');
+  const now = new Date();
+  const earliest = dateIso === businessTodayIso() ? (now.getHours() * 60) + now.getMinutes() : start;
+  const slots = [];
+  for (let minute = start; minute + duration <= end; minute += step) {
+    if (minute < earliest) continue;
+    const issue = bookingPlacementIssue({ id:'offline-candidate', duration_minutes:duration }, dateIso, minute);
+    const queuedConflict = offlineBookingQueue.some(item => {
+      if (item.date !== dateIso) return false;
+      const queuedStart = minutesFromTime(item.time);
+      const queuedService = ownServices.find(entry => entry.id === item.serviceId);
+      const queuedEnd = queuedStart + Math.max(1, Number(queuedService?.duration_minutes || 60));
+      return minute < queuedEnd && minute + duration > queuedStart;
+    });
+    if (!issue && !queuedConflict) slots.push(timeFromMinutes(minute));
+  }
+  return slots;
+}
+
 async function loadNewBookingSlots() {
   const service = $('#newBookingService')?.value;
   const date = $('#newBookingDate')?.value;
@@ -2927,7 +3237,11 @@ async function loadNewBookingSlots() {
   newBookingSlots = [];
   newBookingHour = '';
   if (!navigator.onLine) {
-    holder.innerHTML = `<span>${preferredTime ? `Офлайн-черновик сохранит время ${escapeHtml(preferredTime)}. После подключения проверим, свободно ли оно.` : 'Офлайн нельзя подтвердить свободное время. После подключения варианты обновятся.'}</span>`;
+    newBookingSlots = offlineCandidateSlots(service, date);
+    newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';
+    newBookingHour = String(newBookingTime || newBookingSlots[0] || '').slice(0, 2);
+    if (newBookingSlots.length) renderNewBookingTimePicker({ offline:true });
+    else holder.innerHTML = '<div class="booking-time-warning">По последней сохранённой копии свободных вариантов нет. Подключитесь к интернету, чтобы обновить расписание.</div>';
     return;
   }
   holder.innerHTML = '<span>Ищем свободное время…</span>';
@@ -2944,14 +3258,14 @@ async function loadNewBookingSlots() {
   clearFormError('#newBookingError');
 }
 
-function renderNewBookingTimePicker() {
+function renderNewBookingTimePicker({ offline = false } = {}) {
   const holder = $('#newBookingTimes');
   if (!holder || !newBookingSlots.length) return;
   const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
   if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
   const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
-  holder.innerHTML = `${preferredUnavailable ? `<div class="booking-time-warning">В ${escapeHtml(newBookingPreferredTime)} для выбранной длительности окна нет. Выберите другое время.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
+  holder.innerHTML = `${offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">В ${escapeHtml(newBookingPreferredTime)} для выбранной длительности окна нет. Выберите другое время.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
     <div class="booking-time-guide"><strong>2. Точное время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${hourSlots.length} свободных вариантов`}</span></div>
     <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
@@ -2961,7 +3275,28 @@ function updateNewBookingSubmitCaption() {
   const submit = $('#newBookingSubmit');
   if (!submit) return;
   const occurrenceCount = Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
-  submit.textContent = newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
+  submit.textContent = !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
+}
+
+function updateNewBookingConnectivity() {
+  if (!$('#newBookingForm')) return;
+  const offline = !navigator.onLine;
+  const blockButton = $('[data-new-booking-mode="block"]');
+  if (blockButton) {
+    blockButton.disabled = offline;
+    blockButton.title = offline ? 'Блокировку времени можно создать после подключения' : '';
+  }
+  const occurrences = $('#newBookingOccurrences');
+  const interval = $('#newBookingInterval');
+  if (offline) {
+    if (newBookingMode === 'block') setNewBookingMode('client');
+    if (occurrences) occurrences.value = '1';
+  }
+  if (occurrences) occurrences.disabled = offline;
+  if (interval) interval.disabled = offline;
+  const recurrence = $('#newBookingRecurrence');
+  if (recurrence) recurrence.classList.toggle('is-offline-disabled', offline);
+  updateNewBookingSubmitCaption();
 }
 
 function setNewBookingMode(mode) {
@@ -3054,6 +3389,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingForm').addEventListener('input', saveNewBookingDraft);
   $('#newBookingForm').addEventListener('change', saveNewBookingDraft);
   setNewBookingMode(newBookingMode);
+  updateNewBookingConnectivity();
   if (preset.clientName) {
     $('#newBookingSheetTitle').textContent = 'Повторная запись';
     $('#newBookingSectionSubtitle').textContent = 'Клиент и услуга уже выбраны';
@@ -3105,10 +3441,33 @@ async function createNewBooking(event) {
       return;
     }
   }
-  const button = event.submitter;
+  const button = event.submitter || $('#newBookingSubmit');
+  if (!button) return;
   button.disabled = true;
   button.textContent = block ? 'Занимаем…' : 'Создаём…';
   const note = block ? ($('#newBookingBlockNote')?.value.trim() || '') : $('#newBookingNote').value.trim();
+  if (!navigator.onLine) {
+    if (block || occurrenceCount > 1) {
+      button.disabled = false;
+      updateNewBookingSubmitCaption();
+      showFormError('#newBookingError', block ? 'Без интернета можно отложить только запись клиента, но не блокировку времени.' : 'Без интернета можно отложить одну запись. Серии создаются после подключения.');
+      return;
+    }
+    const selectedService = ownServices.find(item => item.id === service && item.active);
+    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:selectedService?.name, date, time:newBookingTime, note, color });
+    button.disabled = false;
+    updateNewBookingSubmitCaption();
+    if (!queued.ok) {
+      showFormError('#newBookingError', 'Не удалось надёжно сохранить запись на устройстве. Не закрывайте форму и попробуйте ещё раз.');
+      return;
+    }
+    clearNewBookingDraft(userId);
+    closeBookingSheet();
+    renderOfflineBookingQueue();
+    recordConnectionEvent('offline', `Запись на ${date} ${newBookingTime} сохранена до подключения`);
+    notify(queued.duplicate ? 'Такая запись уже ожидает подключения' : 'Запись сохранена на устройстве · при подключении проверим время и создадим её');
+    return;
+  }
   if (occurrenceCount > 1) {
     const { data, error } = await db.rpc('create_minuta_recurring_bookings', {
       p_service: service,
@@ -4062,6 +4421,7 @@ function synchronizeProvider() {
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
     const bookingReady = results.slice(0, 4).every(result => result?.ok);
+    offlineBookingInputsReady = results.slice(0, 4).every(result => result?.ok || result?.cached);
     const skipped = requiredResults.some(result => result?.skipped);
     const degraded = results.some(result => result?.optional && !result?.ok);
     setBookingCreationReady(bookingReady);
@@ -4078,9 +4438,11 @@ function synchronizeProvider() {
       scheduleSynchronizationRetry();
     } else {
       const cached = results.filter(result => result?.cached).map(result => result.savedAt).filter(Boolean).sort()[0];
-      setSyncState(navigator.onLine ? 'warning' : 'offline', cached ? `${navigator.onLine ? 'Не все данные обновлены' : 'Офлайн'} · копия на ${reliability?.savedAtLabel(cached) || 'последнюю синхронизацию'} · только чтение` : 'Данные не синхронизированы · только чтение');
+      const cachedText = cached ? `${navigator.onLine ? 'Не все данные обновлены' : 'Офлайн'} · копия на ${reliability?.savedAtLabel(cached) || 'последнюю синхронизацию'}` : 'Данные не синхронизированы';
+      setSyncState(navigator.onLine ? 'warning' : 'offline', !navigator.onLine && canQueueOfflineBooking() ? `${cachedText} · новую запись можно отложить` : `${cachedText} · только чтение`);
       scheduleSynchronizationRetry();
     }
+    if (bookingReady && offlineBookingQueue.some(item => item.status === 'pending' || item.status === 'server_check_pending' || item.status === 'notification_pending')) setTimeout(() => flushOfflineBookings(), 0);
     return complete;
   })();
   synchronizationGeneration = requestedGeneration;
@@ -4111,9 +4473,12 @@ async function refreshAfterWrite() {
   return synchronizeProvider();
 }
 
-async function clearProviderDeviceData(userId) {
+async function clearProviderDeviceData(userId, { preserveOfflineBookings = false } = {}) {
   if (!userId) return;
   try { await reliability?.removePrefix(`provider:${userId}:`); } catch {}
+  if (!preserveOfflineBookings) {
+    try { await reliability?.remove?.(offlineBookingQueueKey(userId)); } catch {}
+  }
   clearNewBookingDraft(userId);
   try {
     Object.keys(localStorage).forEach(key => {
@@ -4133,10 +4498,12 @@ async function clearProviderDeviceData(userId) {
 
 async function logout() {
   const userId = currentUser?.id;
+  if (offlineBookingQueue.length && !confirm(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей. При выходе они будут удалены. Всё равно выйти?`)) return;
   ++sessionGeneration;
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
+  offlineBookingInputsReady = false;
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -4149,11 +4516,16 @@ async function logout() {
 }
 
 async function handleSession(session) {
+  if (session?.user?.id && session.user.id === currentUser?.id) {
+    currentUser = session.user;
+    return;
+  }
   const previousUserId = currentUser?.id;
   const generation = ++sessionGeneration;
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
+  offlineBookingInputsReady = false;
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
@@ -4194,7 +4566,8 @@ async function handleSession(session) {
   renderDisplayPreferencesForm();
   if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
   scheduleDirty = false;
-  if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId);
+  if (previousUserId && currentUser?.id && previousUserId !== currentUser.id) await clearProviderDeviceData(previousUserId);
+  else if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId, { preserveOfflineBookings:true });
   if (generation !== sessionGeneration) return;
   clearInterval(notificationTimer);
   notificationTimer = currentUser ? setInterval(renderNotifications, 60000) : null;
@@ -4231,12 +4604,18 @@ async function handleSession(session) {
     visitorVisitsRemoteAvailable = false;
     visitorVisitsInitialized = false;
     announcedVisitorVisitIds = new Set();
+    offlineBookingQueue = [];
+    renderOfflineBookingQueue();
     return;
   }
   const userId = currentUser.id;
   const cachedBookings = await hydrateCachedBookings(userId);
   if (!sessionIsCurrent(userId, generation)) return;
-  if (cachedBookings) setSyncState(navigator.onLine ? 'checking' : 'offline', navigator.onLine ? `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем` : `${cachedStateText(cachedBookings.savedAt)} · только чтение`);
+  await hydrateOfflineBookingInputs(userId, generation, cachedBookings);
+  if (!sessionIsCurrent(userId, generation)) return;
+  await loadOfflineBookingQueue(userId, generation);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (cachedBookings) setSyncState(navigator.onLine ? 'checking' : 'offline', navigator.onLine ? `Показана копия на ${reliability?.savedAtLabel(cachedBookings.savedAt) || 'последнюю синхронизацию'} · обновляем` : canQueueOfflineBooking() ? `${cachedStateText(cachedBookings.savedAt)} · новую запись можно отложить` : `${cachedStateText(cachedBookings.savedAt)} · только чтение`);
   else if (!navigator.onLine) setSyncState('offline', 'Нет интернета и сохранённой копии · только чтение');
   let profile = null;
   if (navigator.onLine) ({ data: profile } = await db.from('performer_profiles').select('display_name').eq('id', currentUser.id).single());
@@ -4254,6 +4633,8 @@ async function handleSession(session) {
   await providerCacheMaintenance;
   if (!sessionIsCurrent(userId, generation)) return;
   await synchronizeProvider();
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
   if (!sessionIsCurrent(userId, generation)) return;
   if (!bookingsChannel) startLiveUpdates();
   setProviderView(providerViewFromLocation(), { historyMode:'replace', focusHeading:false });
@@ -4942,17 +5323,17 @@ async function loadBookings(options = {}) {
   if (!options.silent && !cached) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   if (!navigator.onLine) return cached ? { ok: false, cached: true, savedAt: cached.savedAt } : { ok: false };
   let { data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)')
+    .select('id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)')
     .eq('performer_id', userId)
     .order('booking_date', { ascending: true })
     .order('booking_time', { ascending: true });
   if (error) ({ data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
+    .select('id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
     .eq('performer_id', userId)
     .order('booking_date', { ascending:true })
     .order('booking_time', { ascending:true }));
   if (error) ({ data, error } = await db.from('bookings')
-    .select('id,booking_code,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
+    .select('id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
     .eq('performer_id', userId)
     .order('booking_date', { ascending:true })
     .order('booking_time', { ascending:true }));
@@ -5266,7 +5647,7 @@ document.addEventListener('click', async event => {
   if (newHour) {
     newBookingHour = newHour.dataset.newBookingHour;
     if (!newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || '';
-    renderNewBookingTimePicker();
+    renderNewBookingTimePicker({ offline:!navigator.onLine });
     clearFormError('#newBookingError');
     saveNewBookingDraft();
   }
@@ -5426,16 +5807,51 @@ document.addEventListener('visibilitychange', () => {
   renderNotifications();
   if (navigator.onLine) {
     queueDisplayPreferencesSync(0);
-    synchronizeProvider();
+    synchronizeProvider().then(() => { if (bookingCreationReady) flushOfflineBookings(); });
   }
 });
-window.addEventListener('offline', () => { connectionWasOffline = true; clearTimeout(synchronizationRetryTimer); synchronizationRetryTimer = null; setBookingCreationReady(false); setWritesAllowed(false); setSyncState('offline', allBookings.length ? 'Офлайн · показана сохранённая копия · только чтение' : 'Нет интернета и сохранённой копии · только чтение'); });
+window.addEventListener('offline', () => {
+  connectionWasOffline = true;
+  clearTimeout(synchronizationRetryTimer);
+  synchronizationRetryTimer = null;
+  setBookingCreationReady(false);
+  setWritesAllowed(false);
+  setSyncState('offline', canQueueOfflineBooking() ? 'Офлайн · новую запись можно отложить до подключения' : 'Нет интернета и полной сохранённой копии · только чтение');
+  renderOfflineBookingQueue();
+  updateNewBookingConnectivity();
+  if ($('#newBookingForm')) loadNewBookingSlots();
+});
 window.addEventListener('online', async () => {
   queueDisplayPreferencesSync(0);
+  renderOfflineBookingQueue();
+  updateNewBookingConnectivity();
   const complete = await synchronizeProvider();
+  if (bookingCreationReady) await flushOfflineBookings();
   if ($('#newBookingForm')) await loadNewBookingSlots();
   if (connectionWasOffline) notify(complete ? 'Интернет восстановлен · данные обновлены' : 'Интернет восстановлен · продолжаем синхронизацию');
   connectionWasOffline = false;
+});
+$('#retryOfflineBookings')?.addEventListener('click', async () => {
+  await synchronizeProvider();
+  if (bookingCreationReady) await flushOfflineBookings({ retryConflicts:true });
+});
+$('#offlineBookingQueueList')?.addEventListener('click', async event => {
+  const button = event.target.closest('[data-remove-offline-booking]');
+  if (!button) return;
+  const item = offlineBookingQueue.find(entry => entry.id === button.dataset.removeOfflineBooking);
+  if (item?.status === 'syncing' || item?.status === 'server_check_pending') { notify('Запись уже проверяется на сервере · дождитесь результата'); return; }
+  if (!item || !confirm(`Удалить отложенную запись ${item.clientName} на ${item.date} в ${item.time}?`)) return;
+  const previousQueue = offlineBookingQueue;
+  offlineBookingQueue = offlineBookingQueue.filter(entry => entry.id !== item.id);
+  const saved = await saveOfflineBookingQueue(currentUser?.id, { verify:true });
+  if (!saved) {
+    offlineBookingQueue = previousQueue;
+    renderOfflineBookingQueue();
+    notify('Не удалось надёжно удалить запись с устройства · попробуйте ещё раз');
+    return;
+  }
+  renderOfflineBookingQueue();
+  notify('Отложенная запись удалена с устройства');
 });
 new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
@@ -5802,6 +6218,10 @@ db.auth.onAuthStateChange((event, session) => {
     setTimeout(showRecoveryReset, 0);
     return;
   }
+  if (session?.user?.id && session.user.id === currentUser?.id) {
+    currentUser = session.user;
+    return;
+  }
   setTimeout(() => handleSession(session), 0);
 });
 window.addEventListener('beforeinstallprompt', event => {
@@ -5842,4 +6262,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=195'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=196'));

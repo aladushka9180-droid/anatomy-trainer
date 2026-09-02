@@ -4154,6 +4154,36 @@ html.requires-top-level.top-level body { visibility:visible; }
   .booking-query-reset { min-height:44px; }
 }
 
+/* Очередь ручных записей, созданных без интернета. */
+.offline-booking-queue { margin:0 0 16px; padding:15px; border:1px solid #dfc77d; border-radius:17px; background:#fff9e7; color:#55431e; }
+.offline-booking-queue[hidden] { display:none; }
+.offline-booking-queue-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.offline-booking-queue-head>div { display:grid; gap:3px; }
+.offline-booking-queue-head strong { font-size:14px; }
+.offline-booking-queue-head span { color:#6c5728; font-size:12px; font-weight:750; }
+.offline-booking-queue-head>button { width:auto; margin:0; }
+.offline-booking-queue-list { display:grid; gap:7px; margin-top:11px; }
+.offline-booking-item { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 11px; border:1px solid #ead9a4; border-radius:12px; background:#fff; }
+.offline-booking-item>div { display:grid; min-width:0; gap:2px; }
+.offline-booking-item strong,.offline-booking-item span,.offline-booking-item small { overflow-wrap:anywhere; }
+.offline-booking-item strong { font-size:13px; }
+.offline-booking-item span { color:#536344; font-size:12px; font-weight:750; }
+.offline-booking-item small { color:#715b27; font-size:12px; }
+.offline-booking-item.is-conflict { border-color:#e3b8ad; background:#fff7f4; }
+.offline-booking-item .offline-booking-conflict { color:#9a473a; font-weight:850; }
+.offline-booking-item>button { flex:none; min-height:44px; padding:0 12px; border:1px solid #dfc9bf; border-radius:9px; background:#fff; color:#8c463b; cursor:pointer; font:800 12px/1 inherit; }
+.offline-booking-item>button:disabled { cursor:wait; opacity:.55; }
+.offline-booking-privacy { display:block; margin-top:10px; color:#715b27; font-size:11px; line-height:1.5; }
+.provider-body[data-provider-theme="luxury"] .offline-booking-queue { border-color:#715b2d; background:#241f14; color:#f2d993; }
+.provider-body[data-provider-theme="luxury"] .offline-booking-item { border-color:#554724; background:#0b0c0d; }
+.provider-body[data-provider-theme="luxury"] .offline-booking-queue-head span,.provider-body[data-provider-theme="luxury"] .offline-booking-item span,.provider-body[data-provider-theme="luxury"] .offline-booking-item small,.provider-body[data-provider-theme="luxury"] .offline-booking-privacy { color:#e5cf9d; }
+.provider-body .new-booking-recurrence.is-offline-disabled { opacity:.58; }
+
+@media (max-width:600px) {
+  .offline-booking-queue-head,.offline-booking-item { align-items:stretch; flex-direction:column; }
+  .offline-booking-queue-head>button,.offline-booking-item>button { width:100%; }
+}
+
 /* Голосовой помощник: заметная точка входа, безопасный предпросмотр и удобный сенсорный ввод. */
 .voice-assistant-open {
   display:inline-flex;

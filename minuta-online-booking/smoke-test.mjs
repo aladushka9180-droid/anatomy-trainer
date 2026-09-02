@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '195';
+const version = '196';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -95,7 +95,7 @@ assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Го
 assert.match(provider, /offlineDraftAllowed[\s\S]*if \(!synchronized && !offlineDraftAllowed\) return \{ ok:false, reason:'not_synchronized' \}/, 'Черновик голосового помощника не отделяет синхронизированный и безопасный офлайн-режимы');
 assert.match(provider, /offlineReadable:Boolean\(offline && snapshotCurrent\)/, 'Голосовой помощник не проверяет срок локальной копии');
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');
-assert.match(provider, /if \(!navigator\.onLine\)[\s\S]*Офлайн-черновик сохранит время/, 'Офлайн-черновик не объясняет повторную проверку времени');
+assert.match(provider, /function loadNewBookingSlots\(\)[\s\S]*if \(!navigator\.onLine\)[\s\S]*offlineCandidateSlots[\s\S]*renderNewBookingTimePicker\(\{ offline:true \}\)[\s\S]*После подключения система обязательно проверит/, 'Офлайн-режим не показывает предварительные окна или не объясняет серверную проверку');
 assert.doesNotMatch(voiceAssistant, /\bdb\.from\(|\.rpc\(|\bfetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
 assert.doesNotMatch(voiceAssistant, /localStorage|sessionStorage|indexedDB/, 'Голосовая команда сохраняется в браузере');
 assert.match(voiceAssistant, /bridge\.prepareBookingDraft/, 'Голосовой помощник не использует ограниченный интерфейс черновика');
@@ -504,6 +504,21 @@ assert.match(provider, /function openQuickRepeatForClient[\s\S]*serviceId:previo
 assert.match(provider, /<details class="new-booking-advanced"[^>]*>[\s\S]*Заметка о клиенте[\s\S]*bookingColorPicker\('newBookingColor'[\s\S]*newBookingRecurrence/, 'Необязательные поля новой записи не собраны в компактный раскрывающийся блок');
 assert.doesNotMatch(provider, /<details class="new-booking-advanced"[^>]*\sopen(?:\s|>)/, 'Необязательные поля новой записи раскрыты по умолчанию');
 assert.match(provider, /function focusCreatedBooking[\s\S]*scrollIntoView[\s\S]*booking-created-highlight/, 'После создания запись не выделяется и не показывается в журнале');
+assert.match(providerHtml, /id="offlineBookingQueuePanel"[\s\S]*id="retryOfflineBookings"[\s\S]*id="offlineBookingQueueList"/, 'В кабинете нет очереди отложенных офлайн-записей');
+assert.match(provider, /offline-bookings-v1/, 'Офлайн-записи не изолированы в отдельной версионированной очереди');
+assert.match(provider, /const OFFLINE_BOOKING_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Отложенные записи хранятся на устройстве без ограничения срока');
+assert.match(provider, /function canQueueOfflineBooking\(\)[\s\S]*offlineBookingInputsReady[\s\S]*offlineBookingSnapshotFresh\(\)[\s\S]*ownServices\.some\(item => item\.active\)/, 'Офлайн-запись разрешена без полного свежего кэша и доступной услуги');
+assert.match(provider, /async function saveOfflineBookingQueue[\s\S]*!reliability\?\.put[\s\S]*sessionIsCurrent\(userId, generation\)[\s\S]*reliability\.get\(key\)/, 'Очередь может сообщить о сохранении без IndexedDB, read-back или защиты сессии');
+assert.match(provider, /async function loadOfflineBookingQueue[\s\S]*const nextQueue =[\s\S]*if \(!sessionIsCurrent\(userId, generation\)\) return \[\];[\s\S]*offlineBookingQueue = nextQueue/, 'Устаревшее чтение IndexedDB может показать очередь другого аккаунта');
+assert.match(provider, /async function hydrateOfflineBookingInputs[\s\S]*readProviderCache\('services'[\s\S]*readProviderCache\('schedule'[\s\S]*readProviderCache\('days-off'[\s\S]*offlineBookingInputsReady = true/, 'После холодного офлайн-запуска не восстанавливаются услуги, график и исключения');
+assert.match(provider, /async function flushOfflineBookings[\s\S]*item\.status = 'syncing'[\s\S]*db\.rpc\('book_appointment', \{ p_request_id:item\.id[\s\S]*slot_unavailable[\s\S]*item\.status = 'conflict'/, 'Отложенная запись не имеет атомарной проверки, идемпотентности или явного конфликта');
+assert.match(provider, /const existing = queuedBookingMatch\(item\);[\s\S]*item\.status = 'syncing'[\s\S]*finalizeQueuedBooking\(item, existing/, 'Найденную на сервере запись можно удалить локально во время финализации');
+assert.match(provider, /item\.status = 'server_check_pending'[\s\S]*item\?\.status === 'server_check_pending'/, 'Неоднозначный результат сервера можно ошибочно удалить как несозданную запись');
+assert.match(provider, /function queuedBookingMatch[\s\S]*booking\.request_id[\s\S]*=== item\.id/, 'Потерянный ответ сервера может привести к дублю записи');
+assert.match(provider, /finalizeQueuedBooking[\s\S]*deliverTelegramClientNotification[\s\S]*notification\.retryable[\s\S]*item\.status = 'notification_pending'[\s\S]*offlineBookingQueue = offlineBookingQueue\.filter/, 'Временная ошибка уведомления клиента не оставляется для повтора');
+assert.match(provider, /window\.addEventListener\('online',[\s\S]*synchronizeProvider\(\)[\s\S]*flushOfflineBookings\(\)/, 'Офлайн-очередь не отправляется после восстановления связи');
+assert.match(provider, /clearProviderDeviceData[\s\S]*removePrefix\(`provider:\$\{userId\}:`\)[\s\S]*remove\?\.\(offlineBookingQueueKey\(userId\)\)/, 'Локальные записи клиентов не очищаются при явном выходе');
+assert.match(provider, /onAuthStateChange[\s\S]*session\.user\.id === currentUser\?\.id[\s\S]*currentUser = session\.user;[\s\S]*return;/, 'Обновление auth-токена перезапускает очередь и создаёт гонку сохранения');
 assert.match(styles, /\.provider-mobile-create \{ position:fixed;[\s\S]*bottom:calc\(82px \+ env\(safe-area-inset-bottom\)\)/, 'Мобильная кнопка создания записи не закреплена над нижней навигацией');
 assert.match(styles, /\.booking-created-highlight \{ animation:booking-created-highlight/, 'Созданная запись не получает краткую визуальную подсветку');
 assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
