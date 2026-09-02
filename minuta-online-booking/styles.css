@@ -2801,6 +2801,7 @@ html.requires-top-level.top-level body { visibility:visible; }
     display:grid!important;
     grid-template-columns:62px minmax(0,1fr)!important;
     place-items:center stretch;
+    min-height:36px!important;
     padding:0 8px!important;
   }
   .provider-body[data-provider-theme] .timeline-booking.minute-only .timeline-booking-time {

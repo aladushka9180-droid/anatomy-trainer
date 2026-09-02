@@ -1282,7 +1282,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=218#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=219#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2734,6 +2734,15 @@ function seriesRpcErrorMessage(error, action) {
     : 'Не удалось перенести выбранные записи. Серия осталась без изменений.';
 }
 
+function stackMinuteTimelineItems(timelineItems, gap = 6) {
+  const minuteItems = timelineItems.filter(entry => entry.minuteOnly).sort((a, b) => a.top - b.top || a.index - b.index);
+  let previousMinuteBottom = -Infinity;
+  minuteItems.forEach(entry => {
+    entry.visualTop = Math.max(entry.top, previousMinuteBottom + gap);
+    previousMinuteBottom = entry.visualTop + entry.height;
+  });
+}
+
 function renderTimeline(items) {
   const holder = $('#providerBookings');
   const { start, end } = timelineBounds(items);
@@ -2746,15 +2755,10 @@ function renderTimeline(items) {
     const top = ((itemStart - start) / 60) * hourHeight;
     const naturalHeight = (duration / 60) * hourHeight;
     const minuteOnly = duration <= 1;
-    const height = minuteOnly ? 24 : mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
+    const height = minuteOnly ? 36 : mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
     return { item, index, duration, top, visualTop:top, height, minuteOnly };
   });
-  const minuteItems = timelineItems.filter(entry => entry.minuteOnly).sort((a, b) => a.top - b.top || a.index - b.index);
-  let previousMinuteBottom = -Infinity;
-  minuteItems.forEach(entry => {
-    entry.visualTop = Math.max(entry.top, previousMinuteBottom + 4);
-    previousMinuteBottom = entry.visualTop + entry.height;
-  });
+  stackMinuteTimelineItems(timelineItems);
   const totalHeight = Math.max(naturalTimelineHeight, ...timelineItems.map(entry => entry.visualTop + entry.height + 4));
   const labels = [];
   const lines = [];
@@ -6459,4 +6463,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=218'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=219'));
