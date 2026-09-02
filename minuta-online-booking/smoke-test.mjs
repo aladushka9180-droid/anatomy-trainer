@@ -242,6 +242,12 @@ assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?notification-card-ac
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.service-more>summary[\s\S]*?border:1px solid #6f5428/, 'Кнопка меню услуги в теме Luxury остаётся белой');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.day-toggle input:checked\+span[\s\S]*?background:linear-gradient/, 'Переключатели рабочего расписания не продолжают золотую тему Luxury');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.break-toggle input,\.all-day-control input[\s\S]*?accent-color:#d6a64d/, 'Чекбоксы расписания не используют золотой акцент Luxury');
+assert.match(styles, /data-provider-theme="luxury"\] \.provider-brand \.brand-mark \{[^}]*background:linear-gradient\(145deg,#bc8736,#e4b861/, 'Логотип Luxury не использует золотую заливку');
+assert.match(styles, /data-provider-theme="luxury"\] \.provider-nav b \{[^}]*background:linear-gradient\(145deg,#bc8736,#e4b861/, 'Счётчики меню Luxury не используют золотую заливку');
+assert.match(styles, /data-provider-theme="luxury"\] \.sidebar-bottom>a \{[^}]*color:#e5b75d/, 'Ссылка на страницу клиента не использует золотой цвет Luxury');
+assert.match(styles, /data-provider-theme="luxury"\] \.schedule-list \.provider-booking-open \{ padding-inline:18px; \}/, 'Время записи Luxury прижато к краю карточки');
+assert.match(styles, /data-provider-theme="luxury"\] \.status-visited \.booking-status,[\s\S]*?\.booking-outcome-summary \{[^}]*background:linear-gradient/, 'Статус и оплата завершённой записи не используют золотой акцент Luxury');
+assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.badge-vip \{[^}]*background:linear-gradient/, 'VIP-корона в записи Luxury остаётся светлой вместо золотой');
 assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
 const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],

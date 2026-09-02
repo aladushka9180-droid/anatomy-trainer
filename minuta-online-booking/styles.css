@@ -2164,6 +2164,13 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="luxury"] .view-title>div:first-child>span:not(.panel-count) { color:#d6a64d; letter-spacing:.17em; }
 .provider-body[data-provider-theme="luxury"] .dashboard-summary { border:1px solid rgba(214,166,77,.28); background:rgba(5,6,7,.72); color:#e7b75c; }
 .provider-body[data-provider-theme="luxury"] :is(.panel-count,.notification-total) { border:1px solid #f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608; box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 6px 16px rgba(214,166,77,.17); }
+.provider-body[data-provider-theme="luxury"] .schedule-list .provider-booking-open { padding-inline:18px; }
+.provider-body[data-provider-theme="luxury"] .schedule-list .booking-time-column { border-color:#d6a64d; color:#fff8eb; }
+.provider-body[data-provider-theme="luxury"] .schedule-list .booking-time-column strong { text-align:left; }
+.provider-body[data-provider-theme="luxury"] .status-visited .booking-status,
+.provider-body[data-provider-theme="luxury"] .booking-outcome-summary { border:1px solid #f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608; box-shadow:inset 0 1px 0 rgba(255,255,255,.38),0 5px 14px rgba(214,166,77,.14); }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking,.provider-booking) .client-badges:not(.with-labels) .badge-vip { border-color:#f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608; box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 16px rgba(214,166,77,.16); }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking,.provider-booking) .client-badges:not(.with-labels) .badge-vip .ui-icon { fill:none; stroke:#211608; filter:none; }
 .provider-body[data-provider-theme="luxury"] :is(.panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,.report-summary article,.portfolio-card,.provider-review-card) { background-image:linear-gradient(rgba(0,0,0,.72),rgba(0,0,0,.8)),url("provider-luxury-marble-v4.webp"); background-position:center; background-size:1100px auto; box-shadow:inset 0 0 0 1px rgba(214,166,77,.055),0 16px 38px rgba(0,0,0,.36); }
 .provider-body[data-provider-theme="luxury"] .schedule-card { border-color:#7c5d2a; background-color:rgba(5,6,7,.82); }
 .provider-body[data-provider-theme="luxury"] :is(.date-navigation,.date-strip,.schedule-toolbar,.timeline-view) { border-color:#5d4623; background-color:rgba(5,6,7,.62); }
