@@ -257,7 +257,9 @@
       const groups = new Map();
       const visibleMembers = performerId
         ? members.filter(item => item.user_id === performerId)
-        : members;
+        : (locationId || resourceId)
+          ? members.filter(item => visible.some(booking => booking.performer_id === item.user_id))
+          : members;
       visibleMembers.forEach(item => groups.set(item.user_id, { name:item.display_name || 'Специалист', items:[] }));
       visible.forEach(item => {
         const key = item.performer_id;
