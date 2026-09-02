@@ -10,7 +10,7 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
-const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
+const JOURNAL_MODE_KEY = 'massage-journal-mode-v5';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
@@ -35,7 +35,8 @@ let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
 let deferredInstallPrompt = null;
-let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
+let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'split';
+let splitBookingId = '';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
@@ -802,7 +803,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=148#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=149#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1155,6 +1156,81 @@ function notify(message) {
   clearTimeout(notify.timer);
   notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
 }
+function visitorVisitTimeLabel(value) {
+  const createdAt = new Date(value);
+  const seconds = Math.max(0, Math.round((Date.now() - createdAt.getTime()) / 1000));
+  if (seconds < 60) return 'Только что';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} мин назад`;
+  if (minutes < 1440) return createdAt.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  return createdAt.toLocaleDateString('ru-RU', { day:'numeric', month:'short' });
+}
+function renderVisitorVisits() {
+  const panel = $('#visitorNotificationPanel');
+  const holder = $('#visitorNotificationList');
+  if (!panel || !holder) return;
+  panel.hidden = !visitorVisitsRemoteAvailable || !bookingPolicy.visitor_notifications_enabled;
+  if (panel.hidden) return;
+  $('#visitorNotificationCount').textContent = visitorVisits.length ? `${visitorVisits.length} за 24 часа` : 'Пока никого';
+  if (!visitorVisits.length) {
+    holder.innerHTML = `<div class="provider-empty notification-empty"><span class="provider-empty-icon">${uiIcon('users')}</span><strong>Посетителей пока нет</strong><small>Здесь появится уведомление, когда кто-то откроет страницу онлайн-записи.</small></div>`;
+    return;
+  }
+  holder.innerHTML = visitorVisits.map(visit => `<article class="notification-card visitor-notification-card"><span class="notification-card-icon">${uiIcon('users')}</span><div class="notification-card-main"><div class="notification-card-head"><span>Страница онлайн-записи</span><b>${escapeHtml(visitorVisitTimeLabel(visit.created_at))}</b></div><h3>Новый посетитель</h3><p>Смотрит услуги и свободное время · без имени и телефона</p></div></article>`).join('');
+}
+function renderVisitorNotificationForm() {
+  const card = $('#visitorAlertSettingsCard');
+  const checkbox = $('#visitorNotificationsEnabled');
+  const status = $('#visitorNotificationPermission');
+  if (card) card.hidden = !visitorVisitsRemoteAvailable;
+  if (!checkbox || !status) return;
+  checkbox.checked = Boolean(bookingPolicy.visitor_notifications_enabled);
+  if (!('Notification' in window)) status.textContent = 'В кабинете будут работать встроенные уведомления.';
+  else if (Notification.permission === 'granted') status.textContent = 'Системные уведомления разрешены на этом устройстве.';
+  else if (Notification.permission === 'denied') status.textContent = 'Системные уведомления заблокированы браузером; уведомления внутри кабинета продолжат работать.';
+  else status.textContent = 'После включения браузер может предложить разрешить системные уведомления.';
+}
+async function saveVisitorNotificationSettings(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const enabled = $('#visitorNotificationsEnabled').checked;
+  const permissionRequest = enabled && 'Notification' in window && Notification.permission === 'default' ? Promise.resolve(Notification.requestPermission()).catch(() => 'default') : Promise.resolve('unchanged');
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('booking_policies').update({ visitor_notifications_enabled:enabled }).eq('performer_id', currentUser.id);
+  await permissionRequest;
+  button.disabled = false;
+  button.textContent = 'Сохранить уведомления';
+  if (error) {
+    showFormError('#visitorNotificationError', 'Не удалось сохранить настройку посетителей.');
+    renderVisitorNotificationForm();
+    return;
+  }
+  clearFormError('#visitorNotificationError');
+  bookingPolicy.visitor_notifications_enabled = enabled;
+  renderVisitorNotificationForm();
+  renderVisitorVisits();
+  notify(enabled ? 'Уведомления о посетителях включены' : 'Уведомления о посетителях выключены');
+}
+async function showVisitorSystemNotification(visit) {
+  const options = { body:'Кто-то сейчас смотрит услуги и свободное время.', icon:'provider-icon-192.png', badge:'provider-icon-192.png', tag:`minuta-visitor-${visit.id}`, data:{ url:'provider.html?view=notifications' } };
+  if ('serviceWorker' in navigator) {
+    try { const registration = await navigator.serviceWorker.ready; await registration.showNotification('Минута · новый посетитель', options); return; } catch {}
+  }
+  try { const message = new Notification('Минута · новый посетитель', options); message.onclick = () => { window.focus(); setProviderView('notifications'); message.close(); }; } catch {}
+}
+function handleVisitorVisit(payload) {
+  const visit = payload?.new;
+  if (!visit || visit.performer_id !== currentUser?.id || !bookingPolicy.visitor_notifications_enabled) return;
+  if (!visitorVisits.some(item => String(item.id) === String(visit.id))) visitorVisits.unshift(visit);
+  visitorVisits = visitorVisits.slice(0, 20);
+  visitorVisitsRemoteAvailable = true;
+  renderVisitorVisits();
+  if (!document.hidden) notify('Новый посетитель смотрит страницу онлайн-записи');
+  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') void showVisitorSystemNotification(visit);
+}
+
 let activeIosTransition = null;
 let activeIosTransitionCleanup = null;
 const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'];
@@ -1324,8 +1400,8 @@ function setFilter(filter) {
 }
 
 function setJournalMode(mode) {
-  journalMode = mode === 'list' ? 'list' : 'timeline';
-  if (journalMode === 'timeline') currentFilter = 'day';
+  journalMode = ['split', 'timeline', 'list'].includes(mode) ? mode : 'split';
+  if (journalMode === 'split' || journalMode === 'timeline') currentFilter = 'day';
   localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
   try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
   $$('[data-filter]').forEach(button => {
@@ -1690,7 +1766,7 @@ function finishScheduleDaySwipe(state, event) {
 }
 
 function beginScheduleDaySwipe(event, surface) {
-  if (event.button !== 0 || currentFilter !== 'day' || timelineBookingDrag || timelineMovePending) return;
+  if ((event.pointerType !== 'touch' && event.pointerType !== 'pen') || event.button !== 0 || currentFilter !== 'day' || timelineBookingDrag || timelineMovePending) return;
   if (event.target.closest('.timeline-booking,.provider-booking,input,select,textarea,a,[contenteditable="true"]')) return;
   scheduleDaySwipe = {
     pointerId:event.pointerId,
@@ -1699,7 +1775,6 @@ function beginScheduleDaySwipe(event, surface) {
     startY:event.clientY,
     active:false
   };
-  surface.setPointerCapture?.(event.pointerId);
 }
 
 function openTimelineBooking(stage, event) {
@@ -1818,6 +1893,44 @@ function renderBookingList(items) {
       </button>
     </article>`;
   }).join('');
+}
+
+function splitBookingDetailMarkup(item) {
+  const itemDate = new Date(`${item.booking_date}T12:00:00`);
+  const dateText = itemDate.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' });
+  const time = String(item.booking_time).slice(0, 5);
+  const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+  const endTime = timeFromMinutes(minutesFromTime(time) + duration);
+  const statusText = bookingStatus(item, true);
+  const statusClass = bookingStatusClass(item);
+  const note = bookingDisplayNote(item);
+  if (isScheduleBlock(item)) {
+    return `<div class="split-booking-detail-content"><div class="split-booking-detail-head"><div><small>Занятое время</small><h3>${escapeHtml(item.client_name || 'Перерыв')}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div><div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div><dl class="split-booking-fields"><div><dt>Тип</dt><dd>Блокировка расписания</dd></div><div><dt>Доступность</dt><dd>Интервал закрыт для клиентов</dd></div></dl><div class="split-booking-note"><small>Заметка</small><p>${escapeHtml(note || 'Заметка к перерыву не добавлена.')}</p></div><div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Изменить</button>` : ''}</div></div>`;
+  }
+  const phone = String(item.client_phone || '');
+  const phoneHref = phone.replace(/[^+\d]/g, '');
+  const visitText = bookingVisitSummaryText(item);
+  const whatsapp = whatsappLink(item);
+  const service = serviceName(item.services?.name || 'Услуга');
+  const price = isPerMinuteBooking(item) ? `${money(bookingMinuteRate(item))}/мин` : money(bookingSessionTotal(item));
+  const canConfirm = item.status !== 'confirmed' && item.status !== 'cancelled' && !bookingIsCompleted(item);
+  return `<div class="split-booking-detail-content"><div class="split-booking-detail-head"><div><small>Выбранная запись</small><h3>${escapeHtml(service)}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div><div class="split-booking-client"><span class="split-booking-avatar">${clientAvatarContent(item.client_phone, item.client_name)}</span><div><strong>${escapeHtml(item.client_name)}</strong>${visitText ? `<small>${escapeHtml(visitText)}</small>` : ''}<a href="tel:${escapeHtml(phoneHref)}">${escapeHtml(phone)}</a></div></div><div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div><dl class="split-booking-fields"><div><dt>Услуга</dt><dd>${escapeHtml(service)}</dd></div><div><dt>Стоимость</dt><dd>${escapeHtml(price)}</dd></div>${Number(item.deposit_amount_rub || 0) > 0 ? `<div><dt>Предоплата</dt><dd>${escapeHtml(money(item.deposit_amount_rub))} · ${item.payment_status === 'paid' ? 'оплачена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</dd></div>` : ''}</dl><div class="split-booking-note"><small>Заметка о клиенте</small><p>${escapeHtml(note || 'Заметка о клиенте пока не добавлена.')}</p></div><div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${canConfirm ? `<button class="secondary-button" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>` : ''}${whatsapp ? `<a class="secondary-button" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div></div>`;
+}
+function renderSplitBookingView(items) {
+  const holder = $('#providerBookings');
+  if (!items.length) {
+    splitBookingId = '';
+    holder.className = 'provider-bookings split-booking-view';
+    holder.innerHTML = `<div class="provider-empty schedule-empty split-booking-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>На выбранный день всё свободно.</small></div>`;
+    return;
+  }
+  const selected = items.find(item => item.id === splitBookingId) || items.find(item => item.status !== 'cancelled') || items[0];
+  splitBookingId = selected.id;
+  renderBookingList(items);
+  const listMarkup = holder.innerHTML;
+  holder.className = 'provider-bookings split-booking-view';
+  holder.innerHTML = `<section class="split-booking-list schedule-list" aria-label="Записи на выбранный день">${listMarkup}</section><aside class="split-booking-detail" id="splitBookingDetail" aria-live="polite">${splitBookingDetailMarkup(selected)}</aside>`;
+  holder.querySelector(`[data-open-booking="${CSS.escape(String(selected.id))}"]`)?.closest('.provider-booking')?.classList.add('is-selected');
 }
 
 function openBookingSheet(id) {
@@ -2438,6 +2551,7 @@ function renderBookings() {
     ? (daySummary || 'Свободный день')
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
+  else if (currentFilter === 'day' && journalMode === 'split') renderSplitBookingView(items);
   else renderBookingList(items);
 }
 
@@ -2916,15 +3030,17 @@ async function loadBookingSettings() {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (!userId) return { ok: false, optional: true };
-  const [policyResult, templatesResult, marksResult, outboxResult] = await Promise.all([
+  const [policyResult, templatesResult, marksResult, outboxResult, visitorVisitsResult] = await Promise.all([
     (async () => {
-      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits').eq('performer_id', userId).maybeSingle();
+      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits,visitor_notifications_enabled').eq('performer_id', userId).maybeSingle();
+      if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits').eq('performer_id', userId).maybeSingle();
       if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template').eq('performer_id', userId).maybeSingle();
       return result;
     })(),
     db.from('notification_templates').select('confirmation,reminder,cancellation').eq('performer_id', userId).maybeSingle(),
     db.from('notification_marks').select('task_key,status').eq('performer_id', userId),
-    db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50)
+    db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50),
+    db.from('booking_page_visits').select('id,performer_id,created_at').eq('performer_id', userId).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending:false }).limit(20)
   ]);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   if (!policyResult.error && policyResult.data) bookingPolicy = { ...bookingPolicy, ...policyResult.data, auto_complete_visits:policyResult.data.auto_complete_visits ?? localStorage.getItem(autoCompleteStorageKey(userId)) === 'true' };
@@ -2932,8 +3048,12 @@ async function loadBookingSettings() {
   if (!marksResult.error) serverNotificationMarks = Object.fromEntries((marksResult.data || []).map(item => [item.task_key, item.status]));
   notificationOutboxRemoteAvailable = !outboxResult.error;
   notificationOutbox = outboxResult.error ? [] : (outboxResult.data || []);
+  visitorVisitsRemoteAvailable = !visitorVisitsResult.error;
+  visitorVisits = visitorVisitsResult.error ? [] : (visitorVisitsResult.data || []);
   notificationSettingsRemoteAvailable = !policyResult.error && !templatesResult.error && !marksResult.error;
   renderBookingPolicyForm();
+  renderVisitorNotificationForm();
+  renderVisitorVisits();
   renderNotificationTemplates();
   renderNotifications();
   return { ok: notificationSettingsRemoteAvailable, optional: true };
@@ -3108,7 +3228,7 @@ function scheduleBookingsReload() {
 function startLiveUpdates() {
   stopLiveUpdates();
   if (!currentUser) return;
-  const channel = db
+  let channel = db
     .channel(`provider-bookings-${currentUser.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'services', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
@@ -3121,8 +3241,9 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_session_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
-    .subscribe(status => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload);
+  if (visitorVisitsRemoteAvailable) channel = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit);
+  channel = channel.subscribe(status => {
       if (bookingsChannel !== channel) return;
       if (status === 'SUBSCRIBED') {
         setSyncState(writesAllowed ? 'online' : 'warning', writesAllowed ? 'Онлайн · данные обновляются' : 'Подключено · проверяем данные · только чтение');
@@ -3305,11 +3426,13 @@ async function handleSession(session) {
   renderDateStrip();
   renderNotificationTemplates();
   renderBookingPolicyForm();
+  renderVisitorNotificationForm();
   await providerCacheMaintenance;
   if (!sessionIsCurrent(userId, generation)) return;
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
   if (!bookingsChannel) startLiveUpdates();
+  if (new URLSearchParams(window.location.search).get('view') === 'notifications') setProviderView('notifications');
 }
 
 async function login(event) {
@@ -4123,6 +4246,7 @@ document.addEventListener('pointermove', event => {
       return;
     }
     state.active = true;
+    state.surface.setPointerCapture?.(event.pointerId);
     state.surface.classList.add('is-day-swiping');
   }
   if (!state.active) return;
@@ -4186,6 +4310,7 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const openBookingSheetButton = event.target.closest('[data-open-booking-sheet]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
@@ -4259,7 +4384,13 @@ document.addEventListener('click', async event => {
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
   if (dateToday) selectScheduleDate(businessTodayIso());
   if (date) selectScheduleDate(date.dataset.bookingDate);
-  if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (openBooking) {
+    if (journalMode === 'split' && currentFilter === 'day' && window.matchMedia('(min-width: 761px)').matches) {
+      splitBookingId = openBooking.dataset.openBooking;
+      renderBookings();
+    } else openBookingSheet(openBooking.dataset.openBooking);
+  }
+  if (openBookingSheetButton) openBookingSheet(openBookingSheetButton.dataset.openBookingSheet);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
@@ -4540,6 +4671,7 @@ $('#portfolioConsent').addEventListener('change', updatePortfolioPublishControl)
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
+$('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('#installAppButton').addEventListener('click', installProviderApp);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
@@ -4653,6 +4785,9 @@ window.addEventListener('appinstalled', () => {
   notify('Приложение установлено');
 });
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
+  if (event.data?.type === 'open-provider-view' && event.data.view === 'notifications' && currentUser) setProviderView('notifications');
+});
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=148'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=149'));

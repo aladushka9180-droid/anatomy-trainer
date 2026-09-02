@@ -19,6 +19,7 @@ const requestedOrganizationSlug = /^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationS
   : (/^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromConfig) ? organizationSlugFromConfig : '');
 const isRepeatBooking = bookingQuery.get('repeat') === '1' && Boolean(requestedServiceId);
 let bookingAttempt = loadBookingAttempt();
+let visitorRegistrationPromise = null;
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -29,6 +30,20 @@ function createRequestId() {
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function registerBookingPageVisit() {
+  if (!requestedOrganizationSlug || visitorRegistrationPromise) return visitorRegistrationPromise;
+  visitorRegistrationPromise = db.rpc('register_public_booking_visit', { p_slug: requestedOrganizationSlug })
+    .then(result => {
+      if (result.error) visitorRegistrationPromise = null;
+      return !result.error && result.data === true;
+    })
+    .catch(() => {
+      visitorRegistrationPromise = null;
+      return false;
+    });
+  return visitorRegistrationPromise;
 }
 
 function loadBookingAttempt() {
@@ -329,6 +344,7 @@ async function loadServices() {
   setBookingStatus(locationServices.length ? 'open' : 'closed', locationServices.length ? 'Запись открыта' : 'В этом филиале пока нет доступных услуг');
   renderSpecialists();
   renderServices();
+  if (state.organization) void registerBookingPageVisit();
   if (state.teamMode && !state.locations.length) {
     setBookingStatus('error', 'Запись команды пока не активирована');
     $('#toDate').disabled = true;
@@ -1006,4 +1022,4 @@ renderTimes();
 loadServices();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=148'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=149'));

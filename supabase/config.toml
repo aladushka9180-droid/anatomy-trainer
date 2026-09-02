@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.process-notifications]
 verify_jwt = false
+
+[functions.telegram-booking-notify]
+verify_jwt = false
