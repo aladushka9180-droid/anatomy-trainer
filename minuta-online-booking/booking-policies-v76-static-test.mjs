@@ -13,7 +13,7 @@ const booking=await readFile(join(root,'booking.js'),'utf8');
 const clientBookings=await readFile(join(root,'my-bookings.js'),'utf8');
 const styles=await readFile(join(root,'styles.css'),'utf8');
 assert.match(colorMigration,/add column if not exists color_key text[\s\S]*alter column color_key set not null[\s\S]*set_booking_color/i);
-assert.match(migration,/to_regclass\('public\.booking_page_visits'\)[\s\S]*to_regprocedure\('public\.register_public_booking_visit\(text\)'\)[\s\S]*write_minuta_benefit_audit[\s\S]*organization_id[\s\S]*v76_requires_v74_and_v73/i);
+assert.match(migration,/to_regclass\('public\.booking_page_visits'\)[\s\S]*to_regprocedure\('public\.register_public_booking_visit\(text\)'\)[\s\S]*write_minuta_benefit_audit[\s\S]*bookings\.organization_id[\s\S]*v76_missing_prerequisites/i);
 for(const table of ['organization_booking_policy_settings','organization_booking_policy_rules','organization_booking_policy_audit_log']){
   assert.match(migration,new RegExp(`create table if not exists public\\.${table}`,'i'));
   assert.match(migration,new RegExp(`alter table public\\.${table} enable row level security`,'i'));

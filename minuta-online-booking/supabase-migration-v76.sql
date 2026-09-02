@@ -2,19 +2,23 @@ begin;
 
 set local search_path = public, extensions, pg_catalog;
 
-do $$ begin
-  if to_regclass('public.organizations') is null
-     or to_regclass('public.locations') is null
-     or to_regclass('public.organization_benefit_settings') is null
-     or to_regclass('public.benefit_redemptions') is null
-     or to_regclass('public.client_benefit_instruments') is null
-     or to_regclass('public.benefit_ledger') is null
-     or to_regclass('public.payments') is null
-     or to_regclass('public.booking_page_visits') is null
-     or to_regprocedure('public.register_public_booking_visit(text)') is null
-     or to_regprocedure('public.write_minuta_benefit_audit(uuid,text,uuid,jsonb)') is null
-     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='organization_id') then
-    raise exception using errcode='P0001',message='v76_requires_v74_and_v73';
+do $$
+declare
+  v_missing text[] := array[]::text[];
+begin
+  if to_regclass('public.organizations') is null then v_missing := array_append(v_missing,'organizations'); end if;
+  if to_regclass('public.locations') is null then v_missing := array_append(v_missing,'locations'); end if;
+  if to_regclass('public.organization_benefit_settings') is null then v_missing := array_append(v_missing,'organization_benefit_settings'); end if;
+  if to_regclass('public.benefit_redemptions') is null then v_missing := array_append(v_missing,'benefit_redemptions'); end if;
+  if to_regclass('public.client_benefit_instruments') is null then v_missing := array_append(v_missing,'client_benefit_instruments'); end if;
+  if to_regclass('public.benefit_ledger') is null then v_missing := array_append(v_missing,'benefit_ledger'); end if;
+  if to_regclass('public.payments') is null then v_missing := array_append(v_missing,'payments'); end if;
+  if to_regclass('public.booking_page_visits') is null then v_missing := array_append(v_missing,'booking_page_visits'); end if;
+  if to_regprocedure('public.register_public_booking_visit(text)') is null then v_missing := array_append(v_missing,'register_public_booking_visit'); end if;
+  if to_regprocedure('public.write_minuta_benefit_audit(uuid,text,uuid,jsonb)') is null then v_missing := array_append(v_missing,'write_minuta_benefit_audit'); end if;
+  if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='organization_id') then v_missing := array_append(v_missing,'bookings.organization_id'); end if;
+  if cardinality(v_missing)>0 then
+    raise exception using errcode='P0001',message='v76_missing_prerequisites:'||array_to_string(v_missing,',');
   end if;
 end $$;
 
