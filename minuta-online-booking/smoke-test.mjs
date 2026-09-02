@@ -106,6 +106,9 @@ assert.match(voiceAssistant, /applyOfflineContext[\s\S]*сохранённая �
 assert.match(voiceAssistant, /data-voice-speak/, 'Ответ голосового помощника нельзя озвучить');
 assert.match(voiceAssistant, /Остановить голос[\s\S]*speechSynthesis\?\.cancel/, 'Озвучивание ответа нельзя остановить');
 assert.match(voiceAssistant, /Array\.from\(event\.results \|\| \[\]\)/, 'Мобильный формат результата распознавания не поддерживается');
+assert.doesNotMatch(voiceAssistant, /recognitionRetryTimer|retryAttempt|Повторно включаю микрофон|Микрофон перезапускается/, 'Мобильный микрофон самовольно запускается повторно после ошибки');
+assert.match(voiceAssistant, /currentRecognition\.onstart[\s\S]*playMicrophoneCue\(true\)/, 'Сигнал звучит до фактической готовности микрофона');
+assert.doesNotMatch(voiceAssistant, /pointerup[\s\S]{0,300}finishRecognition/, 'Отпускание кнопки преждевременно останавливает мобильный микрофон');
 assert.match(voiceAssistant, /touchDevice[\s\S]*Открыть диктовку[\s\S]*значок микрофона на клавиатуре/, 'На мобильном устройстве нет безопасного fallback для диктовки');
 assert.match(providerHtml, /id="voiceAssistantInput"[^>]*inputmode="text"[^>]*enterkeyhint="done"/, 'Поле голосовой команды не подготовлено для мобильной диктовки');
 assert.match(voiceAssistant, /Object\.is\(currentSnapshot\?\.sessionGeneration, lastSessionGeneration\)/, 'Старый голосовой черновик можно открыть в новой сессии');
