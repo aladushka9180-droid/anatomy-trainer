@@ -1880,6 +1880,45 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .timeline-booking .client-badges { position:absolute; top:50%; right:0; flex-wrap:nowrap; transform:translateY(-50%); }
 .provider-body .timeline-booking.compact .timeline-booking-copy { padding-right:58px; }
 
+/* На большом экране все клиентские метки стоят в одной колонке относительно
+   карточки, а не относительно текста разной длины и высоты. */
+@media (min-width:761px) {
+  .provider-body .timeline-booking-copy { position:static; }
+  .provider-body .timeline-booking .client-badges:not(.with-labels) {
+    top:50%;
+    right:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0;
+    transform:translateY(-50%);
+  }
+  .provider-body .timeline-booking .client-badges:not(.with-labels) .client-badge {
+    display:grid;
+    place-items:center;
+    width:40px;
+    height:40px;
+    margin:0;
+    line-height:0;
+    border-radius:12px;
+  }
+  .provider-body .timeline-booking .client-badges:not(.with-labels) .client-badge .ui-icon {
+    display:block;
+    width:21px;
+    height:21px;
+    margin:auto;
+  }
+  .provider-body .timeline-booking.compact .client-badges:not(.with-labels) .client-badge {
+    width:30px;
+    height:30px;
+    border-radius:9px;
+  }
+  .provider-body .timeline-booking.compact .client-badges:not(.with-labels) .client-badge .ui-icon {
+    width:17px;
+    height:17px;
+  }
+}
+
 @media (max-width:760px) {
   .provider-body .timeline-booking-copy { padding-right:0; }
   .provider-body .timeline-booking .client-badges { right:8px; gap:4px; max-width:62px; }
