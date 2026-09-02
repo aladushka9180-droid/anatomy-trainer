@@ -11,7 +11,7 @@ const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
-const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
+const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'linear', 'soft', 'capsule', 'editorial', 'bento', 'luxury', 'loft', 'eco', 'hitech'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -282,7 +282,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
-  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
+  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', linear:'#f1f4f2', soft:'#eef4f0', capsule:'#edf3ef', editorial:'#ffffff', bento:'#e6eee8', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
 }
 function renderDisplayPreferencesForm() {
@@ -302,54 +302,99 @@ function providerAppIsInstalled() {
 function providerAppIsIos() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
+function providerAppIsAndroid() {
+  return /android/i.test(navigator.userAgent);
+}
+function providerAppIsInAppBrowser() {
+  return /; wv\)|\bwv\b|instagram|fban|fbav|telegram|line\/|micromessenger/i.test(navigator.userAgent);
+}
+function providerAppHasSecureOrigin() {
+  return window.isSecureContext || ['localhost', '127.0.0.1'].includes(location.hostname);
+}
+function hideProviderInstallGuides() {
+  ['androidInstallGuide', 'iosInstallGuide', 'browserInstallGuide'].forEach(id => {
+    const guide = $(`#${id}`);
+    if (guide) guide.hidden = true;
+  });
+  $('#installAppButton')?.setAttribute('aria-expanded', 'false');
+}
+function showProviderInstallGuide(id) {
+  hideProviderInstallGuides();
+  const guide = $(`#${id}`);
+  if (!guide) return;
+  guide.hidden = false;
+  $('#installAppButton')?.setAttribute('aria-expanded', 'true');
+  guide.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
 function refreshInstallAppCard() {
   const button = $('#installAppButton');
   const status = $('#installAppStatus');
-  const guide = $('#iosInstallGuide');
-  if (!button || !status || !guide) return;
+  if (!button || !status) return;
   button.disabled = false;
-  guide.hidden = true;
+  hideProviderInstallGuides();
   if (providerAppIsInstalled()) {
     button.disabled = true;
     button.querySelector('span').textContent = 'Приложение установлено';
     status.textContent = 'Кабинет уже открывается как отдельное приложение.';
     return;
   }
+  if (!providerAppHasSecureOrigin()) {
+    button.querySelector('span').textContent = 'Почему не устанавливается';
+    status.textContent = 'Для установки откройте опубликованную HTTPS-версию сайта.';
+    return;
+  }
   if (deferredInstallPrompt) {
-    button.querySelector('span').textContent = 'Установить приложение';
-    status.textContent = 'Установка займёт несколько секунд и не требует магазина приложений.';
+    button.querySelector('span').textContent = providerAppIsAndroid() ? 'Установить на Android' : 'Установить приложение';
+    status.textContent = 'Нажмите кнопку — откроется системное окно установки.';
     return;
   }
   if (providerAppIsIos()) {
-    button.querySelector('span').textContent = 'Установить на iPhone';
-    status.textContent = 'На iPhone установка выполняется через меню «Поделиться» в Safari.';
+    button.querySelector('span').textContent = 'Инструкция для iPhone';
+    status.textContent = 'На iPhone и iPad приложение добавляется через меню «Поделиться» в Safari.';
     return;
   }
-  button.querySelector('span').textContent = 'Установить приложение';
-  status.textContent = 'Если окно не появится, выберите «Установить приложение» в меню браузера.';
+  if (providerAppIsAndroid()) {
+    button.querySelector('span').textContent = 'Как установить на Android';
+    status.textContent = providerAppIsInAppBrowser()
+      ? 'Сначала откройте эту страницу в Chrome — встроенный браузер не показывает установку.'
+      : 'Если системное окно не появилось, установка доступна через меню Chrome.';
+    return;
+  }
+  button.querySelector('span').textContent = 'Как установить приложение';
+  status.textContent = 'Откройте меню браузера и выберите установку приложения.';
 }
 async function installProviderApp() {
-  const guide = $('#iosInstallGuide');
   if (providerAppIsInstalled()) {
     notify('Приложение уже установлено');
+    return;
+  }
+  if (!providerAppHasSecureOrigin()) {
+    showProviderInstallGuide('browserInstallGuide');
     return;
   }
   if (deferredInstallPrompt) {
     const prompt = deferredInstallPrompt;
     deferredInstallPrompt = null;
-    await prompt.prompt();
-    const choice = await prompt.userChoice;
-    refreshInstallAppCard();
-    notify(choice.outcome === 'accepted' ? 'Установка приложения началась' : 'Установка отменена');
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      refreshInstallAppCard();
+      notify(choice.outcome === 'accepted' ? 'Установка приложения началась' : 'Установка отменена');
+    } catch {
+      refreshInstallAppCard();
+      showProviderInstallGuide(providerAppIsAndroid() ? 'androidInstallGuide' : 'browserInstallGuide');
+    }
     return;
   }
   if (providerAppIsIos()) {
-    guide.hidden = false;
-    guide.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    showProviderInstallGuide('iosInstallGuide');
     return;
   }
-  $('#installAppStatus').textContent = 'Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран».';
-  notify('Откройте меню браузера и выберите установку приложения');
+  if (providerAppIsAndroid()) {
+    showProviderInstallGuide('androidInstallGuide');
+    return;
+  }
+  showProviderInstallGuide('browserInstallGuide');
 }
 function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
@@ -603,7 +648,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=120#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=121#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1281,7 +1326,7 @@ function renderTimeline(items) {
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${visibleNote ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}">
-      <span class="timeline-booking-time">${timeRange}</span>
+      <span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга')}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}
     </button>`;
@@ -3797,4 +3842,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=120'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=121'));

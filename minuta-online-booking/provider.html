@@ -15,12 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=120">
+  <link rel="manifest" href="provider.webmanifest?v=121" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
-  <link rel="stylesheet" href="styles.css?v=120">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="styles.css?v=121">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -127,7 +128,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=120#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=121#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -309,6 +310,11 @@
                     <label class="provider-theme-option theme-warm"><input type="radio" name="providerTheme" value="warm"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Warm Beige</strong><small>Тёплая бежевая</small></label>
                     <label class="provider-theme-option theme-graphite"><input type="radio" name="providerTheme" value="graphite"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Graphite Night</strong><small>Тёмная фиолетовая</small></label>
                     <label class="provider-theme-option theme-lavender"><input type="radio" name="providerTheme" value="lavender"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Soft Lavender</strong><small>Мягкая фиолетовая</small></label>
+                    <label class="provider-theme-option theme-linear"><input type="radio" name="providerTheme" value="linear"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Строгая геометрия</strong><small>Линии, сетка, прямые углы</small></label>
+                    <label class="provider-theme-option theme-soft"><input type="radio" name="providerTheme" value="soft"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Мягкий минимализм</strong><small>Воздух и спокойные формы</small></label>
+                    <label class="provider-theme-option theme-capsule"><input type="radio" name="providerTheme" value="capsule"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Капсульный Flow</strong><small>Плавные капсулы и ритм</small></label>
+                    <label class="provider-theme-option theme-editorial"><input type="radio" name="providerTheme" value="editorial"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Редакционный</strong><small>Журнальная типографика</small></label>
+                    <label class="provider-theme-option theme-bento"><input type="radio" name="providerTheme" value="bento"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Модульный Bento</strong><small>Отдельные функциональные блоки</small></label>
                     <label class="provider-theme-option theme-luxury"><input type="radio" name="providerTheme" value="luxury"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Люкс / Премиум</strong><small>Мрамор и золото</small></label>
                     <label class="provider-theme-option theme-loft"><input type="radio" name="providerTheme" value="loft"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Лофт / Индастриал</strong><small>Бетон, металл, дерево</small></label>
                     <label class="provider-theme-option theme-eco"><input type="radio" name="providerTheme" value="eco"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Эко / Натуральный</strong><small>Песок, травертин, шалфей</small></label>
@@ -333,11 +339,21 @@
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-download"></use></svg></div>
               <div class="settings-heading"><small>Быстрый доступ</small><h3>Установить приложение</h3><p>Кабинет появится на главном экране и будет открываться как отдельное приложение.</p></div>
               <div class="install-app-content">
-                <button class="primary install-app-button" id="installAppButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button>
-                <p class="install-app-status" id="installAppStatus" role="status" aria-live="polite">Проверяем возможность установки…</p>
-                <div class="ios-install-guide" id="iosInstallGuide" hidden>
+                <button class="primary install-app-button" id="installAppButton" type="button" aria-expanded="false" aria-controls="androidInstallGuide iosInstallGuide browserInstallGuide"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button>
+                <p class="install-app-status" id="installAppStatus" role="status" aria-live="polite">Определяем устройство и способ установки…</p>
+                <div class="install-guide android-install-guide" id="androidInstallGuide" hidden>
+                  <strong>Установка на Android</strong>
+                  <ol><li>Откройте страницу в Chrome.</li><li>Нажмите меню <b>⋮</b> в правом верхнем углу.</li><li>Выберите «Установить приложение» или «Добавить на главный экран».</li><li>Подтвердите установку.</li></ol>
+                  <p>Если ссылка открыта внутри Telegram, WhatsApp или другой программы, сначала выберите «Открыть в Chrome».</p>
+                </div>
+                <div class="install-guide ios-install-guide" id="iosInstallGuide" hidden>
                   <strong>Установка на iPhone или iPad</strong>
-                  <ol><li>Откройте сайт в Safari.</li><li>Нажмите кнопку «Поделиться».</li><li>Выберите «На экран Домой» и нажмите «Добавить».</li></ol>
+                  <ol><li>Откройте страницу в Safari.</li><li>Нажмите кнопку «Поделиться» <span aria-hidden="true">□↑</span>.</li><li>Прокрутите меню и выберите «На экран Домой».</li><li>Нажмите «Добавить».</li></ol>
+                  <p>На iOS системное окно установки нельзя запустить кнопкой на сайте — добавление выполняется через меню Safari.</p>
+                </div>
+                <div class="install-guide browser-install-guide" id="browserInstallGuide" hidden>
+                  <strong>Почему установка недоступна</strong>
+                  <p>Приложение устанавливается только с опубликованного защищённого адреса <b>HTTPS</b>. Локальная ссылка с адресом компьютера или 127.0.0.1 на телефоне для установки не подходит.</p>
                 </div>
               </div>
             </section>
@@ -445,9 +461,9 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=120"></script>
-  <script src="reliability.js?v=120"></script>
-  <script src="organization.js?v=120" defer></script>
-  <script src="provider.js?v=120" defer></script>
+  <script src="config.js?v=121"></script>
+  <script src="reliability.js?v=121"></script>
+  <script src="organization.js?v=121" defer></script>
+  <script src="provider.js?v=121" defer></script>
 </body>
 </html>

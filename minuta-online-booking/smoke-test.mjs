@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '120';
+const version = '121';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -71,7 +71,7 @@ assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /const timeRange = `\$\{startTime\}–\$\{endTime\}`/, 'Карточка записи не рассчитывает интервал начала и окончания');
-assert.match(provider, /class="timeline-booking-time">\$\{timeRange\}/, 'На большом экране не показывается полный интервал записи');
+assert.match(provider, /class="timeline-booking-time"><b>\$\{startTime\}<\/b><small>–\$\{endTime\}<\/small>/, 'На большом экране не показывается полный интервал записи');
 assert.match(provider, /class="timeline-mobile-time">\$\{timeRange\}/, 'На телефоне не показывается полный интервал записи');
 assert.match(provider, /class="booking-time-column"><strong>\$\{time\}<small>до \$\{endTime\}/, 'В режиме списка не показывается время окончания записи');
 const providerTimeFromMinutesSource = provider.match(/function timeFromMinutes\(value\) \{[\s\S]*?\n\}/)?.[0];
@@ -80,9 +80,11 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=120"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=121"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
+assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
+assert.match(providerHtml, /id="browserInstallGuide"[\s\S]*HTTPS/, 'Нет объяснения требования защищённого адреса');
 assert.equal(providerManifest.start_url, './provider.html', 'Установленное приложение открывает не кабинет');
 assert.equal(providerManifest.display, 'standalone', 'Кабинет не запускается как отдельное приложение');
 for (const icon of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-icon-maskable-512.png']) {
@@ -92,6 +94,10 @@ for (const icon of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-
 assert.match(provider, /beforeinstallprompt/, 'Браузерное предложение установки не сохраняется');
 assert.match(provider, /await prompt\.prompt\(\)/, 'Кнопка не запускает системную установку приложения');
 assert.match(provider, /appinstalled/, 'Интерфейс не узнаёт об успешной установке');
+assert.match(provider, /function providerAppIsAndroid\(\)/, 'Нет отдельного сценария установки для Android');
+assert.match(provider, /function providerAppHasSecureOrigin\(\)/, 'Не проверяется защищённый адрес перед установкой');
+assert.match(provider, /showProviderInstallGuide\('iosInstallGuide'\)/, 'Кнопка не открывает инструкцию для iPhone');
+assert.match(provider, /showProviderInstallGuide\('androidInstallGuide'\)/, 'Кнопка не открывает инструкцию для Android');
 assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v4'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
 assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента времени не является режимом расписания по умолчанию');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
@@ -189,7 +195,7 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
-for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'linear', 'soft', 'capsule', 'editorial', 'bento', 'luxury', 'loft', 'eco', 'hitech']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
@@ -260,7 +266,8 @@ assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px;
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
 assert.match(provider, /hourHeight = window\.matchMedia\('\(max-width: 760px\)'\)\.matches \? 60 : 76/, 'Высота часового интервала не соответствует мобильному журналу');
-assert.match(styles, /timeline-booking-time \{ display:flex; align-self:stretch; align-items:center;/, 'Время записи не центрируется по высоте карточки');
+assert.match(styles, /timeline-booking-time \{ display:grid;[^}]*align-self:start; align-items:baseline;/, 'Интервал записи не выровнен с верхней строкой карточки');
+assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
 assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:10px;/, 'Получасовые отметки остались слишком мелкими');
