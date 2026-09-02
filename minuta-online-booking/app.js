@@ -806,7 +806,10 @@ function notifyTelegramEvent(event, manageToken) {
 }
 function saveClientSession(token) {
   if (!/^[0-9a-f]{64}$/i.test(token || '')) return;
-  try { localStorage.setItem(CLIENT_SESSION_KEY, token); } catch {}
+  try {
+    sessionStorage.setItem(CLIENT_SESSION_KEY, token);
+    localStorage.removeItem(CLIENT_SESSION_KEY);
+  } catch {}
 }
 function clientAccessShareMessage(code, phone) { return `Мои записи на массаж: ${new URL('my-bookings.html', location.href).href}\nТелефон: ${phone}\nЛичный код: ${code}\nНе пересылайте код посторонним.`; }
 function downloadClientAccessFile(code, phone) {
@@ -826,7 +829,7 @@ function renderClientAccess(result, phone) {
   $('#myBookingsSuccess').hidden = false;
   if (!result.access_code) return;
   $('#clientAccessCode').textContent = result.access_code;
-  $('#clientAccessNote').textContent = 'Это устройство запомнило вход на 90 дней. Код сохранится в файл; если загрузка не началась, нажмите кнопку ниже.';
+  $('#clientAccessNote').textContent = 'Вход сохранён только до закрытия этой вкладки. Код сохранится в файл; если загрузка не началась, нажмите кнопку ниже.';
   $('#clientAccessDownload').onclick = () => downloadClientAccessFile(result.access_code, phone);
   const text = clientAccessShareMessage(result.access_code, phone);
   $('#clientAccessWhatsapp').href = `https://wa.me/?text=${encodeURIComponent(text)}`;
@@ -1022,4 +1025,4 @@ renderTimes();
 loadServices();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=153'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=154'));

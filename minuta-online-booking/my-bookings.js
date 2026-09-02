@@ -9,17 +9,25 @@ let currentReviewEditing = false;
 
 function loadSessionToken() {
   try {
-    const value = localStorage.getItem(SESSION_KEY) || '';
+    const value = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY) || '';
+    localStorage.removeItem(SESSION_KEY);
+    if (/^[0-9a-f]{64}$/i.test(value)) sessionStorage.setItem(SESSION_KEY, value);
     return /^[0-9a-f]{64}$/i.test(value) ? value : '';
   } catch { return ''; }
 }
 function saveSessionToken(value) {
   sessionToken = value;
-  try { localStorage.setItem(SESSION_KEY, value); } catch {}
+  try {
+    sessionStorage.setItem(SESSION_KEY, value);
+    localStorage.removeItem(SESSION_KEY);
+  } catch {}
 }
 function clearSessionToken() {
   sessionToken = '';
-  try { localStorage.removeItem(SESSION_KEY); } catch {}
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
+  } catch {}
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function isMissingRpc(error, name) { const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`; return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text); }
@@ -179,4 +187,4 @@ $('#reviewForm').addEventListener('submit', submitReview);
 $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=153'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=154'));

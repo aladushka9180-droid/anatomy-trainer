@@ -39,17 +39,5 @@ comment on table public.client_telegram_subscriptions is
 comment on table public.telegram_notification_log is
   'Idempotency log for automatic client Telegram notifications.';
 
-create extension if not exists pg_cron with schema pg_catalog;
-create extension if not exists pg_net with schema extensions;
-
-do $$
-declare existing_job bigint;
-begin
-  select jobid into existing_job from cron.job where jobname = 'telegram-client-reminders-hourly';
-  if existing_job is not null then perform cron.unschedule(existing_job); end if;
-  perform cron.schedule(
-    'telegram-client-reminders-hourly',
-    '15 * * * *',
-    'select net.http_post(url := ''https://cawexmmrqjvothcbgjxr.supabase.co/functions/v1/telegram-client-notify/reminders'', headers := ''{"Content-Type":"application/json"}''::jsonb, body := ''{}''::jsonb);'
-  );
-end $$;
+-- Защищённое расписание и секрет создаются повторяемой миграцией
+-- supabase-migration-v77.sql. Публичный cron-вызов здесь намеренно не создаётся.

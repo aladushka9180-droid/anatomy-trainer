@@ -3,9 +3,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, apikey, content-type, x-telegram-bot-api-secret-token",
+  "access-control-allow-headers": "authorization, apikey, content-type, x-reminder-secret, x-telegram-bot-api-secret-token",
   "access-control-allow-methods": "GET, POST, OPTIONS",
 };
+
+const MAX_JSON_BYTES = 32 * 1024;
+const REMINDER_SECRET_HASH_TTL = 5 * 60 * 1000;
+let cachedReminderSecretHash = "";
+let cachedReminderSecretHashExpiresAt = 0;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -18,6 +23,49 @@ type BookingEvent = "confirmation" | "rescheduled" | "cancelled" | "reminder";
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: corsHeaders });
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function sameHash(actual: string, expected: string) {
+  if (!actual || !expected || actual.length !== expected.length) return false;
+  let difference = 0;
+  for (let index = 0; index < actual.length; index += 1) {
+    difference |= actual.charCodeAt(index) ^ expected.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+async function sameSecret(actual: string, expected: string) {
+  if (!actual || !expected) return false;
+  return sameHash(await sha256Hex(actual), await sha256Hex(expected));
+}
+
+async function readJson(req: Request) {
+  const contentType = (req.headers.get("content-type") || "").toLowerCase();
+  if (!contentType.includes("application/json")) throw new Error("unsupported_media_type");
+  const declaredLength = Number(req.headers.get("content-length") || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BYTES) throw new Error("payload_too_large");
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  if (bytes.byteLength > MAX_JSON_BYTES) throw new Error("payload_too_large");
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    throw new Error("invalid_json");
+  }
+}
+
+async function reminderSecretHash() {
+  if (cachedReminderSecretHash && cachedReminderSecretHashExpiresAt > Date.now()) return cachedReminderSecretHash;
+  const { data, error } = await admin.rpc("get_telegram_reminder_secret_hash");
+  const value = String(data || "");
+  if (error || !/^[0-9a-f]{64}$/i.test(value)) return "";
+  cachedReminderSecretHash = value.toLowerCase();
+  cachedReminderSecretHashExpiresAt = Date.now() + REMINDER_SECRET_HASH_TTL;
+  return cachedReminderSecretHash;
 }
 
 function html(value: unknown) {
@@ -198,8 +246,8 @@ async function connectRedirect(req: Request) {
 
 async function telegramWebhook(req: Request) {
   const expectedSecret = await telegramWebhookSecret();
-  if (!expectedSecret || req.headers.get("x-telegram-bot-api-secret-token") !== expectedSecret) return json({ ok: false }, 401);
-  const update = await req.json();
+  if (!await sameSecret(req.headers.get("x-telegram-bot-api-secret-token") || "", expectedSecret)) return json({ ok: false }, 401);
+  const update = await readJson(req);
   const message = update.message;
   const text = String(message?.text || "");
   const match = text.match(/^\/start(?:@\w+)?\s+([A-Za-z0-9_-]+)$/);
@@ -231,7 +279,7 @@ async function telegramWebhook(req: Request) {
 }
 
 async function eventRequest(req: Request) {
-  const body = await req.json();
+  const body = await readJson(req);
   const event = String(body.event || "") as BookingEvent;
   if (!["confirmation", "rescheduled", "cancelled"].includes(event)) return json({ ok: false, error: "invalid_event" }, 400);
 
@@ -253,6 +301,9 @@ async function eventRequest(req: Request) {
 }
 
 async function remindersRequest(req: Request) {
+  const expectedHash = await reminderSecretHash();
+  const actualHash = await sha256Hex(req.headers.get("x-reminder-secret") || "");
+  if (!sameHash(actualHash, expectedHash)) return json({ ok: false }, 401);
   const now = Date.now();
   const local = new Date(now + 4 * 60 * 60 * 1000);
   const today = local.toISOString().slice(0, 10);
@@ -292,6 +343,9 @@ export default {
       return json({ ok: false, error: "not_found" }, 404);
     } catch (error) {
       console.error("Telegram client notification error", error);
+      if ((error as Error).message === "payload_too_large") return json({ ok: false, error: "payload_too_large" }, 413);
+      if ((error as Error).message === "unsupported_media_type") return json({ ok: false, error: "unsupported_media_type" }, 415);
+      if ((error as Error).message === "invalid_json") return json({ ok: false, error: "invalid_json" }, 400);
       return json({ ok: false, error: "internal_error" }, 500);
     }
   },

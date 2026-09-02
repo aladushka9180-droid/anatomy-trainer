@@ -4,17 +4,19 @@
 
 ## Переменные функции
 
-Используется уже сохранённый в Supabase `TELEGRAM_BOT_TOKEN`. `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` автоматически доступны Edge Function в проекте Supabase. Дополнительные секреты не нужны: проверочная строка webhook безопасно вычисляется из токена внутри функции.
+Используется уже сохранённый в Supabase `TELEGRAM_BOT_TOKEN`. `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` автоматически доступны Edge Function в проекте Supabase.
+
+Миграция `supabase-migration-v77.sql` сама создаёт случайный 256-битный секрет в Supabase Vault. Cron получает исходный секрет только внутри базы, а Edge Function получает через закрытую service-role RPC только его SHA-256-хеш. Секрет не добавляется в браузер, GitHub или исходный код.
 
 ## Активация
 
-1. Применить миграцию `migrations/20260901090000_client_telegram_notifications.sql`.
-2. Развернуть функцию `telegram-client-notify` без проверки JWT на входе: собственная авторизация выполняется внутри функции.
+1. Применить исходные Telegram-миграции и затем `supabase-migration-v77.sql`.
+2. Развернуть функцию `telegram-client-notify` без проверки JWT на входе: публичные маршруты используют собственную авторизацию, а `/reminders` проверяет секрет из Vault.
 3. Открыть кнопку Telegram на тестовой записи. Функция сама установит webhook на адрес
    `https://cawexmmrqjvothcbgjxr.supabase.co/functions/v1/telegram-client-notify`
    с секретной проверкой запросов.
-4. Убедиться, что миграция создала задачу `telegram-client-reminders-hourly` — она запускает напоминания каждый час.
-5. Опубликовать клиентские файлы версии 39.
+4. Убедиться, что v77 создала задачу `telegram-client-reminders-hourly` с заголовком `x-reminder-secret`.
+5. Опубликовать клиентские файлы одной актуальной версии кэша.
 
 ## Проверка
 
