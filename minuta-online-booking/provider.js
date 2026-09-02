@@ -27,7 +27,11 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   show_notes: true,
   ios_transitions: true
 });
-const BOOKING_COLOR_KEYS = ['auto', 'mint', 'sky', 'lavender', 'peach', 'rose', 'vanilla'];
+const BOOKING_COLOR_KEYS = ['auto', 'mint', 'sky', 'lavender', 'peach', 'rose', 'vanilla', 'sage', 'teal', 'amber', 'cocoa', 'graphite'];
+const BOOKING_COLOR_LABELS = Object.freeze({
+  auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль',
+  sage:'Шалфей', teal:'Бирюза', amber:'Янтарь', cocoa:'Какао', graphite:'Графит'
+});
 const BOOKING_COLOR_DEFAULT = 'auto';
 let currentUser = null;
 let currentFilter = restoreScheduleFilter();
@@ -47,6 +51,7 @@ let bookingSessionItems = new Map();
 let sessionItemsRemoteAvailable = false;
 let sessionComposerDraft = [];
 let bookingColors = new Map();
+let pendingBookingColors = new Set();
 let bookingNotes = new Map();
 let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
@@ -686,16 +691,22 @@ function bookingClientLabelsMarkup(phone, bookingId) {
   </details>`;
 }
 function bookingColorStorageKey(userId = currentUser?.id) { return `massage-booking-colors-v1:${userId || 'anonymous'}`; }
+function bookingColorPendingStorageKey(userId = currentUser?.id) { return `massage-booking-colors-pending-v1:${userId || 'anonymous'}`; }
 function validBookingColor(value) { return BOOKING_COLOR_KEYS.includes(String(value)) ? String(value) : BOOKING_COLOR_DEFAULT; }
 function loadBookingColors(userId = currentUser?.id) {
   try {
     const saved = JSON.parse(localStorage.getItem(bookingColorStorageKey(userId)) || '{}');
     bookingColors = new Map(Object.entries(saved).map(([id, color]) => [id, validBookingColor(color)]));
   } catch { bookingColors = new Map(); }
+  try { pendingBookingColors = new Set(JSON.parse(localStorage.getItem(bookingColorPendingStorageKey(userId)) || '[]')); }
+  catch { pendingBookingColors = new Set(); }
 }
 function persistBookingColors(userId = currentUser?.id) {
   if (!userId) return;
-  try { localStorage.setItem(bookingColorStorageKey(userId), JSON.stringify(Object.fromEntries(bookingColors))); } catch {}
+  try {
+    localStorage.setItem(bookingColorStorageKey(userId), JSON.stringify(Object.fromEntries(bookingColors)));
+    localStorage.setItem(bookingColorPendingStorageKey(userId), JSON.stringify([...pendingBookingColors]));
+  } catch {}
 }
 function bookingNoteStorageKey(userId = currentUser?.id) { return `massage-booking-notes-v1:${userId || 'anonymous'}`; }
 function bookingNotePendingStorageKey(userId = currentUser?.id) { return `massage-booking-notes-pending-v1:${userId || 'anonymous'}`; }
@@ -716,14 +727,12 @@ function persistBookingNotes(userId = currentUser?.id) {
 }
 function bookingColor(item) { return validBookingColor(item?.color_key || bookingColors.get(item?.id)); }
 function bookingColorPicker(name, selected, bookingId = '') {
-  const labels = { auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль' };
   const current = validBookingColor(selected);
-  return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}" title="${labels[color]}"><input type="radio" name="${name}" value="${color}" aria-label="${labels[color]}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${labels[color]}</small></label>`).join('')}</div></fieldset>`;
+  return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}" title="${BOOKING_COLOR_LABELS[color]}"><input type="radio" name="${name}" value="${color}" aria-label="${BOOKING_COLOR_LABELS[color]}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${BOOKING_COLOR_LABELS[color]}</small></label>`).join('')}</div></fieldset>`;
 }
 function compactBookingColorPicker(name, selected, bookingId) {
-  const labels = { auto:'Авто', mint:'Мята', sky:'Небо', lavender:'Лаванда', peach:'Персик', rose:'Роза', vanilla:'Ваниль' };
   const current = validBookingColor(selected);
-  return `<details class="booking-color-compact"><summary><span>Цвет записи</span><strong><i class="booking-color-dot color-${current}" aria-hidden="true"></i>${labels[current]}</strong></summary>${bookingColorPicker(name, current, bookingId)}</details>`;
+  return `<details class="booking-color-compact"><summary><span>Цвет записи</span><strong><i class="booking-color-dot color-${current}" aria-hidden="true"></i>${BOOKING_COLOR_LABELS[current]}</strong></summary>${bookingColorPicker(name, current, bookingId)}</details>`;
 }
 function bookingSession(item) {
   const saved = bookingSessionItems.get(item.id);
@@ -759,11 +768,14 @@ function bookingSessionMarkup(item) {
 async function saveBookingColor(id, color, { rerender = true } = {}) {
   const selected = validBookingColor(color);
   bookingColors.set(id, selected);
+  pendingBookingColors.add(id);
   persistBookingColors();
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
   const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
+  if (!error) pendingBookingColors.delete(id);
+  persistBookingColors();
   return !error;
 }
 async function saveBookingNote(id, note, { rerender = true } = {}) {
@@ -783,7 +795,7 @@ async function loadRemoteBookingColors(userId, generation) {
   const { data, error } = await db.from('bookings').select('id,color_key,provider_note').eq('performer_id', userId);
   if (error || !sessionIsCurrent(userId, generation)) return false;
   (data || []).forEach(item => {
-    bookingColors.set(item.id, validBookingColor(item.color_key));
+    if (!pendingBookingColors.has(item.id)) bookingColors.set(item.id, validBookingColor(item.color_key));
     if (!pendingBookingNotes.has(item.id)) bookingNotes.set(item.id, String(item.provider_note || '').slice(0, 1000));
   });
   persistBookingColors(userId);
@@ -803,7 +815,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=149#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=150#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4790,4 +4802,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=149'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=150'));
