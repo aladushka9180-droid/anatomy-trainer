@@ -169,10 +169,11 @@ function renderBooking() {
     const legacyUrl = httpsPaymentUrl(item.payment_url);
     const capabilityUrl = httpsPaymentUrl(state.paymentCapability?.payment_url);
     const fallbackUrl = httpsPaymentUrl(state.paymentCapability?.fallback_url) || legacyUrl;
-    const eligible = !cancelled && item.payment_status === 'pending' && dueAt > Date.now();
-    const canPay = eligible && (state.paymentCapability ? state.paymentCapability.available === true : Boolean(legacyUrl));
-    const canCreate = canPay && state.paymentCapability?.can_create === true;
-    link.hidden = !canPay;
+    const canPay = !cancelled && item.payment_status === 'pending' && dueAt > Date.now();
+    const hasPaymentRoute = state.paymentCapability ? state.paymentCapability.available === true : Boolean(legacyUrl);
+    const canStartPayment = canPay && hasPaymentRoute;
+    const canCreate = canStartPayment && state.paymentCapability?.can_create === true;
+    link.hidden = !canStartPayment;
     link.href = capabilityUrl || fallbackUrl || '#';
     delete link.dataset.paymentToken;
     if (canCreate) link.dataset.paymentToken = token;
@@ -437,4 +438,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=214'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=215'));
