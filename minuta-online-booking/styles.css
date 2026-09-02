@@ -2770,15 +2770,16 @@ html.requires-top-level.top-level body { visibility:visible; }
 
 /* Mobile Luxury schedule refinement: timeline, list and team calendar. */
 @media (max-width:760px) {
-  /* В ленте длительность остаётся видна высотой карточки, а текст собран у её начала. */
+  /* В ленте длительность остаётся видна высотой карточки, а текст стоит по центру её высоты. */
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-copy {
-    top:9px;
+    top:50%;
     right:0;
     left:0;
     align-items:flex-start;
     padding:0 10px!important;
     overflow:hidden;
     text-align:left;
+    transform:translateY(-50%);
   }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-copy>strong {
     display:-webkit-box;
@@ -2794,6 +2795,18 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-client-row { display:block!important; width:100%; margin-top:3px; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .timeline-booking-client { color:var(--mobile-luxury-muted); font-size:8.5px; line-height:1.2; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking:not(.compact) .client-badges { display:none!important; }
+
+  /* В статистике кнопка отчёта занимает отдельную строку и не перекрывает заголовок. */
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] [data-provider-panel="analytics"] .view-title {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:14px;
+  }
+  .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] [data-provider-panel="analytics"] #exportBookings {
+    width:100%;
+    min-height:46px;
+    margin:0;
+  }
 
   /* Обычный список: меньше высота, но название и метки больше не обрезаются посреди слова. */
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list:not(.team-calendar-list) { padding:0; }
