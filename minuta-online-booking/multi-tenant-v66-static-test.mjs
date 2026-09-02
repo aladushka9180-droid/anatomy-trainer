@@ -76,8 +76,8 @@ assert.match(providerHtml, /id="organizationPersonalInvites"[^>]*role="status"[^
 assert.match(providerHtml, /id="reloadOrganization"/i, 'organization error state must be retryable');
 assert.match(styles, /\.provider-body \.organization-unavailable \{[^}]*display:grid;[^}]*grid-template-columns:44px minmax\(0,1fr\) auto;/i, 'organization unavailable state must keep readable content columns');
 assert.match(styles, /\.provider-body \.organization-unavailable \.secondary-button \{[^}]*width:auto;[^}]*margin-top:0;/i, 'organization retry button must not consume the whole desktop row');
-assert.match(providerHtml, /organization\.js\?v=150/i, 'provider must load the current organization controller');
-assert.match(serviceWorker, /organization\.js\?v=150/i, 'service worker must cache the organization controller');
+assert.match(providerHtml, /organization\.js\?v=151/i, 'provider must load the current organization controller');
+assert.match(serviceWorker, /organization\.js\?v=151/i, 'service worker must cache the organization controller');
 
 assert.match(providerJs, /view === 'organization'[\s\S]*organizationController\.load\(\)/i, 'organization view must load lazily');
 assert.match(providerJs, /if \(organizationController\.availability === null\) organizationController\.load\(\);\s*else organizationController\.render\(\);/, 'first organization view must load before rendering empty state');
