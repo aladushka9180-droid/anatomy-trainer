@@ -1928,7 +1928,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-sidebar { top:16px; min-height:calc(100vh - 32px); border:1px solid var(--theme-line); border-radius:24px; box-shadow:0 12px 36px color-mix(in srgb,var(--theme-shadow) 52%,transparent); }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-workspace { padding:0 0 48px; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-topbar { min-height:80px; padding:0 24px; border:1px solid var(--theme-line); border-radius:22px; }
-  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-view { width:100%; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-view { width:min(1160px,100%); margin-inline:auto; }
 }
 .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.panel,.settings-card,.clients-directory,.client-profile) { border-radius:22px; box-shadow:0 8px 26px color-mix(in srgb,var(--theme-shadow) 45%,transparent); }
 .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-nav button { border-radius:13px; }
