@@ -33,7 +33,7 @@ assert.match(config, /defaultOrganizationSlug:\s*'minuta-[a-f0-9]{32}'/, 'the le
 assert.match(app, /db\.rpc\('get_public_minuta_catalog'/, 'client must load a tenant-scoped public catalog');
 assert.match(app, /state\.teamMode = Boolean\(state\.organization && branchAwareCatalog\)/, 'team flow must stay active after a branch-aware response so an empty branch list fails closed');
 assert.match(app, /state\.teamMode && !state\.locations\.length[\s\S]*Запись команды пока не активирована/, 'branch-aware catalog without locations must block booking');
-assert.match(app, /get_public_minuta_catalog_v2[\s\S]*get_public_minuta_catalog/, 'v134 must read v67 catalog only as a safe legacy fallback');
+assert.match(app, /get_public_minuta_catalog_v2[\s\S]*get_public_minuta_catalog/, 'v135 must read v67 catalog only as a safe legacy fallback');
 assert.match(app, /section\.hidden = !state\.teamMode \|\| performers\.length < 2/, 'selector must stay hidden outside the tenant-scoped team flow');
 const productionRelease = safeRelease.split('production-migration:')[1] || '';
 assert.ok(productionRelease.indexOf('supabase-migration-v66.sql') < productionRelease.indexOf('supabase-migration-v67.sql'), 'production must apply v67 only after v66');

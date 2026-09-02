@@ -2283,6 +2283,21 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="luxury"] :is(.client-label-option,.booking-color-option,.service-visibility-option) strong { color:#f5efe3; }
 .provider-body[data-provider-theme="luxury"] :is(.client-label-option,.booking-color-option,.service-visibility-option) small { color:#c7baa4; }
 .provider-body[data-provider-theme="luxury"] :is(.repeat-times button.active,.client-label-option:has(input:checked),.booking-color-option:has(input:checked)) { border-color:#e0b35e; background:#241d12; color:#e5b75d; box-shadow:0 0 0 2px rgba(214,166,77,.12); }
+.provider-body[data-provider-theme="luxury"] :is(
+  .client-list-item.client-favorite:not(.client-vip):not(.client-attention),
+  .client-list-item.client-vip:not(.client-attention),
+  .client-list-item.client-attention
+) { border-color:#5c4625; background:linear-gradient(110deg,rgba(24,24,24,.96),rgba(8,9,10,.94)); color:#f5efe3; }
+.provider-body[data-provider-theme="luxury"] :is(
+  .client-list-item.client-favorite:not(.client-vip):not(.client-attention),
+  .client-list-item.client-vip:not(.client-attention),
+  .client-list-item.client-attention
+) .client-list-avatar { border:1px solid #745a2b; background:#241d12; color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] :is(
+  .client-list-item.client-favorite:not(.client-vip):not(.client-attention),
+  .client-list-item.client-vip:not(.client-attention),
+  .client-list-item.client-attention
+):is(:hover,.active) { border-color:#d6a64d; background:linear-gradient(110deg,rgba(214,166,77,.16),rgba(12,12,12,.97) 46%); box-shadow:inset 0 1px 0 rgba(255,255,255,.035); }
 
 /* Лофт / Индастриал: бетон, тёмное дерево, сталь и жёсткая геометрия. */
 .provider-body[data-provider-theme="loft"] {
