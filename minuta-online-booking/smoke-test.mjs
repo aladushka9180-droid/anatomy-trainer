@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '143';
+const version = '144';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,13 +69,18 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=143/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=143/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=143/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=143/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=144/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=144/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=144/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=144/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, new RegExp(`benefit-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер абонементов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
 }
+for (const id of ['benefitsPanel','benefitsWorkspace','benefitsEnabled','benefitProductsList','benefitInstrumentsList','benefitRedemptionsList','benefitProductForm','benefitIssueForm','benefitApplyForm']) {
+  assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент абонементов ${id}`);
+}
+assert.match(provider, /benefitController\.setOrganization\(organization\)/, 'Абонементы не переключаются вместе с организацией');
 assert.match(provider, /teamCalendarController\?\.isTeamMode[\s\S]*teamCalendarController\.render\(holder\)/, 'Журнал не передаёт существующий контейнер командному календарю');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
@@ -97,7 +102,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=143"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=144"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');

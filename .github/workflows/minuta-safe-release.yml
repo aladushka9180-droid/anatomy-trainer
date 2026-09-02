@@ -77,12 +77,15 @@ jobs:
           node --check minuta-online-booking/multi-tenant-v70-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v71-static-test.mjs
           node --check minuta-online-booking/payroll-v72-static-test.mjs
+          node --check minuta-online-booking/benefits-v73-static-test.mjs
           node --check minuta-online-booking/organization.js
           node --check minuta-online-booking/team-calendar.js
           node --check minuta-online-booking/resource-management.js
           node --check minuta-online-booking/shift-management.js
           node --check minuta-online-booking/payroll-management.js
           node --check minuta-online-booking/payroll-management-controller-test.mjs
+          node --check minuta-online-booking/benefit-management.js
+          node --check minuta-online-booking/benefit-management-controller-test.mjs
           node --check minuta-online-booking/resource-management-controller-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
@@ -100,10 +103,12 @@ jobs:
           node minuta-online-booking/multi-tenant-v70-static-test.mjs
           node minuta-online-booking/multi-tenant-v71-static-test.mjs
           node minuta-online-booking/payroll-v72-static-test.mjs
+          node minuta-online-booking/benefits-v73-static-test.mjs
           node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/team-calendar-controller-test.mjs
           node minuta-online-booking/resource-management-controller-test.mjs
           node minuta-online-booking/payroll-management-controller-test.mjs
+          node minuta-online-booking/benefit-management-controller-test.mjs
           bash -n minuta-online-booking/multi-tenant-v69-concurrency-test.sh
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
@@ -187,6 +192,18 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_benefit_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-benefits-v73.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_payroll_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-payroll-v72.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_shift_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-branch-shifts-v71.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.resource_groups') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-resource-scheduling-v69.sql
@@ -294,6 +311,20 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/payroll-v72-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v73.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v73.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_benefit_settings','benefit_products','benefit_product_services','client_benefit_instruments','benefit_instrument_service_balances','benefit_redemptions','benefit_ledger','benefit_audit_log')) and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is not null and to_regprocedure('public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)') is not null and not has_table_privilege('anon','public.benefit_products','SELECT') and not has_table_privilege('authenticated','public.benefit_products','INSERT') and not coalesce((select bool_or(enabled) from public.organization_benefit_settings),false);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/benefits-v73-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-benefits-v73.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_benefit_settings') is null and to_regclass('public.client_benefit_instruments') is null and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is null;" \
+            | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-payroll-v72.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -499,6 +530,18 @@ jobs:
               exit 1
               ;;
           esac
+          v73_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select (select count(*) from (values (to_regclass('public.organization_benefit_settings')),(to_regclass('public.benefit_products')),(to_regclass('public.benefit_product_services')),(to_regclass('public.client_benefit_instruments')),(to_regclass('public.benefit_instrument_service_balances')),(to_regclass('public.benefit_redemptions')),(to_regclass('public.benefit_ledger')),(to_regclass('public.benefit_audit_log'))) item(oid) where oid is not null) table_count) select case when table_count=0 and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is null then 'absent' when table_count=8 and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is not null then 'complete' else 'partial' end from state;")"
+          case "$v73_layer_state" in
+            absent|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v73.sql
+              ;;
+            partial|*)
+              echo "Partial v73 benefits layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t
@@ -510,6 +553,12 @@ jobs:
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and to_regprocedure('public.get_reschedule_slots_v4(uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT');" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_payroll_settings','payroll_plans','payroll_plan_tiers','payroll_periods','payroll_period_plan_snapshots','payroll_items','payroll_adjustments','payroll_audit_log')) and to_regprocedure('public.get_minuta_payroll_workspace(uuid,date,date)') is not null and not has_table_privilege('authenticated','public.payroll_periods','INSERT');" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_benefit_settings','benefit_products','benefit_product_services','client_benefit_instruments','benefit_instrument_service_balances','benefit_redemptions','benefit_ledger','benefit_audit_log')) and to_regprocedure('public.get_minuta_benefit_workspace(uuid)') is not null and to_regprocedure('public.apply_minuta_benefit(uuid,uuid,uuid,text,integer)') is not null and not has_table_privilege('anon','public.benefit_products','SELECT') and not has_table_privilege('authenticated','public.benefit_products','INSERT');" \
             | grep -qx t
           else
             test "$MINUTA_MIGRATION_TARGET" = "client-avatars-v70"

@@ -1,0 +1,150 @@
+(function () {
+  'use strict';
+
+  const kindLabels = { visit_pass:'Абонемент', certificate:'Сертификат', package:'Пакет услуг' };
+  const statusLabels = { active:'Активен', frozen:'Заморожен', exhausted:'Использован', expired:'Истёк', cancelled:'Отменён' };
+
+  function createController(options) {
+    const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
+    function $(selector) { return select(selector); }
+    let organization = null;
+    let payload = null;
+    let availability = null;
+    let revision = 0;
+    let writing = false;
+    let pendingOrganization;
+    let issueRequestId = null;
+
+    function unsupported(error) {
+      return /PGRST202|42883|get_minuta_benefit_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
+    }
+    function scopeMatches(data,id) { return Boolean(data && String(data.organization_id || '')===String(id)); }
+    function rubles(value) { return `${new Intl.NumberFormat('ru-RU').format(Number(value || 0))} ₽`; }
+    function clientName(id) { const item=payload?.clients?.find(row=>row.id===id); return item ? `${item.client_name} · ${item.client_phone}` : 'Клиент'; }
+    function productName(id) { return payload?.products?.find(row=>row.id===id)?.name || 'Продукт'; }
+    function serviceName(id) { return payload?.services?.find(row=>row.id===id)?.name || 'Услуга'; }
+    function dateLabel(value) { const date=new Date(`${value}T12:00:00`); return Number.isNaN(date.getTime()) ? String(value||'') : date.toLocaleDateString('ru-RU'); }
+    function optionsList(items,label) { return items.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(label(item))}</option>`).join(''); }
+    function empty(title,text) { return `<div class="provider-empty compact-empty"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(text)}</small></div>`; }
+
+    function setBusy(value) {
+      $('#benefitsPanel')?.querySelectorAll('[data-benefit-write]').forEach(control=>{
+        if(value && !control.disabled){control.disabled=true;control.dataset.benefitBusy='true';}
+        else if(!value && control.dataset.benefitBusy==='true'){control.disabled=false;delete control.dataset.benefitBusy;}
+      });
+    }
+    function reset() {
+      revision+=1; organization=null; payload=null; availability=null; writing=false; pendingOrganization=undefined;
+      issueRequestId=null;
+      $('#benefitsPanel').hidden=true; $('#benefitsLoading').hidden=true; $('#benefitsUnavailable').hidden=true; $('#benefitsWorkspace').hidden=true;
+    }
+    async function setOrganization(next) {
+      const normalized=next?.id?{...next}:null;
+      if(writing){pendingOrganization=normalized;revision+=1;$('#benefitsPanel').hidden=!normalized;$('#benefitsWorkspace').hidden=true;return {ok:false,optional:true,pending:true};}
+      if(!normalized){reset();return {ok:false,optional:true};}
+      if(!['owner','admin'].includes(normalized.current_role)){reset();return {ok:false,optional:true,forbidden:true};}
+      organization=normalized; pendingOrganization=undefined; return load();
+    }
+    async function load() {
+      if(writing)return {ok:false,optional:true,pending:true};
+      const userId=getCurrentUser()?.id, generation=getSessionGeneration(), organizationId=organization?.id, current=++revision;
+      if(!userId||!organizationId){reset();return {ok:false,optional:true};}
+      availability='loading'; payload=null; $('#benefitsPanel').hidden=false; $('#benefitsLoading').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsWorkspace').hidden=true;
+      const {data,error}=await db.rpc('get_minuta_benefit_workspace',{p_organization:organizationId});
+      if(!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId)return {ok:false,optional:true,stale:true};
+      $('#benefitsLoading').hidden=true;
+      if(error){availability=unsupported(error)?'unsupported':'error';if(availability==='unsupported'){$('#benefitsPanel').hidden=true;return {ok:false,optional:true,unsupported:true};}$('#benefitsUnavailable').hidden=false;$('#benefitsUnavailableText').textContent='Записи клиентов продолжают работать. Не удалось загрузить только абонементы.';return {ok:false,optional:true};}
+      if(!scopeMatches(data,organizationId)){availability='error';$('#benefitsUnavailable').hidden=false;$('#benefitsUnavailableText').textContent='Сервер вернул данные другой организации. Изменения заблокированы.';return {ok:false,optional:true};}
+      payload=data; for(const key of ['services','clients','bookings','products','instruments','redemptions','audit'])if(!Array.isArray(payload[key]))payload[key]=[];
+      availability='ready'; render(); return {ok:true,optional:true};
+    }
+
+    function productCard(item) {
+      const value=item.kind==='certificate'?rubles(item.face_value_rub):`${item.visits_count} посещ.`;
+      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(item.name)} · ${escapeHtml(value)}</strong><small>${escapeHtml(kindLabels[item.kind]||item.kind)} · продажа ${escapeHtml(rubles(item.sale_price_rub))} · ${item.validity_days} дней</small></div><span class="organization-status ${item.active?'is-active':''}">${item.active?'Доступен':'Скрыт'}</span></article>`;
+    }
+    function instrumentCard(item) {
+      const expired=String(item.expires_on)<new Date().toISOString().slice(0,10);
+      const status=expired&&item.status==='active'?'expired':item.status;
+      const snapshot=item.product_snapshot||{};
+      const balance=snapshot.kind==='certificate'?rubles(item.remaining_amount_rub):`${item.remaining_visits} посещ.`;
+      const actions=status==='active'?`<button class="secondary-button" type="button" data-benefit-status="frozen" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Заморозить</button>`:status==='frozen'?`<button class="secondary-button" type="button" data-benefit-status="active" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Разморозить</button>`:'';
+      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))} · ${escapeHtml(balance)}</strong><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
+    }
+    function redemptionCard(item) {
+      const booking=payload.bookings.find(row=>row.id===item.booking_id);
+      const actions=item.status==='reserved'?`<button class="primary-button" type="button" data-benefit-action="redeem" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Погасить</button><button class="secondary-button" type="button" data-benefit-action="release" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Вернуть</button>`:item.status==='redeemed'&&payload.current_role==='owner'?`<button class="secondary-button" type="button" data-benefit-action="release" data-benefit-redemption="${escapeHtml(item.id)}" data-benefit-write>Вернуть</button>`:'';
+      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(booking?.service_name||'Запись')} · ${item.amount_rub?escapeHtml(rubles(item.amount_rub)):`${item.units} посещ.`}</strong><small>${escapeHtml(booking?.client_name||'Клиент')} · ${escapeHtml(item.status)}</small></div><span class="organization-tags">${actions}</span></article>`;
+    }
+    function renderProductServices() {
+      const holder=$('#benefitProductServices');
+      const kind=$('#benefitProductKind').value;
+      holder.hidden=kind==='certificate';
+      holder.innerHTML=payload.services.map(service=>`<label class="benefit-service-option"><input type="checkbox" data-benefit-service="${escapeHtml(service.id)}"><span>${escapeHtml(service.name)}</span><input type="number" data-benefit-units="${escapeHtml(service.id)}" min="1" max="10000" value="1" aria-label="Количество посещений"></label>`).join('');
+    }
+    function renderBookingOptions() {
+      const instrument=payload.instruments.find(item=>item.id===$('#benefitApplyInstrument').value);
+      const bookings=instrument?payload.bookings.filter(item=>item.client_account_id===instrument.client_account_id):[];
+      $('#benefitApplyBooking').innerHTML=optionsList(bookings,item=>`${dateLabel(item.booking_date)} · ${item.client_name} · ${item.service_name}`);
+    }
+    function render() {
+      if(availability!=='ready'||!payload)return;
+      $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
+      $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
+      $('#benefitProductsList').innerHTML=payload.products.length?payload.products.map(productCard).join(''):empty('Продуктов пока нет','Создайте абонемент, сертификат или пакет услуг.');
+      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(instrumentCard).join(''):empty('Ничего не выдано','Выданные продукты появятся здесь.');
+      $('#benefitRedemptionsList').innerHTML=payload.redemptions.length?payload.redemptions.map(redemptionCard).join(''):empty('Списаний пока нет','Примените продукт к записи клиента.');
+      $('#benefitProductCreator').hidden=!payload.enabled; $('#benefitIssueCreator').hidden=!payload.enabled; $('#benefitApplyCreator').hidden=!payload.enabled;
+      $('#benefitIssueProduct').innerHTML=optionsList(payload.products.filter(item=>item.active),item=>`${item.name} · ${kindLabels[item.kind]||item.kind}`);
+      $('#benefitIssueClient').innerHTML=optionsList(payload.clients,item=>`${item.client_name} · ${item.client_phone}`);
+      const today=new Date().toISOString().slice(0,10);
+      $('#benefitApplyInstrument').innerHTML=optionsList(payload.instruments.filter(item=>item.status==='active'&&item.expires_on>=today),item=>`${item.product_snapshot?.name||productName(item.product_id)} · ${item.public_code}`);
+      renderBookingOptions();
+      renderProductServices(); setBusy(false); applyWriteAvailability();
+    }
+
+    function messageFor(error) {
+      const text=`${error?.message||''} ${error?.details||''}`;
+      const rows=[['benefits_disabled','Сначала включите абонементы.'],['package_units_mismatch','Сумма посещений по услугам должна совпадать с количеством в пакете.'],['benefit_request_conflict','Параметры выдачи изменились. Проверьте форму и повторите.'],['benefit_client_mismatch','Продукт принадлежит другому клиенту.'],['booking_already_has_benefit','К этой записи уже применён другой продукт.'],['complete_visit_before_redemption','Сначала отметьте визит завершённым.'],['insufficient_certificate_balance','Недостаточно средств на сертификате.'],['package_service_exhausted','Эта услуга в пакете закончилась.'],['visit_pass_not_applicable','Абонемент не действует на эту услугу.']];
+      return rows.find(([key])=>text.includes(key))?.[1]||'Изменение не сохранено. Записи и деньги не затронуты.';
+    }
+    async function mutate(rpc,parameters,button,success,errorHolder) {
+      if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id))return false;
+      const userId=getCurrentUser()?.id,generation=getSessionGeneration(),organizationId=organization.id,current=++revision;
+      writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
+      const {data,error}=await db.rpc(rpc,parameters);if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
+      if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}
+      if(error){const message=messageFor(error);if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}else notify(message);await load();return false;}
+      if(!scopeMatches(data,organizationId)){notify('Ответ другой организации заблокирован.');await load();return false;}
+      notify(success);await load();return true;
+    }
+    function selectedServices() {
+      return [...$('#benefitProductServices').querySelectorAll('[data-benefit-service]:checked')].map(input=>({service_id:input.dataset.benefitService,units:Number($(`[data-benefit-units="${input.dataset.benefitService}"]`).value)}));
+    }
+    async function submit(event) {
+      if(!event.target.closest('#benefitsPanel'))return;
+      if(event.target.id==='benefitProductForm'){
+        event.preventDefault();const kind=$('#benefitProductKind').value,services=selectedServices();const visits=kind==='package'?services.reduce((sum,item)=>sum+item.units,0):Number($('#benefitProductVisits').value||0);
+        const ok=await mutate('upsert_minuta_benefit_product',{p_organization:organization.id,p_product:null,p_name:$('#benefitProductName').value.trim(),p_kind:kind,p_sale_price_rub:Math.round(Number($('#benefitProductPrice').value)),p_face_value_rub:kind==='certificate'?Math.round(Number($('#benefitProductValue').value)):0,p_visits_count:kind==='certificate'?0:visits,p_validity_days:Math.round(Number($('#benefitProductValidity').value)),p_services:services},event.submitter,'Продукт сохранён','#benefitProductError');
+        if(ok){event.target.reset();$('#benefitProductCreator').open=false;}return;
+      }
+      if(event.target.id==='benefitIssueForm'){event.preventDefault();issueRequestId=issueRequestId||crypto.randomUUID();const ok=await mutate('issue_minuta_benefit',{p_organization:organization.id,p_product:$('#benefitIssueProduct').value,p_client_account:$('#benefitIssueClient').value,p_expires_on:$('#benefitIssueExpiry').value||null,p_request_id:issueRequestId},event.submitter,'Продукт выдан клиенту','#benefitIssueError');if(ok){issueRequestId=null;$('#benefitIssueCreator').open=false;}return;}
+      if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await mutate('apply_minuta_benefit',{p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Продукт применён к записи','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
+    }
+    async function click(event) {
+      if(event.target.closest('#reloadBenefits')){await load();return;}
+      const status=event.target.closest('[data-benefit-status]');if(status)await mutate('set_minuta_benefit_status',{p_organization:organization.id,p_instrument:status.dataset.benefitInstrument,p_status:status.dataset.benefitStatus},status,'Статус обновлён');
+      const action=event.target.closest('[data-benefit-action]');if(action){const redemption=payload.redemptions.find(item=>item.id===action.dataset.benefitRedemption);if(redemption)await mutate('apply_minuta_benefit',{p_organization:organization.id,p_instrument:redemption.instrument_id,p_booking:redemption.booking_id,p_action:action.dataset.benefitAction,p_amount_rub:null},action,action.dataset.benefitAction==='redeem'?'Посещение погашено':'Баланс восстановлен');}
+    }
+    async function change(event) {
+      if(event.target.id==='benefitsEnabled'){const desired=event.target.checked;const ok=await mutate('set_minuta_benefits_enabled',{p_organization:organization.id,p_enabled:desired},event.target,desired?'Абонементы включены':'Абонементы выключены');if(!ok&&payload)event.target.checked=Boolean(payload.enabled);}
+      if(event.target.id==='benefitProductKind')renderProductServices();
+      if(event.target.id==='benefitApplyInstrument')renderBookingOptions();
+      if(event.target.closest('#benefitIssueForm'))issueRequestId=null;
+    }
+    function bind(){document.addEventListener('submit',submit);document.addEventListener('click',click);document.addEventListener('change',change);}
+    return {bind,load,reset,setOrganization,get availability(){return availability;},get payload(){return payload;}};
+  }
+  window.MinutaBenefits={createController};
+})();
