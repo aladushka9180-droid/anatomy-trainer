@@ -24,6 +24,7 @@ const ASSETS = [
   './benefit-management.js?v=159',
   './booking-policy-management.js?v=159',
   './team-calendar.js?v=159',
+  './free-slots-share.js?v=159',
   './provider.js?v=159',
   './booking.js?v=159',
   './my-bookings.js?v=159',

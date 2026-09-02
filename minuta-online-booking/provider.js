@@ -3455,6 +3455,7 @@ function synchronizeProvider() {
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
     const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadClientAvatars(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.load(), teamCalendarController.refresh()]);
     if (!sessionIsCurrent(userId, generation)) return false;
+    freeSlotsController.refresh();
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
     const skipped = requiredResults.some(result => result?.skipped);
@@ -4861,6 +4862,26 @@ const organizationController = window.MinutaOrganization.createController({
   }
 });
 organizationController.bind();
+const freeSlotsController = window.MinutaFreeSlots.createController({
+  root: $('#freeSlotsDialog'),
+  notify,
+  getData: () => {
+    const organization = organizationController.getActiveOrganization();
+    const bookingUrl = new URL('index.html', window.location.href);
+    bookingUrl.search = '';
+    bookingUrl.hash = '';
+    if (organization?.public_booking_enabled && organization.public_slug) bookingUrl.searchParams.set('org', organization.public_slug);
+    return {
+      bookings: allBookings,
+      scheduleRows,
+      daysOff,
+      services: ownServices,
+      selectedDate,
+      today: businessTodayIso(),
+      bookingUrl: bookingUrl.href
+    };
+  }
+});
 
 $('#loginForm').addEventListener('submit', login);
 $('#signupForm').addEventListener('submit', signup);
@@ -4921,6 +4942,7 @@ $('#logoutButton').addEventListener('click', logout);
 $('#refreshBookings').addEventListener('click', synchronizeProvider);
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
 $('#exportBookings').addEventListener('click', exportBookingsCsv);
+$('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });

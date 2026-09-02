@@ -29,6 +29,8 @@
       return organization ? {
         id: organization.id,
         name: organization.name,
+        public_slug: organization.public_slug,
+        public_booking_enabled: Boolean(organization.public_booking_enabled),
         current_role: organization.current_role,
         can_manage: organization.can_manage,
         locations: Array.isArray(organization.locations) ? organization.locations.map(item => ({ ...item })) : [],
