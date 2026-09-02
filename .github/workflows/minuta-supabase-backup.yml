@@ -78,14 +78,14 @@ jobs:
           retention_until="$(date -u -d "+$MINUTA_BACKUP_RETENTION_DAYS days" +'%Y-%m-%dT%H:%M:%SZ')"
           trap 'rm -f "$plain" "$verified"' EXIT
 
-          pg_dump \
+          /usr/lib/postgresql/17/bin/pg_dump \
             --dbname="$SUPABASE_DB_URL" \
             --format=custom \
             --no-owner \
             --no-privileges \
             --file="$plain"
-          pg_restore --list "$plain" >/dev/null
-          archive_entries="$(pg_restore --list "$plain" | awk '!/^;/ && NF { count++ } END { print count + 0 }')"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$plain" >/dev/null
+          archive_entries="$(/usr/lib/postgresql/17/bin/pg_restore --list "$plain" | awk '!/^;/ && NF { count++ } END { print count + 0 }')"
           test "$archive_entries" -gt 0
 
           printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg \
@@ -96,7 +96,7 @@ jobs:
             --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
             --output "$verified" --decrypt "$encrypted"
           cmp --silent "$plain" "$verified"
-          pg_restore --list "$verified" >/dev/null
+          /usr/lib/postgresql/17/bin/pg_restore --list "$verified" >/dev/null
 
           encrypted_sha="$(sha256sum "$encrypted" | awk '{print $1}')"
           encrypted_bytes="$(stat --format='%s' "$encrypted")"
