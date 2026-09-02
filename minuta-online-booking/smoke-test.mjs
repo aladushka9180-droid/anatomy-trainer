@@ -510,6 +510,10 @@ assert.match(provider, /offline-bookings-v1/, 'Офлайн-записи не и
 assert.match(provider, /const OFFLINE_BOOKING_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Отложенные записи хранятся на устройстве без ограничения срока');
 assert.match(provider, /function canQueueOfflineBooking\(\)[\s\S]*offlineBookingInputsReady[\s\S]*offlineBookingSnapshotFresh\(\)[\s\S]*ownServices\.some\(item => item\.active\)/, 'Офлайн-запись разрешена без полного свежего кэша и доступной услуги');
 assert.match(provider, /async function saveOfflineBookingQueue[\s\S]*!reliability\?\.put[\s\S]*sessionIsCurrent\(userId, generation\)[\s\S]*reliability\.get\(key\)/, 'Очередь может сообщить о сохранении без IndexedDB, read-back или защиты сессии');
+const offlineQueueSaveSource = provider.match(/async function saveOfflineBookingQueue[\s\S]*?\r?\n}\r?\nasync function loadOfflineBookingQueue/)?.[0] || '';
+assert.ok(offlineQueueSaveSource, 'Не удалось извлечь сохранение офлайн-очереди для проверки');
+assert.doesNotMatch(offlineQueueSaveSource, /reliability\.remove/, 'Устаревшее сохранение может удалить действующую очередь после смены сессии');
+assert.match(provider, /async function clearProviderDeviceData[\s\S]*!preserveOfflineBookings[\s\S]*await offlineBookingSavePromise\.catch[\s\S]*remove\?\.\(offlineBookingQueueKey\(userId\)\)/, 'Очистка может завершиться раньше незаконченного сохранения офлайн-очереди');
 assert.match(provider, /async function loadOfflineBookingQueue[\s\S]*const nextQueue =[\s\S]*if \(!sessionIsCurrent\(userId, generation\)\) return \[\];[\s\S]*offlineBookingQueue = nextQueue/, 'Устаревшее чтение IndexedDB может показать очередь другого аккаунта');
 assert.match(provider, /async function hydrateOfflineBookingInputs[\s\S]*readProviderCache\('services'[\s\S]*readProviderCache\('schedule'[\s\S]*readProviderCache\('days-off'[\s\S]*offlineBookingInputsReady = true/, 'После холодного офлайн-запуска не восстанавливаются услуги, график и исключения');
 assert.match(provider, /async function flushOfflineBookings[\s\S]*item\.status = 'syncing'[\s\S]*db\.rpc\('book_appointment', \{ p_request_id:item\.id[\s\S]*slot_unavailable[\s\S]*item\.status = 'conflict'/, 'Отложенная запись не имеет атомарной проверки, идемпотентности или явного конфликта');
@@ -520,6 +524,7 @@ assert.match(provider, /finalizeQueuedBooking[\s\S]*deliverTelegramClientNotific
 assert.match(provider, /window\.addEventListener\('online',[\s\S]*synchronizeProvider\(\)[\s\S]*flushOfflineBookings\(\)/, 'Офлайн-очередь не отправляется после восстановления связи');
 assert.match(provider, /clearProviderDeviceData[\s\S]*removePrefix\(`provider:\$\{userId\}:`\)[\s\S]*remove\?\.\(offlineBookingQueueKey\(userId\)\)/, 'Локальные записи клиентов не очищаются при явном выходе');
 assert.match(provider, /onAuthStateChange[\s\S]*session\.user\.id === currentUser\?\.id[\s\S]*currentUser = session\.user;[\s\S]*return;/, 'Обновление auth-токена перезапускает очередь и создаёт гонку сохранения');
+assert.match(provider, /data-edit-offline-booking[\s\S]*Исправить запись[\s\S]*queueOfflineBooking/, 'Конфликтную офлайн-запись нельзя исправить без удаления');
 assert.match(styles, /\.provider-mobile-create \{ position:fixed;[\s\S]*bottom:calc\(82px \+ env\(safe-area-inset-bottom\)\)/, 'Мобильная кнопка создания записи не закреплена над нижней навигацией');
 assert.match(styles, /\.booking-created-highlight \{ animation:booking-created-highlight/, 'Созданная запись не получает краткую визуальную подсветку');
 assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
@@ -544,6 +549,8 @@ assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker н�
 for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'resource-management.js', 'organization.js', 'team-calendar.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
+assert.match(providerHtml, new RegExp(`href="styles\\.css\\?v=${version}"`), 'Кабинет запрашивает CSS по адресу, которого нет в precache');
+assert.match(providerHtml, new RegExp(`src="provider\\.js\\?v=${version}"`), 'Кабинет запрашивает JavaScript по адресу, которого нет в precache');
 assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');
 assert.match(worker, new RegExp(`'\\./ui-icons\\.svg\\?v=${version}',`), 'Service Worker не кэширует версионированный URL иконок');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
@@ -784,7 +791,7 @@ assert.match(releaseWorkflow, /supabase-migration-v60\.sql[\s\S]*supabase-migrat
 assert.match(app, /if \(error\) \{[\s\S]*?return;\s*\n\s*\}\s*\n\s*const manageToken[\s\S]*?saveClientContact\(name, phone\)/, 'Контакты сохраняются до подтверждения записи');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
-assert.match(privacy, /Офлайн-копия и черновик[\s\S]*не дольше 7 дней[\s\S]*не дольше 12 часов/, 'Политика не объясняет офлайн-копию и временный черновик');
+assert.match(privacy, /Офлайн-копия, черновик и отложенные записи[\s\S]*не дольше 7 дней[\s\S]*не дольше 12 часов[\s\S]*имя, телефон, услуга, дата, время и заметка[\s\S]*при конфликте данные остаются до исправления или удаления/, 'Политика неверно объясняет локальное хранение офлайн-записи');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
 assert.match(privacy, /EXIF и геометки/, 'В политике не описано удаление метаданных фотографий');
 
