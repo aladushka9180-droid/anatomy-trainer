@@ -66,6 +66,8 @@ let portfolioPhotoDrafts = { before: null, after: null };
 let portfolioPreviewUrls = [];
 let clientNotes = new Map();
 let clientLabels = new Map();
+let clientAvatars = new Map();
+let clientAvatarsRemoteAvailable = false;
 let pendingClientLabels = new Set();
 let clientLabelReasonTimer = null;
 const clientLabelSaveQueues = new Map();
@@ -111,6 +113,10 @@ const PORTFOLIO_BUCKET = 'portfolio-images';
 const PORTFOLIO_INPUT_LIMIT = 12 * 1024 * 1024;
 const PORTFOLIO_OUTPUT_LIMIT = 8 * 1024 * 1024;
 const PORTFOLIO_MAX_EDGE = 2000;
+const CLIENT_AVATAR_BUCKET = 'client-avatars';
+const CLIENT_AVATAR_INPUT_LIMIT = 8 * 1024 * 1024;
+const CLIENT_AVATAR_OUTPUT_LIMIT = 2 * 1024 * 1024;
+const CLIENT_AVATAR_MAX_EDGE = 512;
 const defaultNotificationTemplates = {
   confirmation: 'Здравствуйте, {имя}! Ваша запись подтверждена.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nДо встречи!',
   reminder: 'Здравствуйте, {имя}! Напоминаю о вашей записи.\n\n{услуга}\n{дата} в {время}\n{адрес}\n\nЕсли планы изменились, пожалуйста, сообщите заранее.',
@@ -157,7 +163,8 @@ const writeSelectors = [
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
   '[data-organization-write]', '[data-resource-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
-  '[data-booking-status]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]'
+  '[data-booking-status]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
+  '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
 ];
 function applyWriteAvailability() {
   $$(writeSelectors.join(',')).forEach(control => {
@@ -229,6 +236,30 @@ function normalizePhone(value) {
   if (digits.length === 11 && digits.startsWith('8')) digits = `7${digits.slice(1)}`;
   if (digits.length === 10) digits = `7${digits}`;
   return digits.length >= 11 && digits.length <= 15 && !digits.startsWith('0') ? digits : '';
+}
+
+function clientAvatar(phone) {
+  return clientAvatars.get(normalizePhone(phone)) || null;
+}
+
+function clientAvatarContent(phone, name) {
+  const avatar = clientAvatar(phone);
+  if (avatar?.signed_url) return `<img src="${escapeHtml(avatar.signed_url)}" alt="" loading="lazy">`;
+  return escapeHtml(String(name || 'Клиент').trim().slice(0, 1).toUpperCase() || 'К');
+}
+
+function clientAvatarEditorMarkup(phone, name, bookingId = '') {
+  const normalizedPhone = normalizePhone(phone);
+  const avatar = clientAvatar(normalizedPhone);
+  const visual = `<span class="booking-sheet-client-avatar">${clientAvatarContent(normalizedPhone, name)}</span>`;
+  if (!clientAvatarsRemoteAvailable || !normalizedPhone) return visual;
+  return `<span class="client-avatar-control booking-client-avatar-control">
+    <label class="client-avatar-picker" title="${avatar ? 'Сменить фото клиента' : 'Добавить фото клиента'}">
+      <input type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input data-client-phone="${escapeHtml(normalizedPhone)}" data-booking-id="${escapeHtml(bookingId)}" aria-label="${avatar ? 'Сменить фото клиента' : 'Добавить фото клиента'}">
+      ${visual}<small>${uiIcon('image')} ${avatar ? 'Сменить' : 'Фото'}</small>
+    </label>
+    ${avatar ? `<button class="client-avatar-remove" type="button" data-remove-client-avatar="${escapeHtml(normalizedPhone)}" data-booking-id="${escapeHtml(bookingId)}" aria-label="Удалить фото клиента">${uiIcon('close')}</button>` : ''}
+  </span>`;
 }
 
 function clientLabelStorageKey(userId = currentUser?.id) { return `massage-client-labels-v1:${userId || 'anonymous'}`; }
@@ -1629,7 +1660,7 @@ function openBookingSheet(id) {
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
-    <div class="booking-sheet-summary"><div class="booking-sheet-client"><span>${escapeHtml(String(item.client_name || 'Клиент').slice(0, 1).toUpperCase())}</span><div><small>Клиент</small><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
+    <div class="booking-sheet-summary"><div class="booking-sheet-client">${clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)}<div><small>Клиент</small><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
     ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}
     ${compactBookingColorPicker(`bookingColor-${item.id}`, bookingColor(item), item.id)}
@@ -1643,6 +1674,7 @@ function openBookingSheet(id) {
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button></div>` : ''}
+    <div class="booking-sheet-actions booking-repeat-actions"><button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -2051,8 +2083,9 @@ function setNewBookingMode(mode) {
   loadNewBookingSlots();
 }
 
-function openNewBookingSheet(preferredTime = '') {
+function openNewBookingSheet(preferredTime = '', preset = {}) {
   const services = ownServices.filter(item => item.active);
+  const selectedService = services.find(item => item.id === preset.serviceId) || services[0];
   const date = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
   newBookingTime = '';
   newBookingSlots = [];
@@ -2061,14 +2094,14 @@ function openNewBookingSheet(preferredTime = '') {
   newBookingMode = 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   $('#bookingSheet').classList.remove('booking-sheet-vip');
-  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Ручное расписание</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">Новый клиент</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.clientName ? 'Повторный визит' : 'Ручное расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.clientName ? 'Повторная запись' : 'Новый клиент'}</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
         <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Основная информация о записи</small></div></div>
           <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div><label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><label>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
-          <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(services[0].id, true)}</select></label>
+          <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           ${bookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT)}
         </section>
         <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small>Выберите удобное свободное окно</small></div></div>
@@ -2081,13 +2114,30 @@ function openNewBookingSheet(preferredTime = '') {
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   if (!services.length) return;
+  $('#newBookingName').value = String(preset.clientName || '');
+  $('#newBookingPhone').value = String(preset.clientPhone || '');
   $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => setNewBookingMode(button.dataset.newBookingMode)));
   $('#newBookingService').addEventListener('change', loadNewBookingSlots);
   $('#newBookingDate').addEventListener('change', () => { newBookingPreferredTime = ''; loadNewBookingSlots(); });
   $('#newBookingForm').addEventListener('submit', createNewBooking);
   setNewBookingMode('client');
+  if (preset.clientName) {
+    $('#newBookingSheetTitle').textContent = 'Повторная запись';
+    $('#newBookingSectionSubtitle').textContent = 'Клиент и услуга уже выбраны';
+  }
   loadNewBookingSlots();
-  setTimeout(() => $('#newBookingName')?.focus(), 0);
+  setTimeout(() => (preset.clientName ? $('#newBookingDate') : $('#newBookingName'))?.focus(), 0);
+}
+
+function openRepeatBookingFromSheet(id) {
+  if (!requireWrites()) return;
+  const item = allBookings.find(booking => booking.id === id);
+  if (!item || isScheduleBlock(item)) return;
+  openNewBookingSheet('', {
+    clientName: item.client_name,
+    clientPhone: item.client_phone,
+    serviceId: item.service_id
+  });
 }
 
 async function createNewBooking(event) {
@@ -2236,7 +2286,7 @@ function renderClients() {
     const upcoming = clientUpcoming(client);
     const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${escapeHtml(client.name.slice(0,1).toUpperCase())}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
   }).join('');
 }
 
@@ -2247,7 +2297,15 @@ function renderClientDetail(phone) {
   renderClients();
   $('#clientProfileEmpty').hidden = true;
   $('#clientProfileContent').hidden = false;
-  $('#clientAvatar').textContent = client.name.slice(0,1).toUpperCase();
+  $('#clientAvatar').innerHTML = clientAvatarContent(client.phone, client.name);
+  const avatarInput = $('#clientAvatarInput');
+  const avatarRemove = $('#clientAvatarRemove');
+  const avatarAvailable = clientAvatarsRemoteAvailable;
+  avatarInput.dataset.clientPhone = client.phone;
+  avatarInput.disabled = !avatarAvailable;
+  avatarInput.closest('.client-avatar-picker').hidden = !avatarAvailable;
+  avatarRemove.dataset.removeClientAvatar = client.phone;
+  avatarRemove.hidden = !avatarAvailable || !clientAvatar(client.phone);
   $('#clientName').textContent = client.name;
   $('#clientPhone').textContent = client.displayPhone;
   $('#clientPhone').href = `tel:${client.phone}`;
@@ -2319,6 +2377,112 @@ async function loadClientNotes() {
   renderBookings();
   renderClients();
   return { ok: true };
+}
+
+async function signedClientAvatarUrl(path) {
+  const { data, error } = await db.storage.from(CLIENT_AVATAR_BUCKET).createSignedUrl(path, 3600);
+  return error ? '' : data?.signedUrl || '';
+}
+
+async function loadClientAvatars() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok:false, optional:true };
+  const { data, error } = await db.from('client_avatars').select('client_phone,storage_path,width,height,updated_at').eq('performer_id', userId);
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
+  if (error) {
+    clientAvatarsRemoteAvailable = false;
+    return { ok:false, optional:true };
+  }
+  const entries = await Promise.all((data || []).map(async item => ({
+    ...item,
+    client_phone: normalizePhone(item.client_phone),
+    signed_url: await signedClientAvatarUrl(item.storage_path)
+  })));
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
+  clientAvatars = new Map(entries.filter(item => item.client_phone).map(item => [item.client_phone, item]));
+  clientAvatarsRemoteAvailable = true;
+  renderClients();
+  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  return { ok:true, optional:true };
+}
+
+async function prepareClientAvatar(file) {
+  const image = await decodePortfolioImage(file);
+  const sourceWidth = image.width;
+  const sourceHeight = image.height;
+  const side = Math.min(sourceWidth, sourceHeight);
+  const edge = Math.max(1, Math.min(CLIENT_AVATAR_MAX_EDGE, side));
+  const sourceX = Math.max(0, (sourceWidth - side) / 2);
+  const sourceY = Math.max(0, (sourceHeight - side) / 2);
+  const canvas = document.createElement('canvas');
+  canvas.width = edge;
+  canvas.height = edge;
+  const context = canvas.getContext('2d', { alpha:false });
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, edge, edge);
+  context.drawImage(image, sourceX, sourceY, side, side, 0, 0, edge, edge);
+  image.close?.();
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', .84));
+  if (!blob || blob.size > CLIENT_AVATAR_OUTPUT_LIMIT) throw new Error('avatar_too_large');
+  return { blob, width:edge, height:edge };
+}
+
+async function saveClientAvatar(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!requireWrites() || !clientAvatarsRemoteAvailable) { input.value = ''; return; }
+  const phone = normalizePhone(input.dataset.clientPhone);
+  if (!phone) { input.value = ''; notify('Не удалось определить клиента'); return; }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { input.value = ''; notify('Выберите фото JPEG, PNG или WebP'); return; }
+  if (file.size > CLIENT_AVATAR_INPUT_LIMIT) { input.value = ''; notify('Фото должно быть не больше 8 МБ'); return; }
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const bookingId = input.dataset.bookingId || '';
+  const existing = clientAvatar(phone);
+  input.disabled = true;
+  let path = '';
+  try {
+    const prepared = await prepareClientAvatar(file);
+    if (!sessionIsCurrent(userId, generation)) return;
+    path = `${userId}/${phone}/${createPortfolioPhotoId()}.webp`;
+    const { error: uploadError } = await db.storage.from(CLIENT_AVATAR_BUCKET).upload(path, prepared.blob, { contentType:'image/webp', cacheControl:'31536000', upsert:false });
+    if (uploadError) throw uploadError;
+    const { error: saveError } = await db.from('client_avatars').upsert({ performer_id:userId, client_phone:phone, storage_path:path, width:prepared.width, height:prepared.height, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' });
+    if (saveError) {
+      await db.storage.from(CLIENT_AVATAR_BUCKET).remove([path]);
+      throw saveError;
+    }
+    if (!sessionIsCurrent(userId, generation)) return;
+    if (existing?.storage_path && existing.storage_path !== path) await db.storage.from(CLIENT_AVATAR_BUCKET).remove([existing.storage_path]);
+    clientAvatars.set(phone, { client_phone:phone, storage_path:path, width:prepared.width, height:prepared.height, signed_url:await signedClientAvatarUrl(path) });
+    renderBookingData();
+    if (bookingId && !$('#bookingSheet').hidden) openBookingSheet(bookingId);
+    notify(existing ? 'Фото клиента обновлено' : 'Фото клиента добавлено');
+  } catch {
+    notify('Не удалось сохранить фото. Попробуйте другое изображение.');
+  } finally {
+    input.value = '';
+    input.disabled = false;
+    applyWriteAvailability();
+  }
+}
+
+async function removeClientAvatar(phone, bookingId = '') {
+  if (!requireWrites() || !clientAvatarsRemoteAvailable) return;
+  const normalizedPhone = normalizePhone(phone);
+  const existing = clientAvatar(normalizedPhone);
+  if (!existing || !confirm('Удалить фото клиента?')) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const { error } = await db.from('client_avatars').delete().eq('performer_id', userId).eq('client_phone', normalizedPhone);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (error) { notify('Не удалось удалить фото клиента'); return; }
+  await db.storage.from(CLIENT_AVATAR_BUCKET).remove([existing.storage_path]);
+  clientAvatars.delete(normalizedPhone);
+  renderBookingData();
+  if (bookingId && !$('#bookingSheet').hidden) openBookingSheet(bookingId);
+  notify('Фото клиента удалено');
 }
 
 async function loadClientLabels() {
@@ -2737,6 +2901,7 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'provider_days_off', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'client_notes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'client_labels', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'client_avatars', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_outcomes', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_session_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
@@ -2773,7 +2938,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.load(), teamCalendarController.refresh()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadClientAvatars(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.load(), teamCalendarController.refresh()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -2868,6 +3033,8 @@ async function handleSession(session) {
     bookingNotes = new Map();
     pendingBookingNotes = new Set();
     clientLabels = new Map();
+    clientAvatars = new Map();
+    clientAvatarsRemoteAvailable = false;
     pendingClientLabels = new Set();
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
   }
@@ -2893,6 +3060,8 @@ async function handleSession(session) {
     daysOff = [];
     clientNotes = new Map();
     clientLabels = new Map();
+    clientAvatars = new Map();
+    clientAvatarsRemoteAvailable = false;
     pendingClientLabels = new Set();
     bookingOutcomes = new Map();
     bookingSessionItems = new Map();
@@ -3796,6 +3965,8 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const repeatBookingButton = event.target.closest('[data-repeat-booking]');
+  const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
   const editBooking = event.target.closest('[data-edit-booking]');
   const editBookingSession = event.target.closest('[data-edit-booking-session]');
@@ -3866,6 +4037,8 @@ document.addEventListener('click', async event => {
   if (dateToday) selectScheduleDate(businessTodayIso());
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
+  if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
   if (editBookingSession) openSessionComposer(editBookingSession.dataset.editBookingSession);
@@ -3982,6 +4155,11 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('change', async event => {
+  const clientAvatarInput = event.target.closest('[data-client-avatar-input]');
+  if (clientAvatarInput) {
+    await saveClientAvatar(clientAvatarInput);
+    return;
+  }
   const sessionControl = event.target.closest('[data-session-service],[data-session-duration],[data-session-price],[data-session-extends]');
   if (sessionControl) {
     const form = sessionControl.closest('#sessionComposerForm');
