@@ -1594,7 +1594,7 @@ function finishScheduleDaySwipe(state, event) {
 }
 
 function beginScheduleDaySwipe(event, surface) {
-  if (event.button !== 0 || currentFilter !== 'day' || timelineBookingDrag || timelineMovePending) return;
+  if ((event.pointerType !== 'touch' && event.pointerType !== 'pen') || event.button !== 0 || currentFilter !== 'day' || timelineBookingDrag || timelineMovePending) return;
   if (event.target.closest('.timeline-booking,.provider-booking,input,select,textarea,a,[contenteditable="true"]')) return;
   scheduleDaySwipe = {
     pointerId:event.pointerId,
@@ -4594,4 +4594,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=144'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=145'));

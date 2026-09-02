@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
 const version = '144';
+const workerVersion = '145';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -362,10 +363,11 @@ assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]
 
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
-assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
-for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'resource-management.js', 'organization.js', 'team-calendar.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
+assert.match(worker, new RegExp(`v${workerVersion}`), 'Версия Service Worker не совпадает');
+for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'resource-management.js', 'organization.js', 'team-calendar.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
+assert.match(worker, new RegExp(`provider\\.js\\?v=${workerVersion}`), 'Service Worker не кэширует исправленный кабинет');
 assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');
 assert.match(worker, new RegExp(`'\\./ui-icons\\.svg\\?v=${version}',`), 'Service Worker не кэширует версионированный URL иконок');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');

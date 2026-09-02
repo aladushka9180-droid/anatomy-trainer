@@ -3,6 +3,8 @@ import fs from 'node:fs';
 
 const source = fs.readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+const providerHtml = fs.readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
+const serviceWorker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 
 function sourceFunction(name, nextName) {
   const start = source.indexOf(`function ${name}`);
@@ -32,6 +34,13 @@ assert.match(source, /document\.addEventListener\('contextmenu',[\s\S]*event\.pr
 assert.match(source, /state\.card\.closest\('#providerBookings'\)[\s\S]*scheduleDaySwipe = swipeState/, 'свайп дня должен начинаться и поверх карточки на телефоне');
 const beginScheduleDaySwipe = sourceFunction('beginScheduleDaySwipe', 'openTimelineBooking');
 assert.doesNotMatch(beginScheduleDaySwipe, /setPointerCapture/, 'обычный клик по дате нельзя перехватывать до начала свайпа');
+assert.match(beginScheduleDaySwipe, /event\.pointerType !== 'touch' && event\.pointerType !== 'pen'/, 'свайп дня не должен перехватывать мышь на компьютере');
+const daySwipeRuntime = new Function(`let currentFilter = 'day'; let timelineBookingDrag = null; let timelineMovePending = false; let scheduleDaySwipe = null; ${beginScheduleDaySwipe}; const surface = {}; return { run(event) { scheduleDaySwipe = null; beginScheduleDaySwipe(event, surface); return scheduleDaySwipe; } };`)();
+const clearSwipeTarget = { closest:() => null };
+assert.equal(daySwipeRuntime.run({ pointerType:'mouse', button:0, pointerId:1, clientX:120, clientY:40, target:clearSwipeTarget }), null, 'обычный клик мышью не должен запускать распознавание свайпа');
+assert.equal(daySwipeRuntime.run({ pointerType:'touch', button:0, pointerId:2, clientX:120, clientY:40, target:clearSwipeTarget })?.pointerId, 2, 'свайп пальцем должен сохраниться');
+assert.match(providerHtml, /provider\.js\?v=145/, 'кабинет должен загрузить исправленный обработчик, а не старый кэш');
+assert.match(serviceWorker, /provider\.js\?v=145/, 'исправленный обработчик должен быть доступен офлайн');
 assert.match(source, /state\.active = true;\s*state\.surface\.setPointerCapture/, 'захват указателя допустим только после распознавания свайпа');
 assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
 assert.match(source, /bookingPlacementIssue\(item, state\.date, state\.targetMinute\)/);
