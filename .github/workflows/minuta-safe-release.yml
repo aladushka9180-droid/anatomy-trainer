@@ -494,9 +494,7 @@ jobs:
             echo 'begin;'
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v71.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v72.sql
-            sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/payroll-v72-integration.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v73.sql
-            sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/benefits-v73-integration.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v74.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v75.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v76.sql
