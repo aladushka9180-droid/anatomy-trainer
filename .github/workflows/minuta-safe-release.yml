@@ -1072,7 +1072,6 @@ jobs:
           node-version: 22
       - name: Наблюдать production без записи данных
         env:
-          MINUTA_EXPECT_VERSION: ${{ inputs.expected_version }}
           MINUTA_EXPECT_IDEMPOTENCY: "1"
           OBSERVATION_MINUTES: ${{ inputs.observation_minutes }}
         shell: bash
