@@ -183,7 +183,10 @@ async function openReschedule() {
   $('#manageDates').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободные даты…</span></div>';
   $('#manageTimes').innerHTML = '';
   const parameters = { p_token: token, p_start: state.dates[0].iso, p_end: state.dates[state.dates.length - 1].iso };
-  let { data, error } = await db.rpc('get_reschedule_slots_v5', parameters);
+  let { data, error } = await db.rpc('get_minuta_group_safe_reschedule_slots', parameters);
+  if (error && isMissingRpc(error, 'get_minuta_group_safe_reschedule_slots')) {
+    ({ data, error } = await db.rpc('get_reschedule_slots_v5', parameters));
+  }
   if (error && isMissingRpc(error, 'get_reschedule_slots_v5')) {
     ({ data, error } = await db.rpc('get_reschedule_slots_v4', parameters));
   }

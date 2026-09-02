@@ -83,6 +83,10 @@
       </div>
     </section>
   </main>
+  <section class="public-group-events" id="publicGroupEvents" aria-labelledby="publicGroupEventsTitle" hidden>
+    <div class="public-group-events-heading"><div><small>Запись по местам</small><h2 id="publicGroupEventsTitle">Групповые события</h2></div><p>Выберите событие и оставьте мастеру комментарий перед посещением.</p></div>
+    <div class="public-group-events-list" id="publicGroupEventsList"></div>
+  </section>
   <dialog class="calendar-dialog" id="calendarDialog" aria-labelledby="calendarDialogTitle">
     <button class="calendar-dialog-close" id="closeCalendarDialog" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"/></svg></button>
     <small>Напоминание о записи</small><h2 id="calendarDialogTitle">Куда добавить?</h2>
@@ -109,6 +113,20 @@
     <p class="service-details-note">Если вы плохо себя чувствуете или сомневаетесь, подходит ли вам массаж, заранее сообщите исполнителю.</p>
     <button class="primary" type="button" data-choose-service-details><span>Выбрать эту услугу</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"/></svg></button>
   </dialog>
+  <dialog class="service-details-dialog public-group-booking-dialog" id="publicGroupBookingDialog" aria-labelledby="publicGroupBookingTitle">
+    <button class="dialog-close" id="closePublicGroupBooking" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
+    <small>Групповое событие</small><h2 id="publicGroupBookingTitle">Запись на событие</h2>
+    <p id="publicGroupBookingSummary"></p>
+    <form id="publicGroupBookingForm" class="public-group-booking-form" novalidate>
+      <label>Ваше имя<input id="publicGroupClientName" autocomplete="name" maxlength="80" required></label>
+      <label>Номер телефона<input id="publicGroupClientPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="+7 (___) ___-__-__" required></label>
+      <label>Комментарий мастеру<textarea id="publicGroupClientComment" maxlength="700" rows="3" placeholder="Например, ограничения по здоровью или важный вопрос"></textarea></label>
+      <label class="consent-check"><input id="publicGroupConsent" type="checkbox" required><span>Я согласен(на) на обработку имени, телефона и комментария для участия в событии.</span></label>
+      <p class="form-error" id="publicGroupBookingError" role="alert" hidden></p>
+      <button class="primary" type="submit">Подтвердить участие</button>
+    </form>
+    <div class="public-group-booking-success" id="publicGroupBookingSuccess" aria-live="polite" hidden></div>
+  </dialog>
   <dialog class="waitlist-dialog" id="waitlistDialog" aria-labelledby="waitlistTitle">
     <button class="dialog-close" type="button" data-close-waitlist aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"/></svg></button>
     <div id="waitlistFormContent">
@@ -126,6 +144,6 @@
     <div class="waitlist-success" id="waitlistSuccess" hidden aria-live="polite"><span class="success-mark"><svg class="ui-icon"><use href="ui-icons.svg#icon-check"/></svg></span><small>Заявка принята</small><h2>Вы в листе ожидания</h2><p id="waitlistSuccessText"></p><a class="primary" id="waitlistManageLink" href="waitlist.html">Управлять заявкой</a></div>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=160"></script><script src="reliability.js?v=160"></script><script src="app.js?v=160" defer></script>
+  <script src="config.js?v=160"></script><script src="reliability.js?v=160"></script><script src="group-bookings.js?v=160" defer></script><script src="app.js?v=160" defer></script>
 </body>
 </html>

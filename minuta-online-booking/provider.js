@@ -181,7 +181,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
-  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-organization-policy-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
+  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-cancel-booking-series]', '#bookingSeriesCancelForm button[type="submit"]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
@@ -3724,6 +3724,7 @@ async function handleSession(session) {
   });
   setWritesAllowed(false);
   teamCalendarController.reset();
+  groupBookingsController.reset();
   organizationController.reset();
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
@@ -5037,6 +5038,15 @@ const bookingPolicyController = window.MinutaBookingPolicies?.createController ?
 }) : { bind() {}, setOrganization() {}, reset() {} };
 bookingPolicyController.bind();
 
+const groupBookingsController = window.MinutaGroupBookings?.createProviderController ? window.MinutaGroupBookings.createProviderController({
+  db, $, escapeHtml, notify, requireWrites,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  applyWriteAvailability
+}) : { bind() {}, load() { return Promise.resolve({ ok:true, optional:true }); }, setOrganization() {}, reset() {} };
+groupBookingsController.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -5055,6 +5065,7 @@ const organizationController = window.MinutaOrganization.createController({
     payrollController.setOrganization(organization);
     benefitController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
+    groupBookingsController.setOrganization(organization);
   }
 });
 organizationController.bind();

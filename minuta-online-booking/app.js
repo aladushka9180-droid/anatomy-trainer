@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -158,6 +158,11 @@ async function loadPublicSlots(service, start, end, locationId = state.locationI
       p_start: start,
       p_end: end
     };
+    if (state.groupBookingSafety) {
+      const safeResult = await db.rpc('get_public_minuta_available_slots_group_safe', parameters);
+      if (!isMissingRpc(safeResult.error, 'get_public_minuta_available_slots_group_safe')) return safeResult;
+      state.groupBookingSafety = false;
+    }
     if (state.branchShiftScheduling) {
       const result = await db.rpc('get_public_minuta_available_slots_v4', parameters);
       if (!isMissingRpc(result.error, 'get_public_minuta_available_slots_v4')) return result;
@@ -1019,10 +1024,15 @@ $('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').c
 $('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
 window.addEventListener('online', loadServices);
+const publicGroupBookingsController = window.MinutaGroupBookings?.createPublicController ? window.MinutaGroupBookings.createPublicController({
+  db, $, escapeHtml, getSlug:() => requestedOrganizationSlug
+}) : { bind() {}, load() {} };
+publicGroupBookingsController.bind();
 restoreClientContact();
 renderDates();
 renderTimes();
 loadServices();
+publicGroupBookingsController.load();
 loadPublicReviews();
 updateSubmitAvailability();
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=160'));

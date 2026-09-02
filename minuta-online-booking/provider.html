@@ -127,6 +127,10 @@
             </div>
             <div class="provider-bookings schedule-list" id="providerBookings"></div>
           </section>
+          <section class="panel group-events-panel" id="groupEventsPanel" hidden>
+            <div class="group-events-panel-head"><div><small>События с местами</small><h2>Групповые сеансы</h2><p>Занятия и события у выбранного специалиста и филиала. Комментарий участника виден только команде.</p></div><button class="primary" id="newGroupEvent" type="button" data-group-booking-write><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать событие</span></button></div>
+            <div class="group-events-list" id="groupEventsList"></div>
+          </section>
         </section>
 
         <section class="provider-view" data-provider-panel="clients" hidden>
@@ -437,6 +441,11 @@
         <section class="provider-view" data-provider-panel="settings" hidden>
           <div class="view-title"><div><span>Безопасность</span><h2>Настройки</h2></div></div>
           <div class="settings-layout">
+            <section class="panel settings-card group-booking-settings-card" id="groupBookingSettingsCard" hidden>
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></div>
+              <div class="settings-heading"><small>Групповые события</small><h3>Открывать запись по местам</h3><p id="groupBookingsSettingNote">Функция выключена: события не видны клиентам.</p></div>
+              <label class="settings-check group-booking-toggle"><input id="groupBookingsEnabled" type="checkbox" data-group-booking-write><span><strong>Показывать групповые события клиентам</strong><small>Включить может только владелец организации. Изменение не затрагивает обычные записи.</small></span></label>
+            </section>
             <section class="panel settings-card appearance-settings-card">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
               <div class="settings-heading"><small>Внешний вид кабинета</small><h3>Структура, тема и карточки</h3><p>Сначала выберите компоновку интерфейса, затем независимо примените к ней цветную или фактурную тему. Оформление меняется сразу.</p></div>
@@ -657,6 +666,19 @@
       <p class="form-error" id="serviceError" hidden></p><button class="primary" type="submit">Добавить услугу</button>
     </form>
   </dialog>
+  <dialog class="service-creator-dialog group-event-dialog" id="groupEventDialog" aria-labelledby="groupEventDialogTitle">
+    <div class="notification-template-dialog-head"><div><small>Групповая запись</small><h2 id="groupEventDialogTitle">Новое событие</h2></div><button id="closeGroupEventDialog" type="button" aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+    <form id="groupEventForm" class="group-event-form">
+      <input id="groupEventId" type="hidden">
+      <label>Название<input id="groupEventTitle" maxlength="120" placeholder="Например, Практика здоровой спины" required></label>
+      <label>Описание<textarea id="groupEventDescription" maxlength="1000" rows="3" placeholder="Что будет на событии и что взять с собой"></textarea></label>
+      <div class="group-event-form-grid"><label>Филиал<select id="groupEventLocation" required></select></label><label>Специалист<select id="groupEventPerformer" required></select></label></div>
+      <div class="group-event-form-grid"><label>Дата<input id="groupEventDate" type="date" required></label><label>Начало<input id="groupEventTime" type="time" required></label></div>
+      <div class="group-event-form-grid"><label>Длительность, минут<input id="groupEventDuration" type="number" min="15" max="1440" step="5" required></label><label>Количество мест<input id="groupEventCapacity" type="number" min="2" max="500" step="1" required></label><label>Статус<select id="groupEventStatus"><option value="draft">Черновик</option><option value="published">Опубликовано</option><option value="closed">Набор закрыт</option><option value="cancelled">Отменено</option></select></label></div>
+      <p class="form-error" id="groupEventError" role="alert" hidden></p>
+      <button class="primary" type="submit" data-group-booking-write>Сохранить событие</button>
+    </form>
+  </dialog>
   <div class="booking-sheet" id="bookingSheet" hidden>
     <button class="booking-sheet-backdrop" type="button" data-close-booking-sheet aria-label="Закрыть карточку записи"></button>
     <section class="booking-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bookingSheetTitle">
@@ -677,6 +699,7 @@
   <script src="booking-policy-management.js?v=160" defer></script>
   <script src="team-calendar.js?v=160" defer></script>
   <script src="free-slots-share.js?v=160" defer></script>
+  <script src="group-bookings.js?v=160" defer></script>
   <script src="provider.js?v=160&amp;iconfix=1" defer></script>
 </body>
 </html>
