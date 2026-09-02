@@ -13,6 +13,7 @@ function isMissingRpc(error, name) {
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
+const CALENDAR_VIEW_KEY = 'massage-calendar-view-v1';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const SERVICE_SYNC_INTERVAL_MS = 30000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v5';
@@ -40,6 +41,7 @@ const BOOKING_COLOR_LABELS = Object.freeze({
 const BOOKING_COLOR_DEFAULT = 'auto';
 let currentUser = null;
 let currentFilter = restoreScheduleFilter();
+let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
@@ -825,7 +827,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=158#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=159#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1413,12 +1415,17 @@ function setProviderView(view) {
 }
 function setFilter(filter) {
   currentFilter = filter;
-  try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
+  if (filter !== 'day') calendarView = 'day';
+  try {
+    localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter);
+    localStorage.setItem(CALENDAR_VIEW_KEY, calendarView);
+  } catch {}
   $$('[data-filter]').forEach(button => {
     const active = button.dataset.filter === filter;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
+  updateCalendarViewControls();
   updateJournalModeButtons();
   renderBookings();
 }
@@ -1439,7 +1446,7 @@ function setJournalMode(mode) {
 
 function updateJournalModeButtons() {
   const modeToggle = $('.journal-mode-toggle');
-  if (modeToggle) modeToggle.hidden = teamCalendarController?.isTeamMode || currentFilter !== 'day';
+  if (modeToggle) modeToggle.hidden = teamCalendarController?.isTeamMode || currentFilter !== 'day' || calendarView !== 'day';
   $$('[data-journal-mode]').forEach(button => {
     const active = button.dataset.journalMode === journalMode;
     button.classList.toggle('active', active);
@@ -1470,6 +1477,14 @@ function restoreScheduleFilter() {
   return 'day';
 }
 
+function restoreCalendarView() {
+  try {
+    const stored = localStorage.getItem(CALENDAR_VIEW_KEY);
+    if (['day', 'week', 'month'].includes(stored)) return stored;
+  } catch {}
+  return 'day';
+}
+
 function rememberSelectedDate(followToday = selectedDate === businessTodayIso()) {
   try {
     localStorage.setItem(SCHEDULE_DATE_KEY, selectedDate);
@@ -1484,6 +1499,61 @@ function weekStartFor(date) {
   return start;
 }
 
+function calendarRange(view = calendarView, value = selectedDate) {
+  const selected = parseLocalIsoDate(value) || parseLocalIsoDate(businessTodayIso());
+  if (view === 'week') {
+    const start = weekStartFor(selected);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start:localIsoDate(start), end:localIsoDate(end) };
+  }
+  if (view === 'month') {
+    const start = new Date(selected.getFullYear(), selected.getMonth(), 1, 12);
+    const end = new Date(selected.getFullYear(), selected.getMonth() + 1, 0, 12);
+    return { start:localIsoDate(start), end:localIsoDate(end) };
+  }
+  const iso = localIsoDate(selected);
+  return { start:iso, end:iso };
+}
+
+function updateCalendarViewControls() {
+  $$('[data-calendar-view]').forEach(button => {
+    const active = button.dataset.calendarView === calendarView;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const strip = $('#dateStrip');
+  if (strip) strip.hidden = calendarView !== 'day' || currentFilter !== 'day';
+  const labels = calendarView === 'day'
+    ? ['Показать предыдущий день', 'Показать следующий день']
+    : calendarView === 'week'
+      ? ['Показать предыдущую неделю', 'Показать следующую неделю']
+      : ['Показать предыдущий месяц', 'Показать следующий месяц'];
+  const navigationButtons = $$('[data-date-shift]');
+  navigationButtons[0]?.setAttribute('aria-label', labels[0]);
+  navigationButtons[1]?.setAttribute('aria-label', labels[1]);
+  updateJournalModeButtons();
+}
+
+function setCalendarView(view) {
+  const next = ['day', 'week', 'month'].includes(view) ? view : 'day';
+  if (next === calendarView && currentFilter === 'day') return;
+  calendarView = next;
+  currentFilter = 'day';
+  try {
+    localStorage.setItem(CALENDAR_VIEW_KEY, calendarView);
+    localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter);
+  } catch {}
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  updateCalendarViewControls();
+  renderDateStrip();
+  renderBookings();
+}
+
 function selectScheduleDate(value) {
   const date = parseLocalIsoDate(value);
   if (!date) return;
@@ -1493,9 +1563,15 @@ function selectScheduleDate(value) {
   setFilter('day');
 }
 
-function shiftScheduleDate(days) {
+function shiftScheduleDate(direction) {
   const date = parseLocalIsoDate(selectedDate) || parseLocalIsoDate(businessTodayIso());
-  date.setDate(date.getDate() + days);
+  if (calendarView === 'month') {
+    const selectedDay = date.getDate();
+    date.setDate(1);
+    date.setMonth(date.getMonth() + direction);
+    const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0, 12).getDate();
+    date.setDate(Math.min(selectedDay, lastDay));
+  } else date.setDate(date.getDate() + (calendarView === 'week' ? direction * 7 : direction));
   selectScheduleDate(localIsoDate(date));
 }
 
@@ -1531,6 +1607,7 @@ function renderDateStrip() {
   if (picker) picker.value = selectedDate;
   const active = $('#dateStrip [data-booking-date].active');
   if ($('#dateStrip').scrollWidth > $('#dateStrip').clientWidth) active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  updateCalendarViewControls();
 }
 
 function updateBookingStats() {
@@ -2560,14 +2637,79 @@ function closeBookingSheet() {
   document.body.classList.remove('booking-sheet-open');
 }
 
+function calendarRangeTitle(view = calendarView) {
+  const range = calendarRange(view);
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  if (view === 'month') return start.toLocaleDateString('ru-RU', { month:'long', year:'numeric' });
+  if (view === 'week') {
+    const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+    if (sameMonth) return `${start.getDate()}–${end.toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' })}`;
+    return `${start.toLocaleDateString('ru-RU', { day:'numeric', month:'short' })} — ${end.toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' })}`;
+  }
+  return selectedDate === businessTodayIso()
+    ? 'Сегодня'
+    : start.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' });
+}
+
+function calendarOverviewBookingMarkup(item, compact) {
+  const time = String(item.booking_time || '').slice(0, 5);
+  const block = isScheduleBlock(item);
+  const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+  const client = block ? 'Занятое время' : item.client_name;
+  const statusClass = bookingStatusClass(item);
+  const details = `${title}, ${client}, ${time}`;
+  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}</small>`}</span></button>`;
+}
+
+function renderCalendarOverview(view) {
+  const holder = $('#providerBookings');
+  const range = calendarRange(view);
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  const today = businessTodayIso();
+  const visible = allBookings.filter(item => item.status !== 'cancelled' && item.booking_date >= range.start && item.booking_date <= range.end);
+  const byDate = new Map();
+  visible.forEach(item => {
+    if (!byDate.has(item.booking_date)) byDate.set(item.booking_date, []);
+    byDate.get(item.booking_date).push(item);
+  });
+  const days = [];
+  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) days.push(new Date(cursor));
+  const leading = view === 'month' ? (start.getDay() + 6) % 7 : 0;
+  const dayCells = [
+    ...Array.from({ length:leading }, () => '<div class="calendar-overview-day is-placeholder" aria-hidden="true"></div>'),
+    ...days.map(date => {
+      const iso = localIsoDate(date);
+      const items = byDate.get(iso) || [];
+      const limit = view === 'month' ? 3 : items.length;
+      const hiddenCount = Math.max(0, items.length - limit);
+      const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      return `<article class="calendar-overview-day${iso === today ? ' is-today' : ''}${iso === selectedDate ? ' is-selected' : ''}" data-calendar-date="${iso}">
+        <button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : ''}</button>
+        <div class="calendar-overview-items">${items.slice(0, limit).map(item => calendarOverviewBookingMarkup(item, view === 'month')).join('')}${hiddenCount ? `<button class="calendar-overview-more" type="button" data-calendar-open-date="${iso}">Ещё ${hiddenCount}</button>` : ''}</div>
+      </article>`;
+    })
+  ];
+  const weekdayHeader = view === 'month' ? `<div class="calendar-overview-weekdays" aria-hidden="true">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day => `<span>${day}</span>`).join('')}</div>` : '';
+  holder.className = `provider-bookings calendar-overview calendar-overview-${view}`;
+  holder.innerHTML = `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`;
+  $('#selectedDateTitle').textContent = calendarRangeTitle(view);
+  const clientCount = visible.filter(item => !isScheduleBlock(item)).length;
+  const blockCount = visible.length - clientCount;
+  $('#selectedDateSummary').textContent = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : 'Записей нет', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
+}
+
 function renderBookings() {
   const holder = $('#providerBookings');
-  const date = new Date(`${selectedDate}T12:00:00`);
-  const today = businessTodayIso();
-  $('#selectedDateTitle').textContent = selectedDate === today ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+  $('#selectedDateTitle').textContent = calendarRangeTitle(calendarView);
   if (teamCalendarController?.isTeamMode) {
     $('#selectedDateSummary').textContent = 'Записи выбранной команды';
     if (teamCalendarController.render(holder)) return;
+  }
+  if (currentFilter === 'day' && calendarView !== 'day') {
+    renderCalendarOverview(calendarView);
+    return;
   }
   const items = filteredBookings();
   const clientCount = items.filter(item => !isScheduleBlock(item)).length;
@@ -2586,7 +2728,7 @@ function setTeamCalendarMode(active) {
   const modeToggle = $('.journal-mode-toggle');
   const filters = $('.booking-filters');
   const createButton = $('#newBookingButton');
-  if (modeToggle) modeToggle.hidden = teamMode || currentFilter !== 'day';
+  if (modeToggle) modeToggle.hidden = teamMode || currentFilter !== 'day' || calendarView !== 'day';
   if (filters) filters.hidden = teamMode;
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
@@ -4335,6 +4477,8 @@ document.addEventListener('click', async event => {
   const retryOutboxNotification = event.target.closest('[data-retry-notification-outbox]');
   const filter = event.target.closest('[data-filter]');
   const journalView = event.target.closest('[data-journal-mode]');
+  const calendarViewButton = event.target.closest('[data-calendar-view]');
+  const calendarOpenDate = event.target.closest('[data-calendar-open-date]');
   const date = event.target.closest('[data-booking-date]');
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
@@ -4410,11 +4554,16 @@ document.addEventListener('click', async event => {
   if (retryOutboxNotification) await retryAutomaticNotification(retryOutboxNotification.dataset.retryNotificationOutbox, retryOutboxNotification);
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
+  if (calendarViewButton) setCalendarView(calendarViewButton.dataset.calendarView);
+  if (calendarOpenDate) {
+    setCalendarView('day');
+    selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);
+  }
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
   if (dateToday) selectScheduleDate(businessTodayIso());
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) {
-    if (journalMode === 'split' && currentFilter === 'day' && window.matchMedia('(min-width: 761px)').matches) {
+    if (journalMode === 'split' && currentFilter === 'day' && calendarView === 'day' && window.matchMedia('(min-width: 761px)').matches) {
       splitBookingId = openBooking.dataset.openBooking;
       renderBookings();
     } else openBookingSheet(openBooking.dataset.openBooking);
@@ -4628,6 +4777,8 @@ teamCalendarController = window.MinutaTeamCalendar.createController({
   getSessionGeneration: () => sessionGeneration,
   sessionIsCurrent,
   getSelectedDate: () => selectedDate,
+  getCalendarRange: () => calendarRange(),
+  getCalendarView: () => calendarView,
   getHolder: () => $('#providerBookings'),
   onModeChange: setTeamCalendarMode,
   renderLegacy: renderBookings
@@ -4833,4 +4984,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=158'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=159'));

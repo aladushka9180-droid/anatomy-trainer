@@ -15,7 +15,7 @@
   }
 
   function createController(options) {
-    const { db, $, $$, escapeHtml, getCurrentUser, getSessionGeneration, sessionIsCurrent, getSelectedDate, getHolder, onModeChange, renderLegacy } = options;
+    const { db, $, $$, escapeHtml, getCurrentUser, getSessionGeneration, sessionIsCurrent, getSelectedDate, getCalendarRange, getCalendarView, getHolder, onModeChange, renderLegacy } = options;
     let organization = null;
     let rows = [];
     let locations = [];
@@ -131,12 +131,12 @@
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
       const revision = ++requestRevision;
-      const date = getSelectedDate();
-      if (!userId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, optional: true };
+      const range = getCalendarRange?.() || { start:getSelectedDate(), end:getSelectedDate() };
+      if (!userId || !/^\d{4}-\d{2}-\d{2}$/.test(range.start) || !/^\d{4}-\d{2}-\d{2}$/.test(range.end)) return { ok: false, optional: true };
       availability = 'loading';
       updateControls();
       render(getHolder());
-      const commonParameters = { p_organization: organization.id, p_start: date, p_end: date, p_location: null, p_performer: null };
+      const commonParameters = { p_organization: organization.id, p_start: range.start, p_end: range.end, p_location: null, p_performer: null };
       let { data, error } = await db.rpc('get_minuta_team_calendar_v2', { ...commonParameters, p_resource: null });
       let loadedResourceCalendar = !error;
       if (error && isMissingRpc(error)) {
@@ -177,7 +177,7 @@
       members = normalized.members;
       resources = normalized.resources;
       resourceCalendar = loadedResourceCalendar;
-      loadedDate = date;
+      loadedDate = `${range.start}:${range.end}`;
       availability = 'ready';
       if (locationId && !locations.some(item => item.id === locationId)) locationId = '';
       if (performerId && !members.some(item => item.user_id === performerId)) performerId = '';
@@ -224,8 +224,8 @@
     }
 
     function filteredRows() {
-      const date = getSelectedDate();
-      return rows.filter(item => item.booking_date === date)
+      const range = getCalendarRange?.() || { start:getSelectedDate(), end:getSelectedDate() };
+      return rows.filter(item => item.booking_date >= range.start && item.booking_date <= range.end)
         .filter(item => !performerId || item.performer_id === performerId)
         .filter(item => !locationId || item.location_id === locationId)
         .filter(item => !resourceId || item.resources.some(resource => resource.id === resourceId))
@@ -234,7 +234,9 @@
 
     function render(holder = getHolder()) {
       if (!holder || mode !== 'team') return false;
-      if (availability === 'loading' || (availability === 'ready' && loadedDate !== getSelectedDate())) {
+      const range = getCalendarRange?.() || { start:getSelectedDate(), end:getSelectedDate() };
+      const rangeKey = `${range.start}:${range.end}`;
+      if (availability === 'loading' || (availability === 'ready' && loadedDate !== rangeKey)) {
         holder.className = 'provider-bookings schedule-list team-calendar-list';
         holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи команды…</span></div>';
         if (availability !== 'loading') load();
@@ -247,17 +249,71 @@
       }
       if (availability !== 'ready') return false;
       const visible = filteredRows();
+      const calendarView = getCalendarView?.() || 'day';
+      if (calendarView !== 'day') {
+        renderPeriod(holder, visible, calendarView, range);
+        return true;
+      }
       const groups = new Map();
+      const visibleMembers = performerId
+        ? members.filter(item => item.user_id === performerId)
+        : members;
+      visibleMembers.forEach(item => groups.set(item.user_id, { name:item.display_name || 'Специалист', items:[] }));
       visible.forEach(item => {
         const key = item.performer_id;
-        if (!groups.has(key)) groups.set(key, { name: item.performer_name, items: [] });
+        if (!groups.has(key)) groups.set(key, { name:item.performer_name, items:[] });
         groups.get(key).items.push(item);
       });
-      holder.className = 'provider-bookings schedule-list team-calendar-list';
-      holder.innerHTML = groups.size ? [...groups.values()].map(group => `<section class="team-calendar-group" aria-label="${escapeHtml(group.name)}"><div class="team-calendar-group-head"><h3>${escapeHtml(group.name)}</h3><span>${group.items.length}</span></div>${group.items.map(bookingMarkup).join('')}</section>`).join('') : '<div class="provider-empty schedule-empty"><strong>Записей команды нет</strong><small>Измените филиал, специалиста или дату.</small></div>';
+      holder.className = 'provider-bookings team-calendar-list team-calendar-columns';
+      holder.innerHTML = groups.size ? [...groups.values()].map(group => `<section class="team-calendar-group" aria-label="${escapeHtml(group.name)}"><div class="team-calendar-group-head"><h3>${escapeHtml(group.name)}</h3><span>${group.items.length}</span></div><div class="team-calendar-group-items">${group.items.length ? group.items.map(bookingMarkup).join('') : '<div class="team-calendar-column-empty">Нет записей</div>'}</div></section>`).join('') : '<div class="provider-empty schedule-empty"><strong>Записей команды нет</strong><small>Измените филиал, специалиста или дату.</small></div>';
       const status = $('#teamCalendarStatus');
       if (status) status.textContent = `Показано записей команды: ${visible.length}`;
       return true;
+    }
+
+    function localDate(value) {
+      const date = new Date(`${value}T12:00:00`);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function localIso(date) {
+      const offset = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+    }
+
+    function periodBookingMarkup(item, compact) {
+      const time = String(item.booking_time).slice(0, 5);
+      const label = `${item.performer_name}, ${item.service_name}, ${item.client_name}, ${time}`;
+      return `<article class="calendar-overview-booking team-calendar-period-booking status-${escapeHtml(String(item.status || 'new').replaceAll('_', '-'))}" aria-label="${escapeHtml(label)}"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(compact ? item.performer_name : item.service_name)}</strong><small>${escapeHtml(compact ? item.service_name : `${item.performer_name} · ${item.client_name}`)}</small></span></article>`;
+    }
+
+    function renderPeriod(holder, visible, view, range) {
+      const start = localDate(range.start);
+      const end = localDate(range.end);
+      const selected = getSelectedDate();
+      const today = localIso(new Date());
+      const byDate = new Map();
+      visible.forEach(item => {
+        if (!byDate.has(item.booking_date)) byDate.set(item.booking_date, []);
+        byDate.get(item.booking_date).push(item);
+      });
+      const days = [];
+      for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) days.push(new Date(cursor));
+      const leading = view === 'month' ? (start.getDay() + 6) % 7 : 0;
+      const placeholders = Array.from({ length:leading }, () => '<div class="calendar-overview-day is-placeholder" aria-hidden="true"></div>');
+      const cells = days.map(date => {
+        const iso = localIso(date);
+        const items = byDate.get(iso) || [];
+        const limit = view === 'month' ? 3 : items.length;
+        const hiddenCount = Math.max(0, items.length - limit);
+        const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+        return `<article class="calendar-overview-day${iso === today ? ' is-today' : ''}${iso === selected ? ' is-selected' : ''}"><button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : ''}</button><div class="calendar-overview-items">${items.slice(0, limit).map(item => periodBookingMarkup(item, view === 'month')).join('')}${hiddenCount ? `<button class="calendar-overview-more" type="button" data-calendar-open-date="${iso}">Ещё ${hiddenCount}</button>` : ''}</div></article>`;
+      });
+      const weekdayHeader = view === 'month' ? `<div class="calendar-overview-weekdays" aria-hidden="true">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day => `<span>${day}</span>`).join('')}</div>` : '';
+      holder.className = `provider-bookings calendar-overview calendar-overview-${view} team-calendar-period`;
+      holder.innerHTML = `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="Календарь команды">${placeholders.join('')}${cells.join('')}</div>`;
+      const status = $('#teamCalendarStatus');
+      if (status) status.textContent = `Показано записей команды: ${visible.length}`;
     }
 
     function bookingMarkup(item) {

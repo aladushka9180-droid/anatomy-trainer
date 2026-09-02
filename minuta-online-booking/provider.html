@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=158" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=159" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=158&amp;layoutfix=1">
+  <link rel="stylesheet" href="styles.css?v=159&amp;layoutfix=1">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -106,11 +106,16 @@
               </fieldset>
               <span class="team-calendar-status" id="teamCalendarStatus" role="status" aria-live="polite"></span>
             </div>
-            <div class="date-navigation" role="group" aria-label="Навигация по расписанию">
-              <button class="date-nav-button" type="button" data-date-shift="-7" aria-label="Показать предыдущую неделю"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Предыдущая</span></button>
+            <div class="date-navigation" aria-label="Навигация по расписанию">
+              <div class="calendar-view-toggle" role="group" aria-label="Период календаря">
+                <button class="active" type="button" data-calendar-view="day" aria-pressed="true">День</button>
+                <button type="button" data-calendar-view="week" aria-pressed="false">Неделя</button>
+                <button type="button" data-calendar-view="month" aria-pressed="false">Месяц</button>
+              </div>
+              <button class="date-nav-button" type="button" data-date-shift="-1" aria-label="Показать предыдущий день"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Предыдущий</span></button>
               <button class="date-today-button" type="button" data-date-today>Сегодня</button>
               <label class="schedule-date-picker"><span>Календарь</span><input id="scheduleDatePicker" type="date" aria-label="Выбрать дату в календаре"></label>
-              <button class="date-nav-button" type="button" data-date-shift="7" aria-label="Показать следующую неделю"><span>Следующая</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
+              <button class="date-nav-button" type="button" data-date-shift="1" aria-label="Показать следующий день"><span>Следующий</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
             </div>
             <div class="date-strip" id="dateStrip" role="group" aria-label="Выбор даты"></div>
             <div class="schedule-toolbar">
@@ -142,7 +147,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=158#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=159#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -640,15 +645,15 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=158"></script>
-  <script src="reliability.js?v=158"></script>
-  <script src="resource-management.js?v=158" defer></script>
-  <script src="shift-management.js?v=158" defer></script>
-  <script src="organization.js?v=158" defer></script>
-  <script src="payroll-management.js?v=158" defer></script>
-  <script src="benefit-management.js?v=158" defer></script>
-  <script src="booking-policy-management.js?v=158" defer></script>
-  <script src="team-calendar.js?v=158" defer></script>
-  <script src="provider.js?v=158&amp;iconfix=1" defer></script>
+  <script src="config.js?v=159"></script>
+  <script src="reliability.js?v=159"></script>
+  <script src="resource-management.js?v=159" defer></script>
+  <script src="shift-management.js?v=159" defer></script>
+  <script src="organization.js?v=159" defer></script>
+  <script src="payroll-management.js?v=159" defer></script>
+  <script src="benefit-management.js?v=159" defer></script>
+  <script src="booking-policy-management.js?v=159" defer></script>
+  <script src="team-calendar.js?v=159" defer></script>
+  <script src="provider.js?v=159&amp;iconfix=1" defer></script>
 </body>
 </html>
