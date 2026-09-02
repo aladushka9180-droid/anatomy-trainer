@@ -508,11 +508,33 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-topbar small { display:block; color:#718278; font-size:11px; font-weight:750; text-transform:capitalize; }
 .provider-topbar h1 { margin:5px 0 0; font-size:21px; letter-spacing:-.035em; }
 .provider-topbar-actions { display:flex; align-items:center; gap:10px; }
-.sync-state { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border:1px solid #dce7df; border-radius:999px; background:#fff; color:#577064; font-size:9px; font-weight:850; white-space:nowrap; }
+.sync-state { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border:1px solid #dce7df; border-radius:999px; background:#fff; color:#577064; font-size:9px; font-weight:850; font-family:inherit; white-space:nowrap; cursor:pointer; }
 .sync-state i { width:7px; height:7px; border-radius:50%; background:#33aa6d; box-shadow:0 0 0 4px rgba(51,170,109,.11); }
 .sync-state.is-checking i,.sync-state.is-warning i { background:#d09a3e; box-shadow:0 0 0 4px rgba(208,154,62,.12); animation:pulse-status 1.2s ease-in-out infinite; }
 .sync-state.is-offline { color:#855537; background:#fff8ed; border-color:#ebdcc5; }
 .sync-state.is-offline i { background:#cb6b50; box-shadow:0 0 0 4px rgba(203,107,80,.12); }
+.sync-tool-button { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border:1px solid #dce7df; border-radius:999px; background:#f7faf8; color:#284c3b; font-size:10px; font-weight:800; font-family:inherit; cursor:pointer; }
+.sync-tool-button .ui-icon { width:14px; height:14px; }
+.sync-tool-button.is-spinning .ui-icon { animation:sync-spin .8s linear infinite; }
+@keyframes sync-spin { to { transform:rotate(360deg); } }
+.connection-log-dialog { width:min(520px,calc(100% - 28px)); max-height:min(720px,calc(100dvh - 28px)); padding:24px; border:1px solid #dbe5df; border-radius:26px; background:#fbfdfb; color:#173b2c; box-shadow:0 28px 80px rgba(13,42,29,.24); }
+.connection-log-dialog::backdrop { background:rgba(12,33,24,.54); backdrop-filter:blur(5px); }
+.connection-log-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.connection-log-head small { color:#778b80; font-size:10px; font-weight:850; text-transform:uppercase; letter-spacing:.12em; }
+.connection-log-head h2 { margin:5px 0 0; font-size:28px; }
+.connection-log-head button { display:grid; place-items:center; width:40px; height:40px; border:0; border-radius:50%; background:#edf3ef; color:#315344; cursor:pointer; }
+.connection-log-lead { margin:16px 0; color:#6e8077; font-size:13px; line-height:1.55; }
+.connection-log-list { display:grid; gap:8px; max-height:390px; overflow:auto; padding-right:3px; }
+.connection-log-entry { display:flex; align-items:flex-start; gap:11px; padding:12px 14px; border:1px solid #e0e9e3; border-radius:16px; background:#fff; }
+.connection-log-entry>i { flex:0 0 8px; width:8px; height:8px; margin-top:5px; border-radius:50%; background:#35a86e; }
+.connection-log-entry.is-warning>i,.connection-log-entry.is-checking>i,.connection-log-entry.is-manual>i { background:#d09a3e; }
+.connection-log-entry.is-offline>i,.connection-log-entry.is-error>i { background:#cb6b50; }
+.connection-log-entry div { display:grid; gap:4px; min-width:0; }
+.connection-log-entry strong { font-size:12px; line-height:1.35; }
+.connection-log-entry small { color:#839189; font-size:10px; }
+.connection-log-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+.connection-log-actions button { min-height:42px; }
+.new-booking-draft-status { margin:0; color:#718278; font-size:11px; font-weight:750; text-align:center; }
 .topbar-client-link { padding:10px 14px; border:1px solid #dbe5de; border-radius:999px; background:#fff; color:#2d6048; text-decoration:none; font-size:11px; font-weight:800; }
 .provider-view { width:min(1160px,100%); margin:0 auto; padding-top:32px; }
 .view-title { display:flex; align-items:center; justify-content:space-between; gap:16px; }
@@ -750,9 +772,15 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
   .provider-topbar-actions { display:contents; }
   .sync-state { grid-column:1/-1; grid-row:2; justify-self:start; max-width:100%; }
   .sync-state span { overflow:hidden; text-overflow:ellipsis; }
+  .sync-state { grid-column:1; max-width:calc(100vw - 86px); }
+  .sync-tool-button { grid-column:2; grid-row:2; width:42px; min-height:34px; justify-content:center; padding:0; }
+  .sync-tool-button span { display:none; }
   .provider-topbar .topbar-client-link { grid-column:2; grid-row:1; display:grid; place-items:center; width:42px; min-height:42px; padding:0; border-radius:13px; }
   .topbar-client-link>span { display:none; }
   .provider-view { padding-top:23px; }
+  .connection-log-dialog { padding:20px 16px; border-radius:22px; }
+  .connection-log-actions { flex-direction:column-reverse; }
+  .connection-log-actions button { width:100%; }
   .view-title h2 { font-size:27px; }
   .view-title-actions .compact-button { min-height:39px; padding:0 12px; font-size:10px; }
   .stat-grid { grid-template-columns:1fr 1fr; gap:9px; }

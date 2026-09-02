@@ -115,6 +115,8 @@ let synchronizationQueued = false;
 let synchronizationRetryTimer = null;
 let writesAllowed = false;
 let bookingCreationReady = false;
+let connectionWasOffline = false;
+let lastConnectionLogSignature = '';
 let teamCalendarController = null;
 let batchBookingsController = null;
 let timelineBookingDrag = null;
@@ -183,6 +185,50 @@ async function hydrateCachedBookings(userId = currentUser?.id) {
   renderBookingData();
   return cached;
 }
+function connectionLogKey(userId = currentUser?.id) { return `minuta-provider-connection-log-v1:${userId || 'anonymous'}`; }
+function bookingDraftKey(userId = currentUser?.id) { return `minuta-provider-booking-draft-v1:${userId || 'anonymous'}`; }
+function readConnectionLog(userId = currentUser?.id) {
+  if (!userId) return [];
+  try { const value = JSON.parse(localStorage.getItem(connectionLogKey(userId)) || '[]'); return Array.isArray(value) ? value.slice(0, 30) : []; } catch { return []; }
+}
+function renderConnectionLog() {
+  const holder = $('#connectionLogList');
+  if (!holder) return;
+  const entries = readConnectionLog();
+  holder.innerHTML = entries.length ? entries.map(entry => `<article class="connection-log-entry is-${escapeHtml(entry.kind)}"><i></i><div><strong>${escapeHtml(entry.text)}</strong><small>${new Date(entry.at).toLocaleString('ru-RU')}</small></div></article>`).join('') : '<div class="provider-empty compact-empty">Событий связи пока нет.</div>';
+}
+function recordConnectionEvent(kind, text) {
+  const userId = currentUser?.id;
+  if (!userId) return;
+  const safeKind = ['online', 'checking', 'warning', 'offline', 'error', 'manual'].includes(kind) ? kind : 'warning';
+  const safeText = String(text || 'Состояние связи изменилось').slice(0, 180);
+  const signature = `${safeKind}:${safeText}`;
+  if (signature === lastConnectionLogSignature) return;
+  lastConnectionLogSignature = signature;
+  try { localStorage.setItem(connectionLogKey(userId), JSON.stringify([{ at:new Date().toISOString(), kind:safeKind, text:safeText }, ...readConnectionLog(userId)].slice(0, 30))); } catch {}
+  renderConnectionLog();
+}
+function readNewBookingDraft(userId = currentUser?.id) {
+  if (!userId) return null;
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(bookingDraftKey(userId)) || 'null');
+    if (!draft || Date.now() - Number(draft.savedAt || 0) > 12 * 60 * 60 * 1000) { sessionStorage.removeItem(bookingDraftKey(userId)); return null; }
+    return draft;
+  } catch { return null; }
+}
+function saveNewBookingDraft() {
+  const form = $('#newBookingForm');
+  if (!form || !currentUser) return;
+  const draft = {
+    savedAt:Date.now(), mode:newBookingMode, name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
+    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || '',
+    occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT
+  };
+  try { sessionStorage.setItem(bookingDraftKey(), JSON.stringify(draft)); } catch {}
+  const status = $('#newBookingDraftStatus');
+  if (status) status.textContent = `Черновик сохранён · ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
+}
+function clearNewBookingDraft(userId = currentUser?.id) { try { if (userId) sessionStorage.removeItem(bookingDraftKey(userId)); } catch {} }
 const bookingCreationWriteSelector = '#newBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking]';
 const writeSelectors = [
   '#newBookingButton', '[data-create-empty-booking]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
@@ -253,7 +299,28 @@ function setSyncState(kind, text) {
   if (!element) return;
   element.className = `sync-state is-${kind}`;
   element.querySelector('span').textContent = text;
+  recordConnectionEvent(kind, text);
   applyWriteAvailability();
+}
+async function manualSynchronizeProvider() {
+  const button = $('#manualSyncButton');
+  if (!currentUser) return false;
+  if (!navigator.onLine) { notify('Нет интернета · показана сохранённая копия'); recordConnectionEvent('offline', 'Ручное обновление: нет интернета'); return false; }
+  button.disabled = true;
+  button.classList.add('is-spinning');
+  recordConnectionEvent('manual', 'Запущено ручное обновление');
+  try {
+    const complete = await synchronizeProvider();
+    notify(complete ? 'Все данные обновлены' : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
+    return complete;
+  } catch {
+    recordConnectionEvent('error', 'Ручное обновление завершилось ошибкой');
+    notify('Не удалось обновить данные · повторим автоматически');
+    return false;
+  } finally {
+    button.disabled = false;
+    button.classList.remove('is-spinning');
+  }
 }
 function cachedStateText(savedAt) {
   return `Офлайн · данные на ${reliability?.savedAtLabel(savedAt) || 'последнюю синхронизацию'}`;
@@ -2810,13 +2877,15 @@ function setNewBookingMode(mode) {
 
 function openNewBookingSheet(preferredTime = '', preset = {}) {
   const services = ownServices.filter(item => item.active);
-  const selectedService = services.find(item => item.id === preset.serviceId) || services[0];
-  const date = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
+  const draft = preset.clientName ? null : readNewBookingDraft();
+  const selectedService = services.find(item => item.id === (preset.serviceId || draft?.serviceId)) || services[0];
+  const defaultDate = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(draft?.date || '')) && draft.date >= businessTodayIso() ? draft.date : defaultDate;
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
-  newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime)) ? String(preferredTime) : '';
-  newBookingMode = 'client';
+  newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime || draft?.time)) ? String(preferredTime || draft.time) : '';
+  newBookingMode = draft?.mode === 'block' ? 'block' : 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.clientName ? 'Повторный визит' : 'Ручное расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.clientName ? 'Повторная запись' : 'Новый клиент'}</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
@@ -2839,19 +2908,28 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <label>Свободное время<div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
         </section>
       </div>
-      <p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
+      <p class="new-booking-draft-status" id="newBookingDraftStatus">${draft ? 'Восстановлен сохранённый черновик' : 'Черновик сохранится в этой вкладке'}</p><p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
     </form>` : `<div class="provider-empty booking-sheet-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>`}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   if (!services.length) return;
-  $('#newBookingName').value = String(preset.clientName || '');
-  $('#newBookingPhone').value = String(preset.clientPhone || '');
-  $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => setNewBookingMode(button.dataset.newBookingMode)));
-  $('#newBookingService').addEventListener('change', loadNewBookingSlots);
-  $('#newBookingDate').addEventListener('change', () => { newBookingPreferredTime = ''; loadNewBookingSlots(); });
-  $('#newBookingOccurrences').addEventListener('change', updateNewBookingSubmitCaption);
+  $('#newBookingName').value = String(preset.clientName || draft?.name || '');
+  $('#newBookingPhone').value = String(preset.clientPhone || draft?.phone || '');
+  $('#newBookingNote').value = String(draft?.note || '');
+  $('#newBookingBlockTitle').value = String(draft?.blockTitle || 'Перерыв');
+  $('#newBookingBlockNote').value = String(draft?.blockNote || '');
+  $('#newBookingOccurrences').value = String(draft?.occurrences || '1');
+  $('#newBookingInterval').value = String(draft?.interval || '1');
+  const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
+  if (draftColor) draftColor.checked = true;
+  $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => { setNewBookingMode(button.dataset.newBookingMode); saveNewBookingDraft(); }));
+  $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; saveNewBookingDraft(); loadNewBookingSlots(); });
+  $('#newBookingDate').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; saveNewBookingDraft(); loadNewBookingSlots(); });
+  $('#newBookingOccurrences').addEventListener('change', () => { updateNewBookingSubmitCaption(); saveNewBookingDraft(); });
   $('#newBookingForm').addEventListener('submit', createNewBooking);
-  setNewBookingMode('client');
+  $('#newBookingForm').addEventListener('input', saveNewBookingDraft);
+  $('#newBookingForm').addEventListener('change', saveNewBookingDraft);
+  setNewBookingMode(newBookingMode);
   if (preset.clientName) {
     $('#newBookingSheetTitle').textContent = 'Повторная запись';
     $('#newBookingSectionSubtitle').textContent = 'Клиент и услуга уже выбраны';
@@ -2923,6 +3001,7 @@ async function createNewBooking(event) {
       button.textContent = `Создать серию из ${occurrenceCount}`;
       const reason = String(error.message || '');
       const connectionError = !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch/i.test(reason);
+      if (connectionError) recordConnectionEvent('error', 'Создание серии: связь прервалась');
       const message = connectionError
         ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать» ещё раз.'
         : reason.includes('series_slot_unavailable') || reason.includes('slot_unavailable')
@@ -2943,6 +3022,7 @@ async function createNewBooking(event) {
     const created = Array.isArray(data?.created) ? data.created : [];
     await Promise.all(created.map(entry => db.rpc('set_booking_color', { p_booking:entry.booking_id, p_color:color })));
     selectScheduleDate(date);
+    clearNewBookingDraft(userId);
     closeBookingSheet();
     await refreshAfterWrite();
     notify(`Серия из ${occurrenceCount} записей создана`);
@@ -2964,6 +3044,7 @@ async function createNewBooking(event) {
     button.textContent = block ? 'Занять время' : 'Создать запись';
     const reason = String(error.message || '');
     const connectionError = !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch/i.test(reason);
+    if (connectionError) recordConnectionEvent('error', 'Создание записи: связь прервалась');
     const message = connectionError
       ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать запись» ещё раз.'
       : reason.includes('slot_unavailable')
@@ -2984,6 +3065,7 @@ async function createNewBooking(event) {
     clientNotes.set(normalizedPhone, note);
   }
   selectScheduleDate(date);
+  clearNewBookingDraft(userId);
   closeBookingSheet();
   await refreshAfterWrite();
   const createdBooking = [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone));
@@ -3875,6 +3957,7 @@ async function refreshAfterWrite() {
 async function clearProviderDeviceData(userId) {
   if (!userId) return;
   try { await reliability?.removePrefix(`provider:${userId}:`); } catch {}
+  clearNewBookingDraft(userId);
   try {
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith(`massage-notifications-${userId}-`)
@@ -3885,6 +3968,7 @@ async function clearProviderDeviceData(userId) {
         || key === clientLabelStorageKey(userId)
         || key === clientLabelPendingStorageKey(userId)
         || key === sessionItemsStorageKey(userId)
+        || key === connectionLogKey(userId)
         || key === autoCompleteStorageKey(userId)) localStorage.removeItem(key);
     });
   } catch {}
@@ -3910,6 +3994,7 @@ async function handleSession(session) {
   clearTimeout(displayPreferencesSaveTimer);
   ++displayPreferencesSaveRevision;
   synchronizationQueued = false;
+  lastConnectionLogSignature = '';
   clearTimeout(synchronizationRetryTimer);
   synchronizationRetryTimer = null;
   stopLiveUpdates();
@@ -5005,12 +5090,14 @@ document.addEventListener('click', async event => {
     newBookingPreferredTime = newBookingTime;
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
     clearFormError('#newBookingError');
+    saveNewBookingDraft();
   }
   if (newHour) {
     newBookingHour = newHour.dataset.newBookingHour;
     if (!newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || '';
     renderNewBookingTimePicker();
     clearFormError('#newBookingError');
+    saveNewBookingDraft();
   }
   if (closeSheet) closeBookingSheet();
   if (editService) openServiceEditor(editService.dataset.editService);
@@ -5170,10 +5257,12 @@ document.addEventListener('visibilitychange', () => {
     synchronizeProvider();
   }
 });
-window.addEventListener('offline', () => { clearTimeout(synchronizationRetryTimer); synchronizationRetryTimer = null; setBookingCreationReady(false); setWritesAllowed(false); setSyncState('offline', allBookings.length ? 'Офлайн · показана сохранённая копия · только чтение' : 'Нет интернета и сохранённой копии · только чтение'); });
-window.addEventListener('online', () => {
+window.addEventListener('offline', () => { connectionWasOffline = true; clearTimeout(synchronizationRetryTimer); synchronizationRetryTimer = null; setBookingCreationReady(false); setWritesAllowed(false); setSyncState('offline', allBookings.length ? 'Офлайн · показана сохранённая копия · только чтение' : 'Нет интернета и сохранённой копии · только чтение'); });
+window.addEventListener('online', async () => {
   queueDisplayPreferencesSync(0);
-  synchronizeProvider();
+  const complete = await synchronizeProvider();
+  if (connectionWasOffline) notify(complete ? 'Интернет восстановлен · данные обновлены' : 'Интернет восстановлен · продолжаем синхронизацию');
+  connectionWasOffline = false;
 });
 new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
@@ -5414,6 +5503,11 @@ $('#retryPasswordRecovery').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
 $('#refreshBookings').addEventListener('click', synchronizeProvider);
+$('#manualSyncButton').addEventListener('click', manualSynchronizeProvider);
+$('#syncState').addEventListener('click', () => { renderConnectionLog(); $('#connectionLogDialog').showModal(); });
+$('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
+$$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));
+$('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
 $('#exportBookings').addEventListener('click', exportBookingsCsv);
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);

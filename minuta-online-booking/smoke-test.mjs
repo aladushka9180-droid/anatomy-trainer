@@ -76,6 +76,13 @@ assert.doesNotMatch(provider, /removeMatching\?\.\('provider:', ':bookings'\)/, 
 assert.match(provider, /hydrateCachedBookings\(userId\)[\s\S]*if \(!navigator\.onLine\) return cached/, 'Записи не показываются из кэша до сетевого запроса');
 assert.match(provider, /bookingReady = results\.slice\(0, 4\)\.every[\s\S]*setBookingCreationReady\(bookingReady\)/, 'Создание записи зависит от необязательных разделов кабинета');
 assert.match(provider, /Связь прервалась\. Данные остались в форме/, 'Черновик записи теряется при обрыве связи');
+assert.match(providerHtml, /id="syncState"[\s\S]*id="manualSyncButton"/, 'В кабинете нет понятного ручного обновления');
+assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList"/, 'Журнал проблем со связью недоступен пользователю');
+assert.match(provider, /sessionStorage\.setItem\(bookingDraftKey\(\), JSON\.stringify\(draft\)\)/, 'Черновик новой записи не переживает перезагрузку вкладки');
+assert.doesNotMatch(provider, /localStorage\.setItem\(bookingDraftKey/, 'Персональные данные черновика сохраняются надолго');
+assert.match(provider, /clearNewBookingDraft\(userId\)[\s\S]*closeBookingSheet\(\)/, 'Созданная запись оставляет персональный черновик на устройстве');
+assert.match(provider, /recordConnectionEvent\(kind, text\)[\s\S]*slice\(0, 30\)/, 'Журнал связи не ограничивает количество технических событий');
+assert.match(provider, /Интернет восстановлен · данные обновлены/, 'После восстановления интернета нет понятного подтверждения');
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
@@ -246,6 +253,7 @@ assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерыв
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
+assert.match(styles, /connection-log-dialog[\s\S]*connection-log-entry/, 'Журнал связи не оформлен для кабинета');
 assert.match(styles, /\.schedule-empty-create/, 'Кнопка пустого расписания не оформлена');
 const providerThemes = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
 assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech'], 'Набор тем кабинета неожиданно изменился');
@@ -713,6 +721,7 @@ assert.match(releaseWorkflow, /supabase-migration-v60\.sql[\s\S]*supabase-migrat
 assert.match(app, /if \(error\) \{[\s\S]*?return;\s*\n\s*\}\s*\n\s*const manageToken[\s\S]*?saveClientContact\(name, phone\)/, 'Контакты сохраняются до подтверждения записи');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
+assert.match(privacy, /Офлайн-копия и черновик[\s\S]*не дольше 7 дней[\s\S]*не дольше 12 часов/, 'Политика не объясняет офлайн-копию и временный черновик');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
 assert.match(privacy, /EXIF и геометки/, 'В политике не описано удаление метаданных фотографий');
 

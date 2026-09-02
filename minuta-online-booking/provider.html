@@ -91,7 +91,7 @@
       <div class="provider-workspace">
         <header class="provider-topbar">
           <div><small id="todayLabel">Сегодня</small><h1 id="welcomeName">Здравствуйте!</h1></div>
-          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
+          <div class="provider-topbar-actions"><button class="sync-state is-checking" id="syncState" type="button" aria-live="polite" aria-label="Открыть журнал связи"><i></i><span>Подключаемся…</span></button><button class="sync-tool-button" id="manualSyncButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
         </header>
 
         <section class="provider-view active" data-provider-panel="bookings">
@@ -811,6 +811,12 @@
       <div id="bookingSheetContent"></div>
     </section>
   </div>
+  <dialog class="connection-log-dialog" id="connectionLogDialog" aria-labelledby="connectionLogTitle">
+    <div class="connection-log-head"><div><small>Диагностика</small><h2 id="connectionLogTitle">Журнал связи</h2></div><button type="button" data-close-connection-log aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+    <p class="connection-log-lead">Здесь сохраняются только технические события без имён и телефонов клиентов.</p>
+    <div class="connection-log-list" id="connectionLogList"></div>
+    <div class="connection-log-actions"><button class="secondary-button" id="clearConnectionLog" type="button">Очистить журнал</button><button class="primary" id="connectionLogRefresh" type="button">Обновить сейчас</button></div>
+  </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="config.js?v=176"></script>
