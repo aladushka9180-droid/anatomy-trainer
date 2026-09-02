@@ -2124,7 +2124,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 /* Люкс / Премиум: чёрный мрамор, тонкое золото и классическая типографика. */
 .provider-body[data-provider-theme="luxury"] {
   --theme-bg:#050607; --theme-surface:#0c0d0e; --theme-surface-alt:#090a0b; --theme-ink:#f5efe3;
-  --theme-muted:#ada28e; --theme-line:#745a2b; --theme-accent:#d6a64d; --theme-accent-soft:#241d12;
+  --theme-muted:#c7baa4; --theme-line:#745a2b; --theme-accent:#d6a64d; --theme-accent-soft:#241d12;
   --material-card-bg:rgba(10,11,12,.88); --material-card-border:#6c5227; --material-radius:15px; --material-control-radius:6px;
   font-family:Georgia,"Times New Roman",serif;
 }
@@ -2234,6 +2234,55 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="luxury"] .timeline-view .timeline-booking,
 .provider-body[data-provider-theme="luxury"] .schedule-list .provider-booking { border-color:#8b682d!important; border-radius:12px; background:linear-gradient(110deg,rgba(24,24,24,.96),rgba(10,11,12,.94))!important; color:#f4eddf!important; box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 7px 17px rgba(0,0,0,.28)!important; }
 .provider-body[data-provider-theme="luxury"] :is(.booking-client-visit,.timeline-client-visit) { background:#241d12; color:#d9aa51; }
+
+/* Цветовой аудит Luxury: читаемая иерархия и единая золотая палитра во всех разделах. */
+.provider-body[data-provider-theme="luxury"] :is(
+  .view-description,.settings-heading p,.panel-head small,.provider-topbar small,.schedule-toolbar>div:first-child>span,
+  .client-list-item small,.client-summary small,.client-disclosure p,.client-history-item small,
+  .notification-card p,.notification-card blockquote,.waitlist-provider-card p,.report-service-row small,
+  .service-info small,.portfolio-card p,.portfolio-card small,.provider-review-card p,
+  .install-app-status,.install-guide p,.install-guide ol,.organization-invite-help
+) { color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] :is(
+  .timeline-booking-client,.timeline-booking-copy small,.timeline-booking-note,.provider-booking-phone,
+  .provider-booking-note,.provider-booking-note-full,.provider-booking-client-line>strong
+) { color:#c9bda8; opacity:1; }
+.provider-body[data-provider-theme="luxury"] .timeline-client-name { color:#d5c9b6; font-weight:650; }
+.provider-body[data-provider-theme="luxury"] .timeline-client-phone { color:#b8aa93; }
+.provider-body[data-provider-theme="luxury"] .timeline-client-duration { color:#d9aa51; font-weight:750; }
+.provider-body[data-provider-theme="luxury"] :is(.booking-client-visit,.timeline-client-visit) { min-height:19px; padding:3px 8px; border:1px solid #6f5224; background:#2d2110; color:#efbd59; font-size:9px; font-weight:850; box-shadow:inset 0 1px 0 rgba(255,255,255,.05); }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking-copy strong,.provider-booking h3,.provider-booking-open h3) { color:#fff8eb; }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking-time,.booking-time-column strong) { color:#fff8eb; text-shadow:0 1px 0 #000; }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking-time small,.booking-time-column strong small,.booking-time-column>span) { color:#d8c9ae; }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking-status-icon,.provider-booking-chevron) { border:1px solid #f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608!important; box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 5px 14px rgba(214,166,77,.15); }
+.provider-body[data-provider-theme="luxury"] :is(.timeline-booking-status-icon,.provider-booking-chevron) .ui-icon { color:#211608; }
+.provider-body[data-provider-theme="luxury"] :is(
+  .notification-card-head>span,.notification-card-head>b,.notification-preview summary,.template-help b,
+  .client-labels-heading>span,.client-attention-reason,.day-hours label,.break-toggle,.day-off-label
+) { color:#d9aa51; }
+.provider-body[data-provider-theme="luxury"] :is(.notification-card-icon,.settings-icon,.organization-unavailable>span,.member-avatar,.mobile-more-grid button>span) { border:1px solid #745a2b; background:#241d12; color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] :is(.notification-reminder .notification-card-icon,.notification-cancellation .notification-card-icon) { background:#241d12; color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] :is(
+  .organization-unavailable strong,.organization-personal-invites h3,.organization-overview-copy h3,
+  .organization-row-main strong,.organization-audit>summary strong,.organization-audit-list strong,
+  .resource-subhead strong,.resource-requirement-row strong,.resource-audit>summary strong
+) { color:#f5efe3; }
+.provider-body[data-provider-theme="luxury"] :is(
+  .organization-unavailable small,.organization-personal-invites p,.organization-switcher>span,
+  .organization-overview-copy small,.organization-overview-copy div>span,.organization-row-main small,
+  .organization-row-main strong em,.organization-audit>summary small,.organization-audit-list small,
+  .resource-subhead small,.resource-requirement-row small,.resource-audit>summary small
+) { color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] :is(.organization-overview,.organization-editor>form,.resource-audit,.install-guide) { border-color:#745a2b; background-color:#090a0b; background-image:linear-gradient(rgba(0,0,0,.76),rgba(0,0,0,.82)),url("provider-luxury-marble-v4.webp"); background-position:center; background-size:900px auto; color:#f5efe3; }
+.provider-body[data-provider-theme="luxury"] :is(.organization-checks label,.resource-requirement-row,.organization-create) { border-color:#5c4625; background:#0a0b0c; color:#e5dac7; }
+.provider-body[data-provider-theme="luxury"] :is(.organization-avatar,.member-avatar) { border:1px solid #f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608; box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 16px rgba(214,166,77,.16); }
+.provider-body[data-provider-theme="luxury"] :is(.organization-role,.organization-status,.organization-tags span,.organization-audit>summary>span:last-child,.resource-audit>summary>span:last-child) { border:1px solid #5c4625; background:#241d12; color:#d9aa51; }
+.provider-body[data-provider-theme="luxury"] :is(.organization-status.is-active,.booking-prepayment-badge.status-paid,.status-confirmed .booking-status) { border-color:#d6a64d; background:#241d12; color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] :is(.service-form label,.service-edit-form label,.notification-template-form label,.booking-policy-form label,.password-form label,.portfolio-form label,.client-note-label) { color:#d8c9ae; }
+.provider-body[data-provider-theme="luxury"] :is(.notification-template-form textarea,.client-note-label textarea,.portfolio-form textarea,.booking-policy-form input,.password-form input) { caret-color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] :is(.client-label-option,.booking-color-option,.service-visibility-option) strong { color:#f5efe3; }
+.provider-body[data-provider-theme="luxury"] :is(.client-label-option,.booking-color-option,.service-visibility-option) small { color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] :is(.repeat-times button.active,.client-label-option:has(input:checked),.booking-color-option:has(input:checked)) { border-color:#e0b35e; background:#241d12; color:#e5b75d; box-shadow:0 0 0 2px rgba(214,166,77,.12); }
 
 /* Лофт / Индастриал: бетон, тёмное дерево, сталь и жёсткая геометрия. */
 .provider-body[data-provider-theme="loft"] {
