@@ -3609,14 +3609,39 @@ html.requires-top-level.top-level body { visibility:visible; }
   }
 }
 
-.retention-workspace,.retention-list-section,.retention-settings-form{display:grid;gap:16px}
-.retention-settings-form{padding:18px;border:1px solid var(--line,#dce5df);border-radius:18px;background:var(--surface-alt,#f7f9f7)}
-.retention-settings-form textarea{resize:vertical}
-.retention-list-section{margin-top:8px}
-.retention-row-actions{display:flex;align-items:center;justify-content:flex-end;flex-flow:row wrap;gap:8px}
-.retention-row-actions select{min-width:138px}
+.retention-workspace,.retention-list-section,.retention-settings-form{display:grid;gap:14px}
+.retention-settings-form{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:14px;border:1px solid var(--theme-line,var(--line,#dce5df));border-radius:18px;background:var(--theme-surface-alt,var(--surface-alt,#f7f9f7))}
+.retention-toggle{grid-column:1/-1;display:grid!important;grid-template-columns:minmax(0,1fr) 44px;align-items:center;gap:14px;margin:0!important;padding:13px 15px!important;border:1px solid var(--theme-line,var(--line));background:var(--theme-surface,var(--surface))!important;cursor:pointer}
+.retention-toggle>span{display:grid;grid-column:1;grid-row:1;gap:3px;min-width:0}
+.retention-toggle>span strong,.retention-number-field strong{color:var(--theme-ink,var(--ink));font-size:11px;line-height:1.35}
+.retention-toggle>span small,.retention-number-field small{color:var(--theme-muted,var(--muted));font-size:9px;font-weight:650;line-height:1.4}
+.retention-toggle>input{appearance:none;grid-column:2;grid-row:1;position:relative;width:44px!important;min-height:24px!important;height:24px!important;margin:0!important;padding:0!important;border:1px solid var(--theme-line,var(--line));border-radius:999px;background:color-mix(in srgb,var(--theme-muted,var(--muted)) 18%,var(--theme-surface,#fff));cursor:pointer;transition:background .16s ease,border-color .16s ease}
+.retention-toggle>input::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--theme-surface,#fff);box-shadow:0 1px 4px var(--theme-shadow,rgba(28,55,42,.18));transition:transform .16s ease}
+.retention-toggle>input:checked{border-color:var(--theme-accent,var(--green));background:var(--theme-accent,var(--green))}
+.retention-toggle>input:checked::after{transform:translateX(20px)}
+.retention-toggle:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--theme-accent,var(--green)) 26%,transparent);outline-offset:2px}
+.retention-thresholds{display:grid;grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.retention-number-field{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin:0;padding:11px 12px 11px 15px;border:1px solid var(--theme-line,var(--line));border-radius:13px;background:var(--theme-surface,var(--surface))}
+.retention-number-field>span:first-child{display:grid;gap:3px;min-width:0}
+.retention-number-control{display:flex;align-items:center;gap:6px}
+.retention-number-control input{width:72px;min-height:40px;margin:0;padding:0 8px;text-align:center}
+.retention-number-control em{color:var(--theme-muted,var(--muted));font-size:9px;font-style:normal;font-weight:750}
+.retention-message-field{display:grid;grid-column:1/-1;gap:7px;margin:0;color:var(--theme-ink,var(--ink));font-size:10px;font-weight:850}
+.retention-message-field textarea{width:100%;min-height:108px;resize:vertical;line-height:1.5}
+.retention-message-field small{display:block;color:var(--theme-muted,var(--muted));font-size:9px;font-weight:650;line-height:1.4}
+.retention-save-status{grid-column:1/-1;color:var(--theme-muted,var(--muted));font-size:9px;font-weight:700;text-align:right}
+.retention-list-section{margin-top:6px}
+.retention-clients-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.retention-client-row{align-items:center!important;padding:11px 12px!important}
+.retention-client-row .organization-row-main small{white-space:normal}
+.retention-row-actions{display:flex;align-items:flex-end;justify-content:flex-end;flex-flow:row wrap;gap:8px}
+.retention-consent-field{display:grid;gap:4px;margin:0}
+.retention-consent-field>span{color:var(--theme-muted,var(--muted));font-size:8px;font-weight:800;line-height:1.25}
+.retention-row-actions select{min-width:148px}
 .retention-delivery-row .organization-row-main small:first-of-type{max-width:760px;white-space:normal}
-@media (max-width:760px){.retention-settings-form{padding:14px}.retention-row-actions{width:100%;justify-content:flex-start}.retention-row-actions :is(select,button,a){width:100%}}
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.retention-toggle,.retention-number-field){border-radius:0;box-shadow:none}
+@media (max-width:980px){.retention-clients-list{grid-template-columns:1fr}}
+@media (max-width:760px){.retention-settings-form{grid-template-columns:1fr;padding:12px}.retention-thresholds{grid-template-columns:1fr}.retention-save-status{text-align:left}.retention-client-row{align-items:flex-start!important}.retention-row-actions{width:100%;justify-content:flex-start}.retention-consent-field{flex:1;min-width:0}.retention-row-actions :is(select,button,a){width:100%}}
 
 /* Mobile Sage Studio + Мягкий минимализм: отдельная полноширинная композиция. */
 @media (max-width:760px) {

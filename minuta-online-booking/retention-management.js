@@ -13,6 +13,7 @@
     let revision = 0;
     let writing = false;
     let pendingOrganization;
+    let settingsSaveTimer = null;
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_retention_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -43,6 +44,7 @@
       });
     }
     function reset() {
+      clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined;
       $('#retentionPanel').hidden = true;
       $('#retentionLoading').hidden = true;
@@ -51,6 +53,7 @@
     }
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
+      clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
       if (writing) { pendingOrganization = normalized; revision += 1; return { ok: false, optional: true, pending: true }; }
       if (!normalized || !['owner', 'admin'].includes(normalized.current_role)) { reset(); return { ok: false, optional: true }; }
       organization = normalized; pendingOrganization = undefined; return load();
@@ -79,11 +82,10 @@
     }
     function clientById(id) { return payload?.clients.find(client => String(client.client_account_id) === String(id)); }
     function clientCard(client) {
-      const consent = client.consent_status === 'granted' ? 'Разрешено' : client.consent_status === 'revoked' ? 'Запрещено' : 'Не указано';
       const action = client.eligible
         ? `<button class="primary compact-button" type="button" data-retention-prepare="${escapeHtml(client.client_account_id)}" data-retention-write>Подготовить сообщение</button>`
         : '';
-      return `<article class="organization-row retention-client-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')}</strong><small>${escapeHtml(client.client_phone || '')} · последний визит ${escapeHtml(formatDate(client.last_visit_on))} · завершено ${Number(client.completed_visits || 0)}</small><small>Рассылки: ${escapeHtml(consent)}${client.last_sent_at ? ` · отправлено ${escapeHtml(formatDateTime(client.last_sent_at))}` : ''}</small></div><span class="retention-row-actions"><select data-retention-consent="${escapeHtml(client.client_account_id)}" aria-label="Согласие на сообщения"><option value="unknown" ${client.consent_status === 'unknown' ? 'selected' : ''}>Не указано</option><option value="granted" ${client.consent_status === 'granted' ? 'selected' : ''}>Разрешено</option><option value="revoked" ${client.consent_status === 'revoked' ? 'selected' : ''}>Запрещено</option></select>${action}</span></article>`;
+      return `<article class="organization-row retention-client-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')}</strong><small>${escapeHtml(client.client_phone || '')} · последний визит ${escapeHtml(formatDate(client.last_visit_on))} · завершено ${Number(client.completed_visits || 0)}</small>${client.last_sent_at ? `<small>Последнее сообщение: ${escapeHtml(formatDateTime(client.last_sent_at))}</small>` : ''}</div><span class="retention-row-actions"><label class="retention-consent-field"><span>Согласие на сообщения</span><select data-retention-consent="${escapeHtml(client.client_account_id)}" aria-label="Согласие на сообщения для ${escapeHtml(client.client_name || 'клиента')}"><option value="unknown" ${client.consent_status === 'unknown' ? 'selected' : ''}>Не указано</option><option value="granted" ${client.consent_status === 'granted' ? 'selected' : ''}>Разрешено</option><option value="revoked" ${client.consent_status === 'revoked' ? 'selected' : ''}>Запрещено</option></select></label>${action}</span></article>`;
     }
     function deliveryCard(delivery) {
       const client = clientById(delivery.client_account_id) || {};
@@ -100,6 +102,9 @@
       $('#retentionMessageTemplate').value = payload.message_template || defaultTemplate;
       const eligible = payload.clients.filter(client => client.eligible).length;
       $('#retentionEligibleCount').textContent = String(eligible);
+      $('#retentionEligibleCount').hidden = eligible === 0;
+      const saveStatus = $('#retentionSaveStatus');
+      if (saveStatus) saveStatus.textContent = organization?.current_role === 'owner' ? 'Изменения сохраняются автоматически' : 'Настройки может изменять только владелец';
       $('#retentionClientsList').innerHTML = payload.clients.length ? payload.clients.map(clientCard).join('') : empty('Клиентов пока нет', 'После завершённых визитов здесь появятся клиенты.');
       $('#retentionDeliveriesList').innerHTML = payload.deliveries.length ? payload.deliveries.map(deliveryCard).join('') : empty('Сообщений пока нет', 'Система не отправляет сообщения без зафиксированного согласия клиента.');
       applyWriteAvailability?.();
@@ -117,7 +122,7 @@
       ];
       return rows.find(([key]) => text.includes(key))?.[1] || 'Изменение не сохранено. Записи клиентов не затронуты.';
     }
-    async function mutate(name, args, control, success) {
+    async function mutate(name, args, control, success, silent = false, reloadAfter = true) {
       if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return false;
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
       writing = true; setBusy(true); if (control) control.disabled = true;
@@ -127,20 +132,53 @@
       if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
       if (error) { notify(messageFor(error)); await load(); return false; }
       if (!scopeMatches(data, organizationId)) { notify('Ответ другой организации заблокирован.'); await load(); return false; }
-      notify(success); await load(); return true;
+      if (!silent) notify(success);
+      if (reloadAfter) await load();
+      return true;
     }
-    async function handleSubmit(event) {
-      if (event.target.id !== 'retentionSettingsForm') return;
-      event.preventDefault();
-      await mutate('save_minuta_retention_settings', {
+    async function saveSettings() {
+      const form = $('#retentionSettingsForm');
+      const saveStatus = $('#retentionSaveStatus');
+      if (!form?.reportValidity()) { if (saveStatus) saveStatus.textContent = 'Проверьте заполнение полей'; return false; }
+      if (!$('#retentionMessageTemplate').value.includes('{ссылка}')) { if (saveStatus) saveStatus.textContent = 'Добавьте в сообщение переменную {ссылка}'; return false; }
+      if (saveStatus) saveStatus.textContent = 'Сохраняем…';
+      const saved = await mutate('save_minuta_retention_settings', {
         p_organization: organization.id,
         p_enabled: $('#retentionEnabled').checked,
         p_inactivity_days: Number($('#retentionInactivityDays').value),
         p_cooldown_days: Number($('#retentionCooldownDays').value),
         p_message_template: $('#retentionMessageTemplate').value.trim()
-      }, event.submitter, 'Настройки возврата клиентов сохранены');
+      }, null, 'Настройки возврата клиентов сохранены', true, false);
+      if (saved && payload) {
+        payload.enabled = $('#retentionEnabled').checked;
+        payload.inactivity_days = Number($('#retentionInactivityDays').value);
+        payload.cooldown_days = Number($('#retentionCooldownDays').value);
+        payload.message_template = $('#retentionMessageTemplate').value.trim();
+      }
+      if (saveStatus) saveStatus.textContent = saved ? 'Сохранено автоматически' : 'Не удалось сохранить — повторите изменение';
+      return saved;
+    }
+    function scheduleSettingsSave() {
+      clearTimeout(settingsSaveTimer);
+      const saveStatus = $('#retentionSaveStatus');
+      if (saveStatus) saveStatus.textContent = 'Ожидает сохранения…';
+      settingsSaveTimer = setTimeout(() => saveSettings(), 500);
+    }
+    function handleInput(event) {
+      if (!event.target.closest('#retentionSettingsForm')) return;
+      const form = $('#retentionSettingsForm');
+      if (!form?.checkValidity()) { clearTimeout(settingsSaveTimer); if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = 'Проверьте заполнение полей'; return; }
+      if (!$('#retentionMessageTemplate').value.includes('{ссылка}')) { clearTimeout(settingsSaveTimer); if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = 'Добавьте в сообщение переменную {ссылка}'; return; }
+      scheduleSettingsSave();
+    }
+    async function handleSubmit(event) {
+      if (event.target.id !== 'retentionSettingsForm') return;
+      event.preventDefault();
+      clearTimeout(settingsSaveTimer);
+      await saveSettings();
     }
     async function handleChange(event) {
+      if (event.target.closest('#retentionSettingsForm')) { scheduleSettingsSave(); return; }
       const account = event.target.dataset.retentionConsent;
       if (!account || event.target.value === 'unknown') { if (account) await load(); return; }
       const label = event.target.value === 'granted' ? 'Подтвердите, что клиент явно согласился получать предложения.' : 'Запретить сообщения этому клиенту?';
@@ -156,6 +194,7 @@
     }
     function bind() {
       $('#retentionPanel')?.addEventListener('submit', handleSubmit);
+      $('#retentionPanel')?.addEventListener('input', handleInput);
       $('#retentionPanel')?.addEventListener('change', handleChange);
       $('#retentionPanel')?.addEventListener('click', handleClick);
     }
