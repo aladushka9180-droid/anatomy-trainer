@@ -697,7 +697,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=141#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=142#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -985,6 +985,7 @@ function renderNotifications() {
   const holder = $('#notificationList');
   if (!holder || !currentUser) return;
   renderAutomaticNotifications();
+  renderVisitorVisits();
   const now = new Date();
   const nextDay = new Date(now.getTime() + 24 * 3600000);
   const marks = notificationMarks();
@@ -1049,6 +1050,105 @@ function notify(message) {
   toast.hidden = false;
   clearTimeout(notify.timer);
   notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
+}
+
+function visitorVisitTimeLabel(value) {
+  const createdAt = new Date(value);
+  const seconds = Math.max(0, Math.round((Date.now() - createdAt.getTime()) / 1000));
+  if (seconds < 60) return 'Только что';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} мин назад`;
+  if (minutes < 1440) return createdAt.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+  return createdAt.toLocaleDateString('ru-RU', { day:'numeric', month:'short' });
+}
+
+function renderVisitorVisits() {
+  const panel = $('#visitorNotificationPanel');
+  const holder = $('#visitorNotificationList');
+  if (!panel || !holder) return;
+  panel.hidden = !visitorVisitsRemoteAvailable || !bookingPolicy.visitor_notifications_enabled;
+  if (panel.hidden) return;
+  $('#visitorNotificationCount').textContent = visitorVisits.length
+    ? `${visitorVisits.length} за 24 часа`
+    : 'Пока никого';
+  if (!visitorVisits.length) {
+    holder.innerHTML = `<div class="provider-empty notification-empty"><span class="provider-empty-icon">${uiIcon('users')}</span><strong>Посетителей пока нет</strong><small>Здесь появится уведомление, когда кто-то откроет страницу онлайн-записи.</small></div>`;
+    return;
+  }
+  holder.innerHTML = visitorVisits.map(visit => `<article class="notification-card visitor-notification-card">
+    <span class="notification-card-icon">${uiIcon('users')}</span>
+    <div class="notification-card-main"><div class="notification-card-head"><span>Страница онлайн-записи</span><b>${escapeHtml(visitorVisitTimeLabel(visit.created_at))}</b></div><h3>Новый посетитель</h3><p>Смотрит услуги и свободное время · без имени и телефона</p></div>
+  </article>`).join('');
+}
+
+function renderVisitorNotificationForm() {
+  const checkbox = $('#visitorNotificationsEnabled');
+  const status = $('#visitorNotificationPermission');
+  if (!checkbox || !status) return;
+  checkbox.checked = Boolean(bookingPolicy.visitor_notifications_enabled);
+  if (!('Notification' in window)) status.textContent = 'В кабинете будут работать встроенные уведомления.';
+  else if (Notification.permission === 'granted') status.textContent = 'Системные уведомления разрешены на этом устройстве.';
+  else if (Notification.permission === 'denied') status.textContent = 'Системные уведомления заблокированы браузером; уведомления внутри кабинета продолжат работать.';
+  else status.textContent = 'После включения браузер может предложить разрешить системные уведомления.';
+}
+
+async function saveVisitorNotificationSettings(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const enabled = $('#visitorNotificationsEnabled').checked;
+  const permissionRequest = enabled && 'Notification' in window && Notification.permission === 'default'
+    ? Promise.resolve(Notification.requestPermission()).catch(() => 'default')
+    : Promise.resolve('unchanged');
+  const button = event.submitter;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const { error } = await db.from('booking_policies').update({ visitor_notifications_enabled:enabled }).eq('performer_id', currentUser.id);
+  await permissionRequest;
+  button.disabled = false;
+  button.textContent = 'Сохранить уведомления';
+  if (error) {
+    showFormError('#visitorNotificationError', 'Не удалось сохранить настройку. Сначала примените обновление базы данных v73.');
+    renderVisitorNotificationForm();
+    return;
+  }
+  clearFormError('#visitorNotificationError');
+  bookingPolicy.visitor_notifications_enabled = enabled;
+  visitorVisitsRemoteAvailable = true;
+  renderVisitorNotificationForm();
+  renderVisitorVisits();
+  notify(enabled ? 'Уведомления о посетителях включены' : 'Уведомления о посетителях выключены');
+}
+
+async function showVisitorSystemNotification(visit) {
+  const options = {
+    body:'Кто-то сейчас смотрит услуги и свободное время.',
+    icon:'provider-icon-192.png',
+    badge:'provider-icon-192.png',
+    tag:`minuta-visitor-${visit.id}`,
+    data:{ url:'provider.html?view=notifications' }
+  };
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification('Минута · новый посетитель', options);
+      return;
+    } catch {}
+  }
+  try {
+    const message = new Notification('Минута · новый посетитель', options);
+    message.onclick = () => { window.focus(); setProviderView('notifications'); message.close(); };
+  } catch {}
+}
+
+function handleVisitorVisit(payload) {
+  const visit = payload?.new;
+  if (!visit || visit.performer_id !== currentUser?.id || !bookingPolicy.visitor_notifications_enabled) return;
+  if (!visitorVisits.some(item => String(item.id) === String(visit.id))) visitorVisits.unshift(visit);
+  visitorVisits = visitorVisits.slice(0, 20);
+  visitorVisitsRemoteAvailable = true;
+  renderVisitorVisits();
+  if (!document.hidden) notify('Новый посетитель смотрит страницу онлайн-записи');
+  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') void showVisitorSystemNotification(visit);
 }
 function setAuthTab(tab) {
   recoveryMode = false;
@@ -2717,15 +2817,17 @@ async function loadBookingSettings() {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (!userId) return { ok: false, optional: true };
-  const [policyResult, templatesResult, marksResult, outboxResult] = await Promise.all([
+  const [policyResult, templatesResult, marksResult, outboxResult, visitorVisitsResult] = await Promise.all([
     (async () => {
-      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits').eq('performer_id', userId).maybeSingle();
+      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits,visitor_notifications_enabled').eq('performer_id', userId).maybeSingle();
+      if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits').eq('performer_id', userId).maybeSingle();
       if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template').eq('performer_id', userId).maybeSingle();
       return result;
     })(),
     db.from('notification_templates').select('confirmation,reminder,cancellation').eq('performer_id', userId).maybeSingle(),
     db.from('notification_marks').select('task_key,status').eq('performer_id', userId),
-    db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50)
+    db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50),
+    db.from('booking_page_visits').select('id,performer_id,created_at').eq('performer_id', userId).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending:false }).limit(20)
   ]);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   if (!policyResult.error && policyResult.data) bookingPolicy = { ...bookingPolicy, ...policyResult.data, auto_complete_visits:policyResult.data.auto_complete_visits ?? localStorage.getItem(autoCompleteStorageKey(userId)) === 'true' };
@@ -2733,8 +2835,12 @@ async function loadBookingSettings() {
   if (!marksResult.error) serverNotificationMarks = Object.fromEntries((marksResult.data || []).map(item => [item.task_key, item.status]));
   notificationOutboxRemoteAvailable = !outboxResult.error;
   notificationOutbox = outboxResult.error ? [] : (outboxResult.data || []);
+  visitorVisitsRemoteAvailable = !visitorVisitsResult.error;
+  visitorVisits = visitorVisitsResult.error ? [] : (visitorVisitsResult.data || []);
   notificationSettingsRemoteAvailable = !policyResult.error && !templatesResult.error && !marksResult.error;
   renderBookingPolicyForm();
+  renderVisitorNotificationForm();
+  renderVisitorVisits();
   renderNotificationTemplates();
   renderNotifications();
   return { ok: notificationSettingsRemoteAvailable, optional: true };
@@ -2923,6 +3029,7 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit)
     .subscribe(status => {
       if (bookingsChannel !== channel) return;
       if (status === 'SUBSCRIBED') {
@@ -3104,11 +3211,13 @@ async function handleSession(session) {
   renderDateStrip();
   renderNotificationTemplates();
   renderBookingPolicyForm();
+  renderVisitorNotificationForm();
   await providerCacheMaintenance;
   if (!sessionIsCurrent(userId, generation)) return;
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
   if (!bookingsChannel) startLiveUpdates();
+  if (new URLSearchParams(window.location.search).get('view') === 'notifications') setProviderView('notifications');
 }
 
 async function login(event) {
@@ -4307,6 +4416,7 @@ $('#portfolioConsent').addEventListener('change', updatePortfolioPublishControl)
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
+$('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('#installAppButton').addEventListener('click', installProviderApp);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
@@ -4420,6 +4530,9 @@ window.addEventListener('appinstalled', () => {
   notify('Приложение установлено');
 });
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
+  if (event.data?.type === 'open-provider-view' && event.data.view === 'notifications' && currentUser) setProviderView('notifications');
+});
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=141'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=142'));

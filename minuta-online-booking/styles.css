@@ -2545,3 +2545,17 @@ html.requires-top-level.top-level body { visibility:visible; }
 @media (max-width:760px) {
   .timeline-drag-label { left:8px; min-width:78px; padding:4px 7px; font-size:9px; }
 }
+
+/* Уведомления о посетителях публичной страницы записи. */
+.provider-body .visitor-alert-settings-card { grid-template-columns:40px minmax(0,1fr); margin-bottom:10px; }
+.provider-body .visitor-notification-form { display:grid; grid-column:1/-1; gap:11px; margin-top:16px; }
+.provider-body .visitor-notification-form .settings-check { display:flex; align-items:flex-start; gap:10px; padding:12px; border:1px solid #dce3de; border-radius:12px; background:#f7f8f7; cursor:pointer; }
+.provider-body .visitor-notification-form .settings-check input { flex:none; width:18px; min-height:18px; height:18px; margin:1px 0 0; padding:0; accent-color:#2f7654; }
+.provider-body .visitor-notification-form .settings-check span { display:grid; gap:3px; min-width:0; }
+.provider-body .visitor-notification-form .settings-check strong { font-size:12px; }
+.provider-body .visitor-notification-form .settings-check small { color:#718178; font-size:9px; line-height:1.45; }
+.provider-body .visitor-notification-permission { margin:0; color:#687a70; font-size:10px; line-height:1.5; }
+.provider-body .visitor-notification-form .primary { width:100%; min-height:45px; margin:0; }
+.provider-body .visitor-notification-card .notification-card-icon { background:#e8f2f6; color:#3f7187; }
+.provider-body[data-provider-theme] .visitor-notification-form .settings-check { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.visitor-notification-form .settings-check small,.visitor-notification-permission) { color:var(--theme-muted); }

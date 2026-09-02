@@ -77,6 +77,7 @@ jobs:
           node --check minuta-online-booking/multi-tenant-v70-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v71-static-test.mjs
           node --check minuta-online-booking/payroll-v72-static-test.mjs
+          node --check minuta-online-booking/visitor-presence-v73-static-test.mjs
           node --check minuta-online-booking/organization.js
           node --check minuta-online-booking/team-calendar.js
           node --check minuta-online-booking/resource-management.js
@@ -87,6 +88,7 @@ jobs:
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
+          deno check supabase/functions/telegram-booking-notify/index.ts
           deno check supabase/functions/payment-webhook/index.ts
           deno check minuta-online-booking/supabase/functions/telegram-client-notify/index.ts
           node minuta-online-booking/notification-outbox-static-test.mjs
@@ -100,6 +102,7 @@ jobs:
           node minuta-online-booking/multi-tenant-v70-static-test.mjs
           node minuta-online-booking/multi-tenant-v71-static-test.mjs
           node minuta-online-booking/payroll-v72-static-test.mjs
+          node minuta-online-booking/visitor-presence-v73-static-test.mjs
           node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/team-calendar-controller-test.mjs
           node minuta-online-booking/resource-management-controller-test.mjs
@@ -294,6 +297,18 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/payroll-v72-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v73.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v73.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_page_visits') is not null and (select relrowsecurity from pg_class where oid='public.booking_page_visits'::regclass) and exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled') and has_function_privilege('anon','public.register_public_booking_visit(text)','EXECUTE') and has_table_privilege('authenticated','public.booking_page_visits','SELECT') and not has_table_privilege('anon','public.booking_page_visits','SELECT') and not has_table_privilege('anon','public.booking_page_visits','INSERT') and not coalesce((select bool_or(visitor_notifications_enabled) from public.booking_policies),false);" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-visitor-presence-v73.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_page_visits') is null and to_regprocedure('public.register_public_booking_visit(text)') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled');" \
+            | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-payroll-v72.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -499,6 +514,18 @@ jobs:
               exit 1
               ;;
           esac
+          v73_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled') policy_column,to_regclass('public.booking_page_visits') is not null visit_table,to_regprocedure('public.register_public_booking_visit(text)') is not null visit_rpc) select case when not policy_column and not visit_table and not visit_rpc then 'absent' when policy_column and visit_table and visit_rpc then 'complete' else 'partial' end from state;")"
+          case "$v73_layer_state" in
+            absent|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v73.sql
+              ;;
+            partial|*)
+              echo "Partial v73 visitor notification layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t
@@ -510,6 +537,9 @@ jobs:
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.organization_shift_settings') is not null and to_regclass('public.staff_location_shifts') is not null and to_regclass('public.staff_absences') is not null and to_regclass('public.staff_schedule_audit_log') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_shift_settings','staff_location_shifts','staff_absences','staff_schedule_audit_log')) and exists(select 1 from pg_trigger where tgname='bookings_enforce_active_shift' and not tgisinternal) and exists(select 1 from pg_constraint where conname='staff_location_shifts_no_performer_overlap') and exists(select 1 from pg_constraint where conname='staff_absences_no_performer_overlap') and to_regprocedure('public.get_minuta_shift_workspace(uuid,date,date)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v4(text,uuid,uuid,date,date)') is not null and to_regprocedure('public.get_reschedule_slots_v4(uuid,date,date)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog_v4(text)','EXECUTE') and not has_table_privilege('authenticated','public.staff_location_shifts','INSERT');" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_page_visits') is not null and (select relrowsecurity from pg_class where oid='public.booking_page_visits'::regclass) and exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='visitor_notifications_enabled') and has_function_privilege('anon','public.register_public_booking_visit(text)','EXECUTE') and has_table_privilege('authenticated','public.booking_page_visits','SELECT') and not has_table_privilege('anon','public.booking_page_visits','SELECT') and not has_table_privilege('anon','public.booking_page_visits','INSERT');" \
             | grep -qx t
           else
             test "$MINUTA_MIGRATION_TARGET" = "client-avatars-v70"
