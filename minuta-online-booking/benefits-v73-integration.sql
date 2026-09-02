@@ -124,8 +124,8 @@ do $$ begin
 end $$;
 reset role;
 
-insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub,completion_source)
-values(current_setting('minuta.v73_booking')::uuid,current_setting('minuta.v73_owner')::uuid,'completed','cash',10000,'manual')
+insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub)
+values(current_setting('minuta.v73_booking')::uuid,current_setting('minuta.v73_owner')::uuid,'completed','cash',10000)
 on conflict(booking_id) do update set visit_status='completed',performer_id=excluded.performer_id;
 
 set local role authenticated;

@@ -56,11 +56,11 @@ reset role;
 
 select set_config('minuta.v72_booking',(select id::text from public.bookings
   where request_id='00000000-0000-4000-8000-000000007201'::uuid),true);
-insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub,completion_source)
+insert into public.booking_outcomes(booking_id,performer_id,visit_status,payment_method,amount_rub)
 values(current_setting('minuta.v72_booking')::uuid,current_setting('minuta.v72_owner')::uuid,
-  'completed','cash',10000,'manual')
+  'completed','cash',10000)
 on conflict(booking_id) do update set visit_status='completed',payment_method='cash',amount_rub=10000,
-  performer_id=excluded.performer_id,completion_source='manual';
+  performer_id=excluded.performer_id;
 
 select set_config('request.jwt.claim.sub',current_setting('minuta.v72_owner'),true);
 set local role authenticated;
