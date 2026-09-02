@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '179';
+const version = '180';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -347,6 +347,7 @@ const appearanceSources = [
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
+assert.match(appearanceSources[4], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
   for (const theme of ['luxury', 'loft', 'eco', 'hitech']) {
