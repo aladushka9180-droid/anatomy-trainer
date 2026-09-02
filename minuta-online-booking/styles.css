@@ -1858,6 +1858,25 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .loyalty-promotions .organization-tags .secondary-button { width:auto; min-height:36px; margin:0; padding:0 11px; }
 .provider-body .loyalty-rule-form>.primary { width:100%; margin:0; }
 .provider-body[data-provider-theme] :is(.loyalty-rule-form,.loyalty-promotions,.loyalty-management-grid>section) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body .inventory-workspace,#inventoryControls { display:grid; gap:14px; }
+.provider-body .inventory-workspace[hidden],.provider-body #inventoryControls[hidden] { display:none; }
+.provider-body .inventory-settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.provider-body .inventory-settings .settings-check { margin:0; padding:13px; border:1px solid var(--theme-line,#dfe7e1); border-radius:13px; background:var(--theme-surface-alt,#f8faf8); }
+.provider-body .inventory-management-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.provider-body .inventory-management-grid>section,.provider-body .inventory-balances-section { min-width:0; padding:14px; border:1px solid var(--theme-line,#dfe7e1); border-radius:14px; background:var(--theme-surface-alt,#fafcfb); }
+.provider-body .inventory-balances { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:9px; }
+.provider-body .inventory-balance-card { min-width:0; padding:12px; border:1px solid var(--theme-line,#dde7df); border-radius:12px; background:var(--theme-surface,#fff); }
+.provider-body .inventory-balance-card>div strong,.provider-body .inventory-balance-card>div small { display:block; }
+.provider-body .inventory-balance-card>div strong { color:var(--theme-ink,#294d3a); font-size:11px; }
+.provider-body .inventory-balance-card>div small { margin-top:3px; color:var(--theme-muted,#718078); font-size:8px; }
+.provider-body .inventory-balance-card ul { display:grid; gap:6px; margin:10px 0 0; padding:0; list-style:none; }
+.provider-body .inventory-balance-card li { display:flex; justify-content:space-between; gap:9px; color:var(--theme-muted,#65786d); font-size:9px; }
+.provider-body .inventory-balance-card li b { color:var(--theme-ink,#345343); white-space:nowrap; }
+.provider-body .inventory-balance-card li.is-low,.provider-body .inventory-balance-card li.is-low b,.provider-body .inventory-low strong { color:#a45731; }
+.provider-body .inventory-operation form,.provider-body .inventory-usage form { display:grid; gap:10px; margin-top:11px; }
+.provider-body .inventory-form-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.provider-body .inventory-form-actions button,.provider-body .inventory-operation form>button,.provider-body .inventory-usage form>button { width:100%; min-height:42px; margin:0; }
+.provider-body .inventory-usage .organization-list { max-height:260px; overflow:auto; }
 .provider-body .payroll-toolbar { display:grid; grid-template-columns:repeat(2,minmax(180px,1fr)); align-items:end; gap:12px; padding:14px; border:1px solid var(--theme-line,#dfe7e1); border-radius:var(--material-radius,13px); background:var(--theme-surface-alt,#fbfcfb); }
 .provider-body .payroll-toolbar>label:not(.settings-check),.provider-body .payroll-adjustment form>label { display:grid; gap:6px; color:var(--theme-muted,#667a6f); font-size:9px; font-weight:800; }
 .provider-body .payroll-toolbar input,.provider-body .payroll-adjustment :is(input,select) { min-height:42px; margin-top:5px; font-size:12px; }
@@ -1984,6 +2003,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .booking-policy-form input { font-size:14px; }
 
 @media (max-width:760px) {
+  .provider-body .inventory-settings,.provider-body .inventory-management-grid { grid-template-columns:1fr; }
+  .provider-body .inventory-management-grid>section,.provider-body .inventory-balances-section { padding:12px; }
+  .provider-body .inventory-form-actions button,.provider-body .inventory-operation form>button,.provider-body .inventory-usage form>button { min-height:44px; }
   .provider-body .organization-state { align-items:flex-start; flex-direction:column; padding:16px; }
   .provider-body .organization-unavailable { grid-template-columns:44px minmax(0,1fr); gap:12px; }
   .provider-body .organization-unavailable .secondary-button { grid-column:1/-1; width:100%; margin-top:2px; }

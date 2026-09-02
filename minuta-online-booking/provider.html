@@ -443,6 +443,35 @@
               </div>
             </section>
 
+            <section class="panel organization-section organization-inventory" id="inventoryPanel" hidden>
+              <div class="panel-head"><div><small>Товары, материалы и расходники</small><h3>Складской учёт</h3></div><span class="panel-count" id="inventoryItemsCount">0</span></div>
+              <p class="organization-invite-help">Остатки разделены по филиалам. Все движения остаются в неизменяемом журнале, а нормы списываются только после завершённого визита.</p>
+              <div class="loading-state compact" id="inventoryLoading" hidden><i></i><span>Загружаем склад…</span></div>
+              <div class="resource-inline-error" id="inventoryUnavailable" role="status" hidden><div><strong>Склад временно недоступен</strong><small id="inventoryUnavailableText"></small></div><button class="secondary-button" id="reloadInventory" type="button">Повторить</button></div>
+              <div class="inventory-workspace" id="inventoryWorkspace" hidden>
+                <div class="inventory-settings">
+                  <label class="settings-check"><input id="inventoryEnabled" type="checkbox" data-inventory-write><span><strong>Включить складской учёт</strong><small id="inventoryEnabledHint">По умолчанию выключено. Существующие остатки и записи не меняются.</small></span></label>
+                  <label class="settings-check"><input id="inventoryAutoDeduct" type="checkbox" data-inventory-write><span><strong>Списывать нормы автоматически</strong><small>Операция атомарна и выполняется один раз при переводе визита в «Завершён».</small></span></label>
+                </div>
+                <div id="inventoryControls" hidden>
+                  <section class="inventory-balances-section"><div class="resource-subhead"><div><small>Фактическое наличие</small><strong>Остатки по филиалам</strong></div></div><div class="inventory-balances" id="inventoryBalances"></div></section>
+                  <div class="inventory-management-grid">
+                    <section><div class="resource-subhead"><div><small>Единицы и минимальные остатки</small><strong>Каталог</strong></div></div><div class="organization-list" id="inventoryItemsList"></div>
+                      <details class="organization-create" id="inventoryItemCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить позицию</span></summary><form id="inventoryItemForm"><input id="inventoryItemId" type="hidden"><div class="form-row"><label>Название<input id="inventoryItemName" maxlength="120" placeholder="Например, Массажное масло" required></label><label>Артикул<input id="inventoryItemSku" maxlength="80" placeholder="Необязательно"></label></div><div class="form-row"><label>Единица<select id="inventoryItemUnit"><option value="piece">шт.</option><option value="ml">мл</option><option value="g">г</option><option value="kg">кг</option><option value="l">л</option><option value="pack">упаковка</option></select></label><label>Минимальный остаток<input id="inventoryItemLow" type="number" min="0" max="99999999999" step="0.001" value="0" required></label></div><label class="settings-check"><input id="inventoryItemActive" type="checkbox" checked><span><strong>Активная позиция</strong><small>Неактивная останется в истории, но новые операции будут запрещены.</small></span></label><p class="form-error" id="inventoryItemError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-item>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                    </section>
+                    <section><div class="resource-subhead"><div><small>Один склад на филиал</small><strong>Склады</strong></div><span class="panel-count" id="inventoryWarehousesCount">0</span></div><div class="organization-list" id="inventoryWarehousesList"></div>
+                      <details class="organization-create" id="inventoryWarehouseCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать склад</span></summary><form id="inventoryWarehouseForm"><input id="inventoryWarehouseId" type="hidden"><label>Филиал<select id="inventoryWarehouseLocation" required></select></label><label>Название<input id="inventoryWarehouseName" maxlength="120" placeholder="Например, Склад — Центр" required></label><label class="settings-check"><input id="inventoryWarehouseActive" type="checkbox" checked><span><strong>Активный склад</strong><small>Только активный склад участвует в операциях и автоматическом списании.</small></span></label><p class="form-error" id="inventoryWarehouseError" hidden></p><div class="inventory-form-actions"><button class="secondary-button" type="button" data-inventory-cancel-warehouse>Отмена</button><button class="primary" type="submit" data-inventory-write>Сохранить</button></div></form></details>
+                    </section>
+                  </div>
+                  <div class="inventory-management-grid">
+                    <section class="inventory-operation"><div class="resource-subhead"><div><small>Приход, списание или пересчёт</small><strong>Операция с остатком</strong></div></div><form id="inventoryMovementForm"><div class="form-row"><label>Склад<select id="inventoryMovementWarehouse" required></select></label><label>Позиция<select id="inventoryMovementItem" required></select></label></div><label>Операция<select id="inventoryMovementKind"><option value="receipt">Приход</option><option value="write_off">Списание</option><option value="inventory">Инвентаризация</option></select></label><label id="inventoryMovementQuantityField">Количество<input id="inventoryMovementQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label><label id="inventoryCountedQuantityField" hidden>Фактический остаток<input id="inventoryCountedQuantity" type="number" min="0" max="99999999999" step="0.001" value="0"></label><label>Причина<input id="inventoryMovementReason" maxlength="500" placeholder="Обязательна для списания и пересчёта"></label><p class="form-error" id="inventoryMovementError" hidden></p><button class="primary" type="submit" data-inventory-write>Провести операцию</button></form></section>
+                    <section class="inventory-usage"><div class="resource-subhead"><div><small>Автосписание за визит</small><strong>Нормы расхода</strong></div></div><div class="organization-list" id="inventoryUsageList"></div><form id="inventoryUsageForm"><label>Услуга<select id="inventoryUsageService" required></select></label><div class="form-row"><label>Материал<select id="inventoryUsageItem" required></select></label><label>Количество<input id="inventoryUsageQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label></div><p class="form-error" id="inventoryUsageError" hidden></p><button class="secondary-button" type="submit" data-inventory-write>Сохранить норму</button></form></section>
+                  </div>
+                  <details class="resource-audit" id="inventoryMovementsPanel"><summary><span><small>Неизменяемая история остатков</small><strong>Журнал движений</strong></span><span id="inventoryMovementsCount">0</span></summary><div class="organization-audit-list" id="inventoryMovementsList"></div></details>
+                </div>
+              </div>
+            </section>
+
             <section class="panel organization-section organization-pending" id="invitationsPanel" hidden>
               <div class="panel-head"><div><small>Ожидают регистрации</small><h3>Приглашения</h3></div><span class="panel-count" id="invitationsCount">0</span></div><div class="organization-list" id="invitationsList"></div>
             </section>
@@ -723,6 +752,7 @@
   <script src="payroll-management.js?v=160" defer></script>
   <script src="benefit-management.js?v=160" defer></script>
   <script src="loyalty-management.js?v=160" defer></script>
+  <script src="inventory-management.js?v=160" defer></script>
   <script src="booking-policy-management.js?v=160" defer></script>
   <script src="team-calendar.js?v=160" defer></script>
   <script src="free-slots-share.js?v=160" defer></script>
