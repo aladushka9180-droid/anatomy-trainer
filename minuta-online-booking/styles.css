@@ -27,22 +27,11 @@
 .theme-swatch i { display:block; height:7px; margin:6px 7px 0; border-radius:var(--theme-preview-item-radius,4px); background:var(--theme-preview-surface); }
 .theme-swatch i:nth-child(2) { width:56%; background:var(--theme-preview-accent); }
 .theme-swatch i:nth-child(3) { height:16px; margin-top:4px; border:1px solid var(--theme-preview-line); }
-.theme-linear,.theme-soft,.theme-capsule,.theme-editorial,.theme-bento { --theme-preview-bg:#f4f7f5; --theme-preview-surface:#fff; --theme-preview-line:#d5dfd8; --theme-preview-accent:#235b40; }
-.theme-linear { --theme-preview-radius:0; --theme-preview-item-radius:0; border-radius:2px; }
-.theme-linear .theme-swatch { box-shadow:inset 3px 0 0 var(--theme-preview-accent); }
-.theme-soft { --theme-preview-radius:13px; --theme-preview-item-radius:6px; }
-.theme-soft .theme-swatch { border-color:#e3eae5; box-shadow:0 5px 13px rgba(28,65,45,.1); }
-.theme-capsule { --theme-preview-radius:28px; --theme-preview-item-radius:999px; }
-.theme-capsule .theme-swatch { grid-template-columns:13px 1fr; padding:4px; gap:3px; }
-.theme-capsule .theme-swatch::before { border:0; border-radius:999px; background:var(--theme-preview-accent); }
-.theme-editorial { --theme-preview-radius:0; --theme-preview-item-radius:0; border-radius:0; }
-.theme-editorial .theme-swatch { border-width:2px 0 0; border-color:#17241d; background:#fff; }
-.theme-editorial .theme-swatch i { height:1px; margin-top:9px; background:#17241d; }
-.theme-editorial .theme-swatch i:nth-child(2) { width:72%; }.theme-editorial .theme-swatch i:nth-child(3) { height:14px; border-width:1px 0 0; }
-.theme-bento { --theme-preview-radius:12px; --theme-preview-item-radius:7px; }
-.theme-bento .theme-swatch { grid-template-columns:24px 1fr; gap:4px; padding:4px; background:#e6eee8; }
-.theme-bento .theme-swatch::before { border:0; border-radius:7px; }
-.theme-bento .theme-swatch i { height:11px; margin:0; border:0; background:#fff; }.theme-bento .theme-swatch i:nth-child(2) { width:70%; background:#fff; }.theme-bento .theme-swatch i:nth-child(3) { height:25px; margin:0; }
+.theme-sage { --theme-preview-bg:#f4f7f5; --theme-preview-surface:#fff; --theme-preview-line:#dfe6e1; --theme-preview-accent:#235b40; }
+.theme-nordic { --theme-preview-bg:#f3f6fb; --theme-preview-surface:#fff; --theme-preview-line:#dce5f0; --theme-preview-accent:#3568e8; }
+.theme-warm { --theme-preview-bg:#f6f1ea; --theme-preview-surface:#fffdfa; --theme-preview-line:#eadfd4; --theme-preview-accent:#a9664c; }
+.theme-graphite { --theme-preview-bg:#11171b; --theme-preview-surface:#1a2228; --theme-preview-line:#2d3941; --theme-preview-accent:#8b7cf6; color:#f1f4f6; }
+.theme-lavender { --theme-preview-bg:#f5f3fb; --theme-preview-surface:#fff; --theme-preview-line:#e5e0ef; --theme-preview-accent:#7660cc; }
 .booking-card-options { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .provider-display-form .settings-check { display:flex; align-items:flex-start; gap:10px; min-width:0; padding:11px 12px; border:1px solid var(--line); border-radius:12px; background:var(--soft); cursor:pointer; }
 .provider-display-form .settings-check input { flex:none; width:18px; height:18px; margin:1px 0 0; accent-color:var(--green); }
@@ -57,11 +46,11 @@
 .provider-booking-client-line { flex-wrap:wrap; align-items:center; }
 .timeline-client-visit-wrap { display:inline; }
 
-.provider-body[data-provider-theme="linear"],
-.provider-body[data-provider-theme="soft"],
-.provider-body[data-provider-theme="capsule"],
-.provider-body[data-provider-theme="editorial"],
-.provider-body[data-provider-theme="bento"] { --theme-bg:#f4f7f5; --theme-surface:#fff; --theme-surface-alt:#f8faf9; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#dce5df; --theme-accent:#235b40; --theme-accent-soft:#e9f1ec; --theme-shadow:rgba(29,70,48,.12); }
+.provider-body[data-provider-theme="sage"] { --theme-bg:#f4f7f5; --theme-surface:#fff; --theme-surface-alt:#f8faf9; --theme-ink:#183425; --theme-muted:#64736b; --theme-line:#dfe6e1; --theme-accent:#235b40; --theme-accent-soft:#e9eeeb; --theme-shadow:rgba(29,70,48,.12); }
+.provider-body[data-provider-theme="nordic"] { --theme-bg:#f3f6fb; --theme-surface:#fff; --theme-surface-alt:#f7f9fd; --theme-ink:#182437; --theme-muted:#627188; --theme-line:#dde5f0; --theme-accent:#3568e8; --theme-accent-soft:#e9efff; --theme-shadow:rgba(36,66,118,.13); }
+.provider-body[data-provider-theme="warm"] { --theme-bg:#f6f1ea; --theme-surface:#fffdfa; --theme-surface-alt:#faf6f0; --theme-ink:#332923; --theme-muted:#78695f; --theme-line:#eadfd4; --theme-accent:#a9664c; --theme-accent-soft:#f2e6dd; --theme-shadow:rgba(92,65,48,.14); }
+.provider-body[data-provider-theme="graphite"] { --theme-bg:#11171b; --theme-surface:#1a2228; --theme-surface-alt:#161d22; --theme-ink:#f1f4f6; --theme-muted:#99a7b1; --theme-line:#2d3941; --theme-accent:#8b7cf6; --theme-accent-soft:#292741; --theme-shadow:rgba(0,0,0,.38); color-scheme:dark; }
+.provider-body[data-provider-theme="lavender"] { --theme-bg:#f5f3fb; --theme-surface:#fff; --theme-surface-alt:#faf9fd; --theme-ink:#2c2740; --theme-muted:#756f87; --theme-line:#e5e0ef; --theme-accent:#7660cc; --theme-accent-soft:#eeeafb; --theme-shadow:rgba(73,54,122,.14); }
 .provider-body[data-provider-theme] { --ink:var(--theme-ink); --muted:var(--theme-muted); --green:var(--theme-accent); --line:var(--theme-line); --soft:var(--theme-accent-soft); --white:var(--theme-surface); --shadow:0 24px 64px var(--theme-shadow); background:var(--theme-bg); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .provider-app { background:var(--theme-bg); color:var(--theme-ink); }
 .provider-body[data-provider-theme] :is(.provider-sidebar,.panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.provider-mobile-nav,.booking-sheet-panel,.notification-template-dialog,.service-creator-dialog) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }

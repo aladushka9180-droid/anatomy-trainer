@@ -11,13 +11,13 @@ const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
-const PROVIDER_THEME_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
-const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ sage: 'linear', nordic: 'soft', warm: 'editorial', graphite: 'bento', lavender: 'capsule' });
+const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender'];
+const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const REGULAR_CLIENT_COMPLETED_VISITS = 10;
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
-  theme: 'linear',
+  theme: 'sage',
   show_phone: true,
   show_visit_number: true,
   show_client_type: true,
@@ -282,7 +282,8 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#153c2c');
+  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc' };
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -602,7 +603,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=118#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=119#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3787,4 +3788,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=118'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=119'));
