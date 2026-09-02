@@ -65,8 +65,11 @@ jobs:
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v68-static-test.mjs
+          node --check minuta-online-booking/multi-tenant-v69-static-test.mjs
           node --check minuta-online-booking/organization.js
           node --check minuta-online-booking/team-calendar.js
+          node --check minuta-online-booking/resource-management.js
+          node --check minuta-online-booking/resource-management-controller-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
@@ -79,8 +82,11 @@ jobs:
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
           node minuta-online-booking/multi-tenant-v68-static-test.mjs
+          node minuta-online-booking/multi-tenant-v69-static-test.mjs
           node minuta-online-booking/organization-controller-test.mjs
           node minuta-online-booking/team-calendar-controller-test.mjs
+          node minuta-online-booking/resource-management-controller-test.mjs
+          bash -n minuta-online-booking/multi-tenant-v69-concurrency-test.sh
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
           node minuta-online-booking/smoke-test.mjs
@@ -163,6 +169,10 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.resource_groups') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-resource-scheduling-v69.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-team-calendar-v68.sql
@@ -231,6 +241,28 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/multi-tenant-v68-integration.sql
           bash minuta-online-booking/multi-tenant-v68-concurrency-test.sh
+          v68_contract_before_v69="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(booking)::text,',' order by booking.id),'')) from public.bookings booking),(select md5(string_agg(pg_get_functiondef(p.oid)||coalesce(p.proacl::text,''),E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)'::regprocedure,'public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_public_minuta_catalog_v2(text)'::regprocedure,'public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure))); ")"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v69.sql
+          v69_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(resource_group)::text,',' order by resource_group.id),'')) from public.resource_groups resource_group),(select md5(coalesce(string_agg(to_jsonb(resource)::text,',' order by resource.id),'')) from public.resources resource),(select md5(coalesce(string_agg(to_jsonb(requirement)::text,',' order by requirement.organization_id,requirement.service_id,requirement.group_id),'')) from public.service_resource_requirements requirement),(select md5(coalesce(string_agg(to_jsonb(allocation)::text,',' order by allocation.booking_id,allocation.resource_id),'')) from public.booking_resource_allocations allocation),(select md5(coalesce(string_agg(to_jsonb(audit)::text,',' order by audit.id),'')) from public.resource_audit_log audit),(select md5(string_agg(pg_get_functiondef(p.oid)||coalesce(p.proacl::text,''),E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_minuta_resource_manager','write_minuta_resource_audit','allocate_minuta_booking_resources','sync_minuta_booking_resources','get_minuta_resource_workspace','create_minuta_resource_group','update_minuta_resource_group','create_minuta_resource','update_minuta_resource','replace_minuta_service_resource_requirements','get_public_minuta_available_slots_v3','get_public_minuta_catalog_v3','get_minuta_team_calendar_v2','get_reschedule_slots_v3')),(select md5(string_agg(pg_get_constraintdef(constraint.oid),E'\\n' order by constraint.conname)) from pg_constraint constraint where constraint.conname in ('bookings_id_organization_location_key','booking_resources_active_no_overlap')),(select md5(string_agg(policy.polqual::text||coalesce(policy.polwithcheck::text,''),E'\\n' order by policy.polname)) from pg_policy policy where policy.polrelid in ('public.resource_groups'::regclass,'public.resources'::regclass,'public.service_resource_requirements'::regclass,'public.booking_resource_allocations'::regclass,'public.resource_audit_log'::regclass))); ")"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v69.sql
+          v69_snapshot_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(resource_group)::text,',' order by resource_group.id),'')) from public.resource_groups resource_group),(select md5(coalesce(string_agg(to_jsonb(resource)::text,',' order by resource.id),'')) from public.resources resource),(select md5(coalesce(string_agg(to_jsonb(requirement)::text,',' order by requirement.organization_id,requirement.service_id,requirement.group_id),'')) from public.service_resource_requirements requirement),(select md5(coalesce(string_agg(to_jsonb(allocation)::text,',' order by allocation.booking_id,allocation.resource_id),'')) from public.booking_resource_allocations allocation),(select md5(coalesce(string_agg(to_jsonb(audit)::text,',' order by audit.id),'')) from public.resource_audit_log audit),(select md5(string_agg(pg_get_functiondef(p.oid)||coalesce(p.proacl::text,''),E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_minuta_resource_manager','write_minuta_resource_audit','allocate_minuta_booking_resources','sync_minuta_booking_resources','get_minuta_resource_workspace','create_minuta_resource_group','update_minuta_resource_group','create_minuta_resource','update_minuta_resource','replace_minuta_service_resource_requirements','get_public_minuta_available_slots_v3','get_public_minuta_catalog_v3','get_minuta_team_calendar_v2','get_reschedule_slots_v3')),(select md5(string_agg(pg_get_constraintdef(constraint.oid),E'\\n' order by constraint.conname)) from pg_constraint constraint where constraint.conname in ('bookings_id_organization_location_key','booking_resources_active_no_overlap')),(select md5(string_agg(policy.polqual::text||coalesce(policy.polwithcheck::text,''),E'\\n' order by policy.polname)) from pg_policy policy where policy.polrelid in ('public.resource_groups'::regclass,'public.resources'::regclass,'public.service_resource_requirements'::regclass,'public.booking_resource_allocations'::regclass,'public.resource_audit_log'::regclass))); ")"
+          test "$v69_snapshot" = "$v69_snapshot_after"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/multi-tenant-v69-integration.sql
+          bash minuta-online-booking/multi-tenant-v69-concurrency-test.sh
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-resource-scheduling-v69.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.resource_groups') is null and to_regclass('public.resources') is null and to_regclass('public.service_resource_requirements') is null and to_regclass('public.booking_resource_allocations') is null and to_regclass('public.resource_audit_log') is null and not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_minuta_resource_manager','write_minuta_resource_audit','allocate_minuta_booking_resources','sync_minuta_booking_resources','get_minuta_resource_workspace','create_minuta_resource_group','update_minuta_resource_group','create_minuta_resource','update_minuta_resource','replace_minuta_service_resource_requirements','get_public_minuta_available_slots_v3','get_public_minuta_catalog_v3','get_minuta_team_calendar_v2','get_reschedule_slots_v3')) and not exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) and not exists(select 1 from pg_constraint where conname in ('bookings_id_organization_location_key','booking_resources_active_no_overlap')) and to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null;" \
+            | grep -qx t
+          v68_contract_after_v69_rollback="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(booking)::text,',' order by booking.id),'')) from public.bookings booking),(select md5(string_agg(pg_get_functiondef(p.oid)||coalesce(p.proacl::text,''),E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)'::regprocedure,'public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_public_minuta_catalog_v2(text)'::regprocedure,'public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure))); ")"
+          test "$v68_contract_before_v69" = "$v68_contract_after_v69_rollback"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-team-calendar-v68.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -255,6 +287,8 @@ jobs:
             -f minuta-online-booking/supabase-migration-v67.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v68.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v69.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regclass('public.client_labels') is not null and to_regclass('public.booking_session_items') is not null and to_regclass('public.booking_session_revisions') is not null and to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='favorite_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='vip_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='total_price_rub') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='client_account_id') and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null and to_regprocedure('public.set_booking_note(uuid,text)') is not null and to_regprocedure('public.save_booking_session(uuid,jsonb)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
@@ -275,6 +309,9 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v2(text)') is not null and to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is not null and not exists (select 1 from public.bookings where organization_id is null or location_id is null or booking_scope_source is null) and has_function_privilege('authenticated','public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)','EXECUTE');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select (select count(*)=5 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid=class.relnamespace where namespace.nspname='public' and class.relname in ('resource_groups','resources','service_resource_requirements','booking_resource_allocations','resource_audit_log')) and to_regprocedure('public.get_minuta_resource_workspace(uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v3(text)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v3(text,uuid,uuid,date,date)') is not null and exists(select 1 from pg_constraint where conrelid='public.booking_resource_allocations'::regclass and conname='booking_resources_active_no_overlap') and exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) and not has_table_privilege('anon','public.resources','SELECT') and not has_table_privilege('authenticated','public.resources','INSERT');" \
             | grep -qx t
 
   production-migration:
@@ -356,11 +393,30 @@ jobs:
             -f minuta-online-booking/supabase-migration-v67.sql
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v68.sql
+          v69_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select (select count(*) from (values (to_regclass('public.resource_groups')),(to_regclass('public.resources')),(to_regclass('public.service_resource_requirements')),(to_regclass('public.booking_resource_allocations')),(to_regclass('public.resource_audit_log'))) item(oid) where oid is not null) as table_count,(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_minuta_resource_manager','write_minuta_resource_audit','allocate_minuta_booking_resources','sync_minuta_booking_resources','get_minuta_resource_workspace','create_minuta_resource_group','update_minuta_resource_group','create_minuta_resource','update_minuta_resource','replace_minuta_service_resource_requirements','get_public_minuta_available_slots_v3','get_public_minuta_catalog_v3','get_minuta_team_calendar_v2','get_reschedule_slots_v3')) as function_count,exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) as sync_trigger,exists(select 1 from pg_constraint where conname='bookings_id_organization_location_key' and conrelid='public.bookings'::regclass) as booking_key,exists(select 1 from pg_constraint where conname='booking_resources_active_no_overlap' and conrelid=to_regclass('public.booking_resource_allocations')) as overlap_constraint,(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('resource_groups','resources','service_resource_requirements','booking_resource_allocations','resource_audit_log') and c.relrowsecurity) as rls_count) select case when table_count=0 and function_count=0 and not sync_trigger and not booking_key and not overlap_constraint then 'absent' when table_count=5 and function_count=14 and sync_trigger and booking_key and overlap_constraint and rls_count=5 then 'complete' else 'partial' end from state;")"
+          case "$v69_layer_state" in
+            absent)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v69.sql
+              ;;
+            complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v69.sql
+              ;;
+            partial|*)
+              echo "Partial v69 resource layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v2(text)') is not null and to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is not null and not exists (select 1 from public.bookings where organization_id is null or location_id is null or booking_scope_source is null);" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.resource_groups') is not null and to_regclass('public.resources') is not null and to_regclass('public.service_resource_requirements') is not null and to_regclass('public.booking_resource_allocations') is not null and to_regclass('public.resource_audit_log') is not null and (select count(*)=5 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('resource_groups','resources','service_resource_requirements','booking_resource_allocations','resource_audit_log')) and (select count(*)=14 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('require_minuta_resource_manager','write_minuta_resource_audit','allocate_minuta_booking_resources','sync_minuta_booking_resources','get_minuta_resource_workspace','create_minuta_resource_group','update_minuta_resource_group','create_minuta_resource','update_minuta_resource','replace_minuta_service_resource_requirements','get_public_minuta_available_slots_v3','get_public_minuta_catalog_v3','get_minuta_team_calendar_v2','get_reschedule_slots_v3')) and exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) and exists(select 1 from pg_constraint where conname='bookings_id_organization_location_key' and conrelid='public.bookings'::regclass) and exists(select 1 from pg_constraint where conname='booking_resources_active_no_overlap' and conrelid='public.booking_resource_allocations'::regclass) and has_function_privilege('anon','public.get_public_minuta_catalog_v3(text)','EXECUTE') and has_function_privilege('anon','public.get_public_minuta_available_slots_v3(text,uuid,uuid,date,date)','EXECUTE') and has_function_privilege('authenticated','public.get_minuta_resource_workspace(uuid)','EXECUTE') and not has_table_privilege('anon','public.resources','SELECT') and not has_table_privilege('authenticated','public.resources','INSERT');" \
             | grep -qx t
 
   diagnose-client-links:

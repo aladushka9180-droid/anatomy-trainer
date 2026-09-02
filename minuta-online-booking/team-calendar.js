@@ -20,10 +20,13 @@
     let rows = [];
     let locations = [];
     let members = [];
+    let resources = [];
     let mode = 'personal';
     let availability = null;
     let locationId = '';
     let performerId = '';
+    let resourceId = '';
+    let resourceCalendar = false;
     let requestRevision = 0;
     let loadedDate = '';
     let bound = false;
@@ -43,10 +46,13 @@
       rows = [];
       locations = [];
       members = [];
+      resources = [];
       mode = 'personal';
       availability = null;
       locationId = '';
       performerId = '';
+      resourceId = '';
+      resourceCalendar = false;
       loadedDate = '';
       updateControls();
       onModeChange?.(false);
@@ -64,8 +70,11 @@
       rows = [];
       locations = [];
       members = [];
+      resources = [];
       locationId = '';
       performerId = '';
+      resourceId = '';
+      resourceCalendar = false;
       loadedDate = '';
       availability = next ? null : 'forbidden';
       mode = 'personal';
@@ -82,6 +91,7 @@
       const payloadOrganization = source.organization || organization || {};
       const normalizedLocations = Array.isArray(source.locations) ? source.locations : [];
       const normalizedMembers = Array.isArray(source.performers) ? source.performers : (Array.isArray(source.members) ? source.members : []);
+      const normalizedResources = Array.isArray(source.resources) ? source.resources : [];
       const rawRows = Array.isArray(source.bookings) ? source.bookings : (Array.isArray(source.rows) ? source.rows : []);
       return {
         available: source.available !== false && allowedRoles.has(payloadOrganization.current_role || organization?.current_role),
@@ -99,8 +109,20 @@
           booking_date: String(item?.booking_date || ''),
           booking_time: String(item?.booking_time || '').slice(0, 5),
           duration_minutes: Number(item?.duration_minutes || item?.services?.duration_minutes || 0),
-          status: String(item?.status || item?.visit_status || 'new')
-        })).filter(item => item.id && item.performer_id && /^\d{4}-\d{2}-\d{2}$/.test(item.booking_date))
+          status: String(item?.status || item?.visit_status || 'new'),
+          resources: (Array.isArray(item?.resources) ? item.resources : []).map(resource => ({
+            id: String(resource?.id || ''),
+            name: String(resource?.name || 'Ресурс'),
+            group_name: String(resource?.group_name || '')
+          })).filter(resource => resource.id)
+        })).filter(item => item.id && item.performer_id && /^\d{4}-\d{2}-\d{2}$/.test(item.booking_date)),
+        resources: normalizedResources.map(item => ({
+          id: String(item?.id || ''),
+          name: String(item?.name || 'Ресурс'),
+          location_id: String(item?.location_id || ''),
+          group_name: String(item?.group_name || ''),
+          active: item?.active !== false
+        })).filter(item => item.id)
       };
     }
 
@@ -114,12 +136,19 @@
       availability = 'loading';
       updateControls();
       render(getHolder());
-      const { data, error } = await db.rpc('get_minuta_team_calendar', { p_organization: organization.id, p_start: date, p_end: date, p_location: null, p_performer: null });
+      const commonParameters = { p_organization: organization.id, p_start: date, p_end: date, p_location: null, p_performer: null };
+      let { data, error } = await db.rpc('get_minuta_team_calendar_v2', { ...commonParameters, p_resource: null });
+      let loadedResourceCalendar = !error;
+      if (error && isMissingRpc(error)) {
+        ({ data, error } = await db.rpc('get_minuta_team_calendar', commonParameters));
+        loadedResourceCalendar = false;
+      }
       if (!sessionIsCurrent(userId, generation) || revision !== requestRevision) return { ok: false, optional: true, stale: true };
       if (error) {
         rows = [];
         locations = [];
         members = [];
+        resources = [];
         loadedDate = '';
         if (isMissingRpc(error)) {
           availability = 'unsupported';
@@ -146,10 +175,13 @@
       rows = normalized.rows;
       locations = normalized.locations;
       members = normalized.members;
+      resources = normalized.resources;
+      resourceCalendar = loadedResourceCalendar;
       loadedDate = date;
       availability = 'ready';
       if (locationId && !locations.some(item => item.id === locationId)) locationId = '';
       if (performerId && !members.some(item => item.user_id === performerId)) performerId = '';
+      if (resourceId && !resources.some(item => item.id === resourceId && (!locationId || item.location_id === locationId))) resourceId = '';
       updateControls();
       render(getHolder());
       return { ok: true, optional: true };
@@ -170,14 +202,24 @@
       if (status) {
         status.textContent = mode !== 'team' ? '' : availability === 'loading' ? 'Загружаем календарь команды…' : availability === 'error' ? 'Календарь команды временно недоступен. Личные записи не изменены.' : '';
       }
-      if (availability !== 'ready') return;
+      const resourceField = $('#teamCalendarResourceField');
+      if (availability !== 'ready') {
+        if (resourceField) resourceField.hidden = true;
+        return;
+      }
       const locationSelect = $('#teamCalendarLocation');
       const performerSelect = $('#teamCalendarPerformer');
+      const resourceSelect = $('#teamCalendarResource');
       if (locationSelect) {
         locationSelect.innerHTML = `<option value="">Все филиалы</option>${locations.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === locationId ? 'selected' : ''}>${escapeHtml(item.name || 'Филиал')}</option>`).join('')}`;
       }
       if (performerSelect) {
         performerSelect.innerHTML = `<option value="">Все специалисты</option>${members.map(item => `<option value="${escapeHtml(item.user_id)}" ${item.user_id === performerId ? 'selected' : ''}>${escapeHtml(item.display_name || 'Специалист')}</option>`).join('')}`;
+      }
+      const selectableResources = resources.filter(item => item.active && (!locationId || item.location_id === locationId));
+      if (resourceField) resourceField.hidden = !resourceCalendar || selectableResources.length === 0;
+      if (resourceSelect) {
+        resourceSelect.innerHTML = `<option value="">Все ресурсы</option>${selectableResources.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === resourceId ? 'selected' : ''}>${escapeHtml(item.group_name ? `${item.group_name} · ${item.name}` : item.name)}</option>`).join('')}`;
       }
     }
 
@@ -186,6 +228,7 @@
       return rows.filter(item => item.booking_date === date)
         .filter(item => !performerId || item.performer_id === performerId)
         .filter(item => !locationId || item.location_id === locationId)
+        .filter(item => !resourceId || item.resources.some(resource => resource.id === resourceId))
         .sort((a, b) => `${a.performer_name}|${a.booking_time}|${a.id}`.localeCompare(`${b.performer_name}|${b.booking_time}|${b.id}`, 'ru'));
     }
 
@@ -223,8 +266,10 @@
       const endTime = timeFromMinutes(minutesFromTime(startTime) + durationMinutes);
       const duration = durationMinutes > 0 ? ` · ${durationMinutes} мин` : '';
       const phone = item.client_phone ? ` · ${escapeHtml(item.client_phone)}` : '';
+      const resourceNames = item.resources.map(resource => resource.name).filter(Boolean);
+      const resourceLine = resourceNames.length ? `<span class="team-calendar-resource">${escapeHtml(resourceNames.join(' · '))}</span>` : '';
       const statusClass = String(item.status || 'new').replaceAll('_', '-');
-      return `<article class="provider-booking team-calendar-booking status-${escapeHtml(statusClass)}"><div class="booking-time-column"><strong>${escapeHtml(startTime)}${durationMinutes > 0 ? `<small>до ${escapeHtml(endTime)}</small>` : ''}</strong><span>${escapeHtml(item.location_name)}</span></div><div class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(item.service_name)}</h3><span class="booking-status">${escapeHtml(statusLabels[item.status] || item.status)}</span></span><span class="provider-booking-client-line"><strong>${escapeHtml(item.client_name)}</strong><span>${phone}${escapeHtml(duration)}</span></span></div></article>`;
+      return `<article class="provider-booking team-calendar-booking status-${escapeHtml(statusClass)}"><div class="booking-time-column"><strong>${escapeHtml(startTime)}${durationMinutes > 0 ? `<small>до ${escapeHtml(endTime)}</small>` : ''}</strong><span>${escapeHtml(item.location_name)}</span></div><div class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(item.service_name)}</h3><span class="booking-status">${escapeHtml(statusLabels[item.status] || item.status)}</span></span><span class="provider-booking-client-line"><strong>${escapeHtml(item.client_name)}</strong><span>${phone}${escapeHtml(duration)}</span></span>${resourceLine}</div></article>`;
     }
 
     async function setMode(nextMode) {
@@ -242,8 +287,12 @@
     }
 
     function handleChange(event) {
-      if (event.target.id === 'teamCalendarLocation') locationId = event.target.value || '';
+      if (event.target.id === 'teamCalendarLocation') {
+        locationId = event.target.value || '';
+        if (resourceId && !resources.some(item => item.id === resourceId && (!locationId || item.location_id === locationId))) resourceId = '';
+      }
       else if (event.target.id === 'teamCalendarPerformer') performerId = event.target.value || '';
+      else if (event.target.id === 'teamCalendarResource') resourceId = event.target.value || '';
       else return;
       updateControls();
       render(getHolder());
@@ -255,6 +304,7 @@
       $$('[data-calendar-mode]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.calendarMode)));
       $('#teamCalendarLocation')?.addEventListener('change', handleChange);
       $('#teamCalendarPerformer')?.addEventListener('change', handleChange);
+      $('#teamCalendarResource')?.addEventListener('change', handleChange);
       updateControls();
     }
 

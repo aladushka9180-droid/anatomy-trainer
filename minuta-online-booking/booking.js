@@ -7,6 +7,10 @@ const state = { booking: null, dates: [], availability: new Map(), date: '', tim
 let bookingLoadRevision = 0;
 
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
+function isMissingRpc(error, name) {
+  const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
+}
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
@@ -172,7 +176,11 @@ async function openReschedule() {
   state.time = '';
   $('#manageDates').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободные даты…</span></div>';
   $('#manageTimes').innerHTML = '';
-  const { data, error } = await db.rpc('get_reschedule_slots', { p_token: token, p_start: state.dates[0].iso, p_end: state.dates[state.dates.length - 1].iso });
+  const parameters = { p_token: token, p_start: state.dates[0].iso, p_end: state.dates[state.dates.length - 1].iso };
+  let { data, error } = await db.rpc('get_reschedule_slots_v3', parameters);
+  if (error && isMissingRpc(error, 'get_reschedule_slots_v3')) {
+    ({ data, error } = await db.rpc('get_reschedule_slots', parameters));
+  }
   state.dates.forEach(item => state.availability.set(item.iso, []));
   if (!error) (data || []).forEach(item => state.availability.set(item.booking_date, [...(state.availability.get(item.booking_date) || []), String(item.booking_time).slice(0, 5)]));
   const first = state.dates.find(item => (state.availability.get(item.iso) || []).length);
@@ -328,4 +336,4 @@ window.addEventListener('online', () => loadBooking({ silent: Boolean(state.book
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
 loadBooking();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=129'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=130'));

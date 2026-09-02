@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -115,16 +115,36 @@ const dates = createDates();
 state.date = dates[0].iso;
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function selectedService() { return state.services.find(item => item.id === state.serviceId); }
+function locationEligibleServices() {
+  if (!state.resourceScheduling || !state.teamMode) return state.services;
+  return state.services.filter(item => Array.isArray(item.location_ids) && item.location_ids.includes(state.locationId));
+}
 function performerOptions() {
   const unique = new Map();
-  state.services.forEach(service => {
+  locationEligibleServices().forEach(service => {
     if (!service.performer_id || unique.has(service.performer_id)) return;
     unique.set(service.performer_id, { id: service.performer_id, name: service.performer_profiles?.display_name || 'Специалист' });
   });
   return [...unique.values()];
 }
 function visibleServices() {
-  return state.performerId ? state.services.filter(item => item.performer_id === state.performerId) : state.services;
+  return locationEligibleServices().filter(item => {
+    if (state.performerId && item.performer_id !== state.performerId) return false;
+    return true;
+  });
+}
+
+function loadPublicSlots(service, start, end, locationId = state.locationId) {
+  if (state.resourceScheduling) {
+    return db.rpc('get_public_minuta_available_slots_v3', {
+      p_slug: requestedOrganizationSlug,
+      p_location: locationId,
+      p_service: service.id,
+      p_start: start,
+      p_end: end
+    });
+  }
+  return db.rpc('get_available_slots', { p_service: service.id, p_start: start, p_end: end });
 }
 
 function renderLocations() {
@@ -235,15 +255,23 @@ async function loadServices() {
   let data;
   let error;
   state.teamMode = false;
+  state.resourceScheduling = false;
   state.organization = null;
   state.locations = [];
   state.locationId = '';
   if (requestedOrganizationSlug) {
-    let catalogResult = await db.rpc('get_public_minuta_catalog_v2', { p_slug: requestedOrganizationSlug });
+    let catalogResult = await db.rpc('get_public_minuta_catalog_v3', { p_slug: requestedOrganizationSlug });
     let branchAwareCatalog = !catalogResult.error;
+    let resourceAwareCatalog = !catalogResult.error && catalogResult.data?.resource_scheduling === true;
+    if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v3')) {
+      catalogResult = await db.rpc('get_public_minuta_catalog_v2', { p_slug: requestedOrganizationSlug });
+      branchAwareCatalog = !catalogResult.error;
+      resourceAwareCatalog = false;
+    }
     if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v2')) {
       catalogResult = await db.rpc('get_public_minuta_catalog', { p_slug: requestedOrganizationSlug });
       branchAwareCatalog = false;
+      resourceAwareCatalog = false;
     }
     if (!catalogResult.error) {
       state.organization = catalogResult.data?.organization || null;
@@ -251,6 +279,7 @@ async function loadServices() {
       // Once the branch-aware catalog answers for an organization, fail closed:
       // an empty location list means booking is unavailable, never legacy fallback.
       state.teamMode = Boolean(state.organization && branchAwareCatalog);
+      state.resourceScheduling = Boolean(state.teamMode && resourceAwareCatalog);
       if (state.locations.some(item => item.id === previousLocationId)) state.locationId = previousLocationId;
       data = state.organization && Array.isArray(catalogResult.data?.services) ? catalogResult.data.services : [];
       error = null;
@@ -276,13 +305,15 @@ async function loadServices() {
   if (isRepeatBooking && requestedService) state.performerId = requestedService.performer_id || '';
   if (state.performerId && !performers.some(item => item.id === state.performerId)) state.performerId = '';
   const selectionWasRemoved = Boolean(previousServiceId) && !state.services.some(item => item.id === previousServiceId);
+  const locationServices = visibleServices();
   if (!previousServiceId) {
     state.serviceId = isRepeatBooking && requestedServiceId
-      ? (state.services.some(item => item.id === requestedServiceId) ? requestedServiceId : '')
-      : state.services[0]?.id || '';
+      ? (locationServices.some(item => item.id === requestedServiceId) ? requestedServiceId : '')
+      : locationServices[0]?.id || '';
   }
   else if (selectionWasRemoved) state.serviceId = '';
-  setBookingStatus(state.services.length ? 'open' : 'closed', state.services.length ? 'Запись открыта' : 'Запись пока закрыта');
+  else if (!locationServices.some(item => item.id === previousServiceId)) state.serviceId = locationServices[0]?.id || '';
+  setBookingStatus(locationServices.length ? 'open' : 'closed', locationServices.length ? 'Запись открыта' : 'В этом филиале пока нет доступных услуг');
   renderSpecialists();
   renderServices();
   if (state.teamMode && !state.locations.length) {
@@ -376,7 +407,9 @@ function renderServices() {
   const services = visibleServices();
   if (!services.length) {
     holder.innerHTML = state.services.length
-      ? '<div class="empty-service"><strong>У специалиста пока нет активных услуг</strong><span>Выберите другого специалиста или покажите всю команду.</span></div>'
+      ? state.resourceScheduling && !locationEligibleServices().length
+        ? '<div class="empty-service"><strong>В этом филиале пока нет доступных услуг</strong><span>Для услуг ещё не настроен активный кабинет или необходимое оборудование.</span></div>'
+        : '<div class="empty-service"><strong>У специалиста пока нет активных услуг</strong><span>Выберите другого специалиста или покажите всю команду.</span></div>'
       : '<div class="empty-service"><span class="empty-service-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg></span><strong>Услуги скоро появятся</strong><span>Исполнитель ещё не добавил услуги в свой кабинет.</span><a href="provider.html">Войти исполнителю</a></div>';
     $('#toDate').disabled = true;
     $('#serviceDetailsButton').hidden = true;
@@ -513,9 +546,11 @@ function renderAvailabilitySuggestion(times) {
 
 async function loadAvailability() {
   const service = selectedService();
+  const requestedLocationId = state.locationId;
   const revision = ++availabilityLoadRevision;
   state.availability = new Map();
   state.availabilityServiceId = '';
+  state.availabilityLocationId = '';
   state.time = '';
   state.hour = '';
   state.period = 'all';
@@ -524,8 +559,8 @@ async function loadAvailability() {
   renderDates();
   renderTimes();
   if (!service) { state.loadingAvailability = false; renderTimes(); return; }
-  const { data, error } = await db.rpc('get_available_slots', { p_service: service.id, p_start: dates[0].iso, p_end: dates[dates.length - 1].iso });
-  if (revision !== availabilityLoadRevision || selectedService()?.id !== service.id) return;
+  const { data, error } = await loadPublicSlots(service, dates[0].iso, dates[dates.length - 1].iso, requestedLocationId);
+  if (revision !== availabilityLoadRevision || selectedService()?.id !== service.id || state.locationId !== requestedLocationId) return;
   dates.forEach(item => state.availability.set(item.iso, []));
   if (!error) (data || []).forEach(item => {
     const date = item.booking_date;
@@ -533,7 +568,10 @@ async function loadAvailability() {
     state.availability.set(date, [...(state.availability.get(date) || []), time]);
   });
   state.availabilityError = Boolean(error);
-  if (!error) state.availabilityServiceId = service.id;
+  if (!error) {
+    state.availabilityServiceId = service.id;
+    state.availabilityLocationId = requestedLocationId;
+  }
   state.loadingAvailability = false;
   renderDates();
   renderTimes();
@@ -615,7 +653,7 @@ async function showStep(step) {
     block: 'start'
   }));
   if (step === 2) {
-    if (state.availabilityServiceId === state.serviceId && state.availability.size) {
+    if (state.availabilityServiceId === state.serviceId && state.availabilityLocationId === state.locationId && state.availability.size) {
       renderDates();
       renderTimes();
     } else await loadAvailability();
@@ -706,10 +744,11 @@ async function validateCurrentSelection() {
   const service = selectedService();
   const selectedTime = state.time;
   const selectedBookingDate = state.date;
+  const selectedLocationId = state.locationId;
   if (!service || !selectedTime) { await showStep(2); return; }
   setSelectionValidationState('checking');
-  const { data, error } = await db.rpc('get_available_slots', { p_service: service.id, p_start: selectedBookingDate, p_end: selectedBookingDate });
-  if (selectedService()?.id !== service.id || state.date !== selectedBookingDate || state.time !== selectedTime) return;
+  const { data, error } = await loadPublicSlots(service, selectedBookingDate, selectedBookingDate, selectedLocationId);
+  if (selectedService()?.id !== service.id || state.date !== selectedBookingDate || state.time !== selectedTime || state.locationId !== selectedLocationId) return;
   if (error) {
     setSelectionValidationState('failed');
     setBookingStatus(navigator.onLine ? 'error' : 'offline', navigator.onLine ? 'Не удалось перепроверить выбранное время' : 'Нет соединения с интернетом');
@@ -802,7 +841,7 @@ async function submitBooking(event) {
     if (missingTeamBookingRpc) {
       clearBookingAttempt();
       showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
-    } else if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
+    } else if (error.message?.includes('slot_unavailable') || error.message?.includes('resource_unavailable') || error.code === '23P01' || error.code === '23505') {
       clearBookingAttempt();
       showError('Это время только что заняли. Выберите другое.');
       await showStep(2);
@@ -917,16 +956,26 @@ $('#clientName').addEventListener('input', bookingInputChanged);
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
 $('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
-$('#locationSelect')?.addEventListener('change', event => {
+$('#locationSelect')?.addEventListener('change', async event => {
   const nextLocation = event.target.value || '';
   if (state.locationId === nextLocation) return;
   state.locationId = nextLocation;
+  availabilityLoadRevision += 1;
   state.availability = new Map();
   state.availabilityServiceId = '';
+  state.availabilityLocationId = '';
+  state.loadingAvailability = false;
+  state.availabilityError = false;
   state.time = '';
+  if (state.performerId && !locationEligibleServices().some(item => item.performer_id === state.performerId)) state.performerId = '';
+  if (!visibleServices().some(item => item.id === state.serviceId)) state.serviceId = visibleServices()[0]?.id || '';
   bookingInputChanged();
   renderLocations();
+  renderSpecialists();
+  renderServices();
   renderTimes();
+  setBookingStatus(visibleServices().length ? 'open' : 'closed', visibleServices().length ? 'Запись открыта' : 'В этом филиале пока нет доступных услуг');
+  if (state.step === 2 && state.serviceId) await loadAvailability();
 });
 $('#waitlistPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#waitlistForm').addEventListener('submit', submitWaitlist);
@@ -944,4 +993,4 @@ renderTimes();
 loadServices();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=129'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=130'));

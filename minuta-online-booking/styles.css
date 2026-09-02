@@ -113,6 +113,7 @@
 .team-calendar-booking { cursor:default; }
 .team-calendar-booking .booking-main { min-width:0; }
 .team-calendar-booking .provider-booking-client-line>span { overflow-wrap:anywhere; }
+.team-calendar-resource { display:inline-flex; width:max-content; max-width:100%; margin-top:5px; padding:4px 8px; border:1px solid var(--theme-line,#dce6df); border-radius:999px; background:var(--theme-soft,#f2f7f3); color:var(--theme-muted,#6f8076); font-size:10px; font-weight:750; overflow-wrap:anywhere; }
 .provider-body[data-provider-theme][data-provider-layout="linear"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select) { border-radius:999px; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
@@ -1478,9 +1479,41 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .organization-audit-list strong,.provider-body .organization-audit-list small { display:block; }
 .provider-body .organization-audit-list strong { color:#3c5548; font-size:10px; }
 .provider-body .organization-audit-list small { margin-top:2px; color:#839087; font-size:8px; }
+.provider-body .organization-resources { display:grid; gap:16px; }
+.provider-body .resource-workspace { display:grid; gap:16px; }
+.provider-body .resource-management-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.provider-body .resource-management-grid>section { min-width:0; }
+.provider-body .resource-subhead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.provider-body .resource-subhead small,.provider-body .resource-subhead strong { display:block; }
+.provider-body .resource-subhead small { color:#829087; font-size:8px; font-weight:750; }
+.provider-body .resource-subhead strong { margin-top:2px; color:#2d4c3b; font-size:13px; }
+.provider-body .resource-inline-error { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px; border:1px solid #ead9c8; border-radius:13px; background:#fff9f2; }
+.provider-body .resource-inline-error strong,.provider-body .resource-inline-error small { display:block; }
+.provider-body .resource-inline-error strong { color:#67472e; font-size:11px; }
+.provider-body .resource-inline-error small { margin-top:3px; color:#866d59; font-size:9px; }
+.provider-body .resource-inline-error .secondary-button { width:auto; min-width:110px; margin:0; }
+.provider-body .resource-requirements { padding-top:15px; border-top:1px solid #e3eae5; }
+.provider-body .resource-requirements>form { display:grid; gap:10px; }
+.provider-body .resource-requirements select { min-height:42px; margin-top:5px; font-size:12px; }
+.provider-body .resource-requirement-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.provider-body .resource-requirement-row { display:flex; align-items:center; gap:10px; min-width:0; padding:10px 12px; border:1px solid #e0e7e2; border-radius:12px; background:#f8faf8; }
+.provider-body .resource-requirement-row>span { flex:1; min-width:0; }
+.provider-body .resource-requirement-row strong,.provider-body .resource-requirement-row small { display:block; overflow-wrap:anywhere; }
+.provider-body .resource-requirement-row strong { color:#315241; font-size:10px; }
+.provider-body .resource-requirement-row small { margin-top:2px; color:#7a8980; font-size:8px; }
+.provider-body .resource-requirement-row input { width:68px; min-height:38px; margin:0; text-align:center; }
+.provider-body .organization-tags { display:flex; flex:none; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.provider-body .resource-audit { border:1px solid #e3eae5; border-radius:13px; overflow:hidden; background:#fff; }
+.provider-body .resource-audit>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:58px; padding:12px 14px; cursor:pointer; list-style:none; }
+.provider-body .resource-audit>summary::-webkit-details-marker { display:none; }
+.provider-body .resource-audit>summary small,.provider-body .resource-audit>summary strong { display:block; }
+.provider-body .resource-audit>summary small { color:#829087; font-size:8px; font-weight:750; }
+.provider-body .resource-audit>summary strong { margin-top:2px; color:#2d4c3b; font-size:13px; }
+.provider-body .resource-audit>summary>span:last-child { padding:5px 8px; border-radius:999px; background:#eef3ef; color:#61736a; font-size:8px; font-weight:850; }
 
 @media (max-width:980px) {
   .provider-body .organization-grid { grid-template-columns:1fr; }
+  .provider-body .resource-management-grid { grid-template-columns:1fr; }
   .provider-body .organization-overview { grid-template-columns:1fr; align-items:stretch; }
 }
 
@@ -1537,8 +1570,13 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body .organization-role,.provider-body .organization-status { margin-left:47px; }
   .provider-body .organization-editor>summary .organization-role,.provider-body .organization-editor>summary .organization-status { margin-left:47px; }
   .provider-body .organization-editor>summary::after { margin-left:auto; }
+  .provider-body .organization-tags { width:100%; margin-left:0; justify-content:flex-start; }
+  .provider-body .organization-tags .organization-role,.provider-body .organization-tags .organization-status { margin-left:0; }
   .provider-body .organization-checks { grid-template-columns:1fr; }
   .provider-body .organization-create .form-row { grid-template-columns:1fr; }
+  .provider-body .resource-requirement-list { grid-template-columns:1fr; }
+  .provider-body .resource-inline-error { align-items:stretch; flex-direction:column; }
+  .provider-body .resource-inline-error .secondary-button { width:100%; }
   .provider-body .organization-cancel { width:100%; margin-top:3px; }
   .provider-body .provider-view { padding-top:16px; }
   .provider-body .view-title h2 { font-size:24px; }
@@ -1766,6 +1804,12 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] .portfolio-photo-empty { color:var(--theme-muted); }
 .provider-body[data-provider-theme] :is(.organization-state,.organization-overview,.organization-section,.organization-personal-invites,.organization-audit) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
 .provider-body[data-provider-theme] :is(.organization-row,.organization-create,.organization-checks label) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.resource-requirement-row,.resource-inline-error) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .resource-audit { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.resource-subhead strong,.resource-requirement-row strong,.resource-inline-error strong,.resource-audit>summary strong) { color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.resource-subhead small,.resource-requirement-row small,.resource-inline-error small,.resource-audit>summary small) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(.resource-requirements,.resource-audit .organization-audit-list>article) { border-color:var(--theme-line); }
+.provider-body[data-provider-theme] .resource-audit>summary>span:last-child { background:var(--theme-accent-soft); color:var(--theme-accent); }
 .provider-body[data-provider-theme] :is(.organization-editor>form,.organization-create>form) { border-color:var(--theme-line); background:var(--theme-surface); }
 .provider-body[data-provider-theme] :is(.organization-unavailable strong,.organization-personal-invites h3,.organization-overview-copy h3,.organization-row-main strong,.organization-audit>summary strong,.organization-audit-list strong) { color:var(--theme-ink); }
 .provider-body[data-provider-theme] :is(.organization-unavailable small,.organization-personal-invites p,.organization-switcher>span,.organization-overview-copy small,.organization-overview-copy div>span,.organization-row-main small,.organization-invite-help,.organization-audit>summary small,.organization-audit-list small) { color:var(--theme-muted); }
@@ -1790,6 +1834,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 /* 01. Строгая геометрия */
 .provider-body[data-provider-theme][data-provider-layout="linear"] .provider-app { grid-template-columns:248px minmax(0,1fr); gap:0; padding:0; }
 .provider-body[data-provider-theme][data-provider-layout="linear"] :is(.provider-sidebar,.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button,.organization-row,.organization-create,.organization-checks label,.organization-avatar,.member-avatar,.organization-role,.organization-status) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:0; box-shadow:none; }
 .provider-body[data-provider-theme][data-provider-layout="linear"] .provider-sidebar { top:0; min-height:100vh; padding:26px 18px 18px; border-right-color:var(--theme-line); }
 .provider-body[data-provider-theme][data-provider-layout="linear"] .provider-workspace { padding:0 38px 70px; }
 .provider-body[data-provider-theme][data-provider-layout="linear"] .provider-nav { gap:0; }
@@ -1830,6 +1875,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.timeline-booking,.schedule-list .provider-booking) { border-radius:22px; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:20px; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.organization-role,.organization-status,.organization-cancel) { border-radius:999px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:20px; }
 
 /* 04. Редакционный журнал */
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-app { grid-template-columns:224px minmax(0,1fr); gap:0; padding:0; }
@@ -1838,6 +1884,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.client-profile-head h3,.organization-overview-copy h3) { font-family:Georgia,"Times New Roman",serif; font-weight:500; letter-spacing:-.025em; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-topbar { min-height:96px; padding:0; border-bottom:2px solid var(--theme-ink); }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.panel,.schedule-card,.settings-card,.clients-directory,.client-profile,.provider-mobile-nav,.provider-user,.date-navigation,.date-strip,.schedule-toolbar,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,.journal-mode-toggle button,.booking-filters button,.primary,.secondary-button,.refresh-button,.timeline-booking,.provider-booking,.settings-icon,.dashboard-summary,.notification-summary,.report-periods,.report-periods button,.organization-row,.organization-create,.organization-checks label,.organization-avatar,.member-avatar,.organization-role,.organization-status) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:0; box-shadow:none; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav { gap:0; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button { min-height:51px; border-bottom:1px solid var(--theme-line); border-radius:0; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-nav button.active { background:transparent; color:var(--theme-ink); box-shadow:inset 0 -2px 0 var(--theme-accent); }
@@ -1866,6 +1913,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-list .provider-booking { border-radius:14px; }
 .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.dashboard-summary,.notification-summary,.report-summary article,.provider-display-form .settings-check) { border-radius:15px; }
 .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:15px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:15px; }
 
 @media (max-width:980px) and (min-width:761px) {
   .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-app { grid-template-columns:190px minmax(0,1fr); }
@@ -2054,6 +2102,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   background:var(--material-card-bg);
   color:var(--theme-ink);
 }
+.provider-body:is([data-provider-theme="luxury"],[data-provider-theme="loft"],[data-provider-theme="eco"],[data-provider-theme="hitech"]) :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:var(--material-radius); }
 .provider-body:is([data-provider-theme="luxury"],[data-provider-theme="loft"],[data-provider-theme="eco"],[data-provider-theme="hitech"]) :is(
   .primary,.secondary-button,.refresh-button,.date-nav-button,.date-today-button,.schedule-date-picker,.journal-mode-toggle,
   .journal-mode-toggle button,.booking-filters button,.notification-filters,.notification-filters button,.report-periods,
