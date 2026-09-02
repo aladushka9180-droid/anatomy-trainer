@@ -2623,6 +2623,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-layout-options,.provider-theme-options { grid-template-columns:1fr 1fr; gap:9px; }
   :is(.provider-layout-option,.provider-theme-option) { min-height:124px; }
   .provider-theme-option:last-child { grid-column:1/-1; }
+  .provider-body .schedule-view-title #newBookingButton { display:none!important; }
   .provider-body[data-provider-theme] .provider-topbar-actions,.provider-body[data-provider-theme] .view-title-actions { flex-wrap:nowrap; }
   .provider-body[data-provider-theme][data-provider-layout="soft"] .date-strip,.provider-body[data-provider-theme][data-provider-layout="capsule"] .date-strip { margin:0; }
   .provider-body[data-provider-theme][data-provider-layout="soft"] .schedule-toolbar,.provider-body[data-provider-theme][data-provider-layout="capsule"] .schedule-toolbar { margin:0; }
