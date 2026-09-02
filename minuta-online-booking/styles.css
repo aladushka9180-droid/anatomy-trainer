@@ -2305,7 +2305,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] .notification-summary strong { color:var(--theme-accent); }
 .provider-body[data-provider-theme] .notification-summary i { background:color-mix(in srgb,var(--theme-accent) 28%,var(--theme-line)); }
 .provider-body[data-provider-theme] .notification-card h3 { color:var(--theme-ink); }
-.provider-body[data-provider-theme] .notification-card-actions .whatsapp-action { border-color:color-mix(in srgb,#2f9c62 38%,var(--theme-line)); background:color-mix(in srgb,#2f9c62 16%,var(--theme-surface)); color:color-mix(in srgb,#2f9c62 72%,var(--theme-ink)); }
+.provider-body[data-provider-theme] .whatsapp-action { border-color:color-mix(in srgb,var(--theme-accent) 34%,var(--theme-line))!important; background:var(--theme-accent-soft)!important; color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-ink))!important; }
 .provider-body[data-provider-theme] .notification-card.status-sent { opacity:.74; }
 .provider-body[data-provider-theme] .notification-card.status-scheduled { opacity:.68; }
 .provider-body[data-provider-theme] .managed-service .edit-service-button,
@@ -2345,6 +2345,12 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] :is(.service-edit-target:hover,.service-more>summary) { border-color:var(--theme-line); background:var(--theme-accent-soft); color:var(--theme-accent); }
 .provider-body[data-provider-theme] .service-visibility-toggle i { background:var(--theme-accent); }
 .provider-body[data-provider-theme] .managed-service.inactive .service-visibility-toggle i { background:var(--theme-muted); }
+.provider-body[data-provider-theme] .day-toggle>span { background:color-mix(in srgb,var(--theme-muted) 34%,var(--theme-surface)); }
+.provider-body[data-provider-theme] .day-toggle input:checked+span { background:var(--theme-accent); }
+.provider-body[data-provider-theme] :is(.day-hours label,.break-toggle,.break-hours span,.day-off-label) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] .schedule-day.disabled { background:color-mix(in srgb,var(--theme-surface-alt) 76%,var(--theme-line)); color:var(--theme-muted); }
+.provider-body[data-provider-theme] .slot-step-label select { border-color:color-mix(in srgb,var(--theme-accent) 58%,var(--theme-line)); background-color:var(--theme-surface); color:var(--theme-ink); box-shadow:0 0 0 7px color-mix(in srgb,var(--theme-accent) 9%,transparent); }
+.provider-body[data-provider-theme] .slot-step-label select:focus { outline-color:color-mix(in srgb,var(--theme-accent) 24%,transparent); }
 .provider-body[data-provider-theme] :is(.booking-sheet-client-avatar,.booking-sheet-client>span) { background:var(--theme-accent-soft); color:var(--theme-accent); }
 .provider-body[data-provider-theme] :is(.booking-sheet-client a,.free-slots-link a) { color:var(--theme-accent); }
 .provider-body[data-provider-theme] .booking-sheet-meta>span:not(.booking-status) { background:var(--theme-accent-soft); color:var(--theme-muted); }
@@ -2356,7 +2362,6 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="graphite"] :is(.notification-card-icon,.client-profile-empty>span,.mobile-more-grid button>span) { background:#292741; color:#b0a5ff; }
 .provider-body[data-provider-theme="graphite"] .notification-reminder .notification-card-icon { background:#3a3020; color:#e7c370; }
 .provider-body[data-provider-theme="graphite"] .notification-cancellation .notification-card-icon { background:#3a2729; color:#e79a98; }
-.provider-body[data-provider-theme="graphite"] .notification-card-actions .whatsapp-action { border-color:#315a45; background:#1b3428; color:#83d7a4; }
 .provider-body[data-provider-theme="graphite"] :is(.danger,.day-off-item button,.session-composer-item-head button) { border-color:#5d3839!important; background:#382426!important; color:#ee9e9e!important; }
 
 /* Шесть геометрических стилей кабинета. Палитра намеренно остаётся общей. */
