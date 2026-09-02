@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '187';
+const version = '188';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -78,6 +78,11 @@ assert.match(provider, /hydrateCachedBookings\(userId\)[\s\S]*if \(!navigator\.o
 assert.match(provider, /bookingReady = results\.slice\(0, 4\)\.every[\s\S]*setBookingCreationReady\(bookingReady\)/, 'Создание записи зависит от необязательных разделов кабинета');
 assert.match(provider, /Связь прервалась\. Данные остались в форме/, 'Черновик записи теряется при обрыве связи');
 assert.match(providerHtml, /id="syncState"[\s\S]*id="manualSyncButton"/, 'В кабинете нет понятного ручного обновления');
+assert.match(providerHtml, /class="settings-check visitor-notification-toggle"[\s\S]*id="visitorNotificationSaveStatus"/, 'Настройка уведомлений использует старый компьютерный интерфейс');
+assert.doesNotMatch(providerHtml, /Сохранить уведомления<\/button>/, 'Настройка уведомлений всё ещё требует отдельного сохранения');
+assert.match(provider, /visitorNotificationsEnabled'\)\.addEventListener\('change', saveVisitorNotificationSettings\)/, 'Переключатель уведомлений не сохраняется сразу');
+assert.match(provider, /visitorNotificationSaving[\s\S]*applyWriteAvailability\(\)/, 'Сохранение уведомлений не защищено от повторного нажатия');
+assert.match(provider, /saveVisitorNotificationSettings[\s\S]*sessionIsCurrent\(userId, generation\)/, 'Старый ответ сохранения уведомлений не отбрасывается после смены сессии');
 assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList"/, 'Журнал проблем со связью недоступен пользователю');
 assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDialog"[\s\S]*id="voiceListenButton"/, 'В кабинете нет голосового помощника');
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');

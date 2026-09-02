@@ -80,6 +80,7 @@ let notificationOutbox = [];
 let notificationOutboxRemoteAvailable = false;
 let visitorVisits = [];
 let visitorVisitsRemoteAvailable = false;
+let visitorNotificationSaving = false;
 let ownServices = [];
 let portfolioItems = [];
 let providerReviews = [];
@@ -244,7 +245,7 @@ const writeSelectors = [
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
-  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-inventory-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '[data-batch-booking-write]', '[data-retention-write]', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
+  '[data-organization-write]', '[data-resource-write]', '[data-shift-write]', '[data-payroll-write]', '[data-benefit-write]', '[data-loyalty-write]', '[data-inventory-write]', '[data-organization-policy-write]', '[data-group-booking-write]', '[data-batch-booking-write]', '[data-retention-write]', '#visitorNotificationsEnabled', '#organizationForm button[type="submit"]', '#locationForm button[type="submit"]', '#memberInviteForm button[type="submit"]',
   '[data-retry-notification-outbox]',
   '[data-booking-status]', '[data-cancel-booking-series]', '#bookingSeriesCancelForm button[type="submit"]', '[data-delete-booking]', '[data-waitlist-status]', '[data-booking-color-id]', '[data-delete-service]', '[data-toggle-service]', '[data-delete-day-off]',
   '[data-repeat-booking]', '[data-client-avatar-input]', '[data-remove-client-avatar]'
@@ -935,7 +936,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=187#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=188#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1323,27 +1324,35 @@ function renderVisitorNotificationForm() {
   else status.textContent = 'После включения браузер может предложить разрешить системные уведомления.';
 }
 async function saveVisitorNotificationSettings(event) {
-  event.preventDefault();
-  if (!requireWrites()) return;
-  const enabled = $('#visitorNotificationsEnabled').checked;
+  event?.preventDefault();
+  const checkbox = $('#visitorNotificationsEnabled');
+  const saveStatus = $('#visitorNotificationSaveStatus');
+  if (visitorNotificationSaving) return;
+  if (!requireWrites()) { renderVisitorNotificationForm(); return; }
+  const enabled = checkbox.checked;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
   const permissionRequest = enabled && 'Notification' in window && Notification.permission === 'default' ? Promise.resolve(Notification.requestPermission()).catch(() => 'default') : Promise.resolve('unchanged');
-  const button = event.submitter;
-  button.disabled = true;
-  button.textContent = 'Сохраняем…';
-  const { error } = await db.from('booking_policies').update({ visitor_notifications_enabled:enabled }).eq('performer_id', currentUser.id);
+  visitorNotificationSaving = true;
+  checkbox.disabled = true;
+  if (saveStatus) saveStatus.textContent = 'Сохраняем…';
+  const { error } = await db.from('booking_policies').update({ visitor_notifications_enabled:enabled }).eq('performer_id', userId);
   await permissionRequest;
-  button.disabled = false;
-  button.textContent = 'Сохранить уведомления';
+  visitorNotificationSaving = false;
+  if (!sessionIsCurrent(userId, generation)) return;
+  checkbox.disabled = false;
+  applyWriteAvailability();
   if (error) {
     showFormError('#visitorNotificationError', 'Не удалось сохранить настройку посетителей.');
     renderVisitorNotificationForm();
+    if (saveStatus) saveStatus.textContent = 'Не удалось сохранить — повторите изменение';
     return;
   }
   clearFormError('#visitorNotificationError');
   bookingPolicy.visitor_notifications_enabled = enabled;
   renderVisitorNotificationForm();
   renderVisitorVisits();
-  notify(enabled ? 'Уведомления о посетителях включены' : 'Уведомления о посетителях выключены');
+  if (saveStatus) saveStatus.textContent = enabled ? 'Уведомления включены · сохранено' : 'Уведомления выключены · сохранено';
 }
 async function showVisitorSystemNotification(visit) {
   const options = { body:'Кто-то сейчас смотрит услуги и свободное время.', icon:'provider-icon-192.png', badge:'provider-icon-192.png', tag:`minuta-visitor-${visit.id}`, data:{ url:'provider.html?view=notifications' } };
@@ -5569,6 +5578,7 @@ $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
 $('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
+$('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotificationSettings);
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('#installAppButton').addEventListener('click', installProviderApp);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
@@ -5736,4 +5746,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=187'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=188'));
