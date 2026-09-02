@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v203`;
+const CACHE = `${CACHE_PREFIX}v204`;
 const ASSETS = [
   './',
   './index.html',
@@ -8,35 +8,35 @@ const ASSETS = [
   './my-bookings.html',
   './waitlist.html',
   './privacy.html',
-  './provider.webmanifest?v=203',
+  './provider.webmanifest?v=204',
   './provider-icon-192.png',
   './provider-icon-512.png',
   './provider-icon-maskable-512.png',
   './provider-luxury-marble-v4.webp',
-  './styles.css?v=203',
-  './config.js?v=203',
-  './reliability.js?v=203',
-  './app.js?v=203',
-  './resource-management.js?v=203',
-  './shift-management.js?v=203',
-  './organization.js?v=203',
-  './payroll-management.js?v=203',
-  './benefit-management.js?v=203',
-  './loyalty-management.js?v=203',
-  './inventory-management.js?v=203',
-  './retention-management.js?v=203',
-  './batch-bookings.js?v=203',
-  './booking-policy-management.js?v=203',
-  './team-calendar.js?v=203',
-  './free-slots-share.js?v=203',
-  './group-bookings.js?v=203',
-  './provider.js?v=203',
-  './voice-assistant.js?v=203',
-  './booking.js?v=203',
-  './my-bookings.js?v=203',
-  './waitlist.js?v=203',
+  './styles.css?v=204',
+  './config.js?v=204',
+  './reliability.js?v=204',
+  './app.js?v=204',
+  './resource-management.js?v=204',
+  './shift-management.js?v=204',
+  './organization.js?v=204',
+  './payroll-management.js?v=204',
+  './benefit-management.js?v=204',
+  './loyalty-management.js?v=204',
+  './inventory-management.js?v=204',
+  './retention-management.js?v=204',
+  './batch-bookings.js?v=204',
+  './booking-policy-management.js?v=204',
+  './team-calendar.js?v=204',
+  './free-slots-share.js?v=204',
+  './group-bookings.js?v=204',
+  './provider.js?v=204',
+  './voice-assistant.js?v=204',
+  './booking.js?v=204',
+  './my-bookings.js?v=204',
+  './waitlist.js?v=204',
   './ui-icons.svg',
-  './ui-icons.svg?v=203',
+  './ui-icons.svg?v=204',
   './manifest.webmanifest',
   './icon.svg',
   './og.png',
@@ -66,13 +66,15 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = new URL(event.notification.data?.url || './provider.html?view=notifications', self.location.href).href;
+  const requestedView = event.notification.data?.view;
+  const view = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'].includes(requestedView) ? requestedView : 'notifications';
+  const targetUrl = new URL(event.notification.data?.url || `./provider.html?view=${view}`, self.location.href).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
     const providerWindow = windows.find(client => new URL(client.url).pathname.endsWith('/provider.html'));
     if (providerWindow) {
       await providerWindow.focus();
-      providerWindow.postMessage({ type:'open-provider-view', view:'notifications' });
+      providerWindow.postMessage({ type:'open-provider-view', view });
       return;
     }
     await self.clients.openWindow(targetUrl);

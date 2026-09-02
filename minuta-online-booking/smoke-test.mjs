@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '203';
+const version = '204';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -37,6 +37,7 @@ assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7Oho
 const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+const serviceWorker = readFileSync(join(root, 'sw.js'), 'utf8');
 const voiceAssistant = readFileSync(join(root, 'voice-assistant.js'), 'utf8');
 const organization = readFileSync(join(root, 'organization.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
@@ -529,6 +530,12 @@ assert.match(provider, /const existing = queuedBookingMatch\(item\);[\s\S]*item\
 assert.match(provider, /item\.status = 'server_check_pending'[\s\S]*item\?\.status === 'server_check_pending'/, 'Неоднозначный результат сервера можно ошибочно удалить как несозданную запись');
 assert.match(provider, /function queuedBookingMatch[\s\S]*booking\.request_id[\s\S]*=== item\.id/, 'Потерянный ответ сервера может привести к дублю записи');
 assert.match(provider, /finalizeQueuedBooking[\s\S]*deliverTelegramClientNotification[\s\S]*notification\.retryable[\s\S]*item\.status = 'notification_pending'[\s\S]*offlineBookingQueue = offlineBookingQueue\.filter/, 'Временная ошибка уведомления клиента не оставляется для повтора');
+assert.match(provider, /function stageOfflineBookingProviderNotice[\s\S]*Отложенная запись создана[\s\S]*Отложенная запись не создана/, 'Исполнитель не получает раздельный результат успешной и неуспешной офлайн-записи');
+assert.match(provider, /function deliverOfflineBookingProviderNotice[\s\S]*recordConnectionEvent[\s\S]*showProviderSystemNotification/, 'Результат офлайн-записи не сохраняется в журнале или не показывается системным уведомлением');
+assert.match(provider, /providerNoticeKey[\s\S]*saveOfflineBookingQueue/, 'Уведомление исполнителю может повторяться при каждом цикле синхронизации');
+assert.match(provider, /slot_unavailable[\s\S]*stageOfflineBookingProviderNotice\(item, 'conflict'\)[\s\S]*deliverOfflineBookingProviderNotice/, 'Исполнитель не узнает, что отложенная запись столкнулась с занятым временем');
+assert.match(provider, /showProviderSystemNotification[\s\S]*Notification\.permission !== 'granted'[\s\S]*tag:`minuta-\$\{safeKey\}`[\s\S]*renotify:false/, 'Системные уведомления исполнителю не защищены разрешением или дедупликацией');
+assert.match(serviceWorker, /event\.notification\.data\?\.view[\s\S]*postMessage\(\{ type:'open-provider-view', view \}\)/, 'Нажатие на системное уведомление не открывает нужный раздел кабинета');
 assert.match(provider, /window\.addEventListener\('online',[\s\S]*synchronizeProvider\(\)[\s\S]*flushOfflineBookings\(\)/, 'Офлайн-очередь не отправляется после восстановления связи');
 assert.match(provider, /clearProviderDeviceData[\s\S]*removePrefix\(`provider:\$\{userId\}:`\)[\s\S]*remove\?\.\(offlineBookingQueueKey\(userId\)\)/, 'Локальные записи клиентов не очищаются при явном выходе');
 assert.match(provider, /onAuthStateChange[\s\S]*session\.user\.id === currentUser\?\.id[\s\S]*currentUser = session\.user;[\s\S]*return;/, 'Обновление auth-токена перезапускает очередь и создаёт гонку сохранения');

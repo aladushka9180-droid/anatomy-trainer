@@ -330,6 +330,35 @@ function offlineBookingServiceName(item) {
 function offlineBookingConflictText(reason) {
   return ({ slot_unavailable:'Выбранное время уже занято', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
 }
+function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false } = {}) {
+  const reason = item.reason || '';
+  const noticeKey = `${outcome}:${reason}`;
+  if (item.providerNoticeKey === noticeKey) return null;
+  item.providerNoticeKey = noticeKey;
+  const client = item.clientName && item.clientName !== 'Клиент' ? item.clientName : 'Клиент';
+  const appointment = `${client} · ${item.date} ${item.time}`;
+  if (outcome === 'created') {
+    const detail = clientNotified ? 'Клиент получил подтверждение.' : 'Клиент пока не подключил Telegram.';
+    return { key:`offline-${item.id}-created-${clientNotified ? 'notified' : 'without-client-telegram'}`, title:'Отложенная запись создана', body:`${appointment}. ${detail}`, toast:`Запись ${client} создана · ${clientNotified ? 'уведомление клиенту отправлено' : 'клиент ещё не подключил Telegram'}`, kind:'online' };
+  }
+  if (outcome === 'client_notification_pending') {
+    return { key:`offline-${item.id}-client-notification-pending`, title:'Запись создана', body:`${appointment}. Отправку подтверждения клиенту повторим автоматически.`, toast:`Запись ${client} создана · уведомление клиенту повторим автоматически`, kind:'warning' };
+  }
+  if (outcome === 'server_check_pending') {
+    return { key:`offline-${item.id}-server-check-pending`, title:'Проверяем отложенную запись', body:`${appointment}. Сервер принял запрос, результат будет проверен автоматически.`, toast:`Запрос на запись ${client} принят · подтверждаем результат`, kind:'warning' };
+  }
+  const detail = offlineBookingConflictText(reason);
+  return { key:`offline-${item.id}-conflict-${reason || 'unknown'}`, title:'Отложенная запись не создана', body:`${appointment}. ${detail}.`, toast:`Запись ${client} не создана · ${detail.toLocaleLowerCase('ru-RU')}`, kind:'warning' };
+}
+function deliverOfflineBookingProviderNotice(notice) {
+  if (!notice) return false;
+  recordConnectionEvent(notice.kind, notice.body);
+  if (!document.hidden) notify(notice.toast);
+  if ('Notification' in window && Notification.permission === 'granted') {
+    void showProviderSystemNotification({ ...notice, view:'bookings' });
+  }
+  return true;
+}
 function renderOfflineBookingQueue() {
   const panel = $('#offlineBookingQueuePanel');
   const list = $('#offlineBookingQueueList');
@@ -389,7 +418,6 @@ function bookingConnectionError(error) {
 }
 async function finalizeQueuedBooking(item, booking, userId, generation) {
   if (!sessionIsCurrent(userId, generation) || !offlineBookingQueue.some(entry => entry.id === item.id)) return false;
-  const clientLabel = item.clientName || 'клиента';
   if (item.note) {
     await db.from('client_notes').upsert({ performer_id:item.userId, client_phone:normalizePhone(item.clientPhone), note:item.note, updated_at:new Date().toISOString() });
     if (!sessionIsCurrent(userId, generation)) return false;
@@ -406,21 +434,21 @@ async function finalizeQueuedBooking(item, booking, userId, generation) {
     item.serverBookingId = booking?.id || item.serverBookingId || '';
     item.notificationAttempts = notificationAttempts;
     item.notificationNextAttemptAt = Date.now() + Math.min(60 * 60 * 1000, 5 * 60 * 1000 * (2 ** Math.min(notificationAttempts - 1, 4)));
+    const providerNotice = stageOfflineBookingProviderNotice(item, 'client_notification_pending');
     item.clientName = 'Клиент';
     item.clientPhone = '';
     item.note = '';
     await saveOfflineBookingQueue(userId, { generation });
     renderOfflineBookingQueue();
-    recordConnectionEvent('warning', `Отложенная запись на ${item.date} ${item.time} создана · уведомление будет повторено`);
-    notify(`Запись ${clientLabel} создана · уведомление клиенту повторим автоматически`);
+    deliverOfflineBookingProviderNotice(providerNotice);
     return false;
   }
+  const providerNotice = stageOfflineBookingProviderNotice(item, 'created', { clientNotified:notification.delivered });
   offlineBookingQueue = offlineBookingQueue.filter(entry => entry.id !== item.id);
   await saveOfflineBookingQueue(userId, { generation });
   if (!sessionIsCurrent(userId, generation)) return false;
   renderOfflineBookingQueue();
-  recordConnectionEvent('online', `Отложенная запись на ${item.date} ${item.time} создана${notification.delivered ? ' · уведомление отправлено' : ''}`);
-  notify(notification.delivered ? `Запись ${clientLabel} создана · уведомление отправлено` : `Запись ${clientLabel} создана · клиент ещё не подключил Telegram`);
+  deliverOfflineBookingProviderNotice(providerNotice);
   return true;
 }
 async function flushOfflineBookings({ retryConflicts = false } = {}) {
@@ -445,19 +473,25 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       }
       if (item.date < businessTodayIso()) {
         item.status = 'conflict'; item.reason = 'date_expired';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
         continue;
       }
       if (item.status === 'notification_pending') {
         item.status = 'conflict'; item.reason = 'unexpected_error';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
         continue;
       }
       const previousStatus = item.status;
       const previousReason = item.reason || '';
       if (queuedBookingSlotMatch(item)) {
         item.status = 'conflict'; item.reason = 'slot_unavailable';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
         continue;
       }
       item.status = 'syncing'; item.reason = ''; item.attempts = Number(item.attempts || 0) + 1; item.lastAttemptAt = Date.now();
@@ -478,26 +512,32 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
         if (reason.includes('slot_unavailable') || reason.includes('service_unavailable') || reason.includes('invalid_client_data')) {
           item.status = 'conflict';
           item.reason = reason.includes('slot_unavailable') ? 'slot_unavailable' : reason.includes('service_unavailable') ? 'service_unavailable' : 'invalid_client_data';
+          const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
           await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
-          notify(`Отложенная запись ${item.clientName} требует внимания: ${offlineBookingConflictText(item.reason).toLocaleLowerCase('ru-RU')}`);
+          deliverOfflineBookingProviderNotice(providerNotice);
           continue;
         }
         item.status = 'conflict'; item.reason = 'unexpected_error';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
-        notify(`Отложенная запись ${item.clientName} отклонена сервером · проверьте данные`);
+        deliverOfflineBookingProviderNotice(providerNotice);
         continue;
       }
       const refreshed = await loadBookings({ silent:true });
       if (!sessionIsCurrent(userId, generation)) return false;
       if (!refreshed?.ok) {
         item.status = 'server_check_pending';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'server_check_pending');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
         break;
       }
       const booking = queuedBookingMatch(item);
       if (!booking) {
         item.status = 'server_check_pending';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'server_check_pending');
         await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
         break;
       }
       await finalizeQueuedBooking(item, booking, userId, generation);
@@ -1242,7 +1282,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=203#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=204#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1661,21 +1701,26 @@ async function saveVisitorNotificationSettings(event) {
   if (saveStatus) saveStatus.textContent = enabled ? 'Уведомления включены · сохранено' : 'Уведомления выключены · сохранено';
 }
 async function showVisitorSystemNotification(visit) {
-  const options = { body:'Кто-то сейчас смотрит услуги и свободное время.', icon:'provider-icon-192.png', badge:'provider-icon-192.png', tag:`minuta-visitor-${visit.id}`, data:{ url:'provider.html?view=notifications' } };
+  return showProviderSystemNotification({ key:`visitor-${visit.id}`, title:'Минута · новый посетитель', body:'Кто-то сейчас смотрит услуги и свободное время.', view:'notifications' });
+}
+async function showProviderSystemNotification({ key, title, body, view = 'bookings' }) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+  const safeView = PROVIDER_VIEW_ORDER.includes(view) ? view : 'bookings';
+  const safeKey = String(key || 'event').replace(/[^a-z0-9_-]+/gi, '-').slice(0, 180);
+  const options = { body, icon:'provider-icon-192.png', badge:'provider-icon-192.png', tag:`minuta-${safeKey}`, renotify:false, data:{ url:`provider.html?view=${safeView}`, view:safeView } };
   if ('serviceWorker' in navigator) {
     try {
       const registration = await Promise.race([
         navigator.serviceWorker.ready,
         new Promise((_, reject) => setTimeout(() => reject(new Error('service_worker_timeout')), 1500))
       ]);
-      await registration.showNotification('Минута · новый посетитель', options);
+      await registration.showNotification(title, options);
       return true;
     } catch {}
   }
-  if (!('Notification' in window) || Notification.permission !== 'granted') return false;
   try {
-    const message = new Notification('Минута · новый посетитель', options);
-    message.onclick = () => { window.focus(); setProviderView('notifications'); message.close(); };
+    const message = new Notification(title, options);
+    message.onclick = () => { window.focus(); setProviderView(safeView); message.close(); };
     return true;
   } catch { return false; }
 }
@@ -6293,11 +6338,11 @@ window.addEventListener('popstate', () => {
   renderBookings();
 });
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
-  if (event.data?.type === 'open-provider-view' && event.data.view === 'notifications' && currentUser) setProviderView('notifications');
+  if (event.data?.type === 'open-provider-view' && PROVIDER_VIEW_ORDER.includes(event.data.view) && currentUser) setProviderView(event.data.view);
 });
 new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attributes:true, subtree:true, attributeFilter:['hidden'] });
 updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=203'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=204'));
