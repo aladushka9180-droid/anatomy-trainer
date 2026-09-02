@@ -100,6 +100,8 @@ let newBookingSlots = [];
 let newBookingHour = '';
 let newBookingPreferredTime = '';
 let newBookingMode = 'client';
+let recentlyCreatedBookingId = '';
+let recentlyCreatedBookingTimer = null;
 let scheduleRows = [];
 let daysOff = [];
 let scheduleDirty = false;
@@ -229,9 +231,9 @@ function saveNewBookingDraft() {
   if (status) status.textContent = `Черновик сохранён · ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
 }
 function clearNewBookingDraft(userId = currentUser?.id) { try { if (userId) sessionStorage.removeItem(bookingDraftKey(userId)); } catch {} }
-const bookingCreationWriteSelector = '#newBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking]';
+const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client]';
 const writeSelectors = [
-  '#newBookingButton', '[data-create-empty-booking]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
+  '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
@@ -929,7 +931,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=177#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=178#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2284,7 +2286,7 @@ function renderTimeline(items) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}" title="Зажмите и перетащите, чтобы изменить время">
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${top + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}" title="Зажмите и перетащите, чтобы изменить время">
       ${cardContent}
     </button>`;
   }).join('');
@@ -2316,7 +2318,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
     const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
     const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}">
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
       <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
@@ -2330,6 +2332,22 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
 
 function bookingEmptyMarkup(message, extraClass = '') {
   return `<div class="provider-empty schedule-empty${extraClass ? ` ${escapeHtml(extraClass)}` : ''}"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>${escapeHtml(message)}</small><button class="primary schedule-empty-create" type="button" data-create-empty-booking>${uiIcon('plus')}<span>Создать запись</span></button></div>`;
+}
+
+function focusCreatedBooking(id) {
+  recentlyCreatedBookingId = String(id || '');
+  if (!recentlyCreatedBookingId) return;
+  if (recentlyCreatedBookingTimer) clearTimeout(recentlyCreatedBookingTimer);
+  renderBookingData();
+  requestAnimationFrame(() => {
+    const card = $$('[data-open-booking]').find(item => item.dataset.openBooking === recentlyCreatedBookingId);
+    card?.scrollIntoView({ behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'center' });
+    card?.focus({ preventScroll:true });
+  });
+  recentlyCreatedBookingTimer = setTimeout(() => {
+    recentlyCreatedBookingId = '';
+    $$('.booking-created-highlight').forEach(card => card.classList.remove('booking-created-highlight'));
+  }, 4200);
 }
 
 function openBookingSheet(id) {
@@ -2861,11 +2879,14 @@ function setNewBookingMode(mode) {
   $('#newBookingName').required = !block;
   $('#newBookingPhone').required = !block;
   $('#newBookingBlockTitle').required = block;
+  $('#newBookingClientNoteField').hidden = block;
+  $('#newBookingBlockNoteField').hidden = !block;
+  $('#newBookingAdvancedSummary').textContent = block ? 'Заметка и цвет' : 'Заметка, цвет и серия';
   const recurrence = $('#newBookingRecurrence');
   if (recurrence) recurrence.hidden = block;
   $('#newBookingSheetTitle').textContent = block ? 'Занять время' : 'Новый клиент';
   $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
-  $('#newBookingSectionSubtitle').textContent = block ? 'Название, заметка и длительность' : 'Основная информация о записи';
+  $('#newBookingSectionSubtitle').textContent = block ? 'Название и длительность' : 'Только необходимое для записи';
   $('#newBookingServiceCaption').textContent = block ? 'Длительность' : 'Услуга';
   const serviceSelect = $('#newBookingService');
   const selectedService = serviceSelect.value;
@@ -2892,16 +2913,20 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
-        <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Основная информация о записи</small></div></div>
-          <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div><label>Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label></div>
-          <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><label>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
+        <section class="new-booking-section"><div class="new-booking-section-title"><span>1</span><div><strong id="newBookingSectionTitle">Клиент и услуга</strong><small id="newBookingSectionSubtitle">Только необходимое для записи</small></div></div>
+          <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div></div>
+          <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
-          ${bookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT)}
-          <section class="new-booking-recurrence" id="newBookingRecurrence">
-            <div><strong>Курс или серия</strong><small>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
-            <label>Количество<select id="newBookingOccurrences"><option value="1">Одна запись</option><option value="2">2 визита</option><option value="3">3 визита</option><option value="4">4 визита</option><option value="6">6 визитов</option><option value="8">8 визитов</option><option value="10">10 визитов</option><option value="12">12 визитов</option><option value="16">16 визитов</option><option value="20">20 визитов</option><option value="24">24 визита</option></select></label>
-            <label>Повторять<select id="newBookingInterval"><option value="1">Каждую неделю</option><option value="2">Раз в 2 недели</option><option value="3">Раз в 3 недели</option><option value="4">Раз в 4 недели</option><option value="6">Раз в 6 недель</option><option value="8">Раз в 8 недель</option><option value="12">Раз в 12 недель</option></select></label>
-          </section>
+          <details class="new-booking-advanced" id="newBookingAdvanced"><summary><span>Дополнительные параметры</span><small id="newBookingAdvancedSummary">Заметка, цвет и серия</small></summary><div class="new-booking-advanced-content">
+            <label id="newBookingClientNoteField">Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
+            <label id="newBookingBlockNoteField" hidden>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label>
+            ${bookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT)}
+            <section class="new-booking-recurrence" id="newBookingRecurrence">
+              <div><strong>Курс или серия</strong><small>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
+              <label>Количество<select id="newBookingOccurrences"><option value="1">Одна запись</option><option value="2">2 визита</option><option value="3">3 визита</option><option value="4">4 визита</option><option value="6">6 визитов</option><option value="8">8 визитов</option><option value="10">10 визитов</option><option value="12">12 визитов</option><option value="16">16 визитов</option><option value="20">20 визитов</option><option value="24">24 визита</option></select></label>
+              <label>Повторять<select id="newBookingInterval"><option value="1">Каждую неделю</option><option value="2">Раз в 2 недели</option><option value="3">Раз в 3 недели</option><option value="4">Раз в 4 недели</option><option value="6">Раз в 6 недель</option><option value="8">Раз в 8 недель</option><option value="12">Раз в 12 недель</option></select></label>
+            </section>
+          </div></details>
         </section>
         <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small>Выберите удобное свободное окно</small></div></div>
           <label>Дата<input id="newBookingDate" type="date" min="${businessTodayIso()}" value="${date}" required></label>
@@ -2915,7 +2940,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   if (!services.length) return;
   $('#newBookingName').value = String(preset.clientName || draft?.name || '');
   $('#newBookingPhone').value = String(preset.clientPhone || draft?.phone || '');
-  $('#newBookingNote').value = String(draft?.note || '');
+  $('#newBookingNote').value = String(draft?.note || (preset.clientPhone ? clientNotes.get(normalizePhone(preset.clientPhone)) : '') || '');
   $('#newBookingBlockTitle').value = String(draft?.blockTitle || 'Перерыв');
   $('#newBookingBlockNote').value = String(draft?.blockNote || '');
   $('#newBookingOccurrences').value = String(draft?.occurrences || '1');
@@ -3025,6 +3050,7 @@ async function createNewBooking(event) {
     clearNewBookingDraft(userId);
     closeBookingSheet();
     await refreshAfterWrite();
+    if (created[0]?.booking_id) focusCreatedBooking(created[0].booking_id);
     notify(`Серия из ${occurrenceCount} записей создана`);
     return;
   }
@@ -3076,7 +3102,7 @@ async function createNewBooking(event) {
       const remoteSaved = await saveBookingNote(createdBooking.id, note);
       blockNoteLocalOnly = !remoteSaved && Boolean(note);
     }
-    else renderBookingData();
+    focusCreatedBooking(createdBooking.id);
   }
   notify(block
     ? (blockNoteLocalOnly ? 'Перерыв создан. Заметка сохранена на этом устройстве' : 'Время занято')
@@ -3112,7 +3138,7 @@ function calendarOverviewBookingMarkup(item, compact) {
   const client = block ? 'Занятое время' : item.client_name;
   const statusClass = bookingStatusClass(item);
   const details = `${title}, ${client}, ${time}`;
-  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}</small>`}</span></button>`;
+  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}</small>`}</span></button>`;
 }
 
 function renderCalendarOverview(view) {
@@ -3231,6 +3257,28 @@ function renderClients() {
   }).join('');
 }
 
+function openQuickRepeatForClient(phone = selectedClientPhone) {
+  if (!requireBookingWrites()) return;
+  const client = buildClients().find(item => item.phone === normalizePhone(phone));
+  if (!client) {
+    notify('Сначала выберите клиента');
+    return;
+  }
+  const activeServiceIds = new Set(ownServices.filter(item => item.active).map(item => item.id));
+  const previousBooking = [...client.bookings]
+    .sort((a, b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`))
+    .find(item => activeServiceIds.has(item.service_id));
+  if (!previousBooking) {
+    notify('У клиента нет доступной услуги для повторной записи');
+    return;
+  }
+  openNewBookingSheet('', {
+    clientName:client.name,
+    clientPhone:client.displayPhone,
+    serviceId:previousBooking.service_id
+  });
+}
+
 function renderClientDetail(phone) {
   const client = buildClients().find(item => item.phone === phone);
   if (!client) return;
@@ -3250,6 +3298,7 @@ function renderClientDetail(phone) {
   $('#clientName').textContent = client.name;
   $('#clientPhone').textContent = client.displayPhone;
   $('#clientPhone').href = `tel:${client.phone}`;
+  $('#clientQuickRepeat').dataset.quickRepeatClient = client.phone;
   $('#clientProfileBadges').innerHTML = clientBadgeMarkup(client.phone, { limit:4, showLabels:true });
   const labels = clientLabel(client.phone);
   applyClientHighlightClasses($('#clientProfileContent').closest('.client-profile'), client.phone, 'client-profile-');
@@ -4978,6 +5027,7 @@ document.addEventListener('click', async event => {
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
+  const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
   const createEmptyBooking = event.target.closest('[data-create-empty-booking]');
@@ -5063,6 +5113,7 @@ document.addEventListener('click', async event => {
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
+  if (quickRepeatClient) openQuickRepeatForClient(quickRepeatClient.dataset.quickRepeatClient);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (createEmptyBooking && requireBookingWrites()) openNewBookingSheet();
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
@@ -5512,6 +5563,7 @@ $('#refreshNotifications').addEventListener('click', synchronizeProvider);
 $('#exportBookings').addEventListener('click', exportBookingsCsv);
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
+$('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#slotInterval').addEventListener('change', event => { scheduleDirty = true; syncSlotIntervalOptions(event.target.value); });
@@ -5606,4 +5658,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=177'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=178'));

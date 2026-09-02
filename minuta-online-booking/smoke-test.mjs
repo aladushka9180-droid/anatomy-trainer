@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '177';
+const version = '178';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -463,6 +463,15 @@ assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные ча�
 assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:10px;/, 'Получасовые отметки остались слишком мелкими');
 assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая линия не синхронизирована с масштабом расписания');
 assert.match(provider, /bookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
+assert.match(providerHtml, /id="mobileNewBookingButton"[^>]*aria-label="Создать запись"/, 'На телефоне нет постоянной быстрой кнопки создания записи');
+assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\(\)/, 'Мобильная быстрая кнопка не открывает форму записи');
+assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[\s\S]*Записать снова/, 'В карточке клиента нет быстрого повторения записи');
+assert.match(provider, /function openQuickRepeatForClient[\s\S]*serviceId:previousBooking\.service_id/, 'Быстрое повторение не подставляет последнюю доступную услугу клиента');
+assert.match(provider, /<details class="new-booking-advanced"[^>]*>[\s\S]*Заметка о клиенте[\s\S]*bookingColorPicker\('newBookingColor'[\s\S]*newBookingRecurrence/, 'Необязательные поля новой записи не собраны в компактный раскрывающийся блок');
+assert.doesNotMatch(provider, /<details class="new-booking-advanced"[^>]*\sopen(?:\s|>)/, 'Необязательные поля новой записи раскрыты по умолчанию');
+assert.match(provider, /function focusCreatedBooking[\s\S]*scrollIntoView[\s\S]*booking-created-highlight/, 'После создания запись не выделяется и не показывается в журнале');
+assert.match(styles, /\.provider-mobile-create \{ position:fixed;[\s\S]*bottom:calc\(82px \+ env\(safe-area-inset-bottom\)\)/, 'Мобильная кнопка создания записи не закреплена над нижней навигацией');
+assert.match(styles, /\.booking-created-highlight \{ animation:booking-created-highlight/, 'Созданная запись не получает краткую визуальную подсветку');
 assert.match(provider, /bookingColorPicker\('editBookingColor'/, 'При изменении записи нельзя выбрать цвет');
 assert.match(provider, /data-booking-color-id/, 'Цвет существующей записи нельзя изменить из карточки');
 assert.match(styles, /color-lavender[\s\S]*background:#f2edfa/, 'Палитра нежных цветов не оформлена');
@@ -516,6 +525,9 @@ assert.match(app, /недоступно для начала: весь интер
 assert.match(app, /весь интервал должен быть свободен/, 'Клиенту не объясняется правило для продолжительной услуги');
 assert.match(app, /duration <= 60[\s\S]*?'занято'[\s\S]*?'нет окна'/, 'Недоступные часы не получают короткую подпись по длительности услуги');
 assert.match(app, /requestAnimationFrame\(\(\) => bookingCard\?\.scrollIntoView/, 'Переход между шагами прокручивается только после загрузки данных');
+assert.match(app, /if \(state\.serviceId\) void showStep\(2\)/, 'После явного выбора услуги клиенту приходится отдельно переходить к выбору времени');
+assert.match(app, /if \(time && !time\.disabled\)[^\n]*void showStep\(3\)/, 'После выбора времени клиенту приходится отдельно переходить к контактам');
+assert.match(app, /previousServiceId[\s\S]*?\? \(locationServices\.some[\s\S]*?: ''[\s\S]*?: '';/, 'Новая запись по-прежнему молча выбирает первую услугу');
 assert.match(app, /function successDetailsMarkup\(service, performer, dateLabel, range\)/, 'Экран успеха не использует структурированную сводку записи');
 const clientHtml = readFileSync(join(root, 'index.html'), 'utf8');
 assert.match(clientHtml, /class="success-appointment"/, 'Детали успешной записи не собраны в компактный блок');

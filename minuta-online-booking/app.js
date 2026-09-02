@@ -342,10 +342,10 @@ async function loadServices() {
   if (!previousServiceId) {
     state.serviceId = isRepeatBooking && requestedServiceId
       ? (locationServices.some(item => item.id === requestedServiceId) ? requestedServiceId : '')
-      : locationServices[0]?.id || '';
+      : '';
   }
   else if (selectionWasRemoved) state.serviceId = '';
-  else if (!locationServices.some(item => item.id === previousServiceId)) state.serviceId = locationServices[0]?.id || '';
+  else if (!locationServices.some(item => item.id === previousServiceId)) state.serviceId = '';
   setBookingStatus(locationServices.length ? 'open' : 'closed', locationServices.length ? 'Запись открыта' : 'В этом филиале пока нет доступных услуг');
   renderSpecialists();
   renderServices();
@@ -361,7 +361,8 @@ async function loadServices() {
     await showStep(1);
     return;
   }
-  if (state.step === 2) await loadAvailability();
+  if (isRepeatBooking && state.step === 1 && selectedService()) await showStep(2);
+  else if (state.step === 2) await loadAvailability();
   if (state.step === 3 && selectedService()) await validateCurrentSelection();
 }
 
@@ -949,7 +950,7 @@ document.addEventListener('click', event => {
     if (state.performerId !== nextPerformer) {
       state.performerId = nextPerformer;
       const services = visibleServices();
-      if (!services.some(item => item.id === state.serviceId)) state.serviceId = services[0]?.id || '';
+      if (!services.some(item => item.id === state.serviceId)) state.serviceId = '';
       state.availability = new Map();
       state.availabilityServiceId = '';
       state.time = '';
@@ -967,6 +968,7 @@ document.addEventListener('click', event => {
       state.time = '';
     }
     renderServices();
+    if (state.serviceId) void showStep(2);
   }
   if (date && !date.disabled) { bookingInputChanged(); state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
   if (suggestedDate) {
@@ -982,7 +984,7 @@ document.addEventListener('click', event => {
   if (moreDates) { state.moreDates = true; renderDates(); }
   if (serviceDetails) openServiceDetails();
   if (closeServiceDetails || chooseServiceDetails) $('#serviceDetailsDialog').close();
-  if (time && !time.disabled) { bookingInputChanged(); state.time = time.dataset.time; renderTimes(); }
+  if (time && !time.disabled) { bookingInputChanged(); state.time = time.dataset.time; renderTimes(); void showStep(3); }
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
   if (retryServices) loadServices();
@@ -1005,7 +1007,7 @@ $('#locationSelect')?.addEventListener('change', async event => {
   state.availabilityError = false;
   state.time = '';
   if (state.performerId && !locationEligibleServices().some(item => item.performer_id === state.performerId)) state.performerId = '';
-  if (!visibleServices().some(item => item.id === state.serviceId)) state.serviceId = visibleServices()[0]?.id || '';
+  if (!visibleServices().some(item => item.id === state.serviceId)) state.serviceId = '';
   bookingInputChanged();
   renderLocations();
   renderSpecialists();
@@ -1035,4 +1037,4 @@ loadServices();
 publicGroupBookingsController.load();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=177'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=178'));
