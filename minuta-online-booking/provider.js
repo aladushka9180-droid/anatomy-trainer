@@ -1329,7 +1329,7 @@ function renderTimeline(items) {
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
     const cardContent = minuteOnly
-      ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong>${serviceMarkup}</strong></span>`
+      ? `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span><span class="timeline-booking-copy timeline-booking-minute-copy"><strong>${serviceMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
