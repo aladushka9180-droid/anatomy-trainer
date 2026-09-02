@@ -10,7 +10,7 @@ const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
-const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
+const JOURNAL_MODE_KEY = 'massage-journal-mode-v5';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
@@ -34,7 +34,8 @@ let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
 let deferredInstallPrompt = null;
-let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
+let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'split';
+let splitBookingId = '';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
@@ -697,7 +698,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=143#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=144#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1233,8 +1234,8 @@ function setFilter(filter) {
 }
 
 function setJournalMode(mode) {
-  journalMode = mode === 'list' ? 'list' : 'timeline';
-  if (journalMode === 'timeline') currentFilter = 'day';
+  journalMode = ['split', 'timeline', 'list'].includes(mode) ? mode : 'split';
+  if (journalMode === 'split' || journalMode === 'timeline') currentFilter = 'day';
   localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
   try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
   $$('[data-filter]').forEach(button => {
@@ -1685,6 +1686,81 @@ function renderTimeline(items) {
   holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
 }
 
+function bookingListItemMarkup(item, { selected = false } = {}) {
+  const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
+  const itemDate = new Date(`${item.booking_date}T12:00:00`);
+  const time = String(item.booking_time).slice(0, 5);
+  const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+  const endTime = timeFromMinutes(minutesFromTime(time) + duration);
+  const statusText = bookingStatus(item);
+  const statusClass = bookingStatusClass(item);
+  const phone = escapeHtml(String(item.client_phone || ''));
+  const resultSummary = outcomeSummary(item);
+  const block = isScheduleBlock(item);
+  const note = bookingDisplayNote(item);
+  const visibleNote = displayPreferences.show_notes ? note : '';
+  const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
+  const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+  const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
+  return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}${selected ? ' is-selected' : ''}">
+    <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности"${selected ? ' aria-current="true"' : ''}>
+      <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
+      <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${escapeHtml(statusText)}</span></span>
+      ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1 }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
+      <span class="provider-booking-signals">${visibleNote ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(visibleNote)}</span>` : ''}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
+      <span class="provider-booking-chevron" aria-hidden="true">›</span>
+    </button>
+  </article>`;
+}
+
+function splitBookingDetailMarkup(item) {
+  const itemDate = new Date(`${item.booking_date}T12:00:00`);
+  const dateText = itemDate.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' });
+  const time = String(item.booking_time).slice(0, 5);
+  const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+  const endTime = timeFromMinutes(minutesFromTime(time) + duration);
+  const statusText = bookingStatus(item, true);
+  const statusClass = bookingStatusClass(item);
+  const note = bookingDisplayNote(item);
+  if (isScheduleBlock(item)) {
+    return `<div class="split-booking-detail-content">
+      <div class="split-booking-detail-head"><div><small>Занятое время</small><h3>${escapeHtml(item.client_name || 'Перерыв')}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div>
+      <div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div>
+      <dl class="split-booking-fields"><div><dt>Тип</dt><dd>Блокировка расписания</dd></div><div><dt>Доступность</dt><dd>Интервал закрыт для клиентов</dd></div></dl>
+      <div class="split-booking-note"><small>Заметка</small><p>${escapeHtml(note || 'Заметка к перерыву не добавлена.')}</p></div>
+      <div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Изменить</button>` : ''}</div>
+    </div>`;
+  }
+  const phone = String(item.client_phone || '');
+  const phoneHref = phone.replace(/[^+\d]/g, '');
+  const visitText = bookingVisitSummaryText(item);
+  const whatsapp = whatsappLink(item);
+  const service = serviceName(item.services?.name || 'Услуга');
+  const price = isPerMinuteBooking(item) ? `${money(bookingMinuteRate(item))}/мин` : money(bookingSessionTotal(item));
+  const canConfirm = item.status !== 'confirmed' && item.status !== 'cancelled' && !bookingIsCompleted(item);
+  return `<div class="split-booking-detail-content">
+    <div class="split-booking-detail-head"><div><small>Выбранная запись</small><h3>${escapeHtml(service)}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div>
+    <div class="split-booking-client"><span class="split-booking-avatar">${clientAvatarContent(item.client_phone, item.client_name)}</span><div><strong>${escapeHtml(item.client_name)}</strong>${visitText ? `<small>${escapeHtml(visitText)}</small>` : ''}<a href="tel:${escapeHtml(phoneHref)}">${escapeHtml(phone)}</a></div></div>
+    <div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div>
+    <dl class="split-booking-fields"><div><dt>Услуга</dt><dd>${escapeHtml(service)}</dd></div><div><dt>Стоимость</dt><dd>${escapeHtml(price)}</dd></div>${Number(item.deposit_amount_rub || 0) > 0 ? `<div><dt>Предоплата</dt><dd>${escapeHtml(money(item.deposit_amount_rub))} · ${item.payment_status === 'paid' ? 'оплачена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</dd></div>` : ''}</dl>
+    <div class="split-booking-note"><small>Заметка о клиенте</small><p>${escapeHtml(note || 'Заметка о клиенте пока не добавлена.')}</p></div>
+    <div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${canConfirm ? `<button class="secondary-button" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>` : ''}${whatsapp ? `<a class="secondary-button" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div>
+  </div>`;
+}
+
+function renderSplitBookingView(items) {
+  const holder = $('#providerBookings');
+  holder.className = 'provider-bookings split-booking-view';
+  if (!items.length) {
+    splitBookingId = '';
+    holder.innerHTML = `<div class="provider-empty schedule-empty split-booking-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>На выбранный день всё свободно.</small></div>`;
+    return;
+  }
+  const selected = items.find(item => item.id === splitBookingId) || items.find(item => item.status !== 'cancelled') || items[0];
+  splitBookingId = selected.id;
+  holder.innerHTML = `<section class="split-booking-list schedule-list" aria-label="Записи на выбранный день">${items.map(item => bookingListItemMarkup(item, { selected:item.id === selected.id })).join('')}</section><aside class="split-booking-detail" id="splitBookingDetail" aria-live="polite">${splitBookingDetailMarkup(selected)}</aside>`;
+}
+
 function renderBookingList(items) {
   const holder = $('#providerBookings');
   holder.className = 'provider-bookings schedule-list';
@@ -1692,32 +1768,7 @@ function renderBookingList(items) {
     holder.innerHTML = `<div class="provider-empty schedule-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>`;
     return;
   }
-  const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
-  holder.innerHTML = items.map(item => {
-    const itemDate = new Date(`${item.booking_date}T12:00:00`);
-    const time = String(item.booking_time).slice(0, 5);
-    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
-    const endTime = timeFromMinutes(minutesFromTime(time) + duration);
-    const statusText = bookingStatus(item);
-    const statusClass = bookingStatusClass(item);
-    const phone = escapeHtml(String(item.client_phone || ''));
-    const resultSummary = outcomeSummary(item);
-    const block = isScheduleBlock(item);
-    const note = bookingDisplayNote(item);
-    const visibleNote = displayPreferences.show_notes ? note : '';
-    const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
-    const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
-    const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}">
-      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
-        <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
-        <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
-        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1 }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
-        <span class="provider-booking-signals">${visibleNote ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(visibleNote)}</span>` : ''}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
-        <span class="provider-booking-chevron" aria-hidden="true">›</span>
-      </button>
-    </article>`;
-  }).join('');
+  holder.innerHTML = items.map(item => bookingListItemMarkup(item)).join('');
 }
 
 function openBookingSheet(id) {
@@ -2338,6 +2389,7 @@ function renderBookings() {
     ? (daySummary || 'Свободный день')
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
+  else if (currentFilter === 'day' && journalMode === 'split') renderSplitBookingView(items);
   else renderBookingList(items);
 }
 
@@ -4092,6 +4144,7 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const openBookingSheetButton = event.target.closest('[data-open-booking-sheet]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
@@ -4163,7 +4216,13 @@ document.addEventListener('click', async event => {
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
   if (dateToday) selectScheduleDate(businessTodayIso());
   if (date) selectScheduleDate(date.dataset.bookingDate);
-  if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (openBooking) {
+    if (journalMode === 'split' && currentFilter === 'day' && window.matchMedia('(min-width: 761px)').matches) {
+      splitBookingId = openBooking.dataset.openBooking;
+      renderBookings();
+    } else openBookingSheet(openBooking.dataset.openBooking);
+  }
+  if (openBookingSheetButton) openBookingSheet(openBookingSheetButton.dataset.openBookingSheet);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
@@ -4535,4 +4594,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=143'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=144'));

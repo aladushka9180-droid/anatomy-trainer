@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '143';
+const version = '144';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,10 +69,10 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=143/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=143/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=143/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=143/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=144/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=144/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=144/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=144/, 'Кабинет не подключает контроллер зарплат');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
 }
@@ -97,7 +97,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=143"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=144"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -123,11 +123,16 @@ const detectInstallPlatform = navigator => Function('navigator', `${installDetec
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36', platform:'Linux armv8l', maxTouchPoints:5 }), { ios:false, android:true, inApp:false }, 'Chrome на Android определяется неверно');
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1', platform:'iPhone', maxTouchPoints:5 }), { ios:true, android:false, inApp:false }, 'Safari на iPhone определяется неверно');
 assert.equal(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Instagram 325.0.0.0', platform:'Linux armv8l', maxTouchPoints:5 }).inApp, true, 'Встроенный браузер Android не распознаётся');
-assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v4'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
-assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента времени не является режимом расписания по умолчанию');
+assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v5'/, 'Новая разделённая компоновка не получила отдельную настройку');
+assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'split'/, 'Разделённая компоновка не является режимом расписания по умолчанию');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
 assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');
+assert.match(provider, /journalMode === 'split'\) renderSplitBookingView\(items\)/, 'Дневной журнал не умеет показывать разделённую компоновку');
+assert.match(providerHtml, /data-journal-mode="split"[\s\S]*Карточка/, 'В переключателе журнала нет разделённой компоновки');
+assert.match(provider, /function renderSplitBookingView\(items\)/, 'Разделённая компоновка записей не реализована');
+assert.match(provider, /data-open-booking-sheet=/, 'Из рабочей карточки нельзя открыть все детали записи');
+assert.match(provider, /window\.matchMedia\('\(min-width: 761px\)'\)\.matches/, 'Клик по записи не разделяет поведение компьютера и телефона');
 assert.match(provider, /height < 44 \? ' compact'/, 'Только действительно короткие записи должны получать компактную раскладку');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
@@ -217,6 +222,8 @@ assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерыв
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
+assert.match(styles, /\.split-booking-view \{ grid-template-columns:/, 'Разделённая компоновка не создаёт две рабочие колонки');
+assert.match(styles, /\.provider-body \.split-booking-detail \{ display:none; \}/, 'На телефоне боковая карточка не заменяется нижним листом');
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
