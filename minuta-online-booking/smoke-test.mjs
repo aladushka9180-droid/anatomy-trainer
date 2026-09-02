@@ -347,7 +347,8 @@ assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Д�
 assert.match(styles, /\.provider-body \.ambient-right\s*\{[^}]*display:none/, 'Декоративная жёлтая область остаётся на мобильном');
 assert.match(styles, /input,select,textarea\s*\{[^}]*font-size:16px!important/, 'Мобильные поля могут вызывать автоматическое увеличение');
 assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
-assert.match(providerHtml, /data-date-shift="-7"[\s\S]*data-date-shift="7"/, 'В расписании нет навигации по неделям');
+assert.match(providerHtml, /data-date-shift="-1"[\s\S]*data-date-shift="1"/, 'В расписании нет навигации по выбранному периоду');
+assert.match(providerHtml, /data-calendar-view="day"[\s\S]*data-calendar-view="week"[\s\S]*data-calendar-view="month"/, 'В расписании нет переключения дня, недели и месяца');
 assert.match(providerHtml, /data-provider-panel="portfolio"/, 'В кабинете нет раздела портфолио');
 assert.match(providerHtml, /id="portfolioSessions"[^>]*min="1"[^>]*max="999"/, 'Нельзя указать количество проведённых сеансов');
 assert.match(providerHtml, /id="portfolioBeforeFile"[^>]*accept="image\/jpeg,image\/png,image\/webp"/, 'Нет выбора фотографии «До»');
