@@ -2287,6 +2287,35 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] :is(.client-summary,.client-disclosure,.repeat-booking,.client-history,.client-history-item,.managed-service,.booking-step-setting,.schedule-day,.day-off-form,.day-off-item,.waitlist-provider-actions,.report-service-row,.password-form,.booking-labels-editor,.booking-session-addons,.booking-delete-zone) { border-color:var(--theme-line); }
 .provider-body[data-provider-theme] :is(.booking-step-setting,.schedule-day,.day-off-item,.portfolio-photo-field,.booking-prepayment-form,.provider-display-hint,.booking-policy-form .settings-check,.mobile-more-grid button,.free-slots-mode,.free-slots-preview) { background:var(--theme-surface-alt); }
 .provider-body[data-provider-theme] :is(.portfolio-editor-dialog,.notification-template-dialog,.service-creator-dialog,.free-slots-dialog,.booking-sheet-panel) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .booking-sheet-backdrop { background:color-mix(in srgb,var(--theme-ink) 38%,transparent); }
+.provider-body[data-provider-theme] .booking-sheet-panel { border:1px solid var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); box-shadow:0 24px 80px color-mix(in srgb,var(--theme-shadow) 86%,transparent); }
+.provider-body[data-provider-theme] .booking-sheet-close { border:1px solid var(--theme-line); background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .booking-sheet-handle { background:var(--theme-line); }
+.provider-body[data-provider-theme] :is(.booking-sheet-kicker,.booking-clicked-time) { color:var(--theme-accent); }
+.provider-body[data-provider-theme] .new-booking-mode-toggle { border:1px solid var(--theme-line); background:var(--theme-accent-soft); }
+.provider-body[data-provider-theme] .new-booking-mode-toggle button { background:transparent; color:var(--theme-muted); }
+.provider-body[data-provider-theme] .new-booking-mode-toggle button.active { background:var(--theme-surface); color:var(--theme-accent); box-shadow:0 4px 13px var(--theme-shadow); }
+.provider-body[data-provider-theme] .new-booking-section { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .new-booking-section-title>span { background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .new-booking-section-title strong,
+.provider-body[data-provider-theme] .new-booking-form label { color:var(--theme-ink); }
+.provider-body[data-provider-theme] .new-booking-section-title small,
+.provider-body[data-provider-theme] .new-booking-block-fields p { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(.new-booking-form input,.new-booking-form select,.new-booking-form textarea) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); caret-color:var(--theme-accent); }
+.provider-body[data-provider-theme] :is(.new-booking-form input,.new-booking-form textarea)::placeholder { color:var(--theme-muted); opacity:.78; }
+.provider-body[data-provider-theme] :is(.new-booking-form input,.new-booking-form select,.new-booking-form textarea):focus { outline:2px solid color-mix(in srgb,var(--theme-accent) 24%,transparent); border-color:var(--theme-accent); }
+.provider-body[data-provider-theme] .new-booking-block-fields { border-color:var(--theme-line); background:var(--theme-accent-soft); }
+.provider-body[data-provider-theme] .booking-time-picker { border-color:var(--theme-line); background:var(--theme-surface); }
+.provider-body[data-provider-theme] .booking-time-guide:not(:first-child) { border-top-color:var(--theme-line); }
+.provider-body[data-provider-theme] .booking-time-guide strong { color:var(--theme-ink); }
+.provider-body[data-provider-theme] .booking-time-guide span { color:var(--theme-muted); }
+.provider-body[data-provider-theme] :is(.booking-time-hours button,.booking-time-slots button) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.booking-time-hours button,.booking-time-slots button):hover { border-color:var(--theme-accent); background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .booking-time-hours button.active { border-color:var(--theme-accent); background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .booking-time-slots button.active { border-color:var(--theme-accent); background:var(--theme-accent); color:#fff; box-shadow:0 6px 15px var(--theme-shadow); }
+.provider-body[data-provider-theme] .booking-time-warning { border:1px solid color-mix(in srgb,var(--theme-accent) 40%,var(--theme-line)); background:var(--theme-accent-soft); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .booking-color-option:has(input:checked) { border-color:var(--theme-accent); background:var(--theme-accent-soft); color:var(--theme-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 14%,transparent); }
+.provider-body[data-provider-theme] .booking-color-option:has(input:focus-visible) { outline-color:color-mix(in srgb,var(--theme-accent) 30%,transparent); }
 .provider-body[data-provider-theme] :is(.portfolio-photo-field,.portfolio-form textarea,.client-note-label textarea,.client-attention-reason textarea,.booking-policy-form input,.booking-policy-form select,.password-form input,.free-slots-dates input,.free-slots-text-label textarea) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .free-slots-mode input:checked+span { background:var(--theme-surface); color:var(--theme-accent); }
 .provider-body[data-provider-theme] :is(.notification-card blockquote,.booking-sheet-note-editor,.booking-session-summary,.session-composer-item,.booking-color-compact,.service-visibility-option) { background:var(--theme-surface-alt); }
@@ -2350,6 +2379,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="linear"] .schedule-card { border-color:var(--theme-line); }
 .provider-body[data-provider-theme][data-provider-layout="linear"] .date-strip button { border-radius:0; }
 .provider-body[data-provider-theme][data-provider-layout="linear"] .schedule-list .provider-booking { border-left:3px solid color-mix(in srgb,var(--theme-accent) 42%,var(--theme-line)); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.booking-sheet-panel,.booking-sheet-close,.new-booking-mode-toggle,.new-booking-mode-toggle button,.new-booking-section,.new-booking-section-title>span,.new-booking-form input,.new-booking-form select,.new-booking-form textarea,.new-booking-block-fields,.new-booking-recurrence,.booking-time-picker,.booking-time-hours button,.booking-time-slots button,.booking-color-option) { border-radius:0; box-shadow:none; }
 
 /* 02. Мягкий минимализм */
 .provider-body[data-provider-theme][data-provider-layout="soft"] .provider-app { grid-template-columns:248px minmax(0,1fr); gap:0; padding:0; }
@@ -2382,6 +2412,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:20px; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.organization-role,.organization-status,.organization-cancel) { border-radius:999px; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:20px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .booking-sheet-panel { border-radius:34px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.new-booking-section,.new-booking-block-fields,.new-booking-recurrence,.booking-time-picker) { border-radius:26px; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.new-booking-mode-toggle,.new-booking-mode-toggle button,.new-booking-form input,.new-booking-form select,.booking-time-hours button,.booking-time-slots button,.booking-color-option) { border-radius:999px; }
 
 /* 04. Редакционный журнал */
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-app { grid-template-columns:224px minmax(0,1fr); gap:0; padding:0; }
@@ -2401,6 +2434,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .schedule-card { border-width:0 0 1px; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .date-strip button { border-left:1px solid var(--theme-line); border-radius:0; }
 .provider-body[data-provider-theme][data-provider-layout="editorial"] .date-strip button:first-child { border-left:0; }
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.booking-sheet-panel,.booking-sheet-close,.new-booking-mode-toggle,.new-booking-mode-toggle button,.new-booking-section,.new-booking-section-title>span,.new-booking-form input,.new-booking-form select,.new-booking-form textarea,.new-booking-block-fields,.new-booking-recurrence,.booking-time-picker,.booking-time-hours button,.booking-time-slots button,.booking-color-option) { border-radius:0; box-shadow:none; }
 
 /* 05. Модульный Bento */
 @media (min-width:761px) {
@@ -2420,6 +2454,8 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.dashboard-summary,.notification-summary,.report-summary article,.provider-display-form .settings-check) { border-radius:15px; }
 .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.organization-row,.organization-create,.organization-checks label) { border-radius:15px; }
 .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.resource-requirement-row,.resource-inline-error,.resource-audit) { border-radius:15px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] .booking-sheet-panel { border-radius:24px; }
+.provider-body[data-provider-theme][data-provider-layout="bento"] :is(.new-booking-section,.new-booking-block-fields,.new-booking-recurrence,.booking-time-picker) { border-radius:18px; }
 
 @media (max-width:980px) and (min-width:761px) {
   .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-app { grid-template-columns:190px minmax(0,1fr); }
