@@ -665,7 +665,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=130#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=131#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1372,7 +1372,7 @@ async function persistTimelineBookingMove(state) {
     renderBookings();
     return;
   }
-  const issue = bookingPlacementIssue(item, selectedDate, state.targetMinute);
+  const issue = bookingPlacementIssue(item, state.date, state.targetMinute);
   if (issue) {
     notify(issue);
     renderBookings();
@@ -1389,8 +1389,8 @@ async function persistTimelineBookingMove(state) {
   const generation = sessionGeneration;
   const { data: availableSlots, error: availabilityError } = await db.rpc('get_available_slots', {
     p_service: item.service_id,
-    p_start: selectedDate,
-    p_end: selectedDate,
+    p_start: state.date,
+    p_end: state.date,
     p_ignore_booking: item.id
   });
   if (!sessionIsCurrent(userId, generation)) {
@@ -1404,7 +1404,7 @@ async function persistTimelineBookingMove(state) {
     renderBookings();
     return;
   }
-  const { error } = await db.from('bookings').update({ booking_date:selectedDate, booking_time:`${targetTime}:00` }).eq('id', item.id).eq('performer_id', userId);
+  const { error } = await db.from('bookings').update({ booking_date:state.date, booking_time:`${targetTime}:00` }).eq('id', item.id).eq('performer_id', userId);
   timelineMovePending = false;
   if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
@@ -1418,7 +1418,7 @@ async function persistTimelineBookingMove(state) {
 }
 
 function beginTimelineBookingDrag(event, card) {
-  if (timelineMovePending || !writesAllowed || event.button !== 0 || card.classList.contains('status-cancelled')) return;
+  if (timelineBookingDrag || scheduleDaySwipe || timelineMovePending || !writesAllowed || event.button !== 0 || card.classList.contains('status-cancelled')) return;
   const stage = card.closest('.timeline-stage');
   const item = allBookings.find(booking => booking.id === card.dataset.openBooking);
   if (!stage || !item) return;
@@ -1429,6 +1429,7 @@ function beginTimelineBookingDrag(event, card) {
     card,
     stage,
     bookingId:item.id,
+    date:selectedDate,
     duration:Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60)),
     startX:event.clientX,
     startY:event.clientY,
@@ -3674,7 +3675,104 @@ async function loadWaitlist() {
   return { ok: !error, optional: true };
 }
 
+document.addEventListener('pointerdown', event => {
+  const bookingCard = event.target.closest('.timeline-booking[data-open-booking]');
+  if (bookingCard) {
+    beginTimelineBookingDrag(event, bookingCard);
+    return;
+  }
+  const swipeSurface = event.target.closest('#providerBookings,#dateStrip');
+  if (swipeSurface) beginScheduleDaySwipe(event, swipeSurface);
+});
+
+document.addEventListener('contextmenu', event => {
+  if (event.target.closest('.timeline-booking[data-open-booking]')) event.preventDefault();
+});
+
+document.addEventListener('pointermove', event => {
+  if (timelineBookingDrag?.pointerId === event.pointerId) {
+    const state = timelineBookingDrag;
+    const deltaX = event.clientX - state.startX;
+    const deltaY = event.clientY - state.startY;
+    const distance = Math.hypot(deltaX, deltaY);
+    if (!state.active) {
+      if (state.pointerType === 'mouse' && distance >= TIMELINE_DRAG_THRESHOLD_PX) activateTimelineBookingDrag(state);
+      else if (state.pointerType !== 'mouse' && distance > 12) {
+        if (Math.abs(deltaX) > Math.abs(deltaY) && currentFilter === 'day') {
+          const surface = state.card.closest('#providerBookings');
+          const swipeState = { pointerId:event.pointerId, surface, startX:state.startX, startY:state.startY, active:true };
+          finishTimelineBookingDrag();
+          if (surface) {
+            scheduleDaySwipe = swipeState;
+            surface.setPointerCapture?.(event.pointerId);
+            surface.classList.add('is-day-swiping');
+            surface.style.setProperty('--day-swipe-x', `${Math.max(-72, Math.min(72, deltaX * .28))}px`);
+            event.preventDefault();
+          }
+          return;
+        }
+        finishTimelineBookingDrag();
+        return;
+      }
+    }
+    if (state.active) {
+      event.preventDefault();
+      updateTimelineBookingDrag(state, event.clientY);
+    }
+    return;
+  }
+  if (scheduleDaySwipe?.pointerId !== event.pointerId) return;
+  const state = scheduleDaySwipe;
+  const deltaX = event.clientX - state.startX;
+  const deltaY = event.clientY - state.startY;
+  if (!state.active && Math.hypot(deltaX, deltaY) > 10) {
+    if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+      state.surface.classList.remove('is-day-swiping');
+      try { state.surface.releasePointerCapture(state.pointerId); } catch {}
+      scheduleDaySwipe = null;
+      return;
+    }
+    state.active = true;
+    state.surface.classList.add('is-day-swiping');
+  }
+  if (!state.active) return;
+  event.preventDefault();
+  state.surface.style.setProperty('--day-swipe-x', `${Math.max(-72, Math.min(72, deltaX * .28))}px`);
+});
+
+document.addEventListener('touchmove', event => {
+  const state = timelineBookingDrag;
+  if (!state?.active || state.pointerType !== 'touch' || event.touches.length !== 1) return;
+  event.preventDefault();
+  updateTimelineBookingDrag(state, event.touches[0].clientY);
+}, { passive:false });
+
+document.addEventListener('pointerup', event => {
+  if (timelineBookingDrag?.pointerId === event.pointerId) {
+    const state = timelineBookingDrag;
+    if (!state.active) {
+      finishTimelineBookingDrag();
+      return;
+    }
+    gestureClickSuppressedUntil = Date.now() + 450;
+    finishTimelineBookingDrag({ restore:false });
+    persistTimelineBookingMove(state);
+    return;
+  }
+  if (scheduleDaySwipe?.pointerId === event.pointerId) finishScheduleDaySwipe(scheduleDaySwipe, event);
+});
+
+document.addEventListener('pointercancel', event => {
+  if (timelineBookingDrag?.pointerId === event.pointerId) finishTimelineBookingDrag();
+  if (scheduleDaySwipe?.pointerId === event.pointerId) finishScheduleDaySwipe(scheduleDaySwipe, { ...event, clientX:scheduleDaySwipe.startX });
+});
+
 document.addEventListener('click', async event => {
+  if (Date.now() < gestureClickSuppressedUntil && event.target.closest('[data-open-booking],[data-create-booking-at],[data-booking-date]')) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   const authTab = event.target.closest('[data-auth-tab]');
   const view = event.target.closest('[data-provider-view]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
@@ -4105,4 +4203,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=130'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=131'));

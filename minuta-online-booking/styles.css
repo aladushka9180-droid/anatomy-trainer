@@ -2402,3 +2402,17 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme][data-provider-layout="capsule"] .provider-mobile-nav :is(button,a) { border-radius:999px!important; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] :is(.date-navigation,.date-strip,.schedule-toolbar,.schedule-list,.timeline-view) { border-radius:15px!important; }
 }
+
+/* Перетаскивание записей и перелистывание дня. */
+#providerBookings,#dateStrip { touch-action:pan-y; }
+#providerBookings.is-day-swiping,#dateStrip.is-day-swiping { position:relative; z-index:3; transform:translate3d(var(--day-swipe-x,0),0,0); cursor:grabbing; user-select:none; transition:none!important; will-change:transform; }
+.timeline-booking[data-open-booking] { cursor:grab; touch-action:pan-y; -webkit-user-drag:none; }
+.timeline-booking[data-open-booking].is-drag-pressed { cursor:grabbing; }
+.timeline-booking[data-open-booking].is-dragging { z-index:30!important; cursor:grabbing; pointer-events:none; opacity:.9; transform:scale(1.012)!important; box-shadow:0 14px 34px rgba(25,65,45,.22)!important; transition:none!important; will-change:top; }
+.timeline-booking[data-open-booking].is-saving-position { cursor:progress; opacity:.76; }
+.timeline-drag-label { position:absolute; z-index:31; left:14px; display:block; min-width:84px; padding:5px 9px; border:1px solid color-mix(in srgb,var(--theme-accent,#236947) 26%,transparent); border-radius:999px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173d2b); box-shadow:0 6px 18px rgba(22,55,38,.16); pointer-events:none; font-size:10px; font-weight:950; font-variant-numeric:tabular-nums; text-align:center; white-space:nowrap; }
+.timeline-booking-dragging,.timeline-booking-dragging * { cursor:grabbing!important; user-select:none!important; }
+
+@media (max-width:760px) {
+  .timeline-drag-label { left:8px; min-width:78px; padding:4px 7px; font-size:9px; }
+}
