@@ -611,7 +611,8 @@ assert.match(clientBookingsMigration, /coalesce\(booking\.total_price_rub, servi
 const clientAccount = readFileSync(join(root, 'my-bookings.js'), 'utf8');
 assert.match(clientAccount, /login_client_access/, 'Клиентская зона не выполняет вход по телефону и коду');
 assert.match(clientAccount, /get_client_bookings/, 'Клиентская зона не загружает все записи');
-assert.match(clientAccount, /localStorage\.setItem\(SESSION_KEY/, 'Сессия клиента не сохраняется на устройстве');
+assert.match(clientAccount, /sessionStorage\.setItem\(SESSION_KEY/, 'Сессия клиента не сохраняется на время работы вкладки');
+assert.match(clientAccount, /localStorage\.removeItem\(SESSION_KEY/, 'Старая постоянная сессия клиента не очищается');
 assert.doesNotMatch(clientAccount, /localStorage\.setItem\([^\n]*(?:phone|code)/i, 'Телефон или личный код сохраняется в открытом виде');
 assert.doesNotMatch(clientAccount, /if \(!data\?\.length\)[\s\S]*logout/, 'Пустой кабинет ошибочно сбрасывает действующую сессию');
 assert.match(app, /bootstrap_client_access/, 'После оформления не создаётся клиентский доступ');
