@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '174';
+const version = '175';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -146,7 +146,7 @@ assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1', platform:'iPhone', maxTouchPoints:5 }), { ios:true, android:false, inApp:false }, 'Safari на iPhone определяется неверно');
 assert.equal(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Instagram 325.0.0.0', platform:'Linux armv8l', maxTouchPoints:5 }).inApp, true, 'Встроенный браузер Android не распознаётся');
 assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v6'/, 'Удалённый режим карточки не сбрасывается у прежних пользователей');
-assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента не является режимом журнала по умолчанию');
+assert.match(provider, /let journalMode = restoreJournalMode\(\)[\s\S]*function restoreJournalMode\([\s\S]*return 'timeline'/, 'Лента не является режимом журнала по умолчанию');
 assert.doesNotMatch(providerHtml, /data-journal-mode="split"/, 'В интерфейсе осталась кнопка дублирующего режима «Карточка»');
 assert.doesNotMatch(provider, /renderSplitBookingView|splitBookingId/, 'В кабинете осталась логика разделённого журнала');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
@@ -407,6 +407,15 @@ assert.match(provider, /filters\.hidden = Boolean\(teamCalendarController\?\.isT
 assert.match(provider, /function providerViewFromLocation[\s\S]*searchParams\.set\('section', view\)[\s\S]*addEventListener\('popstate'/, 'Открытый раздел не восстанавливается через URL и кнопку «Назад»');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по сотрудникам и филиалам"/, 'В длинном разделе сотрудников нет внутренней навигации');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
+assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 2, 'Ссылки на страницу клиента не объединены общей логикой');
+assert.match(providerHtml, /provider-client-link[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'Страница клиента не открывается безопасно в новой вкладке');
+assert.match(provider, /function updateProviderClientLinks[\s\S]*public_booking_enabled[\s\S]*searchParams\.set\('org', organization\.public_slug\)/, 'Ссылка на страницу клиента не учитывает выбранную организацию');
+assert.match(providerHtml, /id="bookingSearch"[^>]*Имя, телефон или услуга/, 'В истории записей нет поиска');
+assert.match(providerHtml, /id="bookingStatusFilter"[\s\S]*value="needs-result"[\s\S]*value="cancelled"/, 'В истории записей нет фильтра по статусу');
+assert.match(provider, /function applyBookingQuery[\s\S]*bookingStatusClass\(item\)[\s\S]*client_phone[\s\S]*services\?\.name/, 'Поиск и фильтр записей не применяются к данным');
+assert.match(provider, /function updateActiveSectionNavigation[\s\S]*getBoundingClientRect\(\)\.top[\s\S]*aria-current/, 'Внутренняя навигация не следует за прокруткой');
+for (const parameter of ['date', 'range', 'records', 'journal']) assert.match(provider, new RegExp(`searchParams\\.set\\('${parameter}'`), `Контекст расписания не сохраняет параметр ${parameter}`);
+assert.match(providerHtml, /data-provider-view="schedule"[^>]*>[\s\S]*?<span>График<\/span>/, 'Подпись рабочего графика в нижней навигации слишком длинная');
 assert.doesNotMatch(providerHtml, /id="(?:newBookingsBadge|clientsBadge|servicesBadge|teamBadge|portfolioBadge)"/, 'В боковом меню остались неинформативные общие и нулевые счётчики');
 assert.match(styles, /calendar-overview-week \.calendar-overview-booking strong[\s\S]*-webkit-line-clamp:2/, 'Название записи в недельном календаре не получает две строки');
 assert.match(styles, /Навигация и рабочие поверхности:[\s\S]*background-image:linear-gradient\(180deg,[^}]*!important;/, 'Внутренние поверхности Luxury не отделены от мраморного фона');

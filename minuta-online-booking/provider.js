@@ -48,8 +48,10 @@ let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
 let deferredInstallPrompt = null;
-let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
+let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
+let bookingSearchQuery = '';
+let bookingStatusFilter = 'all';
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
 let waitlistRequests = [];
@@ -117,6 +119,7 @@ let timelineBookingDrag = null;
 let timelineMovePending = false;
 let scheduleDaySwipe = null;
 let gestureClickSuppressedUntil = 0;
+let sectionNavigationFrame = 0;
 const TIMELINE_TOUCH_HOLD_MS = 380;
 const TIMELINE_DRAG_THRESHOLD_PX = 5;
 const SCHEDULE_SWIPE_THRESHOLD_PX = 58;
@@ -837,7 +840,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=174#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=175#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1287,6 +1290,26 @@ function syncProviderViewHistory(view, mode = 'push') {
   window.history[mode === 'replace' ? 'replaceState' : 'pushState']({ providerView:view }, '', nextUrl);
 }
 
+function syncScheduleContextHistory(mode = 'replace') {
+  const url = new URL(window.location.href);
+  url.searchParams.set('date', selectedDate);
+  url.searchParams.set('range', calendarView);
+  url.searchParams.set('records', currentFilter);
+  url.searchParams.set('journal', journalMode);
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl === currentUrl) return;
+  window.history[mode === 'push' ? 'pushState' : 'replaceState']({ ...(window.history.state || {}), scheduleContext:true }, '', nextUrl);
+}
+
+function updateProviderClientLinks(organization = null) {
+  const url = new URL('index.html', window.location.href);
+  url.search = '';
+  url.hash = '';
+  if (organization?.public_booking_enabled && organization.public_slug) url.searchParams.set('org', organization.public_slug);
+  $$('.provider-client-link').forEach(link => { link.href = url.href; });
+}
+
 function focusProviderViewHeading(view) {
   const panel = $(`[data-provider-panel="${view}"]`);
   const heading = panel?.querySelector('.view-title h2');
@@ -1309,8 +1332,12 @@ function refreshSectionNavigation() {
     });
     const visible = buttons.filter(button => !button.hidden);
     if (!visible.length) return;
-    if (!visible.some(button => button.classList.contains('active'))) visible[0].classList.add('active');
+    if (!visible.some(button => button.classList.contains('active'))) {
+      visible[0].classList.add('active');
+      visible[0].setAttribute('aria-current', 'location');
+    }
   });
+  scheduleSectionNavigationUpdate();
 }
 
 function scrollToProviderSection(button) {
@@ -1329,6 +1356,34 @@ function scrollToProviderSection(button) {
   focusTarget?.setAttribute('tabindex', '-1');
   target.scrollIntoView({ behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
   requestAnimationFrame(() => focusTarget?.focus({ preventScroll:true }));
+}
+
+function updateActiveSectionNavigation() {
+  $$('.provider-section-nav').forEach(nav => {
+    if (!nav.offsetParent) return;
+    const buttons = [...nav.querySelectorAll('[data-section-target]')].filter(button => !button.hidden);
+    if (!buttons.length) return;
+    const threshold = nav.getBoundingClientRect().bottom + 20;
+    let activeButton = buttons[0];
+    buttons.forEach(button => {
+      const target = document.getElementById(button.dataset.sectionTarget);
+      if (target && !target.hidden && target.getBoundingClientRect().top <= threshold) activeButton = button;
+    });
+    buttons.forEach(button => {
+      const active = button === activeButton;
+      button.classList.toggle('active', active);
+      if (active) button.setAttribute('aria-current', 'location');
+      else button.removeAttribute('aria-current');
+    });
+  });
+}
+
+function scheduleSectionNavigationUpdate() {
+  if (sectionNavigationFrame) return;
+  sectionNavigationFrame = requestAnimationFrame(() => {
+    sectionNavigationFrame = 0;
+    updateActiveSectionNavigation();
+  });
 }
 
 function canUseIosTransitions() {
@@ -1504,6 +1559,8 @@ function setFilter(filter) {
   });
   updateCalendarViewControls();
   updateJournalModeButtons();
+  updateBookingQueryTools();
+  syncScheduleContextHistory();
   renderBookings();
 }
 
@@ -1518,6 +1575,8 @@ function setJournalMode(mode) {
     button.setAttribute('aria-pressed', String(active));
   });
   updateJournalModeButtons();
+  updateBookingQueryTools();
+  syncScheduleContextHistory();
   renderBookings();
 }
 
@@ -1538,6 +1597,8 @@ function parseLocalIsoDate(value) {
 }
 
 function restoreSelectedDate() {
+  const requested = new URLSearchParams(window.location.search).get('date');
+  if (parseLocalIsoDate(requested)) return requested;
   try {
     if (localStorage.getItem(SCHEDULE_FOLLOW_TODAY_KEY) === 'true') return businessTodayIso();
     const stored = localStorage.getItem(SCHEDULE_DATE_KEY);
@@ -1547,6 +1608,8 @@ function restoreSelectedDate() {
 }
 
 function restoreScheduleFilter() {
+  const requested = new URLSearchParams(window.location.search).get('records');
+  if (['day', 'upcoming', 'all'].includes(requested)) return requested;
   try {
     const stored = localStorage.getItem(SCHEDULE_FILTER_KEY);
     if (['day', 'upcoming', 'all'].includes(stored)) return stored;
@@ -1555,11 +1618,23 @@ function restoreScheduleFilter() {
 }
 
 function restoreCalendarView() {
+  const requested = new URLSearchParams(window.location.search).get('range');
+  if (['day', 'week', 'month'].includes(requested)) return requested;
   try {
     const stored = localStorage.getItem(CALENDAR_VIEW_KEY);
     if (['day', 'week', 'month'].includes(stored)) return stored;
   } catch {}
   return 'day';
+}
+
+function restoreJournalMode() {
+  const requested = new URLSearchParams(window.location.search).get('journal');
+  if (['timeline', 'list'].includes(requested)) return requested;
+  try {
+    const stored = localStorage.getItem(JOURNAL_MODE_KEY);
+    if (['timeline', 'list'].includes(stored)) return stored;
+  } catch {}
+  return 'timeline';
 }
 
 function rememberSelectedDate(followToday = selectedDate === businessTodayIso()) {
@@ -1612,6 +1687,7 @@ function updateCalendarViewControls() {
   navigationButtons[0]?.setAttribute('aria-label', labels[0]);
   navigationButtons[1]?.setAttribute('aria-label', labels[1]);
   updateJournalModeButtons();
+  updateBookingQueryTools();
 }
 
 function setCalendarView(view) {
@@ -1629,6 +1705,7 @@ function setCalendarView(view) {
     button.setAttribute('aria-pressed', String(active));
   });
   updateCalendarViewControls();
+  syncScheduleContextHistory();
   renderDateStrip();
   renderBookings();
 }
@@ -1708,6 +1785,34 @@ function filteredBookings() {
   if (currentFilter === 'all') return allBookings;
   if (currentFilter === 'upcoming') return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date >= today);
   return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date === selectedDate);
+}
+
+function bookingQueryIsActive() {
+  return Boolean(bookingSearchQuery.trim()) || bookingStatusFilter !== 'all';
+}
+
+function updateBookingQueryTools() {
+  const tools = $('#bookingQueryTools');
+  if (!tools) return;
+  tools.hidden = Boolean(teamCalendarController?.isTeamMode) || currentFilter === 'day' || calendarView !== 'day';
+  const reset = $('#bookingQueryReset');
+  if (reset) reset.hidden = !bookingQueryIsActive();
+}
+
+function applyBookingQuery(items) {
+  if (currentFilter === 'day') return items;
+  const query = bookingSearchQuery.trim().toLocaleLowerCase('ru-RU');
+  const queryDigits = query.replace(/\D/g, '');
+  return items.filter(item => {
+    if (bookingStatusFilter !== 'all' && bookingStatusClass(item) !== bookingStatusFilter) return false;
+    if (!query) return true;
+    const text = [item.client_name, item.client_phone, serviceName(item.services?.name || ''), bookingDisplayNote(item)]
+      .filter(Boolean)
+      .join(' ')
+      .toLocaleLowerCase('ru-RU');
+    if (text.includes(query)) return true;
+    return Boolean(queryDigits) && String(item.client_phone || '').replace(/\D/g, '').includes(queryDigits);
+  });
 }
 
 function minutesFromTime(value) {
@@ -2098,11 +2203,11 @@ function renderTimeline(items) {
   holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
 }
 
-function renderBookingList(items) {
+function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {
   const holder = $('#providerBookings');
   holder.className = 'provider-bookings schedule-list';
   if (!items.length) {
-    holder.innerHTML = bookingEmptyMarkup('На выбранный период всё свободно.');
+    holder.innerHTML = bookingEmptyMarkup(emptyMessage);
     applyWriteAvailability();
     return;
   }
@@ -2940,6 +3045,7 @@ function renderCalendarOverview(view) {
 
 function renderBookings() {
   const holder = $('#providerBookings');
+  updateBookingQueryTools();
   $('#selectedDateTitle').textContent = calendarRangeTitle(calendarView);
   if (teamCalendarController?.isTeamMode) {
     $('#selectedDateSummary').textContent = 'Записи выбранной команды';
@@ -2949,15 +3055,16 @@ function renderBookings() {
     renderCalendarOverview(calendarView);
     return;
   }
-  const items = filteredBookings();
+  const sourceItems = filteredBookings();
+  const items = applyBookingQuery(sourceItems);
   const clientCount = items.filter(item => !isScheduleBlock(item)).length;
   const blockCount = items.filter(isScheduleBlock).length;
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
     ? (daySummary || 'Свободный день')
-    : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
+    : `${currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей'}${bookingQueryIsActive() ? ` · найдено ${items.length}` : ''}`;
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
-  else renderBookingList(items);
+  else renderBookingList(items, bookingQueryIsActive() ? 'По заданным условиям ничего не найдено.' : 'На выбранный период всё свободно.');
 }
 
 function setTeamCalendarMode(active) {
@@ -2969,6 +3076,7 @@ function setTeamCalendarMode(active) {
   if (filters) filters.hidden = teamMode || calendarView !== 'day';
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
+  updateBookingQueryTools();
   renderBookings();
 }
 
@@ -3842,6 +3950,7 @@ async function handleSession(session) {
   if (!sessionIsCurrent(userId, generation)) return;
   if (!bookingsChannel) startLiveUpdates();
   setProviderView(providerViewFromLocation(), { historyMode:'replace', focusHeading:false });
+  syncScheduleContextHistory();
 }
 
 async function login(event) {
@@ -5139,6 +5248,7 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
+    updateProviderClientLinks(organization);
     teamCalendarController.setOrganization(organization);
     resourceController.setOrganization(organization);
     shiftController.setOrganization(organization);
@@ -5223,6 +5333,25 @@ document.addEventListener('input', event => {
   clientLabelReasonTimer = setTimeout(() => saveBookingClientLabels(reason.closest('[data-booking-client-labels]')), 450);
 });
 $('#clientSearch').addEventListener('input', renderClients);
+$('#bookingSearch').addEventListener('input', event => {
+  bookingSearchQuery = event.target.value;
+  updateBookingQueryTools();
+  renderBookings();
+});
+$('#bookingStatusFilter').addEventListener('change', event => {
+  bookingStatusFilter = event.target.value;
+  updateBookingQueryTools();
+  renderBookings();
+});
+$('#bookingQueryReset').addEventListener('click', () => {
+  bookingSearchQuery = '';
+  bookingStatusFilter = 'all';
+  $('#bookingSearch').value = '';
+  $('#bookingStatusFilter').value = 'all';
+  updateBookingQueryTools();
+  renderBookings();
+  $('#bookingSearch').focus();
+});
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
@@ -5302,15 +5431,31 @@ window.addEventListener('appinstalled', () => {
   notify('Приложение установлено');
 });
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
+window.addEventListener('scroll', scheduleSectionNavigationUpdate, { passive:true });
+window.addEventListener('resize', scheduleSectionNavigationUpdate);
 window.addEventListener('popstate', () => {
   if (!currentUser || $('#dashboard').hidden) return;
+  const nextFilter = restoreScheduleFilter();
+  currentFilter = nextFilter;
+  calendarView = nextFilter === 'day' ? restoreCalendarView() : 'day';
+  journalMode = restoreJournalMode();
+  selectedDate = restoreSelectedDate();
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
   setProviderView(providerViewFromLocation(), { historyMode:'none', focusHeading:true });
+  updateCalendarViewControls();
+  renderDateStrip();
+  renderBookings();
 });
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
   if (event.data?.type === 'open-provider-view' && event.data.view === 'notifications' && currentUser) setProviderView('notifications');
 });
 new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attributes:true, subtree:true, attributeFilter:['hidden'] });
+updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=174'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=175'));

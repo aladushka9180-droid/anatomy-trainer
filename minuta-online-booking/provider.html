@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=174" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=175" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=174&amp;layoutfix=1">
+  <link rel="stylesheet" href="styles.css?v=175&amp;layoutfix=1">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -82,7 +82,7 @@
           <button type="button" data-provider-view="settings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-settings"></use></svg></span><span>Настройки</span></button>
         </nav>
         <div class="sidebar-bottom">
-          <a href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Страница клиента</span></a>
+          <a class="provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Страница клиента</span></a>
           <div class="provider-user"><span class="user-avatar" id="userAvatar">М</span><div><strong id="sidebarName">Исполнитель</strong><small id="accountEmail"></small></div></div>
           <button class="logout-button" id="logoutButton" type="button">Выйти</button>
         </div>
@@ -91,7 +91,7 @@
       <div class="provider-workspace">
         <header class="provider-topbar">
           <div><small id="todayLabel">Сегодня</small><h1 id="welcomeName">Здравствуйте!</h1></div>
-          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link" href="index.html" aria-label="Открыть страницу клиента"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
+          <div class="provider-topbar-actions"><span class="sync-state is-checking" id="syncState" role="status" aria-live="polite"><i></i><span>Подключаемся…</span></span><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
         </header>
 
         <section class="provider-view active" data-provider-panel="bookings">
@@ -129,6 +129,11 @@
                 <div class="booking-filters" role="group" aria-label="Какие записи показать"><button class="active" type="button" data-filter="day" aria-pressed="true">Выбранный день</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все записи</button></div>
               </div>
             </div>
+            <div class="booking-query-tools" id="bookingQueryTools" hidden>
+              <label class="booking-search"><span class="sr-only">Найти запись</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><input id="bookingSearch" type="search" autocomplete="off" placeholder="Имя, телефон или услуга"></label>
+              <label class="booking-status-filter"><span>Статус</span><select id="bookingStatusFilter" aria-label="Фильтр записей по статусу"><option value="all">Все статусы</option><option value="new">Новые</option><option value="confirmed">Подтверждённые</option><option value="needs-result">Ожидают отметки</option><option value="visited">Состоявшиеся</option><option value="no-show">Не пришли</option><option value="cancelled">Отменённые</option><option value="block">Занятое время</option></select></label>
+              <button class="booking-query-reset" id="bookingQueryReset" type="button" hidden>Сбросить</button>
+            </div>
             <div class="provider-bookings schedule-list" id="providerBookings"></div>
           </section>
           <section class="panel group-events-panel" id="groupEventsPanel" hidden>
@@ -155,7 +160,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=174#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=175#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -730,7 +735,7 @@
         <button class="active" type="button" data-provider-view="bookings"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-grid"></use></svg><span>Записи</span></button>
         <button type="button" data-provider-view="notifications"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg><span>Уведомления</span></button>
         <button type="button" data-provider-view="clients"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-users"></use></svg><span>Клиенты</span></button>
-        <button type="button" data-provider-view="schedule"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Рабочие часы</span></button>
+        <button type="button" data-provider-view="schedule"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>График</span></button>
         <button type="button" data-provider-view="more"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Разделы</span></button>
       </nav>
     </section>
@@ -808,21 +813,21 @@
   </div>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=174"></script>
-  <script src="reliability.js?v=174"></script>
-  <script src="resource-management.js?v=174" defer></script>
-  <script src="shift-management.js?v=174" defer></script>
-  <script src="organization.js?v=174" defer></script>
-  <script src="payroll-management.js?v=174" defer></script>
-  <script src="benefit-management.js?v=174" defer></script>
-  <script src="loyalty-management.js?v=174" defer></script>
-  <script src="inventory-management.js?v=174" defer></script>
-  <script src="retention-management.js?v=174" defer></script>
-  <script src="batch-bookings.js?v=174" defer></script>
-  <script src="booking-policy-management.js?v=174" defer></script>
-  <script src="team-calendar.js?v=174" defer></script>
-  <script src="free-slots-share.js?v=174" defer></script>
-  <script src="group-bookings.js?v=174" defer></script>
-  <script src="provider.js?v=174&amp;iconfix=1" defer></script>
+  <script src="config.js?v=175"></script>
+  <script src="reliability.js?v=175"></script>
+  <script src="resource-management.js?v=175" defer></script>
+  <script src="shift-management.js?v=175" defer></script>
+  <script src="organization.js?v=175" defer></script>
+  <script src="payroll-management.js?v=175" defer></script>
+  <script src="benefit-management.js?v=175" defer></script>
+  <script src="loyalty-management.js?v=175" defer></script>
+  <script src="inventory-management.js?v=175" defer></script>
+  <script src="retention-management.js?v=175" defer></script>
+  <script src="batch-bookings.js?v=175" defer></script>
+  <script src="booking-policy-management.js?v=175" defer></script>
+  <script src="team-calendar.js?v=175" defer></script>
+  <script src="free-slots-share.js?v=175" defer></script>
+  <script src="group-bookings.js?v=175" defer></script>
+  <script src="provider.js?v=175&amp;iconfix=1" defer></script>
 </body>
 </html>
