@@ -94,6 +94,7 @@ jobs:
           node --check minuta-online-booking/payment-foundation-static-test.mjs
           node --check minuta-online-booking/provider-delete-v64-static-test.mjs
           node --check minuta-online-booking/readiness-v78-static-test.mjs
+          node --check minuta-online-booking/recurring-series-v79-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -126,6 +127,7 @@ jobs:
           node minuta-online-booking/payment-foundation-static-test.mjs
           node minuta-online-booking/provider-delete-v64-static-test.mjs
           node minuta-online-booking/readiness-v78-static-test.mjs
+          node minuta-online-booking/recurring-series-v79-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -398,7 +400,19 @@ jobs:
             "select (select relreplident='f' from pg_class where oid='public.services'::regclass) and exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='services');" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v79.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v79.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_series') is not null and (select relrowsecurity from pg_class where oid='public.booking_series'::regclass) and exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='series_id') and exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='series_occurrence') and to_regprocedure('public.create_minuta_recurring_bookings(uuid,date,time without time zone,text,text,integer,integer)') is not null and to_regprocedure('public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)') is not null and has_function_privilege('authenticated','public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)','EXECUTE');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/booking-policies-v76-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-recurring-series-v79.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_series') is null and to_regprocedure('public.create_minuta_recurring_bookings(uuid,date,time without time zone,text,text,integer,integer)') is null and to_regprocedure('public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('series_id','series_occurrence'));" \
+            | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-telegram-reminder-security-v77.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -500,7 +514,7 @@ jobs:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Проверить v47 и v71–v77 в откатываемой транзакции production
+      - name: Проверить v47 и v71–v79 в откатываемой транзакции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -525,6 +539,7 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v76.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v77.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v78.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v79.sql
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
@@ -780,8 +795,23 @@ jobs:
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v78.sql
+          v79_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select to_regclass('public.booking_series') is not null has_table,exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='series_id') has_series_id,exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='series_occurrence') has_occurrence,to_regprocedure('public.create_minuta_recurring_bookings(uuid,date,time without time zone,text,text,integer,integer)') is not null has_create,to_regprocedure('public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)') is not null has_manage) select case when not has_table and not has_series_id and not has_occurrence and not has_create and not has_manage then 'absent' when has_table and has_series_id and has_occurrence and has_create and has_manage then 'complete' else 'partial' end from state;")"
+          case "$v79_layer_state" in
+            absent|complete)
+              psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+                -f minuta-online-booking/supabase-migration-v79.sql
+              ;;
+            partial|*)
+              echo "Partial v79 recurring series layer detected; refusing production migration" >&2
+              exit 1
+              ;;
+          esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select (select relreplident='f' from pg_class where oid='public.services'::regclass) and exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='services');" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.booking_series') is not null and (select relrowsecurity from pg_class where oid='public.booking_series'::regclass) and to_regprocedure('public.create_minuta_recurring_bookings(uuid,date,time without time zone,text,text,integer,integer)') is not null and to_regprocedure('public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)') is not null and has_function_privilege('authenticated','public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)','EXECUTE');" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
