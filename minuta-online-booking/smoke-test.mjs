@@ -286,6 +286,7 @@ assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; 
 assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');
 assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текст записи не выровнен по центру карточки');
 assert.match(styles, /timeline-booking\.minute-only \{[^}]*grid-template-columns:94px minmax\(0,1fr\);[^}]*place-items:center stretch;/, 'Время и название одноминутной записи не выровнены');
+assert.match(styles, /timeline-booking\.minute-only \.timeline-booking-minute-copy \{[^}]*text-align:left;/, 'Название одноминутной записи не выровнено как у остальных записей');
 assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
