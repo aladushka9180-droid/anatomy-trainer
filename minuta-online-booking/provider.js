@@ -80,6 +80,8 @@ let notificationOutbox = [];
 let notificationOutboxRemoteAvailable = false;
 let visitorVisits = [];
 let visitorVisitsRemoteAvailable = false;
+let visitorVisitsInitialized = false;
+let announcedVisitorVisitIds = new Set();
 let visitorNotificationSaving = false;
 let ownServices = [];
 let portfolioItems = [];
@@ -936,7 +938,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=192#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=193#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1357,19 +1359,65 @@ async function saveVisitorNotificationSettings(event) {
 async function showVisitorSystemNotification(visit) {
   const options = { body:'Кто-то сейчас смотрит услуги и свободное время.', icon:'provider-icon-192.png', badge:'provider-icon-192.png', tag:`minuta-visitor-${visit.id}`, data:{ url:'provider.html?view=notifications' } };
   if ('serviceWorker' in navigator) {
-    try { const registration = await navigator.serviceWorker.ready; await registration.showNotification('Минута · новый посетитель', options); return; } catch {}
+    try {
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('service_worker_timeout')), 1500))
+      ]);
+      await registration.showNotification('Минута · новый посетитель', options);
+      return true;
+    } catch {}
   }
-  try { const message = new Notification('Минута · новый посетитель', options); message.onclick = () => { window.focus(); setProviderView('notifications'); message.close(); }; } catch {}
+  if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+  try {
+    const message = new Notification('Минута · новый посетитель', options);
+    message.onclick = () => { window.focus(); setProviderView('notifications'); message.close(); };
+    return true;
+  } catch { return false; }
+}
+function announceVisitorVisit(visit) {
+  if (!visit || visit.performer_id !== currentUser?.id || !bookingPolicy.visitor_notifications_enabled) return;
+  const visitId = String(visit.id);
+  if (announcedVisitorVisitIds.has(visitId)) return;
+  announcedVisitorVisitIds.add(visitId);
+  if (!document.hidden) notify('Новый посетитель смотрит страницу онлайн-записи');
+  if ('Notification' in window && Notification.permission === 'granted') void showVisitorSystemNotification(visit);
 }
 function handleVisitorVisit(payload) {
   const visit = payload?.new;
   if (!visit || visit.performer_id !== currentUser?.id || !bookingPolicy.visitor_notifications_enabled) return;
-  if (!visitorVisits.some(item => String(item.id) === String(visit.id))) visitorVisits.unshift(visit);
+  const visitId = String(visit.id);
+  if (visitorVisits.some(item => String(item.id) === visitId)) return;
+  visitorVisits.unshift(visit);
   visitorVisits = visitorVisits.slice(0, 20);
   visitorVisitsRemoteAvailable = true;
   renderVisitorVisits();
-  if (!document.hidden) notify('Новый посетитель смотрит страницу онлайн-записи');
-  if (document.hidden && 'Notification' in window && Notification.permission === 'granted') void showVisitorSystemNotification(visit);
+  announceVisitorVisit(visit);
+}
+async function testVisitorSystemNotification() {
+  const button = $('#visitorNotificationTestButton');
+  const status = $('#visitorNotificationPermission');
+  if (!button || !status) return;
+  if (!('Notification' in window)) {
+    status.textContent = 'Этот браузер не поддерживает системные уведомления. Встроенные уведомления кабинета продолжат работать.';
+    notify('Системные уведомления недоступны в этом браузере');
+    return;
+  }
+  button.disabled = true;
+  let permission = Notification.permission;
+  if (permission === 'default') {
+    try { permission = await Notification.requestPermission(); } catch { permission = Notification.permission; }
+  }
+  if (permission !== 'granted') {
+    button.disabled = false;
+    status.textContent = 'Уведомления заблокированы. Разрешите их в настройках сайта браузера и повторите проверку.';
+    notify('Браузер не разрешил системные уведомления');
+    return;
+  }
+  const delivered = await showVisitorSystemNotification({ id:`test-${Date.now()}` });
+  button.disabled = false;
+  status.textContent = delivered ? 'Проверочное уведомление отправлено. Системные уведомления работают.' : 'Не удалось показать уведомление. Проверьте разрешения сайта в браузере.';
+  notify(delivered ? 'Проверочное уведомление отправлено' : 'Не удалось показать системное уведомление');
 }
 
 let activeIosTransition = null;
@@ -3749,8 +3797,17 @@ async function loadBookingSettings() {
   if (!marksResult.error) serverNotificationMarks = Object.fromEntries((marksResult.data || []).map(item => [item.task_key, item.status]));
   notificationOutboxRemoteAvailable = !outboxResult.error;
   notificationOutbox = outboxResult.error ? [] : (outboxResult.data || []);
+  const nextVisitorVisits = visitorVisitsResult.error ? [] : (visitorVisitsResult.data || []);
   visitorVisitsRemoteAvailable = !visitorVisitsResult.error;
-  visitorVisits = visitorVisitsResult.error ? [] : (visitorVisitsResult.data || []);
+  visitorVisits = nextVisitorVisits;
+  if (visitorVisitsRemoteAvailable) {
+    if (!visitorVisitsInitialized) {
+      nextVisitorVisits.forEach(visit => announcedVisitorVisitIds.add(String(visit.id)));
+      visitorVisitsInitialized = true;
+    } else {
+      [...nextVisitorVisits].reverse().forEach(announceVisitorVisit);
+    }
+  }
   notificationSettingsRemoteAvailable = !policyResult.error && !templatesResult.error && !marksResult.error;
   renderBookingPolicyForm();
   renderVisitorNotificationForm();
@@ -4147,6 +4204,8 @@ async function handleSession(session) {
     notificationOutboxRemoteAvailable = false;
     visitorVisits = [];
     visitorVisitsRemoteAvailable = false;
+    visitorVisitsInitialized = false;
+    announcedVisitorVisitIds = new Set();
     return;
   }
   const userId = currentUser.id;
@@ -5589,6 +5648,7 @@ $('#passwordForm').addEventListener('submit', changePassword);
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
 $('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotificationSettings);
+$('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemNotification);
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('#installAppButton').addEventListener('click', installProviderApp);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
@@ -5756,4 +5816,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=192'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=193'));
