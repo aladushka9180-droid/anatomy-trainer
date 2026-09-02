@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '135';
+const version = '136';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,8 +69,8 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=135/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=135/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /team-calendar\.js\?v=136/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=136/, 'Кабинет не подключает безопасный контроллер ресурсов');
 assert.match(provider, /teamCalendarController\?\.isTeamMode[\s\S]*teamCalendarController\.render\(holder\)/, 'Журнал не передаёт существующий контейнер командному календарю');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
@@ -92,7 +92,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=135"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=136"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -242,7 +242,8 @@ assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?notification-card-ac
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.service-more>summary[\s\S]*?border:1px solid #6f5428/, 'Кнопка меню услуги в теме Luxury остаётся белой');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.day-toggle input:checked\+span[\s\S]*?background:linear-gradient/, 'Переключатели рабочего расписания не продолжают золотую тему Luxury');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.break-toggle input,\.all-day-control input[\s\S]*?accent-color:#d6a64d/, 'Чекбоксы расписания не используют золотой акцент Luxury');
-assert.match(styles, /data-provider-theme="luxury"\] \.provider-brand \.brand-mark \{[^}]*background:linear-gradient\(145deg,#bc8736,#e4b861/, 'Логотип Luxury не использует золотую заливку');
+assert.match(styles, /data-provider-theme="luxury"\] \.provider-brand \.brand-mark \{[^}]*background:linear-gradient\(145deg,#8b591c[^}]*#ffdc82[^}]*color:#211306/, 'Логотип Luxury не использует выразительную золотую заливку');
+assert.match(styles, /data-provider-theme="luxury"\] \.user-avatar \{[^}]*background:linear-gradient\(145deg,#8b591c[^}]*#ffdc82[^}]*color:#211306/, 'Аватар мастера Luxury не использует выразительную золотую заливку');
 assert.match(styles, /data-provider-theme="luxury"\] \.provider-nav b \{[^}]*background:linear-gradient\(145deg,#bc8736,#e4b861/, 'Счётчики меню Luxury не используют золотую заливку');
 assert.match(styles, /data-provider-theme="luxury"\] \.sidebar-bottom>a \{[^}]*color:#e5b75d/, 'Ссылка на страницу клиента не использует золотой цвет Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] \.schedule-list \.provider-booking-open \{ padding-inline:18px; \}/, 'Время записи Luxury прижато к краю карточки');
