@@ -574,6 +574,7 @@ jobs:
           {
             echo 'begin;'
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v47.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v49.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v71.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v72.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v73.sql
@@ -675,6 +676,11 @@ jobs:
           esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          # v85 stores the optional common/item batch comment in provider_note.
+          # Production installations predating v49 may legitimately miss this
+          # additive column, so bring the idempotent note layer forward first.
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v49.sql
           v65_table_count="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select (to_regclass('public.organizations') is not null)::int + (to_regclass('public.locations') is not null)::int + (to_regclass('public.organization_memberships') is not null)::int;")"
           case "$v65_table_count" in
