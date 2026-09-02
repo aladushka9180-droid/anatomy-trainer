@@ -35,6 +35,18 @@ class FakeRecognition {
 }
 
 globalThis.SpeechRecognition = FakeRecognition;
+class FakeUtterance {
+  constructor(text) { this.text = text; }
+}
+const speechSynthesis = {
+  cancelCount:0,
+  speakCount:0,
+  lastUtterance:null,
+  cancel() { this.cancelCount += 1; },
+  speak(utterance) { this.speakCount += 1; this.lastUtterance = utterance; }
+};
+globalThis.SpeechSynthesisUtterance = FakeUtterance;
+globalThis.speechSynthesis = speechSynthesis;
 
 function createElement(overrides = {}) {
   const listeners = new Map();
@@ -81,13 +93,17 @@ const dialog = createElement({
 
 let resultHtml = '';
 let prepareButton = null;
+let speakButton = null;
 const result = createElement({
   querySelector(selector) {
-    return selector === '[data-voice-prepare]' ? prepareButton : null;
+    if (selector === '[data-voice-prepare]') return prepareButton;
+    if (selector === '[data-voice-speak]') return speakButton;
+    return null;
   },
   replaceChildren() {
     resultHtml = '';
     prepareButton = null;
+    speakButton = null;
   }
 });
 Object.defineProperty(result, 'innerHTML', {
@@ -95,6 +111,7 @@ Object.defineProperty(result, 'innerHTML', {
   set(value) {
     resultHtml = String(value);
     prepareButton = resultHtml.includes('data-voice-prepare') ? createElement() : null;
+    speakButton = resultHtml.includes('data-voice-speak') ? createElement() : null;
   }
 });
 
@@ -143,11 +160,22 @@ openButton.emit('click');
 input.value = 'какие записи';
 form.emit('submit');
 assert.match(resultHtml, /Клиент А/, 'актуальный снимок должен отображаться до смены сессии');
+assert.ok(speakButton, 'для ответа должна быть доступна отдельная кнопка озвучивания');
+speakButton.emit('click');
+assert.equal(speechSynthesis.speakCount, 1, 'озвучивание должно запускаться только по явному нажатию');
+assert.equal(speakButton.textContent, 'Остановить голос', 'во время речи кнопка должна предлагать остановку');
+speakButton.emit('click');
+assert.equal(speakButton.textContent, 'Озвучить ответ', 'повторное нажатие должно останавливать голос');
+assert.match(status.textContent, /остановлено/i);
 
 listenButton.emit('click');
 const oldRecognition = FakeRecognition.instances.at(-1);
 assert.ok(oldRecognition?.started, 'распознавание должно запускаться только по явному нажатию');
 oldRecognition.onstart();
+oldRecognition.onresult({
+  results:{ 0:Object.assign([{ transcript:'какие записи сегодня' }], { isFinal:true }), length:1 }
+});
+assert.equal(input.value, 'какие записи сегодня', 'мобильный array-like результат распознавания должен обрабатываться без iterator');
 
 globalThis.dispatchEvent({ type:'minuta:provider-session-reset' });
 assert.equal(oldRecognition.abortCount, 1, 'смена сессии должна прерывать распознавание');

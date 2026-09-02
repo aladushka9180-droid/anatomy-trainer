@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '184';
+const version = '185';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -86,7 +86,7 @@ assert.match(provider, /offlineDraftAllowed[\s\S]*if \(!synchronized && !offline
 assert.match(provider, /offlineReadable:Boolean\(offline && snapshotCurrent\)/, 'Голосовой помощник не проверяет срок локальной копии');
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');
 assert.match(provider, /if \(!navigator\.onLine\)[\s\S]*Офлайн-черновик сохранит время/, 'Офлайн-черновик не объясняет повторную проверку времени');
-assert.doesNotMatch(voiceAssistant, /\.from\(|\.rpc\(|fetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
+assert.doesNotMatch(voiceAssistant, /\bdb\.from\(|\.rpc\(|\bfetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
 assert.doesNotMatch(voiceAssistant, /localStorage|sessionStorage|indexedDB/, 'Голосовая команда сохраняется в браузере');
 assert.match(voiceAssistant, /bridge\.prepareBookingDraft/, 'Голосовой помощник не использует ограниченный интерфейс черновика');
 assert.match(voiceAssistant, /minuta:provider-session-reset/, 'Голосовой помощник не очищается при выходе или смене аккаунта');
@@ -94,6 +94,10 @@ assert.match(voiceAssistant, /recognition\?\.abort\(\)/, 'Распознаван
 assert.match(voiceAssistant, /!snapshot\.synchronized/, 'Голосовой помощник может показать устаревшие данные');
 assert.match(voiceAssistant, /applyOfflineContext[\s\S]*сохранённая копия/, 'Голосовой помощник не маркирует офлайн-ответы');
 assert.match(voiceAssistant, /data-voice-speak/, 'Ответ голосового помощника нельзя озвучить');
+assert.match(voiceAssistant, /Остановить голос[\s\S]*speechSynthesis\?\.cancel/, 'Озвучивание ответа нельзя остановить');
+assert.match(voiceAssistant, /Array\.from\(event\.results \|\| \[\]\)/, 'Мобильный формат результата распознавания не поддерживается');
+assert.match(voiceAssistant, /touchDevice[\s\S]*Открыть диктовку[\s\S]*значок микрофона на клавиатуре/, 'На мобильном устройстве нет безопасного fallback для диктовки');
+assert.match(providerHtml, /id="voiceAssistantInput"[^>]*inputmode="text"[^>]*enterkeyhint="done"/, 'Поле голосовой команды не подготовлено для мобильной диктовки');
 assert.match(voiceAssistant, /Object\.is\(currentSnapshot\?\.sessionGeneration, lastSessionGeneration\)/, 'Старый голосовой черновик можно открыть в новой сессии');
 assert.doesNotMatch(voiceAssistant, /createNewBooking|provider_delete_booking|delete_minuta/, 'Голосовой помощник получил прямой доступ к критическим операциям');
 assert.match(provider, /sessionStorage\.setItem\(bookingDraftKey\(\), JSON\.stringify\(draft\)\)/, 'Черновик новой записи не переживает перезагрузку вкладки');

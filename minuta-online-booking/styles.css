@@ -4151,6 +4151,8 @@ html.requires-top-level.top-level body { visibility:visible; }
   background:var(--theme-accent,#235b40);
   color:#fff;
   cursor:pointer;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
   font:900 11px/1.2 inherit;
 }
 .voice-listen-button .ui-icon { width:20px; height:20px; }
@@ -4209,6 +4211,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .voice-assistant-result li span { min-width:0; overflow-wrap:anywhere; }
 .voice-result-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
 .voice-result-actions>button { flex:1 1 180px; min-height:44px; margin:0; }
+.voice-result-actions>[data-voice-speak].is-speaking { border-color:#a83f3f; background:#a83f3f; color:#fff; }
 .voice-offline-notice { margin:0 0 12px; padding:8px 10px; border:1px solid #e4c36d; border-radius:10px; background:#fff7dc; color:#74591a; font-size:10px; font-weight:850; line-height:1.35; }
 .provider-body[data-provider-theme="luxury"] .voice-offline-notice,
 .provider-body[data-provider-theme="graphite"] .voice-offline-notice,
@@ -4250,7 +4253,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-topbar .voice-assistant-open { grid-column:1/-1; grid-row:3; width:100%; min-height:44px; border-radius:13px; }
   .voice-assistant-dialog { width:calc(100% - 16px); max-height:calc(100dvh - 16px); padding:20px 16px max(18px,env(safe-area-inset-bottom)); border-radius:22px; }
   .voice-assistant-form { grid-template-columns:minmax(0,1fr) auto; }
-  .voice-listen-button { grid-column:1/-1; min-height:58px; }
+  .voice-listen-button { grid-column:1/-1; min-height:58px; font-size:12px; }
   .voice-transcript-field textarea { min-height:96px; }
   .voice-understand-button { min-width:116px; min-height:96px; padding:0 15px; border-radius:16px; }
   .voice-assistant-examples { display:grid; grid-template-columns:1fr; }
