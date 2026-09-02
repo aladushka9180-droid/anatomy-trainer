@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '209';
+const version = '210';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -292,7 +292,7 @@ assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20"
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:10px;/, 'Кнопка фотографии снова расположена слишком низко');
 assert.match(styles, /\.booking-sheet-client \{[^}]*grid-template-rows:auto auto auto;/, 'Строки карточки клиента больше не задают точную привязку аватара к имени');
-assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*grid-row:2;[^}]*align-self:center;[^}]*transform:none;/, 'Аватар клиента больше не центрирован по строке имени');
+assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*grid-row:2;[^}]*transform:translateY\(calc\(\(var\(--booking-client-name-line\) - var\(--booking-client-avatar-size\)\)\/2\)\);/, 'Оптический центр аватара больше не совпадает с центром строки имени');
 assert.match(provider, /booking-sheet-client-label">Клиент<\/small>\$\{clientAvatarEditorMarkup[\s\S]*class="booking-sheet-client-name"/, 'Структура карточки клиента снова прячет имя во вложенном контейнере');
 assert.match(styles, /\.booking-sheet-client>\.booking-sheet-client-name \{[^}]*grid-row:2;[^}]*align-self:center;/, 'Имя клиента и аватар снова оказались в разных строках сетки');
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.booking-sheet-client>\.booking-client-avatar-control \{ background:transparent; color:inherit; \}/, 'Контейнер аватара снова получил лишний фон темы');
