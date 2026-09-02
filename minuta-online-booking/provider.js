@@ -536,8 +536,7 @@ function clientBadgeDefinitions(phone) {
   return [
     value.attention ? { key:'attention', icon:'shield-alert', label:'Требует внимания', detail:value.attention_reason } : null,
     value.vip ? { key:'vip', icon:'crown', label:'VIP', detail:value.vip_note } : null,
-    value.favorite ? { key:'favorite', icon:'heart', label:'Любимый клиент', detail:value.favorite_note } : null,
-    clientIsNew(phone) ? { key:'new', icon:'spark', label:'Новый клиент' } : null
+    value.favorite ? { key:'favorite', icon:'heart', label:'Любимый клиент', detail:value.favorite_note } : null
   ].filter(Boolean);
 }
 function clientBadgeText(phone) {
@@ -2327,7 +2326,7 @@ function renderClientDetail(phone) {
   $('#clientFavoriteNoteField').hidden = !labels.favorite;
   $('#clientVipNoteField').hidden = !labels.vip;
   $('#clientAttentionReasonField').hidden = !labels.attention;
-  $('#clientAutomaticLabel').innerHTML = clientIsNew(client.phone) ? `${uiIcon('spark')} Новый клиент` : '';
+  $('#clientAutomaticLabel').textContent = clientIsNew(client.phone) ? 'Новый клиент' : '';
   clearFormError('#clientLabelsError');
   const now = new Date();
   const visits = client.bookings.filter(item => {
