@@ -6,6 +6,7 @@ const rollback = readFileSync(new URL('./supabase-migration-v85-rollback.sql', i
 const controller = readFileSync(new URL('./batch-bookings.js', import.meta.url), 'utf8');
 const provider = readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 const worker = readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 
 for (const table of ['organization_batch_booking_settings','booking_batches','booking_batch_items','booking_batch_audit_log']) {
@@ -44,6 +45,7 @@ for (const signature of [
 
 assert.match(controller, /missingRpc\(error,'get_minuta_batch_booking_workspace'\) \? 'unsupported'/, 'missing migration must produce a graceful fallback');
 assert.match(controller, /data-batch-row/g, 'controller must manage dynamic date/time rows');
+assert.match(controller, /scheduleSettingsSave[\s\S]*setTimeout\(\(\) => saveSettings\(\), 350\)/, 'settings must save automatically after a short debounce');
 assert.match(controller, /p_request_id:requestId/, 'client must retain a top-level request id for retry');
 assert.match(controller, /p_items:items/, 'all rows must be sent in one RPC');
 assert.match(controller, /Ничего не создано/, 'atomic failure must be explained to the provider');
@@ -52,6 +54,10 @@ assert.match(provider, /batchBookingsController\?\.setClient\(client\)/, 'compos
 assert.match(html, /id="batchBookingRows"/, 'provider UI must contain the row composer');
 assert.match(html, /id="batchBookingSettingsCard" hidden/, 'settings UI must start hidden until RPC support is confirmed');
 assert.match(html, /id="batchBookingSettingsNav"[^>]+hidden/, 'settings navigation must stay hidden until RPC support is confirmed');
+assert.doesNotMatch(html, /id="batchBookingSettingsSubmit"/, 'minimal settings must not require a separate save button');
+assert.match(html, /id="batchBookingSaveStatus"[^>]*aria-live="polite"/, 'automatic saving must expose a readable status');
+assert.match(styles, /\.batch-booking-toggle>input \{[^}]*appearance:none;[^}]*width:44px!important;[^}]*border-radius:999px;/, 'batch setting must use a compact switch');
+assert.match(styles, /\.batch-booking-settings-form \{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(220px,\.48fr\)/, 'batch settings must stay in a compact two-column row');
 assert.match(controller, /settingsNav\.hidden = !supported/, 'settings navigation must follow RPC availability');
 assert.match(html, /src="batch-bookings\.js\?v=\d+" defer/, 'provider must load the dedicated controller');
 assert.match(worker, /\.\/batch-bookings\.js\?v=\d+/, 'offline cache must include the controller');

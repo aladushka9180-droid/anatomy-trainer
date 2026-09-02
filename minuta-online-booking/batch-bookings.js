@@ -26,6 +26,7 @@
     let workspace = null;
     let availability = null;
     let revision = 0;
+    let settingsSaveTimer = null;
     let requestId = uuid();
     let bound = false;
 
@@ -95,7 +96,10 @@
       $('#batchBookingsEnabled').disabled = loading || workspace?.current_role !== 'owner';
       $('#batchBookingsMaxItems').value = String(workspace?.max_items || 12);
       $('#batchBookingsMaxItems').disabled = loading || workspace?.current_role !== 'owner';
-      $('#batchBookingSettingsSubmit').disabled = loading || workspace?.current_role !== 'owner';
+      const saveStatus = $('#batchBookingSaveStatus');
+      if (saveStatus) saveStatus.textContent = loading ? 'Загружаем настройки…'
+        : workspace?.current_role !== 'owner' ? 'Изменять настройки может только владелец'
+          : 'Изменения сохраняются автоматически';
       $('#batchBookingSettingNote').textContent = loading ? 'Проверяем доступность…'
         : availability === 'error' ? 'Не удалось загрузить пакетные записи. Обычные записи продолжают работать.'
           : enabled ? 'Можно создавать несколько визитов на произвольные даты одной атомарной операцией.'
@@ -169,18 +173,36 @@
     }
 
     async function saveSettings(event) {
-      event.preventDefault();
+      event?.preventDefault();
       if (!requireWrites() || !organization) return;
-      const button = event.submitter || $('#batchBookingSettingsSubmit');
-      button.disabled = true;
+      const enabledInput = $('#batchBookingsEnabled');
+      const maxItemsInput = $('#batchBookingsMaxItems');
+      if (!maxItemsInput.reportValidity()) return;
+      const saveStatus = $('#batchBookingSaveStatus');
+      enabledInput.disabled = true;
+      maxItemsInput.disabled = true;
+      if (saveStatus) saveStatus.textContent = 'Сохраняем…';
       const { error } = await db.rpc('set_minuta_batch_bookings_enabled', {
         p_organization:organization.id,
-        p_enabled:$('#batchBookingsEnabled').checked,
-        p_max_items:Number($('#batchBookingsMaxItems').value)
+        p_enabled:enabledInput.checked,
+        p_max_items:Number(maxItemsInput.value)
       });
-      button.disabled = false;
-      notify(error ? 'Не удалось сохранить пакетные записи' : 'Настройки пакетных записей сохранены');
+      enabledInput.disabled = false;
+      maxItemsInput.disabled = false;
+      if (error) {
+        if (saveStatus) saveStatus.textContent = 'Не удалось сохранить — повторите изменение';
+        notify('Не удалось сохранить пакетные записи');
+        return;
+      }
       await load();
+      if (saveStatus) saveStatus.textContent = 'Сохранено автоматически';
+    }
+
+    function scheduleSettingsSave() {
+      clearTimeout(settingsSaveTimer);
+      const saveStatus = $('#batchBookingSaveStatus');
+      if (saveStatus) saveStatus.textContent = 'Ожидает сохранения…';
+      settingsSaveTimer = setTimeout(() => saveSettings(), 350);
     }
 
     function addRow() {
@@ -248,6 +270,8 @@
       if (bound) return;
       bound = true;
       $('#batchBookingSettingsForm')?.addEventListener('submit',saveSettings);
+      $('#batchBookingsEnabled')?.addEventListener('change',scheduleSettingsSave);
+      $('#batchBookingsMaxItems')?.addEventListener('change',scheduleSettingsSave);
       $('#addBatchBookingRow')?.addEventListener('click',addRow);
       $('#batchBookingRows')?.addEventListener('click',event => {
         const remove = event.target.closest('[data-remove-batch-row]');

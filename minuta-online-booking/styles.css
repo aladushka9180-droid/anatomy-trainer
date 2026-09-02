@@ -3944,12 +3944,24 @@ html.requires-top-level.top-level body { visibility:visible; }
 .batch-booking-result { padding:12px; border-radius:12px; background:var(--theme-accent-soft,var(--soft)); }
 .batch-booking-result strong { color:var(--theme-ink,var(--ink)); font-size:12px; }
 .batch-booking-result ul { display:flex; flex-wrap:wrap; gap:5px 16px; margin:8px 0 0; padding-left:18px; color:var(--theme-muted,var(--muted)); font-size:10px; }
-.batch-booking-settings-card { grid-template-columns:40px minmax(0,1fr); }
-.batch-booking-settings-form { display:grid; grid-column:1/-1; grid-template-columns:minmax(0,1fr) minmax(160px,220px) auto; align-items:end; gap:10px; margin-top:13px; }
-.batch-booking-settings-form .settings-check { align-self:stretch; }
-.batch-booking-settings-form .primary { min-height:44px; }
-.batch-booking-journal { grid-column:1/-1; margin-top:14px; border-top:1px solid var(--theme-line,var(--line)); }
-.batch-booking-journal>summary { min-height:44px; padding-top:8px; cursor:pointer; color:var(--theme-ink,var(--ink)); font-size:10px; font-weight:900; }
+.batch-booking-settings-card { grid-template-columns:40px minmax(0,1fr); align-items:start; }
+.batch-booking-settings-form { display:grid; grid-column:1/-1; grid-template-columns:minmax(0,1fr) minmax(220px,.48fr); align-items:stretch; gap:10px; margin-top:16px; }
+.batch-booking-settings-form .batch-booking-toggle { display:grid; grid-template-columns:minmax(0,1fr) 44px; align-items:center; gap:14px; min-width:0; margin:0; padding:13px 15px; border:1px solid var(--theme-line,var(--line)); border-radius:13px; background:var(--theme-surface-alt,#f7faf8); cursor:pointer; }
+.batch-booking-toggle>span { display:grid; grid-column:1; grid-row:1; gap:3px; min-width:0; }
+.batch-booking-toggle strong,.batch-booking-limit strong { color:var(--theme-ink,var(--ink)); font-size:11px; line-height:1.35; }
+.batch-booking-toggle small,.batch-booking-limit small { color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:650; line-height:1.4; }
+.batch-booking-toggle>input { appearance:none; grid-column:2; grid-row:1; position:relative; width:44px!important; min-height:24px!important; height:24px!important; margin:0!important; padding:0!important; border:1px solid var(--theme-line,var(--line)); border-radius:999px; background:color-mix(in srgb,var(--theme-muted,var(--muted)) 18%,var(--theme-surface,#fff)); cursor:pointer; transition:background .16s ease,border-color .16s ease; }
+.batch-booking-toggle>input::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:var(--theme-surface,#fff); box-shadow:0 1px 4px var(--theme-shadow,rgba(28,55,42,.18)); transition:transform .16s ease; }
+.batch-booking-toggle>input:checked { border-color:var(--theme-accent,var(--green)); background:var(--theme-accent,var(--green)); }
+.batch-booking-toggle>input:checked::after { transform:translateX(20px); }
+.batch-booking-toggle:has(input:focus-visible) { outline:3px solid color-mix(in srgb,var(--theme-accent,var(--green)) 26%,transparent); outline-offset:2px; }
+.batch-booking-toggle:has(input:disabled),.batch-booking-limit:has(input:disabled) { cursor:not-allowed; opacity:.62; }
+.batch-booking-settings-form .batch-booking-limit { display:grid; grid-template-columns:minmax(0,1fr) 72px; align-items:center; gap:12px; min-width:0; margin:0; padding:10px 11px 10px 15px; border:1px solid var(--theme-line,var(--line)); border-radius:13px; background:var(--theme-surface-alt,#f7faf8); }
+.batch-booking-limit>span { display:grid; gap:3px; min-width:0; }
+.batch-booking-limit>input { width:72px; min-height:40px; margin:0; padding:0 8px; text-align:center; }
+.batch-booking-save-status { grid-column:1/-1; color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:700; text-align:right; }
+.batch-booking-journal { grid-column:1/-1; margin-top:11px; border-top:1px solid var(--theme-line,var(--line)); }
+.batch-booking-journal>summary { display:flex; align-items:center; min-height:40px; cursor:pointer; color:var(--theme-ink,var(--ink)); font-size:10px; font-weight:900; }
 #batchBookingRecentList { display:grid; gap:7px; }
 .batch-booking-history { display:grid; grid-template-columns:minmax(130px,.7fr) minmax(0,1.3fr); gap:12px; padding:10px; border-radius:11px; background:var(--theme-surface-alt,#f7faf8); }
 .batch-booking-history>div { display:grid; align-content:start; gap:3px; }
@@ -3964,7 +3976,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .batch-booking-comment { grid-column:2/5; }
   .batch-booking-remove { width:44px; }
   .batch-booking-settings-form,.batch-booking-history { grid-template-columns:1fr; }
-  .batch-booking-settings-form .primary { width:100%; }
+  .batch-booking-save-status { text-align:left; }
 }
 
 @media (prefers-reduced-motion:reduce) {
