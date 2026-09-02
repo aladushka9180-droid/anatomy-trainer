@@ -507,10 +507,13 @@
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
     const standaloneDisplay = Boolean(global.matchMedia?.('(display-mode: standalone)').matches);
     const touchDevice = Boolean(global.matchMedia?.('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(global.navigator?.userAgent || ''));
+    const iosDevice = /iPhone|iPad|iPod/i.test(global.navigator?.userAgent || '') || (global.navigator?.platform === 'MacIntel' && Number(global.navigator?.maxTouchPoints) > 1);
     let directRecognitionAvailable = supportsDirectRecognition(Recognition, global.navigator, standaloneDisplay);
     let recognition = null;
     let recognitionStartTimer = null;
+    let recognitionRetryTimer = null;
     let listening = false;
+    let finishingRecognition = false;
     let lastModel = null;
     let lastSessionGeneration = null;
     let recognitionEpoch = 0;
@@ -547,24 +550,41 @@
 
     function setListening(value) {
       listening = value;
+      if (!value) finishingRecognition = false;
       listenButton.classList.toggle('is-listening', value);
       listenButton.setAttribute('aria-pressed', String(value));
-      listenButton.querySelector('span').textContent = value ? 'Остановить запись' : (directRecognitionAvailable ? 'Говорить' : touchDevice ? 'Открыть диктовку' : 'Говорить');
+      listenButton.querySelector('span').textContent = value ? (finishingRecognition ? 'Распознаю…' : 'Остановить запись') : (directRecognitionAvailable ? 'Говорить' : touchDevice ? 'Открыть диктовку' : 'Говорить');
     }
 
     function abortRecognition() {
       recognitionEpoch += 1;
       clearTimeout(recognitionStartTimer);
+      clearTimeout(recognitionRetryTimer);
       recognitionStartTimer = null;
+      recognitionRetryTimer = null;
       try { recognition?.abort(); } catch {}
       recognition = null;
       setListening(false);
     }
 
+    function finishRecognition() {
+      if (!recognition || finishingRecognition) return;
+      clearTimeout(recognitionStartTimer);
+      recognitionStartTimer = null;
+      finishingRecognition = true;
+      setListening(true);
+      status.textContent = 'Заканчиваю запись и распознаю сказанное…';
+      playMicrophoneCue(false);
+      try { recognition.stop(); }
+      catch { abortRecognition(); status.textContent = 'Не удалось завершить запись. Попробуйте ещё раз.'; }
+    }
+
     function openKeyboardDictation(message = '') {
       directRecognitionAvailable = false;
       clearTimeout(recognitionStartTimer);
+      clearTimeout(recognitionRetryTimer);
       recognitionStartTimer = null;
+      recognitionRetryTimer = null;
       try { recognition?.abort(); } catch {}
       recognition = null;
       setListening(false);
@@ -706,29 +726,41 @@
       status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : model.kind === 'error' ? 'Команда не распознана.' : 'Готово. Проверьте результат перед следующим действием.';
     }
 
-    function startRecognition() {
+    function startRecognition(options = {}) {
+      const retryAttempt = Number(options?.retryAttempt || 0);
       if (!directRecognitionAvailable) {
         playMicrophoneCue(true);
         if (touchDevice) openKeyboardDictation();
         else { status.textContent = 'Этот браузер не поддерживает распознавание речи. Введите команду текстом.'; input.focus(); }
         return;
       }
-      if (listening) { playMicrophoneCue(false); abortRecognition(); status.textContent = 'Запись голоса остановлена.'; return; }
+      if (listening) { finishRecognition(); return; }
+      clearTimeout(recognitionRetryTimer);
+      recognitionRetryTimer = null;
       const epoch = ++recognitionEpoch;
       const currentRecognition = new Recognition();
       recognition = currentRecognition;
       currentRecognition.lang = 'ru-RU';
       currentRecognition.continuous = false;
-      currentRecognition.interimResults = true;
+      currentRecognition.interimResults = !iosDevice;
       currentRecognition.maxAlternatives = 5;
       let latestTranscript = '';
       let receivedFinal = false;
+      let retryAfterEnd = 0;
       currentRecognition.onstart = () => {
         if (epoch !== recognitionEpoch || !dialog.open) return;
         clearTimeout(recognitionStartTimer);
         recognitionStartTimer = null;
         setListening(true);
         status.textContent = 'Говорите обычной фразой. Ничего не будет выполнено автоматически.';
+      };
+      currentRecognition.onaudiostart = () => {
+        if (epoch !== recognitionEpoch || !dialog.open) return;
+        status.textContent = 'Микрофон включён. Говорите команду.';
+      };
+      currentRecognition.onspeechstart = () => {
+        if (epoch !== recognitionEpoch || !dialog.open) return;
+        status.textContent = 'Слышу вас…';
       };
       currentRecognition.onresult = event => {
         if (epoch !== recognitionEpoch || !dialog.open) return;
@@ -748,6 +780,16 @@
         clearTimeout(recognitionStartTimer);
         recognitionStartTimer = null;
         const messages = { 'not-allowed':'Нет разрешения на микрофон. Разрешите доступ в настройках браузера или используйте микрофон клавиатуры.', 'service-not-allowed':'Браузер запретил службу распознавания. Используйте микрофон клавиатуры или текстовый ввод.', 'audio-capture':'Микрофон не найден или занят другим приложением.', 'no-speech':'Речь не услышана. Попробуйте ещё раз.', network:'Служба распознавания речи недоступна. Используйте микрофон клавиатуры или текстовый ввод.', 'language-not-supported':'Русский язык не установлен для распознавания на этом устройстве.' };
+        if (event.error === 'no-speech' && touchDevice && retryAttempt < 2 && !finishingRecognition) {
+          retryAfterEnd = retryAttempt + 1;
+          status.textContent = 'Микрофон перезапускается — начинайте говорить после сигнала.';
+          return;
+        }
+        if (event.error === 'no-speech' && touchDevice) {
+          recognitionEpoch += 1;
+          openKeyboardDictation('Микрофон не получил речь. Клавиатура открыта — нажмите её значок микрофона и продиктуйте команду.');
+          return;
+        }
         if (touchDevice && ['not-allowed', 'service-not-allowed', 'network', 'language-not-supported'].includes(event.error)) {
           recognitionEpoch += 1;
           openKeyboardDictation(`${messages[event.error]} Клавиатура открыта — нажмите её значок микрофона.`);
@@ -757,8 +799,19 @@
         if (epoch !== recognitionEpoch) return;
         clearTimeout(recognitionStartTimer);
         recognitionStartTimer = null;
+        const wasFinishing = finishingRecognition;
+        const nextRetry = retryAfterEnd || (!receivedFinal && !latestTranscript && touchDevice && !wasFinishing && retryAttempt < 2 ? retryAttempt + 1 : 0);
         recognition = null;
         setListening(false);
+        if (nextRetry && dialog.open) {
+          status.textContent = 'Повторно включаю микрофон…';
+          recognitionRetryTimer = setTimeout(() => {
+            recognitionRetryTimer = null;
+            if (epoch !== recognitionEpoch || !dialog.open) return;
+            startRecognition({ retryAttempt:nextRetry });
+          }, 220);
+          return;
+        }
         if (!receivedFinal && latestTranscript && dialog.open) {
           receivedFinal = true;
           understand();
@@ -785,14 +838,34 @@
         lastSessionGeneration = null;
         result.hidden = true;
         result.replaceChildren();
-        status.textContent = directRecognitionAvailable ? 'Нажмите «Говорить» или введите команду текстом.' : touchDevice ? 'Нажмите «Открыть диктовку», затем значок микрофона на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
+        status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь кнопки и говорите; повторное касание завершит запись. Можно также удерживать кнопку во время команды.' : 'Нажмите «Говорить» или введите команду текстом.') : touchDevice ? 'Нажмите «Открыть диктовку», затем значок микрофона на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
         setTimeout(() => (Recognition ? listenButton : input).focus(), 0);
       });
       closeButton.addEventListener('click', close);
       dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
       form.addEventListener('submit', event => { event.preventDefault(); understand(); });
-      listenButton.addEventListener('click', startRecognition);
+      let ignoreSyntheticClickUntil = 0;
+      let pressStartedAt = 0;
+      listenButton.addEventListener('pointerdown', event => {
+        if (!/^(touch|pen)$/.test(event.pointerType || '')) return;
+        event.preventDefault();
+        ignoreSyntheticClickUntil = Date.now() + 900;
+        const wasListening = listening;
+        pressStartedAt = wasListening ? 0 : Date.now();
+        startRecognition();
+      });
+      listenButton.addEventListener('pointerup', event => {
+        if (!/^(touch|pen)$/.test(event.pointerType || '')) return;
+        event.preventDefault();
+        if (pressStartedAt && Date.now() - pressStartedAt >= 450 && listening) finishRecognition();
+        pressStartedAt = 0;
+      });
+      listenButton.addEventListener('pointercancel', () => { pressStartedAt = 0; });
+      listenButton.addEventListener('click', event => {
+        if (Date.now() < ignoreSyntheticClickUntil) { event.preventDefault(); return; }
+        startRecognition();
+      });
       doc.addEventListener?.('visibilitychange', () => { if (doc.hidden) abortRecognition(); });
       doc.querySelectorAll('[data-voice-example]').forEach(button => button.addEventListener('click', () => { input.value = button.dataset.voiceExample || ''; understand(); }));
       if (!directRecognitionAvailable) listenButton.classList.add('is-unsupported');

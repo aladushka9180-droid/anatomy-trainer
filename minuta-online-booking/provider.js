@@ -936,7 +936,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=190#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=191#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2260,7 +2260,8 @@ function renderTimeline(items) {
     const top = ((itemStart - start) / 60) * hourHeight;
     const naturalHeight = (duration / 60) * hourHeight;
     const height = mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
-    return { item, index, duration, top, height, minuteOnly:duration <= 1, visualLane:0, visualLaneCount:1 };
+    const minuteOnly = duration <= 1;
+    return { item, index, duration, top, height, minuteOnly, visualLane:0, visualLaneCount:1 };
   });
   const minuteItems = timelineItems.filter(entry => entry.minuteOnly).sort((a, b) => a.top - b.top || a.index - b.index);
   let minuteCluster = [];
@@ -5777,4 +5778,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=190'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=191'));
