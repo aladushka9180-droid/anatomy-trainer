@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '132';
+const version = '133';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,8 +69,8 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=132/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=132/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /team-calendar\.js\?v=133/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=133/, 'Кабинет не подключает безопасный контроллер ресурсов');
 assert.match(provider, /teamCalendarController\?\.isTeamMode[\s\S]*teamCalendarController\.render\(holder\)/, 'Журнал не передаёт существующий контейнер командному календарю');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
@@ -92,7 +92,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=132"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=133"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -248,6 +248,8 @@ assert.match(styles, /data-provider-theme="luxury"\] \.sidebar-bottom>a \{[^}]*c
 assert.match(styles, /data-provider-theme="luxury"\] \.schedule-list \.provider-booking-open \{ padding-inline:18px; \}/, 'Время записи Luxury прижато к краю карточки');
 assert.match(styles, /data-provider-theme="luxury"\] \.status-visited \.booking-status,[\s\S]*?\.booking-outcome-summary \{[^}]*background:linear-gradient/, 'Статус и оплата завершённой записи не используют золотой акцент Luxury');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.badge-vip \{[^}]*background:linear-gradient/, 'VIP-корона в записи Luxury остаётся светлой вместо золотой');
+assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty,\.empty-service\) \{[^}]*background-color:rgba\(7,8,9,\.9\)/, 'Пустые состояния Luxury остаются светлыми');
+assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty-icon,\.empty-service-mark\) \{[^}]*background:linear-gradient/, 'Иконки пустых состояний Luxury не используют золотой акцент');
 assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
 const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
