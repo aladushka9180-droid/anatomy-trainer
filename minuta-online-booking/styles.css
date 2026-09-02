@@ -382,8 +382,9 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .schedule-date-picker { position:relative; padding:5px 9px 5px 11px; }
 .schedule-date-picker input { min-height:25px; border:0; background:transparent; color:#315b47; font:inherit; cursor:pointer; outline:none; }
 .date-nav-button:focus-visible,.date-today-button:focus-visible,.schedule-date-picker:focus-within { outline:3px solid rgba(48,126,83,.2); outline-offset:2px; }
-.date-strip { display:grid; grid-template-columns:repeat(7,1fr); padding:13px; border-bottom:1px solid #e8eee9; background:#fafcfb; }
-.date-strip button { display:grid; justify-items:center; gap:3px; min-height:70px; padding:9px 5px; border:0; border-radius:13px; background:transparent; color:#73827a; cursor:pointer; }
+.date-strip { position:relative; isolation:isolate; display:grid; grid-template-columns:repeat(7,1fr); padding:13px; border-bottom:1px solid #e8eee9; background:#fafcfb; }
+.date-strip button { position:relative; z-index:1; display:grid; justify-items:center; gap:3px; min-height:70px; padding:9px 5px; border:0; border-radius:13px; background:transparent; color:#73827a; cursor:pointer; pointer-events:auto; }
+.date-strip button>* { pointer-events:none; }
 .date-strip button span { font-size:9px; font-weight:850; text-transform:capitalize; }.date-strip button strong { font-size:18px; }.date-strip button small { font-size:9px; }
 .date-strip button.active { background:#1b4b35; color:#fff; box-shadow:0 8px 18px rgba(27,75,53,.18); }
 .schedule-toolbar { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:19px 21px; border-bottom:1px solid #edf1ee; }

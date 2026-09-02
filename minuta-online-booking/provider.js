@@ -1410,7 +1410,8 @@ function renderDateStrip() {
   const selected = parseLocalIsoDate(selectedDate) || today;
   const weekStart = weekStartFor(selected);
   const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
-  $('#dateStrip').innerHTML = Array.from({ length: 7 }, (_, index) => {
+  const dateStrip = $('#dateStrip');
+  dateStrip.innerHTML = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart);
     date.setDate(weekStart.getDate() + index);
     const iso = localIsoDate(date);
@@ -1418,6 +1419,17 @@ function renderDateStrip() {
     const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     return `<button type="button" class="${iso === selectedDate ? 'active' : ''}" data-booking-date="${iso}" aria-label="${fullDate}" aria-pressed="${iso === selectedDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
   }).join('');
+  dateStrip.querySelectorAll('[data-booking-date]').forEach(button => {
+    const chooseDate = event => {
+      if (Date.now() < gestureClickSuppressedUntil) return;
+      event.preventDefault();
+      selectScheduleDate(button.dataset.bookingDate);
+    };
+    button.addEventListener('mousedown', event => {
+      if (event.button === 0) chooseDate(event);
+    });
+    button.addEventListener('click', chooseDate);
+  });
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
   const active = $('#dateStrip [data-booking-date].active');
@@ -4594,20 +4606,6 @@ $('#clientSearch').addEventListener('input', renderClients);
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
-function selectDateFromStripTarget(target) {
-  const dateButton = target.closest?.('[data-booking-date]');
-  if (!dateButton) return false;
-  selectScheduleDate(dateButton.dataset.bookingDate);
-  return true;
-}
-$('#dateStrip').addEventListener('pointerup', event => {
-  if (event.pointerType !== 'mouse' || event.button !== 0) return;
-  if (selectDateFromStripTarget(event.target)) event.preventDefault();
-}, { capture:true });
-$('#dateStrip').addEventListener('click', event => {
-  if (event.pointerType === 'mouse') return;
-  if (selectDateFromStripTarget(event.target)) event.preventDefault();
-});
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
@@ -4687,4 +4685,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=147'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=148'));

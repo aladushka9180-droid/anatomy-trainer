@@ -39,11 +39,11 @@ const daySwipeRuntime = new Function(`let currentFilter = 'day'; let timelineBoo
 const clearSwipeTarget = { closest:() => null };
 assert.equal(daySwipeRuntime.run({ pointerType:'mouse', button:0, pointerId:1, clientX:120, clientY:40, target:clearSwipeTarget }), null, 'обычный клик мышью не должен запускать распознавание свайпа');
 assert.equal(daySwipeRuntime.run({ pointerType:'touch', button:0, pointerId:2, clientX:120, clientY:40, target:clearSwipeTarget })?.pointerId, 2, 'свайп пальцем должен сохраниться');
-assert.match(providerHtml, /provider\.js\?v=147/, 'кабинет должен загрузить исправленный обработчик, а не старый кэш');
-assert.match(serviceWorker, /provider\.js\?v=147/, 'исправленный обработчик должен быть доступен офлайн');
-assert.match(source, /function selectDateFromStripTarget[\s\S]*selectScheduleDate\(dateButton\.dataset\.bookingDate\)/, 'даты должны иметь отдельный обработчик выбора');
-assert.match(source, /\$\('#dateStrip'\)\.addEventListener\('pointerup',[\s\S]*event\.pointerType !== 'mouse'[\s\S]*capture:true/, 'на компьютере дата должна выбираться напрямую по отпусканию кнопки мыши');
-assert.match(source, /\$\('#dateStrip'\)\.addEventListener\('click',[\s\S]*event\.pointerType === 'mouse'\) return/, 'обычный click не должен повторять выбор после pointerup');
+assert.match(providerHtml, /provider\.js\?v=148/, 'кабинет должен загрузить исправленный обработчик, а не старый кэш');
+assert.match(serviceWorker, /provider\.js\?v=148/, 'исправленный обработчик должен быть доступен офлайн');
+assert.match(source, /dateStrip\.querySelectorAll\('\[data-booking-date\]'\)\.forEach\(button => \{[\s\S]*selectScheduleDate\(button\.dataset\.bookingDate\)/, 'каждая дата должна выбирать собственное значение сразу после отрисовки');
+assert.match(source, /button\.addEventListener\('mousedown',[\s\S]*button\.addEventListener\('click'/, 'каждая дата должна получить собственные обработчики мыши и клика');
+assert.match(source, /if \(Date\.now\(\) < gestureClickSuppressedUntil\) return;[\s\S]*selectScheduleDate\(button\.dataset\.bookingDate\)/, 'клик после свайпа не должен возвращать прежнюю дату');
 assert.doesNotMatch(source.match(/document\.addEventListener\('click',[\s\S]*?\n\}\);/)?.[0] || '', /const date = event\.target\.closest\('\[data-booking-date\]'\)/, 'общий обработчик страницы не должен повторно обрабатывать дату');
 assert.match(source, /state\.active = true;\s*state\.surface\.setPointerCapture/, 'захват указателя допустим только после распознавания свайпа');
 assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
@@ -52,5 +52,8 @@ assert.match(source, /p_ignore_booking: item\.id/);
 assert.match(source, /data-booking-duration="\$\{duration\}"/);
 assert.match(styles, /\.timeline-booking\[data-open-booking\]\.is-dragging/);
 assert.match(styles, /#providerBookings\.is-day-swiping/);
+assert.match(styles, /\.date-strip \{ position:relative; isolation:isolate;/, 'полоса дат должна создавать отдельный интерактивный слой');
+assert.match(styles, /\.date-strip button \{ position:relative; z-index:1;[\s\S]*pointer-events:auto;/, 'кнопки дат должны находиться выше декоративного фона');
+assert.match(styles, /\.date-strip button>\* \{ pointer-events:none; \}/, 'внутренние подписи не должны перехватывать нажатие кнопки');
 
 console.log('Provider gestures tests passed');
