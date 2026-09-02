@@ -117,6 +117,7 @@
       const text = `${error?.message || ''} ${error?.details || ''}`;
       const rows = [
         ['loyalty_disabled','Сначала включите бонусную программу.'],['owner_required','Изменить включение может только владелец.'],
+        ['booking_benefit_conflict','Для одной записи можно выбрать только один вариант: абонемент или сертификат, бонусы либо промокод.'],
         ['loyalty_client_not_in_organization','Клиент не относится к этой организации.'],['insufficient_loyalty_balance','Недостаточно бонусов.'],
         ['loyalty_redemption_limit_exceeded','Сумма превышает разрешённую долю оплаты.'],['loyalty_booking_not_paid','Сначала завершите и отметьте оплату визита.'],
         ['loyalty_request_conflict','Повтор запроса содержит другие данные. Обновите раздел.'],['promo_not_available','Промокод недоступен или срок закончился.'],
