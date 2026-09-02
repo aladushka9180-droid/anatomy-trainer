@@ -12,7 +12,7 @@ begin
      or to_regclass('public.organization_notification_settings') is null
      or to_regprocedure('public.has_organization_role(uuid,text[])') is null
      or to_regprocedure('public.normalize_client_phone(text)') is null
-     or to_regprocedure('public.claim_minuta_notification_outbox(integer,integer)') is null
+     or to_regprocedure('public.claim_minuta_notification_outbox(text[],integer)') is null
      or not exists (
        select 1 from information_schema.columns
        where table_schema='public' and table_name='bookings' and column_name='organization_id'
