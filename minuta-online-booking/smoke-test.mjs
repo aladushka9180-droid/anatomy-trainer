@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '117';
+const version = '118';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -71,7 +71,7 @@ assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=117"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=118"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.equal(providerManifest.start_url, './provider.html', 'Установленное приложение открывает не кабинет');
@@ -88,7 +88,7 @@ assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KE
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
 assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');
-assert.match(provider, /height < 58 \? ' compact'/, 'Короткие записи не получают компактную раскладку');
+assert.match(provider, /height < 44 \? ' compact'/, 'Только действительно короткие записи должны получать компактную раскладку');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
 assert.match(provider, /bookings-v2/, 'Новый обезличенный кэш не отделён от старого PII-кэша');
@@ -189,7 +189,9 @@ assert.doesNotMatch(styles, /\.provider-body \.journal-mode-toggle \{ display:no
 assert.match(styles, /data-provider-theme\] \.timeline-view \.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy>strong[\s\S]*?-webkit-line-clamp:1/, 'Длинное название снова ломает компактную мобильную карточку');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-note[\s\S]*?text-overflow:ellipsis;[\s\S]*?white-space:nowrap/, 'Длинная заметка не ограничена одной строкой на телефоне');
-assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking \.client-badges[\s\S]*?top:50%;[\s\S]*?transform:translateY\(-50%\)/, 'Метка клиента перекрывает текст мобильной карточки');
+assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy[\s\S]*?position:absolute;[\s\S]*?top:8px;/, 'Содержимое длинной мобильной записи снова плавает по высоте');
+assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking \.client-badges \{[\s\S]*?top:0;[\s\S]*?right:9px;/, 'Метка клиента перекрывает текст длинной мобильной карточки');
+assert.match(styles, /timeline-booking\.compact \.client-badges \{ top:50%; transform:translateY\(-50%\); \}/, 'Метка короткой записи не выровнена по центру');
 assert.match(styles, /data-provider-theme="linear"\][\s\S]*?\.provider-nav button\.active/, 'Строгая геометрия не оформляет активный раздел');
 assert.match(styles, /data-provider-theme="capsule"\][\s\S]*?\.provider-sidebar/, 'Капсульный стиль не оформляет боковую навигацию');
 assert.match(styles, /data-provider-theme="editorial"\][\s\S]*?font-family:Georgia/, 'Редакционный стиль не меняет типографику');
