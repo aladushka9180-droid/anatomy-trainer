@@ -19,6 +19,7 @@ const SERVICE_SYNC_INTERVAL_MS = 30000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v5';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
+const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -26,6 +27,7 @@ const REGULAR_CLIENT_COMPLETED_VISITS = 10;
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   layout: 'soft',
   theme: 'sage',
+  text_scale: 'default',
   show_phone: true,
   show_visit_number: true,
   show_client_type: true,
@@ -328,10 +330,12 @@ function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const storedTheme = String(source.theme || '');
   const storedLayout = String(source.layout || '');
+  const storedTextScale = String(source.text_scale || source.textScale || '');
   const legacyLayout = PROVIDER_LAYOUT_KEYS.includes(storedTheme) ? storedTheme : '';
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme: PROVIDER_THEME_KEYS.includes(storedTheme) ? storedTheme : LEGACY_PROVIDER_THEME_MAP[storedTheme] || DEFAULT_DISPLAY_PREFERENCES.theme,
+    text_scale: PROVIDER_TEXT_SCALE_KEYS.includes(storedTextScale) ? storedTextScale : DEFAULT_DISPLAY_PREFERENCES.text_scale,
     show_phone: source.show_phone ?? DEFAULT_DISPLAY_PREFERENCES.show_phone,
     show_visit_number: source.show_visit_number ?? DEFAULT_DISPLAY_PREFERENCES.show_visit_number,
     show_client_type: source.show_client_type ?? DEFAULT_DISPLAY_PREFERENCES.show_client_type,
@@ -345,11 +349,13 @@ function displayPreferencesEqual(left, right) {
   const b = normalizeDisplayPreferences(right);
   return a.layout === b.layout
     && a.theme === b.theme
+    && a.text_scale === b.text_scale
     && a.show_phone === b.show_phone
     && a.show_visit_number === b.show_visit_number
     && a.show_client_type === b.show_client_type
     && a.show_client_labels === b.show_client_labels
-    && a.show_notes === b.show_notes;
+    && a.show_notes === b.show_notes
+    && a.ios_transitions === b.ios_transitions;
 }
 function normalizeDisplayPreferencesRecord(value = {}, exists = true) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -402,7 +408,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 2,
+      version: 3,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -424,7 +430,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 2,
+    version: 3,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -461,6 +467,7 @@ function queueDisplayPreferencesSync(delay = 350) {
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
+  document.body.dataset.providerTextScale = displayPreferences.text_scale;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
   const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
@@ -472,6 +479,8 @@ function renderDisplayPreferencesForm() {
   if (layout) layout.checked = true;
   const theme = form.querySelector(`input[name="providerTheme"][value="${displayPreferences.theme}"]`);
   if (theme) theme.checked = true;
+  const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
+  if (textScale) textScale.checked = true;
   $('#showBookingPhone').checked = displayPreferences.show_phone;
   $('#showBookingVisitNumber').checked = displayPreferences.show_visit_number;
   $('#showBookingClientType').checked = displayPreferences.show_client_type;
@@ -583,6 +592,7 @@ function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
     layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
+    text_scale: $('#providerDisplayForm input[name="providerTextScale"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
     show_visit_number: $('#showBookingVisitNumber').checked,
     show_client_type: $('#showBookingClientType').checked,
