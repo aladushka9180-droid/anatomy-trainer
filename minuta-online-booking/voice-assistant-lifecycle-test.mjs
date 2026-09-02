@@ -171,9 +171,13 @@ assert.match(status.textContent, /остановлено/i);
 listenButton.emit('click');
 const oldRecognition = FakeRecognition.instances.at(-1);
 assert.ok(oldRecognition?.started, 'распознавание должно запускаться только по явному нажатию');
+assert.equal(oldRecognition.maxAlternatives, 5, 'мобильное распознавание должно запрашивать несколько вариантов фразы');
 oldRecognition.onstart();
 oldRecognition.onresult({
-  results:{ 0:Object.assign([{ transcript:'какие записи сегодня' }], { isFinal:true }), length:1 }
+  results:{ 0:Object.assign([
+    { transcript:'какие зарисовки сегодня', confidence:0.9 },
+    { transcript:'какие записи сегодня', confidence:0.6 }
+  ], { isFinal:true }), length:1 }
 });
 assert.equal(input.value, 'какие записи сегодня', 'мобильный array-like результат распознавания должен обрабатываться без iterator');
 

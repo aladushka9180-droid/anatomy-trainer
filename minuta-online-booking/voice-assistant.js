@@ -41,11 +41,41 @@
   });
   // JavaScript treats Cyrillic letters as non-word characters for \b, even with /u.
   // The input is whitespace-normalized, so explicit whitespace boundaries are reliable here.
-  const BOOKING_WORDS = /(?:^|\s)(запиши|записать|запишите|создай\s+запись|создать\s+запись|новая\s+запись)(?=\s|$)/i;
-  const FREE_SLOT_WORDS = /(?:^|\s)(свободн[а-я]*\s+(?:окн[а-я]*|врем[а-я]*|слот[а-я]*)|найди\s+(?:свободн[а-я]*\s+)?(?:окн[а-я]*|врем[а-я]*|слот[а-я]*)|покажи\s+(?:свободн[а-я]*\s+)?(?:окн[а-я]*|врем[а-я]*|слот[а-я]*))(?=\s|$)/i;
+  const BOOKING_WORDS = /(?:^|\s)(запиш[а-я]*|записать|добав[а-я]*|постав[а-я]*|заброниру[а-я]*|оформ[а-я]*|назнач[а-я]*|запланиру[а-я]*|созда[а-я]*)(?:\s+(?:новую?\s+)?(?:запись|визит|прием|сеанс))?(?=\s|$)/i;
+  const BOOKING_PHRASES = /(?:^|\s)(?:хочу|нужно|надо|можно|давай)\s+(?:записать|добавить|поставить|забронировать|создать\s+запись)(?=\s|$)/i;
+  const FREE_SLOT_WORDS = /(?:^|\s)(?:свободн[а-я]*\s+(?:окн[а-я]*|окошк[а-я]*|врем[а-я]*|слот[а-я]*)|(?:найд[а-я]*|покаж[а-я]*|подбер[а-я]*|предлож[а-я]*)\s+(?:свободн[а-я]*\s+)?(?:окн[а-я]*|окошк[а-я]*|врем[а-я]*|слот[а-я]*)|есть\s+ли\s+(?:свободн[а-я]*\s+)?(?:окн[а-я]*|окошк[а-я]*|врем[а-я]*|мест[а-я]*)|когда\s+(?:можно|получится)\s+(?:записать|прийти)|куда\s+(?:можно\s+)?(?:поставить|записать))(?=\s|$)/i;
+  const SCHEDULE_WORDS = /(?:^|\s)(расписан[а-я]*|график|план[а-я]*|запис[а-я]*|визит[а-я]*|прием[а-я]*|сеанс[а-я]*|клиент[а-я]*)(?=\s|$)/i;
+  const COMMAND_FILLERS = new Set(['пожалуйста', 'пожалуйсто', 'мне', 'новую', 'новый', 'запись', 'визит', 'прием', 'сеанс', 'клиента', 'клиентку', 'для']);
 
   function normalizeText(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^a-zа-я0-9:.\s-]/gi, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function levenshteinDistance(left, right) {
+    const a = String(left || '');
+    const b = String(right || '');
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const row = Array.from({ length:b.length + 1 }, (_, index) => index);
+    for (let i = 1; i <= a.length; i += 1) {
+      let previous = row[0];
+      row[0] = i;
+      for (let j = 1; j <= b.length; j += 1) {
+        const saved = row[j];
+        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1));
+        previous = saved;
+      }
+    }
+    return row[b.length];
+  }
+
+  function wordsAreClose(left, right) {
+    const a = serviceStem(left);
+    const b = serviceStem(right);
+    if (a === b) return true;
+    const longest = Math.max(a.length, b.length);
+    if (longest < 6 || Math.min(a.length, b.length) < 5) return false;
+    return levenshteinDistance(a, b) <= (longest >= 8 ? 2 : 1);
   }
 
   function localIsoDate(date) {
@@ -128,6 +158,11 @@
       if ((dayPart === 'утра' || dayPart === 'ночи') && hour === 12) return 0;
       return hour;
     };
+    const clock = text.match(/(?:^|\s)([01]?\d|2[0-3]):([0-5]\d)(?:\s+(утра|дня|вечера|ночи))?(?=\s|$)/);
+    if (clock) {
+      const hour = applyDayPart(Number(clock[1]), clock[3]);
+      return `${String(hour).padStart(2, '0')}:${clock[2]}`;
+    }
     const numericMatches = [...text.matchAll(/(?:^|\s)(?:в|к|на)\s+(\d{1,2})(?:(?:[:.]|\s)([0-5]\d))?(?:\s+(утра|дня|вечера|ночи))?(?=\s|$)/g)];
     for (const match of numericMatches) {
       const hour = applyDayPart(Number(match[1]), match[3]);
@@ -140,7 +175,7 @@
     }
 
     const words = text.split(' ');
-    const minuteWords = { пятнадцать:15, тридцать:30, сорокпять:45 };
+    const minuteWords = { пять:5, десять:10, пятнадцать:15, двадцать:20, двадцатьпять:25, тридцать:30, тридцатьпять:35, сорок:40, сорокпять:45, пятьдесят:50, пятьдесятпять:55 };
     for (let index = 0; index < words.length; index += 1) {
       if (!/^(в|к)$/.test(words[index])) continue;
       const compoundHour = HOURS[`${words[index + 1] || ''}${words[index + 2] || ''}`];
@@ -151,9 +186,15 @@
       const compoundMinute = minuteWords[`${words[minuteIndex] || ''}${words[minuteIndex + 1] || ''}`];
       const minute = compoundMinute ?? minuteWords[words[minuteIndex]] ?? 0;
       const minuteWordCount = Number.isInteger(compoundMinute) ? 2 : (Number.isInteger(minuteWords[words[minuteIndex]]) ? 1 : 0);
-      const dayPart = words[minuteIndex + minuteWordCount];
+      const hasHourWord = /^(час|часа|часов)$/.test(words[minuteIndex] || '');
+      const adjustedMinuteIndex = minuteIndex + (hasHourWord ? 1 : 0);
+      const adjustedCompoundMinute = minuteWords[`${words[adjustedMinuteIndex] || ''}${words[adjustedMinuteIndex + 1] || ''}`];
+      const adjustedMinute = adjustedCompoundMinute ?? minuteWords[words[adjustedMinuteIndex]] ?? minute;
+      const adjustedMinuteWordCount = Number.isInteger(adjustedCompoundMinute) ? 2 : (Number.isInteger(minuteWords[words[adjustedMinuteIndex]]) ? 1 : minuteWordCount);
+      const minuteSuffix = /^(минута|минуты|минут)$/.test(words[adjustedMinuteIndex + adjustedMinuteWordCount] || '') ? 1 : 0;
+      const dayPart = words[adjustedMinuteIndex + adjustedMinuteWordCount + minuteSuffix];
       hour = applyDayPart(hour, dayPart);
-      return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      return `${String(hour).padStart(2, '0')}:${String(adjustedMinute).padStart(2, '0')}`;
     }
     return '';
   }
@@ -162,6 +203,11 @@
     const text = normalizeText(command);
     const minutes = text.match(/(?:^|\s)(\d{1,3})\s*(?:мин|минута|минуту|минуты|минут)(?=\s|$)/);
     if (minutes) return Math.min(1440, Math.max(1, Number(minutes[1])));
+    const spokenMinutes = text.match(/(?:^|\s)(пять|десять|пятнадцать|двадцать|двадцать\s+пять|тридцать|сорок|сорок\s+пять|пятьдесят|шестьдесят|девяносто|сто\s+двадцать)\s+(?:мин|минута|минуту|минуты|минут)(?=\s|$)/);
+    if (spokenMinutes) {
+      const values = { пять:5, десять:10, пятнадцать:15, двадцать:20, 'двадцать пять':25, тридцать:30, сорок:40, 'сорок пять':45, пятьдесят:50, шестьдесят:60, девяносто:90, 'сто двадцать':120 };
+      return values[spokenMinutes[1]] || 0;
+    }
     const hours = text.match(/(?:^|\s)(\d{1,2})(?:[.,](\d))?\s*(?:час|часа|часов)(?=\s|$)/);
     if (hours) return Math.round((Number(hours[1]) + Number(`0.${hours[2] || 0}`)) * 60);
     if (/(?:^|\s)полтора\s+часа(?=\s|$)/.test(text)) return 90;
@@ -184,9 +230,11 @@
       const nameWords = name.split(' ').filter(Boolean);
       const words = nameWords.filter(word => word.length > 2 && !/^(для|или|при)$/.test(word));
       const exact = nameWords.length && commandWords.some((_, index) => nameWords.every((word, offset) => commandWords[index + offset] === word)) ? 100 : 0;
-      const matchedWords = words.filter(word => commandWords.some(commandWord => serviceStem(commandWord) === serviceStem(word)));
-      const inflectedPhrase = words.length && matchedWords.length === words.length ? 70 : 0;
-      const wordScore = matchedWords.length * 5;
+      const exactWords = words.filter(word => commandWords.some(commandWord => serviceStem(commandWord) === serviceStem(word)));
+      const fuzzyWords = words.filter(word => !exactWords.includes(word) && commandWords.some(commandWord => wordsAreClose(commandWord, word)));
+      const allWordsMatched = words.length && exactWords.length + fuzzyWords.length === words.length;
+      const inflectedPhrase = allWordsMatched ? (fuzzyWords.length ? 45 : 70) : 0;
+      const wordScore = exactWords.length * 5 + fuzzyWords.length * 2;
       const durationScore = duration && Number(service.durationMinutes) === duration ? 2 : 0;
       return { service, score:exact + inflectedPhrase + wordScore + durationScore };
     }).filter(item => item.score > 0).sort((a, b) => b.score - a.score || String(a.service.name).localeCompare(String(b.service.name), 'ru'));
@@ -218,14 +266,14 @@
 
   function parseClientName(command) {
     const cleaned = String(command || '').replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim();
-    const match = cleaned.match(/(?:запиши|записать|запишите|создай\s+запись(?:\s+для)?|создать\s+запись(?:\s+для)?|новая\s+запись(?:\s+для)?)\s+(.+?)(?=\s+(?:сегодня|завтра|послезавтра|в\s+\d|к\s+\d|на\s+\d|на\s+[а-яё]+|к\s+[а-яё]+|в\s+[а-яё]+)|$)/iu);
+    const match = cleaned.match(/(?:хочу\s+|нужно\s+|надо\s+|давай\s+)?(?:запиш[а-яё]*|записать|добав[а-яё]*|постав[а-яё]*|заброниру[а-яё]*|оформ[а-яё]*|назнач[а-яё]*|запланиру[а-яё]*|созда[а-яё]*)(?:\s+(?:новую?\s+)?(?:запись|визит|прием|приём|сеанс))?(?:\s+(?:для\s+)?(?:клиента?|клиентку))?\s+(.+)/iu);
     if (!match) return '';
     const dateWords = new Set([...Object.keys(MONTHS), ...Object.keys(WEEKDAYS), ...Object.keys(ORDINAL_DAYS), 'сегодня', 'завтра', 'послезавтра', 'через']);
     const words = [];
     for (const word of match[1].trim().split(/\s+/)) {
       const normalized = normalizeText(word).replace(/\s+/g, '');
-      if (!normalized || /^(клиента?|клиентку|для)$/.test(normalized)) continue;
-      if (dateWords.has(normalized) || /^\d{1,2}[./-]\d{1,2}/.test(normalized) || /^(в|к|на)$/.test(normalized)) break;
+      if (!normalized || COMMAND_FILLERS.has(normalized) || /^(клиент|клиентка)$/.test(normalized)) continue;
+      if (dateWords.has(normalized) || /^\d{1,2}[./-]\d{1,2}/.test(normalized) || /^(в|к|на|с|продолжительностью)$/.test(normalized) || /^\d/.test(normalized)) break;
       words.push(word);
       if (words.length === 2) break;
     }
@@ -248,6 +296,31 @@
     return (snapshot.bookings || []).filter(item => item.date === date && item.status !== 'cancelled').sort((a, b) => String(a.time).localeCompare(String(b.time)));
   }
 
+  function isScheduleRequest(text) {
+    if (/(?:^|\s)(?:что|кто)\s+у\s+меня(?=\s|$)/.test(text)) return true;
+    if (/(?:^|\s)кто\s+(?:ко\s+мне\s+)?(?:сегодня|завтра|послезавтра)(?=\s|$)/.test(text)) return true;
+    if (/(?:^|\s)(?:покаж[а-я]*|откро[а-я]*|скажи|какие|сколько|что|кто)(?=\s|$).*?\s(?:расписан[а-я]*|график|план[а-я]*|запис[а-я]*|визит[а-я]*|прием[а-я]*|сеанс[а-я]*|клиент[а-я]*)(?=\s|$)/.test(text)) return true;
+    if (/^(?:мое\s+|мои\s+)?(?:расписан[а-я]*|график|планы|записи)(?=\s|$)/.test(text)) return true;
+    return SCHEDULE_WORDS.test(text) && /(?:^|\s)(сегодня|завтра|послезавтра|на\s+день)(?=\s|$)/.test(text) && !BOOKING_WORDS.test(text);
+  }
+
+  function extractClientSearch(command) {
+    const raw = String(command || '').replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim();
+    const patterns = [
+      /(?:найд[а-яё]*|покаж[а-яё]*|откро[а-яё]*)\s+(?:историю\s+)?(?:клиента?\s+|клиентку\s+)?([А-ЯЁA-ZА-ЯЁA-Za-zа-яё-]{2,}(?:\s+[А-ЯЁA-Za-zа-яё-]{2,})?)/iu,
+      /(?:история|карточка)\s+(?:клиента?\s+)?([А-ЯЁA-ZА-ЯЁA-Za-zа-яё-]{2,}(?:\s+[А-ЯЁA-Za-zа-яё-]{2,})?)/iu,
+      /(?:что\s+было\s+у|когда\s+(?:был|была|приходил|приходила))\s+([А-ЯЁA-ZА-ЯЁA-Za-zа-яё-]{2,}(?:\s+[А-ЯЁA-Za-zа-яё-]{2,})?)/iu
+    ];
+    for (const pattern of patterns) {
+      const match = raw.match(pattern);
+      if (match) {
+        const nameParts = match[1].split(/\s+/).filter(part => !/^(сегодня|завтра|послезавтра|снова|еще)$/i.test(normalizeText(part)));
+        return toNominativeName(nameParts.join(' '), /(?:^|\s)у(?=\s)/i.test(raw));
+      }
+    }
+    return '';
+  }
+
   function interpretCommand(command, snapshot = {}, now = new Date()) {
     const raw = String(command || '').trim().slice(0, 500);
     const text = normalizeText(raw);
@@ -260,8 +333,9 @@
     const candidates = findServices(text, snapshot.services || [], duration);
     const service = candidates.length === 1 ? candidates[0] : null;
 
-    if (BOOKING_WORDS.test(text)) {
-      const clientName = parseClientName(raw);
+    const clientName = parseClientName(raw);
+    const bookingRequest = BOOKING_WORDS.test(text) || BOOKING_PHRASES.test(text);
+    if (bookingRequest && !FREE_SLOT_WORDS.test(text)) {
       const missing = [];
       if (!clientName) missing.push('имя клиента');
       if (!time) missing.push('время');
@@ -287,7 +361,7 @@
       };
     }
 
-    if (/(?:^|\s)(какие|сколько|покажи|что)(?=\s|$).*?(?:^|\s)(запис[а-я]*|визит[а-я]*|клиент[а-я]*)/.test(text) || /(?:^|\s)кто(?=\s|$).*?(?:^|\s)(сегодня|завтра|записан[а-я]*)/.test(text)) {
+    if (isScheduleRequest(text)) {
       const items = activeBookings(snapshot, date);
       return {
         kind:'schedule_summary',
@@ -298,12 +372,11 @@
       };
     }
 
-    const clientSearch = raw.match(/(?:найди|покажи|история)\s+(?:клиента?\s+)?([А-ЯЁA-Z][А-ЯЁA-Za-zа-яё-]{1,}(?:\s+[А-ЯЁA-Za-zа-яё-]{1,})?)/iu);
-    if (clientSearch) {
-      const clientName = toNominativeName(clientSearch[1]);
-      const needle = normalizeText(clientName);
+    const searchedClientName = extractClientSearch(raw);
+    if (searchedClientName) {
+      const needle = normalizeText(searchedClientName);
       const matches = (snapshot.bookings || []).filter(item => normalizeText(item.clientName).includes(needle)).sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
-      return { kind:'client_search', title:`Клиент: ${clientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length };
+      return { kind:'client_search', title:`Клиент: ${searchedClientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length };
     }
 
     return {
@@ -312,6 +385,43 @@
       message:'Попробуйте назвать действие, дату, время и услугу. Никакие данные не были изменены.',
       examples:['Какие записи завтра?', 'Найди свободное время в пятницу на массаж 60 минут', 'Запиши Анну завтра в 10:30 на массаж']
     };
+  }
+
+  function commandUnderstandingScore(command, snapshot = {}, now = new Date()) {
+    const model = interpretCommand(command, snapshot, now);
+    if (model.kind === 'booking_draft') {
+      const plan = model.plan || {};
+      return 100 + (plan.clientName ? 18 : 0) + (plan.date ? 4 : 0) + (plan.time ? 16 : 0) + (plan.serviceId ? 18 : 0) - ((model.candidates || []).length > 1 ? 6 : 0);
+    }
+    if (model.kind === 'find_slots') return 90 + (model.plan?.serviceId ? 12 : 0) + (model.plan?.date ? 4 : 0);
+    if (model.kind === 'schedule_summary') return 80;
+    if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
+    return Math.min(10, normalizeText(command).split(' ').filter(Boolean).length);
+  }
+
+  function chooseRecognitionTranscript(results, snapshot = {}, now = new Date()) {
+    let variants = [{ text:'', confidence:0 }];
+    for (const item of Array.from(results || [])) {
+      const alternatives = Array.from(item || []).slice(0, 5).filter(entry => String(entry?.transcript || '').trim());
+      if (!alternatives.length) continue;
+      const next = [];
+      for (const prefix of variants) {
+        for (const alternative of alternatives) {
+          next.push({
+            text:`${prefix.text} ${alternative.transcript}`.trim().slice(0, 500),
+            confidence:prefix.confidence + (Number.isFinite(Number(alternative.confidence)) ? Number(alternative.confidence) : 0)
+          });
+        }
+      }
+      variants = next.sort((left, right) => {
+        const scoreDelta = commandUnderstandingScore(right.text, snapshot, now) - commandUnderstandingScore(left.text, snapshot, now);
+        return scoreDelta || right.confidence - left.confidence;
+      }).slice(0, 8);
+    }
+    return variants.sort((left, right) => {
+      const scoreDelta = commandUnderstandingScore(right.text, snapshot, now) - commandUnderstandingScore(left.text, snapshot, now);
+      return scoreDelta || right.confidence - left.confidence;
+    })[0]?.text || '';
   }
 
   function applyOfflineContext(model, snapshot) {
@@ -525,7 +635,7 @@
       currentRecognition.lang = 'ru-RU';
       currentRecognition.continuous = false;
       currentRecognition.interimResults = true;
-      currentRecognition.maxAlternatives = 1;
+      currentRecognition.maxAlternatives = 5;
       let latestTranscript = '';
       let receivedFinal = false;
       currentRecognition.onstart = () => {
@@ -536,7 +646,7 @@
       currentRecognition.onresult = event => {
         if (epoch !== recognitionEpoch || !dialog.open) return;
         const results = Array.from(event.results || []);
-        const transcript = results.map(item => item[0]?.transcript || '').join(' ').trim();
+        const transcript = chooseRecognitionTranscript(results, bridge.getReadOnlySnapshot(), new Date());
         latestTranscript = transcript;
         if (transcript) input.value = transcript.slice(0, 500);
         if (results.length && results.every(item => item.isFinal)) {
@@ -591,7 +701,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, interpretCommand, applyOfflineContext, createController });
+  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, applyOfflineContext, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
