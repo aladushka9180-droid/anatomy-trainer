@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '204';
+const version = '205';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -293,6 +293,7 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:10px;/, 'Кнопка фотографии снова расположена слишком низко');
 assert.match(styles, /\.booking-sheet-client \{[^}]*align-items:start;/, 'Фото клиента снова расположено ниже имени');
 assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*align-self:start;[^}]*transform:translateY\(-10px\);/, 'Аватар клиента снова не поднят к началу блока');
+assert.match(styles, /\.provider-body\[data-provider-theme\] \.booking-sheet-client>\.booking-client-avatar-control \{ background:transparent; color:inherit; \}/, 'Контейнер аватара снова получил лишний фон темы');
 assert.match(styles, /connection-log-dialog[\s\S]*connection-log-entry/, 'Журнал связи не оформлен для кабинета');
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-dialog \{[\s\S]*provider-luxury-marble-v4\.webp/, 'Журнал связи не получил поверхность Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-entry \{[\s\S]*background:linear-gradient/, 'Записи журнала связи не оформлены для Luxury');

@@ -2421,7 +2421,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme] .schedule-day.disabled { background:color-mix(in srgb,var(--theme-surface-alt) 76%,var(--theme-line)); color:var(--theme-muted); }
 .provider-body[data-provider-theme] .slot-step-label select { border-color:color-mix(in srgb,var(--theme-accent) 58%,var(--theme-line)); background-color:var(--theme-surface); color:var(--theme-ink); box-shadow:0 0 0 7px color-mix(in srgb,var(--theme-accent) 9%,transparent); }
 .provider-body[data-provider-theme] .slot-step-label select:focus { outline-color:color-mix(in srgb,var(--theme-accent) 24%,transparent); }
-.provider-body[data-provider-theme] :is(.booking-sheet-client-avatar,.booking-sheet-client>span) { background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .booking-sheet-client-avatar,
+.provider-body[data-provider-theme] .booking-sheet-client>span:not(.booking-client-avatar-control) { background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .booking-sheet-client>.booking-client-avatar-control { background:transparent; color:inherit; }
 .provider-body[data-provider-theme] :is(.booking-sheet-client a,.free-slots-link a) { color:var(--theme-accent); }
 .provider-body[data-provider-theme] .booking-sheet-meta>span:not(.booking-status) { background:var(--theme-accent-soft); color:var(--theme-muted); }
 .provider-body[data-provider-theme] .booking-sheet-meta :is(.booking-status.status-confirmed,.booking-status.status-visited,.booking-status.status-completed) { border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line)); background:var(--theme-accent-soft); color:var(--theme-accent); }
