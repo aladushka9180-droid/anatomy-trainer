@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '211';
+const version = '212';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -382,6 +382,9 @@ assert.match(styles, /Окно ручной записи[\s\S]*?data-provider-th
 assert.match(styles, /Карточка записи Luxury:[\s\S]*?\.booking-sheet-meta \.booking-status\.status-confirmed[\s\S]*?background:#241d12;[\s\S]*?color:#efbd59/, 'Подтверждённая запись Luxury снова использует зелёный статус');
 assert.match(styles, /data-provider-theme="luxury"\] \.booking-sheet-client a,[\s\S]*?\.booking-session-heading button[\s\S]*?color:#e5b75d/, 'Телефон и действия карточки записи Luxury снова стали зелёными');
 assert.match(styles, /data-provider-theme="luxury"\] \.booking-sheet-actions \.whatsapp-action \{[\s\S]*?background:linear-gradient\(145deg,#a9772e,#d9a950[\s\S]*?color:#1c1207!important/, 'WhatsApp в карточке записи Luxury не использует золотую кнопку');
+assert.match(provider, /<div class="booking-sheet-secondary">\s*\$\{bookingSessionMarkup\(item\)\}[\s\S]*?<\/div>\s*\$\{item\.status !== 'cancelled'/, 'Дополнительные разделы карточки записи больше не собраны в единый компактный блок');
+assert.match(styles, /data-provider-theme="luxury"\] \.booking-sheet-secondary \{[^}]*margin-top:11px;[^}]*overflow:hidden;[^}]*border-radius:14px;/, 'Компактная группа разделов Luxury потеряла общую поверхность');
+assert.match(styles, /data-provider-theme="luxury"\] \.booking-repeat-action \{[^}]*width:auto!important;[^}]*min-height:36px!important;[^}]*background:transparent!important;/, 'Повтор записи снова стал визуально доминирующей кнопкой Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\s*\.booking-sheet-client small,[\s\S]*?\) \{ color:#bdaa8b; \}/, 'Служебные подписи карточки записи Luxury остались зелёными');
 assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
 const appearanceSources = [
