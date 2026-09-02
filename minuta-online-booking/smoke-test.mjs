@@ -256,7 +256,7 @@ assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:cen
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
 for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
-for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) assert.match(styles, new RegExp(`data-provider-layout="${layout}"`), `Нет CSS структуры ${layout}`);
+for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) assert.match(styles, new RegExp(`data-provider-layout="${layout}"`), `Нет CSS структуры ${layout}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
@@ -271,13 +271,14 @@ assert.match(styles, /timeline-booking\.compact \.client-badges \{ top:50%; tran
 assert.match(styles, /data-provider-theme="graphite"\][\s\S]*?color-scheme:dark/, 'Тёмная цветная тема не включает тёмную системную палитру');
 assert.match(styles, /data-provider-theme\] :is\(\.notification-card,\.waitlist-provider-card,\.report-summary article,\.portfolio-card,\.provider-review-card/, 'Карточки отдельных разделов не продолжают выбранную тему');
 assert.match(styles, /data-provider-theme\] :is\(\.notification-summary,\.notification-filters,\.report-periods\)/, 'Сводки и фильтры разделов не продолжают выбранную тему');
-assert.match(providerHtml, /name="providerLayout" value="linear"[\s\S]*name="providerLayout" value="bento"/, 'Пять структур интерфейса не вынесены в отдельный выбор');
+assert.match(providerHtml, /name="providerLayout" value="linear"[\s\S]*name="providerLayout" value="bento"[\s\S]*name="providerLayout" value="split"/, 'Шесть структур интерфейса не вынесены в отдельный выбор');
 assert.match(providerHtml, /name="providerTheme" value="luxury"[\s\S]*name="providerTheme" value="hitech"/, 'Фактурные темы не вынесены в независимый выбор');
-assert.match(provider, /const PROVIDER_LAYOUT_KEYS = \['linear', 'soft', 'capsule', 'editorial', 'bento'\]/, 'Список структур интерфейса неполный');
+assert.match(provider, /const PROVIDER_LAYOUT_KEYS = \['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'\]/, 'Список структур интерфейса неполный');
 assert.doesNotMatch(provider, /const PROVIDER_THEME_KEYS = \[[^\]]*'linear'/, 'Структура снова смешана с цветовой темой');
 assert.match(provider, /document\.body\.dataset\.providerLayout = displayPreferences\.layout/, 'Выбранная структура не применяется независимо от темы');
 assert.match(styles, /data-provider-theme\]\[data-provider-layout="linear"\]/, 'Строгая геометрия не поддерживает независимую тему');
 assert.match(styles, /data-provider-theme\]\[data-provider-layout="bento"\]/, 'Bento не поддерживает независимую тему');
+assert.match(styles, /data-provider-theme\]\[data-provider-layout="split"\][\s\S]*?grid-template-areas:[\s\S]*?"navigation bookings"/, 'Разделённая компоновка не создаёт отдельные зоны контекста и работы');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?notification-card-actions \.whatsapp-action[\s\S]*?linear-gradient\(145deg,#a9772e,#d9a950/, 'WhatsApp в теме Luxury не использует золотую главную кнопку');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.service-more>summary[\s\S]*?border:1px solid #6f5428/, 'Кнопка меню услуги в теме Luxury остаётся белой');
 assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.day-toggle input:checked\+span[\s\S]*?background:linear-gradient/, 'Переключатели рабочего расписания не продолжают золотую тему Luxury');
@@ -334,7 +335,7 @@ const appearanceSources = [
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
-for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) {
+for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
   for (const theme of ['luxury', 'loft', 'eco', 'hitech']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).layout, layout, `Структура ${layout} потерялась с темой ${theme}`);
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
