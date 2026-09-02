@@ -4403,6 +4403,9 @@ html.requires-top-level.top-level body { visibility:visible; }
   color:#fff;
   cursor:pointer;
   touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-touch-callout:none;
   -webkit-tap-highlight-color:transparent;
   font:900 11px/1.2 inherit;
 }

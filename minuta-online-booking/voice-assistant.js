@@ -519,14 +519,21 @@
     let speechEpoch = 0;
     let speaking = false;
     let russianVoice = null;
+    let suppressCompatibilityClick = false;
+    let compatibilityClickResetTimer = null;
+    let activeTouchPointerId = null;
 
     function refreshRussianVoice() {
       try { russianVoice = selectRussianVoice(global.speechSynthesis?.getVoices?.() || []); } catch { russianVoice = null; }
       return russianVoice;
     }
 
-    function playMicrophoneCue(active = true) {
+    function playMicrophoneCue(active = true, audible = true) {
       try { global.navigator?.vibrate?.(active ? 35 : 20); } catch {}
+      // На телефоне собственный звук после захвата микрофона может попасть в
+      // распознавание или забрать Android audio focus. Там оставляем вибрацию
+      // и визуальный индикатор, а звуковой сигнал сохраняем на компьютере.
+      if (!audible) return;
       const AudioContext = global.AudioContext || global.webkitAudioContext;
       if (!AudioContext) return;
       try {
@@ -555,12 +562,20 @@
       listenButton.querySelector('span').textContent = value ? (finishingRecognition ? 'Распознаю…' : 'Остановить запись') : (directRecognitionAvailable ? 'Говорить' : touchDevice ? 'Открыть диктовку' : 'Говорить');
     }
 
-    function abortRecognition() {
+    function resetPointerGesture({ preserveCompatibilityClick = false } = {}) {
+      activeTouchPointerId = null;
+      clearTimeout(compatibilityClickResetTimer);
+      compatibilityClickResetTimer = null;
+      if (!preserveCompatibilityClick) suppressCompatibilityClick = false;
+    }
+
+    function abortRecognition({ preserveCompatibilityClick = false } = {}) {
       recognitionEpoch += 1;
       clearTimeout(recognitionStartTimer);
       recognitionStartTimer = null;
       try { recognition?.abort(); } catch {}
       recognition = null;
+      resetPointerGesture({ preserveCompatibilityClick });
       setListening(false);
     }
 
@@ -571,9 +586,9 @@
       finishingRecognition = true;
       setListening(true);
       status.textContent = 'Заканчиваю запись и распознаю сказанное…';
-      playMicrophoneCue(false);
+      playMicrophoneCue(false, !touchDevice);
       try { recognition.stop(); }
-      catch { abortRecognition(); status.textContent = 'Не удалось завершить запись. Попробуйте ещё раз.'; }
+      catch { abortRecognition({ preserveCompatibilityClick:true }); status.textContent = 'Не удалось завершить запись. Попробуйте ещё раз.'; }
     }
 
     function openKeyboardDictation(message = '') {
@@ -722,6 +737,9 @@
     }
 
     function startRecognition() {
+      // Не даём собственной озвучке помощника конкурировать с микрофоном за
+      // аудиофокус телефона и попадать в распознаваемую фразу.
+      stopSpeech();
       if (!directRecognitionAvailable) {
         if (touchDevice) openKeyboardDictation();
         else { status.textContent = 'Этот браузер не поддерживает распознавание речи. Введите команду текстом.'; input.focus(); }
@@ -732,11 +750,14 @@
       const currentRecognition = new Recognition();
       recognition = currentRecognition;
       currentRecognition.lang = 'ru-RU';
-      currentRecognition.continuous = false;
+      // Android в однократном режиме завершает SpeechRecognition после первой
+      // короткой паузы. На телефоне держим одну сессию до повторного касания.
+      currentRecognition.continuous = touchDevice && !iosDevice;
       currentRecognition.interimResults = !iosDevice;
       currentRecognition.maxAlternatives = 5;
       let latestTranscript = '';
       let receivedFinal = false;
+      let resultHandled = false;
       let recognitionError = '';
       currentRecognition.onstart = () => {
         if (epoch !== recognitionEpoch || !dialog.open) return;
@@ -744,7 +765,7 @@
         recognitionStartTimer = null;
         setListening(true);
         status.textContent = 'Микрофон готов. Говорите обычной фразой.';
-        playMicrophoneCue(true);
+        playMicrophoneCue(true, !touchDevice);
       };
       currentRecognition.onaudiostart = () => {
         if (epoch !== recognitionEpoch || !dialog.open) return;
@@ -764,7 +785,14 @@
         if (transcript) input.value = transcript.slice(0, 500);
         if (results.length && results.every(item => item.isFinal)) {
           receivedFinal = true;
-          understand();
+          if (currentRecognition.continuous) {
+            status.textContent = finishingRecognition
+              ? 'Заканчиваю запись и распознаю сказанное…'
+              : 'Фраза записана. Можно продолжить или коснуться кнопки ещё раз для завершения.';
+          } else {
+            resultHandled = true;
+            understand();
+          }
         }
       };
       currentRecognition.onerror = event => {
@@ -784,15 +812,19 @@
       };
       currentRecognition.onend = () => {
         if (epoch !== recognitionEpoch) return;
+        const endedByUser = finishingRecognition;
         clearTimeout(recognitionStartTimer);
         recognitionStartTimer = null;
         recognition = null;
         setListening(false);
-        if (!receivedFinal && latestTranscript && dialog.open) {
+        if (!resultHandled && latestTranscript && dialog.open) {
+          resultHandled = true;
           receivedFinal = true;
           understand();
         } else if (!receivedFinal && !recognitionError && dialog.open) {
-          status.textContent = 'Речь не получена. Нажмите «Говорить» ещё раз и начинайте после сигнала.';
+          status.textContent = endedByUser
+            ? 'Речь не получена. Нажмите «Говорить» ещё раз и начинайте после сигнала.'
+            : 'Браузер сам завершил прослушивание, не получив речь. Попробуйте ещё раз или используйте микрофон клавиатуры.';
         }
       };
       setListening(true);
@@ -804,7 +836,7 @@
           recognitionEpoch += 1;
           openKeyboardDictation('Мобильный браузер не открыл микрофон. Клавиатура открыта — нажмите её значок микрофона. На iPhone также должна быть включена «Диктовка» или Siri.');
         }, 4500);
-      } catch { abortRecognition(); status.textContent = 'Микрофон уже используется. Попробуйте ещё раз.'; }
+      } catch { abortRecognition({ preserveCompatibilityClick:true }); status.textContent = 'Микрофон уже используется. Попробуйте ещё раз.'; }
     }
 
     function bind() {
@@ -822,22 +854,50 @@
       closeButton.addEventListener('click', close);
       dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
       form.addEventListener('submit', event => { event.preventDefault(); understand(); });
-      let ignoreSyntheticClickUntil = 0;
       listenButton.addEventListener('pointerdown', event => {
         if (!/^(touch|pen)$/.test(event.pointerType || '')) return;
+        if (event.isPrimary === false || activeTouchPointerId !== null) return;
         event.preventDefault();
-        ignoreSyntheticClickUntil = Date.now() + 900;
+        activeTouchPointerId = event.pointerId ?? 'primary';
+        suppressCompatibilityClick = true;
+        clearTimeout(compatibilityClickResetTimer);
+        compatibilityClickResetTimer = null;
         startRecognition();
       });
       listenButton.addEventListener('pointerup', event => {
         if (!/^(touch|pen)$/.test(event.pointerType || '')) return;
+        if (activeTouchPointerId !== null && event.pointerId !== undefined && event.pointerId !== activeTouchPointerId) return;
         event.preventDefault();
+        activeTouchPointerId = null;
+        clearTimeout(compatibilityClickResetTimer);
+        // compatibility click идёт после pointerup. Отсчёт начинается только
+        // после отпускания, поэтому длительное удержание больше не превращается
+        // во второе нажатие.
+        compatibilityClickResetTimer = setTimeout(() => { suppressCompatibilityClick = false; }, 1200);
       });
+      listenButton.addEventListener('pointercancel', event => {
+        if (!/^(touch|pen)$/.test(event.pointerType || '')) return;
+        if (event.isPrimary === false) return;
+        if (activeTouchPointerId !== null && event.pointerId !== undefined && event.pointerId !== activeTouchPointerId) return;
+        activeTouchPointerId = null;
+        clearTimeout(compatibilityClickResetTimer);
+        // Иногда Android заменяет long-press/scroll на pointercancel. Само
+        // распознавание остаётся tap-to-toggle, но возможный поздний click всё
+        // равно нужно поглотить.
+        compatibilityClickResetTimer = setTimeout(() => { suppressCompatibilityClick = false; }, 1200);
+      });
+      listenButton.addEventListener('contextmenu', event => event.preventDefault());
       listenButton.addEventListener('click', event => {
-        if (Date.now() < ignoreSyntheticClickUntil) { event.preventDefault(); return; }
+        if (suppressCompatibilityClick) {
+          event.preventDefault();
+          suppressCompatibilityClick = false;
+          clearTimeout(compatibilityClickResetTimer);
+          compatibilityClickResetTimer = null;
+          return;
+        }
         startRecognition();
       });
-      doc.addEventListener?.('visibilitychange', () => { if (doc.hidden) abortRecognition(); });
+      doc.addEventListener?.('visibilitychange', () => { if (doc.hidden) abortRecognition({ preserveCompatibilityClick:true }); });
       doc.querySelectorAll('[data-voice-example]').forEach(button => button.addEventListener('click', () => { input.value = button.dataset.voiceExample || ''; understand(); }));
       if (!directRecognitionAvailable) listenButton.classList.add('is-unsupported');
       refreshRussianVoice();
