@@ -3591,21 +3591,14 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.minute-only :is(.timeline-booking-time,.timeline-booking-client-row,.timeline-booking-status) { display:none!important; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.compact:not(.minute-only) .timeline-booking-copy>strong { display:-webkit-box; width:100%; max-width:100%; overflow:hidden; overflow-wrap:anywhere; line-height:1.12; text-align:left; text-overflow:clip; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking.minute-only .timeline-booking-copy>strong { overflow:hidden; line-height:1.1; text-align:left; text-overflow:ellipsis; white-space:nowrap; }
-  /* Одноминутная запись всегда показывает точное время рядом с названием.
-     Этот финальный слой отменяет сдвиг статичного текста в мобильных темах. */
+  /* Одноминутная запись остаётся одной строкой: время и название не занимают
+     конкурирующие колонки и поэтому не могут наложиться друг на друга. */
   .provider-body[data-provider-theme][data-provider-layout] .timeline-booking.minute-only {
     display:grid!important;
-    grid-template-columns:62px minmax(0,1fr)!important;
+    grid-template-columns:minmax(0,1fr)!important;
     place-items:center stretch!important;
     min-height:44px!important;
     padding:0 8px!important;
-  }
-  .provider-body[data-provider-theme][data-provider-layout] .timeline-booking.minute-only .timeline-booking-time {
-    display:flex!important;
-    grid-column:1!important;
-    align-self:center!important;
-    justify-content:flex-start!important;
-    font-size:10px!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .timeline-booking.minute-only .timeline-booking-minute-copy {
     position:static!important;
@@ -3613,9 +3606,10 @@ html.requires-top-level.top-level body { visibility:visible; }
     right:auto!important;
     left:auto!important;
     display:block!important;
-    grid-column:2!important;
+    grid-column:1!important;
     align-self:center!important;
-    padding:0 6px!important;
+    width:100%!important;
+    padding:0 8px!important;
     overflow:hidden!important;
     text-align:left!important;
     transform:none!important;
@@ -3626,6 +3620,18 @@ html.requires-top-level.top-level body { visibility:visible; }
     line-height:1.15!important;
     text-overflow:ellipsis!important;
     white-space:nowrap!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .timeline-booking.minute-only .timeline-booking-minute-time {
+    display:inline!important;
+    margin-right:2px;
+    font-size:10px!important;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .timeline-booking.minute-only :is(.timeline-service-core,.timeline-service-variant) {
+    position:static!important;
+    display:inline!important;
+    transform:none!important;
   }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .schedule-list .provider-booking { margin:0; border:0!important; border-bottom:1px solid var(--mobile-luxury-line)!important; background:linear-gradient(90deg,#12100c 0 72px,#090a0b 72px)!important; color:var(--mobile-luxury-ink)!important; opacity:1; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .provider-booking-open { grid-template-columns:64px minmax(0,1fr) 26px; gap:8px; min-height:130px; padding:10px 6px; }

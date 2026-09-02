@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '221';
+const version = '222';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -166,7 +166,7 @@ assert.match(provider, /const timeRange = `\$\{startTime\}–\$\{endTime\}`/, '�
 assert.match(provider, /class="timeline-booking-time"><b>\$\{startTime\}<\/b><small>–\$\{endTime\}<\/small>/, 'На большом экране не показывается полный интервал записи');
 assert.match(provider, /class="timeline-mobile-time">\$\{timeRange\}/, 'На телефоне не показывается полный интервал записи');
 assert.match(provider, /const minuteOnly = duration <= 1;/, 'Одноминутная запись не определяется отдельно');
-assert.match(provider, /minuteOnly\s*\? `<span class="timeline-booking-time"><b>\$\{startTime\}<\/b><small>–\$\{endTime\}<\/small><\/span><span class="timeline-booking-copy timeline-booking-minute-copy"><strong>\$\{serviceMarkup\}<\/strong><\/span>`/, 'Одноминутная запись не показывает только время и название услуги');
+assert.match(provider, /minuteOnly\s*\? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">\$\{timeRange\}<\/span>[\s\S]*?\$\{serviceMarkup\}<\/strong><\/span>`/, 'Одноминутная запись не показывает время и название услуги одной строкой');
 assert.match(provider, /class="booking-time-column"><strong>\$\{time\}<small>до \$\{endTime\}/, 'В режиме списка не показывается время окончания записи');
 const providerTimeFromMinutesSource = provider.match(/function timeFromMinutes\(value\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(providerTimeFromMinutesSource, 'Не удалось извлечь расчёт времени окончания записи');
@@ -517,7 +517,8 @@ assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текс
 assert.match(styles, /provider-body \.timeline-booking\.compact \{ grid-template-columns:88px minmax\(0,1fr\); padding:4px 14px; \}/, 'У короткой записи снова слишком большие вертикальные отступы');
 assert.match(styles, /timeline-booking\.minute-only \{[^}]*grid-template-columns:94px minmax\(0,1fr\);[^}]*place-items:center stretch;/, 'Время и название одноминутной записи не выровнены');
 assert.match(styles, /timeline-booking\.minute-only \.timeline-booking-minute-copy \{[^}]*text-align:left;/, 'Название одноминутной записи не выровнено как у остальных записей');
-assert.match(styles, /Одноминутная запись всегда показывает точное время[\s\S]*?timeline-booking\.minute-only \.timeline-booking-time \{[\s\S]*?display:flex!important;[\s\S]*?timeline-booking\.minute-only \.timeline-booking-minute-copy \{[\s\S]*?position:static!important;[\s\S]*?transform:none!important;/, 'Мобильная тема снова накладывает время на название одноминутной записи');
+assert.match(provider, /timeline-booking-minute-time[^`]*?\$\{timeRange\}[^`]*?\$\{serviceMarkup\}/, 'Время и название одноминутной записи не собраны в одну строку');
+assert.match(styles, /Одноминутная запись остаётся одной строкой[\s\S]*?grid-template-columns:minmax\(0,1fr\)!important;[\s\S]*?timeline-booking\.minute-only \.timeline-booking-minute-copy \{[\s\S]*?position:static!important;[\s\S]*?transform:none!important;[\s\S]*?timeline-booking-minute-time \{[\s\S]*?display:inline!important;/, 'Мобильная тема снова накладывает время на название одноминутной записи');
 assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
