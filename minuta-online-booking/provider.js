@@ -24,7 +24,8 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   show_visit_number: true,
   show_client_type: true,
   show_client_labels: true,
-  show_notes: true
+  show_notes: true,
+  ios_transitions: true
 });
 const BOOKING_COLOR_KEYS = ['auto', 'mint', 'sky', 'lavender', 'peach', 'rose', 'vanilla'];
 const BOOKING_COLOR_DEFAULT = 'auto';
@@ -317,7 +318,8 @@ function normalizeDisplayPreferences(value = {}) {
     show_visit_number: source.show_visit_number ?? DEFAULT_DISPLAY_PREFERENCES.show_visit_number,
     show_client_type: source.show_client_type ?? DEFAULT_DISPLAY_PREFERENCES.show_client_type,
     show_client_labels: source.show_client_labels ?? DEFAULT_DISPLAY_PREFERENCES.show_client_labels,
-    show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes
+    show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes,
+    ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions
   };
 }
 function displayPreferencesEqual(left, right) {
@@ -441,6 +443,7 @@ function queueDisplayPreferencesSync(delay = 350) {
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
+  document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
   const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
 }
@@ -456,6 +459,7 @@ function renderDisplayPreferencesForm() {
   $('#showBookingClientType').checked = displayPreferences.show_client_type;
   $('#showBookingClientLabels').checked = displayPreferences.show_client_labels;
   $('#showBookingNotes').checked = displayPreferences.show_notes;
+  $('#iosTransitionsEnabled').checked = displayPreferences.ios_transitions;
 }
 function providerAppIsInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -565,7 +569,8 @@ function displayPreferencesFromForm() {
     show_visit_number: $('#showBookingVisitNumber').checked,
     show_client_type: $('#showBookingClientType').checked,
     show_client_labels: $('#showBookingClientLabels').checked,
-    show_notes: $('#showBookingNotes').checked
+    show_notes: $('#showBookingNotes').checked,
+    ios_transitions: $('#iosTransitionsEnabled').checked
   });
 }
 function saveDisplayPreferences() {
@@ -1150,7 +1155,53 @@ function notify(message) {
   clearTimeout(notify.timer);
   notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
 }
-function setAuthTab(tab) {
+let activeIosTransition = null;
+let activeIosTransitionCleanup = null;
+const PROVIDER_VIEW_ORDER = ['bookings', 'clients', 'notifications', 'waitlist', 'analytics', 'schedule', 'services', 'organization', 'portfolio', 'settings', 'more'];
+
+function canUseIosTransitions() {
+  return displayPreferences?.ios_transitions !== false
+    && typeof document.startViewTransition === 'function'
+    && window.matchMedia('(max-width: 760px)').matches
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function runIosTransition({ current, next, update, direction = 'forward', name = 'ios-provider-panel' }) {
+  if (!current || current.hidden || !canUseIosTransitions()) { update(); return null; }
+  activeIosTransition?.skipTransition();
+  activeIosTransitionCleanup?.();
+  const root = document.documentElement;
+  root.classList.add('ios-view-transition');
+  root.dataset.iosTransitionDirection = direction;
+  current.style.viewTransitionName = name;
+  let target = null;
+  const cleanup = () => {
+    current.style.viewTransitionName = '';
+    if (target && target !== current) target.style.viewTransitionName = '';
+    root.classList.remove('ios-view-transition');
+    delete root.dataset.iosTransitionDirection;
+  };
+  try {
+    const transition = document.startViewTransition(() => {
+      update();
+      target = next?.() || null;
+      if (target) target.style.viewTransitionName = name;
+    });
+    activeIosTransition = transition;
+    activeIosTransitionCleanup = cleanup;
+    transition.finished.finally(() => {
+      if (activeIosTransition !== transition) return;
+      cleanup();
+      activeIosTransition = null;
+      activeIosTransitionCleanup = null;
+    });
+    return transition;
+  } catch {
+    cleanup();
+    update();
+    return null;
+  }
+}
+function setAuthTabImmediate(tab) {
   recoveryMode = false;
   $('#authTabs').hidden = false;
   $('#recoveryForm').hidden = true;
@@ -1164,6 +1215,20 @@ function setAuthTab(tab) {
   $('#authDescription').textContent = tab === 'login'
     ? 'Войдите или зарегистрируйтесь, чтобы управлять расписанием и услугами.'
     : 'Укажите данные исполнителя — после подтверждения почты можно принимать записи.';
+}
+function setAuthTab(tab) {
+  const previousTab = $('[data-auth-tab].active')?.dataset.authTab;
+  const update = () => setAuthTabImmediate(tab);
+  if (previousTab && previousTab !== tab) {
+    return runIosTransition({
+      current: $('#authCard'),
+      next: () => $('#authCard'),
+      update,
+      direction: tab === 'signup' ? 'forward' : 'backward',
+      name: 'ios-auth-card'
+    });
+  }
+  update();
 }
 function showRecoveryRequest() {
   recoveryMode = false;
@@ -1202,7 +1267,7 @@ function showRecoverySent() {
   $('#authTitle').textContent = 'Проверьте почту.';
   $('#authDescription').textContent = 'Ссылка для восстановления доступа уже отправлена.';
 }
-function setProviderView(view) {
+function setProviderViewImmediate(view) {
   $$('[data-provider-view]').forEach(button => {
     const active = button.dataset.providerView === view;
     button.classList.toggle('active', active);
@@ -1228,7 +1293,23 @@ function setProviderView(view) {
     if (organizationController.availability === null) organizationController.load();
     else organizationController.render();
   }
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+function setProviderView(view) {
+  const currentPanel = $$('[data-provider-panel]').find(panel => !panel.hidden);
+  const previousView = currentPanel?.dataset.providerPanel;
+  const update = () => setProviderViewImmediate(view);
+  if (previousView && previousView !== view && !$('#dashboard').hidden) {
+    const previousIndex = PROVIDER_VIEW_ORDER.indexOf(previousView);
+    const nextIndex = PROVIDER_VIEW_ORDER.indexOf(view);
+    return runIosTransition({
+      current: currentPanel,
+      next: () => $$('[data-provider-panel]').find(panel => panel.dataset.providerPanel === view),
+      update,
+      direction: previousIndex >= 0 && nextIndex >= 0 && nextIndex < previousIndex ? 'backward' : 'forward'
+    });
+  }
+  update();
 }
 function setFilter(filter) {
   currentFilter = filter;
