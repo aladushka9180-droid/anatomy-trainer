@@ -4537,3 +4537,76 @@ html.requires-top-level.top-level body { visibility:visible; }
   .payment-attempt-row,.unified-notification-delivery { display:grid; }
   .payment-attempt-row span,.unified-notification-delivery span { text-align:left; }
 }
+
+/* Warm Beige: единая тёплая типографика во всех разделах кабинета. */
+.provider-body[data-provider-theme="warm"] .provider-view small {
+  color:var(--theme-muted)!important;
+}
+.provider-body[data-provider-theme="warm"] :is(
+  .card-heading>small,
+  .dialog-head>small,
+  .success>small,
+  .summary>small,
+  .dashboard-top small,
+  .specialist-filter small,
+  .view-title>div:first-child>span:not(.panel-count),
+  .panel-head>div>small,
+  .settings-heading>small,
+  .manage-title>small,
+  .manage-date-mark>span,
+  .calendar-dialog>small,
+  .reschedule-head>small,
+  .booking-sheet-kicker,
+  .booking-sheet-client small,
+  .booking-sheet-block small,
+  .booking-sheet-price small,
+  .booking-sheet-disclosure>summary small,
+  .client-profile-head>div>small,
+  .client-labels-heading>div>small,
+  .attendance-confirmation small,
+  .notification-toolbar>div>small,
+  .notification-card-head>span,
+  .notification-template-dialog-head>div>small,
+  .connection-log-head>div>small,
+  .voice-assistant-head>div>small,
+  .resource-subhead>div>small,
+  .organization-personal-invites>div:first-child>small,
+  .group-events-panel-head small,
+  .booking-outcome-heading small,
+  .booking-session-heading small,
+  .booking-session-addons>small,
+  .session-composer-summary small,
+  .free-slots-link small,
+  .public-portfolio-heading small,
+  .public-reviews-heading>div:first-child>small,
+  .client-fields-settings>summary small,
+  .client-custom-fields>div>small,
+  .provider-nav-group-label
+) {
+  color:var(--theme-accent)!important;
+}
+.provider-body[data-provider-theme="warm"] :is(
+  .provider-user small,
+  .summary>span,
+  .stat-grid small,
+  .dashboard-summary span,
+  .journal-mode-toggle button:not(.active),
+  .provider-mobile-nav button:not(.active),
+  .provider-mobile-nav a:not(.active),
+  .password-hint,
+  .recovery-note,
+  .recovery-sent p
+) {
+  color:var(--theme-muted)!important;
+}
+.provider-body[data-provider-theme="warm"] :is(
+  .client-list-main i,
+  .client-profile-head a,
+  .client-disclosure summary span,
+  .notification-preview summary,
+  .group-participant a,
+  .forgot-password-button,
+  .auth-back-button
+) {
+  color:var(--theme-accent)!important;
+}
