@@ -33,6 +33,8 @@ assert.match(migration,/zz_bookings_protect_direct_cancellation_v76/i);
 assert.match(migration,/update public\.bookings set expired_unpaid_at=now\(\)[\s\S]*cancellation_reason='payment_expired' and expired_unpaid_at is null;[\s\S]*return found;/i);
 assert.match(integration,/benefit_redemptions[\s\S]*<>'released'/i);
 assert.match(integration,/v76_late_payment_refund_not_queued/i);
+assert.match(integration,/set local role anon;\s*select public\.cancel_booking\(current_setting\('minuta\.v76_manage'\)::uuid\)/i);
+assert.doesNotMatch(integration,/set local role anon;\s*select public\.cancel_booking\(\(select manage_token from public\.bookings/i);
 assert.match(integration,/refund_status='pending' and expired_unpaid_at is null/i);
 assert.match(integration,/v_second is not false/i);
 assert.match(migration,/organization_booking_policy_settings[\s\S]*enabled boolean not null default false/i);

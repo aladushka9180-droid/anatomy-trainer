@@ -79,7 +79,7 @@ insert into public.payments(booking_id,performer_id,provider,provider_operation_
 select booking.id,booking.performer_id,'v76test','v76-late-payment-7601',booking.deposit_amount_rub::bigint*100,'RUB','pending'
 from public.bookings booking where booking.request_id='00000000-0000-4000-8000-000000007601'::uuid;
 set local role anon;
-select public.cancel_booking((select manage_token from public.bookings where request_id='00000000-0000-4000-8000-000000007601'::uuid));
+select public.cancel_booking(current_setting('minuta.v76_manage')::uuid);
 reset role;
 do $$ begin
   if not exists(select 1 from public.bookings where request_id='00000000-0000-4000-8000-000000007601'::uuid
