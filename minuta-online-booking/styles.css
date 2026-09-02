@@ -3196,6 +3196,44 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .team-calendar-resource { width:auto; max-width:100%; margin-top:5px; padding:3px 6px; border-radius:0; border-color:var(--mobile-luxury-line); background:#21190d; color:var(--mobile-luxury-gold-light); font-size:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 }
 
+/* Мобильная основа спокойных тем: десктопные отступы геометрии не сжимают экран. */
+@media (max-width:760px) {
+  .provider-body:is(
+    [data-provider-theme="sage"],
+    [data-provider-theme="nordic"],
+    [data-provider-theme="warm"],
+    [data-provider-theme="graphite"],
+    [data-provider-theme="lavender"]
+  )[data-provider-layout] .provider-app {
+    display:block;
+    grid-template-columns:none;
+    width:100%;
+    max-width:none;
+    padding:0 0 calc(86px + env(safe-area-inset-bottom));
+  }
+  .provider-body:is(
+    [data-provider-theme="sage"],
+    [data-provider-theme="nordic"],
+    [data-provider-theme="warm"],
+    [data-provider-theme="graphite"],
+    [data-provider-theme="lavender"]
+  )[data-provider-layout] .provider-workspace {
+    width:100%;
+    max-width:none;
+    padding:0 10px 30px;
+  }
+  .provider-body:is(
+    [data-provider-theme="sage"],
+    [data-provider-theme="nordic"],
+    [data-provider-theme="warm"],
+    [data-provider-theme="graphite"],
+    [data-provider-theme="lavender"]
+  )[data-provider-layout] .provider-view {
+    width:100%;
+    max-width:none;
+  }
+}
+
 /* Mobile Sage Studio + Мягкий минимализм: отдельная полноширинная композиция. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme="sage"][data-provider-layout="soft"] {
