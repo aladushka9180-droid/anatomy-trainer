@@ -936,7 +936,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=191#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=192#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2259,35 +2259,17 @@ function renderTimeline(items) {
     const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
     const top = ((itemStart - start) / 60) * hourHeight;
     const naturalHeight = (duration / 60) * hourHeight;
-    const height = mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
     const minuteOnly = duration <= 1;
-    return { item, index, duration, top, height, minuteOnly, visualLane:0, visualLaneCount:1 };
+    const height = minuteOnly ? 24 : mobileTimeline && duration < 30 ? 24 : Math.max(mobileTimeline ? 30 : 36, naturalHeight - 4);
+    return { item, index, duration, top, visualTop:top, height, minuteOnly };
   });
   const minuteItems = timelineItems.filter(entry => entry.minuteOnly).sort((a, b) => a.top - b.top || a.index - b.index);
-  let minuteCluster = [];
-  let minuteClusterBottom = -Infinity;
-  const assignMinuteLanes = () => {
-    if (minuteCluster.length < 2) {
-      minuteCluster = [];
-      return;
-    }
-    const laneEnds = [];
-    minuteCluster.forEach(entry => {
-      let lane = laneEnds.findIndex(bottom => entry.top >= bottom + 4);
-      if (lane < 0) lane = laneEnds.length;
-      laneEnds[lane] = entry.top + entry.height;
-      entry.visualLane = lane;
-    });
-    minuteCluster.forEach(entry => { entry.visualLaneCount = laneEnds.length; });
-    minuteCluster = [];
-  };
+  let previousMinuteBottom = -Infinity;
   minuteItems.forEach(entry => {
-    if (minuteCluster.length && entry.top >= minuteClusterBottom + 4) assignMinuteLanes();
-    minuteCluster.push(entry);
-    minuteClusterBottom = Math.max(minuteClusterBottom, entry.top + entry.height);
+    entry.visualTop = Math.max(entry.top, previousMinuteBottom + 4);
+    previousMinuteBottom = entry.visualTop + entry.height;
   });
-  assignMinuteLanes();
-  const totalHeight = Math.max(naturalTimelineHeight, ...timelineItems.map(entry => entry.top + entry.height + 4));
+  const totalHeight = Math.max(naturalTimelineHeight, ...timelineItems.map(entry => entry.visualTop + entry.height + 4));
   const labels = [];
   const lines = [];
   for (let minute = start; minute <= end; minute += 60) {
@@ -2297,14 +2279,10 @@ function renderTimeline(items) {
     if (minute + 30 < end) labels.push(`<span class="timeline-hour timeline-half-hour" style="top:${top + hourHeight / 2}px">${String(Math.floor(minute / 60)).padStart(2, '0')}:30</span>`);
     lines.push(`<i class="timeline-grid-line" style="top:${top}px" aria-hidden="true"></i>`);
   }
-  const cards = timelineItems.map(({ item, duration, top, height, minuteOnly, visualLane, visualLaneCount }) => {
+  const cards = timelineItems.map(({ item, duration, visualTop, height, minuteOnly }) => {
     const startTime = String(item.booking_time).slice(0, 5);
     const endTime = timeFromMinutes(minutesFromTime(item.booking_time) + duration);
     const timeRange = `${startTime}–${endTime}`;
-    const laneClass = visualLaneCount > 1 ? ' timeline-booking-laned' : '';
-    const laneStyle = visualLaneCount > 1
-      ? `;left:calc(${(visualLane / visualLaneCount) * 100}% + ${visualLane === 0 ? 8 : 3}px);right:calc(${((visualLaneCount - visualLane - 1) / visualLaneCount) * 100}% + ${visualLane === visualLaneCount - 1 ? 6 : 3}px)`
-      : '';
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     // Карточкам до 45 минут нужен компактный двухстрочный макет: обычные
@@ -2331,7 +2309,7 @@ function renderTimeline(items) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${laneClass}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${top + 2}px;height:${height}px${laneStyle}" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}" title="Зажмите и перетащите, чтобы изменить время">
+    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}" title="Зажмите и перетащите, чтобы изменить время">
       ${cardContent}
     </button>`;
   }).join('');
@@ -5778,4 +5756,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=191'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=192'));

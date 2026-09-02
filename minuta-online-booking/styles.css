@@ -2761,18 +2761,6 @@ html.requires-top-level.top-level body { visibility:visible; }
     text-align:left;
     transform:none;
   }
-  .provider-body[data-provider-theme] .timeline-booking.minute-only.timeline-booking-laned {
-    grid-template-columns:minmax(0,1fr)!important;
-    padding:0 4px!important;
-  }
-  .provider-body[data-provider-theme] .timeline-booking.minute-only.timeline-booking-laned .timeline-booking-time {
-    justify-content:center;
-    min-width:0;
-    overflow:hidden;
-    font-size:9px;
-    text-overflow:ellipsis;
-  }
-  .provider-body[data-provider-theme] .timeline-booking.minute-only.timeline-booking-laned .timeline-booking-minute-copy { display:none!important; }
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-note { display:none!important; }
   .provider-body[data-provider-theme] .timeline-booking.compact.has-note .timeline-booking-client::after {
     content:' · есть заметка';
