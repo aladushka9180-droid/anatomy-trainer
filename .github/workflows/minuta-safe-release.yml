@@ -98,6 +98,9 @@ jobs:
           node --check minuta-online-booking/loyalty-v81-static-test.mjs
           node --check minuta-online-booking/inventory-v82-static-test.mjs
           node --check minuta-online-booking/retention-v83-static-test.mjs
+          node --check minuta-online-booking/benefit-exclusivity-v84-static-test.mjs
+          node --check minuta-online-booking/batch-bookings-v85-static-test.mjs
+          node --check minuta-online-booking/group-overlap-trigger-v86-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -120,6 +123,7 @@ jobs:
           node --check minuta-online-booking/loyalty-management.js
           node --check minuta-online-booking/inventory-management.js
           node --check minuta-online-booking/retention-management.js
+          node --check minuta-online-booking/batch-bookings.js
           node --check minuta-online-booking/booking-policy-management.js
           node --check minuta-online-booking/booking-policy-management-controller-test.mjs
           node --check minuta-online-booking/resource-management-controller-test.mjs
@@ -137,6 +141,9 @@ jobs:
           node minuta-online-booking/loyalty-v81-static-test.mjs
           node minuta-online-booking/inventory-v82-static-test.mjs
           node minuta-online-booking/retention-v83-static-test.mjs
+          node minuta-online-booking/benefit-exclusivity-v84-static-test.mjs
+          node minuta-online-booking/batch-bookings-v85-static-test.mjs
+          node minuta-online-booking/group-overlap-trigger-v86-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -415,19 +422,35 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.booking_series') is not null and (select relrowsecurity from pg_class where oid='public.booking_series'::regclass) and exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='series_id') and exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='series_occurrence') and to_regprocedure('public.create_minuta_recurring_bookings(uuid,date,time without time zone,text,text,integer,integer)') is not null and to_regprocedure('public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)') is not null and has_function_privilege('authenticated','public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)','EXECUTE');" \
             | grep -qx t
-          for migration in v80 v81 v82 v83; do
-            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "minuta-online-booking/supabase-migration-${migration}.sql"
-            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "minuta-online-booking/supabase-migration-${migration}.sql"
-          done
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v80.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v80.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v81.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v81.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v82.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v82.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v83.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v83.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v84.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v84.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v85.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v85.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v86.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v86.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.group_booking_events') is not null and to_regprocedure('public.get_minuta_group_booking_admin(uuid,date,date)') is not null and (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_loyalty_settings','loyalty_rules','client_loyalty_accounts','loyalty_visit_awards','loyalty_ledger','loyalty_redemptions','loyalty_promotions','loyalty_promo_redemptions')) and not coalesce((select bool_or(enabled) from public.organization_loyalty_settings),false) and (select count(*)=7 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_inventory_settings','inventory_items','inventory_warehouses','inventory_service_usage','inventory_stock_balances','inventory_movements','inventory_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_inventory_settings),false) and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_retention_settings','client_marketing_consents','retention_deliveries','retention_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_retention_settings),false);" \
+            "select to_regclass('public.group_booking_events') is not null and to_regprocedure('public.get_minuta_group_booking_admin(uuid,date,date)') is not null and (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_loyalty_settings','loyalty_rules','client_loyalty_accounts','loyalty_visit_awards','loyalty_ledger','loyalty_redemptions','loyalty_promotions','loyalty_promo_redemptions')) and not coalesce((select bool_or(enabled) from public.organization_loyalty_settings),false) and (select count(*)=7 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_inventory_settings','inventory_items','inventory_warehouses','inventory_service_usage','inventory_stock_balances','inventory_movements','inventory_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_inventory_settings),false) and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_retention_settings','client_marketing_consents','retention_deliveries','retention_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_retention_settings),false) and to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_batch_booking_settings','booking_batches','booking_batch_items','booking_batch_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_batch_booking_settings),false) and to_regprocedure('public.create_minuta_batch_bookings(uuid,uuid,uuid,text,text,jsonb,uuid,text)') is not null and exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal and tgenabled<>'D') and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal);" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/booking-policies-v76-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v86-rollback.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v85-rollback.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v84-rollback.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-retention-v83.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v82-rollback.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v81-rollback.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-group-bookings-v80.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is null and to_regclass('public.organization_batch_booking_settings') is null and to_regprocedure('public.create_minuta_batch_bookings(uuid,uuid,uuid,text,text,jsonb,uuid,text)') is null and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname in ('bookings_group_event_overlap','zz_bookings_group_event_overlap_v86') and not tgisinternal);" \
+            | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/recovery/rollback-recurring-series-v79.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -534,7 +557,7 @@ jobs:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Проверить v47 и v71–v83 в откатываемой транзакции production
+      - name: Проверить v47 и v71–v86 в откатываемой транзакции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -564,6 +587,9 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v81.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v82.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v83.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v84.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v85.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v86.sql
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
@@ -849,8 +875,17 @@ jobs:
           v83_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "with state as (select (select count(*) from (values (to_regclass('public.organization_retention_settings')),(to_regclass('public.client_marketing_consents')),(to_regclass('public.retention_deliveries')),(to_regclass('public.retention_audit_log'))) item(oid) where oid is not null) table_count,to_regprocedure('public.get_minuta_retention_workspace(uuid)') is not null has_rpc) select case when table_count=0 and not has_rpc then 'absent' when table_count=4 and has_rpc then 'complete' else 'partial' end from state;")"
           case "$v83_layer_state" in absent|complete) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v83.sql;; *) echo "Partial v83 retention layer detected; refusing production migration" >&2; exit 1;; esac
+          v84_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with expected(name,relid) as (values ('benefit_redemptions_exclusivity_v84','public.benefit_redemptions'::regclass),('loyalty_redemptions_exclusivity_v84','public.loyalty_redemptions'::regclass),('loyalty_promo_redemptions_exclusivity_v84','public.loyalty_promo_redemptions'::regclass)),state as (select to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null has_function,(select count(*) from expected join pg_trigger trigger_row on trigger_row.tgname=expected.name and trigger_row.tgrelid=expected.relid and trigger_row.tgfoid=to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') and not trigger_row.tgisinternal and trigger_row.tgenabled<>'D') trigger_count) select case when not has_function and trigger_count=0 then 'absent' when has_function and trigger_count=3 then 'complete' else 'partial' end from state;")"
+          case "$v84_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v84.sql;; complete) echo "v84 benefit exclusivity already exists; preserving it";; *) echo "Partial v84 benefit exclusivity layer detected; refusing production migration" >&2; exit 1;; esac
+          v85_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select (select count(*) from (values (to_regclass('public.organization_batch_booking_settings')),(to_regclass('public.booking_batches')),(to_regclass('public.booking_batch_items')),(to_regclass('public.booking_batch_audit_log'))) item(oid) where oid is not null) table_count,(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('ensure_minuta_batch_booking_settings','touch_minuta_batch_booking_settings','require_minuta_batch_booking_role','set_minuta_batch_bookings_enabled','get_minuta_batch_booking_workspace','create_minuta_batch_bookings')) function_count,(select count(*) from pg_trigger where not tgisinternal and tgenabled<>'D' and tgname in ('organizations_batch_booking_settings','batch_booking_settings_touch')) trigger_count,(select count(*) from pg_indexes where schemaname='public' and indexname in ('booking_batches_scope_created_idx','booking_batches_client_idx','booking_batch_items_batch_idx','booking_batch_audit_scope_idx')) index_count) select case when table_count=0 and function_count=0 and trigger_count=0 and index_count=0 then 'absent' when table_count=4 and function_count=6 and trigger_count=2 and index_count=4 then 'complete' else 'partial' end from state;")"
+          case "$v85_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v85.sql;; complete) echo "v85 batch booking layer already exists; preserving batches";; *) echo "Partial v85 batch booking layer detected; refusing production migration" >&2; exit 1;; esac
+          v86_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "with state as (select exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal and tgenabled<>'D') has_legacy,exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal and tgenabled<>'D') has_v86) select case when has_legacy and not has_v86 then 'legacy' when not has_legacy and has_v86 then 'complete' else 'partial' end from state;")"
+          case "$v86_layer_state" in legacy) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v86.sql;; complete) echo "v86 group overlap trigger order already fixed";; *) echo "Partial v86 group overlap trigger state detected; refusing production migration" >&2; exit 1;; esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select not coalesce((select bool_or(enabled) from public.organization_group_booking_settings),false) and not coalesce((select bool_or(enabled) from public.organization_loyalty_settings),false) and not coalesce((select bool_or(enabled) from public.organization_inventory_settings),false) and not coalesce((select bool_or(enabled) from public.organization_retention_settings),false) and not has_table_privilege('anon','public.retention_deliveries','SELECT') and not has_table_privilege('authenticated','public.inventory_movements','INSERT');" \
+            "select not coalesce((select bool_or(enabled) from public.organization_group_booking_settings),false) and not coalesce((select bool_or(enabled) from public.organization_loyalty_settings),false) and not coalesce((select bool_or(enabled) from public.organization_inventory_settings),false) and not coalesce((select bool_or(enabled) from public.organization_retention_settings),false) and not coalesce((select bool_or(enabled) from public.organization_batch_booking_settings),false) and to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.enforce_minuta_booking_benefit_exclusivity()'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and not has_function_privilege('anon','public.enforce_minuta_booking_benefit_exclusivity()','EXECUTE') and not has_function_privilege('authenticated','public.enforce_minuta_booking_benefit_exclusivity()','EXECUTE') and exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal and tgenabled<>'D') and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal) and not has_table_privilege('anon','public.retention_deliveries','SELECT') and not has_table_privilege('authenticated','public.inventory_movements','INSERT') and not has_table_privilege('authenticated','public.booking_batches','INSERT');" \
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \

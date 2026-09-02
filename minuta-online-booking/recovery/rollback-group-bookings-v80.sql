@@ -1,6 +1,7 @@
 begin;
 
 drop trigger if exists bookings_group_event_overlap on public.bookings;
+drop trigger if exists zz_bookings_group_event_overlap_v86 on public.bookings;
 drop function if exists public.prevent_minuta_group_event_booking_overlap();
 
 drop trigger if exists organizations_group_booking_settings on public.organizations;

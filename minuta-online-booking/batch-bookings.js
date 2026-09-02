@@ -85,6 +85,8 @@
       if (!settings || !composer) return;
       const supported = Boolean(organization && ['loading','ready','error'].includes(availability));
       settings.hidden = !supported;
+      const settingsNav = $('#batchBookingSettingsNav');
+      if (settingsNav) settingsNav.hidden = !supported;
       composer.hidden = !(supported && availability === 'ready' && workspace?.enabled && client);
       if (!supported) return;
       const loading = availability === 'loading';

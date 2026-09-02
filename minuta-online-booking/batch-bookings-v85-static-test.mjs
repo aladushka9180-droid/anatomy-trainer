@@ -45,6 +45,8 @@ assert.match(provider, /batchBookingsController\.setOrganization\(organization\)
 assert.match(provider, /batchBookingsController\?\.setClient\(client\)/, 'composer must follow the selected client');
 assert.match(html, /id="batchBookingRows"/, 'provider UI must contain the row composer');
 assert.match(html, /id="batchBookingSettingsCard" hidden/, 'settings UI must start hidden until RPC support is confirmed');
+assert.match(html, /id="batchBookingSettingsNav"[^>]+hidden/, 'settings navigation must stay hidden until RPC support is confirmed');
+assert.match(controller, /settingsNav\.hidden = !supported/, 'settings navigation must follow RPC availability');
 assert.match(html, /src="batch-bookings\.js\?v=\d+" defer/, 'provider must load the dedicated controller');
 assert.match(worker, /\.\/batch-bookings\.js\?v=\d+/, 'offline cache must include the controller');
 
