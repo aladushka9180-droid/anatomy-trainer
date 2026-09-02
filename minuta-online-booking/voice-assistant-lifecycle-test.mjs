@@ -293,9 +293,8 @@ noSpeechRecognition.onerror({ error:'no-speech' });
 noSpeechRecognition.onend();
 await new Promise(resolve => setTimeout(resolve, 260));
 const retriedRecognition = FakeRecognition.instances.at(-1);
-assert.notEqual(retriedRecognition, noSpeechRecognition, 'мгновенный no-speech на телефоне должен один раз перезапустить микрофон');
-assert.ok(retriedRecognition.started);
-retriedRecognition.onstart();
+assert.equal(retriedRecognition, noSpeechRecognition, 'ошибка no-speech не должна самовольно запускать микрофон несколько раз');
+assert.match(status.textContent, /начинайте после сигнала/i, 'после no-speech должна быть понятная инструкция для следующей попытки');
 
 controller.destroy();
 assert.equal(globalListeners.get('minuta:provider-session-reset')?.size || 0, 0, 'destroy должен снять глобальный обработчик');
