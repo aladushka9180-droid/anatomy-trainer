@@ -775,6 +775,29 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important; } }
 
+/* Плавная мобильная навигация в духе iOS: только transform и opacity. */
+@media (max-width:760px) {
+  html.ios-view-transition { view-transition-name:none; }
+  ::view-transition-group(ios-provider-panel),
+  ::view-transition-group(ios-auth-card) { animation-duration:.4s; animation-timing-function:cubic-bezier(.22,1,.36,1); }
+  ::view-transition-old(ios-provider-panel),
+  ::view-transition-new(ios-provider-panel),
+  ::view-transition-old(ios-auth-card),
+  ::view-transition-new(ios-auth-card) { mix-blend-mode:normal; backface-visibility:hidden; }
+  html[data-ios-transition-direction="forward"]::view-transition-old(ios-provider-panel),
+  html[data-ios-transition-direction="forward"]::view-transition-old(ios-auth-card) { animation:ios-view-old-forward .3s ease-out both; }
+  html[data-ios-transition-direction="forward"]::view-transition-new(ios-provider-panel),
+  html[data-ios-transition-direction="forward"]::view-transition-new(ios-auth-card) { animation:ios-view-new-forward .4s cubic-bezier(.22,1,.36,1) both; }
+  html[data-ios-transition-direction="backward"]::view-transition-old(ios-provider-panel),
+  html[data-ios-transition-direction="backward"]::view-transition-old(ios-auth-card) { animation:ios-view-old-backward .34s cubic-bezier(.4,0,.2,1) both; }
+  html[data-ios-transition-direction="backward"]::view-transition-new(ios-provider-panel),
+  html[data-ios-transition-direction="backward"]::view-transition-new(ios-auth-card) { animation:ios-view-new-backward .4s cubic-bezier(.22,1,.36,1) both; }
+}
+@keyframes ios-view-old-forward { to { opacity:.72; transform:translate3d(-18%,0,0); } }
+@keyframes ios-view-new-forward { from { opacity:.94; transform:translate3d(100%,0,0); } to { opacity:1; transform:none; } }
+@keyframes ios-view-old-backward { to { opacity:.94; transform:translate3d(100%,0,0); } }
+@keyframes ios-view-new-backward { from { opacity:.72; transform:translate3d(-18%,0,0); } to { opacity:1; transform:none; } }
+
 /* Единый минималистичный интерфейс */
 .panel,.schedule-card,.clients-directory,.client-profile,.settings-card { border:1px solid #e1e9e3; border-radius:18px; background:#fff; box-shadow:none; backdrop-filter:none; }
 .provider-view { padding-top:28px; }
