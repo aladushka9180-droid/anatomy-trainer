@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '158';
+const version = '159';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -74,10 +74,10 @@ assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 30000/, 'Резервная �
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
-assert.match(providerHtml, /team-calendar\.js\?v=158/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=158/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=158/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=158/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=159/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=159/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=159/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=159/, 'Кабинет не подключает контроллер зарплат');
 assert.match(providerHtml, new RegExp(`benefit-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер абонементов');
 assert.match(providerHtml, new RegExp(`booking-policy-management\\.js\\?v=${version}`), 'Кабинет не подключает правила филиалов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
@@ -112,7 +112,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=158"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=159"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -307,6 +307,7 @@ assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор �
 const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_THEME_KEYS = [^;]+;/)?.[0],
+  provider.match(/const PROVIDER_TEXT_SCALE_KEYS = [^;]+;/)?.[0],
   provider.match(/const LEGACY_PROVIDER_THEME_MAP = [^;]+;/)?.[0],
   provider.match(/const DEFAULT_DISPLAY_PREFERENCES = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
@@ -319,10 +320,10 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true }, 'Старый выбор Bento переносится неверно');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
-const ecoCapsule = { layout:'capsule', theme:'eco', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
+const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
+const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
@@ -346,7 +347,8 @@ assert.match(styles, /button,a,summary\s*\{[^}]*touch-action:manipulation/, 'Д�
 assert.match(styles, /\.provider-body \.ambient-right\s*\{[^}]*display:none/, 'Декоративная жёлтая область остаётся на мобильном');
 assert.match(styles, /input,select,textarea\s*\{[^}]*font-size:16px!important/, 'Мобильные поля могут вызывать автоматическое увеличение');
 assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
-assert.match(providerHtml, /data-date-shift="-7"[\s\S]*data-date-shift="7"/, 'В расписании нет навигации по неделям');
+assert.match(providerHtml, /data-date-shift="-1"[\s\S]*data-date-shift="1"/, 'В расписании нет навигации по выбранному периоду');
+assert.match(providerHtml, /data-calendar-view="day"[\s\S]*data-calendar-view="week"[\s\S]*data-calendar-view="month"/, 'В расписании нет переключения дня, недели и месяца');
 assert.match(providerHtml, /data-provider-panel="portfolio"/, 'В кабинете нет раздела портфолио');
 assert.match(providerHtml, /id="portfolioSessions"[^>]*min="1"[^>]*max="999"/, 'Нельзя указать количество проведённых сеансов');
 assert.match(providerHtml, /id="portfolioBeforeFile"[^>]*accept="image\/jpeg,image\/png,image\/webp"/, 'Нет выбора фотографии «До»');

@@ -110,7 +110,7 @@ const ownerOrganization = { id: 'org-1', current_role: 'owner', can_manage: true
   dom.elements.teamCalendarPerformer.dispatch('change');
   dom.elements.teamCalendarResource.value = 'resource-2';
   dom.elements.teamCalendarResource.dispatch('change');
-  assert.doesNotMatch(dom.elements.providerBookings.innerHTML, /Анна/);
+  assert.match(dom.elements.providerBookings.innerHTML, /Анна[\s\S]*>0</, 'При фильтре ресурса специалист без записей должен оставаться видимым с нулём');
   assert.match(dom.elements.providerBookings.innerHTML, /Борис/);
   assert.equal(modeChanges.at(-1), true);
 }
