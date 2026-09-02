@@ -11,6 +11,7 @@ on:
         options:
           - preflight
           - test-migration
+          - validate-production-rollback
           - production-migration
           - diagnose-client-links
           - observe-production
@@ -392,6 +393,44 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select (select count(*)=5 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid=class.relnamespace where namespace.nspname='public' and class.relname in ('resource_groups','resources','service_resource_requirements','booking_resource_allocations','resource_audit_log')) and to_regprocedure('public.get_minuta_resource_workspace(uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v3(text)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v3(text,uuid,uuid,date,date)') is not null and exists(select 1 from pg_constraint where conrelid='public.booking_resource_allocations'::regclass and conname='booking_resources_active_no_overlap') and exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) and not has_table_privilege('anon','public.resources','SELECT') and not has_table_privilege('authenticated','public.resources','INSERT');" \
+            | grep -qx t
+
+  validate-production-rollback:
+    if: inputs.phase == 'validate-production-rollback'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Установить клиент PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Проверить v72 и v73 в откатываемой транзакции production
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          case "$SUPABASE_DB_URL" in
+            *cawexmmrqjvothcbgjxr*) ;;
+            *) echo "Строка подключения не соответствует production проекту" >&2; exit 1 ;;
+          esac
+          MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
+          validation_sql="$(mktemp)"
+          trap 'rm -f "$validation_sql"' EXIT
+          {
+            echo 'begin;'
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v72.sql
+            sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/payroll-v72-integration.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v73.sql
+            sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/benefits-v73-integration.sql
+            echo 'rollback;'
+          } > "$validation_sql"
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -f "$validation_sql"
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select not exists(select 1 from public.bookings where request_id in ('00000000-0000-4000-8000-000000007201'::uuid,'00000000-0000-4000-8000-000000007301'::uuid));" \
             | grep -qx t
 
   production-migration:
