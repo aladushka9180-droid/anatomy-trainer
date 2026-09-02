@@ -2506,6 +2506,45 @@ html.requires-top-level.top-level body { visibility:visible; }
 ):is(:hover,.active) { border-color:#d6a64d; background:linear-gradient(110deg,rgba(214,166,77,.16),rgba(12,12,12,.97) 46%); box-shadow:inset 0 1px 0 rgba(255,255,255,.035); }
 .provider-body[data-provider-theme="luxury"] :is(.client-list-avatar,.client-avatar,.booking-sheet-client-avatar) { overflow:hidden; border:1px solid #f0c76f!important; border-radius:50%!important; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27)!important; color:#211608!important; box-shadow:inset 0 1px 0 rgba(255,255,255,.42),0 6px 16px rgba(214,166,77,.18); }
 
+/* Окно ручной записи продолжает полноценную палитру Luxury и на широком экране. */
+.provider-body[data-provider-theme="luxury"] .booking-sheet-backdrop { background:rgba(0,0,0,.8); backdrop-filter:blur(6px); }
+.provider-body[data-provider-theme="luxury"] .booking-sheet-panel {
+  border:1px solid #80612d;
+  background-color:#070809;
+  background-image:linear-gradient(rgba(0,0,0,.76),rgba(0,0,0,.86)),url("provider-luxury-marble-v4.webp");
+  background-position:center;
+  background-size:1100px auto;
+  color:#f5efe3;
+  color-scheme:dark;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 28px 90px rgba(0,0,0,.68);
+}
+.provider-body[data-provider-theme="luxury"] .booking-sheet-close { border:1px solid #f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608; box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 7px 20px rgba(214,166,77,.2); }
+.provider-body[data-provider-theme="luxury"] :is(.booking-sheet-kicker,.booking-clicked-time) { color:#d9aa51; }
+.provider-body[data-provider-theme="luxury"] .new-booking-mode-toggle { gap:0; padding:4px; border:1px solid #5c4625; background:#090a0b; }
+.provider-body[data-provider-theme="luxury"] .new-booking-mode-toggle button { background:transparent; color:#c7baa4; box-shadow:none; }
+.provider-body[data-provider-theme="luxury"] .new-booking-mode-toggle button.active { border:1px solid #e0b35e; background:linear-gradient(145deg,#a9772e,#d9a950 58%,#8b6022); color:#1c1207; box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 7px 18px rgba(214,166,77,.14); }
+.provider-body[data-provider-theme="luxury"] .new-booking-section { border-color:#6c5227; background:rgba(8,9,10,.94); color:#f5efe3; box-shadow:inset 0 1px 0 rgba(255,255,255,.025); }
+.provider-body[data-provider-theme="luxury"] .new-booking-section-title>span { border:1px solid #f0c76f; background:linear-gradient(145deg,#bc8736,#e4b861 56%,#9d6b27); color:#211608; box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 5px 14px rgba(214,166,77,.14); }
+.provider-body[data-provider-theme="luxury"] .new-booking-section-title strong { color:#fff8eb; }
+.provider-body[data-provider-theme="luxury"] .new-booking-section-title small { color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] .new-booking-form label { color:#d8c9ae; }
+.provider-body[data-provider-theme="luxury"] :is(.new-booking-form input,.new-booking-form select,.new-booking-form textarea) { border-color:#745a2b; background:#08090a; color:#f5efe3; caret-color:#e5b75d; box-shadow:inset 0 1px 0 rgba(255,255,255,.025); }
+.provider-body[data-provider-theme="luxury"] :is(.new-booking-form input,.new-booking-form textarea)::placeholder { color:#8e8371; opacity:1; }
+.provider-body[data-provider-theme="luxury"] :is(.new-booking-form input,.new-booking-form select,.new-booking-form textarea):focus { outline:2px solid rgba(224,179,94,.2); border-color:#e0b35e; }
+.provider-body[data-provider-theme="luxury"] .new-booking-block-fields { border-color:#5c4625; background:#0b0c0d; }
+.provider-body[data-provider-theme="luxury"] .new-booking-block-fields p { color:#bdae96; }
+.provider-body[data-provider-theme="luxury"] .booking-time-picker { border-color:#5c4625; background:#070809; }
+.provider-body[data-provider-theme="luxury"] .booking-time-guide:not(:first-child) { border-top-color:#4e3b20; }
+.provider-body[data-provider-theme="luxury"] .booking-time-guide strong { color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] .booking-time-guide span { color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] :is(.booking-time-hours button,.booking-time-slots button) { border-color:#5c4625; background:#0a0b0c; color:#f2e8d5; box-shadow:inset 0 1px 0 rgba(255,255,255,.025); }
+.provider-body[data-provider-theme="luxury"] :is(.booking-time-hours button,.booking-time-slots button):hover { border-color:#d6a64d; background:#14110d; color:#fff8eb; }
+.provider-body[data-provider-theme="luxury"] :is(.booking-time-hours button.active,.booking-time-slots button.active) { border-color:#f0c76f; background:linear-gradient(145deg,#a9772e,#d9a950 58%,#8b6022); color:#1c1207; box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 7px 18px rgba(214,166,77,.14); }
+.provider-body[data-provider-theme="luxury"] .booking-time-warning { border:1px solid #745a2b; background:#241d12; color:#e5b75d; }
+.provider-body[data-provider-theme="luxury"] .booking-color-option { border-color:#5c4625; background:#0a0b0c; color:#c7baa4; }
+.provider-body[data-provider-theme="luxury"] .booking-color-option:has(input:checked) { border-color:#e0b35e; background:#241d12; color:#e5b75d; box-shadow:0 0 0 2px rgba(214,166,77,.12); }
+.provider-body[data-provider-theme="luxury"] .booking-color-option:has(input:focus-visible) { outline-color:rgba(224,179,94,.35); }
+
 /* Лофт / Индастриал: бетон, тёмное дерево, сталь и жёсткая геометрия. */
 .provider-body[data-provider-theme="loft"] {
   --theme-bg:#292a29; --theme-surface:#202120; --theme-surface-alt:#2b2c2b; --theme-ink:#ecebe8;

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '148';
+const version = '149';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -69,10 +69,10 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(providerHtml, /team-calendar\.js\?v=148/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=148/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=148/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=148/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=149/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=149/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=149/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=149/, 'Кабинет не подключает контроллер зарплат');
 assert.match(providerHtml, new RegExp(`benefit-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер абонементов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
@@ -102,7 +102,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=148"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=149"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -128,8 +128,8 @@ const detectInstallPlatform = navigator => Function('navigator', `${installDetec
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36', platform:'Linux armv8l', maxTouchPoints:5 }), { ios:false, android:true, inApp:false }, 'Chrome на Android определяется неверно');
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1', platform:'iPhone', maxTouchPoints:5 }), { ios:true, android:false, inApp:false }, 'Safari на iPhone определяется неверно');
 assert.equal(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Instagram 325.0.0.0', platform:'Linux armv8l', maxTouchPoints:5 }).inApp, true, 'Встроенный браузер Android не распознаётся');
-assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v4'/, 'Старый мобильный режим списка не сбрасывается после возврата ленты');
-assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента времени не является режимом расписания по умолчанию');
+assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v5'/, 'Новый двухколоночный режим не отделён от старой настройки ленты');
+assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'split'/, 'Двухколоночный журнал не является режимом по умолчанию');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
 assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');
@@ -283,6 +283,7 @@ assert.match(styles, /\[data-provider-panel="analytics"\] \.view-title \{[\s\S]*
 assert.match(styles, /\.benefits-enable-field \{[\s\S]*?grid-template-columns:22px minmax\(0,1fr\)[\s\S]*?\.benefits-enable-field>input \{[\s\S]*?width:20px!important;[\s\S]*?\.benefits-enable-field>span \{ display:grid; gap:4px;/, 'Переключатель абонементов снова распался или склеил текст');
 assert.match(styles, /\.organization-section \.settings-check \{[\s\S]*?grid-template-columns:22px minmax\(0,1fr\)[\s\S]*?\.organization-section \.settings-check>input \{[\s\S]*?width:20px!important/, 'Переключатели раздела «Команда» снова распались');
 assert.match(styles, /\.payroll-toolbar \{[\s\S]*?grid-template-columns:repeat\(2,minmax\(180px,1fr\)\)[\s\S]*?\.payroll-toolbar \.payroll-enable-field \{ grid-column:1\/-1;/, 'Переключатель зарплат снова встал между датами');
+assert.match(styles, /Окно ручной записи[\s\S]*?data-provider-theme="luxury"\] \.new-booking-section \{[\s\S]*?background:rgba\(8,9,10,\.94\)[\s\S]*?\.booking-time-hours button\.active,\.booking-time-slots button\.active[\s\S]*?linear-gradient/, 'Окно новой записи Luxury снова стало бело-зелёным');
 assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
 const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
@@ -299,10 +300,10 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true }, 'Старый выбор Bento переносится неверно');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true };
-const ecoCapsule = { layout:'capsule', theme:'eco', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true };
+const luxuryLinear = { layout:'linear', theme:'luxury', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
+const ecoCapsule = { layout:'capsule', theme:'eco', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
