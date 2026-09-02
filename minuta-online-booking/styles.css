@@ -2065,12 +2065,16 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="luxury"] .provider-app {
   grid-template-columns:260px minmax(0,1fr);
   background-color:#050607;
-  background-image:linear-gradient(128deg,transparent 0 35%,rgba(255,255,255,.055) 35.15%,transparent 35.45%),linear-gradient(31deg,transparent 0 68%,rgba(214,166,77,.075) 68.1%,transparent 68.42%),linear-gradient(160deg,transparent 0 78%,rgba(255,255,255,.035) 78.15%,transparent 78.5%),radial-gradient(circle at 77% 4%,#17191c 0,transparent 32%);
-  background-size:720px 480px,920px 620px,640px 560px,100% 100%;
+  background-image:linear-gradient(rgba(3,4,5,.24),rgba(3,4,5,.39)),url("provider-luxury-marble-v3.webp");
+  background-position:center top;
+  background-size:cover;
+  background-attachment:fixed;
 }
 .provider-body[data-provider-theme="luxury"] .provider-sidebar {
   padding:26px 15px 20px; border-right:1px solid #9d7737; background-color:rgba(4,5,6,.96);
-  background-image:linear-gradient(132deg,transparent 0 61%,rgba(255,255,255,.04) 61.2%,transparent 61.55%),linear-gradient(34deg,transparent 0 76%,rgba(214,166,77,.07) 76.2%,transparent 76.55%);
+  background-image:linear-gradient(rgba(3,4,5,.72),rgba(3,4,5,.84)),url("provider-luxury-marble-v3.webp");
+  background-position:left top;
+  background-size:auto 100vh;
   box-shadow:9px 0 34px rgba(0,0,0,.45);
 }
 .provider-body[data-provider-theme="luxury"] .provider-brand { padding:0 6px 25px; border-bottom-color:rgba(214,166,77,.28); }
@@ -2087,12 +2091,12 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="luxury"] .provider-user { border:1px solid rgba(214,166,77,.25); background:rgba(214,166,77,.055); }
 .provider-body[data-provider-theme="luxury"] .user-avatar { border:1px solid #d6a64d; border-radius:50%; background:transparent; color:#d6a64d; }
 .provider-body[data-provider-theme="luxury"] .provider-workspace { padding:0 34px 70px; }
-.provider-body[data-provider-theme="luxury"] .provider-topbar { min-height:86px; border-bottom-color:#765827; background:linear-gradient(100deg,rgba(5,6,7,.96),rgba(16,17,19,.78)); }
+.provider-body[data-provider-theme="luxury"] .provider-topbar { min-height:86px; border-bottom-color:#765827; background-image:linear-gradient(100deg,rgba(5,6,7,.87),rgba(10,11,12,.72)),url("provider-luxury-marble-v3.webp"); background-position:center 10%; background-size:cover; }
 .provider-body[data-provider-theme="luxury"] :is(.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.notification-toolbar h3,.client-profile-head h3,.organization-overview-copy h3) { font-family:Georgia,"Times New Roman",serif; font-weight:500; letter-spacing:-.02em; }
 .provider-body[data-provider-theme="luxury"] .view-title>div:first-child>span:not(.panel-count) { color:#d6a64d; letter-spacing:.17em; }
 .provider-body[data-provider-theme="luxury"] .dashboard-summary { border:1px solid rgba(214,166,77,.28); background:rgba(5,6,7,.72); color:#e7b75c; }
-.provider-body[data-provider-theme="luxury"] :is(.panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,.report-summary article,.portfolio-card,.provider-review-card) { box-shadow:inset 0 0 0 1px rgba(214,166,77,.035),0 16px 38px rgba(0,0,0,.28); }
-.provider-body[data-provider-theme="luxury"] .schedule-card { border-color:#7c5d2a; background:rgba(5,6,7,.82); }
+.provider-body[data-provider-theme="luxury"] :is(.panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,.report-summary article,.portfolio-card,.provider-review-card) { background-image:linear-gradient(rgba(7,8,9,.84),rgba(7,8,9,.89)),url("provider-luxury-marble-v3.webp"); background-position:center; background-size:1100px auto; box-shadow:inset 0 0 0 1px rgba(214,166,77,.035),0 16px 38px rgba(0,0,0,.28); }
+.provider-body[data-provider-theme="luxury"] .schedule-card { border-color:#7c5d2a; background-color:rgba(5,6,7,.82); }
 .provider-body[data-provider-theme="luxury"] :is(.date-navigation,.date-strip,.schedule-toolbar,.timeline-view) { border-color:#5d4623; background-color:rgba(5,6,7,.62); }
 .provider-body[data-provider-theme="luxury"] .date-strip { padding:0; }
 .provider-body[data-provider-theme="luxury"] .date-strip button { min-height:88px; border-left:1px solid rgba(214,166,77,.18); border-radius:0; color:#c9beac; }
@@ -2101,7 +2105,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="luxury"] :is(.primary,.journal-mode-toggle button.active,.booking-filters button.active,.notification-filters button.active,.report-periods button.active) { border-color:#e0b35e; background:linear-gradient(145deg,#a9772e,#d9a950 58%,#8b6022); color:#1c1207!important; box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 22px rgba(214,166,77,.15); }
 .provider-body[data-provider-theme="luxury"] :is(.primary,.journal-mode-toggle button.active)>span { color:#1c1207!important; }
 .provider-body[data-provider-theme="luxury"] :is(.date-nav-button,.date-today-button,.schedule-date-picker,.refresh-button,.journal-mode-toggle,.booking-filters button,.notification-filters,.report-periods,.secondary-button,.logout-button,.topbar-client-link,.sync-state,input,select,textarea) { border-color:#5c4625; background:#0a0b0c; color:#e5dac7; box-shadow:inset 0 1px 0 rgba(255,255,255,.025); }
-.provider-body[data-provider-theme="luxury"] .timeline-stage { border-color:#5b4523; background:rgba(5,6,7,.48); box-shadow:inset 0 0 0 1px rgba(214,166,77,.15); }
+.provider-body[data-provider-theme="luxury"] .timeline-stage { border-color:#5b4523; background-color:rgba(5,6,7,.48); background-image:linear-gradient(rgba(4,5,6,.78),rgba(4,5,6,.84)),url("provider-luxury-marble-v3.webp"); background-position:center; background-size:980px auto; box-shadow:inset 0 0 0 1px rgba(214,166,77,.15); }
 .provider-body[data-provider-theme="luxury"] .timeline-grid-line { background:rgba(214,166,77,.2); }
 .provider-body[data-provider-theme="luxury"] .timeline-hour { color:#d8ad5b; }
 .provider-body[data-provider-theme="luxury"] .timeline-view .timeline-booking,
