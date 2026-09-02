@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '121';
+const version = '122';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -40,6 +40,10 @@ const provider = readFileSync(join(root, 'provider.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
+assert.match(indexHtml, /id="locationFilter"[\s\S]*id="locationSelect"/, 'На клиентской странице нет выбора филиала');
+assert.match(app, /get_public_minuta_catalog_v2/, 'Клиент не загружает филиалы из каталога v68');
+assert.match(app, /state\.teamMode[\s\S]*book_minuta_appointment[\s\S]*book_appointment/, 'Командная запись не отделена от legacy RPC');
+assert.match(app, /missingTeamBookingRpc[\s\S]*Запись в филиал пока не активирована/, 'Отсутствующий v68 RPC не обрабатывается безопасно');
 assert.match(app, /function performerOptions\(\)/, 'Специалисты не собираются из активных услуг');
 assert.match(app, /function visibleServices\(\)/, 'Услуги нельзя отфильтровать по специалисту');
 assert.match(app, /data-performer=/, 'Выбор специалиста не отрисовывается');
@@ -62,6 +66,8 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
+assert.match(providerHtml, /team-calendar\.js\?v=122/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(provider, /teamCalendarController\?\.isTeamMode[\s\S]*teamCalendarController\.render\(holder\)/, 'Журнал не передаёт существующий контейнер командному календарю');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
@@ -80,7 +86,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=121"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=122"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -282,7 +288,7 @@ assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
 assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
-for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
+for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'organization.js', 'team-calendar.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
 assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');

@@ -13,7 +13,7 @@
   };
 
   function createController(options) {
-    const { db, $, $$, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const { db, $, $$, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability, onActiveOrganizationChange } = options;
     let organizations = [];
     let pendingInvitations = [];
     let activeOrganizationId = '';
@@ -22,6 +22,22 @@
 
     function activeOrganization() {
       return organizations.find(item => item.id === activeOrganizationId) || organizations[0] || null;
+    }
+
+    function getActiveOrganization() {
+      const organization = activeOrganization();
+      return organization ? {
+        id: organization.id,
+        name: organization.name,
+        current_role: organization.current_role,
+        can_manage: organization.can_manage,
+        locations: Array.isArray(organization.locations) ? organization.locations.map(item => ({ ...item })) : [],
+        members: Array.isArray(organization.members) ? organization.members.map(item => ({ ...item })) : []
+      } : null;
+    }
+
+    function emitActiveOrganization() {
+      onActiveOrganizationChange?.(getActiveOrganization());
     }
 
     function reset() {
@@ -37,6 +53,7 @@
       $('#organizationWorkspace').hidden = true;
       $('#organizationRoleBadge').textContent = 'Загрузка';
       $('#teamBadge').textContent = '0';
+      emitActiveOrganization();
     }
 
     function setUnavailable(message, unsupported = false) {
@@ -52,6 +69,7 @@
       $('#organizationUnavailableText').textContent = message;
       $('#organizationRoleBadge').textContent = unsupported ? 'Не активировано' : 'Нет связи';
       $('#teamBadge').textContent = '0';
+      emitActiveOrganization();
     }
 
     function applyPayload(payload) {
@@ -61,6 +79,7 @@
       if (!organizations.some(item => item.id === activeOrganizationId)) activeOrganizationId = organizations[0]?.id || '';
       availability = 'ready';
       render();
+      emitActiveOrganization();
     }
 
     function isUnsupportedError(error) {
@@ -283,6 +302,7 @@
       if (!next) return;
       activeOrganizationId = next.id;
       render();
+      emitActiveOrganization();
     }
 
     function bind() {
@@ -291,7 +311,7 @@
       document.addEventListener('change', handleChange);
     }
 
-    return { bind, load, render, reset, get availability() { return availability; } };
+    return { bind, load, render, reset, getActiveOrganization, get availability() { return availability; } };
   }
 
   window.MinutaOrganization = { createController };

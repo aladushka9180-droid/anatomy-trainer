@@ -99,6 +99,46 @@
   .provider-body .timeline-client-visit { padding:0; background:transparent!important; color:inherit!important; font-size:inherit; font-weight:750; }
 }
 
+/* Read-only team calendar and public location scope. */
+.location-filter { display:grid; gap:7px; margin:0 0 16px; color:#294536; font-size:11px; font-weight:850; }
+.location-filter select { width:100%; min-height:48px; padding:0 14px; border:1px solid #dbe6df; border-radius:13px; background:#fff; color:#173b2a; font:inherit; }
+.team-calendar-toolbar { display:flex; align-items:flex-end; gap:12px; padding:13px 16px; border-bottom:1px solid var(--theme-line,#dce6df); background:var(--theme-surface-alt,#f7faf8); }
+.team-calendar-mode { display:flex; flex:0 0 auto; gap:4px; padding:3px; border:1px solid var(--theme-line,#dce6df); border-radius:12px; background:var(--theme-surface,#fff); }
+.team-calendar-mode button { min-height:38px; padding:0 13px; border:0; border-radius:9px; background:transparent; color:var(--theme-muted,#6f8076); cursor:pointer; font-size:11px; font-weight:850; }
+.team-calendar-mode button.active { background:var(--theme-accent-soft,#e7f3eb); color:var(--theme-accent,#17462f); }
+.team-calendar-filters { display:flex; min-width:0; gap:8px; margin:0; padding:0; border:0; }
+.team-calendar-filters label { display:grid; min-width:150px; gap:4px; color:var(--theme-muted,#6f8076); font-size:9px; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
+.team-calendar-filters select { min-height:40px; padding:0 30px 0 10px; border:1px solid var(--theme-line,#dce6df); border-radius:10px; background:var(--theme-surface,#fff); color:var(--theme-text,#173b2a); font-size:11px; }
+.team-calendar-status { min-width:0; margin-left:auto; color:var(--theme-muted,#6f8076); font-size:10px; text-align:right; }
+.team-calendar-list { gap:14px; }
+.team-calendar-group { display:grid; gap:7px; }
+.team-calendar-group-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:3px 2px; }
+.team-calendar-group-head h3 { margin:0; color:var(--theme-text,#173b2a); font-size:13px; }
+.team-calendar-group-head>span { display:grid; min-width:24px; height:24px; place-items:center; border-radius:999px; background:var(--theme-accent-soft,#e7f3eb); color:var(--theme-accent,#17462f); font-size:9px; font-weight:900; }
+.team-calendar-booking { cursor:default; }
+.team-calendar-booking .booking-main { min-width:0; }
+.team-calendar-booking .provider-booking-client-line>span { overflow-wrap:anywhere; }
+.provider-body[data-provider-theme="linear"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme="capsule"] :is(.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select) { border-radius:999px; }
+.provider-body[data-provider-theme="editorial"] :is(.team-calendar-toolbar,.team-calendar-mode,.team-calendar-mode button,.team-calendar-filters select,.team-calendar-booking) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme="bento"] .team-calendar-toolbar { border:1px solid var(--theme-line); border-radius:18px; background:var(--theme-surface); box-shadow:0 8px 24px rgba(29,70,48,.05); }
+
+@media (max-width:760px) {
+  .team-calendar-toolbar { align-items:stretch; flex-direction:column; padding:11px 12px; }
+  .team-calendar-mode { display:grid; grid-template-columns:1fr 1fr; }
+  .team-calendar-mode button { min-height:44px; }
+  .team-calendar-filters { display:grid; grid-template-columns:1fr 1fr; }
+  .team-calendar-filters label { min-width:0; }
+  .team-calendar-filters select { width:100%; min-height:44px; }
+  .team-calendar-status { margin-left:0; text-align:left; }
+  .team-calendar-booking { grid-template-columns:68px minmax(0,1fr); }
+  .provider-body[data-provider-theme="bento"] .team-calendar-toolbar { border-radius:15px; }
+}
+
+@media (max-width:430px) {
+  .team-calendar-filters { grid-template-columns:1fr; }
+}
+
 * { box-sizing: border-box; }
 [hidden] { display:none!important; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust:100%; text-size-adjust:100%; }

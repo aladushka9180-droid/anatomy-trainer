@@ -88,6 +88,7 @@ let synchronizationPromise = null;
 let synchronizationGeneration = -1;
 let synchronizationQueued = false;
 let writesAllowed = false;
+let teamCalendarController = null;
 const reliability = window.MinutaReliability;
 const PROVIDER_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
 const providerCacheMaintenance = (async () => {
@@ -648,7 +649,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=121#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=122#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1099,7 +1100,7 @@ function setJournalMode(mode) {
 
 function updateJournalModeButtons() {
   const modeToggle = $('.journal-mode-toggle');
-  if (modeToggle) modeToggle.hidden = currentFilter !== 'day';
+  if (modeToggle) modeToggle.hidden = teamCalendarController?.isTeamMode || currentFilter !== 'day';
   $$('[data-journal-mode]').forEach(button => {
     const active = button.dataset.journalMode === journalMode;
     button.classList.toggle('active', active);
@@ -1950,10 +1951,14 @@ function closeBookingSheet() {
 
 function renderBookings() {
   const holder = $('#providerBookings');
-  const items = filteredBookings();
   const date = new Date(`${selectedDate}T12:00:00`);
   const today = businessTodayIso();
   $('#selectedDateTitle').textContent = selectedDate === today ? 'Сегодня' : date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+  if (teamCalendarController?.isTeamMode) {
+    $('#selectedDateSummary').textContent = 'Записи выбранной команды';
+    if (teamCalendarController.render(holder)) return;
+  }
+  const items = filteredBookings();
   const clientCount = items.filter(item => !isScheduleBlock(item)).length;
   const blockCount = items.filter(isScheduleBlock).length;
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
@@ -1962,6 +1967,18 @@ function renderBookings() {
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
   else renderBookingList(items);
+}
+
+function setTeamCalendarMode(active) {
+  const teamMode = active === true;
+  const modeToggle = $('.journal-mode-toggle');
+  const filters = $('.booking-filters');
+  const createButton = $('#newBookingButton');
+  if (modeToggle) modeToggle.hidden = teamMode || currentFilter !== 'day';
+  if (filters) filters.hidden = teamMode;
+  if (createButton) createButton.hidden = teamMode;
+  if (!teamMode) updateJournalModeButtons();
+  renderBookings();
 }
 
 function buildClients() {
@@ -2538,7 +2555,7 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.availability === null ? Promise.resolve({ ok:true, optional:true }) : organizationController.load()]);
+    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.load(), teamCalendarController.refresh()]);
     if (!sessionIsCurrent(userId, generation)) return false;
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -2618,6 +2635,7 @@ async function handleSession(session) {
     if (control.id === 'saveSchedule') control.textContent = 'Сохранить';
   });
   setWritesAllowed(false);
+  teamCalendarController.reset();
   organizationController.reset();
   currentUser = session?.user || null;
   if (currentUser) {
@@ -3701,6 +3719,21 @@ window.addEventListener('online', synchronizeProvider);
 new MutationObserver(() => applyWriteAvailability()).observe($('#dashboard'), { childList: true, subtree: true });
 updateJournalModeButtons();
 
+teamCalendarController = window.MinutaTeamCalendar.createController({
+  db,
+  $,
+  $$,
+  escapeHtml,
+  getCurrentUser: () => currentUser,
+  getSessionGeneration: () => sessionGeneration,
+  sessionIsCurrent,
+  getSelectedDate: () => selectedDate,
+  getHolder: () => $('#providerBookings'),
+  onModeChange: setTeamCalendarMode,
+  renderLegacy: renderBookings
+});
+teamCalendarController.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -3711,7 +3744,8 @@ const organizationController = window.MinutaOrganization.createController({
   getCurrentUser: () => currentUser,
   getSessionGeneration: () => sessionGeneration,
   sessionIsCurrent,
-  applyWriteAvailability
+  applyWriteAvailability,
+  onActiveOrganizationChange: organization => teamCalendarController.setOrganization(organization)
 });
 organizationController.bind();
 
@@ -3842,4 +3876,4 @@ window.addEventListener('appinstalled', () => {
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=121'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=122'));

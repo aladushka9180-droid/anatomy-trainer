@@ -1,6 +1,6 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
-const state = { step: 1, services: [], serviceId: '', performerId: '', teamMode: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -44,7 +44,7 @@ function saveBookingAttempt(attempt) {
 }
 
 async function bookingFingerprint(service, name, phone) {
-  const value = JSON.stringify([service.id, state.date, state.time, name.trim(), phone.replace(/\D/g, '')]);
+  const value = JSON.stringify([service.id, state.teamMode ? state.locationId : '', state.date, state.time, name.trim(), phone.replace(/\D/g, '')]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -126,6 +126,22 @@ function performerOptions() {
 function visibleServices() {
   return state.performerId ? state.services.filter(item => item.performer_id === state.performerId) : state.services;
 }
+
+function renderLocations() {
+  const field = $('#locationFilter');
+  const select = $('#locationSelect');
+  if (!field || !select) return;
+  if (!state.teamMode || !state.locations.length) {
+    field.hidden = true;
+    select.innerHTML = '';
+    return;
+  }
+  if (!state.locations.some(item => item.id === state.locationId)) {
+    state.locationId = state.locations.find(item => item.is_primary)?.id || state.locations[0]?.id || '';
+  }
+  select.innerHTML = state.locations.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === state.locationId ? 'selected' : ''}>${escapeHtml(item.name || 'Филиал')}${item.address ? ` · ${escapeHtml(item.address)}` : ''}</option>`).join('');
+  field.hidden = false;
+}
 function selectedDate() { return dates.find(item => item.iso === state.date); }
 function timeRange(time, duration) {
   const [hours, minutes] = String(time).split(':').map(Number);
@@ -190,6 +206,10 @@ function updateSubmitAvailability() {
   hint.classList.toggle('valid', valid);
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
+function isMissingRpc(error, name) {
+  const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return /(?:PGRST202|42883)/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
+}
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function serviceDescription(value) {
   const name = serviceName(value).toLowerCase();
@@ -208,6 +228,7 @@ async function loadServices() {
   const holder = $('#services');
   const revision = ++servicesLoadRevision;
   const previousServiceId = state.serviceId;
+  const previousLocationId = state.locationId;
   if (state.step === 3) setSelectionValidationState('checking');
   setBookingStatus('checking', 'Проверяем расписание…');
   holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем услуги…</span></div>';
@@ -215,12 +236,23 @@ async function loadServices() {
   let error;
   state.teamMode = false;
   state.organization = null;
+  state.locations = [];
+  state.locationId = '';
   if (requestedOrganizationSlug) {
-    const catalogResult = await db.rpc('get_public_minuta_catalog', { p_slug: requestedOrganizationSlug });
+    let catalogResult = await db.rpc('get_public_minuta_catalog_v2', { p_slug: requestedOrganizationSlug });
+    let branchAwareCatalog = !catalogResult.error;
+    if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v2')) {
+      catalogResult = await db.rpc('get_public_minuta_catalog', { p_slug: requestedOrganizationSlug });
+      branchAwareCatalog = false;
+    }
     if (!catalogResult.error) {
       state.organization = catalogResult.data?.organization || null;
-      state.teamMode = Boolean(state.organization);
-      data = state.teamMode && Array.isArray(catalogResult.data?.services) ? catalogResult.data.services : [];
+      state.locations = branchAwareCatalog && Array.isArray(catalogResult.data?.locations) ? catalogResult.data.locations.filter(item => item?.id) : [];
+      // Once the branch-aware catalog answers for an organization, fail closed:
+      // an empty location list means booking is unavailable, never legacy fallback.
+      state.teamMode = Boolean(state.organization && branchAwareCatalog);
+      if (state.locations.some(item => item.id === previousLocationId)) state.locationId = previousLocationId;
+      data = state.organization && Array.isArray(catalogResult.data?.services) ? catalogResult.data.services : [];
       error = null;
     } else if (/PGRST202|42883|get_public_minuta_catalog|function .* does not exist/i.test(`${catalogResult.error.code || ''} ${catalogResult.error.message || ''} ${catalogResult.error.details || ''}`)) {
       ({ data, error } = await db.from('services').select('id, performer_id, name, duration_minutes, price_rub, performer_profiles(display_name)').eq('active', true).order('created_at', { ascending: true }));
@@ -238,6 +270,7 @@ async function loadServices() {
     return;
   }
   state.services = data || [];
+  renderLocations();
   const requestedService = state.services.find(item => item.id === requestedServiceId);
   const performers = performerOptions();
   if (isRepeatBooking && requestedService) state.performerId = requestedService.performer_id || '';
@@ -252,6 +285,10 @@ async function loadServices() {
   setBookingStatus(state.services.length ? 'open' : 'closed', state.services.length ? 'Запись открыта' : 'Запись пока закрыта');
   renderSpecialists();
   renderServices();
+  if (state.teamMode && !state.locations.length) {
+    setBookingStatus('error', 'Запись команды пока не активирована');
+    $('#toDate').disabled = true;
+  }
   if (selectionWasRemoved) {
     state.time = '';
     state.availability = new Map();
@@ -448,7 +485,7 @@ function renderTimes() {
   const suggestionShown = renderAvailabilitySuggestion(times);
   $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length) || suggestionShown;
   const waitlistCta = $('#waitlistCta');
-  if (waitlistCta) waitlistCta.hidden = state.loadingAvailability || state.availabilityError || !state.date || Boolean(times.length);
+  if (waitlistCta) waitlistCta.hidden = state.teamMode || state.loadingAvailability || state.availabilityError || !state.date || Boolean(times.length);
 }
 
 function renderAvailabilitySuggestion(times) {
@@ -592,7 +629,9 @@ async function showStep(step) {
 
 function renderSummary() {
   const service = selectedService();
-  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
+  const location = state.teamMode ? state.locations.find(item => item.id === state.locationId) : null;
+  const locationLabel = location ? ` · ${escapeHtml(location.name || 'Филиал')}` : '';
+  $('#summary').innerHTML = `<small>Ваша запись</small><strong>${escapeHtml(serviceName(service.name))} · ${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}</strong><span>${escapeHtml(service.performer_profiles?.display_name || 'Мастер')}${locationLabel} · ${selectedDate().label}, ${timeRange(state.time, service.duration_minutes)}</span>`;
 }
 function renderSuccessPayment(item) {
   const holder = $('#successPayment');
@@ -615,14 +654,14 @@ function calendarStartMs(date, time, addMinutes = 0) {
 function calendarTimestamp(date, time, addMinutes = 0) { return new Date(calendarStartMs(date, time, addMinutes)).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
 function calendarUtcTimestamp() { return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); }
 function calendarText(value) { return String(value).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1'); }
-function buildSuccessCalendarEvent({ service, performer, date, time, duration, uid }) {
+function buildSuccessCalendarEvent({ service, performer, location: eventLocation, date, time, duration, uid }) {
   return {
     uid,
     date,
     time: String(time).slice(0, 5),
     title: `${service} — Массаж в Ижевске`,
     description: `Исполнитель: ${performer}`,
-    location: 'Ижевск, ул. Карла Маркса, 304б',
+    location: eventLocation || 'Ижевск, ул. Карла Маркса, 304б',
     startMs: calendarStartMs(date, time),
     endMs: calendarStartMs(date, time, duration),
     start: calendarTimestamp(date, time),
@@ -744,17 +783,26 @@ async function submitBooking(event) {
   if (name.length < 2 || phone.replace(/\D/g, '').length !== 11) { showError('Укажите имя и полный номер телефона.'); return; }
   if (!$('#dataConsent').checked) { showError('Подтвердите согласие на обработку данных.'); return; }
   if (!service || !state.time) { showError('Выберите услугу и свободное время.'); return; }
+  if (state.teamMode && !state.locations.length) { showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.'); return; }
+  if (state.teamMode && !state.locationId) { showError('Выберите филиал для записи.'); return; }
   if (!navigator.onLine) { showError('Нет соединения с интернетом. Запись не создана — подключитесь к сети и повторите попытку.'); return; }
   const attempt = await currentBookingAttempt(service, name, phone);
   const submit = $('#submitBooking');
   submit.disabled = true;
   setSubmitLabel(bookingResultUncertain ? 'Проверяем…' : 'Сохраняем…');
   $('#formError').hidden = true;
-  const { data, error } = await db.rpc('book_appointment', { p_request_id: attempt.requestId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone });
+  const bookingResult = state.teamMode
+    ? await db.rpc('book_minuta_appointment', { p_request_id: attempt.requestId, p_slug: requestedOrganizationSlug, p_location: state.locationId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone })
+    : await db.rpc('book_appointment', { p_request_id: attempt.requestId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone });
+  const { data, error } = bookingResult;
   setSubmitLabel(bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись');
   updateSubmitAvailability();
   if (error) {
-    if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
+    const missingTeamBookingRpc = state.teamMode && isMissingRpc(error, 'book_minuta_appointment');
+    if (missingTeamBookingRpc) {
+      clearBookingAttempt();
+      showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
+    } else if (error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505') {
       clearBookingAttempt();
       showError('Это время только что заняли. Выберите другое.');
       await showStep(2);
@@ -770,7 +818,8 @@ async function submitBooking(event) {
     return;
   }
   const manageToken = data?.[0]?.manage_token;
-  currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: serviceName(service.name), performer: service.performer_profiles?.display_name || 'Мастер', date: state.date, time: state.time, duration: service.duration_minutes, uid: manageToken || attempt.requestId });
+  const bookedLocation = state.teamMode ? state.locations.find(item => item.id === state.locationId) : null;
+  currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: serviceName(service.name), performer: service.performer_profiles?.display_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: state.date, time: state.time, duration: service.duration_minutes, uid: manageToken || attempt.requestId });
   saveClientContact(name, phone);
   clearBookingAttempt();
   $('#bookingFlow').hidden = true;
@@ -789,7 +838,7 @@ async function submitBooking(event) {
     const current = management?.[0];
     renderSuccessPayment(current);
     if (current) {
-      currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: current.service_name, performer: current.performer_name || 'Мастер', date: current.booking_date, time: current.booking_time, duration: current.duration_minutes, uid: current.booking_code || manageToken });
+      currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: current.service_name, performer: current.performer_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: current.booking_date, time: current.booking_time, duration: current.duration_minutes, uid: current.booking_code || manageToken });
       const currentDate = new Date(`${current.booking_date}T00:00:00`);
       const currentDateLabel = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
       $('#successDetails').innerHTML = successDetailsMarkup(current.service_name, current.performer_name || 'Мастер', currentDateLabel, timeRange(current.booking_time.slice(0, 5), current.duration_minutes));
@@ -868,6 +917,17 @@ $('#clientName').addEventListener('input', bookingInputChanged);
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
 $('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
+$('#locationSelect')?.addEventListener('change', event => {
+  const nextLocation = event.target.value || '';
+  if (state.locationId === nextLocation) return;
+  state.locationId = nextLocation;
+  state.availability = new Map();
+  state.availabilityServiceId = '';
+  state.time = '';
+  bookingInputChanged();
+  renderLocations();
+  renderTimes();
+});
 $('#waitlistPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#waitlistForm').addEventListener('submit', submitWaitlist);
 $('#newBooking').addEventListener('click', resetFlow);
@@ -884,4 +944,4 @@ renderTimes();
 loadServices();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=121'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=122'));

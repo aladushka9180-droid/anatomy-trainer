@@ -64,7 +64,9 @@ jobs:
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
+          node --check minuta-online-booking/multi-tenant-v68-static-test.mjs
           node --check minuta-online-booking/organization.js
+          node --check minuta-online-booking/team-calendar.js
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
@@ -76,7 +78,9 @@ jobs:
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
+          node minuta-online-booking/multi-tenant-v68-static-test.mjs
           node minuta-online-booking/organization-controller-test.mjs
+          node minuta-online-booking/team-calendar-controller-test.mjs
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
           node minuta-online-booking/smoke-test.mjs
@@ -159,6 +163,10 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-team-calendar-v68.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-multi-tenant-v67.sql
@@ -200,12 +208,34 @@ jobs:
           bash minuta-online-booking/multi-tenant-v66-concurrency-test.sh
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v67.sql
+          protected_booking_rpcs_before="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select md5(string_agg(pg_get_functiondef(p.oid) || coalesce(p.proacl::text,''), E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure));")"
           v67_definition="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select md5(pg_get_functiondef('public.get_public_minuta_catalog(text)'::regprocedure));")"
           v67_org_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select concat_ws('|', public_booking_enabled::text, updated_at::text) from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f';")"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v67.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v68.sql
+          v68_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(booking)::text,',' order by booking.id),'')) from public.bookings booking),(select md5(pg_get_functiondef('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)'::regprocedure))),(select md5(pg_get_functiondef('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)'::regprocedure))));")"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v68.sql
+          v68_snapshot_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(booking)::text,',' order by booking.id),'')) from public.bookings booking),(select md5(pg_get_functiondef('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)'::regprocedure))),(select md5(pg_get_functiondef('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)'::regprocedure))));")"
+          test "$v68_snapshot" = "$v68_snapshot_after"
+          protected_booking_rpcs_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select md5(string_agg(pg_get_functiondef(p.oid) || coalesce(p.proacl::text,''), E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure));")"
+          test "$protected_booking_rpcs_before" = "$protected_booking_rpcs_after"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/multi-tenant-v68-integration.sql
+          bash minuta-online-booking/multi-tenant-v68-concurrency-test.sh
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/recovery/rollback-team-calendar-v68.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is null and not exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='organization_id') and to_regprocedure('public.get_public_minuta_catalog(text)') is not null;" \
+            | grep -qx t
           v67_definition_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select md5(pg_get_functiondef('public.get_public_minuta_catalog(text)'::regprocedure));")"
           v67_org_snapshot_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -223,6 +253,8 @@ jobs:
             -f minuta-online-booking/supabase-migration-v66.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v67.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v68.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.notification_outbox') is not null and to_regclass('public.payments') is not null and to_regclass('public.payment_events') is not null and to_regclass('public.client_labels') is not null and to_regclass('public.booking_session_items') is not null and to_regclass('public.booking_session_revisions') is not null and to_regclass('public.client_accounts') is not null and to_regclass('public.client_device_sessions') is not null and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='favorite_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='client_labels' and column_name='vip_note') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='total_price_rub') and exists (select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name='client_account_id') and to_regprocedure('public.process_payment_webhook(text,text,text,text,text,bigint,text,timestamp with time zone,text)') is not null and to_regprocedure('public.set_booking_note(uuid,text)') is not null and to_regprocedure('public.save_booking_session(uuid,jsonb)') is not null and to_regprocedure('public.login_client_access(text,text,text)') is not null and to_regprocedure('public.get_client_bookings(text)') is not null;" \
             | grep -qx t
@@ -240,6 +272,9 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v2(text)') is not null and to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is not null and not exists (select 1 from public.bookings where organization_id is null or location_id is null or booking_scope_source is null) and has_function_privilege('authenticated','public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)','EXECUTE');" \
             | grep -qx t
 
   production-migration:
@@ -319,8 +354,13 @@ jobs:
             | grep -qx t
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v67.sql
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v68.sql
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
+            | grep -qx t
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v2(text)') is not null and to_regprocedure('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)') is not null and not exists (select 1 from public.bookings where organization_id is null or location_id is null or booking_scope_source is null);" \
             | grep -qx t
 
   diagnose-client-links:

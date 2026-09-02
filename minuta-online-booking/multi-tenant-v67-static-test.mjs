@@ -31,7 +31,9 @@ assert.match(integration, /rollback;\s*$/i, 'v67 integration test must be transa
 assert.match(app, /requestedOrganizationSlug/, 'client must accept only a validated organization slug');
 assert.match(config, /defaultOrganizationSlug:\s*'minuta-[a-f0-9]{32}'/, 'the legacy public page must have one explicit tenant slug');
 assert.match(app, /db\.rpc\('get_public_minuta_catalog'/, 'client must load a tenant-scoped public catalog');
-assert.match(app, /state\.teamMode = Boolean\(state\.organization\)/, 'team selector must require an enabled organization returned by the RPC');
+assert.match(app, /state\.teamMode = Boolean\(state\.organization && branchAwareCatalog\)/, 'team flow must stay active after a branch-aware response so an empty branch list fails closed');
+assert.match(app, /state\.teamMode && !state\.locations\.length[\s\S]*Запись команды пока не активирована/, 'branch-aware catalog without locations must block booking');
+assert.match(app, /get_public_minuta_catalog_v2[\s\S]*get_public_minuta_catalog/, 'v122 must read v67 catalog only as a safe legacy fallback');
 assert.match(app, /section\.hidden = !state\.teamMode \|\| performers\.length < 2/, 'selector must stay hidden outside the tenant-scoped team flow');
 const productionRelease = safeRelease.split('production-migration:')[1] || '';
 assert.ok(productionRelease.indexOf('supabase-migration-v66.sql') < productionRelease.indexOf('supabase-migration-v67.sql'), 'production must apply v67 only after v66');
