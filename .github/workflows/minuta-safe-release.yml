@@ -94,6 +94,7 @@ jobs:
           node --check minuta-online-booking/payment-foundation-static-test.mjs
           node --check minuta-online-booking/provider-delete-v64-static-test.mjs
           node --check minuta-online-booking/readiness-v78-static-test.mjs
+          node --check minuta-online-booking/recurring-series-v79-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -126,6 +127,7 @@ jobs:
           node minuta-online-booking/payment-foundation-static-test.mjs
           node minuta-online-booking/provider-delete-v64-static-test.mjs
           node minuta-online-booking/readiness-v78-static-test.mjs
+          node minuta-online-booking/recurring-series-v79-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
