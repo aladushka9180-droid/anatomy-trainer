@@ -138,7 +138,7 @@ assert.match(provider, /const REGULAR_CLIENT_COMPLETED_VISITS = 10;/, 'Пост�
 assert.match(provider, /bookingOutcome\(item\)\.visit_status === 'completed'/, 'В визиты попадают незавершённые записи');
 assert.match(provider, /provider_display_preferences/, 'Оформление кабинета не сохраняется в аккаунте мастера');
 assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
-assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"/, 'В настройках доступны не все пять цветных тем');
+assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"[\s\S]*value="luxury"[\s\S]*value="loft"[\s\S]*value="eco"[\s\S]*value="hitech"/, 'В настройках доступны не все девять тем');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
 const visitClassifierSource = provider.match(/function classifyVisitHistory\(referenceTimestamp, completedTimestamps, currentCompleted = false\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(visitClassifierSource, 'Не удалось извлечь расчёт номера визита для проверки');
@@ -189,7 +189,7 @@ const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
-for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS цветной темы ${theme}`);
+for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech']) assert.match(styles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');

@@ -11,7 +11,7 @@ const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v4';
-const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender'];
+const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
@@ -282,7 +282,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
-  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc' };
+  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
 }
 function renderDisplayPreferencesForm() {
