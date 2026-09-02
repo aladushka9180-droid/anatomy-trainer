@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '165';
+const version = '166';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -74,10 +74,10 @@ assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 30000/, 'Резервная �
 assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordRecovery"/, 'Восстановление пароля не объясняет доставку письма и повторную отправку');
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
-assert.match(providerHtml, /team-calendar\.js\?v=165/, 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, /resource-management\.js\?v=165/, 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, /shift-management\.js\?v=165/, 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, /payroll-management\.js\?v=165/, 'Кабинет не подключает контроллер зарплат');
+assert.match(providerHtml, /team-calendar\.js\?v=166/, 'Кабинет не подключает контроллер командного календаря');
+assert.match(providerHtml, /resource-management\.js\?v=166/, 'Кабинет не подключает безопасный контроллер ресурсов');
+assert.match(providerHtml, /shift-management\.js\?v=166/, 'Кабинет не подключает контроллер смен команды');
+assert.match(providerHtml, /payroll-management\.js\?v=166/, 'Кабинет не подключает контроллер зарплат');
 assert.match(providerHtml, new RegExp(`benefit-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер абонементов');
 assert.match(providerHtml, new RegExp(`booking-policy-management\\.js\\?v=${version}`), 'Кабинет не подключает правила филиалов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
@@ -112,7 +112,7 @@ const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; retu
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
 assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
-assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=165"/, 'Кабинет не подключает собственный устанавливаемый манифест');
+assert.match(providerHtml, /rel="manifest" href="provider\.webmanifest\?v=166"/, 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(provider, /data-create-empty-booking/, 'В пустом расписании нет кнопки создания записи');
 assert.match(provider, /if \(createEmptyBooking && requireWrites\(\)\) openNewBookingSheet\(\)/, 'Кнопка пустого расписания не открывает форму новой записи');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
@@ -140,8 +140,10 @@ const detectInstallPlatform = navigator => Function('navigator', `${installDetec
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126 Mobile Safari/537.36', platform:'Linux armv8l', maxTouchPoints:5 }), { ios:false, android:true, inApp:false }, 'Chrome на Android определяется неверно');
 assert.deepEqual(detectInstallPlatform({ userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1', platform:'iPhone', maxTouchPoints:5 }), { ios:true, android:false, inApp:false }, 'Safari на iPhone определяется неверно');
 assert.equal(detectInstallPlatform({ userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8; wv) AppleWebKit/537.36 Instagram 325.0.0.0', platform:'Linux armv8l', maxTouchPoints:5 }).inApp, true, 'Встроенный браузер Android не распознаётся');
-assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v5'/, 'Новый двухколоночный режим не отделён от старой настройки ленты');
-assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'split'/, 'Двухколоночный журнал не является режимом по умолчанию');
+assert.match(provider, /JOURNAL_MODE_KEY = 'massage-journal-mode-v6'/, 'Удалённый режим карточки не сбрасывается у прежних пользователей');
+assert.match(provider, /let journalMode = localStorage\.getItem\(JOURNAL_MODE_KEY\) \|\| 'timeline'/, 'Лента не является режимом журнала по умолчанию');
+assert.doesNotMatch(providerHtml, /data-journal-mode="split"/, 'В интерфейсе осталась кнопка дублирующего режима «Карточка»');
+assert.doesNotMatch(provider, /renderSplitBookingView|splitBookingId/, 'В кабинете осталась логика разделённого журнала');
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
 assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');

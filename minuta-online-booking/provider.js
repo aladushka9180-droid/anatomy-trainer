@@ -16,7 +16,7 @@ const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const CALENDAR_VIEW_KEY = 'massage-calendar-view-v1';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
 const SERVICE_SYNC_INTERVAL_MS = 30000;
-const JOURNAL_MODE_KEY = 'massage-journal-mode-v5';
+const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
@@ -48,8 +48,7 @@ let notificationFilter = 'pending';
 let reportPeriod = 'month';
 let notificationTimer = null;
 let deferredInstallPrompt = null;
-let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'split';
-let splitBookingId = '';
+let journalMode = localStorage.getItem(JOURNAL_MODE_KEY) || 'timeline';
 let selectedDate = restoreSelectedDate();
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
@@ -837,7 +836,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=165#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=166#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1441,8 +1440,8 @@ function setFilter(filter) {
 }
 
 function setJournalMode(mode) {
-  journalMode = ['split', 'timeline', 'list'].includes(mode) ? mode : 'split';
-  if (journalMode === 'split' || journalMode === 'timeline') currentFilter = 'day';
+  journalMode = ['timeline', 'list'].includes(mode) ? mode : 'timeline';
+  if (journalMode === 'timeline') currentFilter = 'day';
   localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
   try { localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter); } catch {}
   $$('[data-filter]').forEach(button => {
@@ -2062,48 +2061,8 @@ function renderBookingList(items) {
   }).join('');
 }
 
-function splitBookingDetailMarkup(item) {
-  const itemDate = new Date(`${item.booking_date}T12:00:00`);
-  const dateText = itemDate.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' });
-  const time = String(item.booking_time).slice(0, 5);
-  const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
-  const endTime = timeFromMinutes(minutesFromTime(time) + duration);
-  const statusText = bookingStatus(item, true);
-  const statusClass = bookingStatusClass(item);
-  const note = bookingDisplayNote(item);
-  if (isScheduleBlock(item)) {
-    return `<div class="split-booking-detail-content"><div class="split-booking-detail-head"><div><small>Занятое время</small><h3>${escapeHtml(item.client_name || 'Перерыв')}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div><div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div><dl class="split-booking-fields"><div><dt>Тип</dt><dd>Блокировка расписания</dd></div><div><dt>Доступность</dt><dd>Интервал закрыт для клиентов</dd></div></dl><div class="split-booking-note"><small>Заметка</small><p>${escapeHtml(note || 'Заметка к перерыву не добавлена.')}</p></div><div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Изменить</button>` : ''}</div></div>`;
-  }
-  const phone = String(item.client_phone || '');
-  const phoneHref = phone.replace(/[^+\d]/g, '');
-  const visitText = bookingVisitSummaryText(item);
-  const whatsapp = whatsappLink(item);
-  const service = serviceName(item.services?.name || 'Услуга');
-  const price = isPerMinuteBooking(item) ? `${money(bookingMinuteRate(item))}/мин` : money(bookingSessionTotal(item));
-  const canConfirm = item.status !== 'confirmed' && item.status !== 'cancelled' && !bookingIsCompleted(item);
-  return `<div class="split-booking-detail-content"><div class="split-booking-detail-head"><div><small>Выбранная запись</small><h3>${escapeHtml(service)}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div><div class="split-booking-client"><span class="split-booking-avatar">${clientAvatarContent(item.client_phone, item.client_name)}</span><div><strong>${escapeHtml(item.client_name)}</strong>${visitText ? `<small>${escapeHtml(visitText)}</small>` : ''}<a href="tel:${escapeHtml(phoneHref)}">${escapeHtml(phone)}</a></div></div><div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div><dl class="split-booking-fields"><div><dt>Услуга</dt><dd>${escapeHtml(service)}</dd></div><div><dt>Стоимость</dt><dd>${escapeHtml(price)}</dd></div>${Number(item.deposit_amount_rub || 0) > 0 ? `<div><dt>Предоплата</dt><dd>${escapeHtml(money(item.deposit_amount_rub))} · ${item.payment_status === 'paid' ? 'оплачена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</dd></div>` : ''}</dl><div class="split-booking-note"><small>Заметка о клиенте</small><p>${escapeHtml(note || 'Заметка о клиенте пока не добавлена.')}</p></div><div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${canConfirm ? `<button class="secondary-button" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>` : ''}${whatsapp ? `<a class="secondary-button" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div></div>`;
-}
-
 function bookingEmptyMarkup(message, extraClass = '') {
   return `<div class="provider-empty schedule-empty${extraClass ? ` ${escapeHtml(extraClass)}` : ''}"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>${escapeHtml(message)}</small><button class="primary schedule-empty-create" type="button" data-create-empty-booking>${uiIcon('plus')}<span>Создать запись</span></button></div>`;
-}
-
-function renderSplitBookingView(items) {
-  const holder = $('#providerBookings');
-  if (!items.length) {
-    splitBookingId = '';
-    holder.className = 'provider-bookings split-booking-view';
-    holder.innerHTML = bookingEmptyMarkup('На выбранный день всё свободно.', 'split-booking-empty');
-    applyWriteAvailability();
-    return;
-  }
-  const selected = items.find(item => item.id === splitBookingId) || items.find(item => item.status !== 'cancelled') || items[0];
-  splitBookingId = selected.id;
-  renderBookingList(items);
-  const listMarkup = holder.innerHTML;
-  holder.className = 'provider-bookings split-booking-view';
-  holder.innerHTML = `<section class="split-booking-list schedule-list" aria-label="Записи на выбранный день">${listMarkup}</section><aside class="split-booking-detail" id="splitBookingDetail" aria-live="polite">${splitBookingDetailMarkup(selected)}</aside>`;
-  holder.querySelector(`[data-open-booking="${CSS.escape(String(selected.id))}"]`)?.closest('.provider-booking')?.classList.add('is-selected');
 }
 
 function openBookingSheet(id) {
@@ -2925,7 +2884,6 @@ function renderBookings() {
     ? (daySummary || 'Свободный день')
     : (currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей');
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
-  else if (currentFilter === 'day' && journalMode === 'split') renderSplitBookingView(items);
   else renderBookingList(items);
 }
 
@@ -4696,7 +4654,6 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
-  const openBookingSheetButton = event.target.closest('[data-open-booking-sheet]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
@@ -4777,13 +4734,7 @@ document.addEventListener('click', async event => {
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
   if (dateToday) selectScheduleDate(businessTodayIso());
   if (date) selectScheduleDate(date.dataset.bookingDate);
-  if (openBooking) {
-    if (journalMode === 'split' && currentFilter === 'day' && calendarView === 'day' && window.matchMedia('(min-width: 761px)').matches) {
-      splitBookingId = openBooking.dataset.openBooking;
-      renderBookings();
-    } else openBookingSheet(openBooking.dataset.openBooking);
-  }
-  if (openBookingSheetButton) openBookingSheet(openBookingSheetButton.dataset.openBookingSheet);
+  if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (createEmptyBooking && requireWrites()) openNewBookingSheet();
@@ -5252,4 +5203,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=165'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=166'));
