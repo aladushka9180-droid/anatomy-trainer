@@ -543,6 +543,9 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .schedule-list .booking-actions button { min-width:98px; }
 .schedule-empty { margin:20px 0; padding:46px 20px; border:0; background:#f8faf8; }
 .schedule-empty>span { display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:#e4f3e9; color:#2b7851; font-size:19px; }
+.schedule-empty-create { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; margin-top:11px; padding:0 20px; }
+.schedule-empty-create .ui-icon { width:16px; height:16px; }
+.schedule-empty-create>span { color:inherit; font-size:12px; line-height:1; }
 
 .timeline-view { margin:0; padding:18px 21px 24px; background:#fbfdfb; }
 .day-timeline { display:grid; grid-template-columns:64px minmax(0,1fr); min-height:var(--timeline-height); }

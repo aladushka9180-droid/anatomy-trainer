@@ -174,7 +174,7 @@ async function readProviderCache(name, userId = currentUser?.id) {
   } catch { return null; }
 }
 const writeSelectors = [
-  '#newBookingButton', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
+  '#newBookingButton', '[data-create-empty-booking]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
@@ -837,7 +837,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=162#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=163#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2030,7 +2030,8 @@ function renderBookingList(items) {
   const holder = $('#providerBookings');
   holder.className = 'provider-bookings schedule-list';
   if (!items.length) {
-    holder.innerHTML = `<div class="provider-empty schedule-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>На выбранный период всё свободно.</small></div>`;
+    holder.innerHTML = bookingEmptyMarkup('На выбранный период всё свободно.');
+    applyWriteAvailability();
     return;
   }
   const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' });
@@ -2082,12 +2083,18 @@ function splitBookingDetailMarkup(item) {
   const canConfirm = item.status !== 'confirmed' && item.status !== 'cancelled' && !bookingIsCompleted(item);
   return `<div class="split-booking-detail-content"><div class="split-booking-detail-head"><div><small>Выбранная запись</small><h3>${escapeHtml(service)}</h3></div><span class="booking-status status-${statusClass}">${escapeHtml(statusText)}</span></div><div class="split-booking-client"><span class="split-booking-avatar">${clientAvatarContent(item.client_phone, item.client_name)}</span><div><strong>${escapeHtml(item.client_name)}</strong>${visitText ? `<small>${escapeHtml(visitText)}</small>` : ''}<a href="tel:${escapeHtml(phoneHref)}">${escapeHtml(phone)}</a></div></div><div class="split-booking-time"><strong>${time}–${endTime}</strong><span>${escapeHtml(dateText)} · ${duration} минут</span></div><dl class="split-booking-fields"><div><dt>Услуга</dt><dd>${escapeHtml(service)}</dd></div><div><dt>Стоимость</dt><dd>${escapeHtml(price)}</dd></div>${Number(item.deposit_amount_rub || 0) > 0 ? `<div><dt>Предоплата</dt><dd>${escapeHtml(money(item.deposit_amount_rub))} · ${item.payment_status === 'paid' ? 'оплачена' : item.payment_status === 'refunded' ? 'возвращена' : 'ожидается'}</dd></div>` : ''}</dl><div class="split-booking-note"><small>Заметка о клиенте</small><p>${escapeHtml(note || 'Заметка о клиенте пока не добавлена.')}</p></div><div class="split-booking-actions"><button class="primary" type="button" data-open-booking-sheet="${item.id}">Открыть полностью</button>${canConfirm ? `<button class="secondary-button" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}${item.status !== 'cancelled' ? `<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>` : ''}${whatsapp ? `<a class="secondary-button" href="${escapeHtml(whatsapp)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div></div>`;
 }
+
+function bookingEmptyMarkup(message, extraClass = '') {
+  return `<div class="provider-empty schedule-empty${extraClass ? ` ${escapeHtml(extraClass)}` : ''}"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>${escapeHtml(message)}</small><button class="primary schedule-empty-create" type="button" data-create-empty-booking>${uiIcon('plus')}<span>Создать запись</span></button></div>`;
+}
+
 function renderSplitBookingView(items) {
   const holder = $('#providerBookings');
   if (!items.length) {
     splitBookingId = '';
     holder.className = 'provider-bookings split-booking-view';
-    holder.innerHTML = `<div class="provider-empty schedule-empty split-booking-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>На выбранный день всё свободно.</small></div>`;
+    holder.innerHTML = bookingEmptyMarkup('На выбранный день всё свободно.', 'split-booking-empty');
+    applyWriteAvailability();
     return;
   }
   const selected = items.find(item => item.id === splitBookingId) || items.find(item => item.status !== 'cancelled') || items[0];
@@ -4693,6 +4700,7 @@ document.addEventListener('click', async event => {
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
+  const createEmptyBooking = event.target.closest('[data-create-empty-booking]');
   const editBooking = event.target.closest('[data-edit-booking]');
   const cancelBookingSeriesButton = event.target.closest('[data-cancel-booking-series]');
   const editBookingSession = event.target.closest('[data-edit-booking-session]');
@@ -4778,6 +4786,7 @@ document.addEventListener('click', async event => {
   if (openBookingSheetButton) openBookingSheet(openBookingSheetButton.dataset.openBookingSheet);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
+  if (createEmptyBooking && requireWrites()) openNewBookingSheet();
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
   if (editBooking) openBookingEditor(editBooking.dataset.editBooking);
   if (cancelBookingSeriesButton) openBookingSeriesCancellation(cancelBookingSeriesButton.dataset.cancelBookingSeries);
@@ -5243,4 +5252,4 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
 });
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=162'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=163'));
