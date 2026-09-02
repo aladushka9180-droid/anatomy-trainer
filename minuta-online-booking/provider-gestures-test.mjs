@@ -30,6 +30,9 @@ assert.match(source, /document\.addEventListener\('pointermove',[\s\S]*updateTim
 assert.match(source, /document\.addEventListener\('touchmove',[\s\S]*passive:false/);
 assert.match(source, /document\.addEventListener\('contextmenu',[\s\S]*event\.preventDefault\(\)/);
 assert.match(source, /state\.card\.closest\('#providerBookings'\)[\s\S]*scheduleDaySwipe = swipeState/, 'свайп дня должен начинаться и поверх карточки на телефоне');
+const beginScheduleDaySwipe = sourceFunction('beginScheduleDaySwipe', 'openTimelineBooking');
+assert.doesNotMatch(beginScheduleDaySwipe, /setPointerCapture/, 'обычный клик по дате нельзя перехватывать до начала свайпа');
+assert.match(source, /state\.active = true;\s*state\.surface\.setPointerCapture/, 'захват указателя допустим только после распознавания свайпа');
 assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
 assert.match(source, /bookingPlacementIssue\(item, state\.date, state\.targetMinute\)/);
 assert.match(source, /p_ignore_booking: item\.id/);
