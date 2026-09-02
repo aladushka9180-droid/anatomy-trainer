@@ -262,7 +262,7 @@ assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span
 assert.match(styles, /data-provider-theme\] \.timeline-view \{ background:var\(--theme-surface-alt\); \}/, 'Лента расписания не продолжает выбранную тему');
 assert.match(styles, /\.provider-body \.journal-mode-toggle:not\(\[hidden\]\) \{ display:flex!important;[^}]*grid-row:2/, 'Переключатель «Лента / Список» скрыт на мобильном');
 assert.doesNotMatch(styles, /\.provider-body \.journal-mode-toggle \{ display:none!important; \}/, 'Переключатель режима расписания принудительно скрыт');
-assert.match(styles, /data-provider-theme\] \.timeline-view \.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
+assert.match(styles, /data-provider-theme\] \.timeline-view :is\([^)]*\.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy>strong[\s\S]*?-webkit-line-clamp:1/, 'Длинное название снова ломает компактную мобильную карточку');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-note[\s\S]*?text-overflow:ellipsis;[\s\S]*?white-space:nowrap/, 'Длинная заметка не ограничена одной строкой на телефоне');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy[\s\S]*?position:absolute;[\s\S]*?top:8px;/, 'Содержимое длинной мобильной записи снова плавает по высоте');
