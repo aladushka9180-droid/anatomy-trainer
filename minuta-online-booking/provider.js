@@ -5683,7 +5683,7 @@ function renderPortfolio() {
     return;
   }
   if (!portfolioItems.length) {
-    list.innerHTML = `<div class="provider-empty portfolio-empty-state"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Покажите клиентам результат</strong><small>Добавьте фотографии «До» и «После». Работа появится на странице клиента только после подтверждения согласия на публикацию.</small><div class="portfolio-empty-actions"><button class="primary compact-button" type="button" data-open-portfolio-editor>Добавить первую работу</button><a class="secondary-button compact-button" href="index.html" target="_blank" rel="noopener noreferrer">Как видит клиент</a></div></div>`;
+    list.innerHTML = `<div class="provider-empty portfolio-empty-state"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Покажите клиентам результат</strong><small>Добавьте фотографии «До» и «После». Работа появится на странице клиента только после подтверждения согласия на публикацию.</small><div class="portfolio-empty-actions"><button class="primary compact-button" type="button" data-open-portfolio-editor>Добавить первую работу</button></div></div>`;
     return;
   }
   list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
@@ -5728,7 +5728,7 @@ function renderProviderReviews() {
   if (!list) return;
   $('#providerReviewsCount').textContent = `${providerReviews.length} ${portfolioCountLabel(providerReviews.length, 'отзыв', 'отзыва', 'отзывов')}`;
   if (!providerReviews.length) {
-    list.innerHTML = `<div class="provider-empty portfolio-empty-state provider-review-empty-state"><span class="provider-empty-icon">${uiIcon('spark')}</span><strong>Получите первый отзыв</strong><small>После завершённого визита клиент сможет поставить оценку в разделе «Мои записи». Отзыв публикуется только под вашим контролем.</small><div class="portfolio-empty-actions"><a class="primary compact-button" href="my-bookings.html" target="_blank" rel="noopener noreferrer">Открыть «Мои записи»</a><a class="secondary-button compact-button" href="index.html" target="_blank" rel="noopener noreferrer">Страница клиента</a></div></div>`;
+    list.innerHTML = `<div class="provider-empty portfolio-empty-state provider-review-empty-state"><span class="provider-empty-icon">${uiIcon('spark')}</span><strong>Получите первый отзыв</strong><small>После завершённого визита клиент сможет поставить оценку в разделе «Мои записи». Отзыв публикуется только под вашим контролем.</small><div class="portfolio-empty-actions"><a class="primary compact-button" href="my-bookings.html" target="_blank" rel="noopener noreferrer">Открыть «Мои записи»</a></div></div>`;
     return;
   }
   list.innerHTML = providerReviews.map(review => {
