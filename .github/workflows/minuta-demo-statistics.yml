@@ -1,0 +1,86 @@
+name: Minuta demo statistics fixture
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Действие с изолированной демо-организацией
+        required: true
+        type: choice
+        options:
+          - seed
+          - cleanup
+        default: seed
+      source_org_slug:
+        description: Организация, владелец которой получит доступ к демо-данным
+        required: true
+        default: minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f
+      confirmation:
+        description: SEED_DEMO_STATISTICS или CLEANUP_DEMO_STATISTICS
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  demo-statistics:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: minuta-production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Проверить явное подтверждение
+        env:
+          ACTION: ${{ inputs.action }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test "$ACTION" = "seed"; then
+            test "$CONFIRMATION" = "SEED_DEMO_STATISTICS"
+          else
+            test "$CONFIRMATION" = "CLEANUP_DEMO_STATISTICS"
+          fi
+      - name: Установить клиент PostgreSQL
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Создать или удалить изолированные демо-данные
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          ACTION: ${{ inputs.action }}
+          SOURCE_ORG_SLUG: ${{ inputs.source_org_slug }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_DB_URL"
+          case "$SUPABASE_DB_URL" in
+            *cawexmmrqjvothcbgjxr*) ;;
+            *) echo "Строка подключения не соответствует production проекту" >&2; exit 1 ;;
+          esac
+          production_url="${SUPABASE_DB_URL/:6543/:5432}"
+          if test "$ACTION" = "seed"; then
+            psql "$production_url" -X -v ON_ERROR_STOP=1 \
+              -v source_slug="$SOURCE_ORG_SLUG" \
+              -f minuta-online-booking/demo-statistics-seed.sql
+          else
+            psql "$production_url" -X -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/demo-statistics-cleanup.sql
+          fi
+      - name: Проверить изоляцию результата
+        if: inputs.action == 'seed'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          production_url="${SUPABASE_DB_URL/:6543/:5432}"
+          result="$(psql "$production_url" -X -v ON_ERROR_STOP=1 -Atc "select count(*)||'|'||bool_and(not public_booking_enabled) from public.organizations where id='d3500000-0000-4000-8000-000000000001'::uuid;")"
+          test "$result" = "1|t"
+          echo "Демо-организация создана и скрыта от публичной онлайн-записи"
+
