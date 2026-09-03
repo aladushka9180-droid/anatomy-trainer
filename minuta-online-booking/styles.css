@@ -5652,3 +5652,20 @@ html.provider-booting .provider-main {
   .booking-buffer-presets { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
   .booking-buffer-presets button { padding:0 7px; }
 }
+
+/* На телефоне место под закреплённую навигацию резервируется только один раз. */
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-app {
+    padding-bottom:0!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-workspace {
+    padding-bottom:max(84px,calc(74px + env(safe-area-inset-bottom,0px)))!important;
+  }
+  .provider-body .provider-view[data-provider-panel="bookings"],
+  .provider-body .provider-view[data-provider-panel="clients"] {
+    padding-bottom:52px!important;
+  }
+  .provider-body .provider-view[data-provider-panel="notifications"] {
+    padding-bottom:0!important;
+  }
+}
