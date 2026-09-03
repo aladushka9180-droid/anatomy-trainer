@@ -38,6 +38,17 @@
       } : null;
     }
 
+    function getOrganizations() {
+      return organizations.map(organization => ({
+        id: organization.id,
+        name: organization.name,
+        public_slug: organization.public_slug,
+        public_booking_enabled: Boolean(organization.public_booking_enabled),
+        current_role: organization.current_role,
+        can_manage: organization.can_manage
+      }));
+    }
+
     function emitActiveOrganization() {
       onActiveOrganizationChange?.(getActiveOrganization());
     }
@@ -329,7 +340,7 @@
       document.addEventListener('change', handleChange);
     }
 
-    return { bind, load, render, reset, getActiveOrganization, get availability() { return availability; } };
+    return { bind, load, render, reset, getActiveOrganization, getOrganizations, get availability() { return availability; } };
   }
 
   window.MinutaOrganization = { createController };

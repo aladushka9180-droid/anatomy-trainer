@@ -1509,7 +1509,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=266#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=268#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1629,6 +1629,50 @@ let reportPerformerFilter = '';
 let reportCanViewTeam = false;
 let reportScopedBookingsState = { key:'', status:'idle', rows:[] };
 let reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
+let reportDataSource = 'own';
+const REPORT_DEMO_SLUG = 'minuta-demo-statistics';
+
+function reportOrganizations() {
+  return organizationController?.getOrganizations?.() || [];
+}
+
+function reportDemoOrganization() {
+  return reportOrganizations().find(item => item.public_slug === REPORT_DEMO_SLUG) || null;
+}
+
+function reportOwnOrganization() {
+  const active = organizationController?.getActiveOrganization?.() || null;
+  if (active?.public_slug !== REPORT_DEMO_SLUG) return active;
+  return reportOrganizations().find(item => item.public_slug !== REPORT_DEMO_SLUG) || active;
+}
+
+function reportOrganization() {
+  return reportDataSource === 'demo' ? reportDemoOrganization() : reportOwnOrganization();
+}
+
+function reportOrganizationId() {
+  return reportOrganization()?.id || '';
+}
+
+function renderReportDataSourceControl() {
+  const root = $('#reportDataSource');
+  if (!root) return;
+  const demo = reportDemoOrganization();
+  const own = reportOwnOrganization();
+  root.hidden = !demo || !own || demo.id === own.id;
+  if (reportDataSource === 'demo' && !demo) reportDataSource = 'own';
+  $$('[data-report-source]').forEach(button => {
+    const active = button.dataset.reportSource === reportDataSource;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const status = $('#reportDataSourceStatus');
+  if (status) status.textContent = reportDataSource === 'demo'
+    ? 'Учебные обезличенные данные за три месяца — ваши записи не изменяются'
+    : 'Ваши реальные записи и оплаты';
+  const panel = $('[data-provider-panel="analytics"]');
+  if (panel) panel.dataset.reportSource = reportDataSource;
+}
 
 function reportSessionKey(organizationId, ...parts) {
   return [sessionGeneration, currentUser?.id || '', organizationId || '', ...parts].join(':');
@@ -1674,7 +1718,7 @@ function reportRange(period = reportPeriod) {
 
 function reportBookings(range = reportRange()) {
   const source = reportCanViewTeam ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
-  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const organizationId = reportOrganizationId();
   return source.filter(item => !isScheduleBlock(item)
     && item.booking_date >= range.start && item.booking_date <= range.end
     && (!organizationId || !item.organization_id || String(item.organization_id) === String(organizationId))
@@ -1772,7 +1816,7 @@ function setReportComparison(selector, current, previous, formatDelta = value =>
 
 function reportAvailableScheduleMinutes(range) {
   if (reportCanViewTeam) {
-    const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+    const organizationId = reportOrganizationId();
     const key = reportSessionKey(organizationId, range.start, range.end, reportPerformerFilter || 'all');
     if (reportAvailabilityState.key === key && reportAvailabilityState.status === 'ready') return reportAvailabilityState.availableMinutes;
     return null;
@@ -1884,7 +1928,7 @@ function renderReportPerformerFilter(range) {
   wrap.hidden = !reportCanViewTeam;
   if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); return; }
   if (!reportPerformerFilter) {
-    try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${organizationController?.getActiveOrganization?.()?.id || ''}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
+    try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${reportOrganizationId()}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
   }
   if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';
   select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
@@ -1898,7 +1942,7 @@ async function loadReportAvailability(range, performerId) {
   if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const organizationId = reportOrganizationId();
   const key = reportSessionKey(organizationId, range.start, range.end, performerId);
   if (!organizationId || reportAvailabilityState.key === key && ['loading','ready'].includes(reportAvailabilityState.status)) return;
   reportAvailabilityState = { key, status:'loading', availableMinutes:null, configured:0, total:0 };
@@ -1912,7 +1956,7 @@ async function loadReportScopedBookings(range, performerId) {
   if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const organizationId = reportOrganizationId();
   const key = reportSessionKey(organizationId, range.start, range.end, performerId);
   if (!organizationId || reportScopedBookingsState.key === key && ['loading','ready'].includes(reportScopedBookingsState.status)) return;
   reportScopedBookingsState = { key, status:'loading', rows:[] };
@@ -2025,7 +2069,7 @@ async function loadReportTeamAnalytics(range) {
   if (!panel || !currentUser || !navigator.onLine) { if (panel) panel.hidden = true; return; }
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const organizationId = reportOrganizationId();
   if (!organizationId) { panel.hidden = true; return; }
   const key = reportSessionKey(organizationId, range.start, range.end);
   if (reportTeamAnalyticsState.key === key) {
@@ -2271,7 +2315,7 @@ function renderReportEvents(rows) {
   list.innerHTML=rows.map(event=>`<article><time>${new Date(event.occurred_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</time><div><strong>${escapeHtml(reportEventTitle(event))}</strong><span>${escapeHtml(reportEventEffect(event))}</span><small>${escapeHtml(event.actor_name||'Система')}</small></div></article>`).join('');
 }
 async function loadReportEvents(range) {
-  const userId=currentUser?.id||'',generation=sessionGeneration,organizationId=organizationController?.getActiveOrganization?.()?.id||'',key=reportSessionKey(organizationId,range.start,range.end);
+  const userId=currentUser?.id||'',generation=sessionGeneration,organizationId=reportOrganizationId(),key=reportSessionKey(organizationId,range.start,range.end);
   if(!organizationId||!currentUser||!navigator.onLine){renderReportEvents(reportEventState.key===key?reportEventState.rows:[]);return;}if(reportEventState.key===key&&reportEventState.status==='ready'){renderReportEvents(reportEventState.rows);return;}
   reportEventState={key,rows:[],status:'loading'};
   const rows=[];let error=null;const pageSize=500,maxRows=100000;
@@ -2510,7 +2554,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=266');
+    worker = new Worker('./report-worker.js?v=268');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7421,6 +7465,7 @@ document.addEventListener('click', async event => {
   const view = event.target.closest('[data-provider-view]');
   const sectionTarget = event.target.closest('[data-section-target]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
+  const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const reportChartDate = event.target.closest('[data-report-date]');
   const openPendingBookings = event.target.closest('[data-open-pending-bookings]');
@@ -7483,6 +7528,17 @@ document.addEventListener('click', async event => {
     notificationFilter = notificationFilterButton.dataset.notificationFilter;
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
     renderNotifications();
+  }
+  if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
+    reportDataSource = reportSourceButton.dataset.reportSource === 'demo' ? 'demo' : 'own';
+    if (reportDataSource === 'demo' && reportPeriod === 'month') {
+      reportPeriod = 'quarter';
+      $$('[data-report-period]').forEach(button => button.classList.toggle('active', button.dataset.reportPeriod === reportPeriod));
+      $('#reportCustomPeriod').hidden = true;
+    }
+    resetReportSessionState();
+    renderReportDataSourceControl();
+    renderAnalytics();
   }
   if (reportChartDate) {
     selectScheduleDate(reportChartDate.dataset.reportDate);
@@ -7974,6 +8030,7 @@ const organizationController = window.MinutaOrganization.createController({
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
     resetReportSessionState();
+    renderReportDataSourceControl();
     updateProviderClientLinks(organization);
     teamCalendarController.setOrganization(organization);
     resourceController.setOrganization(organization);
@@ -8319,7 +8376,7 @@ $('#reportPendingMetric')?.addEventListener('keydown', event => {
 });
 $('#reportPerformerFilter')?.addEventListener('change', event => {
   reportPerformerFilter = event.target.value || 'all';
-  try { localStorage.setItem(`minuta-report-performer:${organizationController?.getActiveOrganization?.()?.id || ''}`, reportPerformerFilter); } catch {}
+  try { localStorage.setItem(`minuta-report-performer:${reportOrganizationId()}`, reportPerformerFilter); } catch {}
   reportScopedBookingsState = { key:'', status:'idle', rows:[] };
   reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
   const range = reportRange();

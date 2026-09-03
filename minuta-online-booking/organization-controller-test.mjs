@@ -52,5 +52,6 @@ assert.equal(element('organizationLoading').hidden, false, 'initial view must ke
 await controller.load();
 assert.equal(rpcCalls, 1, 'first organization load must call get_minuta_workspace exactly once');
 assert.equal(controller.availability, 'error', 'a user without a team must get a handled empty state');
+assert.deepEqual(controller.getOrganizations(), [], 'пустой workspace не должен создавать фиктивные организации');
 
 console.log('organization controller runtime test: OK');
