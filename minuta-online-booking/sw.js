@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v285`;
+const CACHE = `${CACHE_PREFIX}v286`;
 const ASSETS = [
   './',
   './index.html',
@@ -13,7 +13,7 @@ const ASSETS = [
   './provider-icon-512.png',
   './provider-icon-maskable-512.png',
   './provider-luxury-marble-v4.webp',
-  './styles.css?v=285',
+  './styles.css?v=286',
   './config.js?v=285',
   './site-update.js?v=285',
   './reliability.js?v=285',
@@ -25,7 +25,7 @@ const ASSETS = [
   './organization.js?v=285',
   './payroll-management.js?v=285',
   './benefit-management.js?v=285',
-  './loyalty-management.js?v=285',
+  './loyalty-management.js?v=286',
   './inventory-management.js?v=285',
   './retention-management.js?v=285',
   './payment-management.js?v=285',

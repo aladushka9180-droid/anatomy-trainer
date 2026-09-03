@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=285">
+  <link rel="stylesheet" href="styles.css?v=286">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -665,6 +665,13 @@
                 <ol><li>Включите программу и сохраните процент начисления.</li><li>Завершите визит и отметьте фактически полученную оплату.</li><li>Бонусы начислятся автоматически. Старые визиты не пересчитываются.</li><li>Промокод сначала создаётся здесь, затем применяется к выбранной записи.</li></ol>
                 <p id="loyaltyWorkflowStatus" role="status" aria-live="polite">Проверяем состояние программы…</p>
               </div>
+              <div class="loyalty-example" aria-label="Пример расчёта бонусов и промокода">
+                <div><small>Пример на визите стоимостью 3 000 ₽</small><strong>Сколько получает клиент</strong></div>
+                <p><b>Бонусы</b><span id="loyaltyBonusExampleText">При начислении 5% клиент получает 150 бонусов.</span></p>
+                <p><b>Оплата бонусами</b><span id="loyaltyRedeemExampleText">При лимите 30% клиент сможет списать до 900 бонусов со следующего визита за 3 000 ₽.</span></p>
+                <p><b>Промокод WELCOME10</b><span>Скидка 10% уменьшит цену с 3 000 ₽ до 2 700 ₽. Клиент сэкономит 300 ₽.</span></p>
+                <small>1 бонус = 1 ₽. Бонусы и промокод одновременно к одной записи не применяются.</small>
+              </div>
               <div class="loading-state compact" id="loyaltyLoading" hidden><i></i><span>Загружаем программу лояльности…</span></div>
               <div class="resource-inline-error" id="loyaltyUnavailable" role="status" hidden><div><strong>Бонусы временно недоступны</strong><small id="loyaltyUnavailableText"></small></div><button class="secondary-button" id="reloadLoyalty" type="button">Повторить</button></div>
               <div class="loyalty-workspace" id="loyaltyWorkspace" hidden>
@@ -1117,7 +1124,7 @@
   <script src="organization.js?v=285" defer></script>
   <script src="payroll-management.js?v=285" defer></script>
   <script src="benefit-management.js?v=285" defer></script>
-  <script src="loyalty-management.js?v=285" defer></script>
+  <script src="loyalty-management.js?v=286" defer></script>
   <script src="inventory-management.js?v=285" defer></script>
   <script src="retention-management.js?v=285" defer></script>
   <script src="payment-management.js?v=285" defer></script>

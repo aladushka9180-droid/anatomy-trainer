@@ -126,6 +126,13 @@
         : payload.accounts.length
           ? `Программа включена. Клиентов с бонусным балансом: ${payload.accounts.length}.`
           : 'Программа включена. Баланс появится после первого завершённого и оплаченного визита.';
+      const exampleAmount = 3000;
+      const earnRateBps = Number(rule.earn_rate_bps || 500);
+      const redeemRateBps = Number(payload.max_redeem_percent_bps || 3000);
+      const earnedPoints = Math.floor(exampleAmount * earnRateBps / 10000);
+      const redeemPoints = Math.floor(exampleAmount * redeemRateBps / 10000);
+      $('#loyaltyBonusExampleText').textContent = `При начислении ${number(earnRateBps / 100)}% клиент получает ${number(earnedPoints)} бонусов после оплаченного визита за ${money(exampleAmount)}.`;
+      $('#loyaltyRedeemExampleText').textContent = `При лимите ${number(redeemRateBps / 100)}% клиент сможет списать до ${number(redeemPoints)} бонусов со следующего визита за ${money(exampleAmount)}.`;
       setBusy(false); applyWriteAvailability();
     }
     function renderBookingOptions(clientId, bookingId) {
