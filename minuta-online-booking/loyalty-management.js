@@ -33,6 +33,22 @@
     function clientLabel(id) { const item = payload?.clients?.find(row => row.id === id); return item ? `${item.client_name} · ${item.client_phone}` : 'Клиент'; }
     function bookingLabel(item) { return `${dateLabel(item.booking_date)} · ${item.client_name} · ${item.service_name}`; }
     function optionsList(items, label) { return items.map(item => `<option value="${escapeHtml(item.id)}">${escapeHtml(label(item))}</option>`).join(''); }
+    function dateInputValue(days = 0) {
+      const parts = new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Samara', year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+      const date = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + days));
+      return date.toISOString().slice(0, 10);
+    }
+    function ensurePromoDefaults() {
+      if (!$('#loyaltyPromoFrom').value) $('#loyaltyPromoFrom').value = dateInputValue();
+      if (!$('#loyaltyPromoUntil').value) $('#loyaltyPromoUntil').value = dateInputValue(30);
+    }
+    function showFormError(selector, message) {
+      const holder = $(selector);
+      if (!holder) return;
+      holder.textContent = message;
+      holder.hidden = false;
+    }
 
     function setBusy(value) {
       $('#loyaltyPanel')?.querySelectorAll('[data-loyalty-write]').forEach(control => {
@@ -103,6 +119,13 @@
       $('#loyaltyPromoClient').innerHTML = clientOptions;
       renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking');
       renderBookingOptions('loyaltyPromoClient', 'loyaltyPromoBooking');
+      ensurePromoDefaults();
+      const workflow = $('#loyaltyWorkflowStatus');
+      if (workflow) workflow.textContent = !payload.enabled
+        ? 'Программа выключена. Включите переключатель выше, затем сохраните правила.'
+        : payload.accounts.length
+          ? `Программа включена. Клиентов с бонусным балансом: ${payload.accounts.length}.`
+          : 'Программа включена. Баланс появится после первого завершённого и оплаченного визита.';
       setBusy(false); applyWriteAvailability();
     }
     function renderBookingOptions(clientId, bookingId) {
@@ -122,7 +145,9 @@
         ['loyalty_redemption_limit_exceeded','Сумма превышает разрешённую долю оплаты.'],['loyalty_booking_not_paid','Сначала завершите и отметьте оплату визита.'],
         ['loyalty_request_conflict','Повтор запроса содержит другие данные. Обновите раздел.'],['promo_not_available','Промокод недоступен или срок закончился.'],
         ['promo_total_limit_reached','Общий лимит промокода исчерпан.'],['promo_client_limit_reached','Лимит промокода для клиента исчерпан.'],
-        ['promo_already_applied','К этой записи уже применён промокод.']
+        ['promo_already_applied','К этой записи уже применён промокод.'],['invalid_promotion','Заполните код, размер скидки и период действия. Проверьте, что дата окончания не раньше даты начала.'],
+        ['promo_discount_zero','Для этой записи скидка получилась равной нулю.'],['invalid_loyalty_adjustment','Укажите целое количество бонусов и причину длиной не менее 8 символов.'],
+        ['invalid_loyalty_redemption','Укажите положительное целое количество бонусов.'],['loyalty_booking_already_redeemed','Бонусы для этой записи уже списаны.']
       ];
       return rows.find(([key]) => text.includes(key))?.[1] || 'Изменение не сохранено. Записи и деньги не затронуты.';
     }
@@ -157,7 +182,7 @@
       if (event.target.id === 'loyaltyPromoForm') {
         event.preventDefault(); const kind = $('#loyaltyPromoKind').value;
         const ok = await mutate('upsert_minuta_promotion', { p_organization:organization.id, p_code:$('#loyaltyPromoCode').value.trim(), p_kind:kind, p_value:Math.round(Number($('#loyaltyPromoValue').value) * (kind === 'percent' ? 100 : 1)), p_valid_from:$('#loyaltyPromoFrom').value, p_valid_until:$('#loyaltyPromoUntil').value, p_total_limit:Math.round(Number($('#loyaltyPromoTotalLimit').value)) || null, p_per_client_limit:Math.round(Number($('#loyaltyPromoClientLimit').value)) || null }, event.submitter, 'Промокод сохранён', '#loyaltyPromoError');
-        if (ok) event.target.reset(); return;
+        if (ok) { event.target.reset(); ensurePromoDefaults(); } return;
       }
       if (event.target.id === 'loyaltyPromoApplyForm') {
         event.preventDefault(); promoRequestId = promoRequestId || uuid();
@@ -177,9 +202,35 @@
       if (event.target.closest('#loyaltyAdjustmentForm')) adjustmentRequestId = '';
       if (event.target.closest('#loyaltyRedeemForm')) redemptionRequestId = '';
       if (event.target.closest('#loyaltyPromoApplyForm')) promoRequestId = '';
-      if (event.target.id === 'loyaltyPromoKind') $('#loyaltyPromoValueLabel').textContent = event.target.value === 'percent' ? 'Скидка, %' : 'Скидка, ₽';
+      if (event.target.id === 'loyaltyPromoKind') {
+        const percent = event.target.value === 'percent';
+        $('#loyaltyPromoValueLabel').textContent = percent ? 'Скидка, %' : 'Скидка, ₽';
+        $('#loyaltyPromoValue').max = percent ? '100' : '10000000';
+        $('#loyaltyPromoValue').placeholder = percent ? 'Например, 10' : 'Например, 500';
+        $('#loyaltyPromoValueHint').textContent = percent ? 'Введите 10, чтобы дать скидку 10%.' : 'Введите сумму скидки в рублях.';
+      }
     }
-    function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); }
+    function invalid(event) {
+      if (!event.target.closest('#loyaltyPanel')) return;
+      const form = event.target.form;
+      const holders = { loyaltyRuleForm:'#loyaltyRuleError', loyaltyAdjustmentForm:'#loyaltyAdjustmentError', loyaltyRedeemForm:'#loyaltyRedeemError', loyaltyPromoForm:'#loyaltyPromoError', loyaltyPromoApplyForm:'#loyaltyPromoApplyError' };
+      const holder = holders[form?.id];
+      if (!holder) return;
+      const messages = {
+        loyaltyPromoCode:'Введите код промокода. WELCOME10 в сером цвете является только примером.',
+        loyaltyPromoValue:'Укажите размер скидки.', loyaltyPromoFrom:'Укажите дату начала действия.', loyaltyPromoUntil:'Укажите дату окончания действия.',
+        loyaltyPromoClient:'Сначала выберите клиента.', loyaltyPromoBooking:'У выбранного клиента нет подходящей записи.', loyaltyPromoApplyCode:'Введите созданный промокод.',
+        loyaltyAdjustmentClient:'Сначала выберите клиента.', loyaltyAdjustmentPoints:'Укажите количество бонусов.', loyaltyAdjustmentReason:'Напишите причину длиной не менее 8 символов.',
+        loyaltyRedeemClient:'Сначала выберите клиента.', loyaltyRedeemBooking:'Нет завершённого оплаченного визита для списания.', loyaltyRedeemPoints:'Укажите количество бонусов для списания.'
+      };
+      showFormError(holder, messages[event.target.id] || 'Заполните обязательное поле и проверьте введённое значение.');
+    }
+    function input(event) {
+      if (['loyaltyPromoCode','loyaltyPromoApplyCode'].includes(event.target.id)) event.target.value = event.target.value.toUpperCase().replace(/[^A-ZА-ЯЁ0-9_-]/g, '');
+      const holder = event.target.form?.querySelector('.form-error');
+      if (holder && !holder.hidden) { holder.hidden = true; holder.textContent = ''; }
+    }
+    function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); document.addEventListener('invalid', invalid, true); document.addEventListener('input', input); }
     return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
   }
 

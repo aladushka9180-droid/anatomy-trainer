@@ -2197,6 +2197,11 @@ html.provider-booting .provider-main {
 .provider-body .benefit-service-option input[type="checkbox"] { width:17px; min-height:17px; margin:0; }
 .provider-body .benefit-service-option input[type="number"] { min-height:34px; margin:0; text-align:center; }
 .provider-body .organization-loyalty,.provider-body .loyalty-workspace { display:grid; gap:16px; }
+.provider-body .loyalty-guide { display:grid; gap:8px; padding:14px 16px; border:1px solid var(--theme-line,#e0e8e2); border-radius:var(--material-radius,13px); background:var(--theme-surface-alt,#fbfcfb); }
+.provider-body .loyalty-guide ol { display:grid; gap:5px; margin:0; padding-left:20px; color:var(--theme-muted,#66736b); }
+.provider-body .loyalty-guide p { margin:2px 0 0; font-weight:800; color:var(--theme-accent,#2f7654); }
+.provider-body .loyalty-form-help { margin:0; padding:10px 12px; border-radius:10px; background:var(--theme-accent-soft,#e8f3ec); color:var(--theme-muted,#66736b); }
+.provider-body .loyalty-promotions label>small { display:block; margin-top:5px; color:var(--theme-muted,#66736b); font-size:11px; font-weight:600; line-height:1.4; }
 .provider-body .loyalty-rule-form,.provider-body .loyalty-promotions,.provider-body .loyalty-management-grid>section { min-width:0; padding:15px; border:1px solid var(--theme-line,#e0e8e2); border-radius:var(--material-radius,13px); background:var(--theme-surface-alt,#fbfcfb); }
 .provider-body .loyalty-rule-form { display:grid; gap:11px; }
 .provider-body .loyalty-form-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
@@ -2209,6 +2214,7 @@ html.provider-booting .provider-main {
 .provider-body .loyalty-promotions .organization-tags .secondary-button { width:auto; min-height:36px; margin:0; padding:0 11px; }
 .provider-body .loyalty-rule-form>.primary { width:100%; margin:0; }
 .provider-body[data-provider-theme] :is(.loyalty-rule-form,.loyalty-promotions,.loyalty-management-grid>section) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .loyalty-guide { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
 .provider-body .inventory-workspace,#inventoryControls { display:grid; gap:14px; }
 .provider-body .inventory-workspace[hidden],.provider-body #inventoryControls[hidden] { display:none; }
 .provider-body .inventory-settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
