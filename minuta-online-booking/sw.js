@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v261`;
+const CACHE = `${CACHE_PREFIX}v262`;
 const ASSETS = [
   './',
   './index.html',
@@ -13,7 +13,7 @@ const ASSETS = [
   './provider-icon-512.png',
   './provider-icon-maskable-512.png',
   './provider-luxury-marble-v4.webp',
-  './styles.css?v=261',
+  './styles.css?v=262',
   './config.js?v=261',
   './site-update.js?v=261',
   './reliability.js?v=261',
@@ -37,12 +37,12 @@ const ASSETS = [
   './team-calendar.js?v=261',
   './free-slots-share.js?v=261',
   './group-bookings.js?v=261',
-  './provider.js?v=261',
+  './provider.js?v=262',
   './voice-assistant.js?v=261',
   './booking.js?v=261',
   './my-bookings.js?v=261',
   './waitlist.js?v=261',
-  './styles.css?v=261',
+  './styles.css?v=262',
   './config.js?v=261',
   './site-update.js?v=261',
   './reliability.js?v=261',
@@ -65,7 +65,7 @@ const ASSETS = [
   './team-calendar.js?v=261',
   './free-slots-share.js?v=261',
   './group-bookings.js?v=261',
-  './provider.js?v=261',
+  './provider.js?v=262',
   './voice-assistant.js?v=261',
   './booking.js?v=261',
   './my-bookings.js?v=261',

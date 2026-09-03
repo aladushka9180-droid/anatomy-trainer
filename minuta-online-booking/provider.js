@@ -1677,7 +1677,7 @@ function setReportTrend(selector, current, previous, hasPreviousRange) {
   if (!element) return;
   element.className = '';
   if (!hasPreviousRange) element.textContent = 'За весь доступный период';
-  else if (!previous) element.textContent = current ? 'Новый результат' : 'Без изменений';
+  else if (!previous) element.textContent = 'Нет данных для сравнения';
   else {
     const percent = Math.round((current - previous) / previous * 100);
     element.textContent = `${percent >= 0 ? '+' : ''}${percent}% к предыдущему периоду`;
@@ -1691,7 +1691,7 @@ function setReportComparison(selector, current, previous, formatDelta = value =>
   const difference = current - previous;
   element.className = difference > 0 ? 'is-positive' : difference < 0 ? 'is-negative' : '';
   if (!previous) {
-    element.textContent = current ? `+${formatDelta(current)} · новый результат` : 'Без изменений';
+    element.textContent = 'Нет данных для сравнения';
     return;
   }
   const percent = Math.round(difference / previous * 100);
@@ -1857,7 +1857,9 @@ function renderReportTeamRows(rows) {
   const panel = $('#reportPerformers');
   const holder = $('#reportPerformersList');
   if (!panel || !holder) return;
-  panel.hidden = !rows.length;
+  const allTeamSelected = reportCanViewTeam && (!reportPerformerFilter || reportPerformerFilter === 'all');
+  panel.hidden = !allTeamSelected || !rows.length;
+  if (!allTeamSelected) { holder.innerHTML = ''; return; }
   if (!rows.length) { holder.innerHTML = ''; return; }
   holder.innerHTML = rows.map(row => {
     const visits = Math.max(0, Number(row.completed_visits) || 0);
@@ -1866,7 +1868,7 @@ function renderReportTeamRows(rows) {
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
     const hasPayroll = Object.prototype.hasOwnProperty.call(row, 'payroll_rub') && row.payroll_rub !== null && Number.isFinite(Number(row.payroll_rub));
     const selected = reportPerformerFilter === String(row.performer_id || '');
-    return `<article class="report-performer-row${selected ? ' is-selected' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} начислено</small>` : '<small>Начисление не настроено</small>'}<span aria-hidden="true">→</span></div></article>`;
+    return `<article class="report-performer-row${selected ? ' is-selected' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} заработок сотрудника</small>` : '<small>Заработок не рассчитан · настройте начисление</small>'}<span aria-hidden="true">→</span></div></article>`;
   }).join('');
   holder.querySelectorAll('[data-report-performer]').forEach(row => {
     const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
@@ -1948,6 +1950,7 @@ function renderAnalytics() {
   const noShows = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'no_show');
   const cancelled = items.filter(item => item.status === 'cancelled');
   const pending = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'scheduled' && bookingIsCompleted(item));
+  const upcoming = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'scheduled' && !bookingIsCompleted(item));
   const revenue = reportRevenue(items);
   const completedValue = completed.reduce((sum, item) => sum + bookingCalculatedValue(item), 0);
   const debt = completed.reduce((sum, item) => sum + Math.max(0, bookingCalculatedValue(item) - Number(bookingOutcome(item).amount_rub || 0)), 0);
@@ -1967,6 +1970,7 @@ function renderAnalytics() {
   $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
   $('#reportAverage').textContent = money(Math.round(average));
   $('#reportPending').textContent = String(pending.length);
+  $('#reportUpcoming').textContent = String(upcoming.length);
   $('#reportCancelled').textContent = String(cancelled.length);
   $('#reportNoShow').textContent = String(noShows.length);
   const secondaryMetrics = [
@@ -1988,10 +1992,11 @@ function renderAnalytics() {
   const previousRevenue = previousRange ? reportRevenue(previousItems) : 0;
   const previousClients = previousRange ? reportClientMetrics(previousCompleted, previousRange) : { uniqueClients:0 };
   const previousSources = previousRange ? reportSourceMetrics(previousItems) : { online:0 };
-  setReportTrend('#reportRevenueTrend', revenue, previousRevenue, Boolean(previousRange));
+  const hasPreviousData = Boolean(previousRange && previousItems.length);
+  setReportTrend('#reportRevenueTrend', revenue, previousRevenue, hasPreviousData);
   const comparison = $('#reportComparison');
-  if (comparison) comparison.hidden = !previousRange;
-  if (previousRange) {
+  if (comparison) comparison.hidden = !hasPreviousData;
+  if (hasPreviousData) {
     setReportComparison('#reportComparisonRevenue', revenue, previousRevenue, value => money(value));
     setReportComparison('#reportComparisonVisits', completed.length, previousCompleted.length);
     setReportComparison('#reportComparisonClients', clients.uniqueClients, previousClients.uniqueClients);
@@ -2008,14 +2013,29 @@ function renderAnalytics() {
   setReportText('#reportManualShare', reportShare(sources.manual, sourceTotal));
   setReportText('#reportUnknownBookings', sources.unknown);
   setReportText('#reportUnknownShare', reportShare(sources.unknown, sourceTotal));
+  const sourcesPanel = $('.report-sources');
+  if (sourcesPanel) {
+    const legacyOnly = sourceTotal > 0 && sources.unknown === sourceTotal;
+    sourcesPanel.classList.toggle('is-legacy-only', legacyOnly);
+    sourcesPanel.classList.toggle('is-empty', sourceTotal === 0);
+    const note = sourcesPanel.querySelector('.report-source-note');
+    if (note) note.textContent = sourceTotal === 0 ? 'Новые записи появятся здесь автоматически.' : legacyOnly ? 'Для старых записей источник не определён. Новые записи будут учитываться автоматически.' : sources.unknown ? `У ${sources.unknown} старых записей источник не определён.` : 'Все записи распределены по источникам.';
+  }
   const sourceBar = $('#reportSourceBar');
   if (sourceBar) sourceBar.innerHTML = `<i class="is-online" style="width:${sourceTotal ? sources.online / sourceTotal * 100 : 0}%"></i><i class="is-manual" style="width:${sourceTotal ? sources.manual / sourceTotal * 100 : 0}%"></i><i class="is-unknown" style="width:${sourceTotal ? sources.unknown / sourceTotal * 100 : 0}%"></i>`;
   const utilizationPercent = renderReportUtilization(range, workedMinutes);
   renderReportRetention();
   loadReportTeamAnalytics(range);
   loadReportEvents(range);
-  const differenceText = adjustment > 0 ? `Доплаты и корректировки: +${money(adjustment)}` : adjustment < 0 ? `Недополучено: ${money(Math.abs(adjustment))}` : 'Расхождений нет';
-  $('#reportReconciliation').innerHTML = `<div><small>Итог периода</small><strong>${money(completedValue)} стоимость визитов → ${money(revenue)} оплачено</strong></div><span class="${adjustment > 0 ? 'is-positive' : adjustment < 0 ? 'is-negative' : ''}">${differenceText}</span>`;
+  const reconciliation = $('#reportReconciliation');
+  if (reconciliation) {
+    reconciliation.hidden = adjustment === 0;
+    if (adjustment !== 0) {
+      const differenceText = adjustment > 0 ? `Доплаты и корректировки +${money(adjustment)}` : `Недополучено ${money(Math.abs(adjustment))}`;
+      reconciliation.innerHTML = `<small>Сверка оплаты</small><strong>Услуги ${money(completedValue)} · ${differenceText} · получено ${money(revenue)}</strong>`;
+      reconciliation.className = `report-reconciliation ${adjustment > 0 ? 'is-positive' : 'is-negative'}`;
+    }
+  }
   reportTrendMarkup(completed, range);
   const payments = new Map([['cash',0],['card',0],['transfer',0],['unpaid',0]]);
   completed.forEach(item => {
@@ -2049,15 +2069,16 @@ function renderAnalytics() {
   const insight = $('#reportInsight');
   if (insight) {
     const messages = [];
-    if (!completed.length) messages.push('За выбранный период нет завершённых визитов. Отметьте результат визита и оплату — статистика заполнится автоматически.');
-    else {
-      if (previousRange && previousRevenue > 0) {
+    if (pending.length) messages.push(`${pending.length} ${reportVisitWord(pending.length)} требуют завершения.`);
+    if (debt > 0) messages.push(`Долг клиентов — ${money(debt)}.`);
+    if (!completed.length && !pending.length) messages.push('За выбранный период нет состоявшихся визитов.');
+    if (completed.length) {
+      if (hasPreviousData && previousRevenue > 0) {
         const revenueDifference = Math.round((revenue - previousRevenue) / previousRevenue * 100);
         messages.push(revenueDifference === 0 ? 'Оплачено столько же, сколько в прошлом периоде.' : `Оплачено ${revenueDifference > 0 ? 'выросло' : 'снизилось'} на ${Math.abs(revenueDifference)}% к прошлому периоду.`);
-      } else if (previousRange && revenue > 0) messages.push('В этом периоде появилась первая отмеченная оплата.');
-      if (rows[0]) messages.push(`Больше всего принесла услуга «${rows[0].name}» — ${money(rows[0].revenue)} (${revenue ? Math.round(rows[0].revenue / revenue * 100) : 0}% дохода).`);
-      if (utilizationPercent !== null) messages.push(`Расписание загружено на ${utilizationPercent}%.`);
+      }
     }
+    if (!messages.length) messages.push('Всё в порядке, важных изменений за период нет.');
     insight.innerHTML = `<small>Главное за период</small><ul>${messages.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
   }
 }
@@ -2275,8 +2296,8 @@ function reportExportSheets(data) {
   const cancelled=data.items.filter(item=>item.status==='cancelled').length, noShow=data.items.filter(item=>bookingOutcome(item).visit_status==='no_show').length;
   const summary=[[reportExportCell('ОТЧЁТ «МИНУТА — ОНЛАЙН-ЗАПИСЬ»',1)],[reportExportCell(`Период: ${period} · сформирован ${new Date().toLocaleString('ru-RU')}`,2)],[],[reportExportCell('ФИНАНСЫ',3)],[reportExportCell('Получено',5),reportExportCell(data.revenue,10),'','',reportExportCell('Оказано услуг на',5),reportExportCell(data.completedValue,10)],[reportExportCell('Долг',5),reportExportCell(data.debt,10),'','',reportExportCell('Средний чек',5),reportExportCell(data.average,10)],[],[reportExportCell('ВИЗИТЫ И КЛИЕНТЫ',3)],[reportExportCell('Состоялось',5),reportExportCell(data.completed.length,6),'','',reportExportCell('Уникальных клиентов',5),reportExportCell(data.clients.uniqueClients,6)],[reportExportCell('Отменено',5),reportExportCell(cancelled,6),'','',reportExportCell('Новых клиентов',5),reportExportCell(data.clients.newClients,6)],[reportExportCell('Не пришли',5),reportExportCell(noShow,6),'','',reportExportCell('Вернувшихся клиентов',5),reportExportCell(data.clients.returningClients,6)],[reportExportCell('Отработано',5),reportExportCell(String(reportHours(data.workedMinutes)).replace('.',','),6)],[],[reportExportCell('ИСТОЧНИК ВСЕХ ЗАПИСЕЙ',3)],[reportExportCell('Онлайн',5),reportExportCell(data.sources.online,6),reportExportCell(reportShare(data.sources.online,totalSources),8),'',reportExportCell('Создано вручную',5),reportExportCell(data.sources.manual,6),reportExportCell(reportShare(data.sources.manual,totalSources),8)],[reportExportCell('Не определено',5),reportExportCell(data.sources.unknown,6),reportExportCell(reportShare(data.sources.unknown,totalSources),8)],[],[reportExportCell('КОНТРОЛЬ',3)],[reportExportCell('Сверка денег',5),reportExportCell(`${data.completedValue.toLocaleString('ru-RU')} ₽ оказано → ${data.revenue.toLocaleString('ru-RU')} ₽ получено`,9)],[reportExportCell('Правило',5),reportExportCell('Получено учитывает только отмеченные оплаты. Поминутная услуга: ставка за минуту × длительность.',9)]];
   const detail=[[reportExportCell('ДЕТАЛЬНЫЙ РЕЕСТР ЗАПИСЕЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],data.headers.map(value=>reportExportCell(value,4)),...data.rows.map(row=>row.map((value,index)=>reportExportCell(value,index>=8&&index<=11?7:index===7?6:5)))];
-  const teamHeaders=['Мастер','Визиты','Клиенты','Отработано, мин','Выручка, ₽','Средний чек, ₽','Начислено, ₽'];
-  const team=[[reportExportCell('РЕЗУЛЬТАТЫ МАСТЕРОВ',1)],[reportExportCell(`Период: ${period}`,2)],[],teamHeaders.map(value=>reportExportCell(value,4)),...data.team.map(row=>row.map((value,index)=>reportExportCell(value,index>=4&&typeof value==='number'?7:index>0?6:5)))];
+  const teamHeaders=['Мастер','Визиты','Клиенты','Отработано, мин','Выручка, ₽','Средняя оплата, ₽','Заработок сотрудника, ₽'];
+  const team=[[reportExportCell('РЕЗУЛЬТАТЫ КОМАНДЫ',1)],[reportExportCell(`Период: ${period}`,2)],[],teamHeaders.map(value=>reportExportCell(value,4)),...data.team.map(row=>row.map((value,index)=>reportExportCell(value,index>=4&&typeof value==='number'?7:index>0?6:5)))];
   const clientHeaders=['Клиент','Телефон','Первый визит','Последний визит','Визиты','Получено, ₽','Средний чек, ₽','Дней без визита','Статус'];
   const clients=[[reportExportCell('КЛИЕНТЫ ЗА ПЕРИОД',1)],[reportExportCell(`Период: ${period}`,2)],[],clientHeaders.map(value=>reportExportCell(value,4)),...data.clientRows.map(row=>row.map((value,index)=>reportExportCell(value,index===5||index===6?7:index===4||index===7?6:5)))];
   const historyHeaders=['Дата и время','Событие','Клиент','Услуга','Мастер','Кто изменил','План, ₽','Оказано, ₽','Получено, ₽','Минуты'];
