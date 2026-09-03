@@ -280,4 +280,4 @@ $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
 initializeSmsLogin();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=231'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=232'));

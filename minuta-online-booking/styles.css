@@ -1764,8 +1764,8 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body .timeline-booking.compact .timeline-booking-time { align-self:center; }
 .provider-body .timeline-booking.compact .timeline-booking-copy { display:grid; align-content:center; min-height:0; }
 .provider-body .timeline-booking.compact .timeline-booking-copy strong { line-height:1.15; }
-.provider-body .timeline-booking.minute-only { grid-template-columns:94px minmax(0,1fr); place-items:center stretch; padding:2px 14px; }
-.provider-body .timeline-booking.minute-only .timeline-booking-minute-copy { display:block; width:100%; min-width:0; padding:0; text-align:left; }
+.provider-body .timeline-booking.minute-only { grid-template-columns:minmax(0,1fr); place-items:center stretch; padding:2px 14px; }
+.provider-body .timeline-booking.minute-only .timeline-booking-minute-copy { grid-column:1 / -1; display:block; width:100%; min-width:0; padding:0; text-align:left; }
 .provider-body .timeline-booking.minute-only .timeline-booking-minute-copy strong { display:block; overflow:hidden; line-height:1.1; text-overflow:ellipsis; white-space:nowrap; }
 .provider-body .timeline-booking.compact .timeline-booking-client { display:block; margin-top:1px; font-size:10px; }
 .provider-body .timeline-booking.compact.has-note .timeline-booking-client-row { display:none; }
