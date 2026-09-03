@@ -133,6 +133,7 @@ jobs:
           node --check minuta-online-booking/booking-policy-management-controller-test.mjs
           node --check minuta-online-booking/resource-management-controller-test.mjs
           node --check minuta-online-booking/voice-assistant-lifecycle-test.mjs
+          node --check minuta-online-booking/provider-responsive-parity-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
@@ -178,6 +179,7 @@ jobs:
           node minuta-online-booking/booking-policy-management-controller-test.mjs
           node minuta-online-booking/voice-assistant-test.mjs
           node minuta-online-booking/voice-assistant-lifecycle-test.mjs
+          node minuta-online-booking/provider-responsive-parity-test.mjs
           bash -n minuta-online-booking/multi-tenant-v69-concurrency-test.sh
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs

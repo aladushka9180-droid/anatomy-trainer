@@ -1030,6 +1030,8 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .mobile-more-intro { max-width:640px; margin:10px 0 0; color:#66796f; font-size:11px; line-height:1.55; }
 .mobile-more-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; margin-top:16px; }.mobile-more-grid button { display:grid; grid-template-columns:48px minmax(0,1fr); align-items:center; gap:3px 13px; min-height:110px; padding:18px; border:1px solid #dce8e0; border-radius:18px; background:#fff; color:var(--ink); cursor:pointer; text-align:left; }.mobile-more-grid button>span { grid-row:1/3; display:grid; place-items:center; width:48px; height:48px; border-radius:14px; background:#e4f3e9; color:#2b7751; font-size:20px; }.mobile-more-grid strong { font-size:16px; }.mobile-more-grid small { color:#6f8177; font-size:10px; }
 .mobile-more-grid .mobile-settings-shortcut { grid-column:1/-1; min-height:96px; border-color:#a9c6b5; background:#edf6f0; }
+.mobile-priority-shortcuts { display:none; }
+.client-badge-label { display:none; }
 @media (max-width:760px) { .notification-settings-button { min-height:44px; padding:0 10px; }.notification-summary { display:flex; width:100%; justify-content:space-between; gap:9px; }.notification-summary div { gap:4px; }.notification-summary strong { font-size:16px; }.notification-summary span { font-size:9px; }.notification-toolbar { align-items:flex-start; flex-direction:column; }.notification-filters { width:100%; overflow-x:auto; }.notification-filters button { flex:1; white-space:nowrap; }.notification-card { grid-template-columns:36px minmax(0,1fr); }.notification-card-actions { grid-column:2; width:100%; }.notification-card-actions .whatsapp-action { min-height:44px; flex:1; }.notification-card-actions .notification-done-button { width:44px; min-height:44px; }.notification-card h3 { font-size:15px; }.notification-card p,.notification-card blockquote { font-size:11px; }.notification-template-dialog { padding:20px; border-radius:18px; }.mobile-more-grid { grid-template-columns:1fr; }.booking-outcome-payment,.booking-minute-calculator { grid-template-columns:1fr; } }
 
 /* На телефоне fixed-навигация и кнопка новой записи не закрывают конец очереди. */
@@ -4874,6 +4876,104 @@ html.requires-top-level.top-level body { visibility:visible; }
   .client-fields-toolbar { align-items:flex-end; }
   .client-field-definition-form .form-row { grid-template-columns:1fr; }
   .client-field-definition-form>.primary { width:100%; }
+}
+
+/* Мобильная функциональная чётность: важное видно сразу, редкие разделы доступны одним нажатием. */
+@media (max-width:760px) {
+  .mobile-priority-shortcuts {
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    margin:10px 0 12px;
+    padding:5px;
+    border:1px solid var(--theme-line,#dce7df);
+    border-radius:14px;
+    background:var(--theme-surface,#fff);
+  }
+  .mobile-priority-shortcuts button {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    min-width:0;
+    min-height:44px;
+    padding:0 6px;
+    border:0;
+    border-radius:10px;
+    background:transparent;
+    color:var(--theme-accent,#235b40);
+    cursor:pointer;
+    font:850 9px/1.15 inherit;
+  }
+  .mobile-priority-shortcuts button:active { background:var(--theme-accent-soft,#e8f3ec); }
+  .mobile-priority-shortcuts .ui-icon { flex:none; width:15px; height:15px; }
+
+  .provider-topbar { grid-template-columns:minmax(0,1fr) 54px 54px; }
+  .provider-topbar .voice-assistant-open,
+  .provider-topbar .topbar-client-link,
+  .provider-topbar .sync-tool-button {
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    width:54px;
+    min-height:48px;
+    padding:4px 2px;
+  }
+  .provider-topbar [data-mobile-label]::after {
+    content:attr(data-mobile-label);
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    font-size:7px;
+    font-weight:800;
+    line-height:1;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .provider-topbar .sync-state { grid-column:1/3; }
+
+  .provider-body .service-visibility-toggle span {
+    display:inline;
+    font-size:8px;
+    white-space:nowrap;
+  }
+
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-client-duration {
+    display:inline!important;
+    font-weight:800;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-booking-status {
+    display:inline-flex!important;
+    align-items:center;
+    justify-content:center;
+    min-height:18px;
+    padding:3px 5px;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-booking-status-icon {
+    display:grid!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) :is(.timeline-booking-client-row,.timeline-booking-note) {
+    padding-right:76px!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .client-badges:not(.with-labels) {
+    max-width:108px;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .client-badges:not(.with-labels) .client-badge {
+    display:flex;
+    width:auto!important;
+    max-width:108px;
+    padding:0 6px;
+    gap:3px;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .client-badge-label {
+    display:block;
+    overflow:hidden;
+    font-size:7px;
+    font-weight:850;
+    line-height:1;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
 }
 
 /* Warm Beige: единая тёплая типографика во всех разделах кабинета. */

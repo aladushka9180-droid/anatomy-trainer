@@ -1187,7 +1187,7 @@ function clientBadgeMarkup(phone, { limit = 2, showLabels = false } = {}) {
     const fullText = clientBadgeText(phone);
     return `<span class="client-badges" aria-hidden="true">${shown.map(item => {
       const title = item.detail ? `${item.label}: ${item.detail}` : item.label;
-      return `<span class="client-badge badge-${item.key}" title="${escapeHtml(title)}">${uiIcon(item.icon)}</span>`;
+      return `<span class="client-badge badge-${item.key}" title="${escapeHtml(title)}">${uiIcon(item.icon)}<span class="client-badge-label">${escapeHtml(item.label)}</span></span>`;
     }).join('')}${rest > 0 ? `<span class="client-badge-more">+${rest}</span>` : ''}</span><span class="sr-only">Метки клиента: ${escapeHtml(fullText)}</span>`;
   }
   return `<span class="client-badges with-labels" role="list" aria-label="Метки клиента">${shown.map(item => {
@@ -1340,7 +1340,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=243#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=247#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
