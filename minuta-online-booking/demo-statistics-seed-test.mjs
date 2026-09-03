@@ -7,10 +7,11 @@ const workflow = fs.readFileSync(new URL('../.github/workflows/minuta-demo-stati
 
 assert.match(seed, /\\ir demo-statistics-cleanup\.sql/, 'seed must replace only its previous fixture');
 assert.match(seed, /public_booking_enabled[\s\S]*false/, 'demo organization must not be public');
-assert.match(seed, /generate_series\(1, 300\)/, 'fixture must contain a meaningful 90-day history');
+assert.match(seed, /generate_series\(1, 420\)/, 'fixture must contain three complete previous calendar months');
+assert.match(seed, /date_trunc\('month', current_date\) - interval '3 months'/, 'history must begin at the first day of the third previous month');
 assert.match(seed, /generate_series\(1, 7\) staff_no/, 'fixture must contain seven specialists');
 assert.match(seed, /select count\(\*\) from public\.locations[\s\S]*<> 3/, 'three branches must be verified');
-assert.match(seed, /select count\(\*\) from public\.bookings[\s\S]*<> 312/, 'booking count must be verified');
+assert.match(seed, /select count\(\*\) from public\.bookings[\s\S]*<> 432/, 'booking count must be verified');
 assert.match(seed, /inventory_items/, 'inventory fixture must be present');
 assert.match(seed, /booking_source/, 'booking attribution must be varied');
 assert.match(seed, /visit_status/, 'visit outcomes must be present');

@@ -146,19 +146,28 @@ select
   work_date, time '09:00', time '20:00', time '13:00', time '14:00',
   'Тестовая смена · demo_statistics', true, current_setting('minuta.demo_owner')::uuid
 from generate_series(1, 7) staff_no
-cross join generate_series(current_date - 90, current_date + 14, interval '1 day') day_row
+cross join generate_series(
+  (date_trunc('month', current_date) - interval '3 months')::date,
+  current_date + 14,
+  interval '1 day'
+) day_row
 cross join lateral (select day_row::date as work_date) normalized
 where extract(isodow from work_date) between 1 and 6;
 
 set local session_replication_role = replica;
-with fixture as (
+with bounds as (
+  select
+    (date_trunc('month', current_date) - interval '3 months')::date as period_start,
+    date_trunc('month', current_date)::date - 1 as period_end
+), fixture as (
   select
     booking_no,
     1 + ((booking_no * 5) % 7) as staff_no,
     1 + (booking_no % 2) as service_no,
-    current_date - (89 - ((booking_no - 1) % 90)) as booking_date,
+    period_start + ((booking_no - 1) % (period_end - period_start + 1)) as booking_date,
     (time '09:00' + make_interval(mins => ((booking_no - 1) % 7) * 90))::time as booking_time
-  from generate_series(1, 300) booking_no
+  from bounds
+  cross join generate_series(1, 420) booking_no
 ), prepared as (
   select fixture.*,
     ('d3500000-0000-4000-8000-' || lpad((100 + staff_no)::text, 12, '0'))::uuid as performer_id,
@@ -169,7 +178,9 @@ with fixture as (
     case when service_no = 1 then 60 else 90 end as duration_minutes,
     case when service_no = 1 then 2600 + staff_no * 120 else 3900 + staff_no * 170 end as price_rub,
     case
-      when staff_no >= 6 and booking_date > current_date - 30 and booking_no % 3 = 0 then 'cancelled'
+      when staff_no >= 6
+        and booking_date >= (date_trunc('month', current_date) - interval '1 month')::date
+        and booking_no % 3 = 0 then 'cancelled'
       when booking_no % 17 = 0 then 'cancelled'
       else 'confirmed'
     end as booking_status
@@ -249,7 +260,8 @@ with target as (
     case
       when booking_date >= current_date then 'scheduled'
       when performer_id::text in ('d3500000-0000-4000-8000-000000000106','d3500000-0000-4000-8000-000000000107')
-        and booking_date > current_date - 30 and sequence_no % 4 = 0 then 'no_show'
+        and booking_date >= (date_trunc('month', current_date) - interval '1 month')::date
+        and sequence_no % 4 = 0 then 'no_show'
       when sequence_no % 19 = 0 then 'no_show'
       when booking_date >= current_date - 4 and sequence_no % 3 = 1 then 'scheduled'
       else 'completed'
@@ -333,8 +345,10 @@ begin
   if (select count(*) from public.locations where organization_id = v_org) <> 3
      or (select count(*) from public.organization_memberships where organization_id = v_org and role = 'specialist') <> 7
      or (select count(*) from public.services where performer_id::text like 'd3500000-0000-4000-8000-0000000001__') <> 14
-     or (select count(*) from public.bookings where organization_id = v_org) <> 312
-     or (select count(*) from public.booking_outcomes outcome join public.bookings booking on booking.id = outcome.booking_id where booking.organization_id = v_org and outcome.visit_status = 'completed') < 200
+     or (select count(*) from public.bookings where organization_id = v_org) <> 432
+     or (select count(*) from public.booking_outcomes outcome join public.bookings booking on booking.id = outcome.booking_id where booking.organization_id = v_org and outcome.visit_status = 'completed') < 330
+     or (select min(booking_date) from public.bookings where organization_id = v_org) <> (date_trunc('month', current_date) - interval '3 months')::date
+     or (select max(booking_date) from public.bookings where organization_id = v_org and booking_date < current_date) <> date_trunc('month', current_date)::date - 1
      or (select count(*) from public.inventory_items where organization_id = v_org) <> 5 then
     raise exception using errcode = 'P0001', message = 'demo_statistics_fixture_contract_failed';
   end if;
