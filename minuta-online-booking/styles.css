@@ -5465,6 +5465,7 @@ html.provider-booting .provider-main {
     overflow-wrap:normal;
     word-break:keep-all;
     white-space:nowrap;
+    font-size:24px;
   }
   #analyticsView #exportBookings {
     flex:0 0 auto;
@@ -5477,6 +5478,7 @@ html.provider-booting .provider-main {
   #analyticsView .view-title h2 {
     overflow-wrap:normal;
     word-break:normal;
+    font-size:24px;
   }
 }
 
