@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: minuta-production-database
+  group: minuta-production-demo-statistics
   cancel-in-progress: false
 
 jobs:
