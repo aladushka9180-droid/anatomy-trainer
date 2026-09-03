@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=278" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=279" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=278">
+  <link rel="stylesheet" href="styles.css?v=279">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -117,7 +117,7 @@
       <div class="provider-workspace">
         <header class="provider-topbar">
           <div><small class="provider-current-moment"><span id="todayLabel">Сегодня</span><span class="provider-current-moment-separator" aria-hidden="true">·</span><time id="currentTimeLabel" datetime="">--:--</time></small><h1 id="welcomeName">Здравствуйте!</h1></div>
-          <div class="provider-topbar-actions"><button class="voice-assistant-open" id="openVoiceAssistant" type="button" aria-haspopup="dialog" aria-controls="voiceAssistantDialog" data-mobile-label="Помощник"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Помощник</span></button><button class="sync-state is-checking" id="syncState" type="button" aria-live="polite" aria-label="Открыть журнал связи"><i></i><span>Подключаемся…</span></button><button class="sync-tool-button" id="manualSyncButton" type="button" data-mobile-label="Обновить"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке" data-mobile-label="Клиентам"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
+          <div class="provider-topbar-actions"><button class="voice-assistant-open" id="openVoiceAssistant" type="button" aria-haspopup="dialog" aria-controls="voiceAssistantDialog" data-mobile-label="Помощник"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Помощник</span></button><button class="desktop-app-install" id="desktopAppInstallButton" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить</span></button><button class="sync-state is-checking" id="syncState" type="button" aria-live="polite" aria-label="Открыть журнал связи"><i></i><span>Подключаемся…</span></button><button class="sync-tool-button" id="manualSyncButton" type="button" data-mobile-label="Обновить"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Обновить</span></button><a class="topbar-client-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer" aria-label="Открыть страницу клиента в новой вкладке" data-mobile-label="Клиентам"><span>Страница клиента</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg></a></div>
         </header>
 
         <section class="provider-view active" data-provider-panel="bookings">
@@ -228,7 +228,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=278#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=279#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -844,8 +844,13 @@
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-download"></use></svg></div>
               <div class="settings-heading"><small>Быстрый доступ</small><h3>Установить приложение</h3><p>Кабинет появится на главном экране и будет открываться как отдельное приложение.</p></div>
               <div class="install-app-content">
-                <button class="primary install-app-button" id="installAppButton" type="button" aria-expanded="false" aria-controls="androidInstallGuide iosInstallGuide browserInstallGuide"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button>
+                <div class="install-app-actions"><button class="primary install-app-button" id="installAppButton" type="button" aria-expanded="false" aria-controls="desktopInstallGuide androidInstallGuide iosInstallGuide browserInstallGuide"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button><button class="secondary-button install-fullscreen-button" id="providerFullscreenButton" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>На весь экран</span></button></div>
                 <p class="install-app-status" id="installAppStatus" role="status" aria-live="polite">Определяем устройство и способ установки…</p>
+                <div class="install-guide desktop-install-guide" id="desktopInstallGuide" hidden>
+                  <strong>Установка на компьютер</strong>
+                  <ol><li>Откройте кабинет в Microsoft Edge или Google Chrome.</li><li>Нажмите «Установить приложение» и подтвердите системное окно.</li><li>После установки разрешите создать ярлык на рабочем столе, если браузер покажет этот пункт.</li><li>Запускайте «Минута» с рабочего стола, из меню «Пуск» или закрепите её на панели задач.</li></ol>
+                  <p>Приложение откроется отдельным окном без вкладок браузера. Размер окна сохранится после закрытия.</p>
+                </div>
                 <div class="install-guide android-install-guide" id="androidInstallGuide" hidden>
                   <strong>Установка на Android</strong>
                   <ol><li>Откройте страницу в Chrome.</li><li>Нажмите меню <b>⋮</b> в правом верхнем углу.</li><li>Выберите «Установить приложение» или «Добавить на главный экран».</li><li>Подтвердите установку.</li></ol>
@@ -857,8 +862,8 @@
                   <p>На iOS системное окно установки нельзя запустить кнопкой на сайте — добавление выполняется через меню Safari.</p>
                 </div>
                 <div class="install-guide browser-install-guide" id="browserInstallGuide" hidden>
-                  <strong>Почему установка недоступна</strong>
-                  <p>Приложение устанавливается только с опубликованного защищённого адреса <b>HTTPS</b>. Локальная ссылка с адресом компьютера или 127.0.0.1 на телефоне для установки не подходит.</p>
+                  <strong>Установка через меню браузера</strong>
+                  <p>В Edge откройте меню «…» → «Приложения» → «Установить этот сайт как приложение». В Chrome откройте меню «⋮» → «Сохранить и поделиться» → «Установить страницу как приложение». Нужна опубликованная HTTPS-версия сайта.</p>
                 </div>
               </div>
             </section>
@@ -1089,29 +1094,29 @@
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="vendor/xlsx-0.20.3.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" defer></script>
-  <script src="config.js?v=278"></script>
-  <script src="site-update.js?v=278" defer></script>
-  <script src="reliability.js?v=278"></script>
-  <script src="phone-auth.js?v=278"></script>
-  <script src="social-auth.js?v=278"></script>
-  <script src="resource-management.js?v=278" defer></script>
-  <script src="shift-management.js?v=278" defer></script>
-  <script src="organization.js?v=278" defer></script>
-  <script src="payroll-management.js?v=278" defer></script>
-  <script src="benefit-management.js?v=278" defer></script>
-  <script src="loyalty-management.js?v=278" defer></script>
-  <script src="inventory-management.js?v=278" defer></script>
-  <script src="retention-management.js?v=278" defer></script>
-  <script src="payment-management.js?v=278" defer></script>
-  <script src="notification-center.js?v=278" defer></script>
-  <script src="client-fields.js?v=278" defer></script>
-  <script src="client-import.js?v=278" defer></script>
-  <script src="batch-bookings.js?v=278" defer></script>
-  <script src="booking-policy-management.js?v=278" defer></script>
-  <script src="team-calendar.js?v=278" defer></script>
-  <script src="free-slots-share.js?v=278" defer></script>
-  <script src="group-bookings.js?v=278" defer></script>
-  <script src="provider.js?v=278" defer></script>
-  <script src="voice-assistant.js?v=278" defer></script>
+  <script src="config.js?v=279"></script>
+  <script src="site-update.js?v=279" defer></script>
+  <script src="reliability.js?v=279"></script>
+  <script src="phone-auth.js?v=279"></script>
+  <script src="social-auth.js?v=279"></script>
+  <script src="resource-management.js?v=279" defer></script>
+  <script src="shift-management.js?v=279" defer></script>
+  <script src="organization.js?v=279" defer></script>
+  <script src="payroll-management.js?v=279" defer></script>
+  <script src="benefit-management.js?v=279" defer></script>
+  <script src="loyalty-management.js?v=279" defer></script>
+  <script src="inventory-management.js?v=279" defer></script>
+  <script src="retention-management.js?v=279" defer></script>
+  <script src="payment-management.js?v=279" defer></script>
+  <script src="notification-center.js?v=279" defer></script>
+  <script src="client-fields.js?v=279" defer></script>
+  <script src="client-import.js?v=279" defer></script>
+  <script src="batch-bookings.js?v=279" defer></script>
+  <script src="booking-policy-management.js?v=279" defer></script>
+  <script src="team-calendar.js?v=279" defer></script>
+  <script src="free-slots-share.js?v=279" defer></script>
+  <script src="group-bookings.js?v=279" defer></script>
+  <script src="provider.js?v=279" defer></script>
+  <script src="voice-assistant.js?v=279" defer></script>
 </body>
 </html>

@@ -2327,7 +2327,10 @@ html.provider-booting .provider-main {
 .provider-body .booking-rules-card { grid-template-columns:40px minmax(0,1fr); margin-bottom:10px; }
 .provider-body .install-app-card { grid-template-columns:40px minmax(0,1fr); margin-bottom:10px; }
 .provider-body .install-app-content { display:grid; grid-column:1/-1; grid-template-columns:minmax(210px,auto) minmax(0,1fr); align-items:center; gap:10px 14px; margin-top:16px; }
+.provider-body .install-app-actions { display:flex; align-items:center; gap:9px; }
 .provider-body .install-app-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:48px; margin:0; padding:0 17px; touch-action:manipulation; }
+.provider-body .install-fullscreen-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:48px; margin:0; white-space:nowrap; }
+.provider-body .install-fullscreen-button[hidden] { display:none; }
 .provider-body .install-app-button .ui-icon { width:17px; height:17px; }
 .provider-body .install-app-button:disabled { cursor:default; opacity:.66; }
 .provider-body .install-app-status { margin:0; color:#64766c; font-size:10px; line-height:1.45; }
@@ -2339,6 +2342,10 @@ html.provider-booting .provider-main {
 .provider-body .android-install-guide { border-color:#cfe2d6; background:#f2f8f4; }
 .provider-body .ios-install-guide { border-color:#d7dfea; background:#f5f7fb; }
 .provider-body .browser-install-guide { border-color:#eadfc6; background:#fbf8f0; }
+.provider-body .desktop-install-guide { border-color:#d7dfea; background:#f5f7fb; }
+.provider-body .desktop-app-install { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:40px; padding:0 13px; border:1px solid var(--theme-line,#dce7df); border-radius:999px; background:var(--theme-surface,#fff); color:var(--theme-accent,#2f7654); font-size:10px; font-weight:850; box-shadow:0 5px 16px var(--theme-shadow,rgba(24,52,39,.08)); }
+.provider-body .desktop-app-install[hidden] { display:none; }
+.provider-body .desktop-app-install .ui-icon { width:15px; height:15px; }
 .provider-body .settings-icon { width:40px; height:40px; border-radius:11px; background:#eef1ef; color:#4f6659; }
 .provider-body .settings-heading h3 { font-size:18px; }
 .provider-body .settings-heading p { max-width:580px; margin-top:4px; font-size:10px; }
@@ -2435,6 +2442,7 @@ html.provider-booting .provider-main {
   .provider-body .policy-grid label>span:first-child { min-height:0; }
   .provider-body .settings-card { padding:15px; }
   .provider-body .install-app-content { grid-template-columns:1fr; }
+  .provider-body .install-app-actions { display:grid; grid-template-columns:1fr; }
   .provider-body .install-app-button { width:100%; }
   .provider-body .install-app-card { scroll-margin-top:calc(16px + env(safe-area-inset-top)); }
   .provider-body .install-app-content { gap:12px; }
@@ -2445,6 +2453,7 @@ html.provider-booting .provider-main {
   .provider-body .install-guide ol { gap:8px; font-size:12px; }
   .provider-body .install-guide p { font-size:11px; }
 }
+@media (max-width:760px) { .provider-body .desktop-app-install { display:none!important; } }
 
 /* Метки не увеличивают высоту строки и не срезают заметку. */
 .provider-body .timeline-booking-copy { position:relative; padding-right:76px; }

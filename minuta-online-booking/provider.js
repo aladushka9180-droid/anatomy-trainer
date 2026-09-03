@@ -1172,6 +1172,12 @@ function providerAppIsIos() {
 function providerAppIsAndroid() {
   return /android/i.test(navigator.userAgent);
 }
+function providerAppIsDesktop() {
+  return !providerAppIsIos() && !providerAppIsAndroid();
+}
+function providerFullscreenActive() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
 function providerAppIsInAppBrowser() {
   return /; wv\)|\bwv\b|instagram|fban|fbav|telegram|line\/|micromessenger/i.test(navigator.userAgent);
 }
@@ -1179,7 +1185,7 @@ function providerAppHasSecureOrigin() {
   return window.isSecureContext || ['localhost', '127.0.0.1'].includes(location.hostname);
 }
 function hideProviderInstallGuides() {
-  ['androidInstallGuide', 'iosInstallGuide', 'browserInstallGuide'].forEach(id => {
+  ['desktopInstallGuide', 'androidInstallGuide', 'iosInstallGuide', 'browserInstallGuide'].forEach(id => {
     const guide = $(`#${id}`);
     if (guide) guide.hidden = true;
   });
@@ -1195,9 +1201,16 @@ function showProviderInstallGuide(id) {
 }
 function refreshInstallAppCard() {
   const button = $('#installAppButton');
+  const topbarButton = $('#desktopAppInstallButton');
+  const fullscreenButton = $('#providerFullscreenButton');
   const status = $('#installAppStatus');
   if (!button || !status) return;
   button.disabled = false;
+  if (topbarButton) topbarButton.hidden = !providerAppIsDesktop() || providerAppIsInstalled();
+  if (fullscreenButton) {
+    fullscreenButton.hidden = !providerAppIsDesktop() || !document.documentElement.requestFullscreen;
+    fullscreenButton.querySelector('span').textContent = providerFullscreenActive() ? 'Выйти из полного экрана' : 'На весь экран';
+  }
   hideProviderInstallGuides();
   if (providerAppIsInstalled()) {
     button.disabled = true;
@@ -1227,8 +1240,8 @@ function refreshInstallAppCard() {
       : 'Если системное окно не появилось, установка доступна через меню Chrome.';
     return;
   }
-  button.querySelector('span').textContent = 'Как установить приложение';
-  status.textContent = 'Откройте меню браузера и выберите установку приложения.';
+  button.querySelector('span').textContent = 'Установить на компьютер';
+  status.textContent = 'Кабинет откроется отдельным окном и появится в меню «Пуск». Ярлык можно добавить на рабочий стол.';
 }
 async function installProviderApp() {
   if (providerAppIsInstalled()) {
@@ -1261,7 +1274,16 @@ async function installProviderApp() {
     showProviderInstallGuide('androidInstallGuide');
     return;
   }
-  showProviderInstallGuide('browserInstallGuide');
+  showProviderInstallGuide(providerAppIsDesktop() ? 'desktopInstallGuide' : 'browserInstallGuide');
+}
+async function toggleProviderFullscreen() {
+  try {
+    if (providerFullscreenActive()) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen({ navigationUI:'hide' });
+  } catch {
+    notify('Полноэкранный режим заблокирован браузером');
+  }
+  refreshInstallAppCard();
 }
 function displayPreferencesFromForm() {
   return normalizeDisplayPreferences({
@@ -1512,7 +1534,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=278#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=279#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2642,7 +2664,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=278');
+    worker = new Worker('./report-worker.js?v=279');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8622,6 +8644,8 @@ $('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotifica
 $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemNotification);
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('#installAppButton').addEventListener('click', installProviderApp);
+$('#desktopAppInstallButton').addEventListener('click', installProviderApp);
+$('#providerFullscreenButton').addEventListener('click', toggleProviderFullscreen);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
@@ -8825,6 +8849,7 @@ window.addEventListener('appinstalled', () => {
   refreshInstallAppCard();
   notify('Приложение установлено');
 });
+document.addEventListener('fullscreenchange', refreshInstallAppCard);
 window.matchMedia('(display-mode: standalone)').addEventListener?.('change', refreshInstallAppCard);
 window.addEventListener('scroll', scheduleSectionNavigationUpdate, { passive:true });
 window.addEventListener('resize', scheduleSectionNavigationUpdate);
