@@ -1466,7 +1466,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=254#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=255#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2162,7 +2162,7 @@ function reportExportSheet(rows, options) {
   const columns = options.widths.map((width,index) => `<col min="${index+1}" max="${index+1}" width="${width}" customWidth="1"/>`).join('');
   const merges = (options.merges || []).map(ref => `<mergeCell ref="${ref}"/>`).join('');
   const freeze = options.freeze || 0;
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView showGridLines="0" workbookViewId="0">${freeze?`<pane ySplit="${freeze}" topLeftCell="A${freeze+1}" activePane="bottomLeft" state="frozen"/>`:''}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${columns}</cols><sheetData>${body}</sheetData>${merges?`<mergeCells count="${options.merges.length}">${merges}</mergeCells>`:''}${options.filter?`<autoFilter ref="${options.filter}"/>`:''}<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView showGridLines="0" workbookViewId="0">${freeze?`<pane ySplit="${freeze}" topLeftCell="A${freeze+1}" activePane="bottomLeft" state="frozen"/>`:''}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${columns}</cols><sheetData>${body}</sheetData>${options.filter?`<autoFilter ref="${options.filter}"/>`:''}${merges?`<mergeCells count="${options.merges.length}">${merges}</mergeCells>`:''}<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
 }
 function reportProfessionalWorkbook(sheets) {
   const overrides=sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
@@ -2181,7 +2181,7 @@ function reportProfessionalWorkbook(sheets) {
 function reportExportSheets(data) {
   const period=`${reportExportDate(data.range.start)} — ${reportExportDate(data.range.end)}`, totalSources=data.sources.online+data.sources.manual+data.sources.unknown;
   const cancelled=data.items.filter(item=>item.status==='cancelled').length, noShow=data.items.filter(item=>bookingOutcome(item).visit_status==='no_show').length;
-  const summary=[[reportExportCell('ОТЧЁТ «МИНУТА — ОНЛАЙН-ЗАПИСЬ»',1)],[reportExportCell(`Период: ${period} · сформирован ${new Date().toLocaleString('ru-RU')}`,2)],[],[reportExportCell('ФИНАНСЫ',3)],[reportExportCell('Получено',5),reportExportCell(data.revenue,10),'',reportExportCell('Оказано услуг на',5),reportExportCell(data.completedValue,10)],[reportExportCell('Долг',5),reportExportCell(data.debt,10),'',reportExportCell('Средний чек',5),reportExportCell(data.average,10)],[],[reportExportCell('ВИЗИТЫ И КЛИЕНТЫ',3)],[reportExportCell('Состоялось',5),reportExportCell(data.completed.length,6),'',reportExportCell('Уникальных клиентов',5),reportExportCell(data.clients.uniqueClients,6)],[reportExportCell('Отменено',5),reportExportCell(cancelled,6),'',reportExportCell('Новых клиентов',5),reportExportCell(data.clients.newClients,6)],[reportExportCell('Не пришли',5),reportExportCell(noShow,6),'',reportExportCell('Вернувшихся клиентов',5),reportExportCell(data.clients.returningClients,6)],[reportExportCell('Отработано',5),reportExportCell(reportHours(data.workedMinutes),6)],[],[reportExportCell('ИСТОЧНИК ЗАПИСИ',3)],[reportExportCell('Онлайн',5),reportExportCell(data.sources.online,6),reportExportCell(reportShare(data.sources.online,totalSources),8),reportExportCell('Создано вручную',5),reportExportCell(data.sources.manual,6),reportExportCell(reportShare(data.sources.manual,totalSources),8)],[reportExportCell('Не определено',5),reportExportCell(data.sources.unknown,6),reportExportCell(reportShare(data.sources.unknown,totalSources),8)],[],[reportExportCell('КОНТРОЛЬ',3)],[reportExportCell('Сверка денег',5),reportExportCell(`${data.completedValue.toLocaleString('ru-RU')} ₽ оказано → ${data.revenue.toLocaleString('ru-RU')} ₽ получено`,9)],[reportExportCell('Правило',5),reportExportCell('Будущие и отменённые записи не входят в полученную выручку. Для поминутной услуги итог равен ставке за минуту × длительность.',9)]];
+  const summary=[[reportExportCell('ОТЧЁТ «МИНУТА — ОНЛАЙН-ЗАПИСЬ»',1)],[reportExportCell(`Период: ${period} · сформирован ${new Date().toLocaleString('ru-RU')}`,2)],[],[reportExportCell('ФИНАНСЫ',3)],[reportExportCell('Получено',5),reportExportCell(data.revenue,10),'',reportExportCell('Оказано услуг на',5),reportExportCell(data.completedValue,10)],[reportExportCell('Долг',5),reportExportCell(data.debt,10),'',reportExportCell('Средний чек',5),reportExportCell(data.average,10)],[],[reportExportCell('ВИЗИТЫ И КЛИЕНТЫ',3)],[reportExportCell('Состоялось',5),reportExportCell(data.completed.length,6),'',reportExportCell('Уникальных клиентов',5),reportExportCell(data.clients.uniqueClients,6)],[reportExportCell('Отменено',5),reportExportCell(cancelled,6),'',reportExportCell('Новых клиентов',5),reportExportCell(data.clients.newClients,6)],[reportExportCell('Не пришли',5),reportExportCell(noShow,6),'',reportExportCell('Вернувшихся клиентов',5),reportExportCell(data.clients.returningClients,6)],[reportExportCell('Отработано',5),reportExportCell(String(reportHours(data.workedMinutes)).replace('.',','),6)],[],[reportExportCell('ИСТОЧНИК ВСЕХ ЗАПИСЕЙ',3)],[reportExportCell('Онлайн',5),reportExportCell(data.sources.online,6),reportExportCell(reportShare(data.sources.online,totalSources),8),reportExportCell('Создано вручную',5),reportExportCell(data.sources.manual,6),reportExportCell(reportShare(data.sources.manual,totalSources),8)],[reportExportCell('Не определено',5),reportExportCell(data.sources.unknown,6),reportExportCell(reportShare(data.sources.unknown,totalSources),8)],[],[reportExportCell('КОНТРОЛЬ',3)],[reportExportCell('Сверка денег',5),reportExportCell(`${data.completedValue.toLocaleString('ru-RU')} ₽ оказано → ${data.revenue.toLocaleString('ru-RU')} ₽ получено`,9)],[reportExportCell('Правило',5),reportExportCell('Будущие и отменённые записи не входят в полученную выручку. Для поминутной услуги итог равен ставке за минуту × длительность.',9)]];
   const detail=[[reportExportCell('ДЕТАЛЬНЫЙ РЕЕСТР ЗАПИСЕЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],data.headers.map(value=>reportExportCell(value,4)),...data.rows.map(row=>row.map((value,index)=>reportExportCell(value,index>=8&&index<=11?7:index===7?6:5)))];
   const teamHeaders=['Мастер','Визиты','Клиенты','Отработано, мин','Выручка, ₽','Средний чек, ₽','Начислено, ₽'];
   const team=[[reportExportCell('РЕЗУЛЬТАТЫ МАСТЕРОВ',1)],[reportExportCell(`Период: ${period}`,2)],[],teamHeaders.map(value=>reportExportCell(value,4)),...data.team.map(row=>row.map((value,index)=>reportExportCell(value,index>=4&&typeof value==='number'?7:index>0?6:5)))];
@@ -2215,14 +2215,9 @@ async function exportBookingsXlsxInBackground() {
   let worker;
   let workerUrl;
   try {
-    const header = ['Дата', 'Время', 'Клиент', 'Телефон', 'Услуга', 'Статус записи', 'Результат визита', 'Оплата', 'Получено, ₽', 'Стоимость услуги, ₽'];
-    const rows = reportBookings().map(item => {
-      const outcome = bookingOutcome(item);
-      const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
-      const block = isScheduleBlock(item);
-      return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : bookingSession(item).map(entry => entry.title).join(' + '), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method, outcome.completion_source), block ? 0 : (outcome.amount_rub || 0), block ? 0 : bookingSessionTotal(item)];
-    });
-    const source = `${reportXmlText.toString()}\n${reportColumnName.toString()}\n${reportCrc32.toString()}\n${reportZip.toString()}\n${reportWorkbook.toString()}\nself.onmessage=event=>{try{self.postMessage({blob:reportWorkbook(event.data.rows)});}catch(error){self.postMessage({error:String(error&&error.message||error)});}};`;
+    const data = reportExportData('masked');
+    const sheets = reportExportSheets(data);
+    const source = `${reportXmlText.toString()}\n${reportColumnName.toString()}\n${reportCrc32.toString()}\n${reportZip.toString()}\n${reportExportCell.toString()}\n${reportExportSheet.toString()}\n${reportProfessionalWorkbook.toString()}\nself.onmessage=event=>{try{self.postMessage({blob:reportProfessionalWorkbook(event.data.sheets)});}catch(error){self.postMessage({error:String(error&&error.message||error)});}};`;
     workerUrl = URL.createObjectURL(new Blob([source], { type:'text/javascript' }));
     worker = new Worker(workerUrl);
     const result = await new Promise((resolve, reject) => {
@@ -2233,13 +2228,13 @@ async function exportBookingsXlsxInBackground() {
         else resolve(event.data.blob);
       };
       worker.onerror = event => { clearTimeout(timeout); reject(event.error || new Error('report_worker_failed')); };
-      worker.postMessage({ rows:[header, ...rows] });
+      worker.postMessage({ sheets });
     });
     const range = reportRange();
     const url = URL.createObjectURL(result);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `записи-${range.start}-${range.end}.xlsx`;
+    link.download = reportExportFilename(range, 'xlsx');
     link.hidden = true;
     document.body.append(link);
     link.click();
