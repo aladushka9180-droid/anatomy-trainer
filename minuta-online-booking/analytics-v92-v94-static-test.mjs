@@ -16,11 +16,40 @@ const rollback96 = read('supabase-migration-v96-rollback.sql');
 const v97 = read('supabase-migration-v97.sql');
 const rollback97 = read('recovery/rollback-employee-analytics-v97.sql');
 const integration97 = read('analytics-v92-v97-integration.sql');
+const v92LayerState = read('v92-layer-state.sql');
 const recoveryRollback92 = read('recovery/rollback-booking-attribution-v92.sql');
 const recoveryRollback93 = read('recovery/rollback-booking-events-v93.sql');
 const releaseWorkflow = readFileSync(join(root, '..', '.github', 'workflows', 'minuta-safe-release.yml'), 'utf8');
 const provider = read('provider.js');
 const validationBlock = /^  validate-production-rollback:\r?\n([\s\S]*?)(?=^  [a-zA-Z][a-zA-Z0-9-]*:)/m.exec(releaseWorkflow)?.[0] || '';
+
+function assertBalancedSqlParentheses(sql, label) {
+  let depth = 0;
+  let inString = false;
+  for (let index = 0; index < sql.length; index += 1) {
+    const char = sql[index];
+    if (char === "'") {
+      if (inString && sql[index + 1] === "'") {
+        index += 1;
+      } else {
+        inString = !inString;
+      }
+    } else if (!inString && char === '(') {
+      depth += 1;
+    } else if (!inString && char === ')') {
+      depth -= 1;
+      assert.ok(depth >= 0, `${label}: лишняя закрывающая скобка`);
+    }
+  }
+  assert.equal(inString, false, `${label}: незакрытая строка`);
+  assert.equal(depth, 0, `${label}: несбалансированные скобки`);
+}
+
+assert.match(v92LayerState, /exact_constraint_count/, 'v92 state probe: нет точной проверки ограничений');
+assert.match(v92LayerState, /then 'absent'[\s\S]*then 'repairable'[\s\S]*then 'complete'[\s\S]*else 'partial'/, 'v92 state probe: неполный набор состояний');
+assertBalancedSqlParentheses(v92LayerState, 'v92 state probe');
+assert.equal((releaseWorkflow.match(/psql "\$MIGRATION_DB_URL"[^\n]*-Atf minuta-online-booking\/v92-layer-state\.sql/g) || []).length, 2, 'release: validation и production должны использовать общий v92 state probe');
+assert.match(releaseWorkflow, /psql "\$MINUTA_TEST_DATABASE_URL"[^\n]*-Atf minuta-online-booking\/v92-layer-state\.sql \| grep -qx complete/, 'release: test-migration должен выполнить production v92 state probe');
 
 for (const [name, sql] of Object.entries({ rollback92, v93, rollback93, v94, rollback94 })) {
   assert.match(sql, /^begin;/i, `${name}: нет атомарного начала транзакции`);
