@@ -1508,7 +1508,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=265#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=266#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2120,6 +2120,16 @@ function renderAnalytics() {
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
   setReportText('#reportTrendPeriod', visualPeriod);
   setReportText('#reportTeamPeriod', visualPeriod);
+  const showTeam = $('#reportShowTeam');
+  if (showTeam) {
+    showTeam.hidden = !reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all';
+    showTeam.onclick = () => {
+      const control = $('#reportPerformerFilter');
+      if (!control) return;
+      control.value = 'all';
+      control.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+  }
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
@@ -2499,7 +2509,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=265');
+    worker = new Worker('./report-worker.js?v=266');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
