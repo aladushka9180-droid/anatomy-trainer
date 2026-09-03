@@ -1583,6 +1583,7 @@ function outcomeSummary(item) {
 let reportPerformerFilter = '';
 let reportCanViewTeam = false;
 let reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+let reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
 
 function reportDateText(value, options = { day:'numeric', month:'short' }) {
   return parseLocalIsoDate(value).toLocaleDateString('ru-RU', options);
@@ -1700,7 +1701,12 @@ function setReportComparison(selector, current, previous, formatDelta = value =>
 }
 
 function reportAvailableScheduleMinutes(range) {
-  if (reportCanViewTeam && reportPerformerFilter && reportPerformerFilter !== String(currentUser?.id || '')) return null;
+  if (reportCanViewTeam) {
+    const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+    const key = `${organizationId}:${range.start}:${range.end}:${reportPerformerFilter || 'all'}`;
+    if (reportAvailabilityState.key === key && reportAvailabilityState.status === 'ready') return reportAvailabilityState.availableMinutes;
+    return null;
+  }
   const rowsByWeekday = new Map(scheduleRows.map(row => [Number(row.weekday), row]));
   if ([1, 2, 3, 4, 5, 6, 7].some(weekday => !rowsByWeekday.has(weekday))) return null;
   const start = parseLocalIsoDate(range.start);
@@ -1753,7 +1759,7 @@ function renderReportUtilization(range, workedMinutes) {
     setReportText('#reportAvailableHours', '—');
     setReportText('#reportFreeHours', '—');
     if (bar) bar.style.width = '0%';
-    if (note) note.textContent = 'Недостаточно данных для процента';
+    if (note) note.textContent = reportAvailabilityState.status === 'loading' ? 'Загружаем рабочие графики…' : reportAvailabilityState.total > reportAvailabilityState.configured ? `Не настроен график у ${reportAvailabilityState.total - reportAvailabilityState.configured} сотрудников` : 'Недостаточно данных для процента';
     return null;
   }
   const percent = availableMinutes ? Math.round(workedMinutes / availableMinutes * 100) : 0;
@@ -1806,11 +1812,27 @@ function renderReportPerformerFilter(range) {
   if (!wrap || !select) return;
   wrap.hidden = !reportCanViewTeam;
   if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); return; }
-  if (!reportPerformerFilter) reportPerformerFilter = 'all';
+  if (!reportPerformerFilter) {
+    try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${organizationController?.getActiveOrganization?.()?.id || ''}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
+  }
+  if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';
   select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
   select.value = reportPerformerFilter;
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+  loadReportAvailability(range, reportPerformerFilter);
+}
+
+async function loadReportAvailability(range, performerId) {
+  if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const key = `${organizationId}:${range.start}:${range.end}:${performerId}`;
+  if (!organizationId || reportAvailabilityState.key === key && ['loading','ready'].includes(reportAvailabilityState.status)) return;
+  reportAvailabilityState = { key, status:'loading', availableMinutes:null, configured:0, total:0 };
+  const { data, error } = await db.rpc('get_minuta_staff_report_availability', { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
+  if (reportAvailabilityState.key !== key) return;
+  reportAvailabilityState = error ? { key, status:'failed', availableMinutes:null, configured:0, total:0 } : { key, status:'ready', availableMinutes:Number(data?.available_minutes || 0), configured:Number(data?.configured_performers || 0), total:Number(data?.total_performers || 0) };
+  renderAnalytics();
 }
 
 async function loadReportScopedBookings(range, performerId) {
@@ -1819,9 +1841,14 @@ async function loadReportScopedBookings(range, performerId) {
   const key = `${organizationId}:${range.start}:${range.end}:${performerId}`;
   if (!organizationId || reportScopedBookingsState.key === key && ['loading','ready'].includes(reportScopedBookingsState.status)) return;
   reportScopedBookingsState = { key, status:'loading', rows:[] };
-  const { data, error } = await db.rpc('get_minuta_staff_report_bookings', { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
+  document.body.classList.add('report-scope-loading');
+  const select = $('#reportPerformerFilter');
+  if (select) select.disabled = true;
+  const { data, error } = await db.rpc('get_minuta_staff_report_bookings_v95', { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
   if (reportScopedBookingsState.key !== key) return;
   reportScopedBookingsState = error ? { key, status:'failed', rows:[] } : { key, status:'ready', rows:Array.isArray(data?.bookings) ? data.bookings : [] };
+  document.body.classList.remove('report-scope-loading');
+  if (select) select.disabled = false;
   if (error) { notify('Не удалось загрузить статистику сотрудника'); return; }
   renderAnalytics();
 }
@@ -1838,8 +1865,14 @@ function renderReportTeamRows(rows) {
     const minutes = Math.max(0, Number(row.worked_minutes) || 0);
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
     const hasPayroll = Object.prototype.hasOwnProperty.call(row, 'payroll_rub') && row.payroll_rub !== null && Number.isFinite(Number(row.payroll_rub));
-    return `<article class="report-performer-row"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} начислено</small>` : ''}</div></article>`;
+    const selected = reportPerformerFilter === String(row.performer_id || '');
+    return `<article class="report-performer-row${selected ? ' is-selected' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} начислено</small>` : '<small>Начисление не настроено</small>'}<span aria-hidden="true">→</span></div></article>`;
   }).join('');
+  holder.querySelectorAll('[data-report-performer]').forEach(row => {
+    const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
+    row.addEventListener('click', select);
+    row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } });
+  });
 }
 
 async function loadReportTeamAnalytics(range) {
@@ -2247,7 +2280,8 @@ function reportExportSheets(data) {
   const clientHeaders=['Клиент','Телефон','Первый визит','Последний визит','Визиты','Получено, ₽','Средний чек, ₽','Дней без визита','Статус'];
   const clients=[[reportExportCell('КЛИЕНТЫ ЗА ПЕРИОД',1)],[reportExportCell(`Период: ${period}`,2)],[],clientHeaders.map(value=>reportExportCell(value,4)),...data.clientRows.map(row=>row.map((value,index)=>reportExportCell(value,index===5||index===6?7:index===4||index===7?6:5)))];
   const historyHeaders=['Дата и время','Событие','Клиент','Услуга','Мастер','Кто изменил','План, ₽','Оказано, ₽','Получено, ₽','Минуты'];
-  const history=[[reportExportCell('ИСТОРИЯ ИЗМЕНЕНИЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],historyHeaders.map(value=>reportExportCell(value,4)),...data.events.map(event=>[new Date(event.occurred_at).toLocaleString('ru-RU'),reportEventTitle(event),event.client_name||'Клиент',event.service_name||'Услуга',event.performer_name||'Мастер',event.actor_name||'Система',Number(event.delta_planned_rub||0),Number(event.delta_completed_rub||0),Number(event.delta_received_rub||0),Number(event.delta_duration_minutes||0)].map((value,index)=>reportExportCell(value,index>=6&&index<=8?7:index===9?6:5)))];
+  const historyEvents=data.events.filter(event=>!reportCanViewTeam||reportPerformerFilter==='all'||String(event.performer_id||'')===reportPerformerFilter);
+  const history=[[reportExportCell('ИСТОРИЯ ИЗМЕНЕНИЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],historyHeaders.map(value=>reportExportCell(value,4)),...historyEvents.map(event=>[new Date(event.occurred_at).toLocaleString('ru-RU'),reportEventTitle(event),event.client_name||'Клиент',event.service_name||'Услуга',event.performer_name||'Мастер',event.actor_name||'Система',Number(event.delta_planned_rub||0),Number(event.delta_completed_rub||0),Number(event.delta_received_rub||0),Number(event.delta_duration_minutes||0)].map((value,index)=>reportExportCell(value,index>=6&&index<=8?7:index===9?6:5)))];
   return [{name:'Сводка',rows:summary,options:{widths:[30,28,9,9,32,28,10,10],merges:['A1:H1','A2:H2','A4:H4','A8:H8','A14:H14','A18:H18','B19:H19','B20:H20'],heights:{1:34,2:24,20:34},freeze:2}},{name:'Записи',rows:detail,options:{widths:[13,10,11,24,20,38,22,16,16,17,17,15,18,19,17,22,30],merges:['A1:Q1','A2:Q2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:Q${Math.max(4,detail.length)}`}},{name:'Мастера',rows:team,options:{widths:[28,14,14,20,20,20,20],merges:['A1:G1','A2:G2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:G${Math.max(4,team.length)}`}},{name:'Клиенты',rows:clients,options:{widths:[28,21,16,16,14,20,20,19,22],merges:['A1:I1','A2:I2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:I${Math.max(4,clients.length)}`}},{name:'История изменений',rows:history,options:{widths:[22,38,24,34,24,24,16,16,16,14],merges:['A1:J1','A2:J2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:J${Math.max(4,history.length)}`}}];
 }
 function reportExportFilename(range,extension){return `Отчёт_Минута_${reportExportDate(range.start).replaceAll('.','-')}_${reportExportDate(range.end).replaceAll('.','-')}.${extension}`;}
@@ -7939,10 +7973,13 @@ $('#reportPendingMetric')?.addEventListener('keydown', event => {
 });
 $('#reportPerformerFilter')?.addEventListener('change', event => {
   reportPerformerFilter = event.target.value || 'all';
+  try { localStorage.setItem(`minuta-report-performer:${organizationController?.getActiveOrganization?.()?.id || ''}`, reportPerformerFilter); } catch {}
   reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+  reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
   const range = reportRange();
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+  loadReportAvailability(range, reportPerformerFilter);
 });
 $('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
 $$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));
