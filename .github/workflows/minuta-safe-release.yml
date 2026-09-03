@@ -255,6 +255,7 @@ jobs:
           MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
           MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
           MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_MIGRATION_TARGET: ${{ inputs.migration_target }}
           PGOPTIONS: -c minuta.telegram_reminder_url=https://${{ vars.MINUTA_TEST_PROJECT_REF }}.supabase.co/functions/v1/telegram-client-notify/reminders
         shell: bash
         run: |
