@@ -1509,7 +1509,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=268#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=269#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1654,6 +1654,20 @@ function reportOrganizationId() {
   return reportOrganization()?.id || '';
 }
 
+function reportUsesScopedBookings() {
+  return reportDataSource === 'demo' || reportCanViewTeam;
+}
+
+function loadSelectedReportData() {
+  if (reportDataSource !== 'demo') return;
+  reportCanViewTeam = true;
+  if (!reportPerformerFilter) reportPerformerFilter = 'all';
+  const range = reportRange();
+  const previous = previousReportRange(range);
+  void loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+  void loadReportAvailability(range, reportPerformerFilter);
+}
+
 function renderReportDataSourceControl() {
   const root = $('#reportDataSource');
   if (!root) return;
@@ -1703,7 +1717,8 @@ function reportRange(period = reportPeriod) {
   if (period === 'month') start = localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
   if (period === 'quarter') start = localIsoDate(new Date(today.getTime() - 89 * 86400000));
   if (period === 'all') {
-    if (reportCanViewTeam) start = localIsoDate(new Date(today.getTime() - 3659 * 86400000));
+    if (reportDataSource === 'demo') start = localIsoDate(new Date(today.getFullYear(), today.getMonth() - 3, 1));
+    else if (reportCanViewTeam) start = localIsoDate(new Date(today.getTime() - 3659 * 86400000));
     else {
       const dates = allBookings.filter(item => !isScheduleBlock(item) && item.booking_date <= todayIso).map(item => item.booking_date).sort();
       start = dates[0] || todayIso;
@@ -1717,7 +1732,7 @@ function reportRange(period = reportPeriod) {
 }
 
 function reportBookings(range = reportRange()) {
-  const source = reportCanViewTeam ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
+  const source = reportUsesScopedBookings() ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
   const organizationId = reportOrganizationId();
   return source.filter(item => !isScheduleBlock(item)
     && item.booking_date >= range.start && item.booking_date <= range.end
@@ -1752,7 +1767,7 @@ function reportClientIdentity(item) {
 
 function reportClientMetrics(completed, range) {
   const currentClients = new Set(completed.map(reportClientIdentity).filter(Boolean));
-  const source = reportCanViewTeam && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  const source = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
   const previousClients = new Set(reportCompletedItems(source.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
   completed.forEach(item => { if (item.client_had_previous) { const key = reportClientIdentity(item); if (key) previousClients.add(key); } });
   let newClients = 0;
@@ -2486,7 +2501,7 @@ function reportExportData(privacy = 'masked') {
   }
   const periodKeys = new Set(completed.map(reportClientIdentity).filter(Boolean));
   const groups = new Map();
-  const clientHistorySource = reportCanViewTeam && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  const clientHistorySource = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
   reportCompletedItems(clientHistorySource.filter(item => !isScheduleBlock(item))).forEach(item => {
     const key = reportClientIdentity(item); if (!key || !periodKeys.has(key)) return;
     const row = groups.get(key) || { name:item.client_name || 'Без имени',phone:item.client_phone || '',visits:0,revenue:0,first:item.booking_date,last:item.booking_date };
@@ -2554,7 +2569,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=268');
+    worker = new Worker('./report-worker.js?v=269');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7538,6 +7553,7 @@ document.addEventListener('click', async event => {
     }
     resetReportSessionState();
     renderReportDataSourceControl();
+    loadSelectedReportData();
     renderAnalytics();
   }
   if (reportChartDate) {
@@ -7564,6 +7580,7 @@ document.addEventListener('click', async event => {
       $('#reportDateFrom').value = reportCustomStart;
       $('#reportDateTo').value = reportCustomEnd;
     }
+    loadSelectedReportData();
     renderAnalytics();
   }
   if (openNotificationTemplates) {
@@ -8401,6 +8418,7 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   if (!start || !end || start > end) { notify('Проверьте даты отчёта'); return; }
   reportCustomStart = start;
   reportCustomEnd = end;
+  loadSelectedReportData();
   renderAnalytics();
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
