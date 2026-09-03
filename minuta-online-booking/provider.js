@@ -369,7 +369,7 @@ function saveNewBookingDraft() {
   const form = $('#newBookingForm');
   if (!form || !currentUser) return;
   const draft = {
-    savedAt:Date.now(), mode:newBookingMode, name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
+    savedAt:Date.now(), mode:newBookingMode, historical:newBookingHistoricalMode, name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
     blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', durationMinutes:$('#newBookingDuration')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || newBookingPreferredTime || '',
     occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT
   };
@@ -3842,9 +3842,56 @@ function openTimelineBooking(stage, event) {
   if (!requireBookingWrites()) return;
   const time = timelineTimeFromClick(stage, event);
   if (!time) return;
+  openTimelineBookingAtTime(time);
+}
+
+function openTimelineBookingAtTime(time) {
+  if (!requireBookingWrites() || !time) return;
   const selectedStart = new Date(`${selectedDate}T${time}:00`);
   openNewBookingSheet(time, { historical:selectedStart < new Date() });
 }
+
+function timelineKeyboardMinute(stage) {
+  const start = Number(stage.dataset.timelineStart || 0);
+  const end = Math.max(start, Number(stage.dataset.timelineEnd || start) - 5);
+  const stored = Number(stage.dataset.timelineKeyboardMinute);
+  return Math.max(start, Math.min(end, Number.isFinite(stored) ? stored : start));
+}
+
+function setTimelineKeyboardMinute(stage, minute) {
+  const start = Number(stage.dataset.timelineStart || 0);
+  const end = Math.max(start, Number(stage.dataset.timelineEnd || start) - 5);
+  const value = Math.max(start, Math.min(end, minute));
+  const time = timeFromMinutes(value);
+  stage.dataset.timelineKeyboardMinute = String(value);
+  stage.setAttribute('aria-valuenow', String(value));
+  stage.setAttribute('aria-valuetext', time);
+  return time;
+}
+
+document.addEventListener('keydown', event => {
+  const stage = event.target.closest?.('[data-create-booking-at]');
+  if (!stage) return;
+  const current = timelineKeyboardMinute(stage);
+  const moves = { ArrowLeft:-5, ArrowDown:-5, ArrowRight:5, ArrowUp:5, PageDown:-30, PageUp:30 };
+  if (Object.hasOwn(moves, event.key)) {
+    event.preventDefault();
+    setTimelineKeyboardMinute(stage, current + moves[event.key]);
+    return;
+  }
+  if (event.key === 'Home' || event.key === 'End') {
+    event.preventDefault();
+    const target = event.key === 'Home'
+      ? Number(stage.dataset.timelineStart || 0)
+      : Number(stage.dataset.timelineEnd || 0) - 5;
+    setTimelineKeyboardMinute(stage, target);
+    return;
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openTimelineBookingAtTime(setTimelineKeyboardMinute(stage, current));
+  }
+});
 
 function bookingClientNote(item) {
   return String(clientNotes.get(normalizePhone(item?.client_phone)) || '').trim();
@@ -3993,7 +4040,7 @@ function renderTimeline(items) {
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
     : '';
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
 }
 
 function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {
@@ -4824,7 +4871,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingSlots = [];
   newBookingHour = '';
   newBookingPreferredTime = /^\d{2}:\d{2}$/.test(String(preferredTime || draft?.time)) ? String(preferredTime || draft.time) : '';
-  newBookingHistoricalMode = Boolean(preset.historical) || date < businessTodayIso();
+  newBookingHistoricalMode = Boolean(preset.historical || draft?.historical) || date < businessTodayIso();
   newBookingMode = draft?.mode === 'block' ? 'block' : 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
@@ -4837,8 +4884,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
           <div class="new-booking-minute-duration" id="newBookingDurationField" hidden>
-            <div class="new-booking-minute-heading"><label for="newBookingDuration">Длительность, минут</label><strong id="newBookingDurationSummary"></strong></div>
-            <div class="new-booking-minute-input"><button type="button" data-new-booking-duration-step="-1" aria-label="Уменьшить длительность на минуту">−</button><input id="newBookingDuration" type="number" inputmode="numeric" min="${PER_MINUTE_BOOKING_MIN}" max="${PER_MINUTE_BOOKING_MAX}" step="1" value="${initialDuration}" required><button type="button" data-new-booking-duration-step="1" aria-label="Увеличить длительность на минуту">+</button></div>
+            <div class="new-booking-minute-heading"><label for="newBookingDuration">Длительность, минут</label><strong id="newBookingDurationSummary" role="status" aria-live="polite"></strong></div>
+            <div class="new-booking-minute-input"><button type="button" data-new-booking-duration-step="-1" aria-label="Уменьшить длительность на минуту">−</button><input id="newBookingDuration" type="number" inputmode="numeric" min="${PER_MINUTE_BOOKING_MIN}" max="${PER_MINUTE_BOOKING_MAX}" step="1" value="${initialDuration}" aria-describedby="newBookingDurationSummary" required><button type="button" data-new-booking-duration-step="1" aria-label="Увеличить длительность на минуту">+</button></div>
             <div class="new-booking-minute-presets" aria-label="Быстрый выбор длительности">${[15,30,45,60].map(value => `<button type="button" data-new-booking-duration="${value}">${value} мин</button>`).join('')}</div>
             <small>Можно указать любое точное время от 1 до 480 минут.</small>
           </div>
@@ -4858,7 +4905,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <label><span id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
         </section>
       </div>
-      <p class="new-booking-draft-status" id="newBookingDraftStatus">${draft ? 'Данные формы восстановлены · запись ещё не добавлена' : 'Данные формы сохранятся в этой вкладке · это ещё не запись'}</p><p class="form-error" id="newBookingError" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
+      <p class="new-booking-draft-status" id="newBookingDraftStatus">${draft ? 'Данные формы восстановлены · запись ещё не добавлена' : 'Данные формы сохранятся в этой вкладке · это ещё не запись'}</p><p class="form-error" id="newBookingError" role="alert" aria-live="assertive" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
     </form>` : `<div class="provider-empty booking-sheet-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Сначала добавьте услугу</strong><small>После этого можно будет записывать клиентов вручную.</small></div>`}`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -5044,6 +5091,7 @@ async function createNewBooking(event) {
       p_service:service,
       p_date:date,
       p_time:`${newBookingTime}:00`,
+      p_duration_minutes:durationMinutes,
       p_client_name:name,
       p_client_phone:phone
     });
@@ -5056,11 +5104,21 @@ async function createNewBooking(event) {
         ? 'Это время пересекается с другой записью. Выберите другое.'
         : /historical_booking_denied|service_unavailable|organization_access_denied/i.test(reason)
           ? 'Недостаточно прав для добавления этой записи.'
-          : /historical_time_required/i.test(reason)
-            ? 'Выбранное время ещё не прошло. Для будущей записи выберите свободное окно.'
-            : /create_minuta_historical_booking|schema cache|could not find/i.test(reason)
-              ? 'Создание записей в прошлом ещё не установлено на сервере. Примените миграцию v98.'
-              : 'Не удалось создать запись в прошлом. Данные остались в форме.';
+        : /historical_time_required/i.test(reason)
+          ? 'Выбранное время ещё не прошло. Для будущей записи выберите свободное окно.'
+          : /invalid_client_data/i.test(reason)
+            ? 'Проверьте имя и номер телефона клиента.'
+            : /invalid_historical_booking/i.test(reason)
+              ? 'Проверьте выбранные услугу, дату и время.'
+              : /invalid_historical_duration|invalid_historical_price|invalid_historical_terms/i.test(reason)
+                ? 'Проверьте длительность и рассчитанную стоимость записи.'
+                : /booking_location_unavailable/i.test(reason)
+                  ? 'Не найден активный филиал. Настройте филиал организации и повторите попытку.'
+                  : /authentication_required|jwt|session/i.test(reason)
+                    ? 'Сессия завершилась. Войдите снова и повторите попытку.'
+          : /create_minuta_historical_booking|schema cache|could not find/i.test(reason)
+                      ? 'Сервер пока не поддерживает создание записей в прошлом. Обновите страницу или обратитесь к администратору.'
+                      : 'Не удалось создать запись в прошлом. Данные сохранены в форме, попробуйте ещё раз.';
       showFormError('#newBookingError', message);
       return;
     }
@@ -5069,15 +5127,6 @@ async function createNewBooking(event) {
       button.disabled = false;
       updateNewBookingSubmitCaption();
       showFormError('#newBookingError', 'Сервер не вернул созданную запись. Обновите расписание и проверьте результат.');
-      return;
-    }
-    const adjusted = await applyPerMinuteBookingTerms([createdId], serviceModel, durationMinutes);
-    if (!adjusted.ok) {
-      await rollbackCreatedBookings([createdId]);
-      button.disabled = false;
-      updateNewBookingSubmitCaption();
-      showFormError('#newBookingError', 'Выбранная длительность пересекается с другой записью. Запись не создана.');
-      await loadNewBookingSlots();
       return;
     }
     const normalizedPhone = normalizePhone(phone);

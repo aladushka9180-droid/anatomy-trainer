@@ -583,8 +583,12 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v98.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v98.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text)') is not null and has_function_privilege('authenticated','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text)','EXECUTE');" \
+            "select to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is not null and has_function_privilege('authenticated','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE');" \
             | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X \
+            --set=fixture_actor_id=abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f \
+            --set=fixture_service_id=00000000-0000-4000-8000-000000000001 \
+            -f minuta-online-booking/historical-bookings-v98-integration-test.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select exists(select 1 from information_schema.columns where table_schema='public' and table_name='client_accounts' and column_name='auth_user_id') and to_regprocedure('public.bootstrap_client_sms_session(text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_sms_session(text)','EXECUTE') and to_regprocedure('public.has_minuta_provider_access()') is not null and to_regprocedure('public.get_minuta_phone_auth_capability()') is not null and has_function_privilege('anon','public.get_minuta_phone_auth_capability()','EXECUTE') and (select count(*)=1 from public.minuta_auth_trigger_guard_v90) and to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_identity_session(text,text,text)','EXECUTE');" \
             | grep -qx t
@@ -788,6 +792,8 @@ jobs:
           MIGRATION_DB_URL="${SUPABASE_DB_URL/:6543/:5432}"
           validation_sql="$(mktemp)"
           trap 'rm -f "$validation_sql"' EXIT
+          v98_before="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select coalesce((select md5(pg_get_functiondef(p.oid)||coalesce(p.proacl::text,'')) from pg_proc p where p.oid=to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)')),'absent');")"
           {
             echo 'begin;'
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v47.sql
@@ -813,10 +819,26 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v89.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v90.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v91.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v98.sql
+            cat <<'SQL'
+          do $v98_validation$
+          begin
+            if to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is null
+               or not has_function_privilege('authenticated','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE')
+               or has_function_privilege('anon','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE')
+               or has_function_privilege('service_role','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE') then
+              raise exception 'v98_validation_failed';
+            end if;
+          end
+          $v98_validation$;
+          SQL
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -f "$validation_sql"
+          v98_after="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select coalesce((select md5(pg_get_functiondef(p.oid)||coalesce(p.proacl::text,'')) from pg_proc p where p.oid=to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)')),'absent');")"
+          test "$v98_before" = "$v98_after"
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select not exists(select 1 from public.bookings where request_id in ('00000000-0000-4000-8000-000000007201'::uuid,'00000000-0000-4000-8000-000000007301'::uuid,'00000000-0000-4000-8000-000000007601'::uuid));" \
             | grep -qx t
@@ -852,22 +874,7 @@ jobs:
               "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
             run_sha="$(jq -r '.head_sha' <<<"$run_json")"
-            git merge-base --is-ancestor "$run_sha" "$GITHUB_SHA"
-            if [ "$scope" = "test" ]; then
-              test "$run_sha" = "$GITHUB_SHA"
-            elif [ "$run_sha" != "$GITHUB_SHA" ]; then
-              if [ "$scope" = "backup" ]; then
-                git diff --quiet "$run_sha" "$GITHUB_SHA" -- \
-                  .github/workflows/minuta-supabase-backup.yml \
-                  minuta-online-booking/scripts/backup-config-guard.mjs \
-                  minuta-online-booking/scripts/write-backup-journal.mjs
-              else
-                git diff --quiet "$run_sha" "$GITHUB_SHA" -- \
-                  .github/workflows/minuta-safe-release.yml \
-                  ':(glob)minuta-online-booking/*.sql' \
-                  minuta-online-booking/analytics-v92-v94-static-test.mjs
-              fi
-            fi
+            test "$run_sha" = "$GITHUB_SHA"
             test "$(jq -r '.path' <<<"$run_json")" = "$expected_path"
             jq -er --arg title "$expected_title" '.display_title | contains($title)' <<<"$run_json" >/dev/null
             if [ "$scope" = "backup" ] || [ "$scope" = "validation" ]; then
@@ -1209,6 +1216,7 @@ jobs:
               ('booking_lookup_index_guard',exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='bookings_performer_date_time_v94_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbookings_performer_date_time_v94_idxonpublic.bookingsusingbtree(performer_id,booking_date,booking_time)')),
               ('client_import_guard',to_regclass('public.organization_imported_clients') is not null and to_regprocedure('public.import_minuta_clients(uuid,text,jsonb,uuid)') is not null and to_regprocedure('public.get_minuta_imported_clients(uuid,integer,integer)') is not null and to_regprocedure('public.get_minuta_imported_clients(uuid)') is null and (select count(*)=3 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and i.indisvalid and i.indisready and ((c.relname='organization_imported_clients_name_v95_idx' and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexorganization_imported_clients_name_v95_idxonpublic.organization_imported_clientsusingbtree(organization_id,lower(client_name),id)') or (c.relname='organization_imported_clients_updated_v95_idx' and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexorganization_imported_clients_updated_v95_idxonpublic.organization_imported_clientsusingbtree(organization_id,updated_atdesc,iddesc)') or (c.relname='client_import_batches_scope_v95_idx' and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexclient_import_batches_scope_v95_idxonpublic.client_import_batchesusingbtree(organization_id,created_atdesc,iddesc)'))) and has_function_privilege('authenticated','public.get_minuta_imported_clients(uuid,integer,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_imported_clients(uuid,integer,integer)','EXECUTE') and not has_table_privilege('authenticated','public.organization_imported_clients','SELECT,INSERT,UPDATE,DELETE')),
               ('group_overlap_guard',exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and tgfoid=to_regprocedure('public.prevent_minuta_group_event_booking_overlap()') and not tgisinternal and tgenabled<>'D') and (select count(*)=1 from pg_trigger where tgrelid='public.bookings'::regclass and tgfoid='public.prevent_minuta_group_event_booking_overlap()'::regprocedure and not tgisinternal and tgenabled<>'D') and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal)),
+              ('historical_booking_guard',to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is not null and has_function_privilege('authenticated','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE') and not has_function_privilege('service_role','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE')),
               ('legacy_table_acl_guard',not has_table_privilege('anon','public.retention_deliveries','SELECT') and not has_table_privilege('authenticated','public.inventory_movements','INSERT') and not has_table_privilege('authenticated','public.booking_batches','INSERT')),
               ('notification_guard',to_regclass('public.organization_notification_settings') is not null and to_regprocedure('public.claim_minuta_notification_outbox(text[],integer)') is not null and not has_table_privilege('authenticated','public.notification_recipient_endpoints','SELECT')),
               ('client_fields_guard',to_regclass('public.organization_client_field_settings') is not null and to_regprocedure('public.get_minuta_client_field_workspace(uuid,text)') is not null and not has_table_privilege('authenticated','public.client_field_values','SELECT,INSERT,UPDATE,DELETE')),
@@ -1230,6 +1238,7 @@ jobs:
             'employee_history_guard=t' \
             'feature_defaults_safe=t' \
             'group_overlap_guard=t' \
+            'historical_booking_guard=t' \
             'legacy_table_acl_guard=t' \
             'notification_guard=t' \
             'phone_identity_guard=t' \
