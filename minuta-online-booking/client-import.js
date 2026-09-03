@@ -1,7 +1,6 @@
 (function initMinutaClientImport(global) {
   'use strict';
 
-  const SOURCE_LABELS = Object.freeze({ yclients:'YCLIENTS', dikidi:'DIKIDI', masters:'Masters', other:'Другая система' });
   const FIELD_ALIASES = Object.freeze({
     name:['имя','фио','клиент','имя клиента','client','client name','name','full name'],
     phone:['телефон','номер телефона','мобильный телефон','phone','phone number','mobile','client phone'],
@@ -92,10 +91,21 @@
     return /^7\d{10}$/.test(digits) ? digits : '';
   }
 
-  function mapRows(table) {
+  function detectedIndexes(table) {
+    const headers = (table[0] || []).map(normalizedHeader);
+    return {
+      headers,
+      indexes:Object.fromEntries(Object.entries(FIELD_ALIASES).map(([field, aliases]) => [field, headers.findIndex(header => aliases.includes(header))]))
+    };
+  }
+
+  function mapRows(table, overrides = {}) {
     if (table.length < 2) throw new Error('В файле нет строк клиентов.');
-    const headers = table[0].map(normalizedHeader);
-    const indexes = Object.fromEntries(Object.entries(FIELD_ALIASES).map(([field, aliases]) => [field, headers.findIndex(header => aliases.includes(header))]));
+    const { headers, indexes } = detectedIndexes(table);
+    for (const field of ['name','phone']) {
+      const selected = Number(overrides[field]);
+      if (Number.isInteger(selected) && selected >= 0 && selected < headers.length) indexes[field] = selected;
+    }
     if (indexes.name < 0 || indexes.phone < 0) throw new Error('Не найдены обязательные столбцы «Имя» и «Телефон».');
     const invalid = [];
     const clients = new Map();
@@ -134,6 +144,7 @@
     let organization = null;
     let workspace = null;
     let preview = null;
+    let pendingTable = null;
     let bound = false;
     let revision = 0;
 
@@ -152,7 +163,9 @@
     async function load() {
       const currentRevision = ++revision;
       preview = null;
+      pendingTable = null;
       $('#clientImportPreview')?.setAttribute('hidden','');
+      $('#clientImportMapping')?.setAttribute('hidden','');
       if (!organization?.id || !navigator.onLine) { workspace = null; onLoaded?.([]); render(); return { ok:true,optional:true,skipped:true }; }
       const clients = [];
       const pageSize = 1000;
@@ -178,16 +191,57 @@
       return { ok:true,optional:true };
     }
 
+    function hideMapping() {
+      const mapping = $('#clientImportMapping');
+      if (mapping) mapping.hidden = true;
+    }
+
+    function renderPreview(nextPreview) {
+      preview = nextPreview;
+      const sample = preview.rows.slice(0, 5);
+      $('#clientImportPreviewList').innerHTML = sample.map(item => `<li><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.display_phone)}</span></li>`).join('');
+      $('#clientImportPreviewSummary').textContent = `${preview.rows.length} клиентов готово${preview.duplicateCount ? ` · дублей в файле: ${preview.duplicateCount}` : ''}${preview.invalid.length ? ` · пропущено строк: ${preview.invalid.length}` : ''}`;
+      $('#clientImportPreview').hidden = false;
+      hideMapping();
+    }
+
+    function showMapping(table) {
+      const { indexes } = detectedIndexes(table);
+      const labels = (table[0] || []).map((value, index) => String(value || '').trim() || `Столбец ${index + 1}`);
+      const options = `<option value="">Не выбрано</option>${labels.map((label, index) => `<option value="${index}">${escapeHtml(label)}</option>`).join('')}`;
+      const nameSelect = $('#clientImportNameColumn');
+      const phoneSelect = $('#clientImportPhoneColumn');
+      nameSelect.innerHTML = options;
+      phoneSelect.innerHTML = options;
+      nameSelect.value = indexes.name >= 0 ? String(indexes.name) : '';
+      phoneSelect.value = indexes.phone >= 0 ? String(indexes.phone) : '';
+      $('#clientImportMapping').hidden = false;
+    }
+
+    function applyManualMapping() {
+      if (!pendingTable) return;
+      const name = $('#clientImportNameColumn').value;
+      const phone = $('#clientImportPhoneColumn').value;
+      if (name === '' || phone === '') { notify('Выберите столбцы с именем и телефоном'); return; }
+      if (name === phone) { notify('Имя и телефон должны находиться в разных столбцах'); return; }
+      try { renderPreview(mapRows(pendingTable, { name, phone })); }
+      catch (error) { notify(error?.message || 'Не удалось сопоставить столбцы'); }
+    }
+
     async function chooseFile(file) {
       try {
-        preview = mapRows(parseDelimited(await decodeFile(file)));
-        const sample = preview.rows.slice(0, 5);
-        $('#clientImportPreviewList').innerHTML = sample.map(item => `<li><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.display_phone)}</span></li>`).join('');
-        $('#clientImportPreviewSummary').textContent = `${preview.rows.length} клиентов готово${preview.duplicateCount ? ` · дублей в файле: ${preview.duplicateCount}` : ''}${preview.invalid.length ? ` · пропущено строк: ${preview.invalid.length}` : ''}`;
-        $('#clientImportPreview').hidden = false;
-      } catch (error) {
+        pendingTable = parseDelimited(await decodeFile(file));
+        const { indexes } = detectedIndexes(pendingTable);
         preview = null;
         $('#clientImportPreview').hidden = true;
+        if (pendingTable.length < 2) throw new Error('В файле нет строк клиентов.');
+        if (indexes.name < 0 || indexes.phone < 0) { showMapping(pendingTable); return; }
+        renderPreview(mapRows(pendingTable));
+      } catch (error) {
+        pendingTable = null;
+        preview = null;
+        $('#clientImportPreview').hidden = true;
+        hideMapping();
         notify(error?.message || 'Не удалось прочитать файл');
       }
     }
@@ -199,14 +253,16 @@
       button.disabled = true;
       try {
         const { data, error } = await db.rpc('import_minuta_clients', {
-          p_organization:organization.id,p_source_system:$('#clientImportSource').value,
+          p_organization:organization.id,p_source_system:'other',
           p_rows:preview.rows,p_request_id:uuid()
         });
         if (error) throw error;
         notify(`Импортировано: ${Number(data?.created_count || 0)} новых, ${Number(data?.updated_count || 0)} обновлено`);
         $('#clientImportForm').reset();
+        pendingTable = null;
         preview = null;
         $('#clientImportPreview').hidden = true;
+        hideMapping();
         await load();
       } catch (error) { notify(error?.message || 'Импорт не выполнен'); }
       finally { button.disabled = false; }
@@ -216,6 +272,7 @@
       if (bound) return;
       bound = true;
       $('#clientImportFile')?.addEventListener('change', event => chooseFile(event.target.files?.[0]));
+      $('#clientImportApplyMapping')?.addEventListener('click', applyManualMapping);
       $('#clientImportForm')?.addEventListener('submit', submit);
     }
 

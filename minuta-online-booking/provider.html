@@ -181,10 +181,16 @@
           <div class="view-title"><div><span>Клиентская база</span><h2>Клиенты</h2></div><span class="panel-count" id="clientsCount">0</span></div>
           <p class="view-description">История посещений, заметки и быстрая повторная запись в одном месте.</p>
           <details class="panel client-import-panel" id="clientImportPanel" hidden>
-            <summary><span><small>Переход без ключей API</small><strong>Импорт из YCLIENTS, DIKIDI или Masters</strong></span><span class="client-fields-summary-action">Открыть <span aria-hidden="true">+</span></span></summary>
+            <summary><span><small>Перенос клиентской базы</small><strong>Импорт клиентов</strong></span><span class="client-fields-summary-action">Открыть <span aria-hidden="true">+</span></span></summary>
             <form id="clientImportForm" class="client-import-form">
-              <p>Выгрузите клиентскую базу из прежней системы в CSV. Имя и телефон обязательны; остальные знакомые столбцы сопоставятся автоматически.</p>
-              <div class="form-row"><label>Источник<select id="clientImportSource"><option value="yclients">YCLIENTS</option><option value="dikidi">DIKIDI</option><option value="masters">Masters</option><option value="other">Другая система</option></select></label><label>CSV-файл<input id="clientImportFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" required></label></div>
+              <p>Загрузите клиентскую базу из прежней системы. Имя и телефон обязательны; знакомые столбцы определятся автоматически.</p>
+              <label>Файл с клиентами<input id="clientImportFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" required></label>
+              <section class="client-import-preview" id="clientImportMapping" hidden>
+                <strong>Укажите нужные столбцы</strong>
+                <p>Не удалось автоматически определить имя или телефон. Выберите соответствующие столбцы из файла.</p>
+                <div class="form-row"><label>Имя клиента<select id="clientImportNameColumn"></select></label><label>Телефон<select id="clientImportPhoneColumn"></select></label></div>
+                <button class="secondary-button" id="clientImportApplyMapping" type="button">Проверить файл</button>
+              </section>
               <small id="clientImportHistory">Импортов пока не было</small>
               <div class="client-import-preview" id="clientImportPreview" hidden><strong id="clientImportPreviewSummary"></strong><ul id="clientImportPreviewList"></ul><button class="primary" id="clientImportSubmit" type="submit">Импортировать клиентов</button></div>
               <p class="client-import-help">Файлы Excel сначала сохраните как «CSV UTF-8». За один раз — до 500 уникальных клиентов и 12 МБ. Повторный телефон обновит карточку и не создаст дубль.</p>

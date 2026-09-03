@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 const root = new URL('./', import.meta.url);
 const migration = readFileSync(new URL('supabase-migration-v95.sql', root), 'utf8');
@@ -25,12 +26,25 @@ assert.match(migration, /get_minuta_imported_clients\(p_organization uuid,p_limi
 assert.doesNotMatch(migration, /grant (?:select|insert|update|delete|all)[^;]*to authenticated/i);
 assert.match(rollback, /v95_rollback_blocked_imported_clients_exist/i);
 assert.match(rollback, /v95_rollback_blocked_import_batches_exist/i);
-assert.match(clientImport, /YCLIENTS[\s\S]*DIKIDI[\s\S]*Masters/);
+assert.doesNotMatch(`${clientImport}\n${html}`, /YCLIENTS|DIKIDI|Masters/);
 assert.match(clientImport, /Поддерживаются CSV, TSV и TXT/);
 assert.match(clientImport, /clients\.set\(phone/);
 assert.match(clientImport, /import_minuta_clients/);
+assert.match(clientImport, /p_source_system:'other'/);
+assert.match(clientImport, /showMapping\(pendingTable\)/);
+assert.match(clientImport, /applyManualMapping/);
 assert.match(provider, /importedClients\.forEach/);
 assert.match(provider, /clientImportController\.setOrganization\(organization\)/);
-assert.match(html, /id="clientImportPanel"[\s\S]*id="clientImportFile"[\s\S]*client-import\.js\?v=\d+/);
+assert.match(html, /id="clientImportPanel"[\s\S]*Импорт клиентов[\s\S]*id="clientImportFile"[\s\S]*id="clientImportMapping"[\s\S]*client-import\.js\?v=\d+/);
+assert.doesNotMatch(html, /id="clientImportSource"/);
+
+const context = { window:{ crypto:globalThis.crypto } };
+vm.runInNewContext(clientImport, context);
+const manuallyMapped = context.window.MinutaClientImport.mapRows([
+  ['Первый столбец','Второй столбец'],
+  ['Анна','+7 999 111-22-33']
+], { name:0, phone:1 });
+assert.equal(manuallyMapped.rows[0].name, 'Анна');
+assert.equal(manuallyMapped.rows[0].phone, '79991112233');
 
 console.log('v95 client import static checks passed');
