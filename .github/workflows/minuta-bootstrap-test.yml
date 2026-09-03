@@ -482,8 +482,7 @@ jobs:
           set -euo pipefail
           test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           /usr/lib/postgresql/17/bin/psql "$test_url" \
-            --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
-            --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" -X -Atc \
+            --set=ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.bookings') is not null
               and to_regclass('public.services') is not null
               and to_regclass('public.provider_schedule') is not null
@@ -494,7 +493,7 @@ jobs:
               and (select count(*) from public.provider_schedule where enabled) = 7
               and exists (
                 select 1 from minuta_migration_guard.target
-                where project_ref = :'expected_ref' and allow_migrations is true
+                where project_ref = '$MINUTA_TEST_PROJECT_REF' and allow_migrations is true
               )
               and exists (select 1 from pg_extension where extname='pg_cron')
               and exists (select 1 from pg_extension where extname='pg_net')
@@ -533,7 +532,7 @@ jobs:
               and not exists (
                 select 1 from cron.job
                 where jobname='telegram-client-reminders-hourly'
-                   or command like '%' || :'production_ref' || '%'
+                   or command like '%$MINUTA_PRODUCTION_PROJECT_REF%'
               );" \
             | grep -qx t
 
