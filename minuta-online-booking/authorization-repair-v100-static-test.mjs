@@ -74,8 +74,8 @@ assert.match(integration, /event_access_denied/i);
 assert.match(workflow, /employee-analytics-v97/);
 assert.equal(
   (workflow.match(/MINUTA_TEST_DATABASE_URL="\$\{MINUTA_TEST_DATABASE_URL\/:6543\/:5432\}"/g) || []).length,
-  2,
-  'Both the test guard and migration runner must bypass the transaction pooler'
+  3,
+  'The test guard, migration runner and emergency cleanup must bypass the transaction pooler'
 );
 const testMigration = workflow.split('  test-migration:')[1]?.split('  validate-production-rollback:')[0] || '';
 const productionMigration = workflow.split('  production-migration:')[1]?.split('  diagnose-client-links:')[0] || '';
