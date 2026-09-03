@@ -74,7 +74,7 @@ insert into public.organization_memberships(
   organization_id, user_id, role, is_bookable, active, created_by
 )
 values(
-  ('d3500000-0000-4000-8000-000000000001',current_setting('minuta.demo_owner')::uuid,'owner',false,true,current_setting('minuta.demo_owner')::uuid)
+  'd3500000-0000-4000-8000-000000000001',current_setting('minuta.demo_owner')::uuid,'owner',false,true,current_setting('minuta.demo_owner')::uuid
 );
 
 insert into public.organization_memberships(
