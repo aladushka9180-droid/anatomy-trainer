@@ -3790,7 +3790,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <details class="new-booking-advanced" id="newBookingAdvanced"><summary><span>Дополнительные параметры</span><small id="newBookingAdvancedSummary">Заметка, цвет и серия</small></summary><div class="new-booking-advanced-content">
             <label id="newBookingClientNoteField">Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
             <label id="newBookingBlockNoteField" hidden>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label>
-            ${bookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT)}
+            ${compactBookingColorPicker('newBookingColor', BOOKING_COLOR_DEFAULT, '')}
             <section class="new-booking-recurrence" id="newBookingRecurrence">
               <div><strong>Курс или серия</strong><small>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
               <label>Количество<select id="newBookingOccurrences"><option value="1">Одна запись</option><option value="2">2 визита</option><option value="3">3 визита</option><option value="4">4 визита</option><option value="6">6 визитов</option><option value="8">8 визитов</option><option value="10">10 визитов</option><option value="12">12 визитов</option><option value="16">16 визитов</option><option value="20">20 визитов</option><option value="24">24 визита</option></select></label>

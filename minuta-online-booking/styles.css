@@ -4890,3 +4890,73 @@ html.requires-top-level.top-level body { visibility:visible; }
   .booking-time-selection-summary { gap:10px;padding:14px; }
   .booking-time-selection-summary>div:last-child { min-width:78px;padding-left:10px; }
 }
+
+.new-booking-advanced-content {
+  gap:14px;
+}
+.new-booking-advanced-content>.booking-color-compact {
+  overflow:hidden;
+  border:1px solid var(--theme-line);
+  border-radius:14px;
+  background:var(--theme-surface);
+}
+.new-booking-advanced-content>.booking-color-compact>summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  min-height:52px;
+  padding:0 14px;
+  color:var(--theme-ink);
+  cursor:pointer;
+  list-style:none;
+  font-weight:850;
+}
+.new-booking-advanced-content>.booking-color-compact>summary::-webkit-details-marker {
+  display:none;
+}
+.new-booking-advanced-content>.booking-color-compact>summary strong {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color:var(--theme-accent);
+  font-size:12px;
+}
+.new-booking-advanced-content>.booking-color-compact[open]>summary {
+  border-bottom:1px solid var(--theme-line);
+}
+.new-booking-advanced-content>.booking-color-compact .booking-color-picker {
+  margin:0;
+  padding:14px;
+  border:0;
+}
+.new-booking-advanced-content>.booking-color-compact .booking-color-picker legend {
+  display:none;
+}
+.new-booking-advanced-content .new-booking-recurrence {
+  grid-template-columns:1fr;
+  gap:12px;
+  padding:14px;
+}
+.new-booking-advanced-content .new-booking-recurrence>div {
+  grid-column:auto;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--theme-line);
+}
+.new-booking-advanced-content .new-booking-recurrence>label {
+  display:grid;
+  grid-template-columns:120px minmax(0,1fr);
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+.new-booking-advanced-content .new-booking-recurrence>label select {
+  width:100%;
+  min-width:0;
+}
+@media (max-width:720px) {
+  .new-booking-advanced-content .new-booking-recurrence>label {
+    grid-template-columns:1fr;
+    gap:6px;
+  }
+}
