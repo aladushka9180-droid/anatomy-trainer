@@ -5,7 +5,7 @@
   "production_applied": false,
   "transaction_rolled_back": true,
   "migration_sha256": "4e736ca5dbb644a5dd303d106549f3d42629e33bcfaef81d379e67bf272313bb",
-  "integration_sha256": "5fb4dd53fabe73fd3f5baa0f4fb6f01e409d1b93997f55ef9493745e9f391d7b",
+  "integration_sha256": "3f3355f5d24c2a7491205fc5adad1dfacc3eafbeb65d1546c3e5f93169fd20a5",
   "rollback_sha256": "0130dcd202b60209ed6fd60f14aae57ec972f40337d3f7413b88f501f9c37f21",
   "trial_result": {
     "bookings": 44,
@@ -23,5 +23,5 @@
     "v67_present": false,
     "v68_present": false
   },
-  "note": "v65-v68, tenant-aware booking/idempotency/outcome/overlap integration, structural v68 rollback, v68 reapply and final checks ran in one outer transaction ending with ROLLBACK. A separate post-check confirmed that production data and schema were unchanged."
+  "note": "v65-v68, tenant-aware booking/idempotency/outcome/overlap integration, structural v68 rollback, v68 reapply and final checks ran in one outer transaction ending with ROLLBACK. A separate post-check confirmed that production data and schema were unchanged. The integration-only slot selector was later hardened to collapse duplicate date/time rows; migration and rollback SQL are unchanged."
 }

@@ -111,24 +111,25 @@ select set_config(
   coalesce((
     select jsonb_agg(to_jsonb(candidate) order by candidate.booking_date, candidate.booking_time)::text
     from (
-      select service.id as service_id, available.booking_date, available.booking_time
+      select distinct on (available.booking_date, available.booking_time)
+        service.id as service_id, available.booking_date, available.booking_time
       from lateral (
-        select candidate.id
-        from public.services candidate
-        join public.organization_memberships membership
-          on membership.organization_id = current_setting('minuta.v68_org')::uuid
-         and membership.user_id = candidate.performer_id
-         and membership.active
-         and membership.is_bookable
-        where candidate.active
-        order by candidate.id
-        limit 1
-      ) service
-      cross join lateral public.get_available_slots(
-        service.id,
-        current_date + 1,
-        current_date + 62
-      ) available
+          select candidate.id
+          from public.services candidate
+          join public.organization_memberships membership
+            on membership.organization_id = current_setting('minuta.v68_org')::uuid
+           and membership.user_id = candidate.performer_id
+           and membership.active
+           and membership.is_bookable
+          where candidate.active
+          order by candidate.id
+          limit 1
+        ) service
+        cross join lateral public.get_available_slots(
+          service.id,
+          current_date + 1,
+          current_date + 62
+        ) available
       order by available.booking_date, available.booking_time, service.id
       limit 2
     ) candidate

@@ -44,6 +44,7 @@ assert.doesNotMatch(rollback, /\bcascade\b/i, 'rollback must not use CASCADE');
 assert.match(rollback, /drop trigger if exists bookings_scope_minuta_tenant[\s\S]*drop column if exists organization_id[\s\S]*commit;/i, 'rollback must restore the v67 structure only while safe');
 
 assert.match(integration, /v68_cross_organization_booking_leak/i, 'integration must test the same performer in two organizations');
+assert.match(integration, /distinct on \(available\.booking_date, available\.booking_time\)/i, 'integration must not select duplicate public slots as two bookings');
 assert.match(integration, /v68_anon_calendar_was_allowed/i, 'integration must deny anonymous calendar reads');
 assert.match(integration, /v68_provider_delete_acl_changed/i, 'integration must preserve v64 ACL');
 assert.match(integration, /v68_wrapper_context_leaked[\s\S]*v68_wrapper_scope_or_idempotency_failed[\s\S]*v68_overlap_update_was_allowed[\s\S]*v68_team_outcome_status_missing/i, 'integration must exercise tenant writes, context restoration, overlap and outcomes');
