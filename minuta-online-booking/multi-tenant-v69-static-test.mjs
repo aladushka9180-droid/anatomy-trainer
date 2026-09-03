@@ -77,5 +77,6 @@ assert.match(productionRelease, /to_regclass\('public\.resource_audit_log'\)[\s\
 assert.ok(productionRelease.indexOf('supabase-migration-v68.sql') < productionRelease.indexOf('supabase-migration-v69.sql'), 'production must apply v69 only after v68');
 assert.match(workflow, /test "\$MINUTA_BACKUP_CONFIRM" = "BACKUP_VERIFIED"[\s\S]*supabase-migration-v69\.sql/i, 'production v69 must remain behind the verified-backup gate');
 assert.match(workflow, /supabase-migration-v69\.sql[\s\S]*multi-tenant-v69-integration\.sql[\s\S]*multi-tenant-v69-concurrency-test\.sh[\s\S]*rollback-resource-scheduling-v69\.sql[\s\S]*rollback-team-calendar-v68\.sql/i, 'test release must exercise v69 before rolling back v68');
+assert.doesNotMatch(workflow, /from pg_constraint constraint\b/i, 'workflow SQL must not use the reserved word constraint as an alias');
 
 console.log('multi-tenant v69 static test: OK');
