@@ -296,6 +296,211 @@
     return (snapshot.bookings || []).filter(item => item.date === date && item.status !== 'cancelled').sort((a, b) => String(a.time).localeCompare(String(b.time)));
   }
 
+  function moneyLabel(value) {
+    return `${Math.round(Number(value) || 0).toLocaleString('ru-RU')} ₽`;
+  }
+
+  function countLabel(value, forms) {
+    const count = Math.abs(Math.trunc(Number(value) || 0));
+    const tens = count % 100;
+    const units = count % 10;
+    const form = tens >= 11 && tens <= 14 ? forms[2] : units === 1 ? forms[0] : units >= 2 && units <= 4 ? forms[1] : forms[2];
+    return `${count} ${form}`;
+  }
+
+  function shiftIsoDate(iso, days) {
+    const [year, month, day] = String(iso || '').split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12);
+    date.setDate(date.getDate() + days);
+    return localIsoDate(date);
+  }
+
+  function reportingPeriod(command, now = new Date()) {
+    const text = normalizeText(command);
+    const today = localIsoDate(dateAtNoon(now));
+    if (/месяц/.test(text)) {
+      const date = dateAtNoon(now);
+      const start = localIsoDate(new Date(date.getFullYear(), date.getMonth(), 1, 12));
+      const previousMonthLastDay = new Date(date.getFullYear(), date.getMonth(), 0, 12).getDate();
+      const previousStartDate = new Date(date.getFullYear(), date.getMonth() - 1, 1, 12);
+      const previousEndDate = new Date(date.getFullYear(), date.getMonth() - 1, Math.min(date.getDate(), previousMonthLastDay), 12);
+      return { start, end:today, previousStart:localIsoDate(previousStartDate), previousEnd:localIsoDate(previousEndDate), label:'в этом месяце' };
+    }
+    if (/недел/.test(text) || /почему|упал|снизил|изменил/.test(text)) {
+      const date = dateAtNoon(now);
+      const weekday = (date.getDay() + 6) % 7;
+      const start = shiftIsoDate(today, -weekday);
+      const previousStart = shiftIsoDate(start, -7);
+      return { start, end:today, previousStart, previousEnd:shiftIsoDate(previousStart, weekday), label:'на этой неделе' };
+    }
+    const requested = parseRussianDate(text, now) || today;
+    return { start:requested, end:requested, previousStart:shiftIsoDate(requested, -1), previousEnd:shiftIsoDate(requested, -1), label:requested === today ? 'сегодня' : formatDate(requested) };
+  }
+
+  function bookingsInRange(snapshot, start, end) {
+    return (snapshot.bookings || []).filter(item => item.date >= start && item.date <= end);
+  }
+
+  function revenueStats(snapshot, start, end) {
+    const rows = bookingsInRange(snapshot, start, end);
+    const completed = rows.filter(item => item.status !== 'cancelled' && item.outcome === 'completed');
+    const revenue = completed.reduce((sum, item) => sum + Number(item.amountRub || 0), 0);
+    return {
+      revenue,
+      completed:completed.length,
+      average:completed.length ? Math.round(revenue / completed.length) : 0,
+      cancelled:rows.filter(item => item.status === 'cancelled').length,
+      noShows:rows.filter(item => item.outcome === 'no_show').length,
+      unpaid:completed.filter(item => item.paymentMethod === 'unpaid').length
+    };
+  }
+
+  function revenueModel(command, snapshot, now = new Date()) {
+    const period = reportingPeriod(command, now);
+    const current = revenueStats(snapshot, period.start, period.end);
+    const compare = /почему|упал|снизил|изменил|сравн/.test(normalizeText(command));
+    if (!compare) return {
+      kind:'revenue_summary', title:`Выручка ${period.label}`, message:current.completed ? `Получено ${moneyLabel(current.revenue)} за ${countLabel(current.completed, ['завершённый визит', 'завершённых визита', 'завершённых визитов'])}.` : 'Завершённых визитов за этот период нет.',
+      metrics:[{ value:moneyLabel(current.revenue), label:'выручка' }, { value:String(current.completed), label:'визитов' }, { value:moneyLabel(current.average), label:'средний чек' }],
+      points:current.unpaid ? [`Без оплаты отмечено визитов: ${current.unpaid}`] : []
+    };
+    const previous = revenueStats(snapshot, period.previousStart, period.previousEnd);
+    const difference = current.revenue - previous.revenue;
+    const percent = previous.revenue ? Math.round((difference / previous.revenue) * 100) : null;
+    const points = [];
+    const visitDifference = current.completed - previous.completed;
+    const averageDifference = current.average - previous.average;
+    const cancellationDifference = current.cancelled - previous.cancelled;
+    if (visitDifference) points.push(`${visitDifference > 0 ? 'Проведено больше' : 'Проведено меньше'} на ${countLabel(visitDifference, ['визит', 'визита', 'визитов'])}.`);
+    if (averageDifference) points.push(`Средний чек ${averageDifference > 0 ? 'вырос' : 'снизился'} на ${moneyLabel(Math.abs(averageDifference))}.`);
+    if (cancellationDifference > 0) points.push(`Отмен стало больше на ${cancellationDifference}.`);
+    if (current.unpaid) points.push(`Без оплаты отмечено визитов: ${current.unpaid}.`);
+    return {
+      kind:'revenue_change', title:difference < 0 ? 'Что повлияло на снижение выручки' : difference > 0 ? 'Что изменило выручку' : 'Выручка не изменилась',
+      message:previous.revenue ? `По сравнению с предыдущим периодом: ${difference > 0 ? '+' : ''}${moneyLabel(difference)}${percent === null ? '' : ` (${percent > 0 ? '+' : ''}${percent}%)`}. Это факторы, рассчитанные по записям, а не предположение.` : 'В предыдущем периоде нет выручки для корректного сравнения.',
+      metrics:[{ value:moneyLabel(current.revenue), label:'текущий период' }, { value:moneyLabel(previous.revenue), label:'предыдущий период' }, { value:String(current.completed), label:'завершённых визитов' }],
+      points:points.length ? points : ['Заметных изменений количества визитов, среднего чека и отмен не найдено.']
+    };
+  }
+
+  function nameMatchScore(command, name) {
+    const generic = /^(?:материал|остат|склад|закуп)/;
+    const commandWords = normalizeText(command).split(' ').filter(word => word && !generic.test(word));
+    const nameWords = normalizeText(name).split(' ').filter(word => word.length > 2 && !generic.test(word));
+    return nameWords.reduce((score, word) => score + (commandWords.some(commandWord => serviceStem(commandWord) === serviceStem(word) || wordsAreClose(commandWord, word)) ? 1 : 0), 0);
+  }
+
+  function inventoryForecastModel(item, snapshot, now = new Date()) {
+    const usageRows = (snapshot.inventory?.usage || []).filter(row => String(row.itemId || '') === String(item.id || '') && Number(row.quantity) > 0);
+    if (!usageRows.length) return {
+      kind:'inventory_forecast',
+      title:`Не могу рассчитать запас: ${item.name}`,
+      message:'Для этого материала не указана норма расхода на услуги.',
+      points:['Добавьте норму расхода в разделе «Склад», затем повторите запрос.']
+    };
+    const usageByService = new Map();
+    usageRows.forEach(row => usageByService.set(String(row.serviceId || ''), (usageByService.get(String(row.serviceId || '')) || 0) + Number(row.quantity || 0)));
+    const serviceIdByName = new Map((snapshot.services || []).map(service => [normalizeText(service.name), String(service.id || '')]));
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const bookings = (snapshot.bookings || []).filter(booking => booking.date >= today && booking.status !== 'cancelled' && booking.outcome !== 'no_show').sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
+    let plannedUsage = 0;
+    let depletionDate = '';
+    for (const booking of bookings) {
+      const serviceId = String(booking.serviceId || serviceIdByName.get(normalizeText(booking.serviceName)) || '');
+      const quantity = usageByService.get(serviceId) || 0;
+      if (!quantity) continue;
+      plannedUsage += quantity;
+      if (!depletionDate && plannedUsage > Math.max(0, Number(item.quantity) || 0)) depletionDate = booking.date;
+    }
+    const unit = String(item.unit || '').trim();
+    const quantityLabel = `${Math.max(0, Number(item.quantity) || 0).toLocaleString('ru-RU')} ${unit}`.trim();
+    if (!plannedUsage) return {
+      kind:'inventory_forecast',
+      title:`Запас: ${item.name}`,
+      message:`Сейчас в наличии ${quantityLabel}. В загруженном расписании нет услуг, расходующих этот материал.`,
+      points:['Срок запаса появится, когда в расписании будут подходящие записи.']
+    };
+    if (depletionDate) {
+      const days = Math.max(0, Math.round((dateAtNoon(new Date(`${depletionDate}T12:00:00`)) - dateAtNoon(new Date(`${today}T12:00:00`))) / 86400000));
+      return {
+        kind:'inventory_forecast',
+        title:`Запаса может не хватить: ${item.name}`,
+        message:`По текущим записям материал закончится ${formatDate(depletionDate)} — примерно через ${countLabel(days, ['день', 'дня', 'дней'])}.`,
+        points:[`В наличии: ${quantityLabel}.`, `Плановый расход до этой записи превысит остаток.`]
+      };
+    }
+    const remaining = Math.max(0, Number(item.quantity) - plannedUsage);
+    return {
+      kind:'inventory_forecast',
+      title:`Запаса хватит по текущему расписанию: ${item.name}`,
+      message:`На все загруженные будущие записи требуется ${plannedUsage.toLocaleString('ru-RU')} ${unit}.`,
+      points:[`В наличии: ${quantityLabel}.`, `Останется: ${remaining.toLocaleString('ru-RU')} ${unit}.`]
+    };
+  }
+
+  function inventoryModel(command, snapshot, now = new Date()) {
+    const inventory = snapshot.inventory;
+    if (!inventory) return { kind:'inventory_summary', title:'Складские данные недоступны', message:'Откройте раздел склада и дождитесь загрузки данных.', points:[] };
+    if (!inventory.enabled) return { kind:'inventory_summary', title:'Складской учёт выключен', message:'Включите его в разделе «Склад», чтобы помощник мог контролировать остатки.', points:[] };
+    const text = normalizeText(command);
+    const scoredItems = (inventory.items || []).map(item => ({ item, score:nameMatchScore(text, item.name) })).filter(entry => entry.score > 0);
+    const bestScore = Math.max(0, ...scoredItems.map(entry => entry.score));
+    const named = scoredItems.filter(entry => entry.score === bestScore).map(entry => entry.item);
+    if (/(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на)/.test(text)) {
+      if (named.length === 1) return inventoryForecastModel(named[0], snapshot, now);
+      return {
+        kind:'inventory_forecast',
+        title:named.length ? 'Уточните материал' : 'Не удалось определить материал',
+        message:named.length ? 'В запросе найдено несколько материалов. Назовите один из них.' : 'Назовите материал так, как он записан в разделе «Склад».',
+        points:named.slice(0, 8).map(item => item.name)
+      };
+    }
+    const source = named.length ? named : (inventory.items || []).filter(item => Number(item.quantity) <= Number(item.lowStockThreshold));
+    const points = source.slice(0, 8).map(item => `${item.name}: ${(Number(item.quantity) || 0).toLocaleString('ru-RU')} ${item.unit || ''}${Number(item.quantity) <= Number(item.lowStockThreshold) ? ' — заканчивается' : ''}`);
+    return { kind:'inventory_summary', title:named.length ? 'Остаток материала' : 'Материалы, требующие внимания', message:points.length ? `Найдено позиций: ${points.length}.` : 'Материалов ниже минимального остатка нет.', points };
+  }
+
+  function attentionModel(snapshot, now = new Date()) {
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const futureEnd = shiftIsoDate(today, 6);
+    const week = bookingsInRange(snapshot, today, futureEnd);
+    const completed = (snapshot.bookings || []).filter(item => item.outcome === 'completed');
+    const points = [];
+    const unpaid = completed.filter(item => item.paymentMethod === 'unpaid').length;
+    const cancelled = week.filter(item => item.status === 'cancelled').length;
+    const lowStock = snapshot.inventory?.enabled ? (snapshot.inventory.items || []).filter(item => Number(item.quantity) <= Number(item.lowStockThreshold)) : [];
+    if (unpaid) points.push(`Не оплачено завершённых визитов: ${unpaid}.`);
+    if (cancelled) points.push(`Отмен на ближайшие 7 дней: ${cancelled}.`);
+    if (snapshot.notifications?.failed) points.push(`Не доставлено уведомлений: ${snapshot.notifications.failed}.`);
+    if (lowStock.length) points.push(`Заканчиваются материалы: ${lowStock.slice(0, 3).map(item => item.name).join(', ')}${lowStock.length > 3 ? ` и ещё ${lowStock.length - 3}` : ''}.`);
+    if (!snapshot.services?.length) points.push('Нет активных услуг для онлайн-записи.');
+    const inventoryChecked = Boolean(snapshot.inventory?.enabled);
+    return { kind:'attention', title:points.length ? 'Требует внимания' : 'Всё спокойно', message:points.length ? `Найдено важных пунктов: ${points.length}.${inventoryChecked ? '' : ' Складские остатки не проверены.'}` : inventoryChecked ? 'Неоплаченных визитов, ближайших отмен и низких остатков не найдено.' : 'По доступным данным неоплаченных визитов и ближайших отмен нет. Складские остатки не загружены.', points };
+  }
+
+  function clientSummaryModel(command, snapshot, now = new Date()) {
+    const period = reportingPeriod(command, now);
+    const rows = bookingsInRange(snapshot, period.start, period.end).filter(item => item.status !== 'cancelled' && item.clientKey);
+    const allBefore = new Set((snapshot.bookings || []).filter(item => item.date < period.start && item.status !== 'cancelled' && item.clientKey).map(item => item.clientKey));
+    const current = new Set(rows.map(item => item.clientKey));
+    const newClients = [...current].filter(key => !allBefore.has(key)).length;
+    return { kind:'clients_summary', title:`Клиенты ${period.label}`, message:`Уникальных клиентов: ${current.size}.`, metrics:[{ value:String(newClients), label:'новых' }, { value:String(current.size - newClients), label:'повторных' }, { value:String(current.size), label:'всего' }] };
+  }
+
+  function servicePerformanceModel(command, snapshot, now = new Date()) {
+    const period = reportingPeriod(command, now);
+    const totals = new Map();
+    bookingsInRange(snapshot, period.start, period.end).filter(item => item.status !== 'cancelled' && item.outcome === 'completed').forEach(item => {
+      const serviceName = String(item.serviceName || 'Услуга');
+      const current = totals.get(serviceName) || { visits:0, revenue:0 };
+      current.visits += 1;
+      current.revenue += Number(item.amountRub || 0);
+      totals.set(serviceName, current);
+    });
+    const points = [...totals.entries()].sort((a, b) => b[1].revenue - a[1].revenue || b[1].visits - a[1].visits).slice(0, 6).map(([name, value]) => `${name}: ${moneyLabel(value.revenue)} · ${countLabel(value.visits, ['визит', 'визита', 'визитов'])}`);
+    return { kind:'service_performance', title:`Услуги по выручке ${period.label}`, message:points.length ? 'Сначала показаны услуги с наибольшей полученной оплатой.' : `Завершённых услуг ${period.label} нет.`, points };
+  }
+
   function isScheduleRequest(text) {
     if (/(?:^|\s)(?:что|кто)\s+у\s+меня(?=\s|$)/.test(text)) return true;
     if (/(?:^|\s)кто\s+(?:ко\s+мне\s+)?(?:сегодня|завтра|послезавтра)(?=\s|$)/.test(text)) return true;
@@ -327,6 +532,16 @@
     const today = snapshot.today || localIsoDate(dateAtNoon(now));
     if (!text) return { kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' };
 
+    if (!BOOKING_WORDS.test(text) && !BOOKING_PHRASES.test(text) && /(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text)) return revenueModel(text, snapshot, now);
+    if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return inventoryModel(text, snapshot, now);
+    if (/(?:требует внимания|важн[а-я]*|проблем[а-я]*|что проверить)/.test(text)) return attentionModel(snapshot, now);
+    if (/(?:нов[а-я]* клиент|повторн[а-я]* клиент|сколько клиент)/.test(text)) return clientSummaryModel(text, snapshot, now);
+    if (/(?:популярн[а-я]* услуг|лучш[а-я]* услуг|услуг[а-я]* принесли|услуг[а-я]* принос)/.test(text)) return servicePerformanceModel(text, snapshot, now);
+    if (/(?:кто работает|команд[а-я]*|сотрудник[а-я]*|специалист[а-я]* работает)/.test(text)) {
+      const members = snapshot.team || [];
+      return { kind:'team_summary', title:'Команда', message:members.length ? `Активных сотрудников: ${members.length}.` : 'Активные сотрудники не найдены.', points:members.map(item => `${item.name}${item.role ? ` · ${item.role}` : ''}`).slice(0, 12) };
+    }
+
     const duration = parseDuration(text);
     const date = parseRussianDate(text, now) || today;
     const time = parseRussianTime(text);
@@ -344,8 +559,8 @@
         kind:'booking_draft',
         title:'Черновик новой записи',
         message:missing.length ? `Нужно уточнить: ${missing.join(', ')}.` : 'Команда распознана. Перед созданием проверьте данные в защищённой форме.',
-        plan:{ clientName, date, time, serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || Number(service?.durationMinutes || 0) },
-        candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes })),
+        plan:{ clientName, date, time, serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || (service?.perMinute ? 0 : Number(service?.durationMinutes || 0)), ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
+        candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:Boolean(clientName || service || time)
       };
     }
@@ -354,9 +569,9 @@
       return {
         kind:'find_slots',
         title:'Поиск свободного времени',
-        message:'Открою защищённую форму записи. Она запросит у сервера только действительно свободные интервалы.',
-        plan:{ clientName:'', date, time:'', serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || Number(service?.durationMinutes || 0) },
-        candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes })),
+        message:service ? 'Проверю расписание и покажу действительно свободные интервалы.' : 'Сначала выберите услугу — от неё зависит длительность свободного окна.',
+        plan:{ clientName:'', date, time:'', serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || (service?.perMinute ? 0 : Number(service?.durationMinutes || 0)), ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
+        candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:true
       };
     }
@@ -396,6 +611,7 @@
     if (model.kind === 'find_slots') return 90 + (model.plan?.serviceId ? 12 : 0) + (model.plan?.date ? 4 : 0);
     if (model.kind === 'schedule_summary') return 80;
     if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
+    if (['revenue_summary','revenue_change','inventory_summary','inventory_forecast','attention','clients_summary','service_performance','team_summary'].includes(model.kind)) return 76;
     return Math.min(10, normalizeText(command).split(' ').filter(Boolean).length);
   }
 
@@ -453,11 +669,11 @@
   function applyOfflineContext(model, snapshot) {
     if (!snapshot?.offlineReadable) return model;
     const updated = snapshotTimeLabel(snapshot.lastUpdatedAt);
-    if (model.kind === 'client_search') {
+    if (model.kind === 'client_search' || model.kind === 'clients_summary') {
       return {
         kind:'offline_notice',
-        title:'Поиск клиента офлайн недоступен',
-        message:`В сохранённой копии имена и телефоны скрыты. Последнее обновление: ${updated}. Подключитесь к интернету для поиска.` ,
+        title:model.kind === 'client_search' ? 'Поиск клиента офлайн недоступен' : 'Статистика клиентов офлайн недоступна',
+        message:`В сохранённой копии имена и телефоны скрыты. Последнее обновление: ${updated}. Подключитесь к интернету для расчёта.` ,
         offline:true
       };
     }
@@ -502,6 +718,7 @@
     const listenButton = doc.querySelector('#voiceListenButton');
     const status = doc.querySelector('#voiceAssistantStatus');
     const result = doc.querySelector('#voiceAssistantResult');
+    const starters = doc.querySelector('#voiceAssistantStarters');
     if (!dialog || !openButton || !form || !input || !listenButton || !status || !result) return { bind() {}, destroy() {} };
 
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
@@ -522,6 +739,7 @@
     let suppressCompatibilityClick = false;
     let compatibilityClickResetTimer = null;
     let activeTouchPointerId = null;
+    let requestEpoch = 0;
 
     function refreshRussianVoice() {
       try { russianVoice = selectRussianVoice(global.speechSynthesis?.getVoices?.() || []); } catch { russianVoice = null; }
@@ -599,7 +817,7 @@
       recognition = null;
       setListening(false);
       listenButton.classList.add('is-unsupported');
-      status.textContent = message || 'Клавиатура открыта. Нажмите на ней значок микрофона и продиктуйте команду.';
+      status.textContent = message || 'Клавиатура открыта. Нажмите значок микрофона на клавиатуре и продиктуйте команду.';
       try {
         input.focus({ preventScroll:true });
         input.click?.();
@@ -624,6 +842,7 @@
     }
 
     function close() {
+      requestEpoch += 1;
       abortRecognition();
       stopSpeech();
       if (dialog.open) dialog.close();
@@ -636,39 +855,142 @@
       result.replaceChildren();
       lastModel = null;
       lastSessionGeneration = null;
+      starters?.classList.remove('is-secondary');
       status.textContent = 'Нажмите «Говорить» или введите команду текстом.';
     }
 
     function detailsMarkup(model) {
       if (model.kind === 'booking_draft' || model.kind === 'find_slots') {
         const plan = model.plan || {};
+        const services = plan.serviceId ? [] : ((model.candidates?.length ? model.candidates : model.availableServices) || []).slice(0, 8);
+        if (services.length) return `<div class="voice-result-choices" aria-label="Выберите услугу">${services.map(item => `<button class="voice-result-choice" type="button" data-voice-service="${escapeHtml(item.id)}">${escapeHtml(item.name)}</button>`).join('')}</div>`;
+        if (!plan.serviceId) return '<p class="voice-result-empty">Активных услуг для выбора сейчас нет.</p>';
+        if (plan.perMinute && !Number(plan.durationMinutes)) {
+          const preset = Number(plan.defaultDurationMinutes || 60);
+          const values = [...new Set([preset, 15, 30, 45, 60])].filter(value => value >= 1 && value <= 480).slice(0, 5);
+          return `<div class="voice-result-choices" aria-label="Выберите длительность">${values.map(value => `<button class="voice-result-choice" type="button" data-voice-duration="${value}">${value} минут</button>`).join('')}<form class="voice-duration-custom" data-voice-duration-form><input name="duration" type="number" inputmode="numeric" min="1" max="480" step="1" placeholder="Точное время, мин" aria-label="Точная длительность в минутах" required><button class="voice-result-choice" type="submit">Применить</button></form></div>`;
+        }
+        if (model.loading) return '<p class="voice-result-progress">Проверяем расписание…</p>';
+        if (model.slotError) return '<p class="voice-result-empty">Свободное время не загружено. Повторите поиск после синхронизации.</p>';
+        if (Array.isArray(model.slots)) return model.slots.length
+          ? `<div class="voice-result-choices" aria-label="Свободное время">${model.slots.map(time => `<button class="voice-result-choice voice-slot-choice" type="button" data-voice-slot="${escapeHtml(time)}">${escapeHtml(time)}</button>`).join('')}</div>`
+          : '<p class="voice-result-empty">На эту дату нет окна нужной длительности.</p>';
         const rows = [
-          ['Клиент', plan.clientName || 'указать в форме'],
+          plan.clientName ? ['Клиент', plan.clientName] : null,
           ['Дата', formatDate(plan.date)],
-          ['Время', plan.time || 'выбрать из свободных'],
-          ['Услуга', plan.serviceName || (model.candidates?.length > 1 ? `уточнить: ${model.candidates.map(item => item.name).join(', ')}` : 'выбрать в форме')]
-        ];
-        return `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
+          plan.time ? ['Время', plan.time] : null,
+          plan.serviceName ? ['Услуга', plan.serviceName] : null,
+          Number(plan.durationMinutes) ? ['Длительность', `${plan.durationMinutes} минут`] : null
+        ].filter(Boolean);
+        return rows.length ? `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
       }
       if (model.kind === 'schedule_summary' || model.kind === 'client_search') {
         const list = (model.items || []).map(item => `<li><strong>${escapeHtml(item.time || '')}</strong><span>${escapeHtml(item.clientName || 'Клиент')} · ${escapeHtml(item.serviceName || 'Услуга')}</span></li>`).join('');
         return list ? `<ul>${list}</ul>${model.total > model.items.length ? `<small>Показаны первые ${model.items.length} из ${model.total}</small>` : ''}` : '';
       }
       if (model.examples) return `<ul class="voice-help-list">${model.examples.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+      if (model.metrics?.length || model.points?.length) {
+        const metrics = model.metrics?.length ? `<div class="voice-result-metrics">${model.metrics.map(item => `<div><strong>${escapeHtml(item.value)}</strong><span>${escapeHtml(item.label)}</span></div>`).join('')}</div>` : '';
+        const points = model.points?.length ? `<ul class="voice-result-points">${model.points.map(item => `<li><span>${escapeHtml(item)}</span></li>`).join('')}</ul>` : '';
+        return `${metrics}${points}`;
+      }
       return '';
+    }
+
+    async function findSlots(model) {
+      if (!model?.plan?.serviceId || (model.plan.perMinute && !Number(model.plan.durationMinutes))) { renderModel(model, lastSessionGeneration); return; }
+      const epoch = ++requestEpoch;
+      const expectedSessionGeneration = lastSessionGeneration;
+      const pending = { ...model, loading:true, slots:null, message:'Проверяю расписание и занятые интервалы…' };
+      renderModel(pending, expectedSessionGeneration);
+      status.textContent = 'Ищем свободное время…';
+      let response;
+      try {
+        response = await bridge.findAvailableSlots?.(model.plan);
+      } catch {
+        response = { ok:false, reason:'request_failed', slots:[] };
+      }
+      if (epoch !== requestEpoch || !dialog.open) return;
+      const currentSnapshot = bridge.getReadOnlySnapshot();
+      if (!currentSnapshot?.authenticated || !Object.is(currentSnapshot.sessionGeneration, expectedSessionGeneration)) {
+        requestEpoch += 1;
+        renderModel({ kind:'error', title:'Сессия кабинета изменилась', message:'Повторите поиск после завершения синхронизации.' }, currentSnapshot?.sessionGeneration);
+        status.textContent = 'Устаревший результат поиска не показан.';
+        return;
+      }
+      if (!currentSnapshot.synchronized && response?.ok) response = { ok:false, reason:'not_synchronized', slots:[] };
+      const slots = response?.ok && Array.isArray(response.slots) ? response.slots.filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time))).slice(0, 24) : [];
+      const resolved = { ...model, loading:false, slots:response?.ok ? slots : null, slotError:!response?.ok, message:response?.ok ? (slots.length ? `Нашёл свободных вариантов: ${slots.length}. Выберите время.` : 'На эту дату свободного окна нужной длительности нет.') : response?.reason === 'not_synchronized' ? 'Кабинет сейчас не синхронизирован. Дождитесь обновления данных и повторите поиск.' : 'Не удалось проверить свободное время. Обновите данные и попробуйте ещё раз.' };
+      renderModel(resolved, expectedSessionGeneration);
+      status.textContent = response?.ok ? 'Свободные интервалы проверены по актуальному расписанию.' : 'Свободное время не загружено.';
     }
 
     function renderModel(model, sessionGeneration = null) {
       stopSpeech();
       lastModel = model;
       lastSessionGeneration = sessionGeneration;
-      const prepareAction = model.canPrepare ? '<button class="primary" type="button" data-voice-prepare>Открыть черновик</button>' : '';
-      const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance ? '<button class="secondary-button" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
+      const planReady = model.kind === 'booking_draft' && model.canPrepare && model.plan?.serviceId && (model.plan?.time || model.offline) && (!model.plan.perMinute || Number(model.plan.durationMinutes));
+      const prepareAction = planReady ? '<button class="primary" type="button" data-voice-prepare>Проверить запись</button>' : '';
+      const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
       const actions = prepareAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${speakAction}</div>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       result.className = `voice-assistant-result is-${model.kind}`;
       result.innerHTML = `${offlineNotice}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${actions}`;
       result.hidden = false;
+      starters?.classList.add('is-secondary');
+      result.querySelectorAll?.('[data-voice-service]')?.forEach(button => button.addEventListener('click', () => {
+        const snapshot = bridge.getReadOnlySnapshot();
+        if (!snapshot?.authenticated || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
+          requestEpoch += 1;
+          renderModel({ kind:'error', title:'Сессия кабинета изменилась', message:'Повторите команду после завершения синхронизации.' }, snapshot?.sessionGeneration);
+          return;
+        }
+        const service = (snapshot.services || []).find(item => String(item.id) === button.dataset.voiceService);
+        if (!service || !lastModel?.plan) return;
+        const updated = { ...lastModel, candidates:[], availableServices:[], plan:{ ...lastModel.plan, serviceId:String(service.id), serviceName:String(service.name), perMinute:Boolean(service.perMinute), defaultDurationMinutes:Number(service.defaultDurationMinutes || service.durationMinutes || 60), durationMinutes:lastModel.plan.durationMinutes || (service.perMinute ? 0 : Number(service.durationMinutes || 60)) } };
+        updated.message = updated.plan.perMinute && !updated.plan.durationMinutes ? 'Укажите длительность — для поминутной услуги можно выбрать любое значение.' : (updated.kind === 'find_slots' ? 'Проверю расписание и покажу свободные интервалы.' : 'Услуга выбрана. Проверьте остальные данные записи.');
+        if (updated.kind === 'find_slots') findSlots(updated); else renderModel(updated, lastSessionGeneration);
+      }));
+      result.querySelectorAll?.('[data-voice-duration]')?.forEach(button => button.addEventListener('click', () => {
+        if (!lastModel?.plan) return;
+        const snapshot = bridge.getReadOnlySnapshot();
+        if (!snapshot?.authenticated || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
+          requestEpoch += 1;
+          renderModel({ kind:'error', title:'Сессия кабинета изменилась', message:'Повторите команду после завершения синхронизации.' }, snapshot?.sessionGeneration);
+          return;
+        }
+        const durationMinutes = Math.max(1, Math.min(480, Math.round(Number(button.dataset.voiceDuration) || 0)));
+        const updated = { ...lastModel, plan:{ ...lastModel.plan, durationMinutes }, message:lastModel.kind === 'find_slots' ? 'Проверю расписание и покажу свободные интервалы.' : 'Длительность выбрана. Проверьте данные записи.' };
+        if (updated.kind === 'find_slots') findSlots(updated); else renderModel(updated, lastSessionGeneration);
+      }));
+      result.querySelector('[data-voice-duration-form]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!lastModel?.plan) return;
+        const snapshot = bridge.getReadOnlySnapshot();
+        if (!snapshot?.authenticated || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
+          requestEpoch += 1;
+          renderModel({ kind:'error', title:'Сессия кабинета изменилась', message:'Повторите команду после завершения синхронизации.' }, snapshot?.sessionGeneration);
+          return;
+        }
+        const requestedDuration = Number(new FormData(event.currentTarget).get('duration'));
+        if (!Number.isFinite(requestedDuration) || requestedDuration < 1 || requestedDuration > 480) {
+          status.textContent = 'Укажите длительность от 1 до 480 минут.';
+          return;
+        }
+        const durationMinutes = Math.round(requestedDuration);
+        const updated = { ...lastModel, plan:{ ...lastModel.plan, durationMinutes }, message:lastModel.kind === 'find_slots' ? 'Проверю расписание и покажу свободные интервалы.' : 'Длительность выбрана. Проверьте данные записи.' };
+        if (updated.kind === 'find_slots') findSlots(updated); else renderModel(updated, lastSessionGeneration);
+      });
+      result.querySelectorAll?.('[data-voice-slot]')?.forEach(button => button.addEventListener('click', () => {
+        const snapshot = bridge.getReadOnlySnapshot();
+        if (!lastModel?.plan || !snapshot?.authenticated || !snapshot.synchronized || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
+          status.textContent = 'Расписание изменилось или недоступно. Повторите поиск свободного времени.';
+          return;
+        }
+        const response = bridge.prepareBookingDraft({ ...lastModel.plan, time:button.dataset.voiceSlot || '' });
+        if (response?.ok) close();
+        else status.textContent = 'Не удалось открыть запись. Обновите данные и повторите поиск.';
+      }));
       result.querySelector('[data-voice-speak]')?.addEventListener('click', () => {
         if (speaking) {
           stopSpeech();
@@ -721,6 +1043,7 @@
     }
 
     function understand() {
+      requestEpoch += 1;
       const snapshot = bridge.getReadOnlySnapshot();
       if (!snapshot?.authenticated) {
         renderModel({ kind:'error', title:'Нужно войти в кабинет', message:'После входа помощник сможет прочитать актуальное расписание.' });
@@ -731,9 +1054,17 @@
         status.textContent = 'Помощник не показывает устаревшие данные.';
         return;
       }
-      const model = applyOfflineContext(interpretCommand(input.value, snapshot, new Date()), snapshot);
+      const interpreted = interpretCommand(input.value, snapshot, new Date());
+      if (['booking_draft','find_slots'].includes(interpreted.kind)) interpreted.availableServices = snapshot.services || [];
+      const model = applyOfflineContext(interpreted, snapshot);
+      lastSessionGeneration = snapshot.sessionGeneration;
+      const shouldFindSlots = snapshot.synchronized && ['find_slots','booking_draft'].includes(model.kind) && model.plan?.serviceId && !model.plan?.time && (!model.plan.perMinute || Number(model.plan.durationMinutes));
+      if (shouldFindSlots) {
+        findSlots(model);
+        return;
+      }
       renderModel(model, snapshot.sessionGeneration);
-      status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : model.kind === 'error' ? 'Команда не распознана.' : 'Готово. Проверьте результат перед следующим действием.';
+      status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
     }
 
     function startRecognition() {
@@ -841,13 +1172,15 @@
 
     function bind() {
       openButton.addEventListener('click', () => {
+        requestEpoch += 1;
         abortRecognition();
         input.value = '';
         lastModel = null;
         lastSessionGeneration = null;
         result.hidden = true;
         result.replaceChildren();
-        status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь кнопки один раз, дождитесь сигнала и говорите. Повторное касание завершит запись.' : 'Нажмите «Говорить» или введите команду текстом.') : touchDevice ? 'Нажмите «Открыть диктовку», затем значок микрофона на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
+        starters?.classList.remove('is-secondary');
+        status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
         setTimeout(() => (Recognition ? listenButton : input).focus(), 0);
       });
@@ -914,7 +1247,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, createController });
+  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

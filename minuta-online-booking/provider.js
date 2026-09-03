@@ -1338,7 +1338,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=234#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=238#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5037,6 +5037,7 @@ async function logout() {
   synchronizationRetryTimer = null;
   stopLiveUpdates();
   setWritesAllowed(false);
+  setBookingCreationReady(false);
   await clearProviderDeviceData(userId);
   await db.auth.signOut();
 }
@@ -6754,54 +6755,173 @@ const freeSlotsController = window.MinutaFreeSlots.createController({
   }
 });
 
+function providerAssistantIsoDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ''));
+  if (!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day ? match[0] : '';
+}
+
+function providerAssistantNumber(value, fallback = 0, minimum = 0, maximum = Number.MAX_SAFE_INTEGER) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
+}
+
+function providerAssistantCurrentMinute() {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return (Number(values.hour) * 60) + Number(values.minute);
+}
+
 window.MinutaProviderAssistant = Object.freeze({
   getReadOnlySnapshot() {
     const organization = organizationController.getActiveOrganization();
+    const inventoryPayload = inventoryController?.payload;
     const snapshotTime = new Date(bookingsSnapshotSavedAt).getTime();
     const snapshotCurrent = Number.isFinite(snapshotTime) && Date.now() - snapshotTime <= PROVIDER_CACHE_MAX_AGE;
-    const synchronized = Boolean(currentUser && writesAllowed && bookingCreationReady && navigator.onLine);
+    const synchronized = Boolean(currentUser && bookingCreationReady && navigator.onLine && snapshotCurrent && !bookingsSnapshotFromCache);
     const offline = Boolean(currentUser && !navigator.onLine);
+    const offlineReadable = Boolean(offline && snapshotCurrent);
+    const readable = synchronized || offlineReadable;
+    const inventoryReady = Boolean(readable
+      && inventoryPayload
+      && inventoryController.availability === 'ready'
+      && organization?.id
+      && String(inventoryPayload.organization_id || '') === String(organization.id));
+    const clientKeys = new Map();
+    let nextClientKey = 1;
+    const clientKey = item => {
+      if (offline) return '';
+      const phone = normalizePhone(item.client_phone);
+      if (!phone) return '';
+      if (!clientKeys.has(phone)) clientKeys.set(phone, `client-${nextClientKey++}`);
+      return clientKeys.get(phone);
+    };
+    const marks = notificationMarks();
+    const now = new Date();
+    const nextDay = new Date(now.getTime() + 86400000);
+    const notificationTasks = readable ? buildNotificationTasks().map(task => ({ ...task, mark:marks[task.key] || '' })) : [];
     return {
       authenticated:Boolean(currentUser),
       synchronized,
       offline,
-      offlineReadable:Boolean(offline && snapshotCurrent),
-      lastUpdatedAt:snapshotCurrent ? bookingsSnapshotSavedAt : '',
-      snapshotSource:bookingsSnapshotFromCache ? 'cache' : 'live',
+      offlineReadable,
+      readOnly:true,
+      lastUpdatedAt:readable ? bookingsSnapshotSavedAt : '',
+      snapshotSource:!readable ? 'unavailable' : bookingsSnapshotFromCache ? 'cache' : 'live',
       sessionGeneration,
       today:businessTodayIso(),
       selectedDate,
-      organizationName:String(organization?.name || ''),
-      services:ownServices.filter(item => item.active).map(item => ({
+      organizationName:readable ? String(organization?.name || '') : '',
+      dataQuality:{
+        bookings:readable ? (bookingsSnapshotFromCache ? 'anonymized_cache' : 'server') : 'unavailable',
+        outcomes:outcomesRemoteAvailable ? 'server' : bookingOutcomes.size ? 'local_fallback' : 'unavailable',
+        notifications:notificationOutboxRemoteAvailable ? 'server' : 'local_fallback',
+        team:readable && organizationController.availability === 'ready' ? 'server' : 'unavailable',
+        inventory:inventoryReady ? 'server' : 'unavailable'
+      },
+      services:(readable ? ownServices : []).filter(item => item.active).map(item => ({
         id:String(item.id),
         name:serviceName(item.name || 'Услуга'),
-        durationMinutes:Number(item.duration_minutes || 60)
+        durationMinutes:providerAssistantNumber(item.duration_minutes, 60, 1, 480),
+        defaultDurationMinutes:Number(item.duration_minutes) === 1 ? serviceDefaultDuration(item.id) : providerAssistantNumber(item.duration_minutes, 60, 1, 480),
+        priceRub:providerAssistantNumber(item.price_rub),
+        perMinute:Number(item.duration_minutes) === 1
       })),
-      bookings:allBookings.filter(item => !isScheduleBlock(item)).map(item => ({
-        id:String(item.id),
+      bookings:(readable ? allBookings : []).filter(item => !isScheduleBlock(item)).map(item => ({
+        outcome:bookingOutcome(item).visit_status,
+        paymentMethod:bookingOutcome(item).payment_method,
+        amountRub:providerAssistantNumber(bookingOutcome(item).amount_rub),
         clientName:offline ? 'Клиент' : String(item.client_name || 'Клиент'),
+        clientKey:clientKey(item),
         date:String(item.booking_date || ''),
         time:String(item.booking_time || '').slice(0, 5),
-        durationMinutes:Number(item.duration_minutes || item.services?.duration_minutes || 60),
+        durationMinutes:providerAssistantNumber(item.duration_minutes || item.services?.duration_minutes, 60, 1, 480),
+        serviceId:String(item.service_id || ''),
         serviceName:serviceName(item.services?.name || 'Услуга'),
         status:String(item.status || 'confirmed')
-      }))
+      })),
+      team:(readable ? organization?.members || [] : []).filter(item => item.active).map(item => ({
+        name:String(item.display_name || 'Сотрудник'),
+        role:String(item.role || '')
+      })),
+      notifications:readable ? {
+        available:notificationSettingsRemoteAvailable || notificationOutboxRemoteAvailable,
+        failed:notificationOutbox.filter(item => item.status === 'failed').length,
+        pending:notificationOutbox.filter(item => item.status === 'pending' || item.status === 'sending').length,
+        manualDue:notificationTasks.filter(task => task.dueAt <= now && task.mark !== 'sent').length,
+        manualDueWithin24Hours:notificationTasks.filter(task => task.dueAt > now && task.dueAt <= nextDay && task.mark !== 'sent').length
+      } : null,
+      inventory:inventoryReady ? {
+        enabled:Boolean(inventoryPayload.enabled),
+        items:(inventoryPayload.items || []).filter(item => item.active).map(item => ({
+          id:String(item.id),
+          name:String(item.name || 'Материал'),
+          unit:String(item.unit || ''),
+          quantity:(inventoryPayload.balances || []).filter(row => String(row.inventory_item_id) === String(item.id)).reduce((sum, row) => sum + providerAssistantNumber(row.quantity), 0),
+          lowStockThreshold:providerAssistantNumber(item.low_stock_threshold)
+        })),
+        usage:(inventoryPayload.usage || []).map(item => ({
+          serviceId:String(item.service_id || ''),
+          itemId:String(item.inventory_item_id || ''),
+          quantity:providerAssistantNumber(item.quantity)
+        }))
+      } : null
     };
+  },
+  async findAvailableSlots(plan = {}) {
+    const generation = sessionGeneration;
+    const userId = currentUser?.id;
+    if (!userId) return { ok:false, reason:'auth_required', slots:[] };
+    if (!navigator.onLine || !bookingCreationReady || bookingsSnapshotFromCache) return { ok:false, reason:'not_synchronized', slots:[] };
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok:false, reason:'invalid_request', slots:[] };
+    const service = ownServices.find(item => item.active && String(item.id) === String(plan.serviceId || ''));
+    const date = providerAssistantIsoDate(plan.date);
+    const today = businessTodayIso();
+    const latest = new Date(`${today}T12:00:00+04:00`);
+    latest.setUTCDate(latest.getUTCDate() + 730);
+    if (!service || !date || date < today || date > businessTodayIso(latest)) return { ok:false, reason:'invalid_request', slots:[] };
+    const fixedDuration = providerAssistantNumber(service.duration_minutes, 60, 1, 480);
+    const requestedDuration = Number(service.duration_minutes) === 1 ? Number(plan.durationMinutes || serviceDefaultDuration(service.id)) : fixedDuration;
+    if (!Number.isFinite(requestedDuration) || !Number.isInteger(requestedDuration) || requestedDuration < 1 || requestedDuration > 480) return { ok:false, reason:'invalid_request', slots:[] };
+    const duration = requestedDuration;
+    const { data:sessionData, error:sessionError } = await db.auth.getSession();
+    if (sessionError || !sessionIsCurrent(userId, generation) || sessionData?.session?.user?.id !== userId) return { ok:false, reason:'stale_session', slots:[] };
+    const { data, error } = await db.rpc('get_available_slots', { p_service:service.id, p_start:date, p_end:date });
+    if (!sessionIsCurrent(userId, generation)) return { ok:false, reason:'stale_session', slots:[] };
+    if (error) return { ok:false, reason:'request_failed', slots:[] };
+    const currentMinute = date === today ? providerAssistantCurrentMinute() : -1;
+    const slots = (Array.isArray(data) ? data : [])
+      .filter(item => String(item?.booking_date || '') === date)
+      .map(item => String(item.booking_time || '').slice(0, 5))
+      .filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)
+        && minutesFromTime(time) > currentMinute
+        && !bookingPlacementIssue({ id:'voice-assistant-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
+    return { ok:true, slots:[...new Set(slots)].slice(0, 24), durationMinutes:duration };
   },
   prepareBookingDraft(plan = {}) {
     const snapshotTime = new Date(bookingsSnapshotSavedAt).getTime();
     const offlineDraftAllowed = Boolean(currentUser && !navigator.onLine && Number.isFinite(snapshotTime) && Date.now() - snapshotTime <= PROVIDER_CACHE_MAX_AGE);
-    const synchronized = Boolean(currentUser && navigator.onLine && writesAllowed && bookingCreationReady);
+    const synchronized = Boolean(currentUser && navigator.onLine && bookingCreationReady && !bookingsSnapshotFromCache);
     if (!synchronized && !offlineDraftAllowed) return { ok:false, reason:'not_synchronized' };
-    const date = /^\d{4}-\d{2}-\d{2}$/.test(String(plan.date || '')) && plan.date >= businessTodayIso() ? String(plan.date) : businessTodayIso();
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok:false, reason:'invalid_request' };
+    const date = providerAssistantIsoDate(plan.date);
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(plan.time || '')) ? String(plan.time) : '';
-    const service = ownServices.find(item => item.active && item.id === plan.serviceId) || null;
+    const service = ownServices.find(item => item.active && String(item.id) === String(plan.serviceId || '')) || null;
+    if (!date || date < businessTodayIso() || (plan.serviceId && !service)) return { ok:false, reason:'invalid_request' };
+    const durationMinutes = service && Number(service.duration_minutes) === 1
+      ? providerAssistantNumber(plan.durationMinutes || serviceDefaultDuration(service.id), serviceDefaultDuration(service.id), 1, 480)
+      : undefined;
     setProviderView('bookings');
     selectScheduleDate(date);
     openNewBookingSheet(time, {
-      clientName:String(plan.clientName || '').slice(0, 80),
+      clientName:String(plan.clientName || '').trim().slice(0, 80),
       serviceId:service?.id || '',
-      date
+      date,
+      durationMinutes
     });
     if (offlineDraftAllowed) {
       saveNewBookingDraft();
@@ -7015,4 +7135,4 @@ refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
 initializePhoneAuth();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=234'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=238'));

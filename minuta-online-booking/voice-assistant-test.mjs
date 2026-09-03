@@ -185,4 +185,206 @@ assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default
 
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
 
+const businessSnapshot = {
+  today:'2026-09-02',
+  services:[...services, { id:'minute', name:'Процедура по минутам', durationMinutes:1, defaultDurationMinutes:52, perMinute:true }],
+  bookings:[
+    { id:'c1', date:'2026-09-01', status:'confirmed', outcome:'completed', paymentMethod:'cash', amountRub:3000, serviceName:'Массаж', clientKey:'79990000001' },
+    { id:'c2', date:'2026-09-02', status:'confirmed', outcome:'completed', paymentMethod:'unpaid', amountRub:0, serviceName:'Стрижка', clientKey:'79990000002' },
+    { id:'p1', date:'2026-08-25', status:'confirmed', outcome:'completed', paymentMethod:'cash', amountRub:5000, serviceName:'Массаж', clientKey:'79990000001' },
+    { id:'x1', date:'2026-09-03', status:'cancelled', outcome:'scheduled', paymentMethod:'unpaid', amountRub:0, serviceName:'Массаж', clientKey:'79990000003' }
+  ],
+  inventory:{
+    enabled:true,
+    items:[{ id:'oil', name:'Массажное масло', unit:'мл', quantity:80, lowStockThreshold:100 }],
+    usage:[{ serviceId:'massage', itemId:'oil', quantity:50 }]
+  },
+  team:[{ id:'u1', name:'Рамиль', role:'owner' }]
+};
+
+const perMinuteSlots = voice.interpretCommand('Найди окно завтра на процедуру по минутам', businessSnapshot, now);
+assert.equal(perMinuteSlots.kind, 'find_slots');
+assert.equal(perMinuteSlots.plan.perMinute, true);
+assert.equal(perMinuteSlots.plan.durationMinutes, 0, 'поминутная услуга должна запросить длительность до поиска окна');
+assert.equal(perMinuteSlots.plan.defaultDurationMinutes, 52);
+
+const revenue = voice.interpretCommand('Какая выручка сегодня?', businessSnapshot, now);
+assert.equal(revenue.kind, 'revenue_summary');
+assert.equal(revenue.metrics[0].value, '0 ₽');
+assert.match(revenue.points[0], /Без оплаты/);
+
+const paidZeroRevenue = voice.revenueStats({ bookings:[{ date:'2026-09-02', status:'confirmed', outcome:'completed', paymentMethod:'cash', amountRub:0 }] }, '2026-09-02', '2026-09-02');
+assert.equal(paidZeroRevenue.unpaid, 0, 'нулевая сумма при явно выбранном способе оплаты не должна считаться неоплаченным визитом');
+
+const revenueChange = voice.interpretCommand('Почему упала выручка на этой неделе?', businessSnapshot, now);
+assert.equal(revenueChange.kind, 'revenue_change');
+assert.ok(revenueChange.metrics.length >= 3);
+
+const inventory = voice.interpretCommand('Какие материалы заканчиваются?', businessSnapshot, now);
+assert.equal(inventory.kind, 'inventory_summary');
+assert.match(inventory.points[0], /Массажное масло/);
+
+const oilBalance = voice.interpretCommand('Сколько осталось массажного масла?', businessSnapshot, now);
+assert.equal(oilBalance.kind, 'inventory_summary');
+assert.match(oilBalance.title, /Остаток материала/);
+
+const inventoryForecast = voice.interpretCommand('На сколько дней хватит массажного масла?', {
+  ...businessSnapshot,
+  bookings:[
+    ...businessSnapshot.bookings,
+    { id:'f1', date:'2026-09-03', time:'10:00', status:'confirmed', outcome:'scheduled', serviceName:'Массаж' },
+    { id:'f2', date:'2026-09-04', time:'10:00', status:'confirmed', outcome:'scheduled', serviceName:'Массаж' }
+  ]
+}, now);
+assert.equal(inventoryForecast.kind, 'inventory_forecast');
+assert.match(inventoryForecast.title, /может не хватить/i);
+assert.match(inventoryForecast.message, /4 сентября/);
+
+const inventoryWithoutUsage = voice.interpretCommand('Хватит ли массажного масла?', {
+  ...businessSnapshot,
+  inventory:{ ...businessSnapshot.inventory, usage:[] }
+}, now);
+assert.equal(inventoryWithoutUsage.kind, 'inventory_forecast');
+assert.match(inventoryWithoutUsage.message, /не указана норма расхода/i);
+
+const attention = voice.interpretCommand('Что требует внимания?', businessSnapshot, now);
+assert.equal(attention.kind, 'attention');
+assert.ok(attention.points.some(item => /Не оплачено/.test(item)));
+assert.ok(attention.points.some(item => /Массажное масло/.test(item)));
+
+const clientsToday = voice.interpretCommand('Сколько новых клиентов сегодня?', businessSnapshot, now);
+assert.equal(clientsToday.kind, 'clients_summary');
+assert.match(clientsToday.title, /сегодня/);
+assert.equal(clientsToday.metrics.find(item => item.label === 'всего').value, '1');
+assert.equal(voice.applyOfflineContext(clientsToday, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' }).kind, 'offline_notice', 'обезличенная офлайн-копия не позволяет считать уникальных клиентов');
+
+const servicePerformance = voice.interpretCommand('Какие услуги принесли больше денег сегодня?', {
+  ...businessSnapshot,
+  bookings:[...businessSnapshot.bookings, { id:'cancelled-completed', date:'2026-09-02', status:'cancelled', outcome:'completed', paymentMethod:'cash', amountRub:100000, serviceName:'Отменённая услуга' }]
+}, now);
+assert.equal(servicePerformance.kind, 'service_performance');
+assert.match(servicePerformance.title, /сегодня/);
+assert.ok(!servicePerformance.points.some(item => /Отменённая услуга/.test(item)), 'отменённый визит не должен попадать в выручку услуг');
+assert.equal(voice.interpretCommand('Кто работает в команде?', businessSnapshot, now).kind, 'team_summary');
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => { resolve = resolvePromise; reject = rejectPromise; });
+  return { promise, resolve, reject };
+}
+
+function controllerElement(overrides = {}) {
+  const listeners = new Map();
+  const classes = new Set();
+  return Object.assign({
+    value:'', textContent:'', hidden:false, open:false, className:'', dataset:{},
+    classList:{
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); }
+    },
+    addEventListener(type, listener) {
+      const handlers = listeners.get(type) || [];
+      handlers.push(listener);
+      listeners.set(type, handlers);
+    },
+    emit(type, event = {}) {
+      for (const listener of listeners.get(type) || []) listener({ preventDefault() {}, ...event });
+    },
+    setAttribute() {}, focus() {}, replaceChildren() { this.innerHTML = ''; },
+    querySelector() { return null; }, querySelectorAll() { return []; }
+  }, overrides);
+}
+
+const controllerOpen = controllerElement();
+const controllerClose = controllerElement();
+const controllerForm = controllerElement();
+const controllerInput = controllerElement();
+const controllerStatus = controllerElement();
+const controllerListenLabel = controllerElement();
+const controllerListen = controllerElement({ querySelector:selector => selector === 'span' ? controllerListenLabel : null });
+const controllerDialog = controllerElement({ showModal() { this.open = true; }, close() { this.open = false; } });
+let controllerResultHtml = '';
+const controllerResult = controllerElement();
+Object.defineProperty(controllerResult, 'innerHTML', {
+  get() { return controllerResultHtml; },
+  set(value) { controllerResultHtml = String(value); }
+});
+const controllerElements = new Map([
+  ['#voiceAssistantDialog', controllerDialog], ['#openVoiceAssistant', controllerOpen],
+  ['[data-close-voice-assistant]', controllerClose], ['#voiceAssistantForm', controllerForm],
+  ['#voiceAssistantInput', controllerInput], ['#voiceListenButton', controllerListen],
+  ['#voiceAssistantStatus', controllerStatus], ['#voiceAssistantResult', controllerResult]
+]);
+const controllerDocument = {
+  hidden:false,
+  querySelector:selector => controllerElements.get(selector) || null,
+  querySelectorAll:() => [],
+  addEventListener() {}
+};
+let controllerSnapshot = { ...businessSnapshot, authenticated:true, synchronized:true, offline:false, offlineReadable:false, sessionGeneration:1 };
+const slotResponses = [];
+let slotRequests = 0;
+const controllerBridge = {
+  getReadOnlySnapshot() { return controllerSnapshot; },
+  findAvailableSlots() {
+    slotRequests += 1;
+    return slotResponses.shift();
+  },
+  prepareBookingDraft() { return { ok:true }; }
+};
+const controller = voice.createController({ document:controllerDocument, bridge:controllerBridge });
+controller.bind();
+controllerOpen.emit('click');
+
+const staleSlots = deferred();
+slotResponses.push(staleSlots.promise);
+controllerInput.value = 'Найди свободное время завтра на массаж';
+controllerForm.emit('submit');
+assert.match(controllerResultHtml, /Проверяю расписание/);
+controllerInput.value = 'Какая выручка сегодня?';
+controllerForm.emit('submit');
+assert.match(controllerResultHtml, /Выручка сегодня/);
+staleSlots.resolve({ ok:true, slots:['10:00'] });
+await Promise.resolve();
+await Promise.resolve();
+assert.match(controllerResultHtml, /Выручка сегодня/, 'поздний ответ поиска не должен перезаписывать более новую команду');
+assert.doesNotMatch(controllerResultHtml, /10:00/);
+
+slotResponses.push(Promise.reject(new Error('network_failed')));
+controllerInput.value = 'Найди свободное время завтра на массаж';
+controllerForm.emit('submit');
+await Promise.resolve();
+await Promise.resolve();
+assert.match(controllerResultHtml, /Свободное время не загружено/);
+assert.doesNotMatch(controllerResultHtml, /нет окна нужной длительности/i, 'ошибка сети не должна выглядеть как отсутствие свободных окон');
+
+slotResponses.push(Promise.resolve({ ok:true, slots:['11:00'] }));
+controllerInput.value = 'Запиши Анну завтра на массаж';
+controllerForm.emit('submit');
+await Promise.resolve();
+await Promise.resolve();
+assert.match(controllerResultHtml, /11:00/, 'если в команде создания записи нет времени, помощник должен предложить проверенные слоты');
+
+const changedSessionSlots = deferred();
+slotResponses.push(changedSessionSlots.promise);
+controllerInput.value = 'Найди свободное время завтра на массаж';
+controllerForm.emit('submit');
+controllerSnapshot = { ...controllerSnapshot, sessionGeneration:2 };
+changedSessionSlots.resolve({ ok:true, slots:['12:00'] });
+await Promise.resolve();
+await Promise.resolve();
+assert.match(controllerResultHtml, /Сессия кабинета изменилась/);
+assert.doesNotMatch(controllerResultHtml, /12:00/, 'результат из прошлого поколения сессии не должен отображаться');
+
+const requestsBeforeOfflineSearch = slotRequests;
+controllerSnapshot = { ...controllerSnapshot, synchronized:false, offline:true, offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' };
+controllerInput.value = 'Найди свободное время завтра на массаж';
+controllerForm.emit('submit');
+assert.equal(slotRequests, requestsBeforeOfflineSearch, 'офлайн-поиск не должен обращаться за свободными слотами');
+assert.match(controllerResultHtml, /Свободное время нужно перепроверить/);
+
+controller.destroy();
+
 console.log('Voice assistant functional tests passed');

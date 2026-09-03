@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '237';
+const version = '238';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -94,7 +94,7 @@ assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDial
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
 assert.match(provider, /offlineDraftAllowed[\s\S]*if \(!synchronized && !offlineDraftAllowed\) return \{ ok:false, reason:'not_synchronized' \}/, 'Черновик голосового помощника не отделяет синхронизированный и безопасный офлайн-режимы');
-assert.match(provider, /offlineReadable:Boolean\(offline && snapshotCurrent\)/, 'Голосовой помощник не проверяет срок локальной копии');
+assert.match(provider, /const offlineReadable = Boolean\(offline && snapshotCurrent\)[\s\S]*offlineReadable,/, 'Голосовой помощник не проверяет срок локальной копии');
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');
 assert.match(provider, /function loadNewBookingSlots\(\)[\s\S]*if \(!navigator\.onLine\)[\s\S]*offlineCandidateSlots[\s\S]*renderNewBookingTimePicker\(\{ offline:true \}\)[\s\S]*После подключения система обязательно проверит/, 'Офлайн-режим не показывает предварительные окна или не объясняет серверную проверку');
 assert.doesNotMatch(voiceAssistant, /\bdb\.from\(|\.rpc\(|\bfetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
@@ -524,12 +524,12 @@ assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шк�
 assert.match(styles, /timeline-hour \{[^}]*font-size:12px;/, 'Полные часы на шкале остались слишком мелкими');
 assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:10px;/, 'Получасовые отметки остались слишком мелкими');
 assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая линия не синхронизирована с масштабом расписания');
-assert.match(provider, /bookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
+assert.match(provider, /compactBookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
 assert.match(providerHtml, /id="mobileNewBookingButton"[^>]*aria-label="Создать запись"/, 'На телефоне нет постоянной быстрой кнопки создания записи');
 assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\(\)/, 'Мобильная быстрая кнопка не открывает форму записи');
 assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[\s\S]*Записать снова/, 'В карточке клиента нет быстрого повторения записи');
 assert.match(provider, /function openQuickRepeatForClient[\s\S]*serviceId:previousBooking\.service_id/, 'Быстрое повторение не подставляет последнюю доступную услугу клиента');
-assert.match(provider, /<details class="new-booking-advanced"[^>]*>[\s\S]*Заметка о клиенте[\s\S]*bookingColorPicker\('newBookingColor'[\s\S]*newBookingRecurrence/, 'Необязательные поля новой записи не собраны в компактный раскрывающийся блок');
+assert.match(provider, /<details class="new-booking-advanced"[^>]*>[\s\S]*Заметка о клиенте[\s\S]*compactBookingColorPicker\('newBookingColor'[\s\S]*newBookingRecurrence/, 'Необязательные поля новой записи не собраны в компактный раскрывающийся блок');
 assert.doesNotMatch(provider, /<details class="new-booking-advanced"[^>]*\sopen(?:\s|>)/, 'Необязательные поля новой записи раскрыты по умолчанию');
 assert.match(provider, /function focusCreatedBooking[\s\S]*scrollIntoView[\s\S]*booking-created-highlight/, 'После создания запись не выделяется и не показывается в журнале');
 assert.match(providerHtml, /id="offlineBookingQueuePanel"[\s\S]*id="retryOfflineBookings"[\s\S]*id="offlineBookingQueueList"/, 'В кабинете нет очереди отложенных офлайн-записей');
