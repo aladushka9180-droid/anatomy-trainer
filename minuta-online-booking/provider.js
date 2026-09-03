@@ -8,6 +8,47 @@ const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window
 });
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+const providerPerformance = (() => {
+  const storageKey = 'minuta-provider-performance-v1';
+  const maximumEntries = 120;
+  let entries = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(stored)) entries = stored.slice(-maximumEntries);
+  } catch {}
+  const persist = () => {
+    try { localStorage.setItem(storageKey, JSON.stringify(entries.slice(-maximumEntries))); } catch {}
+  };
+  const record = (name, duration, details = {}) => {
+    const value = Math.max(0, Math.round(Number(duration) || 0));
+    entries.push({ name, duration:value, at:new Date().toISOString(), ...details });
+    entries = entries.slice(-maximumEntries);
+    persist();
+    return value;
+  };
+  const measure = (name, startedAt, details = {}) => record(name, performance.now() - startedAt, details);
+  const summary = () => Object.fromEntries([...new Set(entries.map(item => item.name))].map(name => {
+    const values = entries.filter(item => item.name === name).map(item => item.duration).sort((a, b) => a - b);
+    const total = values.reduce((sum, value) => sum + value, 0);
+    return [name, {
+      count:values.length,
+      average:values.length ? Math.round(total / values.length) : 0,
+      p95:values.length ? values[Math.min(values.length - 1, Math.floor(values.length * .95))] : 0,
+      maximum:values.at(-1) || 0
+    }];
+  }));
+  try {
+    const observer = new PerformanceObserver(list => list.getEntries().forEach(entry => record('long_task', entry.duration)));
+    observer.observe({ type:'longtask', buffered:true });
+  } catch {}
+  window.MinutaPerformance = Object.freeze({
+    getEntries:() => entries.map(item => ({ ...item })),
+    getSummary:summary,
+    clear:() => { entries = []; persist(); }
+  });
+  window.addEventListener('load', () => window.requestAnimationFrame(() => measure('provider_load', 0)), { once:true });
+  return { measure, record };
+})();
 function finishProviderBoot() {
   const boot = $('#providerBoot');
   const smoothRefresh = document.documentElement.classList.contains('provider-refresh-transition')
@@ -74,6 +115,8 @@ const BOOKING_COLOR_LABELS = Object.freeze({
 const BOOKING_COLOR_DEFAULT = 'auto';
 const PER_MINUTE_BOOKING_MIN = 1;
 const PER_MINUTE_BOOKING_MAX = 480;
+const BOOKING_RENDER_PAGE_SIZE = 100;
+const CLIENT_RENDER_PAGE_SIZE = 80;
 let currentUser = null;
 let providerLoginPhone = '';
 let providerLoginCodeRequested = false;
@@ -92,6 +135,8 @@ let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
 let bookingSearchQuery = '';
 let bookingStatusFilter = 'all';
+let bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
+let clientRenderLimit = CLIENT_RENDER_PAGE_SIZE;
 let renderedBusinessToday = businessTodayIso();
 let allBookings = [];
 let bookingsSnapshotSavedAt = '';
@@ -717,12 +762,14 @@ let providerBookingRenderFrame = 0;
 function renderBookingData() {
   if (providerBookingRenderFrame) return;
   providerBookingRenderFrame = window.requestAnimationFrame(() => {
+    const startedAt = performance.now();
     providerBookingRenderFrame = 0;
     providerBookingRenderRevision += 1;
     updateBookingStats();
     const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
     renderProviderBookingView(activeView);
     scheduleProviderBookingWarmup(activeView);
+    providerPerformance.measure('booking_render', startedAt, { view:activeView, count:allBookings.length });
   });
 }
 
@@ -1398,7 +1445,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=252#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=253#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4638,6 +4685,8 @@ function renderBookings() {
   }
   const sourceItems = filteredBookings();
   const items = applyBookingQuery(sourceItems);
+  const paginated = currentFilter !== 'day' && items.length > bookingRenderLimit;
+  const visibleItems = paginated ? items.slice(0, bookingRenderLimit) : items;
   const clientCount = items.filter(item => !isScheduleBlock(item)).length;
   const blockCount = items.filter(isScheduleBlock).length;
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
@@ -4645,7 +4694,10 @@ function renderBookings() {
     ? (daySummary || 'Свободный день')
     : `${currentFilter === 'upcoming' ? 'Все будущие записи' : 'История записей'}${bookingQueryIsActive() ? ` · найдено ${items.length}` : ''}`;
   if (currentFilter === 'day' && journalMode === 'timeline') renderTimeline(items);
-  else renderBookingList(items, bookingQueryIsActive() ? 'По заданным условиям ничего не найдено.' : 'На выбранный период всё свободно.');
+  else {
+    renderBookingList(visibleItems, bookingQueryIsActive() ? 'По заданным условиям ничего не найдено.' : 'На выбранный период всё свободно.');
+    if (paginated) $('#providerBookings').insertAdjacentHTML('beforeend', `<button class="secondary-button" type="button" data-load-more-bookings>Показать ещё · осталось ${items.length - visibleItems.length}</button>`);
+  }
 }
 
 function setTeamCalendarMode(active) {
@@ -4688,18 +4740,19 @@ function renderClients() {
   const clients = buildClients();
   const search = $('#clientSearch').value.trim().toLowerCase();
   const filtered = clients.filter(client => `${client.name} ${client.displayPhone} ${client.phone}`.toLowerCase().includes(search));
+  const visibleClients = filtered.slice(0, clientRenderLimit);
   $('#clientsCount').textContent = String(clients.length);
   if ($('#clientsBadge')) $('#clientsBadge').textContent = String(clients.length);
   if (!filtered.length) {
     $('#clientsList').innerHTML = `<div class="provider-empty compact-empty"><span class="provider-empty-icon">${uiIcon('user')}</span><strong>${clients.length ? 'Ничего не найдено' : 'Клиентов пока нет'}</strong><small>${clients.length ? 'Попробуйте изменить запрос.' : 'Они появятся после первой записи.'}</small></div>`;
     return;
   }
-  $('#clientsList').innerHTML = filtered.map(client => {
+  $('#clientsList').innerHTML = visibleClients.map(client => {
     const upcoming = clientUpcoming(client);
     const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
     return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
-  }).join('');
+  }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
 function openQuickRepeatForClient(phone = selectedClientPhone) {
@@ -5395,6 +5448,7 @@ function startLiveUpdates() {
 function synchronizeProvider() {
   const requestedGeneration = sessionGeneration;
   if (synchronizationPromise && synchronizationGeneration === requestedGeneration) return synchronizationPromise;
+  const synchronizationStartedAt = performance.now();
   const run = (async () => {
     const userId = currentUser?.id;
     const generation = sessionGeneration;
@@ -5452,6 +5506,10 @@ function synchronizeProvider() {
   })();
   synchronizationGeneration = requestedGeneration;
   synchronizationPromise = run;
+  run.then(
+    complete => providerPerformance.measure('provider_sync', synchronizationStartedAt, { complete:Boolean(complete) }),
+    () => providerPerformance.measure('provider_sync', synchronizationStartedAt, { complete:false, failed:true })
+  );
   run.finally(() => {
     if (synchronizationPromise === run) {
       synchronizationPromise = null;
@@ -7561,28 +7619,42 @@ document.addEventListener('input', event => {
 let clientSearchRenderFrame = 0;
 let bookingSearchRenderFrame = 0;
 $('#clientSearch').addEventListener('input', () => {
+  clientRenderLimit = CLIENT_RENDER_PAGE_SIZE;
   window.cancelAnimationFrame(clientSearchRenderFrame);
   clientSearchRenderFrame = window.requestAnimationFrame(renderClients);
 });
 $('#bookingSearch').addEventListener('input', event => {
   bookingSearchQuery = event.target.value;
+  bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   updateBookingQueryTools();
   window.cancelAnimationFrame(bookingSearchRenderFrame);
   bookingSearchRenderFrame = window.requestAnimationFrame(renderBookings);
 });
 $('#bookingStatusFilter').addEventListener('change', event => {
   bookingStatusFilter = event.target.value;
+  bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   updateBookingQueryTools();
   renderBookings();
 });
 $('#bookingQueryReset').addEventListener('click', () => {
   bookingSearchQuery = '';
   bookingStatusFilter = 'all';
+  bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   $('#bookingSearch').value = '';
   $('#bookingStatusFilter').value = 'all';
   updateBookingQueryTools();
   renderBookings();
   $('#bookingSearch').focus();
+});
+$('#providerBookings').addEventListener('click', event => {
+  if (!event.target.closest('[data-load-more-bookings]')) return;
+  bookingRenderLimit += BOOKING_RENDER_PAGE_SIZE;
+  renderBookings();
+});
+$('#clientsList').addEventListener('click', event => {
+  if (!event.target.closest('[data-load-more-clients]')) return;
+  clientRenderLimit += CLIENT_RENDER_PAGE_SIZE;
+  renderClients();
 });
 $('#repeatService').addEventListener('change', loadRepeatSlots);
 $('#repeatDate').addEventListener('change', loadRepeatSlots);
