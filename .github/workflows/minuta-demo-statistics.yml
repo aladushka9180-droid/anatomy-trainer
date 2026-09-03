@@ -80,6 +80,6 @@ jobs:
         run: |
           set -euo pipefail
           production_url="${SUPABASE_DB_URL/:6543/:5432}"
-          result="$(psql "$production_url" -X -v ON_ERROR_STOP=1 -Atc "select count(*)||'|'||bool_and(not public_booking_enabled) from public.organizations where id='d3500000-0000-4000-8000-000000000001'::uuid;")"
-          test "$result" = "1|t"
+          result="$(psql "$production_url" -X -v ON_ERROR_STOP=1 -Atc "select count(*)=1 and bool_and(not public_booking_enabled) from public.organizations where id='d3500000-0000-4000-8000-000000000001'::uuid;")"
+          test "$result" = "t"
           echo "Демо-организация создана и скрыта от публичной онлайн-записи"
