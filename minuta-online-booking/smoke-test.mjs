@@ -392,7 +392,7 @@ assert.match(styles, /Mobile Sage Studio \+ Мягкий минимализм:[\
 assert.match(styles, /Mobile Sage Studio \+ Мягкий минимализм:[\s\S]*?\.provider-booking-top \{[\s\S]*?grid-template-columns:minmax\(0,1fr\);[\s\S]*?justify-items:start/, 'Статус Sage Studio снова сжимает заголовок записи по горизонтали');
 assert.match(styles, /Mobile Sage Studio \+ Мягкий минимализм:[\s\S]*?\.provider-booking-top h3 \{[\s\S]*?overflow-wrap:normal;[\s\S]*?-webkit-line-clamp:2/, 'Названия услуг Sage Studio снова распадаются на отдельные слова');
 assert.match(styles, /\[data-provider-panel="analytics"\] \.view-title \{[\s\S]*?grid-template-columns:minmax\(0,1fr\)[\s\S]*?\[data-provider-panel="analytics"\] #exportBookings \{[\s\S]*?width:100%/, 'Кнопка отчёта снова перекрывает заголовок статистики на телефоне');
-assert.match(providerHtml, /id="reportInsight"[\s\S]*?>Оплачено<[\s\S]*?>Стоимость визитов<[\s\S]*?>Не оплачено</, 'Главные показатели статистики снова названы неоднозначно');
+assert.match(providerHtml, /id="reportInsight"[\s\S]*?>Получено от клиентов<[\s\S]*?>Стоимость оказанных услуг<[\s\S]*?>Долг клиентов</, 'Главные показатели статистики снова названы неоднозначно');
 assert.match(providerHtml, /Без данных об источнике[\s\S]*id="reportUnknownShare"/, 'Неизвестный источник записей снова не объяснён или не показывает долю');
 assert.match(provider, /function setReportComparison\([\s\S]*?formatDelta[\s\S]*?новый результат/, 'Сравнение периодов не показывает абсолютное изменение');
 assert.match(provider, /data-report-date="\$\{openDate\}"[\s\S]*?Открыть расписание/, 'Столбцы дохода нельзя открыть в расписании');
