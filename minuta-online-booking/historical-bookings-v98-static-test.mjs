@@ -25,7 +25,7 @@ assert.match(migration, /p_duration_minutes integer/);
 assert.doesNotMatch(signatureMatch[1], /p_total_price_rub/);
 assert.match(migration, /v_role is null or v_role not in \('owner','admin','specialist'\)/);
 assert.match(migration, /v_role='specialist' and v_performer<>v_actor/);
-assert.match(migration, /p_date\s*\+\s*p_time\s*\+\s*make_interval\(\s*mins\s*=>\s*v_duration\s*\)\s*>=\s*timezone\(\s*v_timezone\s*,\s*now\(\)\s*\)/i);
+assert.match(migration, /p_date\s*\+\s*p_time\s*\+\s*make_interval\(\s*mins\s*=>\s*v_effective_duration\s*\)\s*>\s*timezone\(\s*v_timezone\s*,\s*now\(\)\s*\)/i);
 assert.match(migration, /extensions\.gen_random_bytes\s*\(/i);
 assert.match(migration, /original_price_rub,total_price_rub/);
 const serverPriceAssignments = [...migration.matchAll(/\b(v_[a-z0-9_]*(?:total|price)[a-z0-9_]*)\s*:=\s*([^;]+);/gi)];
