@@ -282,11 +282,32 @@ async function readProviderCache(name, userId = currentUser?.id) {
 async function hydrateCachedBookings(userId = currentUser?.id) {
   const cached = await readProviderCache('bookings', userId);
   if (!cached?.data || currentUser?.id !== userId) return null;
+  applyCachedBookings(cached);
+  return cached;
+}
+function applyCachedBookings(cached, render = true) {
+  if (!cached?.data) return false;
   allBookings = cached.data;
   bookingsSnapshotSavedAt = String(cached.savedAt || '');
   bookingsSnapshotFromCache = true;
-  renderBookingData();
-  return cached;
+  if (render) renderBookingData();
+  return true;
+}
+function bookingDataSignature(items = allBookings) {
+  let hash = 2166136261;
+  const add = value => {
+    const text = String(value ?? '');
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+  };
+  items.forEach(item => {
+    [item.id, item.booking_date, item.booking_time, item.status, item.duration_minutes, item.total_price_rub,
+      item.client_name, item.client_phone, item.services?.name, item.services?.price_rub, bookingColors.get(item.id)]
+      .forEach(add);
+  });
+  return `${items.length}:${hash >>> 0}`;
 }
 async function hydrateOfflineBookingInputs(userId, generation, cachedBookings) {
   if (!userId || navigator.onLine || !cachedBookings) return false;
@@ -1445,7 +1466,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=253#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=254#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -6750,21 +6771,43 @@ async function loadBookings(options = {}) {
   const generation = sessionGeneration;
   const revision = ++bookingsRequestRevision;
   if (!userId) return { ok: false };
-  const cached = await hydrateCachedBookings(userId);
-  if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
-  if (!options.silent && !cached) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
-  if (!navigator.onLine) return cached ? { ok: false, cached: true, savedAt: cached.savedAt } : { ok: false };
+  const cachePromise = readProviderCache('bookings', userId);
+  let cached = null;
+  let cacheShown = false;
+  let networkFinished = false;
+  const showCached = async () => {
+    const candidate = await cachePromise;
+    if (networkFinished || !candidate?.data || !sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return null;
+    cached = candidate;
+    if (bookingDataSignature(candidate.data) !== bookingDataSignature()) {
+      applyCachedBookings(candidate);
+      cacheShown = true;
+    }
+    return candidate;
+  };
+  const cacheTimer = window.setTimeout(showCached, 250);
+  if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
+  if (!navigator.onLine) {
+    window.clearTimeout(cacheTimer);
+    const offlineCache = await showCached();
+    return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
+  }
   let { data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
+  networkFinished = true;
+  window.clearTimeout(cacheTimer);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (error) {
+    cached ||= await cachePromise;
     if (cached?.data) {
-      return { ok: false, cached: true, savedAt: cached.savedAt };
+      if (!cacheShown) applyCachedBookings(cached);
+      return { ok: false, cached: true, savedAt:cached.savedAt };
     }
     holder.innerHTML = '<div class="provider-empty"><strong>Не удалось загрузить записи</strong><small>Соединение с сервером не установлено. Попробуйте ещё раз.</small></div>';
     return { ok: false };
   }
+  const previousSignature = bookingDataSignature();
   allBookings = data || [];
   await loadRemoteBookingColors(userId, generation);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
@@ -6772,7 +6815,7 @@ async function loadBookings(options = {}) {
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   bookingsSnapshotSavedAt = String(savedSnapshot?.savedAt || new Date().toISOString());
   bookingsSnapshotFromCache = false;
-  renderBookingData();
+  if (!providerBookingRenderRevision || previousSignature !== bookingDataSignature()) renderBookingData();
   return { ok: true };
 }
 
