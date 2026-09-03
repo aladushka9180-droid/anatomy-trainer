@@ -6,8 +6,13 @@ do $$ begin
      or to_regclass('public.services') is null
      or to_regclass('public.organization_memberships') is null or to_regclass('public.performer_profiles') is null
      or to_regprocedure('public.is_organization_member(uuid)') is null
-     or to_regprocedure('public.has_organization_role(uuid,text[])') is null then
-    raise exception using errcode='P0001',message='v93_missing_prerequisites';
+     or to_regprocedure('public.has_organization_role(uuid,text[])') is null
+     or to_regprocedure('public.get_minuta_team_analytics(date,date)') is null
+     or not exists (
+       select 1 from information_schema.columns
+       where table_schema='public' and table_name='bookings' and column_name='booking_source'
+     ) then
+    raise exception using errcode='P0001',message='v93_requires_v92';
   end if;
 end $$;
 

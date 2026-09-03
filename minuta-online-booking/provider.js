@@ -179,6 +179,7 @@ let portfolioPreviewUrls = [];
 let clientNotes = new Map();
 let clientLabels = new Map();
 let clientAvatars = new Map();
+let importedClients = [];
 let clientAvatarsRemoteAvailable = false;
 let pendingClientLabels = new Set();
 let clientLabelReasonTimer = null;
@@ -1466,7 +1467,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=256#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=258#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4867,6 +4868,17 @@ function setTeamCalendarMode(active) {
 
 function buildClients() {
   const clients = new Map();
+  importedClients.forEach(imported => {
+    const phone = normalizePhone(imported.phone || imported.display_phone);
+    if (!phone) return;
+    clients.set(phone, {
+      phone,
+      displayPhone:imported.display_phone || imported.phone,
+      name:imported.name || 'Клиент',
+      bookings:[],
+      imported
+    });
+  });
   allBookings.forEach(booking => {
     if (isScheduleBlock(booking)) return;
     const phone = normalizePhone(booking.client_phone);
@@ -4879,7 +4891,9 @@ function buildClients() {
   });
   return [...clients.values()].sort((a, b) => {
     const aLast = a.bookings.at(-1); const bLast = b.bookings.at(-1);
-    return `${bLast?.booking_date || ''}${bLast?.booking_time || ''}`.localeCompare(`${aLast?.booking_date || ''}${aLast?.booking_time || ''}`);
+    const aSort = `${aLast?.booking_date || a.imported?.last_visit_on || ''}${aLast?.booking_time || ''}`;
+    const bSort = `${bLast?.booking_date || b.imported?.last_visit_on || ''}${bLast?.booking_time || ''}`;
+    return bSort.localeCompare(aSort) || a.name.localeCompare(b.name, 'ru');
   });
 }
 
@@ -4902,8 +4916,9 @@ function renderClients() {
   $('#clientsList').innerHTML = visibleClients.map(client => {
     const upcoming = clientUpcoming(client);
     const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
+    const knownCount = Math.max(activeCount, Number(client.imported?.visit_count || 0));
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${activeCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -4919,7 +4934,7 @@ function openQuickRepeatForClient(phone = selectedClientPhone) {
     .sort((a, b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`))
     .find(item => activeServiceIds.has(item.service_id));
   if (!previousBooking) {
-    notify('У клиента нет доступной услуги для повторной записи');
+    openNewBookingSheet('', { clientName:client.name, clientPhone:client.displayPhone });
     return;
   }
   openNewBookingSheet('', {
@@ -4971,11 +4986,11 @@ function renderClientDetail(phone) {
     return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
   }).length;
   const upcoming = clientUpcoming(client);
-  $('#clientVisits').textContent = String(visits);
+  $('#clientVisits').textContent = String(Math.max(visits, Number(client.imported?.visit_count || 0)));
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
-  $('#clientNote').value = clientNotes.get(phone) || '';
+  $('#clientNote').value = clientNotes.get(phone) || client.imported?.note || '';
   $('#repeatDate').value = businessTodayIso();
   $('#repeatDate').min = businessTodayIso();
   repeatTime = '';
@@ -4985,7 +5000,7 @@ function renderClientDetail(phone) {
   $('#clientHistory').innerHTML = history.map(item => {
     const status = bookingStatus(item);
     return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
-  }).join('');
+  }).join('') || '<p class="provider-empty compact-empty">История визитов появится после первой записи в Minuta.</p>';
 }
 
 function populateRepeatServices() {
@@ -5765,7 +5780,9 @@ async function handleSession(session) {
   paymentController.reset();
   notificationCenterController.reset();
   clientFieldsController.setOrganization(null);
+  clientImportController.setOrganization(null);
   organizationController.reset();
+  importedClients = [];
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
@@ -7496,6 +7513,16 @@ const clientFieldsController = window.createMinutaClientFieldsUIController ? win
 }) : { bind() {}, setOrganization() {}, setClient() {}, render() {} };
 clientFieldsController.bind();
 
+const clientImportController = window.MinutaClientImport?.createController ? window.MinutaClientImport.createController({
+  db, $, escapeHtml, notify, requireWrites,
+  onLoaded: clients => {
+    importedClients = Array.isArray(clients) ? clients : [];
+    renderClients();
+    if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  }
+}) : { bind() {}, load() { return Promise.resolve({ ok:true,optional:true }); }, setOrganization() {} };
+clientImportController.bind();
+
 const organizationController = window.MinutaOrganization.createController({
   db,
   $,
@@ -7523,6 +7550,7 @@ const organizationController = window.MinutaOrganization.createController({
     paymentController.setOrganization(organization);
     notificationCenterController.setOrganization(organization);
     clientFieldsController.setOrganization(organization);
+    clientImportController.setOrganization(organization);
   }
 });
 organizationController.bind();

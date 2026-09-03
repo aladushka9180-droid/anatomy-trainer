@@ -4892,6 +4892,20 @@ html.provider-booting .provider-main {
 .unified-channel-card small { color:var(--theme-muted,#718278); font-size:9px; line-height:1.4; }
 .unified-channel-card:has(input:disabled) { cursor:not-allowed; opacity:.7; }
 .client-fields-settings { margin-bottom:18px; padding:18px 20px; }
+.client-import-panel { margin-bottom:18px; padding:18px 20px; }
+.client-import-panel>summary { display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; list-style:none; }
+.client-import-panel>summary::-webkit-details-marker { display:none; }
+.client-import-panel>summary span:first-child { display:grid; gap:4px; }
+.client-import-panel>summary small,.client-import-form>small,.client-import-help { color:var(--theme-muted,#718278); }
+.client-import-panel[open] .client-fields-summary-action>span { transform:rotate(45deg); }
+.client-import-form { display:grid; gap:12px; margin-top:15px; padding-top:15px; border-top:1px solid var(--theme-line,#dce7df); }
+.client-import-form>p { margin:0; color:var(--theme-muted,#718278); font-size:12px; line-height:1.55; }
+.client-import-form input[type="file"] { width:100%; min-height:44px; padding:9px; border:1px solid var(--theme-line,#dce7df); border-radius:12px; background:var(--theme-surface,#fff); color:inherit; }
+.client-import-preview { display:grid; gap:10px; padding:13px; border:1px solid var(--theme-line,#dce7df); border-radius:14px; background:var(--theme-surface-soft,#f7faf8); }
+.client-import-preview ul { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+.client-import-preview li { display:flex; justify-content:space-between; gap:12px; font-size:12px; }
+.client-import-preview li span { color:var(--theme-muted,#718278); }
+.client-import-preview .primary { width:max-content; }
 .client-fields-settings>summary { display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; list-style:none; }
 .client-fields-settings>summary::-webkit-details-marker { display:none; }
 .client-fields-settings>summary span:first-child { display:grid; gap:4px; }

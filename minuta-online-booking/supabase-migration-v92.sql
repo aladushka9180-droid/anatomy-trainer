@@ -11,8 +11,9 @@ begin
      or to_regclass('public.payroll_periods') is null
      or to_regclass('public.payroll_items') is null
      or to_regclass('public.payroll_adjustments') is null
-     or to_regprocedure('public.normalize_client_phone(text)') is null then
-    raise exception using errcode='P0001',message='v92_requires_v54_v65_v68_v72';
+     or to_regprocedure('public.normalize_client_phone(text)') is null
+     or to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is null then
+    raise exception using errcode='P0001',message='v92_requires_v54_v65_v68_v72_v91';
   end if;
 end $$;
 
