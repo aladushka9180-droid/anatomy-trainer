@@ -10,6 +10,11 @@ const start = css.lastIndexOf(marker);
 assert.ok(start > css.indexOf('.dashboard-top small,.panel-head small'), 'Финальный слой Warm Beige должен перекрывать старые зелёные стили');
 const warm = css.slice(start);
 assert.ok(warm.includes('.provider-view small'), 'Warm Beige должен нормализовать вторичный текст во всех вкладках кабинета');
+assert.match(
+  warm,
+  /\.date-strip button\.active > :is\(span,strong,small\)\s*\{\s*color:inherit!important;/,
+  'Подписи выбранной даты Warm Beige должны наследовать белый цвет активной кнопки'
+);
 
 for (const selector of [
   '.view-title>div:first-child>span:not(.panel-count)',

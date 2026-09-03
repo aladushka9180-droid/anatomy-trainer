@@ -4741,6 +4741,9 @@ html.requires-top-level.top-level body { visibility:visible; }
 .provider-body[data-provider-theme="warm"] .provider-view small {
   color:var(--theme-muted)!important;
 }
+.provider-body[data-provider-theme="warm"] .date-strip button.active > :is(span,strong,small) {
+  color:inherit!important;
+}
 .provider-body[data-provider-theme="warm"] :is(
   .card-heading>small,
   .dialog-head>small,

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '233';
+const version = '234';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -515,7 +515,7 @@ assert.match(styles, /timeline-booking-time \{ display:flex; align-self:center; 
 assert.match(styles, /timeline-booking-time small \{[^}]*font:inherit; font-weight:950;[^}]*opacity:1;/, 'Время окончания визуально отличается от времени начала');
 assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текст записи не выровнен по центру карточки');
 assert.match(styles, /provider-body \.timeline-booking\.compact \{ grid-template-columns:88px minmax\(0,1fr\); padding:4px 14px; \}/, 'У короткой записи снова слишком большие вертикальные отступы');
-assert.match(styles, /timeline-booking\.minute-only \{[^}]*grid-template-columns:94px minmax\(0,1fr\);[^}]*place-items:center stretch;/, 'Время и название одноминутной записи не выровнены');
+assert.match(styles, /timeline-booking\.minute-only \{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*place-items:center stretch;/, 'Время и название одноминутной записи не собраны в одну строку');
 assert.match(styles, /timeline-booking\.minute-only \.timeline-booking-minute-copy \{[^}]*text-align:left;/, 'Название одноминутной записи не выровнено как у остальных записей');
 assert.match(provider, /timeline-booking-minute-time[^`]*?\$\{timeRange\}[^`]*?\$\{serviceMarkup\}/, 'Время и название одноминутной записи не собраны в одну строку');
 assert.match(styles, /Одноминутная запись остаётся одной строкой[\s\S]*?grid-template-columns:minmax\(0,1fr\)!important;[\s\S]*?timeline-booking\.minute-only \.timeline-booking-minute-copy \{[\s\S]*?position:static!important;[\s\S]*?transform:none!important;[\s\S]*?timeline-booking-minute-time \{[\s\S]*?display:inline!important;/, 'Мобильная тема снова накладывает время на название одноминутной записи');
