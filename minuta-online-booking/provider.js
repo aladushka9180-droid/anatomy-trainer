@@ -136,6 +136,7 @@ let selectedDate = restoreSelectedDate();
 let timelineFullDay = false;
 let bookingSearchQuery = '';
 let bookingStatusFilter = 'all';
+let bookingSourceFilter = 'all';
 let bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
 let clientRenderLimit = CLIENT_RENDER_PAGE_SIZE;
 let renderedBusinessToday = businessTodayIso();
@@ -1510,7 +1511,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=275#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=276#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1935,6 +1936,8 @@ function renderReportRetention() {
 
 let reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
 let reportTeamMetric = 'revenue';
+let reportServiceMetric = 'revenue';
+let reportServicesExpanded = false;
 
 function reportPerformerName() {
   if (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all') return reportCanViewTeam ? 'Вся команда' : 'Личная статистика';
@@ -2159,6 +2162,25 @@ function reportTrendMarkup(completed, range) {
   }).join('');
 }
 
+function openReportBookings({ service = '', source = 'all', status = 'all', filter = 'all' } = {}) {
+  if (reportDataSource === 'demo') {
+    notify('Детализация демо-показателя не открывает ваши реальные записи');
+    return;
+  }
+  bookingSearchQuery = service;
+  bookingSourceFilter = source;
+  bookingStatusFilter = status;
+  bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
+  const search = $('#bookingSearch');
+  const statusControl = $('#bookingStatusFilter');
+  if (search) search.value = bookingSearchQuery;
+  if (statusControl) statusControl.value = bookingStatusFilter;
+  setJournalMode('list');
+  setFilter(filter);
+  updateBookingQueryTools();
+  setProviderView('bookings');
+}
+
 function renderAnalytics() {
   const holder = $('#reportServicesList');
   if (!holder) return;
@@ -2180,7 +2202,8 @@ function renderAnalytics() {
   const sources = reportSourceMetrics(items);
   const sourceTotal = sources.online + sources.manual + sources.unknown;
   const analyticsPanel = $('[data-provider-panel="analytics"]');
-  if (analyticsPanel) analyticsPanel.dataset.reportEmpty = completed.length ? 'false' : 'true';
+  if (analyticsPanel) analyticsPanel.dataset.reportEmpty = items.length ? 'false' : 'true';
+  setReportText('#reportDecisionHint', reportDataSource === 'demo' ? 'Учебные данные без перехода в журнал' : 'Нажмите показатель, чтобы открыть записи');
   const importedInPeriod = completed.filter(item => item.is_imported_history).length;
   $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}${importedInPeriod ? ` · ${importedInPeriod} из прежнего журнала; сумма — стоимость записей` : ''}`;
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
@@ -2204,16 +2227,11 @@ function renderAnalytics() {
   $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
   $('#reportAverage').textContent = money(Math.round(average));
   $('#reportPending').textContent = String(pending.length);
-  $('#reportUpcoming').textContent = String(upcoming.length);
-  $('#reportCancelled').textContent = String(cancelled.length);
-  $('#reportNoShow').textContent = String(noShows.length);
   const secondaryMetrics = [
-    { selector:'#reportPendingMetric', value:pending.length, clear:'Все визиты отмечены' },
-    { selector:'#reportCancelledMetric', value:cancelled.length, clear:'Без отмен' },
-    { selector:'#reportNoShowMetric', value:noShows.length, clear:'Все пришли' }
+    { selector:'#reportPendingMetric', value:pending.length, clear:'Все визиты отмечены' }
   ];
-  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0 && metric.selector !== '#reportNoShowMetric');
-  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.selector !== '#reportNoShowMetric' && metric.value === 0; });
+  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0);
+  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.value === 0; });
   const zeroSummary = $('#reportZeroSummary');
   if (zeroSummary) {
     zeroSummary.hidden = !clearMetrics.length;
@@ -2247,6 +2265,7 @@ function renderAnalytics() {
   setReportText('#reportManualShare', reportShare(sources.manual, sourceTotal));
   setReportText('#reportUnknownBookings', sources.unknown);
   setReportText('#reportUnknownShare', reportShare(sources.unknown, sourceTotal));
+  setReportText('#reportSourceTotal', sourceTotal);
   const sourcesPanel = $('.report-sources');
   if (sourcesPanel) {
     const legacyOnly = sourceTotal > 0 && sources.unknown === sourceTotal;
@@ -2255,8 +2274,27 @@ function renderAnalytics() {
     const note = sourcesPanel.querySelector('.report-source-note');
     if (note) note.textContent = sourceTotal === 0 ? 'Новые записи появятся здесь автоматически.' : legacyOnly ? 'Для старых записей источник не определён. Новые записи будут учитываться автоматически.' : sources.unknown ? `У ${sources.unknown} старых записей источник не определён.` : 'Все записи распределены по источникам.';
   }
-  const sourceBar = $('#reportSourceBar');
-  if (sourceBar) sourceBar.innerHTML = `<i class="is-online" style="width:${sourceTotal ? sources.online / sourceTotal * 100 : 0}%"></i><i class="is-manual" style="width:${sourceTotal ? sources.manual / sourceTotal * 100 : 0}%"></i><i class="is-unknown" style="width:${sourceTotal ? sources.unknown / sourceTotal * 100 : 0}%"></i>`;
+  const sourceDonut = $('#reportSourceDonut');
+  if (sourceDonut) {
+    const onlineEnd = sourceTotal ? sources.online / sourceTotal * 100 : 0;
+    const manualEnd = sourceTotal ? (sources.online + sources.manual) / sourceTotal * 100 : 0;
+    sourceDonut.style.background = sourceTotal
+      ? `conic-gradient(var(--theme-accent) 0 ${onlineEnd}%, color-mix(in srgb,var(--theme-accent) 48%,var(--theme-surface)) ${onlineEnd}% ${manualEnd}%, var(--theme-line) ${manualEnd}% 100%)`
+      : 'var(--theme-line)';
+    sourceDonut.setAttribute('aria-label', sourceTotal ? `Онлайн ${sources.online}, мастером ${sources.manual}, без данных ${sources.unknown}` : 'Записей за период нет');
+  }
+  const outcomes = [
+    { key:'completed', label:'Состоялись', value:completed.length, status:'visited', filter:'all' },
+    { key:'upcoming', label:'Предстоят', value:upcoming.length, status:'all', filter:'upcoming' },
+    { key:'pending', label:'Ждут завершения', value:pending.length, status:'needs-result', filter:'all' },
+    { key:'cancelled', label:'Отменены', value:cancelled.length, status:'cancelled', filter:'all' },
+    { key:'no-show', label:'Не пришли', value:noShows.length, status:'no-show', filter:'all' }
+  ];
+  const outcomeTotal = outcomes.reduce((sum, item) => sum + item.value, 0);
+  const outcomeBar = $('#reportOutcomeBar');
+  if (outcomeBar) outcomeBar.innerHTML = outcomes.filter(item => item.value).map(item => `<i class="is-${item.key}" style="width:${item.value / outcomeTotal * 100}%"></i>`).join('');
+  const outcomeList = $('#reportOutcomeList');
+  if (outcomeList) outcomeList.innerHTML = outcomes.map(item => `<button type="button" data-report-outcome="${item.key}" data-report-status="${item.status}" data-report-filter="${item.filter}"><i class="report-outcome-dot is-${item.key}" aria-hidden="true"></i><span>${item.label}</span><strong>${item.value}</strong><small>${reportShare(item.value, outcomeTotal)}</small></button>`).join('');
   const utilizationPercent = renderReportUtilization(range, workedMinutes);
   renderReportRetention();
   loadReportTeamAnalytics(range);
@@ -2294,12 +2332,40 @@ function renderAnalytics() {
       grouped.set(key, row);
     });
   });
-  const rows = [...grouped.values()].sort((a, b) => b.revenue - a.revenue || b.visits - a.visits);
-  const topRevenue = Math.max(...rows.map(row => row.revenue), 1);
-  holder.innerHTML = rows.length ? rows.map(row => {
+  const rows = [...grouped.values()].sort((a, b) => b[reportServiceMetric] - a[reportServiceMetric] || b.revenue - a.revenue || b.visits - a.visits);
+  const maximumServiceValue = Math.max(...rows.map(row => row[reportServiceMetric]), 1);
+  const visibleServiceRows = reportServicesExpanded ? rows : rows.slice(0, 5);
+  $$('[data-report-service-metric]').forEach(button => {
+    const active = button.dataset.reportServiceMetric === reportServiceMetric;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  holder.innerHTML = rows.length ? visibleServiceRows.map(row => {
     const revenueShare = revenue ? Math.round(row.revenue / revenue * 100) : 0;
-    return `<article class="report-service-row"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)} · ${revenueShare}% дохода</small><span><i style="width:${Math.max(2, Math.round(row.revenue / topRevenue * 100))}%"></i></span></div><b>${money(row.revenue)}</b></article>`;
+    const primaryValue = reportServiceMetric === 'visits' ? `${row.visits} ${reportVisitWord(row.visits)}` : money(Math.round(row.revenue));
+    return `<button class="report-service-row" type="button" data-report-service="${escapeHtml(row.name)}"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)} · ${revenueShare}% дохода</small><span><i style="width:${Math.max(2, Math.round(row[reportServiceMetric] / maximumServiceValue * 100))}%"></i></span></div><b>${primaryValue}</b></button>`;
   }).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
+  const servicesExpand = $('#reportServicesExpand');
+  if (servicesExpand) {
+    servicesExpand.hidden = rows.length <= 5;
+    servicesExpand.textContent = reportServicesExpanded ? 'Показать топ-5' : `Показать все · ${rows.length}`;
+  }
+  const decisionInsight = $('#reportDecisionInsight');
+  if (decisionInsight) {
+    const details = [];
+    const revenueLeader = [...rows].sort((a, b) => b.revenue - a.revenue)[0];
+    if (revenueLeader) details.push(`<strong>${escapeHtml(revenueLeader.name)}</strong> даёт больше всего выручки — ${money(Math.round(revenueLeader.revenue))}.`);
+    if (sourceTotal) details.push(`Онлайн создано <strong>${reportShare(sources.online, sourceTotal)}</strong> записей.`);
+    const attention = [
+      { value:pending.length, text:'ждут завершения' },
+      { value:cancelled.length, text:'отменены' },
+      { value:noShows.length, text:'клиенты не пришли' }
+    ].sort((a, b) => b.value - a.value)[0];
+    if (attention?.value) details.push(`<strong>${attention.value}</strong> ${attention.text}.`);
+    else if (items.length) details.push('Проблемных записей за период нет.');
+    decisionInsight.hidden = !details.length;
+    decisionInsight.innerHTML = details.join(' ');
+  }
   const insight = $('#reportInsight');
   if (insight) {
     const messages = [];
@@ -2575,7 +2641,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=275');
+    worker = new Worker('./report-worker.js?v=276');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -3564,7 +3630,7 @@ function filteredBookings() {
 }
 
 function bookingQueryIsActive() {
-  return Boolean(bookingSearchQuery.trim()) || bookingStatusFilter !== 'all';
+  return Boolean(bookingSearchQuery.trim()) || bookingStatusFilter !== 'all' || bookingSourceFilter !== 'all';
 }
 
 function updateBookingQueryTools() {
@@ -3573,6 +3639,12 @@ function updateBookingQueryTools() {
   tools.hidden = Boolean(teamCalendarController?.isTeamMode) || currentFilter === 'day' || calendarView !== 'day';
   const reset = $('#bookingQueryReset');
   if (reset) reset.hidden = !bookingQueryIsActive();
+  const sourceChip = $('#bookingSourceFilterChip');
+  if (sourceChip) {
+    const labels = { online:'Онлайн', manual:'Мастером', unknown:'Без данных' };
+    sourceChip.hidden = bookingSourceFilter === 'all';
+    sourceChip.textContent = bookingSourceFilter === 'all' ? '' : `Создано: ${labels[bookingSourceFilter] || bookingSourceFilter} ×`;
+  }
 }
 
 function applyBookingQuery(items) {
@@ -3581,8 +3653,9 @@ function applyBookingQuery(items) {
   const queryDigits = query.replace(/\D/g, '');
   return items.filter(item => {
     if (bookingStatusFilter !== 'all' && bookingStatusClass(item) !== bookingStatusFilter) return false;
+    if (bookingSourceFilter !== 'all' && reportBookingSource(item) !== bookingSourceFilter) return false;
     if (!query) return true;
-    const text = [item.client_name, item.client_phone, serviceName(item.services?.name || ''), bookingDisplayNote(item)]
+    const text = [item.client_name, item.client_phone, serviceName(item.services?.name || ''), ...bookingSession(item).map(entry => entry.title), bookingDisplayNote(item)]
       .filter(Boolean)
       .join(' ')
       .toLocaleLowerCase('ru-RU');
@@ -7548,6 +7621,11 @@ document.addEventListener('click', async event => {
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const reportChartDate = event.target.closest('[data-report-date]');
+  const reportServiceMetricButton = event.target.closest('[data-report-service-metric]');
+  const reportServiceRow = event.target.closest('[data-report-service]');
+  const reportServicesExpandButton = event.target.closest('#reportServicesExpand');
+  const reportBookingSourceButton = event.target.closest('[data-report-booking-source]');
+  const reportOutcomeButton = event.target.closest('[data-report-outcome]');
   const openPendingBookings = event.target.closest('[data-open-pending-bookings]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
@@ -7625,6 +7703,17 @@ document.addEventListener('click', async event => {
     selectScheduleDate(reportChartDate.dataset.reportDate);
     setProviderView('bookings');
   }
+  if (reportServiceMetricButton) {
+    reportServiceMetric = reportServiceMetricButton.dataset.reportServiceMetric === 'visits' ? 'visits' : 'revenue';
+    renderAnalytics();
+  }
+  if (reportServicesExpandButton) {
+    reportServicesExpanded = !reportServicesExpanded;
+    renderAnalytics();
+  }
+  if (reportServiceRow) openReportBookings({ service:reportServiceRow.dataset.reportService || '', filter:'all' });
+  if (reportBookingSourceButton) openReportBookings({ source:reportBookingSourceButton.dataset.reportBookingSource || 'all', filter:'all' });
+  if (reportOutcomeButton) openReportBookings({ status:reportOutcomeButton.dataset.reportStatus || 'all', filter:reportOutcomeButton.dataset.reportFilter || 'all' });
   if (openPendingBookings) {
     bookingStatusFilter = 'needs-result';
     const statusFilter = $('#bookingStatusFilter');
@@ -8439,12 +8528,19 @@ $('#bookingStatusFilter').addEventListener('change', event => {
 $('#bookingQueryReset').addEventListener('click', () => {
   bookingSearchQuery = '';
   bookingStatusFilter = 'all';
+  bookingSourceFilter = 'all';
   bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   $('#bookingSearch').value = '';
   $('#bookingStatusFilter').value = 'all';
   updateBookingQueryTools();
   renderBookings();
   $('#bookingSearch').focus();
+});
+$('#bookingSourceFilterChip').addEventListener('click', () => {
+  bookingSourceFilter = 'all';
+  bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
+  updateBookingQueryTools();
+  renderBookings();
 });
 $('#providerBookings').addEventListener('click', event => {
   if (!event.target.closest('[data-load-more-bookings]')) return;
