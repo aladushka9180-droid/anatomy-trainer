@@ -16,6 +16,9 @@ assert.match(migration, /has_organization_role\(p_organization,array\['owner','a
 assert.match(migration, /on conflict \(organization_id,normalized_phone\) do update/i);
 assert.match(migration, /revoke all on table public\.client_import_batches,public\.organization_imported_clients from public,anon,authenticated/i);
 assert.match(migration, /grant execute on function public\.import_minuta_clients\(uuid,text,jsonb,uuid\) to authenticated/i);
+assert.match(migration, /v95_incompatible_existing_index/i);
+assert.match(migration, /create index concurrently if not exists organization_imported_clients_updated_v95_idx/i);
+assert.match(migration, /get_minuta_imported_clients\(p_organization uuid,p_limit integer,p_offset integer\)/i);
 assert.doesNotMatch(migration, /grant (?:select|insert|update|delete|all)[^;]*to authenticated/i);
 assert.match(rollback, /v95_rollback_blocked_imported_clients_exist/i);
 assert.match(rollback, /v95_rollback_blocked_import_batches_exist/i);
@@ -25,6 +28,6 @@ assert.match(clientImport, /clients\.set\(phone/);
 assert.match(clientImport, /import_minuta_clients/);
 assert.match(provider, /importedClients\.forEach/);
 assert.match(provider, /clientImportController\.setOrganization\(organization\)/);
-assert.match(html, /id="clientImportPanel"[\s\S]*id="clientImportFile"[\s\S]*client-import\.js\?v=259/);
+assert.match(html, /id="clientImportPanel"[\s\S]*id="clientImportFile"[\s\S]*client-import\.js\?v=\d+/);
 
 console.log('v95 client import static checks passed');

@@ -1,3 +1,5 @@
+\set ON_ERROR_STOP on
+
 begin;
 
 set local search_path = public, extensions, pg_catalog;
@@ -48,11 +50,6 @@ create table if not exists public.organization_imported_clients (
   updated_at timestamptz not null default now(),
   unique (organization_id,normalized_phone)
 );
-
-create index if not exists organization_imported_clients_name_v95_idx
-  on public.organization_imported_clients(organization_id,lower(client_name),id);
-create index if not exists client_import_batches_scope_v95_idx
-  on public.client_import_batches(organization_id,created_at desc,id desc);
 
 alter table public.client_import_batches enable row level security;
 alter table public.organization_imported_clients enable row level security;
@@ -174,7 +171,9 @@ begin
     'created_count',v_created,'updated_count',v_updated,'idempotent',false);
 end $$;
 
-create or replace function public.get_minuta_imported_clients(p_organization uuid)
+drop function if exists public.get_minuta_imported_clients(uuid);
+
+create or replace function public.get_minuta_imported_clients(p_organization uuid,p_limit integer,p_offset integer)
 returns jsonb
 language plpgsql
 stable
@@ -183,6 +182,9 @@ set search_path to ''
 as $$
 declare v_role text;
 begin
+  if p_limit is null or p_limit<1 or p_limit>1000 or p_offset is null or p_offset<0 or p_offset>100000 then
+    raise exception using errcode='22023',message='invalid_client_import_page';
+  end if;
   select membership.role into v_role from public.organization_memberships membership
   join public.organizations organization on organization.id=membership.organization_id and organization.status='active'
   where membership.organization_id=p_organization and membership.user_id=auth.uid() and membership.active;
@@ -196,8 +198,21 @@ begin
       'visit_count',entry.imported_visit_count,'total_spent_rub',entry.imported_total_spent_rub,
       'last_visit_on',entry.imported_last_visit_on,'marketing_consent',entry.marketing_consent,
       'personal_data_consent',entry.personal_data_consent,'updated_at',entry.updated_at
-    ) order by entry.updated_at desc,entry.id desc) from public.organization_imported_clients entry
-      where entry.organization_id=p_organization),'[]'::jsonb) else '[]'::jsonb end,
+    ) order by entry.updated_at desc,entry.id desc) from (
+      select * from public.organization_imported_clients
+      where organization_id=p_organization
+      order by updated_at desc,id desc limit p_limit offset p_offset
+    ) entry),'[]'::jsonb) else '[]'::jsonb end,
+    'has_more',case when v_role in ('owner','admin') then exists(
+      select 1 from public.organization_imported_clients entry
+      where entry.organization_id=p_organization
+      order by entry.updated_at desc,entry.id desc offset p_offset+p_limit limit 1
+    ) else false end,
+    'next_offset',case when v_role in ('owner','admin') and exists(
+      select 1 from public.organization_imported_clients entry
+      where entry.organization_id=p_organization
+      order by entry.updated_at desc,entry.id desc offset p_offset+p_limit limit 1
+    ) then p_offset+p_limit else null end,
     'recent_batches',case when v_role in ('owner','admin') then coalesce((select jsonb_agg(jsonb_build_object(
       'id',batch.id,'source_system',batch.source_system,'input_count',batch.input_count,
       'created_count',batch.created_count,'updated_count',batch.updated_count,'created_at',batch.created_at
@@ -208,8 +223,60 @@ begin
 end $$;
 
 revoke all on function public.import_minuta_clients(uuid,text,jsonb,uuid) from public,anon,authenticated,service_role;
-revoke all on function public.get_minuta_imported_clients(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.get_minuta_imported_clients(uuid,integer,integer) from public,anon,authenticated,service_role;
 grant execute on function public.import_minuta_clients(uuid,text,jsonb,uuid) to authenticated;
-grant execute on function public.get_minuta_imported_clients(uuid) to authenticated;
+grant execute on function public.get_minuta_imported_clients(uuid,integer,integer) to authenticated;
 
 commit;
+
+select format('drop index concurrently if exists %I.%I',namespace_row.nspname,index_class.relname)
+from pg_class index_class
+join pg_namespace namespace_row on namespace_row.oid=index_class.relnamespace
+join pg_index index_row on index_row.indexrelid=index_class.oid
+where namespace_row.nspname='public'
+  and index_class.relname in (
+    'organization_imported_clients_name_v95_idx',
+    'organization_imported_clients_updated_v95_idx',
+    'client_import_batches_scope_v95_idx'
+  )
+  and (not index_row.indisvalid or not index_row.indisready)
+\gexec
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_class index_class
+    join pg_namespace namespace_row on namespace_row.oid=index_class.relnamespace
+    join pg_index index_row on index_row.indexrelid=index_class.oid
+    where namespace_row.nspname='public'
+      and index_class.relname in (
+        'organization_imported_clients_name_v95_idx',
+        'organization_imported_clients_updated_v95_idx',
+        'client_import_batches_scope_v95_idx'
+      )
+      and index_row.indisvalid
+      and index_row.indisready
+      and regexp_replace(lower(pg_get_indexdef(index_row.indexrelid)),'\s','','g') <> case index_class.relname
+        when 'organization_imported_clients_name_v95_idx'
+          then 'createindexorganization_imported_clients_name_v95_idxonpublic.organization_imported_clientsusingbtree(organization_id,lower(client_name),id)'
+        when 'organization_imported_clients_updated_v95_idx'
+          then 'createindexorganization_imported_clients_updated_v95_idxonpublic.organization_imported_clientsusingbtree(organization_id,updated_atdesc,iddesc)'
+        when 'client_import_batches_scope_v95_idx'
+          then 'createindexclient_import_batches_scope_v95_idxonpublic.client_import_batchesusingbtree(organization_id,created_atdesc,iddesc)'
+      end
+  ) then
+    raise exception using errcode='P0001',message='v95_incompatible_existing_index';
+  end if;
+end $$;
+
+set lock_timeout = '5s';
+set statement_timeout = '30min';
+create index concurrently if not exists organization_imported_clients_name_v95_idx
+  on public.organization_imported_clients(organization_id,lower(client_name),id);
+create index concurrently if not exists organization_imported_clients_updated_v95_idx
+  on public.organization_imported_clients(organization_id,updated_at desc,id desc);
+create index concurrently if not exists client_import_batches_scope_v95_idx
+  on public.client_import_batches(organization_id,created_at desc,id desc);
+reset lock_timeout;
+reset statement_timeout;

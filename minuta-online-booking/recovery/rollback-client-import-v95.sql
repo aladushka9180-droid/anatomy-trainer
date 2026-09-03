@@ -14,6 +14,7 @@ begin
   end if;
 end $$;
 
+drop function if exists public.get_minuta_imported_clients(uuid,integer,integer);
 drop function if exists public.get_minuta_imported_clients(uuid);
 drop function if exists public.import_minuta_clients(uuid,text,jsonb,uuid);
 drop table if exists public.organization_imported_clients;

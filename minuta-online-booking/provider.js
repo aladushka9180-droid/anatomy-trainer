@@ -1467,7 +1467,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=259#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=261#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1514,7 +1514,10 @@ function writeLocalOutcomes() {
   try { localStorage.setItem(outcomeStorageKey(), JSON.stringify(Object.fromEntries(bookingOutcomes))); }
   catch { notify('Не удалось сохранить результат визита'); }
 }
-function bookingOutcome(item) { return bookingOutcomes.get(item.id) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0, actual_duration_minutes: 0, calculated_amount_rub: 0, completion_source: 'manual' }; }
+function bookingOutcome(item) {
+  const embedded = item?.booking_outcomes;
+  return bookingOutcomes.get(item.id) || (embedded?.visit_status ? embedded : null) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0, actual_duration_minutes: 0, calculated_amount_rub: 0, completion_source: 'manual' };
+}
 function isPerMinuteBooking(item) { return Number(item?.services?.duration_minutes || 0) === 1; }
 function bookingMinuteRate(item) { return Math.max(0, Number(item?.original_price_rub ?? item?.services?.price_rub ?? bookingSessionTotal(item)) || 0); }
 function bookingCalculatedValue(item) {
@@ -1580,6 +1583,10 @@ function outcomeSummary(item) {
   return `${actualTime}${paymentMethodLabel(outcome.payment_method, outcome.completion_source)}${outcome.amount_rub ? ` · получено ${money(outcome.amount_rub)}` : ''}`;
 }
 
+let reportPerformerFilter = '';
+let reportCanViewTeam = false;
+let reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+
 function reportDateText(value, options = { day:'numeric', month:'short' }) {
   return parseLocalIsoDate(value).toLocaleDateString('ru-RU', options);
 }
@@ -1603,7 +1610,8 @@ function reportRange(period = reportPeriod) {
 }
 
 function reportBookings(range = reportRange()) {
-  return allBookings.filter(item => !isScheduleBlock(item) && item.booking_date >= range.start && item.booking_date <= range.end);
+  const source = reportCanViewTeam && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  return source.filter(item => !isScheduleBlock(item) && item.booking_date >= range.start && item.booking_date <= range.end && (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all' || String(item.performer_id || '') === reportPerformerFilter));
 }
 
 function previousReportRange(range) {
@@ -1632,7 +1640,9 @@ function reportClientIdentity(item) {
 
 function reportClientMetrics(completed, range) {
   const currentClients = new Set(completed.map(reportClientIdentity).filter(Boolean));
-  const previousClients = new Set(reportCompletedItems(allBookings.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
+  const source = reportCanViewTeam && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  const previousClients = new Set(reportCompletedItems(source.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
+  completed.forEach(item => { if (item.client_had_previous) { const key = reportClientIdentity(item); if (key) previousClients.add(key); } });
   let newClients = 0;
   let returningClients = 0;
   currentClients.forEach(key => {
@@ -1693,6 +1703,7 @@ function setReportComparison(selector, current, previous, formatDelta = value =>
 }
 
 function reportAvailableScheduleMinutes(range) {
+  if (reportCanViewTeam && reportPerformerFilter && reportPerformerFilter !== String(currentUser?.id || '')) return null;
   const rowsByWeekday = new Map(scheduleRows.map(row => [Number(row.weekday), row]));
   if ([1, 2, 3, 4, 5, 6, 7].some(weekday => !rowsByWeekday.has(weekday))) return null;
   const start = parseLocalIsoDate(range.start);
@@ -1762,14 +1773,83 @@ function renderReportRetention() {
   const payload = typeof payloadValue === 'function' ? payloadValue.call(retentionController) : payloadValue;
   const clients = Array.isArray(payload?.clients) ? payload.clients : [];
   const deliveries = Array.isArray(payload?.deliveries) ? payload.deliveries : [];
-  setReportText('#reportRetentionEligible', clients.filter(item => item.eligible === true).length);
-  setReportText('#reportRetentionRegular', clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length);
-  setReportText('#reportRetentionPrepared', deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length);
-  setReportText('#reportRetentionSent', deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length);
-  setReportText('#reportRetentionUnknownConsent', clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length);
+  const eligible = clients.filter(item => item.eligible === true).length;
+  const regular = clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length;
+  const prepared = deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length;
+  const sent = deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length;
+  const unknownConsent = clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length;
+  setReportText('#reportRetentionEligible', eligible);
+  setReportText('#reportRetentionRegular', regular);
+  setReportText('#reportRetentionPrepared', prepared);
+  setReportText('#reportRetentionSent', sent);
+  setReportText('#reportRetentionUnknownConsent', unknownConsent);
+  const panel = $('.report-retention');
+  if (panel) {
+    const isEmpty = eligible + regular + prepared + sent === 0;
+    panel.classList.toggle('is-empty', isEmpty);
+    let empty = panel.querySelector('.report-retention-empty');
+    if (!empty) {
+      panel.insertAdjacentHTML('beforeend', '<p class="report-retention-empty"></p>');
+      empty = panel.querySelector('.report-retention-empty');
+    }
+    empty.textContent = 'Клиентов для возвращения пока нет' + (unknownConsent ? ` · у ${unknownConsent} не указано согласие` : '');
+  }
 }
 
-let reportTeamAnalyticsState = { key:'', status:'idle', rows:[] };
+let reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
+
+function reportPerformerName() {
+  if (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all') return reportCanViewTeam ? 'Вся команда' : 'Личная статистика';
+  return reportTeamAnalyticsState.rows.find(row => String(row.performer_id || '') === reportPerformerFilter)?.performer_name || 'Сотрудник';
+}
+
+function renderReportPerformerFilter(range) {
+  const wrap = $('#reportPerformerFilterWrap');
+  const select = $('#reportPerformerFilter');
+  if (!wrap || !select) return;
+  wrap.hidden = !reportCanViewTeam;
+  if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); return; }
+  if (!reportPerformerFilter) reportPerformerFilter = 'all';
+  select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
+  select.value = reportPerformerFilter;
+  const previous = previousReportRange(range);
+  loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+}
+
+async function loadReportScopedBookings(range, performerId) {
+  if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const key = `${organizationId}:${range.start}:${range.end}:${performerId}`;
+  if (!organizationId || reportScopedBookingsState.key === key && ['loading','ready'].includes(reportScopedBookingsState.status)) return;
+  reportScopedBookingsState = { key, status:'loading', rows:[] };
+  const rows = [];
+  const pageSize = 1000;
+  const maxRows = 100000;
+  let data = null;
+  let error = null;
+  for (let offset = 0; offset <= maxRows; offset += pageSize) {
+    let response = await db.rpc('get_minuta_staff_report_bookings', {
+      p_organization:organizationId,
+      p_start:range.start,
+      p_end:range.end,
+      p_performer:performerId === 'all' ? null : performerId,
+      p_limit:pageSize,
+      p_offset:offset
+    });
+    if (offset === 0 && response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_staff_report_bookings|function .* does not exist/i.test(response.error.message || ''))) {
+      response = await db.rpc('get_minuta_staff_report_bookings', { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
+    }
+    ({ data, error } = response);
+    if (error) break;
+    rows.push(...(Array.isArray(data?.bookings) ? data.bookings : []));
+    if (!data?.has_more) break;
+    if (rows.length >= maxRows) { error = new Error('Слишком большой объём отчёта'); break; }
+  }
+  if (reportScopedBookingsState.key !== key) return;
+  reportScopedBookingsState = error ? { key, status:'failed', rows:[] } : { key, status:'ready', rows };
+  if (error) { notify('Не удалось загрузить статистику сотрудника'); return; }
+  renderAnalytics();
+}
 
 function renderReportTeamRows(rows) {
   const panel = $('#reportPerformers');
@@ -1794,10 +1874,10 @@ async function loadReportTeamAnalytics(range) {
   if (!organizationId) { panel.hidden = true; return; }
   const key = `${organizationId}:${range.start}:${range.end}`;
   if (reportTeamAnalyticsState.key === key) {
-    if (reportTeamAnalyticsState.status === 'ready') renderReportTeamRows(reportTeamAnalyticsState.rows);
+    if (reportTeamAnalyticsState.status === 'ready') { renderReportTeamRows(reportTeamAnalyticsState.rows); renderReportPerformerFilter(range); }
     return;
   }
-  reportTeamAnalyticsState = { key, status:'loading', rows:[] };
+  reportTeamAnalyticsState = { key, status:'loading', rows:[], canViewTeam:false };
   panel.hidden = true;
   let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
   if (response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_team_analytics|function .* does not exist/i.test(response.error.message || ''))) {
@@ -1806,13 +1886,15 @@ async function loadReportTeamAnalytics(range) {
   const { data, error } = response;
   if (reportTeamAnalyticsState.key !== key) return;
   if (error) {
-    reportTeamAnalyticsState = { key, status:'failed', rows:[] };
+    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:false };
     panel.hidden = true;
     return;
   }
   const rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
-  reportTeamAnalyticsState = { key, status:'ready', rows };
+  reportCanViewTeam = Boolean(data?.can_view_team);
+  reportTeamAnalyticsState = { key, status:'ready', rows, canViewTeam:reportCanViewTeam };
   renderReportTeamRows(rows);
+  renderReportPerformerFilter(range);
 }
 
 function reportVisitWord(count) {
@@ -1873,7 +1955,7 @@ function renderAnalytics() {
   const clients = reportClientMetrics(completed, range);
   const sources = reportSourceMetrics(items);
   const sourceTotal = sources.online + sources.manual + sources.unknown;
-  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · личная статистика мастера`;
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
@@ -1889,8 +1971,8 @@ function renderAnalytics() {
     { selector:'#reportCancelledMetric', value:cancelled.length, clear:'Без отмен' },
     { selector:'#reportNoShowMetric', value:noShows.length, clear:'Все пришли' }
   ];
-  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0);
-  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.value === 0; });
+  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0 && metric.selector !== '#reportNoShowMetric');
+  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.selector !== '#reportNoShowMetric' && metric.value === 0; });
   const zeroSummary = $('#reportZeroSummary');
   if (zeroSummary) {
     zeroSummary.hidden = !clearMetrics.length;
@@ -1940,7 +2022,7 @@ function renderAnalytics() {
   });
   const paymentNames = { cash:'Наличные', card:'Карта', transfer:'Перевод', unpaid:'Без оплаты' };
   const visiblePayments = [...payments.entries()].filter(([, amount]) => amount > 0);
-  $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)}</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
+  $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)} · ${revenue ? Math.round(amount / revenue * 100) : 0}%</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
   const grouped = new Map();
   completed.forEach(item => {
     const entries = bookingSession(item).filter(entry => entry.title);
@@ -1973,7 +2055,7 @@ function renderAnalytics() {
       if (rows[0]) messages.push(`Больше всего принесла услуга «${rows[0].name}» — ${money(rows[0].revenue)} (${revenue ? Math.round(rows[0].revenue / revenue * 100) : 0}% дохода).`);
       if (utilizationPercent !== null) messages.push(`Расписание загружено на ${utilizationPercent}%.`);
     }
-    insight.innerHTML = `<small>Главное за период</small><p>${escapeHtml(messages.join(' '))}</p>`;
+    insight.innerHTML = `<small>Главное за период</small><ul>${messages.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
   }
 }
 
@@ -1987,6 +2069,7 @@ function reportEventEffect(event) {
   add(event.delta_planned_rub,'к плану');add(event.delta_completed_rub,'оказано');add(event.delta_received_rub,'получено');const minutes=Number(event.delta_duration_minutes||0);if(minutes)parts.push(`${minutes>0?'+':'−'}${Math.abs(minutes)} мин`);return parts.join(' · ')||'Финансовые показатели не изменились';
 }
 function renderReportEvents(rows) {
+  if (reportCanViewTeam && reportPerformerFilter && reportPerformerFilter !== 'all') rows = rows.filter(event => String(event.performer_id || '') === reportPerformerFilter);
   const panel=$('#reportLastChange'),list=$('#reportEventList');if(!panel||!list)return;panel.hidden=!rows.length;if(!rows.length){list.innerHTML='';return;}
   const latest=rows[0],date=new Date(latest.occurred_at);$('#reportLastChangeTime').textContent=date.toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});$('#reportLastChangeTime').dateTime=latest.occurred_at;$('#reportLastChangeTitle').textContent=reportEventTitle(latest);$('#reportLastChangeEffect').textContent=reportEventEffect(latest);$('#reportLastChangeActor').textContent=`Изменил: ${latest.actor_name||'Система'} · синхронизировано`;
   list.innerHTML=rows.map(event=>`<article><time>${new Date(event.occurred_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</time><div><strong>${escapeHtml(reportEventTitle(event))}</strong><span>${escapeHtml(reportEventEffect(event))}</span><small>${escapeHtml(event.actor_name||'Система')}</small></div></article>`).join('');
@@ -2147,7 +2230,7 @@ function reportExportData(privacy = 'masked') {
     const outcome = bookingOutcome(item), duration = reportExportDuration(item), value = reportExportValue(item);
     return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,Number(outcome.amount_rub || 0),outcome.visit_status === 'completed' ? Math.max(0,value-Number(outcome.amount_rub || 0)) : 0,paymentMethodLabel(outcome.payment_method,outcome.completion_source),reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),item.note || item.comment || ''];
   });
-  let team = (reportTeamAnalyticsState.rows || []).map(row => [row.performer_name || 'Мастер',Number(row.completed_visits || 0),Number(row.unique_clients || 0),Math.round(Number(row.worked_minutes || 0)),Math.round(Number(row.revenue_rub || 0)),Number(row.completed_visits || 0) ? Math.round(Number(row.revenue_rub || 0)/Number(row.completed_visits)) : 0,row.payroll_rub === null || row.payroll_rub === undefined ? 'Не рассчитано' : Math.round(Number(row.payroll_rub || 0))]);
+  let team = (reportTeamAnalyticsState.rows || []).filter(row => !reportCanViewTeam || reportPerformerFilter === 'all' || String(row.performer_id || '') === reportPerformerFilter).map(row => [row.performer_name || 'Мастер',Number(row.completed_visits || 0),Number(row.unique_clients || 0),Math.round(Number(row.worked_minutes || 0)),Math.round(Number(row.revenue_rub || 0)),Number(row.completed_visits || 0) ? Math.round(Number(row.revenue_rub || 0)/Number(row.completed_visits)) : 0,row.payroll_rub === null || row.payroll_rub === undefined ? 'Не рассчитано' : Math.round(Number(row.payroll_rub || 0))]);
   if (!team.length) {
     const grouped = new Map();
     completed.forEach(item => { const key = String(item.performer_id || 'master'), row = grouped.get(key) || { name:reportExportMaster(item,performers),visits:0,clients:new Set(),minutes:0,revenue:0 }; row.visits += 1; row.clients.add(reportClientIdentity(item)); row.minutes += reportExportDuration(item); row.revenue += Number(bookingOutcome(item).amount_rub || 0); grouped.set(key,row); });
@@ -2221,7 +2304,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=259');
+    worker = new Worker('./report-worker.js?v=261');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7864,6 +7947,20 @@ $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
 $$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));
 $('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
+$('#reportPendingMetric')?.addEventListener('click', () => setProviderView('bookings'));
+$('#reportPendingMetric')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    setProviderView('bookings');
+  }
+});
+$('#reportPerformerFilter')?.addEventListener('change', event => {
+  reportPerformerFilter = event.target.value || 'all';
+  reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+  const range = reportRange();
+  const previous = previousReportRange(range);
+  loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+});
 $('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
 $$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));
 $('#reportExportDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });

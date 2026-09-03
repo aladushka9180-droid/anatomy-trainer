@@ -1,3 +1,5 @@
+\set ON_ERROR_STOP on
+
 begin;
 
 set local search_path = public, extensions, pg_catalog;
@@ -19,7 +21,7 @@ end $$;
 
 alter table public.bookings
   add column if not exists booking_source text,
-  add column if not exists created_by_user_id uuid references auth.users(id) on delete set null,
+  add column if not exists created_by_user_id uuid,
   add column if not exists created_by_role text;
 
 do $$
@@ -33,7 +35,7 @@ begin
       add constraint bookings_booking_source_check
       check (booking_source is null or booking_source in (
         'client_online','provider_manual','admin_manual'
-      ));
+      )) not valid;
   end if;
 
   if not exists (
@@ -45,7 +47,7 @@ begin
       add constraint bookings_created_by_role_check
       check (created_by_role is null or created_by_role in (
         'owner','admin','specialist'
-      ));
+      )) not valid;
   end if;
 
   if not exists (
@@ -60,16 +62,41 @@ begin
         or (booking_source='client_online' and created_by_user_id is null and created_by_role is null)
         or (booking_source='provider_manual' and created_by_user_id is not null and created_by_role='specialist')
         or (booking_source='admin_manual' and created_by_user_id is not null and created_by_role in ('owner','admin'))
-      );
+      ) not valid;
   end if;
 end $$;
 
-create index if not exists bookings_source_organization_date_v92_idx
-  on public.bookings (organization_id,booking_source,booking_date);
+do $$
+begin
+  if exists (
+    select 1
+    from pg_constraint constraint_row
+    where constraint_row.conrelid='public.bookings'::regclass
+      and constraint_row.conname='bookings_created_by_user_id_fkey'
+      and not (
+        constraint_row.contype='f'
+        and constraint_row.confrelid='auth.users'::regclass
+        and constraint_row.confdeltype='n'
+        and array_length(constraint_row.conkey,1)=1
+        and array_length(constraint_row.confkey,1)=1
+        and (select attribute.attname from pg_attribute attribute where attribute.attrelid=constraint_row.conrelid and attribute.attnum=constraint_row.conkey[1])='created_by_user_id'
+        and (select attribute.attname from pg_attribute attribute where attribute.attrelid=constraint_row.confrelid and attribute.attnum=constraint_row.confkey[1])='id'
+      )
+  ) then
+    raise exception using errcode='P0001',message='v92_incompatible_created_by_user_fk';
+  end if;
 
-create index if not exists bookings_creator_organization_date_v92_idx
-  on public.bookings (organization_id,created_by_user_id,booking_date)
-  where created_by_user_id is not null;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid='public.bookings'::regclass
+      and conname='bookings_created_by_user_id_fkey'
+  ) then
+    alter table public.bookings
+      add constraint bookings_created_by_user_id_fkey
+      foreign key (created_by_user_id) references auth.users(id)
+      on delete set null not valid;
+  end if;
+end $$;
 
 create or replace function public.set_minuta_booking_creation_attribution_v92()
 returns trigger
@@ -272,3 +299,58 @@ grant execute on function public.get_minuta_team_analytics(date,date)
   to authenticated;
 
 commit;
+
+set lock_timeout = '5s';
+set statement_timeout = '30min';
+
+alter table public.bookings validate constraint bookings_booking_source_check;
+alter table public.bookings validate constraint bookings_created_by_role_check;
+alter table public.bookings validate constraint bookings_creation_attribution_check;
+alter table public.bookings validate constraint bookings_created_by_user_id_fkey;
+
+select format('drop index concurrently if exists %I.%I',namespace_row.nspname,index_class.relname)
+from pg_class index_class
+join pg_namespace namespace_row on namespace_row.oid=index_class.relnamespace
+join pg_index index_row on index_row.indexrelid=index_class.oid
+where namespace_row.nspname='public'
+  and index_class.relname in (
+    'bookings_source_organization_date_v92_idx',
+    'bookings_creator_organization_date_v92_idx'
+  )
+  and (not index_row.indisvalid or not index_row.indisready)
+\gexec
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_class index_class
+    join pg_namespace namespace_row on namespace_row.oid=index_class.relnamespace
+    join pg_index index_row on index_row.indexrelid=index_class.oid
+    where namespace_row.nspname='public'
+      and index_class.relname in (
+        'bookings_source_organization_date_v92_idx',
+        'bookings_creator_organization_date_v92_idx'
+      )
+      and index_row.indisvalid
+      and index_row.indisready
+      and regexp_replace(lower(pg_get_indexdef(index_row.indexrelid)),'\s','','g') <> case index_class.relname
+        when 'bookings_source_organization_date_v92_idx'
+          then 'createindexbookings_source_organization_date_v92_idxonpublic.bookingsusingbtree(organization_id,booking_source,booking_date)'
+        when 'bookings_creator_organization_date_v92_idx'
+          then 'createindexbookings_creator_organization_date_v92_idxonpublic.bookingsusingbtree(organization_id,created_by_user_id,booking_date)where(created_by_user_idisnotnull)'
+      end
+  ) then
+    raise exception using errcode='P0001',message='v92_incompatible_existing_index';
+  end if;
+end $$;
+
+create index concurrently if not exists bookings_source_organization_date_v92_idx
+  on public.bookings (organization_id,booking_source,booking_date);
+
+create index concurrently if not exists bookings_creator_organization_date_v92_idx
+  on public.bookings (organization_id,created_by_user_id,booking_date)
+  where created_by_user_id is not null;
+
+reset lock_timeout;
+reset statement_timeout;

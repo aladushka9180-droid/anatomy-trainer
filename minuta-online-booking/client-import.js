@@ -154,11 +154,26 @@
       preview = null;
       $('#clientImportPreview')?.setAttribute('hidden','');
       if (!organization?.id || !navigator.onLine) { workspace = null; onLoaded?.([]); render(); return { ok:true,optional:true,skipped:true }; }
-      const { data, error } = await db.rpc('get_minuta_imported_clients', { p_organization:organization.id });
-      if (currentRevision !== revision) return { ok:false,optional:true,stale:true };
+      const clients = [];
+      const pageSize = 1000;
+      const maxClients = 100000;
+      let payload = null;
+      let error = null;
+      for (let offset = 0; offset <= maxClients; offset += pageSize) {
+        let response = await db.rpc('get_minuta_imported_clients', { p_organization:organization.id, p_limit:pageSize, p_offset:offset });
+        if (offset === 0 && response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_imported_clients|function .* does not exist/i.test(response.error.message || ''))) {
+          response = await db.rpc('get_minuta_imported_clients', { p_organization:organization.id });
+        }
+        ({ data:payload, error } = response);
+        if (currentRevision !== revision) return { ok:false,optional:true,stale:true };
+        if (error) break;
+        clients.push(...(Array.isArray(payload?.clients) ? payload.clients : []));
+        if (!payload?.has_more) break;
+        if (clients.length >= maxClients) { error = new Error('Слишком большой объём клиентской базы'); break; }
+      }
       if (error) { workspace = null; onLoaded?.([]); render(); return { ok:false,optional:true }; }
-      workspace = data || {};
-      onLoaded?.(Array.isArray(workspace.clients) ? workspace.clients : []);
+      workspace = { ...(payload || {}), clients };
+      onLoaded?.(clients);
       render();
       return { ok:true,optional:true };
     }
