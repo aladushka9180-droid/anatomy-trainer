@@ -97,6 +97,7 @@ assert.match(v97, /client_name_snapshot[\s\S]*service_name_snapshot[\s\S]*perfor
 assert.match(v97, /get_minuta_staff_report_bookings_v97[\s\S]*p_limit integer,p_offset integer/, 'v97: отчёт сотрудников не постраничный');
 assert.match(v97, /get_minuta_booking_events_v97[\s\S]*p_limit integer,p_offset integer/, 'v97: история событий не постраничная');
 assert.match(v97, /coalesce\(outcome\.completed_performer_id,booking\.performer_id\)/, 'v97: завершённый визит не закреплён за историческим исполнителем');
+assert.match(v97, /add column if not exists completion_source text not null default 'manual'[\s\S]*alter column completion_source set not null/, 'v97: production без v52 не восстанавливает поле источника завершения');
 assert.doesNotMatch(v97, /to_jsonb\(booking\)/, 'v97: отчёт раскрывает весь row записи');
 assert.match(rollback97, /Снимки[\s\S]*сохраняются/, 'rollback v97: нет гарантии сохранения истории');
 assert.match(integration97, /provider_delete_booking[\s\S]*v97_booking_event_history_was_not_preserved/, 'integration v97: не проверяется сохранение события после удаления записи');

@@ -623,8 +623,17 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v96.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v95.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v95.sql
+          # Reproduce the legacy production shape that skipped v52. v97 must
+          # repair it without changing bookings, payments or visit outcomes.
+          v97_outcome_snapshot_before="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select count(*)||'|'||coalesce(sum(amount_rub),0)||'|'||count(*) filter(where visit_status='completed')||'|'||count(*) filter(where visit_status='no_show') from public.booking_outcomes;")"
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -c \
+            "alter table public.booking_outcomes drop column if exists completion_source;"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v97.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v97.sql
+          v97_outcome_snapshot_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select count(*)||'|'||coalesce(sum(amount_rub),0)||'|'||count(*) filter(where visit_status='completed')||'|'||count(*) filter(where visit_status='no_show') from public.booking_outcomes;")"
+          test "$v97_outcome_snapshot_before" = "$v97_outcome_snapshot_after"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atf minuta-online-booking/v92-layer-state.sql | grep -qx complete
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v98.sql
@@ -1342,7 +1351,7 @@ jobs:
               ('phone_identity_guard',to_regprocedure('public.bootstrap_client_sms_session(text)') is not null and to_regclass('public.minuta_auth_trigger_guard_v90') is not null and has_function_privilege('authenticated','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_sms_session(text)','EXECUTE')),
               ('previous_date_index_guard',exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_events_scope_previous_date_v96_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbooking_events_scope_previous_date_v96_idxonpublic.booking_eventsusingbtree(organization_id,previous_booking_date,occurred_atdesc,iddesc)where(previous_booking_dateisnotnull)')),
               ('social_identity_guard',to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_identity_session(text,text,text)','EXECUTE')),
-              ('staff_report_guard',to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and to_regprocedure('public.get_minuta_staff_report_availability(uuid,date,date,uuid)') is not null and has_function_privilege('authenticated','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE')),
+              ('staff_report_guard',to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and to_regprocedure('public.get_minuta_staff_report_availability(uuid,date,date,uuid)') is not null and has_function_privilege('authenticated','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source' and data_type='text' and is_nullable='NO' and column_default like '%manual%') and exists(select 1 from pg_constraint c where c.conrelid='public.booking_outcomes'::regclass and c.conname='booking_outcomes_completion_source_check' and c.contype='c' and c.convalidated)),
               ('yookassa_guard',to_regclass('public.organization_payment_provider_settings') is not null and to_regprocedure('public.get_minuta_payment_workspace(uuid)') is not null and not has_table_privilege('authenticated','public.payment_provider_attempts','INSERT,UPDATE,DELETE'))
             ) select name,coalesce(ok,false) from checks order by name;")"
           printf '%s\n' "$migration_guard"
@@ -1370,10 +1379,44 @@ jobs:
           fi
           else
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-              "select to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and to_regprocedure('public.get_minuta_staff_report_availability(uuid,date,date,uuid)') is not null and to_regprocedure('public.get_minuta_booking_events_v97(uuid,date,date,integer,integer)') is not null and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_outcomes_completed_performer_v97_idx' and i.indisvalid and i.indisready) and to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is null and to_regclass('public.booking_history_import_batches') is null and to_regclass('public.organization_imported_booking_history') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name in ('booking_buffer_enabled','booking_buffer_minutes')) and to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is null and to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null and to_regprocedure('public.get_reschedule_slots_v101(uuid,date,date)') is null;" \
+              "select to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and to_regprocedure('public.get_minuta_staff_report_availability(uuid,date,date,uuid)') is not null and to_regprocedure('public.get_minuta_booking_events_v97(uuid,date,date,integer,integer)') is not null and exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source' and data_type='text' and is_nullable='NO' and column_default like '%manual%') and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_outcomes_completed_performer_v97_idx' and i.indisvalid and i.indisready) and to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is null and to_regclass('public.booking_history_import_batches') is null and to_regclass('public.organization_imported_booking_history') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name in ('booking_buffer_enabled','booking_buffer_minutes')) and to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is null and to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null and to_regprocedure('public.get_reschedule_slots_v101(uuid,date,date)') is null;" \
               | grep -qx t
             echo "Production migration intentionally stopped after v97 plus authorization repair v100"
           fi
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X <<'SQL'
+          do $staff_report_smoke$
+          declare
+            v_owner uuid;
+            v_own_org uuid;
+            v_demo_org constant uuid:='d3500000-0000-4000-8000-000000000001';
+            v_payload jsonb;
+          begin
+            select membership.user_id,organization.id
+            into v_owner,v_own_org
+            from public.organizations organization
+            join public.organization_memberships membership
+              on membership.organization_id=organization.id
+             and membership.active
+             and membership.role='owner'
+            where organization.public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f'
+              and organization.status='active'
+            order by membership.created_at,membership.user_id
+            limit 1;
+            if v_owner is null or v_own_org is null then
+              raise exception 'staff_report_smoke_owner_missing';
+            end if;
+            perform set_config('request.jwt.claim.sub',v_owner::text,true);
+            v_payload:=public.get_minuta_staff_report_bookings_v97(v_own_org,current_date-30,current_date,null,1000,0);
+            if jsonb_typeof(v_payload->'bookings')<>'array' then
+              raise exception 'staff_report_smoke_own_failed';
+            end if;
+            v_payload:=public.get_minuta_staff_report_bookings_v97(v_demo_org,current_date-100,current_date,null,1000,0);
+            if coalesce(jsonb_array_length(v_payload->'bookings'),0)<400 then
+              raise exception 'staff_report_smoke_demo_failed';
+            end if;
+          end
+          $staff_report_smoke$;
+          SQL
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_public_minuta_catalog(text)') is not null and has_function_privilege('anon','public.get_public_minuta_catalog(text)','EXECUTE') and has_function_privilege('authenticated','public.get_public_minuta_catalog(text)','EXECUTE') and not has_function_privilege('service_role','public.get_public_minuta_catalog(text)','EXECUTE') and exists (select 1 from public.organizations where public_slug='minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f' and public_booking_enabled and status='active') and not exists (select 1 from public.organizations where public_booking_enabled and public_slug<>'minuta-abeb5b13ca1d45c6a2adb0e4119b2e1f');" \
             | grep -qx t

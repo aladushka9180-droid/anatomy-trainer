@@ -23,6 +23,50 @@ begin
   end if;
 end $$;
 
+-- Some long-lived production installations started their managed migration
+-- chain after v52. Repair only the missing outcome metadata that the v94/v97
+-- report RPCs read; booking, payment and visit values stay untouched.
+alter table public.booking_outcomes
+  add column if not exists completion_source text not null default 'manual';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='booking_outcomes'
+      and column_name='completion_source'
+      and data_type='text'
+  ) then
+    raise exception using errcode='P0001',message='v97_incompatible_completion_source_type';
+  end if;
+  if exists (
+    select 1
+    from public.booking_outcomes
+    where completion_source is not null
+      and completion_source not in ('manual','auto')
+  ) then
+    raise exception using errcode='P0001',message='v97_incompatible_completion_source_value';
+  end if;
+end $$;
+
+update public.booking_outcomes
+set completion_source='manual'
+where completion_source is null;
+
+alter table public.booking_outcomes
+  alter column completion_source set default 'manual',
+  alter column completion_source set not null;
+
+alter table public.booking_outcomes
+  drop constraint if exists booking_outcomes_completion_source_check;
+alter table public.booking_outcomes
+  add constraint booking_outcomes_completion_source_check
+  check (completion_source in ('manual','auto')) not valid;
+alter table public.booking_outcomes
+  validate constraint booking_outcomes_completion_source_check;
+
 alter table public.booking_outcomes add column if not exists completed_performer_id uuid;
 alter table public.booking_events add column if not exists client_name_snapshot text;
 alter table public.booking_events add column if not exists service_name_snapshot text;
@@ -373,3 +417,5 @@ create index concurrently if not exists booking_outcomes_completed_performer_v97
 drop index concurrently if exists public.booking_outcomes_completed_performer_v95_idx;
 reset lock_timeout;
 reset statement_timeout;
+
+notify pgrst, 'reload schema';
