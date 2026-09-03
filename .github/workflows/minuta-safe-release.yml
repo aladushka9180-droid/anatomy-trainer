@@ -1294,6 +1294,7 @@ jobs:
       - name: Наблюдать production без записи данных
         env:
           MINUTA_EXPECT_IDEMPOTENCY: "1"
+          MINUTA_EXPECT_VERSION: ${{ inputs.expected_version }}
           OBSERVATION_MINUTES: ${{ inputs.observation_minutes }}
         shell: bash
         run: |

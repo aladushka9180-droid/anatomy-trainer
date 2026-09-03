@@ -846,6 +846,7 @@ assert.match(styles, /\.client-booking-action\s*\{\s*font-size:11px;/, 'Кноп
 assert.match(styles, /\.review-rating button\s*\{[^}]*width:44px;[^}]*min-height:44px;/, 'Звёзды оценки имеют слишком маленькую область нажатия');
 const releaseWorkflow = readFileSync(join(root, '..', '.github', 'workflows', 'minuta-safe-release.yml'), 'utf8');
 assert.match(releaseWorkflow, /supabase-migration-v60\.sql[\s\S]*supabase-migration-v62\.sql[\s\S]*supabase-migration-v63\.sql[\s\S]*supabase-migration-v61\.sql/, 'Безопасный выпуск не применяет защиту отзывов после актуальной миграции удаления');
+assert.match(releaseWorkflow, /MINUTA_EXPECT_VERSION:\s*\$\{\{\s*inputs\.expected_version\s*\}\}/, 'Наблюдение production не закрепляет ожидаемую версию сайта');
 assert.match(app, /if \(error\) \{[\s\S]*?return;\s*\n\s*\}\s*\n\s*const manageToken[\s\S]*?saveClientContact\(name, phone\)/, 'Контакты сохраняются до подтверждения записи');
 
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
