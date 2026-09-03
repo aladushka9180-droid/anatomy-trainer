@@ -57,4 +57,18 @@ assert.ok(workerText.includes('Аладушка &amp; партнёры'), 'Фо�
 assert.ok(workerText.includes('zoomScale="95"'), 'Фоновый Excel потерял масштаб листа из основного генератора');
 assert.ok(workerText.indexOf('<autoFilter ref="A1:A2"/>') < workerText.indexOf('<mergeCells count="1">'), 'В XML листа autoFilter должен находиться перед mergeCells');
 
+// Ten years at ten appointments a day: the export must complete in the worker
+// without depending on DOM APIs or freezing the cabinet thread.
+workerMessages.length = 0;
+const tenYearRows = [['Дата', 'Клиент', 'Получено, ₽']];
+for (let index = 0; index < 36500; index += 1) {
+  tenYearRows.push([`день-${Math.floor(index / 10) + 1}`, `Клиент ${index + 1}`, index % 5000]);
+}
+await workerContext.self.onmessage({ data:{ sheets:[
+  { name:'Записи 10 лет', rows:tenYearRows, options:{ widths:[14,28,16], merges:[], heights:{}, freeze:1, filter:`A1:C${tenYearRows.length}` } }
+] } });
+assert.equal(workerMessages.length, 1, 'Worker не завершил десятилетний экспорт');
+assert.ok(workerMessages[0].blob instanceof Blob, `Десятилетний экспорт завершился ошибкой: ${workerMessages[0].error || 'нет файла'}`);
+assert.ok(workerMessages[0].blob.size > 1_000_000, 'Десятилетний экспорт неожиданно потерял строки');
+
 console.log('report xlsx test: ok');
