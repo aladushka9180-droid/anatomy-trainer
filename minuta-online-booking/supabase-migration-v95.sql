@@ -1,53 +1,215 @@
 begin;
+
 set local search_path = public, extensions, pg_catalog;
 
-alter table public.booking_outcomes add column if not exists completed_performer_id uuid references public.performer_profiles(id) on delete set null;
-
-create or replace function public.snapshot_minuta_completed_performer_v95()
-returns trigger language plpgsql security definer set search_path to '' as $$
+do $$
 begin
-  if new.visit_status='completed' and (tg_op='INSERT' or old.visit_status is distinct from 'completed' or new.completed_performer_id is null) then
-    select booking.performer_id into new.completed_performer_id from public.bookings booking where booking.id=new.booking_id;
-  elsif tg_op='UPDATE' and old.visit_status='completed' and new.visit_status='completed' then
-    new.completed_performer_id:=old.completed_performer_id;
+  if to_regclass('public.organizations') is null
+     or to_regclass('public.organization_memberships') is null
+     or to_regclass('public.bookings_performer_date_time_v94_idx') is null
+     or to_regprocedure('public.normalize_client_phone(text)') is null
+     or to_regprocedure('public.has_organization_role(uuid,text[])') is null then
+    raise exception using errcode='P0001',message='v95_requires_v65_v94';
   end if;
-  return new;
-end; $$;
-revoke all on function public.snapshot_minuta_completed_performer_v95() from public,anon,authenticated,service_role;
-drop trigger if exists booking_outcomes_snapshot_performer_v95 on public.booking_outcomes;
-create trigger booking_outcomes_snapshot_performer_v95 before insert or update of visit_status,completed_performer_id on public.booking_outcomes for each row execute function public.snapshot_minuta_completed_performer_v95();
-update public.booking_outcomes outcome set completed_performer_id=booking.performer_id from public.bookings booking where booking.id=outcome.booking_id and outcome.visit_status='completed' and outcome.completed_performer_id is null;
-create index if not exists booking_outcomes_completed_performer_v95_idx on public.booking_outcomes(completed_performer_id) where visit_status='completed';
+end $$;
 
-create or replace function public.get_minuta_staff_report_bookings_v95(p_organization uuid,p_start date,p_end date,p_performer uuid default null)
-returns jsonb language plpgsql stable security definer set search_path to '' as $$
-declare v_user uuid:=auth.uid(); v_role text; v_effective_performer uuid; v_bookings jsonb;
-begin
-  if v_user is null then raise exception using errcode='42501',message='authentication_required'; end if;
-  if p_organization is null or p_start is null or p_end is null or p_end<p_start or p_end-p_start>3660 then raise exception using errcode='22023',message='invalid_staff_report_range'; end if;
-  select membership.role into v_role from public.organization_memberships membership join public.organizations organization on organization.id=membership.organization_id and organization.status='active' where membership.organization_id=p_organization and membership.user_id=v_user and membership.active limit 1;
-  if v_role is null then raise exception using errcode='42501',message='organization_access_denied'; end if;
-  if v_role in ('owner','admin') then v_effective_performer:=p_performer; else if p_performer is not null and p_performer<>v_user then raise exception using errcode='42501',message='staff_report_access_denied'; end if; v_effective_performer:=v_user; end if;
-  select coalesce(jsonb_agg(to_jsonb(booking)||jsonb_build_object('performer_id',coalesce(outcome.completed_performer_id,booking.performer_id),'services',coalesce(to_jsonb(service),'{}'::jsonb),'booking_outcomes',coalesce(to_jsonb(outcome),'{}'::jsonb),'client_had_previous',exists(select 1 from public.bookings previous join public.booking_outcomes previous_outcome on previous_outcome.booking_id=previous.id and previous_outcome.visit_status='completed' where previous.organization_id=booking.organization_id and previous.booking_date<booking.booking_date and previous.status<>'cancelled' and ((booking.client_account_id is not null and previous.client_account_id=booking.client_account_id) or (booking.client_account_id is null and nullif(regexp_replace(coalesce(booking.client_phone,''),'[^0-9]','','g'),'') is not null and regexp_replace(coalesce(previous.client_phone,''),'[^0-9]','','g')=regexp_replace(coalesce(booking.client_phone,''),'[^0-9]','','g'))))) order by booking.booking_date,booking.booking_time,booking.id),'[]'::jsonb) into v_bookings from public.bookings booking left join public.services service on service.id=booking.service_id left join public.booking_outcomes outcome on outcome.booking_id=booking.id where booking.organization_id=p_organization and booking.booking_date between p_start and p_end and (v_effective_performer is null or coalesce(outcome.completed_performer_id,booking.performer_id)=v_effective_performer);
-  return jsonb_build_object('organization_id',p_organization,'performer_id',v_effective_performer,'can_view_team',v_role in ('owner','admin'),'bookings',v_bookings);
-end; $$;
-revoke all on function public.get_minuta_staff_report_bookings_v95(uuid,date,date,uuid) from public,anon,authenticated,service_role;
-grant execute on function public.get_minuta_staff_report_bookings_v95(uuid,date,date,uuid) to authenticated;
+create table if not exists public.client_import_batches (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  request_id uuid not null,
+  source_system text not null check (source_system in ('yclients','dikidi','masters','other')),
+  payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}$'),
+  input_count integer not null check (input_count between 1 and 500),
+  created_count integer not null default 0 check (created_count between 0 and 500),
+  updated_count integer not null default 0 check (updated_count between 0 and 500),
+  actor_id uuid not null references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  unique (organization_id,request_id)
+);
 
-create or replace function public.get_minuta_staff_report_availability(p_organization uuid,p_start date,p_end date,p_performer uuid default null)
-returns jsonb language plpgsql stable security definer set search_path to '' as $$
-declare v_user uuid:=auth.uid(); v_role text; v_effective uuid; v_available bigint:=0; v_total integer:=0; v_configured integer:=0;
+create table if not exists public.organization_imported_clients (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  normalized_phone text not null check (normalized_phone ~ '^7[0-9]{10}$'),
+  display_phone text not null check (char_length(display_phone) between 10 and 24),
+  client_name text not null check (char_length(client_name) between 1 and 80),
+  email text check (email is null or char_length(email) between 3 and 254),
+  birthday date,
+  note text check (note is null or char_length(note) <= 1000),
+  source_system text not null check (source_system in ('yclients','dikidi','masters','other')),
+  source_external_id text check (source_external_id is null or char_length(source_external_id) <= 120),
+  imported_visit_count integer not null default 0 check (imported_visit_count between 0 and 1000000),
+  imported_total_spent_rub integer not null default 0 check (imported_total_spent_rub between 0 and 2000000000),
+  imported_last_visit_on date,
+  marketing_consent boolean,
+  personal_data_consent boolean,
+  last_import_batch_id uuid not null references public.client_import_batches(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organization_id,normalized_phone)
+);
+
+create index if not exists organization_imported_clients_name_v95_idx
+  on public.organization_imported_clients(organization_id,lower(client_name),id);
+create index if not exists client_import_batches_scope_v95_idx
+  on public.client_import_batches(organization_id,created_at desc,id desc);
+
+alter table public.client_import_batches enable row level security;
+alter table public.organization_imported_clients enable row level security;
+revoke all on table public.client_import_batches,public.organization_imported_clients from public,anon,authenticated;
+grant all on table public.client_import_batches,public.organization_imported_clients to service_role;
+
+create or replace function public.import_minuta_clients(
+  p_organization uuid,
+  p_source_system text,
+  p_rows jsonb,
+  p_request_id uuid
+) returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  v_source text:=lower(trim(coalesce(p_source_system,'')));
+  v_count integer;
+  v_payload_hash text;
+  v_batch public.client_import_batches%rowtype;
+  v_row jsonb;
+  v_phone text;
+  v_name text;
+  v_display_phone text;
+  v_email text;
+  v_birthday date;
+  v_note text;
+  v_external_id text;
+  v_visit_count integer;
+  v_total_spent integer;
+  v_last_visit date;
+  v_marketing boolean;
+  v_personal_data boolean;
+  v_created integer:=0;
+  v_updated integer:=0;
 begin
-  if v_user is null then raise exception using errcode='42501',message='authentication_required'; end if;
-  if p_organization is null or p_start is null or p_end is null or p_end<p_start or p_end-p_start>3660 then raise exception using errcode='22023',message='invalid_staff_availability_range'; end if;
-  select membership.role into v_role from public.organization_memberships membership where membership.organization_id=p_organization and membership.user_id=v_user and membership.active limit 1;
-  if v_role is null then raise exception using errcode='42501',message='organization_access_denied'; end if;
-  if v_role in ('owner','admin') then v_effective:=p_performer; else if p_performer is not null and p_performer<>v_user then raise exception using errcode='42501',message='staff_report_access_denied'; end if; v_effective:=v_user; end if;
-  with performers as (select membership.user_id as performer_id from public.organization_memberships membership where membership.organization_id=p_organization and membership.active and membership.is_bookable and (v_effective is null or membership.user_id=v_effective)), configured as (select performer.performer_id,exists(select 1 from public.provider_schedule schedule where schedule.performer_id=performer.performer_id) as has_schedule from performers performer) select count(*),count(*) filter(where has_schedule) into v_total,v_configured from configured;
-  with performers as (select membership.user_id as performer_id from public.organization_memberships membership where membership.organization_id=p_organization and membership.active and membership.is_bookable and (v_effective is null or membership.user_id=v_effective)), days as (select performer.performer_id,day_value::date as work_date from performers performer cross join generate_series(p_start::timestamp,p_end::timestamp,interval '1 day') day_value), scheduled as (select days.performer_id,days.work_date,schedule.start_time,schedule.end_time,schedule.break_start,schedule.break_end from days join public.provider_schedule schedule on schedule.performer_id=days.performer_id and schedule.weekday=extract(isodow from days.work_date)::integer where schedule.enabled and schedule.end_time>schedule.start_time)
-  select coalesce(sum(case when exists(select 1 from public.staff_absences absence where absence.organization_id=p_organization and absence.performer_id=scheduled.performer_id and absence.active and scheduled.work_date between absence.starts_on and absence.ends_on) then 0 when exists(select 1 from public.provider_days_off offday where offday.performer_id=scheduled.performer_id and offday.off_date=scheduled.work_date and offday.all_day) then 0 else greatest(0,extract(epoch from (scheduled.end_time-scheduled.start_time))/60-case when scheduled.break_start is not null and scheduled.break_end is not null and scheduled.break_end>scheduled.break_start then extract(epoch from (least(scheduled.end_time,scheduled.break_end)-greatest(scheduled.start_time,scheduled.break_start)))/60 else 0 end-coalesce((select sum(greatest(0,extract(epoch from (least(scheduled.end_time,offday.end_time)-greatest(scheduled.start_time,offday.start_time)))/60)) from public.provider_days_off offday where offday.performer_id=scheduled.performer_id and offday.off_date=scheduled.work_date and not offday.all_day and offday.start_time is not null and offday.end_time is not null),0)) end),0)::bigint into v_available from scheduled;
-  return jsonb_build_object('available_minutes',v_available,'configured_performers',v_configured,'total_performers',v_total,'complete',v_total=v_configured);
-end; $$;
-revoke all on function public.get_minuta_staff_report_availability(uuid,date,date,uuid) from public,anon,authenticated,service_role;
-grant execute on function public.get_minuta_staff_report_availability(uuid,date,date,uuid) to authenticated;
+  if auth.uid() is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='client_import_manager_required';
+  end if;
+  if p_request_id is null then
+    raise exception using errcode='22023',message='client_import_request_id_required';
+  end if;
+  if v_source not in ('yclients','dikidi','masters','other') then
+    raise exception using errcode='22023',message='invalid_client_import_source';
+  end if;
+  if jsonb_typeof(p_rows)<>'array' then
+    raise exception using errcode='22023',message='client_import_rows_must_be_array';
+  end if;
+  v_count:=jsonb_array_length(p_rows);
+  if v_count<1 or v_count>500 then
+    raise exception using errcode='22023',message='client_import_row_limit';
+  end if;
+  v_payload_hash:=encode(extensions.digest(p_rows::text,'sha256'),'hex');
+  select * into v_batch from public.client_import_batches
+  where organization_id=p_organization and request_id=p_request_id;
+  if found then
+    if v_batch.payload_hash<>v_payload_hash or v_batch.source_system<>v_source then
+      raise exception using errcode='23505',message='client_import_request_conflict';
+    end if;
+    return jsonb_build_object('batch_id',v_batch.id,'input_count',v_batch.input_count,
+      'created_count',v_batch.created_count,'updated_count',v_batch.updated_count,'idempotent',true);
+  end if;
+
+  insert into public.client_import_batches(
+    organization_id,request_id,source_system,payload_hash,input_count,actor_id
+  ) values (p_organization,p_request_id,v_source,v_payload_hash,v_count,auth.uid())
+  returning * into v_batch;
+
+  for v_row in select value from jsonb_array_elements(p_rows)
+  loop
+    v_phone:=public.normalize_client_phone(v_row->>'phone');
+    v_name:=trim(coalesce(v_row->>'name',''));
+    v_display_phone:=trim(coalesce(nullif(v_row->>'display_phone',''),v_row->>'phone',''));
+    v_email:=nullif(lower(trim(coalesce(v_row->>'email',''))),'');
+    v_note:=nullif(trim(coalesce(v_row->>'note','')),'');
+    v_external_id:=nullif(trim(coalesce(v_row->>'external_id','')),'');
+    begin v_birthday:=nullif(v_row->>'birthday','')::date; exception when others then raise exception using errcode='22023',message='invalid_client_import_birthday'; end;
+    begin v_last_visit:=nullif(v_row->>'last_visit_on','')::date; exception when others then raise exception using errcode='22023',message='invalid_client_import_last_visit'; end;
+    begin v_visit_count:=greatest(0,coalesce((v_row->>'visit_count')::integer,0)); exception when others then raise exception using errcode='22023',message='invalid_client_import_visit_count'; end;
+    begin v_total_spent:=greatest(0,coalesce((v_row->>'total_spent_rub')::integer,0)); exception when others then raise exception using errcode='22023',message='invalid_client_import_total_spent'; end;
+    v_marketing:=case when jsonb_typeof(v_row->'marketing_consent')='boolean' then (v_row->>'marketing_consent')::boolean else null end;
+    v_personal_data:=case when jsonb_typeof(v_row->'personal_data_consent')='boolean' then (v_row->>'personal_data_consent')::boolean else null end;
+    if v_phone!~'^7[0-9]{10}$' or char_length(v_name) not between 1 and 80
+       or char_length(v_display_phone) not between 10 and 24
+       or (v_email is not null and (char_length(v_email)>254 or v_email!~'^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'))
+       or char_length(coalesce(v_note,''))>1000 or char_length(coalesce(v_external_id,''))>120
+       or v_visit_count>1000000 or v_total_spent>2000000000 then
+      raise exception using errcode='22023',message='invalid_client_import_row';
+    end if;
+    if exists(select 1 from public.organization_imported_clients where organization_id=p_organization and normalized_phone=v_phone) then
+      v_updated:=v_updated+1;
+    else
+      v_created:=v_created+1;
+    end if;
+    insert into public.organization_imported_clients(
+      organization_id,normalized_phone,display_phone,client_name,email,birthday,note,source_system,
+      source_external_id,imported_visit_count,imported_total_spent_rub,imported_last_visit_on,
+      marketing_consent,personal_data_consent,last_import_batch_id,updated_at
+    ) values (
+      p_organization,v_phone,v_display_phone,v_name,v_email,v_birthday,v_note,v_source,
+      v_external_id,v_visit_count,v_total_spent,v_last_visit,v_marketing,v_personal_data,v_batch.id,now()
+    ) on conflict (organization_id,normalized_phone) do update set
+      display_phone=excluded.display_phone,client_name=excluded.client_name,
+      email=coalesce(excluded.email,public.organization_imported_clients.email),
+      birthday=coalesce(excluded.birthday,public.organization_imported_clients.birthday),
+      note=coalesce(excluded.note,public.organization_imported_clients.note),
+      source_system=excluded.source_system,
+      source_external_id=coalesce(excluded.source_external_id,public.organization_imported_clients.source_external_id),
+      imported_visit_count=greatest(public.organization_imported_clients.imported_visit_count,excluded.imported_visit_count),
+      imported_total_spent_rub=greatest(public.organization_imported_clients.imported_total_spent_rub,excluded.imported_total_spent_rub),
+      imported_last_visit_on=greatest(public.organization_imported_clients.imported_last_visit_on,excluded.imported_last_visit_on),
+      marketing_consent=coalesce(excluded.marketing_consent,public.organization_imported_clients.marketing_consent),
+      personal_data_consent=coalesce(excluded.personal_data_consent,public.organization_imported_clients.personal_data_consent),
+      last_import_batch_id=excluded.last_import_batch_id,updated_at=now();
+  end loop;
+  update public.client_import_batches set created_count=v_created,updated_count=v_updated where id=v_batch.id;
+  return jsonb_build_object('batch_id',v_batch.id,'input_count',v_count,
+    'created_count',v_created,'updated_count',v_updated,'idempotent',false);
+end $$;
+
+create or replace function public.get_minuta_imported_clients(p_organization uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $$
+declare v_role text;
+begin
+  select membership.role into v_role from public.organization_memberships membership
+  join public.organizations organization on organization.id=membership.organization_id and organization.status='active'
+  where membership.organization_id=p_organization and membership.user_id=auth.uid() and membership.active;
+  if v_role is null then raise exception using errcode='42501',message='client_import_membership_required'; end if;
+  return jsonb_build_object(
+    'organization_id',p_organization,'current_role',v_role,
+    'can_import',v_role in ('owner','admin'),
+    'clients',case when v_role in ('owner','admin') then coalesce((select jsonb_agg(jsonb_build_object(
+      'phone',entry.normalized_phone,'display_phone',entry.display_phone,'name',entry.client_name,
+      'email',entry.email,'birthday',entry.birthday,'note',entry.note,'source_system',entry.source_system,
+      'visit_count',entry.imported_visit_count,'total_spent_rub',entry.imported_total_spent_rub,
+      'last_visit_on',entry.imported_last_visit_on,'marketing_consent',entry.marketing_consent,
+      'personal_data_consent',entry.personal_data_consent,'updated_at',entry.updated_at
+    ) order by entry.updated_at desc,entry.id desc) from public.organization_imported_clients entry
+      where entry.organization_id=p_organization),'[]'::jsonb) else '[]'::jsonb end,
+    'recent_batches',case when v_role in ('owner','admin') then coalesce((select jsonb_agg(jsonb_build_object(
+      'id',batch.id,'source_system',batch.source_system,'input_count',batch.input_count,
+      'created_count',batch.created_count,'updated_count',batch.updated_count,'created_at',batch.created_at
+    ) order by batch.created_at desc,batch.id desc) from (
+      select * from public.client_import_batches where organization_id=p_organization order by created_at desc,id desc limit 10
+    ) batch),'[]'::jsonb) else '[]'::jsonb end
+  );
+end $$;
+
+revoke all on function public.import_minuta_clients(uuid,text,jsonb,uuid) from public,anon,authenticated,service_role;
+revoke all on function public.get_minuta_imported_clients(uuid) from public,anon,authenticated,service_role;
+grant execute on function public.import_minuta_clients(uuid,text,jsonb,uuid) to authenticated;
+grant execute on function public.get_minuta_imported_clients(uuid) to authenticated;
+
 commit;
