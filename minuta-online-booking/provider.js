@@ -1466,7 +1466,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=255#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=256#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2567,6 +2567,23 @@ function providerViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
   const requested = params.get('section') || params.get('view');
   return PROVIDER_VIEW_ORDER.includes(requested) ? requested : 'bookings';
+}
+
+function prepareProviderViewBeforeSession(view = providerViewFromLocation()) {
+  const safeView = PROVIDER_VIEW_ORDER.includes(view) ? view : 'bookings';
+  const dashboard = $('#dashboard');
+  if (dashboard) dashboard.dataset.activeView = safeView;
+  $$('[data-provider-view]').forEach(button => {
+    const active = button.dataset.providerView === safeView;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  $$('[data-provider-panel]').forEach(panel => {
+    const active = panel.dataset.providerPanel === safeView;
+    panel.hidden = !active;
+    panel.classList.toggle('active', active);
+  });
 }
 
 function syncProviderViewHistory(view, mode = 'push') {
@@ -7948,6 +7965,7 @@ new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attrib
 updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
+prepareProviderViewBeforeSession();
 db.auth.getSession().then(({ data, error }) => {
   if (error) { showProviderStartupFailure(); return; }
   return recoveryMode ? showRecoveryReset() : handleSession(data.session);
