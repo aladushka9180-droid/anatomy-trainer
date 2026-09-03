@@ -741,14 +741,24 @@ jobs:
           test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('cron.job') is not null;")" = "t"; then
             job_ids="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -At \
-              --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" \
-              -c "select jobid from cron.job where jobname='telegram-client-reminders-hourly' or command like '%' || :'production_ref' || '%';")"
+              --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" <<'SQL'
+          select jobid
+          from cron.job
+          where jobname='telegram-client-reminders-hourly'
+             or command like '%' || :'production_ref' || '%';
+          SQL
+            )"
             for job_id in $job_ids; do
               psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -c "select cron.unschedule($job_id);"
             done
             remaining="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -At \
-              --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" \
-              -c "select count(*) from cron.job where jobname='telegram-client-reminders-hourly' or command like '%' || :'production_ref' || '%';")"
+              --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" <<'SQL'
+          select count(*)
+          from cron.job
+          where jobname='telegram-client-reminders-hourly'
+             or command like '%' || :'production_ref' || '%';
+          SQL
+            )"
             test "$(tr -d '[:space:]' <<<"$remaining")" = "0"
           fi
 

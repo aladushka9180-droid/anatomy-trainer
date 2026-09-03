@@ -35,6 +35,15 @@ drop function if exists public.enforce_minuta_payroll_draft_children();
 drop function if exists public.write_minuta_payroll_audit(uuid,text,uuid,jsonb);
 drop function if exists public.get_minuta_payroll_role(uuid);
 
+drop policy if exists organization_payroll_settings_member_read on public.organization_payroll_settings;
+drop policy if exists payroll_plans_member_read on public.payroll_plans;
+drop policy if exists payroll_plan_tiers_member_read on public.payroll_plan_tiers;
+drop policy if exists payroll_periods_member_read on public.payroll_periods;
+drop policy if exists payroll_period_snapshots_member_read on public.payroll_period_plan_snapshots;
+drop policy if exists payroll_items_member_read on public.payroll_items;
+drop policy if exists payroll_adjustments_member_read on public.payroll_adjustments;
+drop policy if exists payroll_audit_manager_read on public.payroll_audit_log;
+
 drop table if exists public.payroll_audit_log;
 drop table if exists public.payroll_adjustments;
 drop table if exists public.payroll_items;
