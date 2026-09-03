@@ -64,9 +64,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes postgresql-client-17
 
-      - name: Экспортировать только public-схему без данных
+      - name: Собрать безопасный public schema-only SQL без данных и production-вебхуков
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
         shell: bash
         run: |
           set -euo pipefail
@@ -74,8 +75,13 @@ jobs:
           production_url="${SUPABASE_DB_URL/:6543/:5432}"
           archive="$RUNNER_TEMP/minuta-production-public-schema.dump"
           toc="$RUNNER_TEMP/minuta-production-public-schema.toc"
-          checksum="$RUNNER_TEMP/minuta-production-public-schema.dump.sha256"
+          filtered_toc="$RUNNER_TEMP/minuta-production-public-schema.filtered.toc"
+          next_toc="$RUNNER_TEMP/minuta-production-public-schema.next.toc"
+          external_triggers="$RUNNER_TEMP/minuta-production-external-triggers.tsv"
+          schema_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
+          checksum="$RUNNER_TEMP/minuta-production-public-schema.sql.sha256"
           metadata="$RUNNER_TEMP/minuta-production-public-schema.meta"
+          trap 'rm -f "$archive" "$toc" "$filtered_toc" "$next_toc" "$external_triggers"' EXIT
 
           PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5s' \
             /usr/lib/postgresql/17/bin/pg_dump \
@@ -98,23 +104,66 @@ jobs:
             echo "Schema-only архив содержит расширение вне allowlist" >&2
             exit 1
           fi
-          archive_entries="$(awk '!/^;/ && NF { count++ } END { print count + 0 }' "$toc")"
-          test "$archive_entries" -gt 0
-          archive_hash="$(sha256sum "$archive" | awk '{print $1}')"
-          printf '%s  %s\n' "$archive_hash" "$(basename "$archive")" > "$checksum"
+          PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5s' \
+            /usr/lib/postgresql/17/bin/psql "$production_url" \
+              --set=ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=$'\t' \
+              > "$external_triggers" <<'SQL'
+          select relation.relname, trigger_info.tgname
+          from pg_trigger trigger_info
+          join pg_class relation on relation.oid=trigger_info.tgrelid
+          join pg_namespace relation_schema on relation_schema.oid=relation.relnamespace
+          join pg_proc handler on handler.oid=trigger_info.tgfoid
+          join pg_namespace handler_schema on handler_schema.oid=handler.pronamespace
+          where relation_schema.nspname='public'
+            and handler_schema.nspname <> 'public'
+            and not trigger_info.tgisinternal
+          order by relation.relname, trigger_info.tgname;
+          SQL
+          cp "$toc" "$filtered_toc"
+          while IFS=$'\t' read -r table_name trigger_name; do
+            test -n "$table_name"
+            test -n "$trigger_name"
+            awk -v needle=" TRIGGER public $table_name $trigger_name " '
+              index($0, needle) { print ";" $0; found=1; next }
+              { print }
+              END { if (!found) exit 4 }
+            ' "$filtered_toc" > "$next_toc"
+            mv "$next_toc" "$filtered_toc"
+          done < "$external_triggers"
+          /usr/lib/postgresql/17/bin/pg_restore \
+            --use-list="$filtered_toc" \
+            --no-owner \
+            --schema=public \
+            --file="$schema_sql" \
+            "$archive"
+          test -s "$schema_sql"
+          if grep -Eiq '(^|[^a-z0-9_])supabase_functions([^a-z0-9_]|$)|new_booking_telegram' "$schema_sql" \
+            || grep -Fqi "$MINUTA_PRODUCTION_PROJECT_REF" "$schema_sql"; then
+            echo "Безопасный schema-only SQL содержит production-вебхук или production ref" >&2
+            exit 1
+          fi
+          if grep -Eq '^(COPY|INSERT INTO)[[:space:]]' "$schema_sql"; then
+            echo "Безопасный schema-only SQL содержит данные" >&2
+            exit 1
+          fi
+          schema_entries="$(awk '!/^;/ && NF { count++ } END { print count + 0 }' "$filtered_toc")"
+          test "$schema_entries" -gt 0
+          schema_hash="$(sha256sum "$schema_sql" | awk '{print $1}')"
+          printf '%s  %s\n' "$schema_hash" "$(basename "$schema_sql")" > "$checksum"
           {
             echo "client_version=$(/usr/lib/postgresql/17/bin/pg_dump --version)"
             echo "server_version=$(/usr/lib/postgresql/17/bin/psql "$production_url" -X -Atc 'show server_version')"
-            echo "archive_entries=$archive_entries"
+            echo "schema_entries=$schema_entries"
+            echo "excluded_external_triggers=$(wc -l < "$external_triggers" | tr -d '[:space:]')"
           } > "$metadata"
 
-      - name: Передать schema-only архив изолированному test-job
+      - name: Передать безопасный schema-only SQL изолированному test-job
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: minuta-production-schema-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/minuta-production-public-schema.dump
-            ${{ runner.temp }}/minuta-production-public-schema.dump.sha256
+            ${{ runner.temp }}/minuta-production-public-schema.sql
+            ${{ runner.temp }}/minuta-production-public-schema.sql.sha256
             ${{ runner.temp }}/minuta-production-public-schema.meta
           if-no-files-found: error
           retention-days: 1
@@ -171,8 +220,13 @@ jobs:
           test -n "$BACKUP_ENCRYPTION_PASSWORD"
           node minuta-online-booking/scripts/migration-config-guard.mjs
           cd "$RUNNER_TEMP/production-schema"
-          sha256sum --check minuta-production-public-schema.dump.sha256
-          /usr/lib/postgresql/17/bin/pg_restore --list minuta-production-public-schema.dump >/dev/null
+          sha256sum --check minuta-production-public-schema.sql.sha256
+          test -s minuta-production-public-schema.sql
+          if grep -Eiq '(^|[^a-z0-9_])supabase_functions([^a-z0-9_]|$)|new_booking_telegram' minuta-production-public-schema.sql \
+            || grep -Fqi "$MINUTA_PRODUCTION_PROJECT_REF" minuta-production-public-schema.sql; then
+            echo "Полученный schema-only SQL содержит production-вебхук или production ref" >&2
+            exit 1
+          fi
 
           test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           guard_count="$(/usr/lib/postgresql/17/bin/psql "$test_url" \
@@ -232,7 +286,7 @@ jobs:
         run: |
           set -euo pipefail
           test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
-          archive="$RUNNER_TEMP/production-schema/minuta-production-public-schema.dump"
+          production_sql="$RUNNER_TEMP/production-schema/minuta-production-public-schema.sql"
 
           guard_count="$(/usr/lib/postgresql/17/bin/psql "$test_url" \
             --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
@@ -259,13 +313,7 @@ jobs:
           $jobs$;
           SQL
 
-          production_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
           reset_sql="$RUNNER_TEMP/minuta-test-public-reset.sql"
-          /usr/lib/postgresql/17/bin/pg_restore \
-            --no-owner \
-            --schema=public \
-            --file="$production_sql" \
-            "$archive"
           {
             echo '\set ON_ERROR_STOP on'
             echo 'begin;'
@@ -401,7 +449,13 @@ jobs:
               )
               and exists (select 1 from pg_extension where extname='pg_cron')
               and exists (select 1 from pg_extension where extname='pg_net')
-              and exists (select 1 from pg_extension where extname='btree_gist')
+              and exists (
+                select 1
+                from pg_extension extension_info
+                join pg_namespace extension_schema on extension_schema.oid=extension_info.extnamespace
+                where extension_info.extname='btree_gist'
+                  and extension_schema.nspname='public'
+              )
               and exists (
                 select 1
                 from pg_event_trigger event_trigger
@@ -415,10 +469,18 @@ jobs:
                   and handler_schema.nspname='public'
                   and handler.proname='rls_auto_enable'
               )
-              and (select count(*) from pg_trigger t join pg_proc p on p.oid=t.tgfoid
-                   where t.tgrelid='auth.users'::regclass and not t.tgisinternal
-                     and pg_get_functiondef(p.oid) ilike '%performer_profiles%'
-                     and position(' WHEN ' in upper(pg_get_triggerdef(t.oid,true)))=0) = 1
+              and (select count(*)
+                   from pg_trigger trigger_info
+                   join pg_proc handler on handler.oid=trigger_info.tgfoid
+                   join pg_namespace handler_schema on handler_schema.oid=handler.pronamespace
+                   where trigger_info.tgrelid='auth.users'::regclass
+                     and trigger_info.tgname='on_auth_user_created'
+                     and not trigger_info.tgisinternal
+                     and trigger_info.tgenabled='O'
+                     and trigger_info.tgtype=5
+                     and trigger_info.tgqual is null
+                     and handler_schema.nspname='public'
+                     and handler.proname='handle_new_performer') = 1
               and not exists (
                 select 1 from cron.job
                 where jobname='telegram-client-reminders-hourly'
