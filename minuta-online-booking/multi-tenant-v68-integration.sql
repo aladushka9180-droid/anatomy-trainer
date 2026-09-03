@@ -111,7 +111,7 @@ select set_config(
   coalesce((
     select jsonb_agg(to_jsonb(candidate) order by candidate.booking_date, candidate.booking_time)::text
     from (
-      select distinct on (available.booking_date, available.booking_time)
+      select distinct on (available.booking_date)
         service.id as service_id, available.booking_date, available.booking_time
       from lateral (
           select candidate.id

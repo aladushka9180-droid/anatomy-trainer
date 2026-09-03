@@ -5,7 +5,7 @@
   "production_applied": false,
   "transaction_rolled_back": true,
   "migration_sha256": "4e736ca5dbb644a5dd303d106549f3d42629e33bcfaef81d379e67bf272313bb",
-  "integration_sha256": "3f3355f5d24c2a7491205fc5adad1dfacc3eafbeb65d1546c3e5f93169fd20a5",
+  "integration_sha256": "1aab13ce94d9c8f6ca6d5c64a1a62513e1a5ed879fe5b410273bf8fd240ab60e",
   "rollback_sha256": "0130dcd202b60209ed6fd60f14aae57ec972f40337d3f7413b88f501f9c37f21",
   "trial_result": {
     "bookings": 44,
