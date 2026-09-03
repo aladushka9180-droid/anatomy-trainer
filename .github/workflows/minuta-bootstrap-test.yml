@@ -257,21 +257,6 @@ jobs:
             end if;
           end
           $jobs$;
-          do $triggers$
-          declare trigger_row record;
-          begin
-            for trigger_row in
-              select trigger_info.tgname
-              from pg_trigger trigger_info
-              join pg_proc handler on handler.oid=trigger_info.tgfoid
-              where trigger_info.tgrelid='auth.users'::regclass
-                and not trigger_info.tgisinternal
-                and pg_get_functiondef(handler.oid) ilike '%performer_profiles%'
-            loop
-              execute format('drop trigger %I on auth.users', trigger_row.tgname);
-            end loop;
-          end
-          $triggers$;
           SQL
 
           production_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
@@ -286,7 +271,18 @@ jobs:
             echo 'begin;'
             echo 'drop schema if exists public cascade;'
             echo 'create schema public authorization pg_database_owner;'
+            echo 'create extension btree_gist with schema public;'
             cat "$production_sql"
+            cat <<'SQL'
+          create event trigger ensure_rls
+          on ddl_command_end
+          when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+          execute function public.rls_auto_enable();
+          alter event trigger ensure_rls enable;
+          create trigger on_auth_user_created
+          after insert on auth.users
+          for each row execute function public.handle_new_performer();
+          SQL
             echo 'commit;'
           } > "$reset_sql"
           /usr/lib/postgresql/17/bin/psql "$test_url" \
@@ -306,7 +302,11 @@ jobs:
             --no-subscriptions \
             --no-blobs \
             --file="$test_archive"
-          /usr/lib/postgresql/17/bin/pg_restore --file="$test_sql" "$test_archive"
+          /usr/lib/postgresql/17/bin/pg_restore \
+            --no-owner \
+            --schema=public \
+            --file="$test_sql" \
+            "$test_archive"
           sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$production_sql" \
             > "$production_sql.normalized"
           sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$test_sql" \
@@ -328,25 +328,6 @@ jobs:
             end if;
           end
           $empty$;
-
-          do $triggers$
-          declare trigger_row record;
-          begin
-            for trigger_row in
-              select trigger_info.tgname
-              from pg_trigger trigger_info
-              join pg_proc handler on handler.oid=trigger_info.tgfoid
-              where trigger_info.tgrelid='auth.users'::regclass
-                and not trigger_info.tgisinternal
-                and pg_get_functiondef(handler.oid) ilike '%performer_profiles%'
-            loop
-              execute format('drop trigger %I on auth.users', trigger_row.tgname);
-            end loop;
-          end
-          $triggers$;
-          create trigger on_auth_user_created
-          after insert on auth.users
-          for each row execute function public.handle_new_performer();
 
           delete from auth.users
           where id='abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f'
@@ -421,6 +402,19 @@ jobs:
               and exists (select 1 from pg_extension where extname='pg_cron')
               and exists (select 1 from pg_extension where extname='pg_net')
               and exists (select 1 from pg_extension where extname='btree_gist')
+              and exists (
+                select 1
+                from pg_event_trigger event_trigger
+                join pg_proc handler on handler.oid=event_trigger.evtfoid
+                join pg_namespace handler_schema on handler_schema.oid=handler.pronamespace
+                where event_trigger.evtname='ensure_rls'
+                  and event_trigger.evtevent='ddl_command_end'
+                  and event_trigger.evtenabled='O'
+                  and event_trigger.evttags @> array['CREATE TABLE','CREATE TABLE AS','SELECT INTO']::text[]
+                  and cardinality(event_trigger.evttags)=3
+                  and handler_schema.nspname='public'
+                  and handler.proname='rls_auto_enable'
+              )
               and (select count(*) from pg_trigger t join pg_proc p on p.oid=t.tgfoid
                    where t.tgrelid='auth.users'::regclass and not t.tgisinternal
                      and pg_get_functiondef(p.oid) ilike '%performer_profiles%'
