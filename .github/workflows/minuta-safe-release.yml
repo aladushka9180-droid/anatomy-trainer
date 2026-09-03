@@ -115,6 +115,7 @@ jobs:
           node --check minuta-online-booking/client-import-v95-static-test.mjs
           node --check minuta-online-booking/employee-analytics-v97-static-test.mjs
           node --check minuta-online-booking/historical-bookings-v98-static-test.mjs
+          node --check minuta-online-booking/booking-history-import-v99-static-test.mjs
           node --check minuta-online-booking/client-import.js
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
@@ -176,6 +177,7 @@ jobs:
           node minuta-online-booking/client-import-v95-static-test.mjs
           node minuta-online-booking/employee-analytics-v97-static-test.mjs
           node minuta-online-booking/historical-bookings-v98-static-test.mjs
+          node minuta-online-booking/booking-history-import-v99-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -582,6 +584,11 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v97.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v98.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v98.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v99.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v99.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_imported_booking_history') is not null and to_regclass('public.booking_history_import_batches') is not null and to_regprocedure('public.import_minuta_booking_history(uuid,jsonb,uuid,text)') is not null and to_regprocedure('public.get_minuta_imported_booking_history(uuid,integer,integer)') is not null and has_function_privilege('authenticated','public.import_minuta_booking_history(uuid,jsonb,uuid,text)','EXECUTE') and not has_function_privilege('anon','public.import_minuta_booking_history(uuid,jsonb,uuid,text)','EXECUTE') and not has_table_privilege('authenticated','public.organization_imported_booking_history','SELECT,INSERT,UPDATE,DELETE');" \
+            | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is not null and has_function_privilege('authenticated','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE');" \
             | grep -qx t
@@ -602,6 +609,7 @@ jobs:
             "select (select count(*)=3 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role')) and to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and has_function_privilege('authenticated','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and to_regprocedure('public.get_minuta_booking_events_v97(uuid,date,date,integer,integer)') is not null and exists(select 1 from pg_constraint c where c.conname='booking_events_booking_id_fkey' and c.conrelid='public.booking_events'::regclass and c.confrelid='public.bookings'::regclass and c.contype='f' and c.confdeltype='n' and c.convalidated and array_length(c.conkey,1)=1 and array_length(c.confkey,1)=1 and (select a.attname from pg_attribute a where a.attrelid=c.conrelid and a.attnum=c.conkey[1])='booking_id' and (select a.attname from pg_attribute a where a.attrelid=c.confrelid and a.attnum=c.confkey[1])='id') and (select count(*)=3 from information_schema.columns where table_schema='public' and table_name='booking_events' and column_name in ('client_name_snapshot','service_name_snapshot','performer_name_snapshot')) and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='bookings_performer_date_time_v94_idx' and i.indisvalid and i.indisready) and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_events_scope_previous_date_v96_idx' and i.indisvalid and i.indisready) and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_outcomes_completed_performer_v97_idx' and i.indisvalid and i.indisready);" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-booking-history-import-v99.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-historical-bookings-v98.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-employee-analytics-v97.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-client-import-v95.sql
@@ -1207,6 +1215,9 @@ jobs:
           case "$v95_layer_state" in absent|legacy|repairable) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v95.sql;; complete) echo "v95 paginated client import already exists; preserving imported clients";; *) echo "Partial or incompatible v95 client import detected; refusing production migration" >&2; exit 1;; esac
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v97.sql
           psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v98.sql
+          v99_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select case when to_regclass('public.organization_imported_booking_history') is null and to_regclass('public.booking_history_import_batches') is null and to_regprocedure('public.import_minuta_booking_history(uuid,jsonb,uuid,text)') is null and to_regprocedure('public.get_minuta_imported_booking_history(uuid,integer,integer)') is null then 'absent' when to_regclass('public.organization_imported_booking_history') is not null and to_regclass('public.booking_history_import_batches') is not null and to_regprocedure('public.import_minuta_booking_history(uuid,jsonb,uuid,text)') is not null and to_regprocedure('public.get_minuta_imported_booking_history(uuid,integer,integer)') is not null then 'complete' else 'partial' end")"
+          case "$v99_layer_state" in absent|complete) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v99.sql;; *) echo "Partial v99 booking history import layer detected; refusing production migration" >&2; exit 1;; esac
           migration_guard="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -F= -Atc \
             "with checks(name,ok) as (values
               ('analytics_guard',(select count(*)=3 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role')) and to_regprocedure('public.get_minuta_team_analytics(date,date)') is not null and to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and has_function_privilege('authenticated','public.get_minuta_team_analytics(uuid,date,date)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_analytics(uuid,date,date)','EXECUTE') and exists(select 1 from pg_constraint c where c.conname='bookings_created_by_user_id_fkey' and c.conrelid='public.bookings'::regclass and c.confrelid='auth.users'::regclass and c.contype='f' and c.confdeltype='n' and c.convalidated and array_length(c.conkey,1)=1 and array_length(c.confkey,1)=1 and (select a.attname from pg_attribute a where a.attrelid=c.conrelid and a.attnum=c.conkey[1])='created_by_user_id' and (select a.attname from pg_attribute a where a.attrelid=c.confrelid and a.attnum=c.confkey[1])='id')),

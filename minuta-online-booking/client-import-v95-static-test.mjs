@@ -43,7 +43,7 @@ assert.match(clientImport, /const IMPORT_BATCH_SIZE = 500/);
 assert.match(clientImport, /preview\.rows\.slice\(offset, offset \+ IMPORT_BATCH_SIZE\)/);
 assert.match(provider, /importedClients\.forEach/);
 assert.match(provider, /clientImportController\.setOrganization\(organization\)/);
-assert.match(html, /id="clientImportPanel"[\s\S]*Импорт клиентов[\s\S]*id="clientImportFile"[\s\S]*id="clientImportMapping"[\s\S]*client-import\.js\?v=\d+/);
+assert.match(html, /id="clientImportPanel"[\s\S]*<strong>Импорт<\/strong>[\s\S]*id="clientImportFile"[\s\S]*id="clientImportMapping"[\s\S]*client-import\.js\?v=\d+/);
 assert.match(html, /accept="[^"]*\.xls,[^"]*\.xlsx/);
 assert.match(html, /vendor\/xlsx-0\.20\.3\.full\.min\.js" integrity="sha384-EnyY0\/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP\+39Ckmn92stwABZynq1JyzdT"/);
 assert.doesNotMatch(html, /id="clientImportSource"/);

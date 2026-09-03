@@ -17,6 +17,7 @@
   });
   const IMPORT_BATCH_SIZE = 500;
   const IMPORT_MAX_ROWS = 20000;
+  const HISTORY_MAX_ROWS = 20000;
 
   function uuid() {
     if (global.crypto?.randomUUID) return global.crypto.randomUUID();
@@ -132,13 +133,16 @@
     return { rows, invalid, duplicateCount:Math.max(0, table.length - 1 - invalid.length - rows.length), headers };
   }
 
-  function parseSpreadsheet(bytes) {
+  function readWorkbook(bytes) {
     if (!global.XLSX?.read || !global.XLSX?.utils?.sheet_to_json) {
       throw new Error('Модуль чтения Excel не загрузился. Обновите страницу и попробуйте снова.');
     }
-    let workbook;
-    try { workbook = global.XLSX.read(bytes, { type:'array', dense:true, cellDates:false }); }
+    try { return global.XLSX.read(bytes, { type:'array', dense:false, cellDates:false }); }
     catch { throw new Error('Не удалось прочитать файл Excel. Возможно, файл повреждён или защищён паролем.'); }
+  }
+
+  function parseSpreadsheet(bytes) {
+    const workbook = readWorkbook(bytes);
     const sheetName = workbook.SheetNames?.[0];
     if (!sheetName || !workbook.Sheets?.[sheetName]) throw new Error('В файле Excel нет доступных листов.');
     const rows = global.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
@@ -147,15 +151,91 @@
     return rows.map(row => row.map(value => String(value ?? '').trim()));
   }
 
+  function journalDate(sheetName) {
+    const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(sheetName || '').trim());
+    if (!match) return '';
+    const value = `${match[3]}-${match[2]}-${match[1]}`;
+    const date = new Date(`${value}T12:00:00`);
+    return Number.isNaN(date.getTime()) || date.getFullYear() !== Number(match[3]) || date.getMonth() + 1 !== Number(match[2]) || date.getDate() !== Number(match[1]) ? '' : value;
+  }
+
+  function minutesFromClock(value) {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || '').trim());
+    if (!match) return -1;
+    const minutes = Number(match[1]) * 60 + Number(match[2]);
+    return Number(match[1]) < 24 && Number(match[2]) < 60 ? minutes : -1;
+  }
+
+  function splitJournalService(value) {
+    const raw = String(value || '').trim().replace(/\s+/g, ' ');
+    const match = /^(.*?)(?:\s+((?:по|по подарочному|подарочный)\s+сертификат(?:у)?(?:\s+\S+)?|беру\s+.+))$/i.exec(raw);
+    return { service:(match?.[1] || raw).trim().slice(0, 400), note:(match?.[2] || '').trim().slice(0, 1000) };
+  }
+
+  function parseBookingJournalWorkbook(workbook, options = {}) {
+    const today = String(options.today || new Date().toLocaleDateString('en-CA'));
+    const nowMinutes = Number.isInteger(options.nowMinutes) ? options.nowMinutes : new Date().getHours() * 60 + new Date().getMinutes();
+    const records = new Map();
+    let candidateCount = 0;
+    let futureCount = 0;
+    let invalidCount = 0;
+    const providers = new Set();
+    (workbook.SheetNames || []).forEach(sheetName => {
+      const date = journalDate(sheetName);
+      if (!date) return;
+      const sheet = workbook.Sheets?.[sheetName];
+      if (!sheet) return;
+      Object.entries(sheet).forEach(([address, cell]) => {
+        if (address.startsWith('!') || /^[A-Z]+1$/.test(address) || /^A\d+$/.test(address)) return;
+        const lines = String(cell?.w ?? cell?.v ?? '').split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+        if (lines.length < 4) return;
+        candidateCount += 1;
+        const timeMatch = /^(\d{1,2}:\d{2})\s*[–—-]\s*(\d{1,2}:\d{2})(?:\s*\(([\d\s]+)\s*(?:RUB|РУБ\.?|₽)\))?/i.exec(lines[0]);
+        const startMinutes = minutesFromClock(timeMatch?.[1]);
+        const endMinutes = minutesFromClock(timeMatch?.[2]);
+        const phone = normalizePhone(lines[2]);
+        const name = String(lines[1] || '').trim().slice(0, 80);
+        if (!timeMatch || startMinutes < 0 || endMinutes <= startMinutes || endMinutes - startMinutes > 480 || !phone || name.length < 2) { invalidCount += 1; return; }
+        if (date > today || date === today && endMinutes > nowMinutes) { futureCount += 1; return; }
+        const column = /^[A-Z]+/.exec(address)?.[0] || 'B';
+        const provider = String(sheet[`${column}1`]?.w ?? sheet[`${column}1`]?.v ?? '').trim().slice(0, 120);
+        const serviceParts = splitJournalService(lines.slice(3).join(' '));
+        if (!serviceParts.service) { invalidCount += 1; return; }
+        if (provider) providers.add(provider);
+        const price = Math.max(0, Math.min(10000000, Number(String(timeMatch[3] || '0').replace(/\s/g, '')) || 0));
+        const key = [date,timeMatch[1],endMinutes - startMinutes,phone,serviceParts.service.toLowerCase(),provider.toLowerCase()].join('|');
+        records.set(key, {
+          booking_date:date,booking_time:`${timeMatch[1].padStart(5, '0')}:00`,duration_minutes:endMinutes - startMinutes,
+          client_name:name,phone,display_phone:lines[2].slice(0, 24),service_name:serviceParts.service,
+          source_note:serviceParts.note,source_provider_name:provider,price_rub:price,source_sheet:String(sheetName).slice(0, 80)
+        });
+      });
+    });
+    const rows = [...records.values()].sort((a, b) => `${a.booking_date}${a.booking_time}${a.phone}`.localeCompare(`${b.booking_date}${b.booking_time}${b.phone}`));
+    if (!candidateCount) return null;
+    if (!rows.length) throw new Error(futureCount ? 'В журнале нет завершённых записей: найденные записи ещё не состоялись.' : 'В журнале не найдено записей с корректными датой, именем и телефоном.');
+    if (rows.length > HISTORY_MAX_ROWS) throw new Error(`За один раз можно импортировать не больше ${HISTORY_MAX_ROWS} записей.`);
+    return { kind:'history',rows,futureCount,invalidCount,duplicateCount:Math.max(0,candidateCount - futureCount - invalidCount - rows.length),providers:[...providers] };
+  }
+
   async function decodeFile(file) {
     if (!file || file.size < 1) throw new Error('Выберите непустой файл с клиентами.');
     if (file.size > 12 * 1024 * 1024) throw new Error('Файл должен быть не больше 12 МБ.');
     if (!/\.(csv|tsv|txt|xls|xlsx)$/i.test(file.name)) throw new Error('Поддерживаются XLS, XLSX, CSV, TSV и TXT.');
     const bytes = await file.arrayBuffer();
-    if (/\.xlsx?$/i.test(file.name)) return parseSpreadsheet(new Uint8Array(bytes));
+    if (/\.xlsx?$/i.test(file.name)) {
+      const workbook = readWorkbook(new Uint8Array(bytes));
+      const history = parseBookingJournalWorkbook(workbook);
+      if (history) return { ...history, fileName:file.name };
+      const sheetName = workbook.SheetNames?.[0];
+      if (!sheetName || !workbook.Sheets?.[sheetName]) throw new Error('В файле Excel нет доступных листов.');
+      const table = global.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header:1,raw:false,defval:'',blankrows:false })
+        .map(row => row.map(value => String(value ?? '').trim()));
+      return { kind:'clients',table,fileName:file.name };
+    }
     let text = new TextDecoder('utf-8', { fatal:false }).decode(bytes);
     if (text.includes('\ufffd')) text = new TextDecoder('windows-1251').decode(bytes);
-    return parseDelimited(text);
+    return { kind:'clients',table:parseDelimited(text),fileName:file.name };
   }
 
   function createController(options = {}) {
@@ -175,7 +255,10 @@
       const history = $('#clientImportHistory');
       if (history && supported()) {
         const batches = Array.isArray(workspace.recent_batches) ? workspace.recent_batches : [];
-        history.textContent = batches.length ? `Последний импорт: ${new Date(batches[0].created_at).toLocaleString('ru-RU')} · ${batches[0].input_count} клиентов` : 'Импортов пока не было';
+        const importedSummary = workspace.history_summary;
+        history.textContent = Number(importedSummary?.visit_count || 0)
+          ? `История загружена: ${Number(importedSummary.visit_count).toLocaleString('ru-RU')} записей · ${Number(importedSummary.total_price_rub || 0).toLocaleString('ru-RU')} ₽ по журналу`
+          : batches.length ? `Последний импорт: ${new Date(batches[0].created_at).toLocaleString('ru-RU')} · ${batches[0].input_count} клиентов` : 'Импортов пока не было';
       }
     }
 
@@ -185,7 +268,7 @@
       pendingTable = null;
       $('#clientImportPreview')?.setAttribute('hidden','');
       $('#clientImportMapping')?.setAttribute('hidden','');
-      if (!organization?.id || !navigator.onLine) { workspace = null; onLoaded?.([]); render(); return { ok:true,optional:true,skipped:true }; }
+      if (!organization?.id || !navigator.onLine) { workspace = null; onLoaded?.([], []); render(); return { ok:true,optional:true,skipped:true }; }
       const clients = [];
       const pageSize = 1000;
       const maxClients = 100000;
@@ -203,9 +286,21 @@
         if (!payload?.has_more) break;
         if (clients.length >= maxClients) { error = new Error('Слишком большой объём клиентской базы'); break; }
       }
-      if (error) { workspace = null; onLoaded?.([]); render(); return { ok:false,optional:true }; }
-      workspace = { ...(payload || {}), clients };
-      onLoaded?.(clients);
+      if (error) { workspace = null; onLoaded?.([], []); render(); return { ok:false,optional:true }; }
+      let historyPayload = null;
+      const historyRows = [];
+      for (let offset = 0; offset <= 100000; offset += pageSize) {
+        const response = await db.rpc('get_minuta_imported_booking_history', { p_organization:organization.id,p_limit:pageSize,p_offset:offset });
+        if (response.error) {
+          if (response.error.code === 'PGRST202' || /could not find.*get_minuta_imported_booking_history|function .* does not exist/i.test(response.error.message || '')) break;
+          historyPayload = null; historyRows.length = 0; break;
+        }
+        historyPayload = response.data || {};
+        historyRows.push(...(Array.isArray(historyPayload.rows) ? historyPayload.rows : []));
+        if (!historyPayload.has_more) break;
+      }
+      workspace = { ...(payload || {}), clients,history_rows:historyRows,history_summary:historyPayload?.summary || null };
+      onLoaded?.(clients, historyRows, workspace.history_summary);
       render();
       return { ok:true,optional:true };
     }
@@ -218,8 +313,18 @@
     function renderPreview(nextPreview) {
       preview = nextPreview;
       const sample = preview.rows.slice(0, 5);
-      $('#clientImportPreviewList').innerHTML = sample.map(item => `<li><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.display_phone)}</span></li>`).join('');
-      $('#clientImportPreviewSummary').textContent = `${preview.rows.length} клиентов готово${preview.duplicateCount ? ` · дублей в файле: ${preview.duplicateCount}` : ''}${preview.invalid.length ? ` · пропущено строк: ${preview.invalid.length}` : ''}`;
+      if (preview.kind === 'history') {
+        const price = preview.rows.reduce((sum, item) => sum + Number(item.price_rub || 0), 0);
+        const first = preview.rows[0]?.booking_date;
+        const last = preview.rows.at(-1)?.booking_date;
+        $('#clientImportPreviewList').innerHTML = sample.map(item => `<li><strong>${escapeHtml(item.client_name)} · ${escapeHtml(item.service_name)}</strong><span>${escapeHtml(new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU'))} · ${escapeHtml(String(item.booking_time).slice(0,5))}</span></li>`).join('');
+        $('#clientImportPreviewSummary').textContent = `${preview.rows.length} записей готово · ${price.toLocaleString('ru-RU')} ₽ по журналу${first && last ? ` · ${new Date(`${first}T12:00:00`).toLocaleDateString('ru-RU')}–${new Date(`${last}T12:00:00`).toLocaleDateString('ru-RU')}` : ''}${preview.duplicateCount ? ` · дублей пропущено: ${preview.duplicateCount}` : ''}${preview.futureCount ? ` · будущих записей не перенесено: ${preview.futureCount}` : ''}`;
+        $('#clientImportSubmit').textContent = 'Импортировать историю';
+      } else {
+        $('#clientImportPreviewList').innerHTML = sample.map(item => `<li><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.display_phone)}</span></li>`).join('');
+        $('#clientImportPreviewSummary').textContent = `${preview.rows.length} клиентов готово${preview.duplicateCount ? ` · дублей в файле: ${preview.duplicateCount}` : ''}${preview.invalid.length ? ` · пропущено строк: ${preview.invalid.length}` : ''}`;
+        $('#clientImportSubmit').textContent = 'Импортировать клиентов';
+      }
       $('#clientImportPreview').hidden = false;
       hideMapping();
     }
@@ -249,10 +354,12 @@
 
     async function chooseFile(file) {
       try {
-        pendingTable = await decodeFile(file);
-        const { indexes } = detectedIndexes(pendingTable);
+        const decoded = await decodeFile(file);
         preview = null;
         $('#clientImportPreview').hidden = true;
+        if (decoded.kind === 'history') { pendingTable = null; renderPreview(decoded); return; }
+        pendingTable = decoded.table;
+        const { indexes } = detectedIndexes(pendingTable);
         if (pendingTable.length < 2) throw new Error('В файле нет строк клиентов.');
         if (indexes.name < 0 || indexes.phone < 0) { showMapping(pendingTable); return; }
         renderPreview(mapRows(pendingTable));
@@ -279,16 +386,15 @@
         for (let offset = 0; offset < totalCount; offset += IMPORT_BATCH_SIZE) {
           const batch = preview.rows.slice(offset, offset + IMPORT_BATCH_SIZE);
           button.textContent = `Импортируем ${Math.min(offset + batch.length, totalCount)} из ${totalCount}`;
-          const { data, error } = await db.rpc('import_minuta_clients', {
-            p_organization:organization.id,p_source_system:'other',
-            p_rows:batch,p_request_id:uuid()
-          });
+          const { data, error } = preview.kind === 'history'
+            ? await db.rpc('import_minuta_booking_history', { p_organization:organization.id,p_rows:batch,p_request_id:uuid(),p_source_file:preview.fileName || 'journal.xls' })
+            : await db.rpc('import_minuta_clients', { p_organization:organization.id,p_source_system:'other',p_rows:batch,p_request_id:uuid() });
           if (error) throw error;
           processedCount += batch.length;
           createdCount += Number(data?.created_count || 0);
-          updatedCount += Number(data?.updated_count || 0);
+          updatedCount += Number(data?.updated_count || data?.duplicate_count || 0);
         }
-        notify(`Импортировано: ${createdCount} новых, ${updatedCount} обновлено`);
+        notify(preview.kind === 'history' ? `История загружена: ${createdCount} записей${updatedCount ? `, ${updatedCount} дублей пропущено` : ''}` : `Импортировано: ${createdCount} новых, ${updatedCount} обновлено`);
         $('#clientImportForm').reset();
         pendingTable = null;
         preview = null;
@@ -314,9 +420,9 @@
 
     return {
       bind, load,
-      setOrganization(next) { organization = next || null; workspace = null; onLoaded?.([]); render(); void load(); }
+      setOrganization(next) { organization = next || null; workspace = null; onLoaded?.([], []); render(); void load(); }
     };
   }
 
-  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, parseSpreadsheet, mapRows, normalizePhone });
+  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, parseSpreadsheet, parseBookingJournalWorkbook, mapRows, normalizePhone });
 })(window);

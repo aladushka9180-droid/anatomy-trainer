@@ -181,6 +181,7 @@ let clientNotes = new Map();
 let clientLabels = new Map();
 let clientAvatars = new Map();
 let importedClients = [];
+let importedBookingHistory = [];
 let clientAvatarsRemoteAvailable = false;
 let pendingClientLabels = new Set();
 let clientLabelReasonTimer = null;
@@ -1509,7 +1510,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=271#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=272#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1591,6 +1592,7 @@ function bookingIsCompleted(item) {
   return new Date(start.getTime() + Number(item.duration_minutes || item.services?.duration_minutes || 60) * 60000) < new Date();
 }
 function bookingStatus(item, long = false) {
+  if (item?.is_imported_history) return long ? 'Импортировано из прежнего журнала' : 'Импортировано';
   if (item.status === 'cancelled') return long ? 'Запись отменена' : 'Отменена';
   if (isScheduleBlock(item)) return long ? 'Время занято' : 'Занято';
   const outcome = bookingOutcome(item);
@@ -1601,6 +1603,7 @@ function bookingStatus(item, long = false) {
   return long ? 'Новая запись' : 'Новая';
 }
 function bookingStatusClass(item) {
+  if (item?.is_imported_history) return 'visited';
   if (item.status === 'cancelled') return 'cancelled';
   if (isScheduleBlock(item)) return 'block';
   const outcome = bookingOutcome(item);
@@ -1610,7 +1613,7 @@ function bookingStatusClass(item) {
 }
 function paymentMethodLabel(method, completionSource = 'manual') {
   if (completionSource === 'auto' && method !== 'unpaid') return 'Оплачено';
-  return ({ cash: 'Наличные', card: 'Карта', transfer: 'Перевод', unpaid: 'Не оплачено' })[method] || 'Не оплачено';
+  return ({ cash: 'Наличные', card: 'Карта', transfer: 'Перевод', imported:'Стоимость из журнала', unpaid: 'Не оплачено' })[method] || 'Не оплачено';
 }
 function outcomeVisitLabel(outcome) {
   if (outcome.visit_status === 'completed') return outcome.completion_source === 'auto' ? 'Состоялся автоматически' : 'Состоялся';
@@ -1732,7 +1735,8 @@ function reportRange(period = reportPeriod) {
 }
 
 function reportBookings(range = reportRange()) {
-  const source = reportUsesScopedBookings() ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
+  const liveSource = reportUsesScopedBookings() ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
+  const source = [...liveSource, ...importedBookingHistory];
   const organizationId = reportOrganizationId();
   return source.filter(item => !isScheduleBlock(item)
     && item.booking_date >= range.start && item.booking_date <= range.end
@@ -1767,7 +1771,8 @@ function reportClientIdentity(item) {
 
 function reportClientMetrics(completed, range) {
   const currentClients = new Set(completed.map(reportClientIdentity).filter(Boolean));
-  const source = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  const liveSource = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  const source = [...liveSource, ...importedBookingHistory];
   const previousClients = new Set(reportCompletedItems(source.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
   completed.forEach(item => { if (item.client_had_previous) { const key = reportClientIdentity(item); if (key) previousClients.add(key); } });
   let newClients = 0;
@@ -2176,7 +2181,8 @@ function renderAnalytics() {
   const sourceTotal = sources.online + sources.manual + sources.unknown;
   const analyticsPanel = $('[data-provider-panel="analytics"]');
   if (analyticsPanel) analyticsPanel.dataset.reportEmpty = completed.length ? 'false' : 'true';
-  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
+  const importedInPeriod = completed.filter(item => item.is_imported_history).length;
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}${importedInPeriod ? ` · ${importedInPeriod} из прежнего журнала; сумма — стоимость записей` : ''}`;
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
   setReportText('#reportTrendPeriod', visualPeriod);
   setReportText('#reportTeamPeriod', visualPeriod);
@@ -2265,13 +2271,13 @@ function renderAnalytics() {
     }
   }
   reportTrendMarkup(completed, range);
-  const payments = new Map([['cash',0],['card',0],['transfer',0],['unpaid',0]]);
+  const payments = new Map([['cash',0],['card',0],['transfer',0],['imported',0],['unpaid',0]]);
   completed.forEach(item => {
     const outcome = bookingOutcome(item);
     const method = payments.has(outcome.payment_method) ? outcome.payment_method : 'unpaid';
     payments.set(method, payments.get(method) + Number(outcome.amount_rub || 0));
   });
-  const paymentNames = { cash:'Наличные', card:'Карта', transfer:'Перевод', unpaid:'Без оплаты' };
+  const paymentNames = { cash:'Наличные',card:'Карта',transfer:'Перевод',imported:'Стоимость из журнала',unpaid:'Без оплаты' };
   const visiblePayments = [...payments.entries()].filter(([, amount]) => amount > 0);
   $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)} · ${revenue ? Math.round(amount / revenue * 100) : 0}%</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
   const grouped = new Map();
@@ -2569,7 +2575,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=271');
+    worker = new Worker('./report-worker.js?v=272');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5401,6 +5407,15 @@ function buildClients() {
       imported
     });
   });
+  importedBookingHistory.forEach(booking => {
+    const phone = normalizePhone(booking.client_phone);
+    if (!phone) return;
+    const current = clients.get(phone) || { phone,displayPhone:booking.client_phone,name:booking.client_name,bookings:[] };
+    current.name = booking.client_name || current.name;
+    current.displayPhone = booking.client_phone || current.displayPhone;
+    current.bookings.push(booking);
+    clients.set(phone, current);
+  });
   allBookings.forEach(booking => {
     if (isScheduleBlock(booking)) return;
     const phone = normalizePhone(booking.client_phone);
@@ -6306,6 +6321,7 @@ async function handleSession(session) {
   clientImportController.setOrganization(null);
   organizationController.reset();
   importedClients = [];
+  importedBookingHistory = [];
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
@@ -8075,9 +8091,29 @@ clientFieldsController.bind();
 
 const clientImportController = window.MinutaClientImport?.createController ? window.MinutaClientImport.createController({
   db, $, escapeHtml, notify, requireWrites,
-  onLoaded: clients => {
+  onLoaded: (clients, historyRows) => {
     importedClients = Array.isArray(clients) ? clients : [];
+    importedBookingHistory = (Array.isArray(historyRows) ? historyRows : []).map(item => ({
+      id:`imported-history:${item.id}`,
+      organization_id:item.organization_id,
+      performer_id:item.performer_id,
+      client_name:item.client_name,
+      client_phone:item.display_phone || item.phone,
+      booking_date:item.booking_date,
+      booking_time:item.booking_time,
+      duration_minutes:Number(item.duration_minutes || 0),
+      original_price_rub:Number(item.price_rub || 0),
+      total_price_rub:Number(item.price_rub || 0),
+      status:'confirmed',
+      booking_source:'imported_history',
+      is_imported_history:true,
+      source_provider_name:item.source_provider_name || '',
+      source_note:item.source_note || '',
+      services:{ name:item.service_name || 'Услуга',price_rub:Number(item.price_rub || 0),duration_minutes:Number(item.duration_minutes || 0) },
+      booking_outcomes:{ visit_status:'completed',payment_method:'imported',amount_rub:Number(item.price_rub || 0),actual_duration_minutes:Number(item.duration_minutes || 0),calculated_amount_rub:Number(item.price_rub || 0),completion_source:'imported' }
+    }));
     renderClients();
+    renderAnalytics();
     if (selectedClientPhone) renderClientDetail(selectedClientPhone);
   }
 }) : { bind() {}, load() { return Promise.resolve({ ok:true,optional:true }); }, setOrganization() {} };
