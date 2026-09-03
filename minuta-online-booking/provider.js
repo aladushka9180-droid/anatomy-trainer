@@ -713,12 +713,17 @@ function cachedStateText(savedAt) {
 }
 let providerBookingRenderRevision = 0;
 const providerBookingViewRevisions = new Map();
+let providerBookingRenderFrame = 0;
 function renderBookingData() {
-  providerBookingRenderRevision += 1;
-  updateBookingStats();
-  const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
-  renderProviderBookingView(activeView);
-  scheduleProviderBookingWarmup(activeView);
+  if (providerBookingRenderFrame) return;
+  providerBookingRenderFrame = window.requestAnimationFrame(() => {
+    providerBookingRenderFrame = 0;
+    providerBookingRenderRevision += 1;
+    updateBookingStats();
+    const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
+    renderProviderBookingView(activeView);
+    scheduleProviderBookingWarmup(activeView);
+  });
 }
 
 function renderProviderBookingView(view) {
@@ -1393,7 +1398,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=251#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=252#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2012,6 +2017,56 @@ function exportBookingsXlsx() {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   notify('Отчёт Excel скачан');
+}
+
+async function exportBookingsXlsxInBackground() {
+  if (!window.Worker || !window.Blob || !window.URL) { exportBookingsXlsx(); return; }
+  const button = $('#exportBookings');
+  const originalText = button?.querySelector('span')?.textContent || '';
+  if (button) button.disabled = true;
+  if (button?.querySelector('span')) button.querySelector('span').textContent = 'Готовим…';
+  let worker;
+  let workerUrl;
+  try {
+    const header = ['Дата', 'Время', 'Клиент', 'Телефон', 'Услуга', 'Статус записи', 'Результат визита', 'Оплата', 'Получено, ₽', 'Стоимость услуги, ₽'];
+    const rows = reportBookings().map(item => {
+      const outcome = bookingOutcome(item);
+      const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
+      const block = isScheduleBlock(item);
+      return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : bookingSession(item).map(entry => entry.title).join(' + '), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method, outcome.completion_source), block ? 0 : (outcome.amount_rub || 0), block ? 0 : bookingSessionTotal(item)];
+    });
+    const source = `${reportXmlText.toString()}\n${reportColumnName.toString()}\n${reportCrc32.toString()}\n${reportZip.toString()}\n${reportWorkbook.toString()}\nself.onmessage=event=>{try{self.postMessage({blob:reportWorkbook(event.data.rows)});}catch(error){self.postMessage({error:String(error&&error.message||error)});}};`;
+    workerUrl = URL.createObjectURL(new Blob([source], { type:'text/javascript' }));
+    worker = new Worker(workerUrl);
+    const result = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
+      worker.onmessage = event => {
+        clearTimeout(timeout);
+        if (event.data?.error || !event.data?.blob) reject(new Error(event.data?.error || 'report_worker_failed'));
+        else resolve(event.data.blob);
+      };
+      worker.onerror = event => { clearTimeout(timeout); reject(event.error || new Error('report_worker_failed')); };
+      worker.postMessage({ rows:[header, ...rows] });
+    });
+    const range = reportRange();
+    const url = URL.createObjectURL(result);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `записи-${range.start}-${range.end}.xlsx`;
+    link.hidden = true;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify('Отчёт Excel скачан');
+  } catch {
+    exportBookingsXlsx();
+  } finally {
+    worker?.terminate();
+    if (workerUrl) URL.revokeObjectURL(workerUrl);
+    if (button) button.disabled = false;
+    if (button?.querySelector('span')) button.querySelector('span').textContent = originalText;
+  }
 }
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
 function notificationMarks() { return { ...readNotificationStorage('marks', {}), ...serverNotificationMarks }; }
@@ -5021,11 +5076,7 @@ async function loadBookingOutcomes() {
     bookingOutcomes = new Map((data || []).map(item => [item.booking_id, { ...item, completion_source:item.completion_source || local[item.booking_id]?.completion_source || 'manual' }]));
     Object.entries(local).forEach(([id, value]) => { if (!bookingOutcomes.has(id)) bookingOutcomes.set(id, value); });
   }
-  renderBookings();
-  renderClients();
-  renderNotifications();
-  renderAnalytics();
-  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  renderBookingData();
   return { ok: !error, optional: true };
 }
 
@@ -5349,7 +5400,27 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const results = await Promise.all([loadBookings({ silent: true }), loadOwnServices({ silent: true }), loadSchedule(), loadDaysOff(), loadClientNotes(), loadClientLabels(), loadClientAvatars(), loadBookingSessionItems(), loadBookingOutcomes(), loadBookingSettings(), loadPortfolio(), loadWaitlist(), loadProviderReviews(), organizationController.load(), teamCalendarController.refresh()]);
+    const primaryResults = await Promise.all([
+      loadBookings({ silent:true }),
+      loadOwnServices({ silent:true }),
+      loadSchedule(),
+      loadDaysOff(),
+      loadBookingSettings()
+    ]);
+    if (!sessionIsCurrent(userId, generation)) return false;
+    const secondaryResults = await Promise.all([
+      loadClientNotes(),
+      loadClientLabels(),
+      loadClientAvatars(),
+      loadBookingSessionItems(),
+      loadBookingOutcomes(),
+      loadPortfolio(),
+      loadWaitlist(),
+      loadProviderReviews(),
+      organizationController.load(),
+      teamCalendarController.refresh()
+    ]);
+    const results = [...primaryResults, ...secondaryResults];
     if (!sessionIsCurrent(userId, generation)) return false;
     freeSlotsController.refresh();
     const requiredResults = results.filter(result => !result?.optional);
@@ -7487,11 +7558,17 @@ document.addEventListener('input', event => {
   clearTimeout(clientLabelReasonTimer);
   clientLabelReasonTimer = setTimeout(() => saveBookingClientLabels(reason.closest('[data-booking-client-labels]')), 450);
 });
-$('#clientSearch').addEventListener('input', renderClients);
+let clientSearchRenderFrame = 0;
+let bookingSearchRenderFrame = 0;
+$('#clientSearch').addEventListener('input', () => {
+  window.cancelAnimationFrame(clientSearchRenderFrame);
+  clientSearchRenderFrame = window.requestAnimationFrame(renderClients);
+});
 $('#bookingSearch').addEventListener('input', event => {
   bookingSearchQuery = event.target.value;
   updateBookingQueryTools();
-  renderBookings();
+  window.cancelAnimationFrame(bookingSearchRenderFrame);
+  bookingSearchRenderFrame = window.requestAnimationFrame(renderBookings);
 });
 $('#bookingStatusFilter').addEventListener('change', event => {
   bookingStatusFilter = event.target.value;
@@ -7521,7 +7598,7 @@ $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
 $$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));
 $('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
-$('#exportBookings').addEventListener('click', exportBookingsXlsx);
+$('#exportBookings').addEventListener('click', exportBookingsXlsxInBackground);
 $('#reportCustomPeriod').addEventListener('submit', event => {
   event.preventDefault();
   const start = $('#reportDateFrom').value;
