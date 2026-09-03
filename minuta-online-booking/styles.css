@@ -965,6 +965,31 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 
 /* На телефоне fixed-навигация и кнопка новой записи не закрывают конец очереди. */
 @media (max-width:760px) {
+  .provider-view[data-provider-panel="notifications"] .view-title {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    align-items:start;
+    gap:12px;
+  }
+  .provider-view[data-provider-panel="notifications"] .view-title h2 {
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+  .provider-view[data-provider-panel="notifications"] .view-title-actions {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 44px;
+    width:100%;
+    gap:8px;
+  }
+  .provider-view[data-provider-panel="notifications"] .notification-settings-button {
+    width:100%;
+    min-height:44px;
+    margin:0;
+  }
+  .provider-view[data-provider-panel="notifications"] .view-title-actions .refresh-button {
+    width:44px;
+    height:44px;
+  }
   .provider-view[data-provider-panel="notifications"] { padding-bottom:calc(96px + env(safe-area-inset-bottom)); scroll-padding-bottom:calc(96px + env(safe-area-inset-bottom)); }
   .provider-view[data-provider-panel="notifications"] :is(button,a[href],summary) { scroll-margin-bottom:calc(88px + env(safe-area-inset-bottom)); }
   .provider-body .unified-notification-panel #unifiedNotificationWorkspace>.settings-check { min-height:56px; }
@@ -4599,8 +4624,8 @@ html.requires-top-level.top-level body { visibility:visible; }
 .payment-attempt-row span,.unified-notification-delivery span { flex:0 0 auto; text-align:right; }
 .unified-notification-channels { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:14px 0 18px; }
 .unified-channel-card { display:flex; align-items:flex-start; gap:10px; min-width:0; padding:13px; border:1px solid var(--theme-line,#dce7df); border-radius:14px; background:var(--theme-surface-alt,#f7faf8); cursor:pointer; }
-.unified-channel-card input { flex:0 0 auto; margin-top:2px; accent-color:var(--theme-accent,#235b40); }
-.unified-channel-card span { display:grid; min-width:0; gap:4px; }
+.unified-channel-card input { appearance:auto; flex:0 0 20px; width:20px!important; min-width:20px; height:20px!important; min-height:20px!important; margin:2px 0 0!important; padding:0!important; accent-color:var(--theme-accent,#235b40); box-shadow:none; }
+.unified-channel-card span { display:grid; flex:1 1 auto; width:auto; min-width:0; gap:4px; }
 .unified-channel-card strong { color:var(--theme-ink,#173b2c); font-size:11px; }
 .unified-channel-card small { color:var(--theme-muted,#718278); font-size:9px; line-height:1.4; }
 .unified-channel-card:has(input:disabled) { cursor:not-allowed; opacity:.7; }
@@ -4667,6 +4692,32 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-nav-group-label
 ) {
   color:var(--theme-accent)!important;
+}
+
+/* Матрица тем: уведомления и мобильная навигация сохраняют контраст и геометрию во всех палитрах. */
+.provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] :is(
+  .view-description,
+  .notification-summary span,
+  .notification-card p,
+  .notification-card blockquote,
+  .unified-channel-card small,
+  #unifiedNotificationWorkspace>.settings-check small
+) {
+  color:color-mix(in srgb,var(--theme-muted) 78%,var(--theme-ink))!important;
+}
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme] .provider-mobile-nav :is(button,a):not(.active) {
+    color:color-mix(in srgb,var(--theme-muted) 78%,var(--theme-ink));
+  }
+  .provider-body[data-provider-theme]:not([data-provider-theme="luxury"]):not([data-provider-theme="loft"]):not([data-provider-theme="eco"]):not([data-provider-theme="hitech"]) .provider-mobile-nav button.active {
+    background:var(--theme-accent-soft);
+    color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-ink));
+  }
+  .provider-body[data-provider-theme="luxury"] .provider-mobile-nav button.active { color:#e2b158; }
+  .provider-body[data-provider-theme="loft"] .provider-mobile-nav button.active { color:#afa8ff; }
+  .provider-body[data-provider-theme="eco"] .provider-mobile-nav button.active { color:#536b45; }
+  .provider-body[data-provider-theme="hitech"] .provider-mobile-nav button.active { color:#075d89; }
 }
 .provider-body[data-provider-theme="warm"] :is(
   .provider-user small,
