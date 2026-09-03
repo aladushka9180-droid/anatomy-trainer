@@ -79,6 +79,7 @@ jobs:
           next_toc="$RUNNER_TEMP/minuta-production-public-schema.next.toc"
           external_triggers="$RUNNER_TEMP/minuta-production-external-triggers.tsv"
           schema_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
+          constraints="$RUNNER_TEMP/minuta-production-public-constraints.tsv"
           checksum="$RUNNER_TEMP/minuta-production-public-schema.sql.sha256"
           metadata="$RUNNER_TEMP/minuta-production-public-schema.meta"
           trap 'rm -f "$archive" "$toc" "$filtered_toc" "$next_toc" "$external_triggers"' EXIT
@@ -149,10 +150,28 @@ jobs:
             echo "Безопасный schema-only SQL содержит данные" >&2
             exit 1
           fi
+          PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5s' \
+            /usr/lib/postgresql/17/bin/psql "$production_url" \
+              --set=ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=$'\t' \
+              > "$constraints" <<'SQL'
+          select relation_schema.nspname,
+                 relation.relname,
+                 constraint_info.conname,
+                 constraint_info.contype,
+                 pg_get_constraintdef(constraint_info.oid, true)
+          from pg_constraint constraint_info
+          join pg_class relation on relation.oid=constraint_info.conrelid
+          join pg_namespace relation_schema on relation_schema.oid=relation.relnamespace
+          where relation_schema.nspname='public'
+          order by relation.relname, constraint_info.conname;
+          SQL
+          test -s "$constraints"
           schema_entries="$(awk '!/^;/ && NF { count++ } END { print count + 0 }' "$filtered_toc")"
           test "$schema_entries" -gt 0
-          schema_hash="$(sha256sum "$schema_sql" | awk '{print $1}')"
-          printf '%s  %s\n' "$schema_hash" "$(basename "$schema_sql")" > "$checksum"
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum "$(basename "$schema_sql")" "$(basename "$constraints")" > "$(basename "$checksum")"
+          )
           {
             echo "client_version=$(/usr/lib/postgresql/17/bin/pg_dump --version)"
             echo "server_version=$(/usr/lib/postgresql/17/bin/psql "$production_url" -X -Atc 'show server_version')"
@@ -166,6 +185,7 @@ jobs:
           name: minuta-production-schema-${{ github.run_id }}
           path: |
             ${{ runner.temp }}/minuta-production-public-schema.sql
+            ${{ runner.temp }}/minuta-production-public-constraints.tsv
             ${{ runner.temp }}/minuta-production-public-schema.sql.sha256
             ${{ runner.temp }}/minuta-production-public-schema.meta
           if-no-files-found: error
@@ -290,6 +310,7 @@ jobs:
           set -euo pipefail
           test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           production_sql="$RUNNER_TEMP/production-schema/minuta-production-public-schema.sql"
+          production_constraints="$RUNNER_TEMP/production-schema/minuta-production-public-constraints.tsv"
 
           guard_count="$(/usr/lib/postgresql/17/bin/psql "$test_url" \
             --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
@@ -320,6 +341,7 @@ jobs:
           {
             echo '\set ON_ERROR_STOP on'
             echo 'begin;'
+            echo 'drop extension if exists btree_gist cascade;'
             echo 'drop schema if exists public cascade;'
             echo 'create schema public authorization pg_database_owner;'
             echo 'create extension btree_gist with schema public;'
@@ -344,6 +366,7 @@ jobs:
           test_sql="$RUNNER_TEMP/minuta-test-public-schema.sql"
           test_toc="$RUNNER_TEMP/minuta-test-public-schema.toc"
           test_filtered_toc="$RUNNER_TEMP/minuta-test-public-schema.filtered.toc"
+          test_constraints="$RUNNER_TEMP/minuta-test-public-constraints.tsv"
           /usr/lib/postgresql/17/bin/pg_dump \
             --dbname="$test_url" \
             --format=custom \
@@ -366,11 +389,26 @@ jobs:
             --schema=public \
             --file="$test_sql" \
             "$test_archive"
-          sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$production_sql" \
+          sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*CONSTRAINT .* CHECK /d;/^[[:space:]]*$/d' "$production_sql" \
             > "$production_sql.normalized"
-          sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$test_sql" \
+          sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*CONSTRAINT .* CHECK /d;/^[[:space:]]*$/d' "$test_sql" \
             > "$test_sql.normalized"
           diff --unified=3 "$production_sql.normalized" "$test_sql.normalized"
+          /usr/lib/postgresql/17/bin/psql "$test_url" \
+            --set=ON_ERROR_STOP=1 --tuples-only --no-align --field-separator=$'\t' \
+            > "$test_constraints" <<'SQL'
+          select relation_schema.nspname,
+                 relation.relname,
+                 constraint_info.conname,
+                 constraint_info.contype,
+                 pg_get_constraintdef(constraint_info.oid, true)
+          from pg_constraint constraint_info
+          join pg_class relation on relation.oid=constraint_info.conrelid
+          join pg_namespace relation_schema on relation_schema.oid=relation.relnamespace
+          where relation_schema.nspname='public'
+          order by relation.relname, constraint_info.conname;
+          SQL
+          diff --unified=3 "$production_constraints" "$test_constraints"
 
           /usr/lib/postgresql/17/bin/psql "$test_url" --set=ON_ERROR_STOP=1 <<'SQL'
           begin;
