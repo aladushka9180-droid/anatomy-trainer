@@ -73,10 +73,10 @@ begin
       and actual.data_type=expected.data_type and actual.is_nullable=expected.is_nullable)<>18
      or not exists(select 1 from pg_constraint constraint_row where constraint_row.conrelid='public.client_import_batches'::regclass
       and constraint_row.contype='u' and array_length(constraint_row.conkey,1)=2
-      and (select array_agg(attribute_row.attname order by key_row.ordinality) from unnest(constraint_row.conkey) with ordinality key_row(attnum,ordinality) join pg_attribute attribute_row on attribute_row.attrelid=constraint_row.conrelid and attribute_row.attnum=key_row.attnum)=array['organization_id','request_id'])
+      and (select array_agg(attribute_row.attname order by key_row.ordinality) from unnest(constraint_row.conkey) with ordinality key_row(attnum,ordinality) join pg_attribute attribute_row on attribute_row.attrelid=constraint_row.conrelid and attribute_row.attnum=key_row.attnum)=array['organization_id','request_id']::name[])
      or not exists(select 1 from pg_constraint constraint_row where constraint_row.conrelid='public.organization_imported_clients'::regclass
       and constraint_row.contype='u' and array_length(constraint_row.conkey,1)=2
-      and (select array_agg(attribute_row.attname order by key_row.ordinality) from unnest(constraint_row.conkey) with ordinality key_row(attnum,ordinality) join pg_attribute attribute_row on attribute_row.attrelid=constraint_row.conrelid and attribute_row.attnum=key_row.attnum)=array['organization_id','normalized_phone'])
+      and (select array_agg(attribute_row.attname order by key_row.ordinality) from unnest(constraint_row.conkey) with ordinality key_row(attnum,ordinality) join pg_attribute attribute_row on attribute_row.attrelid=constraint_row.conrelid and attribute_row.attnum=key_row.attnum)=array['organization_id','normalized_phone']::name[])
      or (select count(*) from pg_constraint constraint_row where constraint_row.contype='f' and constraint_row.confdeltype='r'
       and ((constraint_row.conrelid='public.client_import_batches'::regclass and constraint_row.confrelid in ('public.organizations'::regclass,'auth.users'::regclass))
         or (constraint_row.conrelid='public.organization_imported_clients'::regclass and constraint_row.confrelid in ('public.organizations'::regclass,'public.client_import_batches'::regclass))))<>4 then
