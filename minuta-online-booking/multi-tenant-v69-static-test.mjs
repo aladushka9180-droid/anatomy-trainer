@@ -29,6 +29,7 @@ assert.match(migration, /pg_advisory_xact_lock[\s\S]*order by requirement\.group
 assert.match(migration, /replace_minuta_service_resource_requirements[\s\S]*for v_booking in[\s\S]*allocate_minuta_booking_resources/i, 'requirement activation must backfill future bookings in the same transaction');
 assert.match(migration, /resource_has_future_bookings/i, 'moving or disabling an allocated resource must be blocked');
 assert.match(migration, /resource_group_has_active_requirements|resource_group_required_by_service|resource_group_is_required/i, 'an active service requirement must block disabling its resource group');
+assert.match(migration, /require_minuta_resource_manager[\s\S]*if\s+v_role\s+is\s+null\s+or\s+v_role\s+not\s+in\s*\(\s*'owner'\s*,\s*'admin'\s*\)[\s\S]*resource_management_denied/i, 'resource manager authorization must fail closed when no membership is found');
 assert.match(migration, /get_minuta_resource_workspace[\s\S]*join public\.organizations[\s\S]*organization\.status\s*=\s*'active'/i, 'suspended organizations must not remain readable through the workspace SECURITY DEFINER RPC');
 assert.match(migration, /get_public_minuta_available_slots_v3[\s\S]*get_available_slots\(p_service,p_start,p_end,null\)[\s\S]*booking_resource_allocations/i, 'v3 slots must preserve canonical availability and add resource filtering');
 assert.match(migration, /get_public_minuta_catalog_v3[\s\S]*resource_scheduling[\s\S]*resource_required[\s\S]*location_ids/i, 'v3 catalog must advertise resource-aware service locations');

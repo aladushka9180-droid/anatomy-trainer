@@ -199,7 +199,7 @@ begin
     and membership.user_id = auth.uid()
     and membership.active
     and organization.status = 'active';
-  if v_role not in ('owner', 'admin') then
+  if v_role is null or v_role not in ('owner', 'admin') then
     raise exception using errcode = '42501', message = 'resource_management_denied';
   end if;
   return v_role;
