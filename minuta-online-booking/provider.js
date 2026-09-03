@@ -1550,6 +1550,21 @@ function setReportTrend(selector, current, previous, hasPreviousRange) {
   }
 }
 
+function setReportComparison(selector, current, previous, formatDelta = value => String(value)) {
+  const element = $(selector);
+  if (!element) return;
+  const difference = current - previous;
+  element.className = difference > 0 ? 'is-positive' : difference < 0 ? 'is-negative' : '';
+  if (!previous) {
+    element.textContent = current ? `+${formatDelta(current)} · новый результат` : 'Без изменений';
+    return;
+  }
+  const percent = Math.round(difference / previous * 100);
+  const valueSign = difference > 0 ? '+' : difference < 0 ? '−' : '';
+  const percentSign = percent > 0 ? '+' : percent < 0 ? '−' : '';
+  element.textContent = `${valueSign}${formatDelta(Math.abs(difference))} · ${percentSign}${Math.abs(percent)}%`;
+}
+
 function reportAvailableScheduleMinutes(range) {
   const rowsByWeekday = new Map(scheduleRows.map(row => [Number(row.weekday), row]));
   if ([1, 2, 3, 4, 5, 6, 7].some(weekday => !rowsByWeekday.has(weekday))) return null;
@@ -1604,7 +1619,7 @@ function renderReportUtilization(range, workedMinutes) {
     setReportText('#reportFreeHours', '—');
     if (bar) bar.style.width = '0%';
     if (note) note.textContent = 'Недостаточно данных для процента';
-    return;
+    return null;
   }
   const percent = availableMinutes ? Math.round(workedMinutes / availableMinutes * 100) : 0;
   if (percentNode) percentNode.textContent = `${percent}%`;
@@ -1612,6 +1627,7 @@ function renderReportUtilization(range, workedMinutes) {
   setReportText('#reportFreeHours', reportHours(Math.max(0, availableMinutes - workedMinutes)));
   if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
   if (note) note.textContent = 'Состоявшиеся визиты относительно доступного рабочего времени';
+  return percent;
 }
 
 function renderReportRetention() {
@@ -1696,10 +1712,13 @@ function reportTrendMarkup(completed, range) {
     if (bucket) bucket.value += Number(bookingOutcome(item).amount_rub || 0);
   });
   const maximum = Math.max(...buckets.map(item => item.value), 1);
-  chart.innerHTML = buckets.map(bucket => {
+  const bestIndex = buckets.reduce((best, bucket, index) => bucket.value > buckets[best].value ? index : best, 0);
+  chart.innerHTML = buckets.map((bucket, index) => {
     const label = bucketDays === 1 ? reportDateText(localIsoDate(bucket.from)) : `${reportDateText(localIsoDate(bucket.from))}–${reportDateText(localIsoDate(bucket.to))}`;
     const height = bucket.value ? Math.max(8, Math.round(bucket.value / maximum * 100)) : 2;
-    return `<div class="report-chart-column" title="${escapeHtml(label)}: ${escapeHtml(money(bucket.value))}"><span><i style="height:${height}%"></i></span><small>${escapeHtml(label)}</small></div>`;
+    const stateClass = bucket.value === 0 ? ' is-zero' : index === bestIndex ? ' is-best' : '';
+    const openDate = localIsoDate(bucket.from);
+    return `<button class="report-chart-column${stateClass}" type="button" data-report-date="${openDate}" title="${escapeHtml(label)}: ${escapeHtml(money(bucket.value))}" aria-label="${escapeHtml(label)}, ${escapeHtml(money(bucket.value))}. Открыть расписание"><b>${escapeHtml(money(bucket.value))}</b><span><i style="height:${height}%"></i></span><small>${escapeHtml(label)}</small></button>`;
   }).join('');
 }
 
@@ -1727,12 +1746,25 @@ function renderAnalytics() {
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
   $('#reportCompleted').textContent = String(completed.length);
-  $('#reportUnpaid').textContent = `${unpaid.length} ${reportVisitWord(unpaid.length)} с долгом`;
+  $('#reportUnpaid').textContent = unpaid.length ? `${unpaid.length} ${reportVisitWord(unpaid.length)} с долгом` : 'Нет визитов с долгом';
   $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
   $('#reportAverage').textContent = money(Math.round(average));
   $('#reportPending').textContent = String(pending.length);
   $('#reportCancelled').textContent = String(cancelled.length);
   $('#reportNoShow').textContent = String(noShows.length);
+  const secondaryMetrics = [
+    { selector:'#reportPendingMetric', value:pending.length, clear:'Все визиты отмечены' },
+    { selector:'#reportCancelledMetric', value:cancelled.length, clear:'Без отмен' },
+    { selector:'#reportNoShowMetric', value:noShows.length, clear:'Все пришли' }
+  ];
+  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0);
+  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.value === 0; });
+  const zeroSummary = $('#reportZeroSummary');
+  if (zeroSummary) {
+    zeroSummary.hidden = !clearMetrics.length;
+    zeroSummary.style.setProperty('--report-zero-span', String(clearMetrics.length));
+    setReportText('#reportZeroSummaryText', clearMetrics.map(metric => metric.clear).join(' · '));
+  }
   const previousRange = previousReportRange(range);
   const previousItems = previousRange ? reportBookings(previousRange) : [];
   const previousCompleted = reportCompletedItems(previousItems);
@@ -1740,10 +1772,14 @@ function renderAnalytics() {
   const previousClients = previousRange ? reportClientMetrics(previousCompleted, previousRange) : { uniqueClients:0 };
   const previousSources = previousRange ? reportSourceMetrics(previousItems) : { online:0 };
   setReportTrend('#reportRevenueTrend', revenue, previousRevenue, Boolean(previousRange));
-  setReportTrend('#reportComparisonRevenue', revenue, previousRevenue, Boolean(previousRange));
-  setReportTrend('#reportComparisonVisits', completed.length, previousCompleted.length, Boolean(previousRange));
-  setReportTrend('#reportComparisonClients', clients.uniqueClients, previousClients.uniqueClients, Boolean(previousRange));
-  setReportTrend('#reportComparisonOnline', sources.online, previousSources.online, Boolean(previousRange));
+  const comparison = $('#reportComparison');
+  if (comparison) comparison.hidden = !previousRange;
+  if (previousRange) {
+    setReportComparison('#reportComparisonRevenue', revenue, previousRevenue, value => money(value));
+    setReportComparison('#reportComparisonVisits', completed.length, previousCompleted.length);
+    setReportComparison('#reportComparisonClients', clients.uniqueClients, previousClients.uniqueClients);
+    setReportComparison('#reportComparisonOnline', sources.online, previousSources.online);
+  }
   setReportText('#reportUniqueClients', clients.uniqueClients);
   setReportText('#reportNewClients', clients.newClients);
   setReportText('#reportNewClientsShare', reportShare(clients.newClients, clients.uniqueClients));
@@ -1757,11 +1793,11 @@ function renderAnalytics() {
   setReportText('#reportUnknownShare', reportShare(sources.unknown, sourceTotal));
   const sourceBar = $('#reportSourceBar');
   if (sourceBar) sourceBar.innerHTML = `<i class="is-online" style="width:${sourceTotal ? sources.online / sourceTotal * 100 : 0}%"></i><i class="is-manual" style="width:${sourceTotal ? sources.manual / sourceTotal * 100 : 0}%"></i><i class="is-unknown" style="width:${sourceTotal ? sources.unknown / sourceTotal * 100 : 0}%"></i>`;
-  renderReportUtilization(range, workedMinutes);
+  const utilizationPercent = renderReportUtilization(range, workedMinutes);
   renderReportRetention();
   loadReportTeamAnalytics(range);
   const differenceText = adjustment > 0 ? `Доплаты и корректировки: +${money(adjustment)}` : adjustment < 0 ? `Недополучено: ${money(Math.abs(adjustment))}` : 'Расхождений нет';
-  $('#reportReconciliation').innerHTML = `<div><small>Сверка денег</small><strong>${money(completedValue)} оказано → ${money(revenue)} получено</strong></div><span class="${adjustment > 0 ? 'is-positive' : adjustment < 0 ? 'is-negative' : ''}">${differenceText}</span>`;
+  $('#reportReconciliation').innerHTML = `<div><small>Итог периода</small><strong>${money(completedValue)} стоимость визитов → ${money(revenue)} оплачено</strong></div><span class="${adjustment > 0 ? 'is-positive' : adjustment < 0 ? 'is-negative' : ''}">${differenceText}</span>`;
   reportTrendMarkup(completed, range);
   const payments = new Map([['cash',0],['card',0],['transfer',0],['unpaid',0]]);
   completed.forEach(item => {
@@ -1770,7 +1806,8 @@ function renderAnalytics() {
     payments.set(method, payments.get(method) + Number(outcome.amount_rub || 0));
   });
   const paymentNames = { cash:'Наличные', card:'Карта', transfer:'Перевод', unpaid:'Без оплаты' };
-  $('#reportPaymentsList').innerHTML = [...payments.entries()].map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)}</strong></article>`).join('');
+  const visiblePayments = [...payments.entries()].filter(([, amount]) => amount > 0);
+  $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)}</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
   const grouped = new Map();
   completed.forEach(item => {
     const entries = bookingSession(item).filter(entry => entry.title);
@@ -1787,7 +1824,24 @@ function renderAnalytics() {
   });
   const rows = [...grouped.values()].sort((a, b) => b.revenue - a.revenue || b.visits - a.visits);
   const topRevenue = Math.max(...rows.map(row => row.revenue), 1);
-  holder.innerHTML = rows.length ? rows.map(row => `<article class="report-service-row"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)}</small><span><i style="width:${Math.max(2, Math.round(row.revenue / topRevenue * 100))}%"></i></span></div><b>${money(row.revenue)}</b></article>`).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
+  holder.innerHTML = rows.length ? rows.map(row => {
+    const revenueShare = revenue ? Math.round(row.revenue / revenue * 100) : 0;
+    return `<article class="report-service-row"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)} · ${revenueShare}% дохода</small><span><i style="width:${Math.max(2, Math.round(row.revenue / topRevenue * 100))}%"></i></span></div><b>${money(row.revenue)}</b></article>`;
+  }).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
+  const insight = $('#reportInsight');
+  if (insight) {
+    const messages = [];
+    if (!completed.length) messages.push('За выбранный период нет завершённых визитов. Отметьте результат визита и оплату — статистика заполнится автоматически.');
+    else {
+      if (previousRange && previousRevenue > 0) {
+        const revenueDifference = Math.round((revenue - previousRevenue) / previousRevenue * 100);
+        messages.push(revenueDifference === 0 ? 'Оплачено столько же, сколько в прошлом периоде.' : `Оплачено ${revenueDifference > 0 ? 'выросло' : 'снизилось'} на ${Math.abs(revenueDifference)}% к прошлому периоду.`);
+      } else if (previousRange && revenue > 0) messages.push('В этом периоде появилась первая отмеченная оплата.');
+      if (rows[0]) messages.push(`Больше всего принесла услуга «${rows[0].name}» — ${money(rows[0].revenue)} (${revenue ? Math.round(rows[0].revenue / revenue * 100) : 0}% дохода).`);
+      if (utilizationPercent !== null) messages.push(`Расписание загружено на ${utilizationPercent}%.`);
+    }
+    insight.innerHTML = `<small>Главное за период</small><p>${escapeHtml(messages.join(' '))}</p>`;
+  }
 }
 
 function reportXmlText(value) {
@@ -6567,6 +6621,7 @@ document.addEventListener('click', async event => {
   const sectionTarget = event.target.closest('[data-section-target]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
+  const reportChartDate = event.target.closest('[data-report-date]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
   const openServiceCreator = event.target.closest('[data-open-service-creator]');
@@ -6625,6 +6680,10 @@ document.addEventListener('click', async event => {
     notificationFilter = notificationFilterButton.dataset.notificationFilter;
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
     renderNotifications();
+  }
+  if (reportChartDate) {
+    selectScheduleDate(reportChartDate.dataset.reportDate);
+    setProviderView('bookings');
   }
   if (reportPeriodButton) {
     reportPeriod = reportPeriodButton.dataset.reportPeriod;
