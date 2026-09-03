@@ -3666,6 +3666,14 @@ async function loadNewBookingSlots() {
 function renderNewBookingTimePicker({ offline = false } = {}) {
   const holder = $('#newBookingTimes');
   if (!holder || !newBookingSlots.length) return;
+  const perMinuteService = newBookingMode === 'client'
+    && Number(selectedNewBookingService()?.duration_minutes) === 1;
+  if (perMinuteService) {
+    const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
+    holder.innerHTML = `${offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${newBookingPreferredTime} сейчас недоступно. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>Выберите время</strong><span>${newBookingSlots.length} свободных вариантов · шаг ${scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
+      <div class="booking-time-slots booking-time-slots-all" style="max-height:260px;padding-right:4px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable">${newBookingSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
+    return;
+  }
   const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
   if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
