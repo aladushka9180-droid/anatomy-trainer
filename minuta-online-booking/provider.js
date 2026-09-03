@@ -176,6 +176,7 @@ let visitorVisitsRemoteAvailable = false;
 let visitorVisitsInitialized = false;
 let announcedVisitorVisitIds = new Set();
 let visitorNotificationSaving = false;
+let visitorNotificationAudioContext = null;
 let ownServices = [];
 let serviceDurationDefaults = {};
 let portfolioItems = [];
@@ -2907,6 +2908,37 @@ function renderVisitorVisits() {
   }
   holder.innerHTML = visitorVisits.map(visit => `<article class="notification-card visitor-notification-card"><span class="notification-card-icon">${uiIcon('users')}</span><div class="notification-card-main"><div class="notification-card-head"><span>Страница онлайн-записи</span><b>${escapeHtml(visitorVisitTimeLabel(visit.created_at))}</b></div><h3>Новый посетитель</h3><p>Смотрит услуги и свободное время · без имени и телефона</p></div></article>`).join('');
 }
+async function unlockVisitorNotificationSound() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return false;
+  try {
+    visitorNotificationAudioContext ||= new AudioContextClass();
+    if (visitorNotificationAudioContext.state === 'suspended') await visitorNotificationAudioContext.resume();
+    return visitorNotificationAudioContext.state === 'running';
+  } catch { return false; }
+}
+async function playVisitorNotificationSound() {
+  if (!await unlockVisitorNotificationSound()) return false;
+  try {
+    const context = visitorNotificationAudioContext;
+    const start = context.currentTime + 0.01;
+    [784, 1046].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const toneStart = start + index * 0.13;
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, toneStart);
+      gain.gain.setValueAtTime(0.0001, toneStart);
+      gain.gain.exponentialRampToValueAtTime(0.12, toneStart + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.11);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(toneStart);
+      oscillator.stop(toneStart + 0.12);
+    });
+    return true;
+  } catch { return false; }
+}
 function renderVisitorNotificationForm() {
   const card = $('#visitorAlertSettingsCard');
   const checkbox = $('#visitorNotificationsEnabled');
@@ -2915,7 +2947,7 @@ function renderVisitorNotificationForm() {
   if (!checkbox || !status) return;
   checkbox.checked = Boolean(bookingPolicy.visitor_notifications_enabled);
   if (!('Notification' in window)) status.textContent = 'В кабинете будут работать встроенные уведомления.';
-  else if (Notification.permission === 'granted') status.textContent = 'Системные уведомления разрешены на этом устройстве.';
+  else if (Notification.permission === 'granted') status.textContent = 'Системные уведомления разрешены. Нажмите «Проверить уведомление и звук», чтобы активировать сигнал кабинета.';
   else if (Notification.permission === 'denied') status.textContent = 'Системные уведомления заблокированы браузером; уведомления внутри кабинета продолжат работать.';
   else status.textContent = 'После включения браузер может предложить разрешить системные уведомления.';
 }
@@ -2926,6 +2958,7 @@ async function saveVisitorNotificationSettings(event) {
   if (visitorNotificationSaving) return;
   if (!requireWrites()) { renderVisitorNotificationForm(); return; }
   const enabled = checkbox.checked;
+  if (enabled) void unlockVisitorNotificationSound();
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   const permissionRequest = enabled && 'Notification' in window && Notification.permission === 'default' ? Promise.resolve(Notification.requestPermission()).catch(() => 'default') : Promise.resolve('unchanged');
@@ -2980,6 +3013,7 @@ function announceVisitorVisit(visit) {
   if (announcedVisitorVisitIds.has(visitId)) return;
   announcedVisitorVisitIds.add(visitId);
   if (!document.hidden) notify('Новый посетитель смотрит страницу онлайн-записи');
+  void playVisitorNotificationSound();
   if ('Notification' in window && Notification.permission === 'granted') void showVisitorSystemNotification(visit);
 }
 function handleVisitorVisit(payload) {
@@ -2997,6 +3031,7 @@ async function testVisitorSystemNotification() {
   const button = $('#visitorNotificationTestButton');
   const status = $('#visitorNotificationPermission');
   if (!button || !status) return;
+  const soundReady = await unlockVisitorNotificationSound();
   if (!('Notification' in window)) {
     status.textContent = 'Этот браузер не поддерживает системные уведомления. Встроенные уведомления кабинета продолжат работать.';
     notify('Системные уведомления недоступны в этом браузере');
@@ -3014,9 +3049,10 @@ async function testVisitorSystemNotification() {
     return;
   }
   const delivered = await showVisitorSystemNotification({ id:`test-${Date.now()}` });
+  const soundPlayed = soundReady && await playVisitorNotificationSound();
   button.disabled = false;
-  status.textContent = delivered ? 'Проверочное уведомление отправлено. Системные уведомления работают.' : 'Не удалось показать уведомление. Проверьте разрешения сайта в браузере.';
-  notify(delivered ? 'Проверочное уведомление отправлено' : 'Не удалось показать системное уведомление');
+  status.textContent = delivered && soundPlayed ? 'Проверочное уведомление и звуковой сигнал отправлены.' : delivered ? 'Уведомление показано, но браузер заблокировал звук. Нажмите кнопку ещё раз и проверьте громкость вкладки.' : 'Не удалось показать уведомление. Проверьте разрешения сайта в браузере.';
+  notify(delivered && soundPlayed ? 'Уведомление и звук работают' : delivered ? 'Уведомление работает, звук заблокирован браузером' : 'Не удалось показать системное уведомление');
 }
 
 let activeIosTransition = null;
@@ -8809,6 +8845,8 @@ $$('[data-booking-buffer-minutes]').forEach(button => button.addEventListener('c
 $('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotificationSettings);
 $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemNotification);
+document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); }, { passive:true });
+document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('#installAppButton').addEventListener('click', installProviderApp);
 $('#desktopAppInstallButton').addEventListener('click', installProviderApp);

@@ -849,8 +849,9 @@
               <div class="settings-heading"><small>Посетители страницы записи</small><h3>Сообщать, когда кто-то смотрит сайт</h3><p>Кабинет покажет обезличенное уведомление. Имя, телефон и данные устройства для этого не собираются.</p></div>
               <form id="visitorNotificationForm" class="visitor-notification-form">
                 <label class="settings-check visitor-notification-toggle"><input id="visitorNotificationsEnabled" type="checkbox"><span><strong>Уведомлять о новых посетителях</strong><small>Не чаще одного уведомления за две минуты</small></span></label>
-                <button class="secondary-button visitor-notification-test" id="visitorNotificationTestButton" type="button">Проверить на этом компьютере</button>
+                <button class="secondary-button visitor-notification-test" id="visitorNotificationTestButton" type="button">Проверить уведомление и звук</button>
                 <div class="visitor-notification-state"><p class="visitor-notification-permission" id="visitorNotificationPermission">Проверяем системные уведомления…</p><small class="visitor-notification-save-status" id="visitorNotificationSaveStatus" role="status" aria-live="polite">Изменения сохраняются автоматически</small></div>
+                <p class="provider-display-hint">Кабинет воспроизводит короткий сигнал, пока он открыт. Звук системного уведомления отдельно регулируется в Windows и настройках браузера.</p>
                 <p class="form-error" id="visitorNotificationError" hidden></p>
               </form>
             </section>
@@ -1136,7 +1137,7 @@
   <script src="team-calendar.js?v=285" defer></script>
   <script src="free-slots-share.js?v=285" defer></script>
   <script src="group-bookings.js?v=285" defer></script>
-  <script src="provider.js?v=285" defer></script>
+  <script src="provider.js?v=287" defer></script>
   <script src="voice-assistant.js?v=285" defer></script>
 </body>
 </html>
