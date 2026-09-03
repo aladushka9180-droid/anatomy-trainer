@@ -5658,6 +5658,7 @@ async function addDayOff(event) {
 }
 
 function portfolioPhoto(item, type) { return (item.photos || []).find(photo => photo.photo_type === type); }
+function portfolioCountLabel(value, one, few, many) { const number = Math.abs(Number(value)); return number % 10 === 1 && number % 100 !== 11 ? one : number % 10 >= 2 && number % 10 <= 4 && (number % 100 < 12 || number % 100 > 14) ? few : many; }
 function portfolioSessionWord(value) { const number = Math.abs(Number(value)); return number % 10 === 1 && number % 100 !== 11 ? 'сеанс' : number % 10 >= 2 && number % 10 <= 4 && (number % 100 < 12 || number % 100 > 14) ? 'сеанса' : 'сеансов'; }
 function portfolioAfterSessionWord(value) { const number = Math.abs(Number(value)); return number % 10 === 1 && number % 100 !== 11 ? 'сеанса' : 'сеансов'; }
 function portfolioAfterLabel(item) { return item.session_count ? `После ${item.session_count} ${portfolioAfterSessionWord(item.session_count)}` : 'После'; }
@@ -5672,7 +5673,7 @@ function renderPortfolio() {
   const list = $('#portfolioManageList');
   if (!list) return;
   const publishedCount = portfolioItems.filter(item => item.published).length;
-  $('#portfolioCount').textContent = String(portfolioItems.length);
+  $('#portfolioCount').textContent = `${portfolioItems.length} ${portfolioCountLabel(portfolioItems.length, 'работа', 'работы', 'работ')}`;
   if ($('#portfolioBadge')) $('#portfolioBadge').textContent = String(portfolioItems.length);
   const availability = $('#portfolioAvailability');
   availability.hidden = portfolioRemoteAvailable;
@@ -5682,7 +5683,7 @@ function renderPortfolio() {
     return;
   }
   if (!portfolioItems.length) {
-    list.innerHTML = `<div class="provider-empty"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Работ пока нет</strong><small>Добавьте фотографии «До» и «После» и укажите число сеансов.</small></div>`;
+    list.innerHTML = `<div class="provider-empty portfolio-empty-state"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Покажите клиентам результат</strong><small>Добавьте фотографии «До» и «После». Работа появится на странице клиента только после подтверждения согласия на публикацию.</small><div class="portfolio-empty-actions"><button class="primary compact-button" type="button" data-open-portfolio-editor>Добавить первую работу</button><a class="secondary-button compact-button" href="index.html" target="_blank" rel="noopener noreferrer">Как видит клиент</a></div></div>`;
     return;
   }
   list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
@@ -5725,9 +5726,9 @@ async function loadPortfolio() {
 function renderProviderReviews() {
   const list = $('#providerReviewsList');
   if (!list) return;
-  $('#providerReviewsCount').textContent = String(providerReviews.length);
+  $('#providerReviewsCount').textContent = `${providerReviews.length} ${portfolioCountLabel(providerReviews.length, 'отзыв', 'отзыва', 'отзывов')}`;
   if (!providerReviews.length) {
-    list.innerHTML = '<div class="provider-empty"><strong>Отзывов пока нет</strong><small>Здесь появятся отзывы после завершённых визитов.</small></div>';
+    list.innerHTML = `<div class="provider-empty portfolio-empty-state provider-review-empty-state"><span class="provider-empty-icon">${uiIcon('spark')}</span><strong>Получите первый отзыв</strong><small>После завершённого визита клиент сможет поставить оценку в разделе «Мои записи». Отзыв публикуется только под вашим контролем.</small><div class="portfolio-empty-actions"><a class="primary compact-button" href="my-bookings.html" target="_blank" rel="noopener noreferrer">Открыть «Мои записи»</a><a class="secondary-button compact-button" href="index.html" target="_blank" rel="noopener noreferrer">Страница клиента</a></div></div>`;
     return;
   }
   list.innerHTML = providerReviews.map(review => {

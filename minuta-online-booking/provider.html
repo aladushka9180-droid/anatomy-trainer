@@ -15,13 +15,13 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=238" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=239" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=238">
+  <link rel="stylesheet" href="styles.css?v=239">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -194,7 +194,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=238#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=239#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -600,14 +600,14 @@
         </section>
 
         <section class="provider-view" data-provider-panel="portfolio" hidden>
-          <div class="view-title"><div><span>Работы мастера</span><h2>Портфолио</h2></div><div class="view-title-actions"><span class="panel-count" id="portfolioCount">0</span><button class="primary compact-button" type="button" data-open-portfolio-editor><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить работу</span></button></div></div>
-          <p class="view-description">Показывайте результат честно: подписи «До» и «После N сеансов» можно менять без повторной загрузки фото.</p>
+          <div class="view-title"><div><span>Работы мастера</span><h2>Портфолио</h2></div><div class="view-title-actions"><a class="secondary-button compact-button portfolio-preview-link provider-client-link" href="index.html" target="_blank" rel="noopener noreferrer"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>Как видит клиент</span></a><span class="portfolio-count-label" id="portfolioCount">0 работ</span><button class="primary compact-button" type="button" data-open-portfolio-editor><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить работу</span></button></div></div>
+          <p class="view-description portfolio-purpose">Работы показывают результат, а отзывы подтверждают доверие. Всё опубликованное отображается на странице клиента.</p>
           <p class="portfolio-availability" id="portfolioAvailability" role="status" aria-live="polite" hidden></p>
           <div class="portfolio-manage-list" id="portfolioManageList"></div>
           <p class="sr-only" id="portfolioOrderStatus" aria-live="polite"></p>
           <section class="panel provider-reviews-panel">
-            <div class="panel-head"><div><small>Обратная связь</small><h3>Отзывы клиентов</h3></div><span class="panel-count" id="providerReviewsCount">0</span></div>
-            <p>Опубликованные отзывы видны на главной странице. При необходимости отзыв можно скрыть без удаления.</p>
+            <div class="panel-head"><div><small>Обратная связь</small><h3>Отзывы клиентов</h3></div><span class="portfolio-count-label" id="providerReviewsCount">0 отзывов</span></div>
+            <p>После завершённого визита клиент может оставить оценку в разделе «Мои записи». Опубликованные отзывы видны на главной странице.</p>
             <div class="provider-reviews-list" id="providerReviewsList"></div>
           </section>
         </section>
@@ -940,26 +940,26 @@
   </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=238"></script>
-  <script src="reliability.js?v=238"></script>
-  <script src="phone-auth.js?v=238"></script>
-  <script src="resource-management.js?v=238" defer></script>
-  <script src="shift-management.js?v=238" defer></script>
-  <script src="organization.js?v=238" defer></script>
-  <script src="payroll-management.js?v=238" defer></script>
-  <script src="benefit-management.js?v=238" defer></script>
-  <script src="loyalty-management.js?v=238" defer></script>
-  <script src="inventory-management.js?v=238" defer></script>
-  <script src="retention-management.js?v=238" defer></script>
-  <script src="payment-management.js?v=238" defer></script>
-  <script src="notification-center.js?v=238" defer></script>
-  <script src="client-fields.js?v=238" defer></script>
-  <script src="batch-bookings.js?v=238" defer></script>
-  <script src="booking-policy-management.js?v=238" defer></script>
-  <script src="team-calendar.js?v=238" defer></script>
-  <script src="free-slots-share.js?v=238" defer></script>
-  <script src="group-bookings.js?v=238" defer></script>
-  <script src="provider.js?v=238" defer></script>
-  <script src="voice-assistant.js?v=238" defer></script>
+  <script src="config.js?v=239"></script>
+  <script src="reliability.js?v=239"></script>
+  <script src="phone-auth.js?v=239"></script>
+  <script src="resource-management.js?v=239" defer></script>
+  <script src="shift-management.js?v=239" defer></script>
+  <script src="organization.js?v=239" defer></script>
+  <script src="payroll-management.js?v=239" defer></script>
+  <script src="benefit-management.js?v=239" defer></script>
+  <script src="loyalty-management.js?v=239" defer></script>
+  <script src="inventory-management.js?v=239" defer></script>
+  <script src="retention-management.js?v=239" defer></script>
+  <script src="payment-management.js?v=239" defer></script>
+  <script src="notification-center.js?v=239" defer></script>
+  <script src="client-fields.js?v=239" defer></script>
+  <script src="batch-bookings.js?v=239" defer></script>
+  <script src="booking-policy-management.js?v=239" defer></script>
+  <script src="team-calendar.js?v=239" defer></script>
+  <script src="free-slots-share.js?v=239" defer></script>
+  <script src="group-bookings.js?v=239" defer></script>
+  <script src="provider.js?v=239" defer></script>
+  <script src="voice-assistant.js?v=239" defer></script>
 </body>
 </html>
