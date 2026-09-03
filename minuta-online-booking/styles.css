@@ -2574,6 +2574,9 @@ html.provider-booting .provider-main {
 .provider-body[data-provider-theme] .timeline-grid-line::after { background:color-mix(in srgb,var(--theme-line) 58%,transparent); }
 .provider-body[data-provider-theme] .timeline-hour { color:var(--theme-muted); }
 .provider-body[data-provider-theme] .timeline-hour.timeline-half-hour { color:color-mix(in srgb,var(--theme-muted) 72%,transparent); }
+.provider-body[data-provider-theme="warm"] .timeline-hour { color:#332923; }
+.provider-body[data-provider-theme="warm"] .timeline-hour.timeline-half-hour { color:#78695f; }
+.provider-body[data-provider-theme="warm"] .timeline-view .timeline-booking.color-auto :is(.timeline-booking-time,.timeline-booking-copy>strong) { color:#332923; }
 .provider-body[data-provider-theme] .timeline-create-hint { background:color-mix(in srgb,var(--theme-accent-soft) 92%,transparent); color:var(--theme-accent); }
 .provider-body[data-provider-theme] .date-strip button:not(.active) { color:var(--theme-muted); }
 .provider-body[data-provider-theme] .timeline-view :is(.timeline-booking.status-confirmed.color-auto,.timeline-booking.status-visited.color-auto),

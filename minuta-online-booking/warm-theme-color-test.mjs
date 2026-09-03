@@ -15,6 +15,9 @@ assert.match(
   /\.date-strip button\.active > :is\(span,strong,small\)\s*\{\s*color:inherit!important;/,
   'Подписи выбранной даты Warm Beige должны наследовать белый цвет активной кнопки'
 );
+assert.match(css, /data-provider-theme="warm"\] \.timeline-hour \{ color:#332923; \}/, 'Целые часы Warm Beige должны быть тёмно-коричневыми');
+assert.match(css, /data-provider-theme="warm"\] \.timeline-hour\.timeline-half-hour \{ color:#78695f; \}/, 'Получасовые отметки Warm Beige должны оставаться в коричневой гамме');
+assert.match(css, /data-provider-theme="warm"\][^{]*\.timeline-booking\.color-auto[^{]*\.timeline-booking-time[^{]*\{ color:#332923; \}/, 'Время записи Warm Beige не должно быть чёрным');
 
 for (const selector of [
   '.view-title>div:first-child>span:not(.panel-count)',
