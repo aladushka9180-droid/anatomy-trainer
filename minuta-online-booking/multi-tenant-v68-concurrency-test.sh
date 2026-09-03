@@ -129,30 +129,26 @@ if [[ "$rollback_status" -eq 0 ]] || ! grep -q 'v68_rollback_blocked_team_bookin
   exit 1
 fi
 
-holder_app="minuta_v68_overlap_holder_$$"
-PGAPPNAME="$holder_app" psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X \
-  -v booking_id="$booking_one" -v target_date="$target_date" -v target_time="$target_time" <<'SQL' >/dev/null &
+lock_key="680068"
+psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X \
+  -v booking_id="$booking_one" -v target_date="$target_date" -v target_time="$target_time" \
+  -v lock_key="$lock_key" <<'SQL' >/dev/null &
 begin;
 update public.bookings
 set booking_date = :'target_date'::date,
     booking_time = :'target_time'::time
 where id = :'booking_id'::uuid;
-select pg_sleep(5);
+select pg_advisory_xact_lock(:'lock_key'::bigint);
+select pg_sleep(15);
 commit;
 SQL
 first_pid=$!
 
 holder_ready="f"
-for _ in {1..200}; do
+for _ in {1..40}; do
   holder_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -At \
-    -v holder_app="$holder_app" <<'SQL'
-select exists (
-  select 1
-  from pg_catalog.pg_stat_activity
-  where application_name = :'holder_app'
-    and state = 'active'
-    and query ~* 'pg_sleep'
-);
+    -v lock_key="$lock_key" <<'SQL'
+select not pg_try_advisory_lock(:'lock_key'::bigint);
 SQL
 )"
   [[ "$holder_ready" == "t" ]] && break

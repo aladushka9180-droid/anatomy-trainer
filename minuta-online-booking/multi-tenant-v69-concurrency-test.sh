@@ -128,30 +128,26 @@ fi
 
 # Session one creates a real booking/allocation and holds its transaction. The
 # second specialist races the same resource through the public booking RPC.
-holder_app="minuta_v69_resource_holder_$$"
-PGAPPNAME="$holder_app" psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X \
+lock_key="690069"
+psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X \
   -v request_id="$request_one" -v slug="$slug" -v location_id="$location_id" \
-  -v service_id="$owner_service_id" -v booking_date="$target_date" -v booking_time="$target_time" <<'SQL' >/dev/null &
+  -v service_id="$owner_service_id" -v booking_date="$target_date" -v booking_time="$target_time" \
+  -v lock_key="$lock_key" <<'SQL' >/dev/null &
 begin;
 select * from public.book_minuta_appointment(
   :'request_id'::uuid,:'slug',:'location_id'::uuid,:'service_id'::uuid,
   :'booking_date'::date,:'booking_time'::time,'V69 Concurrent One','+79990006911'
 );
-select pg_sleep(5);
+select pg_advisory_xact_lock(:'lock_key'::bigint);
+select pg_sleep(15);
 commit;
 SQL
 first_pid=$!
 
 ready="f"
-for _ in {1..200}; do
-  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v holder_app="$holder_app" <<'SQL'
-select exists(
-  select 1
-  from pg_stat_activity
-  where application_name=:'holder_app'
-    and state='active'
-    and query~*'pg_sleep'
-);
+for _ in {1..40}; do
+  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v lock_key="$lock_key" <<'SQL'
+select not pg_try_advisory_lock(:'lock_key'::bigint);
 SQL
   )"
   [[ "$ready" == "t" ]] && break

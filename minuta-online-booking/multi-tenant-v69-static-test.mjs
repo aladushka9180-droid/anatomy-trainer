@@ -50,6 +50,7 @@ assert.match(integration, /resource_group_has_active_requirements|resource_group
 assert.match(integration, /set local role authenticated[\s\S]*resource_management_denied/i, 'integration must exercise authenticated role boundaries, not only function ACL metadata');
 assert.match(concurrency, /replace_minuta_service_resource_requirements[\s\S]*book_minuta_appointment[\s\S]*pg_sleep/i, 'two-session test must race real booking allocation behind an active requirement');
 assert.doesNotMatch(concurrency, /-c\s+"[^"]*:'holder_app'/i, 'psql variables must not be used through -c');
+assert.match(concurrency, /pg_advisory_xact_lock[\s\S]*not pg_try_advisory_lock/i, 'concurrency test must synchronize without relying on pooler session metadata');
 assert.doesNotMatch(concurrency, /insert into public\.booking_resource_allocations/i, 'concurrency must not bypass the allocator with direct allocation inserts');
 assert.match(concurrency, /resource_unavailable[\s\S]*status\s*=\s*'cancelled'[\s\S]*book_minuta_appointment/i, 'concurrency must prove conflict rejection and resource release after cancellation');
 

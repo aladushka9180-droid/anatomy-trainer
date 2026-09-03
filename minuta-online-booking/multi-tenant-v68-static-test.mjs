@@ -50,6 +50,7 @@ assert.match(integration, /v68_provider_delete_acl_changed/i, 'integration must 
 assert.match(integration, /v68_wrapper_context_leaked[\s\S]*v68_wrapper_scope_or_idempotency_failed[\s\S]*v68_overlap_update_was_allowed[\s\S]*v68_team_outcome_status_missing/i, 'integration must exercise tenant writes, context restoration, overlap and outcomes');
 assert.match(integration, /rollback;\s*$/i, 'integration must be transaction-scoped');
 assert.match(concurrency, /v68_rollback_blocked_team_bookings_exist[\s\S]*v68 concurrent overlap was not rejected/i, 'two-session test must cover rollback guard and concurrent overlap');
+assert.match(concurrency, /pg_advisory_xact_lock[\s\S]*not pg_try_advisory_lock/i, 'two-session test must synchronize without relying on pooler session metadata');
 
 assert.match(app, /get_public_minuta_catalog_v2/, 'public client must request branch-addressable catalog v2');
 assert.match(app, /book_minuta_appointment/, 'team booking must use the tenant-aware wrapper');
