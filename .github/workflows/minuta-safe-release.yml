@@ -544,9 +544,15 @@ jobs:
             "select (select count(*)=3 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_booking_policy_settings','organization_booking_policy_rules','organization_booking_policy_audit_log')) and to_regprocedure('public.get_minuta_booking_policy_workspace(uuid)') is not null and to_regprocedure('public.get_booking_management_v2(uuid)') is not null and to_regprocedure('public.expire_minuta_unpaid_bookings(integer)') is not null and not has_table_privilege('anon','public.organization_booking_policy_rules','SELECT') and not has_table_privilege('authenticated','public.organization_booking_policy_rules','INSERT') and not coalesce((select bool_or(enabled) from public.organization_booking_policy_settings),false);" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v77.sql
+            --set=reminder_url="https://${MINUTA_TEST_PROJECT_REF}.supabase.co/functions/v1/telegram-client-notify/reminders" <<'SQL'
+          select set_config('minuta.telegram_reminder_url', :'reminder_url', false);
+          \i minuta-online-booking/supabase-migration-v77.sql
+          SQL
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
-            -f minuta-online-booking/supabase-migration-v77.sql
+            --set=reminder_url="https://${MINUTA_TEST_PROJECT_REF}.supabase.co/functions/v1/telegram-client-notify/reminders" <<'SQL'
+          select set_config('minuta.telegram_reminder_url', :'reminder_url', false);
+          \i minuta-online-booking/supabase-migration-v77.sql
+          SQL
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -P pager=off \
             --set=test_ref="$MINUTA_TEST_PROJECT_REF" --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" <<'SQL'
           select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null as hash_rpc_ok,
