@@ -44,6 +44,11 @@ on:
         required: false
         default: ""
         type: string
+      test_run_id:
+        description: ID успешной test-migration на этом commit
+        required: false
+        default: ""
+        type: string
       migration_target:
         description: Последний слой схемы для production-migration
         required: true
@@ -137,6 +142,7 @@ jobs:
           node --check minuta-online-booking/resource-management-controller-test.mjs
           node --check minuta-online-booking/voice-assistant-lifecycle-test.mjs
           node --check minuta-online-booking/provider-responsive-parity-test.mjs
+          node --check minuta-online-booking/analytics-v92-v94-static-test.mjs
           node --check supabase/functions/payment-webhook/index.ts
           node --check supabase/functions/payment-webhook/provider-adapter.ts
           deno check supabase/functions/process-notifications/index.ts
@@ -185,16 +191,19 @@ jobs:
           node minuta-online-booking/voice-assistant-test.mjs
           node minuta-online-booking/voice-assistant-lifecycle-test.mjs
           node minuta-online-booking/provider-responsive-parity-test.mjs
+          node minuta-online-booking/analytics-v92-v94-static-test.mjs
           bash -n minuta-online-booking/multi-tenant-v69-concurrency-test.sh
           node minuta-online-booking/scripts/migration-safety-guard.mjs
           node minuta-online-booking/scripts/package4-static-test.mjs
+          node --check minuta-online-booking/report-worker.js
+          node minuta-online-booking/report-xlsx-test.mjs
           node minuta-online-booking/smoke-test.mjs
 
   test-migration:
     if: inputs.phase == 'test-migration'
     needs: preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
     environment: minuta-test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -272,6 +281,8 @@ jobs:
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-client-import-v95.sql
           fi
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v96-rollback.sql
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.bookings_performer_date_time_v94_idx') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/supabase-migration-v94-rollback.sql
@@ -512,8 +523,8 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v92.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v93.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v93.sql
-          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v94.sql
-          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v94.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v96.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v96.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v95.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v95.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -525,12 +536,17 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.group_booking_events') is not null and to_regprocedure('public.get_minuta_group_booking_admin(uuid,date,date)') is not null and (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_loyalty_settings','loyalty_rules','client_loyalty_accounts','loyalty_visit_awards','loyalty_ledger','loyalty_redemptions','loyalty_promotions','loyalty_promo_redemptions')) and not coalesce((select bool_or(enabled) from public.organization_loyalty_settings),false) and (select count(*)=7 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_inventory_settings','inventory_items','inventory_warehouses','inventory_service_usage','inventory_stock_balances','inventory_movements','inventory_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_inventory_settings),false) and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_retention_settings','client_marketing_consents','retention_deliveries','retention_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_retention_settings),false) and to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_batch_booking_settings','booking_batches','booking_batch_items','booking_batch_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_batch_booking_settings),false) and to_regprocedure('public.create_minuta_batch_bookings(uuid,uuid,uuid,text,text,jsonb,uuid,text)') is not null and exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal and tgenabled<>'D') and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal) and (select count(*)=6 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_payment_provider_settings','payment_provider_attempts','payment_provider_refunds','payment_provider_events','payment_provider_reconciliations','payment_provider_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_payment_provider_settings),false) and to_regprocedure('public.get_minuta_payment_workspace(uuid)') is not null and (select count(*)=3 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_notification_settings','organization_notification_channels','notification_recipient_endpoints')) and not coalesce((select bool_or(enabled) from public.organization_notification_settings),false) and not coalesce((select bool_or(enabled) from public.organization_notification_channels),false) and to_regprocedure('public.get_minuta_notification_workspace(uuid)') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_client_field_settings','client_field_definitions','client_field_values','client_field_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_client_field_settings),false) and to_regprocedure('public.get_minuta_client_field_workspace(uuid,text)') is not null;" \
             | grep -qx t
-          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-client-import-v95.sql
-          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v94-rollback.sql
-          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-booking-events-v93.sql
-          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-booking-attribution-v92.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regclass('public.organization_imported_clients') is null and to_regclass('public.client_import_batches') is null and to_regclass('public.booking_events') is null and to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)') is null and to_regprocedure('public.get_minuta_team_analytics(date,date)') is null and to_regclass('public.bookings_performer_date_time_v94_idx') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role'));" \
+            "select (select count(*)=3 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role')) and to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and to_regclass('public.booking_events') is not null and (select relrowsecurity from pg_class where oid='public.booking_events'::regclass) and to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)') is not null and exists(select 1 from pg_constraint c where c.conname='booking_events_booking_id_fkey' and c.conrelid='public.booking_events'::regclass and c.confrelid='public.bookings'::regclass and c.contype='f' and c.confdeltype='c' and c.convalidated and array_length(c.conkey,1)=1 and array_length(c.confkey,1)=1 and (select a.attname from pg_attribute a where a.attrelid=c.conrelid and a.attnum=c.conkey[1])='booking_id' and (select a.attname from pg_attribute a where a.attrelid=c.confrelid and a.attnum=c.confkey[1])='id') and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='bookings_performer_date_time_v94_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbookings_performer_date_time_v94_idxonpublic.bookingsusingbtree(performer_id,booking_date,booking_time)') and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_events_scope_previous_date_v96_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbooking_events_scope_previous_date_v96_idxonpublic.booking_eventsusingbtree(organization_id,previous_booking_date,occurred_atdesc,iddesc)where(previous_booking_dateisnotnull)') and to_regclass('public.organization_imported_clients') is not null and to_regclass('public.client_import_batches') is not null;" \
+            | grep -qx t
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v96-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-client-import-v95.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v96-rollback.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v96-rollback.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v93-rollback.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v92-rollback.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regclass('public.organization_imported_clients') is null and to_regclass('public.client_import_batches') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role')) and to_regprocedure('public.get_minuta_team_analytics(date,date)') is null and to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is null and to_regclass('public.booking_events') is null and to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)') is null and not exists(select 1 from pg_indexes where schemaname='public' and indexname in ('bookings_performer_date_time_v94_idx','booking_events_scope_previous_date_v96_idx'));" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-social-auth-v91.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-phone-auth-v90.sql
@@ -645,7 +661,7 @@ jobs:
     if: inputs.phase == 'validate-production-rollback' && github.ref == 'refs/heads/main'
     needs: preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment: minuta-production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -653,7 +669,7 @@ jobs:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Проверить v47, v49 и v71–v95 в откатываемой транзакции production
+      - name: Проверить v47, v49 и v71–v91 в откатываемой транзакции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -692,10 +708,6 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v89.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v90.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v91.sql
-            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v92.sql
-            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v93.sql
-            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v94.sql
-            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v95.sql
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
@@ -708,33 +720,37 @@ jobs:
     if: inputs.phase == 'production-migration' && github.ref == 'refs/heads/main'
     needs: preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 90
     environment: minuta-production
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Подтвердить свежий backup и откатываемую проверку совместимого commit
+      - name: Подтвердить test-migration, свежий backup и откатываемую проверку совместимого commit
         env:
           GH_TOKEN: ${{ github.token }}
           MINUTA_BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
           MINUTA_VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+          MINUTA_TEST_RUN_ID: ${{ inputs.test_run_id }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$MINUTA_BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
           [[ "$MINUTA_VALIDATION_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$MINUTA_TEST_RUN_ID" =~ ^[0-9]+$ ]]
           check_run() {
-            local run_id="$1" expected_path="$2" expected_title="$3" max_age="$4" scope="$5"
-            local run_json run_sha created now
+            local run_id="$1" expected_path="$2" expected_title="$3" max_age="$4" scope="$5" expected_job="$6"
+            local run_json jobs_json run_sha created now
             run_json="$(curl --fail --silent --show-error \
               -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
             test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
             run_sha="$(jq -r '.head_sha' <<<"$run_json")"
             git merge-base --is-ancestor "$run_sha" "$GITHUB_SHA"
-            if [ "$run_sha" != "$GITHUB_SHA" ]; then
+            if [ "$scope" = "test" ]; then
+              test "$run_sha" = "$GITHUB_SHA"
+            elif [ "$run_sha" != "$GITHUB_SHA" ]; then
               if [ "$scope" = "backup" ]; then
                 git diff --quiet "$run_sha" "$GITHUB_SHA" -- \
                   .github/workflows/minuta-supabase-backup.yml \
@@ -743,17 +759,28 @@ jobs:
               else
                 git diff --quiet "$run_sha" "$GITHUB_SHA" -- \
                   .github/workflows/minuta-safe-release.yml \
-                  ':(glob)minuta-online-booking/*.sql'
+                  ':(glob)minuta-online-booking/*.sql' \
+                  minuta-online-booking/analytics-v92-v94-static-test.mjs
               fi
             fi
             test "$(jq -r '.path' <<<"$run_json")" = "$expected_path"
             jq -er --arg title "$expected_title" '.display_title | contains($title)' <<<"$run_json" >/dev/null
+            if [ "$scope" = "backup" ] || [ "$scope" = "validation" ]; then
+              test "$(jq -r '.head_branch' <<<"$run_json")" = "main"
+            fi
+            jobs_json="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+            jq -e --arg job "$expected_job" \
+              '[.jobs[] | select(.name==$job and .conclusion=="success")] | length==1' \
+              <<<"$jobs_json" >/dev/null
             created="$(date -u -d "$(jq -r '.created_at' <<<"$run_json")" +%s)"
             now="$(date -u +%s)"
             test "$((now-created))" -le "$max_age"
           }
-          check_run "$MINUTA_BACKUP_RUN_ID" ".github/workflows/minuta-supabase-backup.yml" "Minuta Supabase encrypted backup" 21600 backup
-          check_run "$MINUTA_VALIDATION_RUN_ID" ".github/workflows/minuta-safe-release.yml" "validate-production-rollback" 21600 validation
+          check_run "$MINUTA_BACKUP_RUN_ID" ".github/workflows/minuta-supabase-backup.yml" "Minuta Supabase encrypted backup" 21600 backup backup
+          check_run "$MINUTA_VALIDATION_RUN_ID" ".github/workflows/minuta-safe-release.yml" "validate-production-rollback" 21600 validation validate-production-rollback
+          check_run "$MINUTA_TEST_RUN_ID" ".github/workflows/minuta-safe-release.yml" "test-migration" 21600 test test-migration
           artifacts="$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$MINUTA_BACKUP_RUN_ID/artifacts")"
@@ -1048,25 +1075,27 @@ jobs:
           v93_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "with state as (select to_regclass('public.booking_events') is not null has_table,(select count(*) from pg_trigger where tgname in ('bookings_capture_event_v93','booking_outcomes_capture_event_v93') and not tgisinternal and tgenabled<>'D') trigger_count,(select count(*) from pg_indexes where schemaname='public' and indexname in ('booking_events_scope_time_v93_idx','booking_events_scope_date_v93_idx','booking_events_booking_v93_idx')) index_count,(select count(*) from pg_proc where oid in (to_regprocedure('public.minuta_booking_value_v93(jsonb,uuid)'),to_regprocedure('public.capture_minuta_booking_event_v93()'),to_regprocedure('public.capture_minuta_outcome_event_v93()'),to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)'))) function_count) select case when not has_table and trigger_count=0 and index_count=0 and function_count=0 then 'absent' when has_table and trigger_count=2 and index_count=3 and function_count=4 and coalesce((select relrowsecurity from pg_class where oid='public.booking_events'::regclass),false) and has_function_privilege('authenticated','public.get_minuta_booking_events(uuid,date,date,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_booking_events(uuid,date,date,integer)','EXECUTE') and not has_table_privilege('authenticated','public.booking_events','INSERT,UPDATE,DELETE') and not has_table_privilege('anon','public.booking_events','SELECT') then 'complete' else 'partial' end from state;")"
           case "$v93_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v93.sql;; complete) echo "v93 immutable booking event history already exists; preserving events";; *) echo "Partial v93 event history layer detected; refusing production migration" >&2; exit 1;; esac
-          v94_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select case when to_regclass('public.bookings_performer_date_time_v94_idx') is null then 'absent' when (select indexdef like '%(performer_id, booking_date, booking_time)%' from pg_indexes where schemaname='public' and indexname='bookings_performer_date_time_v94_idx') then 'complete' else 'partial' end;")"
-          case "$v94_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v94.sql;; complete) echo "v94 booking lookup index already exists";; *) echo "Partial v94 lookup index detected; refusing production migration" >&2; exit 1;; esac
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v96.sql
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and has_function_privilege('authenticated','public.get_minuta_team_analytics(uuid,date,date)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_analytics(uuid,date,date)','EXECUTE') and exists(select 1 from pg_constraint c where c.conname='booking_events_booking_id_fkey' and c.conrelid='public.booking_events'::regclass and c.confrelid='public.bookings'::regclass and c.contype='f' and c.confdeltype='c' and c.convalidated and array_length(c.conkey,1)=1 and array_length(c.confkey,1)=1 and (select a.attname from pg_attribute a where a.attrelid=c.conrelid and a.attnum=c.conkey[1])='booking_id' and (select a.attname from pg_attribute a where a.attrelid=c.confrelid and a.attnum=c.confkey[1])='id') and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='bookings_performer_date_time_v94_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbookings_performer_date_time_v94_idxonpublic.bookingsusingbtree(performer_id,booking_date,booking_time)') and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_events_scope_previous_date_v96_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbooking_events_scope_previous_date_v96_idxonpublic.booking_eventsusingbtree(organization_id,previous_booking_date,occurred_atdesc,iddesc)where(previous_booking_dateisnotnull)');" \
+            | grep -qx t
           v95_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "with state as (select (select count(*) from (values(to_regclass('public.client_import_batches')),(to_regclass('public.organization_imported_clients'))) item(oid) where oid is not null) table_count,(select count(*) from pg_indexes where schemaname='public' and indexname in ('organization_imported_clients_name_v95_idx','client_import_batches_scope_v95_idx')) index_count,(select count(*) from pg_proc where oid in (to_regprocedure('public.import_minuta_clients(uuid,text,jsonb,uuid)'),to_regprocedure('public.get_minuta_imported_clients(uuid)'))) function_count,(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('client_import_batches','organization_imported_clients') and c.relrowsecurity) rls_count) select case when table_count=0 and index_count=0 and function_count=0 then 'absent' when table_count=2 and index_count=2 and function_count=2 and rls_count=2 and has_function_privilege('authenticated','public.import_minuta_clients(uuid,text,jsonb,uuid)','EXECUTE') and has_function_privilege('authenticated','public.get_minuta_imported_clients(uuid)','EXECUTE') and not has_function_privilege('anon','public.import_minuta_clients(uuid,text,jsonb,uuid)','EXECUTE') and not has_table_privilege('authenticated','public.organization_imported_clients','SELECT,INSERT,UPDATE,DELETE') then 'complete' else 'partial' end from state;")"
           case "$v95_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v95.sql;; complete) echo "v95 client import already exists; preserving imported clients";; *) echo "Partial v95 client import detected; refusing production migration" >&2; exit 1;; esac
           migration_guard="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -F= -Atc \
             "with checks(name,ok) as (values
-              ('analytics_guard',to_regprocedure('public.get_minuta_team_analytics(date,date)') is not null and has_function_privilege('authenticated','public.get_minuta_team_analytics(date,date)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_analytics(date,date)','EXECUTE')),
+              ('analytics_guard',(select count(*)=3 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role')) and to_regprocedure('public.get_minuta_team_analytics(date,date)') is not null and to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and has_function_privilege('authenticated','public.get_minuta_team_analytics(uuid,date,date)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_analytics(uuid,date,date)','EXECUTE')),
               ('feature_defaults_safe',(select count(*)=5 and bool_and(column_default='false' and is_nullable='NO') from information_schema.columns where table_schema='public' and column_name='enabled' and table_name in ('organization_group_booking_settings','organization_loyalty_settings','organization_inventory_settings','organization_retention_settings','organization_batch_booking_settings'))),
               ('benefit_exclusivity_guard',to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.enforce_minuta_booking_benefit_exclusivity()'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and not has_function_privilege('anon','public.enforce_minuta_booking_benefit_exclusivity()','EXECUTE') and not has_function_privilege('authenticated','public.enforce_minuta_booking_benefit_exclusivity()','EXECUTE') and not has_function_privilege('service_role','public.enforce_minuta_booking_benefit_exclusivity()','EXECUTE') and (select count(*)=3 from pg_trigger where tgfoid='public.enforce_minuta_booking_benefit_exclusivity()'::regprocedure and not tgisinternal and tgenabled<>'D')),
-              ('booking_events_guard',to_regclass('public.booking_events') is not null and coalesce((select relrowsecurity from pg_class where oid='public.booking_events'::regclass),false) and to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)') is not null and not has_table_privilege('authenticated','public.booking_events','INSERT,UPDATE,DELETE')),
-              ('booking_lookup_index_guard',to_regclass('public.bookings_performer_date_time_v94_idx') is not null),
+              ('booking_events_guard',to_regclass('public.booking_events') is not null and coalesce((select relrowsecurity from pg_class where oid='public.booking_events'::regclass),false) and to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)') is not null and not has_table_privilege('authenticated','public.booking_events','INSERT,UPDATE,DELETE') and exists(select 1 from pg_constraint c where c.conname='booking_events_booking_id_fkey' and c.conrelid='public.booking_events'::regclass and c.confrelid='public.bookings'::regclass and c.contype='f' and c.confdeltype='c' and c.convalidated and array_length(c.conkey,1)=1 and array_length(c.confkey,1)=1 and (select a.attname from pg_attribute a where a.attrelid=c.conrelid and a.attnum=c.conkey[1])='booking_id' and (select a.attname from pg_attribute a where a.attrelid=c.confrelid and a.attnum=c.confkey[1])='id')),
+              ('booking_lookup_index_guard',exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='bookings_performer_date_time_v94_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbookings_performer_date_time_v94_idxonpublic.bookingsusingbtree(performer_id,booking_date,booking_time)')),
               ('client_import_guard',to_regclass('public.organization_imported_clients') is not null and to_regprocedure('public.import_minuta_clients(uuid,text,jsonb,uuid)') is not null and not has_table_privilege('authenticated','public.organization_imported_clients','SELECT,INSERT,UPDATE,DELETE')),
               ('group_overlap_guard',exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and tgfoid=to_regprocedure('public.prevent_minuta_group_event_booking_overlap()') and not tgisinternal and tgenabled<>'D') and (select count(*)=1 from pg_trigger where tgrelid='public.bookings'::regclass and tgfoid='public.prevent_minuta_group_event_booking_overlap()'::regprocedure and not tgisinternal and tgenabled<>'D') and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal)),
               ('legacy_table_acl_guard',not has_table_privilege('anon','public.retention_deliveries','SELECT') and not has_table_privilege('authenticated','public.inventory_movements','INSERT') and not has_table_privilege('authenticated','public.booking_batches','INSERT')),
               ('notification_guard',to_regclass('public.organization_notification_settings') is not null and to_regprocedure('public.claim_minuta_notification_outbox(text[],integer)') is not null and not has_table_privilege('authenticated','public.notification_recipient_endpoints','SELECT')),
               ('client_fields_guard',to_regclass('public.organization_client_field_settings') is not null and to_regprocedure('public.get_minuta_client_field_workspace(uuid,text)') is not null and not has_table_privilege('authenticated','public.client_field_values','SELECT,INSERT,UPDATE,DELETE')),
               ('phone_identity_guard',to_regprocedure('public.bootstrap_client_sms_session(text)') is not null and to_regclass('public.minuta_auth_trigger_guard_v90') is not null and has_function_privilege('authenticated','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_sms_session(text)','EXECUTE')),
+              ('previous_date_index_guard',exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_events_scope_previous_date_v96_idx' and i.indisvalid and i.indisready and regexp_replace(lower(pg_get_indexdef(i.indexrelid)),'\\s','','g')='createindexbooking_events_scope_previous_date_v96_idxonpublic.booking_eventsusingbtree(organization_id,previous_booking_date,occurred_atdesc,iddesc)where(previous_booking_dateisnotnull)')),
               ('social_identity_guard',to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_identity_session(text,text,text)','EXECUTE')),
               ('yookassa_guard',to_regclass('public.organization_payment_provider_settings') is not null and to_regprocedure('public.get_minuta_payment_workspace(uuid)') is not null and not has_table_privilege('authenticated','public.payment_provider_attempts','INSERT,UPDATE,DELETE'))
             ) select name,coalesce(ok,false) from checks order by name;")"
@@ -1083,6 +1112,7 @@ jobs:
             'legacy_table_acl_guard=t' \
             'notification_guard=t' \
             'phone_identity_guard=t' \
+            'previous_date_index_guard=t' \
             'social_identity_guard=t' \
             'yookassa_guard=t')"
           if [ "$migration_guard" != "$expected_migration_guard" ]; then

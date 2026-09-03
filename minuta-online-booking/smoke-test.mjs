@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '258';
+const serviceWorker = readFileSync(join(root, 'sw.js'), 'utf8');
+const cacheVersion = serviceWorker.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
+assert.ok(cacheVersion, 'Не удалось определить текущую версию кэша');
+const version = cacheVersion;
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -17,6 +20,9 @@ for (const page of pages) {
     if (/^(?:https?:|mailto:|tel:)/.test(reference)) continue;
     assert.ok(existsSync(join(root, reference)), `${page}: отсутствует ${reference}`);
   }
+  const resourceVersions = [...html.matchAll(/[?&]v=(\d+)/g)].map(match => match[1]);
+  assert.ok(resourceVersions.length > 0, `${page}: нет версий локальных ресурсов`);
+  assert.ok(resourceVersions.every(value => value === version), `${page}: версии ресурсов не совпадают с кэшем v${version}`);
 }
 
 for (const page of ['index.html', 'provider.html', 'booking.html', 'my-bookings.html']) {
@@ -37,12 +43,16 @@ assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7Oho
 const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
-const serviceWorker = readFileSync(join(root, 'sw.js'), 'utf8');
 const voiceAssistant = readFileSync(join(root, 'voice-assistant.js'), 'utf8');
 const organization = readFileSync(join(root, 'organization.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
 const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
+const serviceWorkerVersions = [...serviceWorker.matchAll(/[?&]v=(\d+)/g)].map(match => match[1]);
+assert.ok(serviceWorkerVersions.length > 0, 'Service worker не содержит версий ресурсов');
+assert.ok(serviceWorkerVersions.every(value => value === version), `Service worker содержит ресурсы не текущей версии v${version}`);
+const siteUpdate = readFileSync(join(root, 'site-update.js'), 'utf8');
+assert.match(siteUpdate, new RegExp(`sw\\.js\\?v=${version}`), 'Регистрация service worker использует другую версию');
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
 assert.match(indexHtml, /id="locationFilter"[\s\S]*id="locationSelect"/, 'На клиентской странице нет выбора филиала');
 assert.match(app, /get_public_minuta_catalog_v2/, 'Клиент не загружает филиалы из каталога v68');

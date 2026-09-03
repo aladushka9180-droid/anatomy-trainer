@@ -1,44 +1,73 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('./', import.meta.url);
-const v92 = readFileSync(new URL('supabase-migration-v92.sql', root), 'utf8');
-const v93 = readFileSync(new URL('supabase-migration-v93.sql', root), 'utf8');
-const v94 = readFileSync(new URL('supabase-migration-v94.sql', root), 'utf8');
-const rollback92 = readFileSync(new URL('recovery/rollback-booking-attribution-v92.sql', root), 'utf8');
-const rollback93 = readFileSync(new URL('recovery/rollback-booking-events-v93.sql', root), 'utf8');
-const rollback94 = readFileSync(new URL('supabase-migration-v94-rollback.sql', root), 'utf8');
-const provider = readFileSync(new URL('provider.js', root), 'utf8');
+const root = dirname(fileURLToPath(import.meta.url));
+const read = name => readFileSync(join(root, name), 'utf8');
+const v92 = read('supabase-migration-v92.sql');
+const rollback92 = read('supabase-migration-v92-rollback.sql');
+const v93 = read('supabase-migration-v93.sql');
+const rollback93 = read('supabase-migration-v93-rollback.sql');
+const v94 = read('supabase-migration-v94.sql');
+const rollback94 = read('supabase-migration-v94-rollback.sql');
+const v96 = read('supabase-migration-v96.sql');
+const rollback96 = read('supabase-migration-v96-rollback.sql');
+const integration96 = read('analytics-v92-v96-integration.sql');
+const releaseWorkflow = readFileSync(join(root, '..', '.github', 'workflows', 'minuta-safe-release.yml'), 'utf8');
+const provider = read('provider.js');
+const validationBlock = /^  validate-production-rollback:\r?\n([\s\S]*?)(?=^  [a-zA-Z][a-zA-Z0-9-]*:)/m.exec(releaseWorkflow)?.[0] || '';
 
-assert.match(v92, /v92_requires_v54_v65_v68_v72_v91/i);
-assert.match(v92, /bootstrap_client_identity_session\(text,text,text\)/i);
-assert.match(v92, /add column if not exists booking_source text/i);
-assert.match(v92, /new\.booking_source:=null[\s\S]*new\.created_by_user_id:=null[\s\S]*new\.created_by_role:=null/i);
-assert.match(v92, /booking_creation_attribution_immutable/i);
-assert.match(v92, /grant execute on function public\.get_minuta_team_analytics\(date,date\)[\s\S]*to authenticated/i);
-assert.match(v92, /revoke all on function public\.get_minuta_team_analytics\(date,date\)[\s\S]*from public,anon,authenticated,service_role/i);
-assert.doesNotMatch(v92, /provider_delete_booking/i);
+for (const [name, sql] of Object.entries({ v92, rollback92, v93, rollback93, v94, rollback94 })) {
+  assert.match(sql, /^begin;/i, `${name}: нет атомарного начала транзакции`);
+  assert.match(sql, /commit;\s*$/i, `${name}: нет завершения транзакции`);
+}
 
-assert.match(v93, /v93_requires_v92/i);
-assert.match(v93, /get_minuta_team_analytics\(date,date\)/i);
-assert.match(v93, /create table if not exists public\.booking_events/i);
-assert.match(v93, /alter table public\.booking_events enable row level security/i);
-assert.match(v93, /bookings_capture_event_v93[\s\S]*after insert or update on public\.bookings/i);
-assert.match(v93, /booking_outcomes_capture_event_v93[\s\S]*after insert or update on public\.booking_outcomes/i);
-assert.match(v93, /grant execute on function public\.get_minuta_booking_events\(uuid,date,date,integer\) to authenticated/i);
-assert.match(v93, /revoke all on table public\.booking_events from public,anon,authenticated,service_role/i);
-assert.doesNotMatch(v93, /provider_delete_booking/i);
+assert.match(v92, /v92_requires_v54_v65_v68_v72/, 'v92: нет проверки prerequisites');
+assert.match(v92, /bookings_creation_attribution_check/, 'v92: нет ограничения источника записи');
+assert.match(v92, /security definer[\s\S]*set search_path to ''/, 'v92: функции не закрепляют search_path');
+assert.match(v92, /revoke all on function public\.get_minuta_team_analytics\(date,date\)[\s\S]*grant execute[\s\S]*to authenticated/, 'v92: неверные права аналитики');
+assert.match(rollback92, /drop function if exists public\.get_minuta_team_analytics\(date,date\)/, 'rollback v92: аналитика не удаляется');
+assert.match(rollback92, /drop column if exists booking_source/, 'rollback v92: служебные столбцы не откатываются');
 
-assert.match(v94, /v94_requires_v93/i);
-assert.match(v94, /create index if not exists bookings_performer_date_time_v94_idx/i);
-assert.match(rollback94, /drop index if exists public\.bookings_performer_date_time_v94_idx/i);
-assert.match(rollback93, /v93_rollback_blocked_booking_events_exist/i);
-assert.match(rollback93, /drop trigger if exists booking_outcomes_capture_event_v93/i);
-assert.match(rollback92, /v92_rollback_requires_v93_removed/i);
-assert.match(rollback92, /v92_rollback_blocked_booking_attribution_exists/i);
-assert.match(rollback92, /drop column if exists booking_source/i);
+assert.match(v93, /v93_(?:missing_prerequisites|requires_v92)/, 'v93: нет проверки prerequisites');
+assert.match(v93, /alter table public\.booking_events enable row level security/, 'v93: журнал событий без RLS');
+assert.match(v93, /create policy booking_events_member_read_v93[\s\S]*performer_id=auth\.uid\(\)/, 'v93: специалист не ограничен своими событиями');
+assert.match(v93, /revoke all on table public\.booking_events from public,anon,authenticated,service_role/, 'v93: нет закрытого ACL по умолчанию');
+assert.match(v93, /grant select on table public\.booking_events to authenticated/, 'v93: кабинет не может читать разрешённые события');
+assert.match(rollback93, /drop trigger if exists booking_outcomes_capture_event_v93/, 'rollback v93: outcome-trigger не удаляется');
+assert.match(rollback93, /drop table if exists public\.booking_events/, 'rollback v93: журнал не удаляется');
 
-assert.match(provider, /db\.rpc\('get_minuta_team_analytics'/i);
-assert.match(provider, /db\.rpc\('get_minuta_booking_events'/i);
+assert.match(v94, /v94_requires_(?:bookings|v93)/, 'v94: нет проверки prerequisites');
+assert.match(v94, /create index if not exists bookings_performer_date_time_v94_idx[\s\S]*performer_id,booking_date,booking_time/, 'v94: нет индекса истории мастера');
+assert.match(rollback94, /drop index if exists public\.bookings_performer_date_time_v94_idx/, 'rollback v94: индекс не удаляется');
 
-console.log('v92-v94 analytics, event history and index static checks passed');
+assert.match(v96, /on delete cascade/, 'v96: удаление записи всё ещё блокируется журналом событий');
+assert.match(v96, /p_row \? 'total_price_rub'/, 'v96: составная стоимость не считается по total_price_rub');
+assert.match(v96, /get_minuta_team_analytics\(uuid,date,date\)/, 'v96: нет явного контекста организации для аналитики');
+assert.match(v96, /v_role is null or v_role not in \('owner','admin'\)/, 'v96: отсутствующий membership может обойти tenant-проверку');
+assert.match(v96, /not exists\(select 1 from auth\.users where id=old\.created_by_user_id\)/, 'v96: авторство можно стереть до удаления auth-пользователя');
+assert.match(v96, /MINUTA_CONCURRENT_INDEXES_BEGIN[\s\S]*create index concurrently if not exists bookings_performer_date_time_v94_idx/, 'v96: индекс истории создаётся с блокировкой production-записей');
+assert.match(v96, /booking_events_scope_previous_date_v96_idx/, 'v96: нет индекса предыдущей даты события');
+assert.match(rollback96, /Только для изолированной тестовой базы/, 'rollback v96: нет предупреждения о test-only назначении');
+assert.match(integration96, /provider_delete_booking[\s\S]*v96_booking_event_cascade_failed/, 'integration v96: не проверяется удаление записи с событием');
+assert.match(integration96, /v96_attribution_set_null_failed/, 'integration v96: не проверяется удаление автора');
+assert.match(integration96, /v96_attribution_tamper_was_allowed/, 'integration v96: не проверяется запрет ручного стирания автора');
+assert.match(integration96, /v96_explicit_organization_analytics_failed/, 'integration v96: не проверяется multi-org аналитика');
+assert.match(integration96, /v96_cross_tenant_analytics_leak/, 'integration v96: не проверяется запрет cross-tenant аналитики');
+assert.match(provider, /p_organization:organizationId, p_start:range\.start, p_end:range\.end/, 'provider: аналитика не передаёт активную организацию');
+assert.match(provider, /response\.error\.code === 'PGRST202'[\s\S]*p_start:range\.start, p_end:range\.end/, 'provider: нет совместимого fallback до установки v96');
+assert.match(provider, /payment_url,booking_source,created_by_user_id,created_by_role,services/, 'provider: загрузка записей не получает атрибуцию');
+
+for (const version of ['92', '93', '96']) {
+  assert.match(releaseWorkflow, new RegExp(`supabase-migration-v${version}\\.sql`), `release: v${version} не применяется`);
+  assert.match(releaseWorkflow, new RegExp(`supabase-migration-v${version}-rollback\\.sql`), `release: rollback v${version} не проверяется`);
+}
+assert.match(releaseWorkflow, /supabase-migration-v95\.sql/, 'release: v95 импорта не применяется');
+assert.match(releaseWorkflow, /recovery\/rollback-client-import-v95\.sql/, 'release: rollback v95 импорта не проверяется');
+assert.match(releaseWorkflow, /supabase-migration-v96\.sql[\s\S]*supabase-migration-v95\.sql/, 'release: v96 должна подготовить конкурентный индекс до импорта v95');
+assert.doesNotMatch(releaseWorkflow, /-f minuta-online-booking\/supabase-migration-v94\.sql/, 'release: блокирующая v94 не должна применяться');
+assert.doesNotMatch(validationBlock, /supabase-migration-v9[2356]\.sql/, 'release: тяжёлые v92/v93/v95/v96 нельзя репетировать на живой production в длинной транзакции');
+assert.match(releaseWorkflow, /MINUTA_TEST_RUN_ID[\s\S]*"test-migration" 21600 test/, 'release: production не требует успешный test-migration');
+
+console.log('analytics v92-v94 static test: OK');

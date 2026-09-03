@@ -1467,7 +1467,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=258#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=259#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1791,6 +1791,7 @@ async function loadReportTeamAnalytics(range) {
   const panel = $('#reportPerformers');
   if (!panel || !currentUser || !navigator.onLine) { if (panel) panel.hidden = true; return; }
   const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  if (!organizationId) { panel.hidden = true; return; }
   const key = `${organizationId}:${range.start}:${range.end}`;
   if (reportTeamAnalyticsState.key === key) {
     if (reportTeamAnalyticsState.status === 'ready') renderReportTeamRows(reportTeamAnalyticsState.rows);
@@ -1798,7 +1799,11 @@ async function loadReportTeamAnalytics(range) {
   }
   reportTeamAnalyticsState = { key, status:'loading', rows:[] };
   panel.hidden = true;
-  const { data, error } = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
+  let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
+  if (response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_team_analytics|function .* does not exist/i.test(response.error.message || ''))) {
+    response = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
+  }
+  const { data, error } = response;
   if (reportTeamAnalyticsState.key !== key) return;
   if (error) {
     reportTeamAnalyticsState = { key, status:'failed', rows:[] };
@@ -2207,20 +2212,16 @@ function exportBookingsPdf(privacy='masked'){
   reportExportDownload(reportPdfBlob(images),reportExportFilename(data.range,'pdf'));notify('Готовый отчёт PDF скачан');
 }
 
-async function exportBookingsXlsxInBackground() {
-  if (!window.Worker || !window.Blob || !window.URL) { exportBookingsXlsx(); return; }
-  const button = $('#exportBookings');
-  const originalText = button?.querySelector('span')?.textContent || '';
+async function exportBookingsXlsxInBackground(privacy='masked') {
+  if (!window.Worker || !window.Blob || !window.URL) { exportBookingsXlsx(privacy); return; }
+  const button = $('[data-report-export="xlsx"]');
+  const originalText = button?.querySelector('strong')?.textContent || '';
   if (button) button.disabled = true;
-  if (button?.querySelector('span')) button.querySelector('span').textContent = 'Готовим…';
+  if (button?.querySelector('strong')) button.querySelector('strong').textContent = 'Готовим…';
   let worker;
-  let workerUrl;
   try {
-    const data = reportExportData('masked');
-    const sheets = reportExportSheets(data);
-    const source = `${reportXmlText.toString()}\n${reportColumnName.toString()}\n${reportCrc32.toString()}\n${reportZip.toString()}\n${reportExportCell.toString()}\n${reportExportSheet.toString()}\n${reportProfessionalWorkbook.toString()}\nself.onmessage=event=>{try{self.postMessage({blob:reportProfessionalWorkbook(event.data.sheets)});}catch(error){self.postMessage({error:String(error&&error.message||error)});}};`;
-    workerUrl = URL.createObjectURL(new Blob([source], { type:'text/javascript' }));
-    worker = new Worker(workerUrl);
+    const data = reportExportData(privacy);
+    worker = new Worker('./report-worker.js?v=259');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -2229,26 +2230,16 @@ async function exportBookingsXlsxInBackground() {
         else resolve(event.data.blob);
       };
       worker.onerror = event => { clearTimeout(timeout); reject(event.error || new Error('report_worker_failed')); };
-      worker.postMessage({ sheets });
+      worker.postMessage({ sheets:reportExportSheets(data) });
     });
-    const range = reportRange();
-    const url = URL.createObjectURL(result);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = reportExportFilename(range, 'xlsx');
-    link.hidden = true;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify('Отчёт Excel скачан');
+    reportExportDownload(result, reportExportFilename(data.range, 'xlsx'));
+    notify('Готовый отчёт Excel скачан');
   } catch {
-    exportBookingsXlsx();
+    exportBookingsXlsx(privacy);
   } finally {
     worker?.terminate();
-    if (workerUrl) URL.revokeObjectURL(workerUrl);
     if (button) button.disabled = false;
-    if (button?.querySelector('span')) button.querySelector('span').textContent = originalText;
+    if (button?.querySelector('strong')) button.querySelector('strong').textContent = originalText;
   }
 }
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
@@ -6821,7 +6812,8 @@ async function loadBookings(options = {}) {
     const offlineCache = await showCached();
     return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
   }
-  let { data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
+  let { data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
+  if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   networkFinished = true;
@@ -7878,7 +7870,7 @@ $('#reportExportDialog').addEventListener('click', event => { if (event.target =
 $$('[data-report-export]').forEach(button => button.addEventListener('click', () => {
   const privacy = $('#reportExportPrivacy').value;
   $('#reportExportDialog').close();
-  if (button.dataset.reportExport === 'xlsx') exportBookingsXlsx(privacy);
+  if (button.dataset.reportExport === 'xlsx') void exportBookingsXlsxInBackground(privacy);
   else if (button.dataset.reportExport === 'csv') exportBookingsCsv(privacy);
   else exportBookingsPdf(privacy);
 }));

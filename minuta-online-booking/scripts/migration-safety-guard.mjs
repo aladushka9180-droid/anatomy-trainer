@@ -12,7 +12,9 @@ const releaseWorkflow = join(repositoryRoot, '.github', 'workflows', 'minuta-saf
 const PINNED_PROVIDER_DELETE_VERSION = 64;
 const PINNED_PROVIDER_DELETE_FILE = `supabase-migration-v${PINNED_PROVIDER_DELETE_VERSION}.sql`;
 const PROVIDER_DELETE_DEFINITION = /create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\s*\.\s*)?"?provider_delete_booking"?\s*\(/i;
-const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95];
+// v94 used blocking CREATE INDEX inside a transaction and is intentionally
+// superseded by the concurrent corrective migration v96.
+const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 96, 95];
 
 // Эти пары исторически хранят одну миграцию в двух системах имён.
 // Новую пару можно разрешить только явным изменением этого списка.
@@ -153,8 +155,8 @@ function checkReleaseOrder() {
     }
 
     const expectedCounts = jobName === 'test-migration'
-      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2]])
-      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1]]);
+      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 0], [95, 2], [96, 2]])
+      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 0], [95, 1], [96, 1]]);
     for (const [version, expectedCount] of expectedCounts) {
       const actualCount = chain.filter(reference => reference.version === version).length;
       if (actualCount !== expectedCount) {

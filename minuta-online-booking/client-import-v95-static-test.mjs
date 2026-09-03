@@ -25,6 +25,6 @@ assert.match(clientImport, /clients\.set\(phone/);
 assert.match(clientImport, /import_minuta_clients/);
 assert.match(provider, /importedClients\.forEach/);
 assert.match(provider, /clientImportController\.setOrganization\(organization\)/);
-assert.match(html, /id="clientImportPanel"[\s\S]*id="clientImportFile"[\s\S]*client-import\.js\?v=258/);
+assert.match(html, /id="clientImportPanel"[\s\S]*id="clientImportFile"[\s\S]*client-import\.js\?v=259/);
 
 console.log('v95 client import static checks passed');
