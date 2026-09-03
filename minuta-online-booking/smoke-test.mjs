@@ -76,7 +76,7 @@ assert.match(provider, /postgres_changes/, 'Кабинет не подписан
 assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 30000/, 'Резервная синхронизация между устройствами выполняется слишком редко');
 assert.match(provider, /PROVIDER_CACHE_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Офлайн-копия записей хранится недостаточно долго');
 assert.doesNotMatch(provider, /removeMatching\?\.\('provider:', ':bookings'\)/, 'Офлайн-копия записей периодически удаляется');
-assert.match(provider, /hydrateCachedBookings\(userId\)[\s\S]*if \(!navigator\.onLine\) return cached/, 'Записи не показываются из кэша до сетевого запроса');
+assert.match(provider, /const cachePromise = readProviderCache\('bookings', userId\)[\s\S]*if \(!navigator\.onLine\)[\s\S]*await showCached\(\)/, 'Записи не показываются из кэша до сетевого запроса');
 assert.match(provider, /bookingReady = results\.slice\(0, 4\)\.every[\s\S]*setBookingCreationReady\(bookingReady\)/, 'Создание записи зависит от необязательных разделов кабинета');
 assert.match(provider, /Связь прервалась\. Данные остались в форме/, 'Черновик записи теряется при обрыве связи');
 assert.match(providerHtml, /id="syncState"[\s\S]*id="manualSyncButton"/, 'В кабинете нет понятного ручного обновления');
