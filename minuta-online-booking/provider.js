@@ -130,7 +130,7 @@ let reportCustomStart = '';
 let reportCustomEnd = '';
 let notificationTimer = null;
 let topbarClockTimer = null;
-let deferredInstallPrompt = null;
+let deferredInstallPrompt = window.MinutaPwaInstall?.currentPrompt?.() || null;
 let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
 let timelineFullDay = false;
@@ -1234,7 +1234,7 @@ function refreshInstallAppCard() {
     status.textContent = 'Для установки откройте опубликованную HTTPS-версию сайта.';
     return;
   }
-  if (deferredInstallPrompt) {
+  if (deferredInstallPrompt || window.MinutaPwaInstall?.hasPrompt?.()) {
     button.querySelector('span').textContent = providerAppIsAndroid() ? 'Установить на Android' : 'Установить приложение';
     status.textContent = 'Нажмите кнопку — откроется системное окно установки.';
     return;
@@ -1263,9 +1263,11 @@ async function installProviderApp() {
     await openProviderInstallHelp('browserInstallGuide', 'Для установки откройте опубликованную HTTPS-версию сайта.');
     return;
   }
-  if (deferredInstallPrompt) {
-    const prompt = deferredInstallPrompt;
+  const availablePrompt = deferredInstallPrompt || window.MinutaPwaInstall?.takePrompt?.();
+  if (availablePrompt) {
+    const prompt = availablePrompt;
     deferredInstallPrompt = null;
+    window.MinutaPwaInstall?.clearPrompt?.();
     try {
       await prompt.prompt();
       const choice = await prompt.userChoice;
@@ -8921,8 +8923,13 @@ window.addEventListener('beforeinstallprompt', event => {
   deferredInstallPrompt = event;
   refreshInstallAppCard();
 });
+window.addEventListener('minuta-install-ready', () => {
+  deferredInstallPrompt = window.MinutaPwaInstall?.currentPrompt?.() || deferredInstallPrompt;
+  refreshInstallAppCard();
+});
 window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
+  window.MinutaPwaInstall?.clearPrompt?.();
   refreshInstallAppCard();
   notify('Приложение установлено');
 });
