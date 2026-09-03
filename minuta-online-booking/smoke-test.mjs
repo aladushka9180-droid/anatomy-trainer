@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '248';
+const version = '250';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -41,6 +41,7 @@ const serviceWorker = readFileSync(join(root, 'sw.js'), 'utf8');
 const voiceAssistant = readFileSync(join(root, 'voice-assistant.js'), 'utf8');
 const organization = readFileSync(join(root, 'organization.js'), 'utf8');
 const providerHtml = readFileSync(join(root, 'provider.html'), 'utf8');
+const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 const providerManifest = JSON.parse(readFileSync(join(root, 'provider.webmanifest'), 'utf8'));
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');
 assert.match(indexHtml, /id="locationFilter"[\s\S]*id="locationSelect"/, 'На клиентской странице нет выбора филиала');
@@ -83,6 +84,9 @@ assert.match(providerHtml, /class="requires-top-level provider-booting"/, 'Ка�
 assert.match(providerHtml, /id="providerBoot"[\s\S]*Открываем кабинет/, 'При обновлении нет нейтрального экрана загрузки');
 assert.match(providerHtml, /class="auth-card" id="authCard" hidden/, 'Форма входа мелькает до проверки сохранённой сессии');
 assert.match(provider, /function finishProviderBoot\(\)[\s\S]*classList\.remove\('provider-booting'\)/, 'Экран загрузки не завершается после проверки сессии');
+assert.match(provider, /providerNavigation\?\.type === 'reload'[\s\S]*classList\.add\('provider-refresh-transition'\)/, 'Плавный переход не ограничен обновлением страницы');
+assert.match(provider, /classList\.add\('provider-ready'\)[\s\S]*classList\.add\('is-leaving'\)[\s\S]*320/, 'После проверки входа нет плавного перехода к кабинету');
+assert.match(styles, /html\.provider-refresh-transition \.provider-boot-screen[\s\S]*\.provider-boot-screen\.is-leaving[\s\S]*opacity:0[\s\S]*html\.provider-refresh-transition \.provider-main[\s\S]*html\.provider-booting \.provider-main[\s\S]*translateY\(7px\)/, 'Плавный переход после обновления не оформлен');
 assert.match(provider, /db\.auth\.getSession\(\)\.then\(\(\{ data, error \}\)[\s\S]*showProviderStartupFailure/, 'Ошибка проверки сессии оставляет бесконечную загрузку');
 assert.match(providerHtml, /class="settings-check visitor-notification-toggle"[\s\S]*id="visitorNotificationSaveStatus"/, 'Настройка уведомлений использует старый компьютерный интерфейс');
 assert.doesNotMatch(providerHtml, /Сохранить уведомления<\/button>/, 'Настройка уведомлений всё ещё требует отдельного сохранения');
@@ -303,7 +307,6 @@ assert.match(provider, /data-new-booking-mode="block"/, 'В ручной зап�
 assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
-const styles = readFileSync(join(root, 'styles.css'), 'utf8');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:2px;/, 'Кнопка фотографии снова закрывает центр аватара');
 assert.match(styles, /\.booking-sheet-client \{[^}]*grid-template-rows:auto auto auto;/, 'Строки карточки клиента больше не задают точную привязку аватара к имени');
 assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*grid-row:2;[^}]*transform:translateY\(calc\(\(var\(--booking-client-name-line\) - var\(--booking-client-avatar-size\)\)\/2\)\);/, 'Оптический центр аватара больше не совпадает с центром строки имени');
