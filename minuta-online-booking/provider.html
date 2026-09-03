@@ -333,8 +333,60 @@
             <article><small>Долг</small><strong id="reportDebt">0 ₽</strong><span id="reportUnpaid">0 неоплаченных визитов</span></article>
             <article><small>Визиты</small><strong id="reportCompleted">0</strong><span id="reportWorkload">0 часов работы</span></article>
           </div>
-          <div class="report-secondary" aria-label="Дополнительные показатели"><article><small>Средний чек</small><strong id="reportAverage">0 ₽</strong></article><article><small>Без результата</small><strong id="reportPending">0</strong></article><article><small>Отменено</small><strong id="reportCancelled">0</strong></article><article><small>Не пришли</small><strong id="reportNoShow">0</strong></article></div>
+          <div class="report-secondary" aria-label="Дополнительные показатели"><article><small>Средний чек</small><strong id="reportAverage">0 ₽</strong></article><article><small>Ожидают отметки</small><strong id="reportPending">0</strong></article><article><small>Отменено</small><strong id="reportCancelled">0</strong></article><article><small>Не пришли</small><strong id="reportNoShow">0</strong></article></div>
           <section class="report-reconciliation" id="reportReconciliation" aria-live="polite"></section>
+          <section class="report-comparison" id="reportComparison" aria-label="Сравнение с предыдущим периодом">
+            <div class="report-section-heading"><div><small>Изменения</small><h3>Сравнение периода</h3></div><span>К предыдущему периоду</span></div>
+            <div class="report-comparison-list">
+              <article><span>Получено</span><strong id="reportComparisonRevenue">Без сравнения</strong></article>
+              <article><span>Визиты</span><strong id="reportComparisonVisits">Без сравнения</strong></article>
+              <article><span>Клиенты</span><strong id="reportComparisonClients">Без сравнения</strong></article>
+              <article><span>Онлайн</span><strong id="reportComparisonOnline">Без сравнения</strong></article>
+            </div>
+          </section>
+          <div class="report-business-grid">
+            <section class="panel report-business-card report-clients" aria-labelledby="reportClientsTitle">
+              <div class="report-section-heading"><div><small>Клиентская база</small><h3 id="reportClientsTitle">Клиенты за период</h3></div></div>
+              <div class="report-metric-row">
+                <article><small>Посетило</small><strong id="reportUniqueClients">0</strong><span>Уникальных клиентов</span></article>
+                <article><small>Новые</small><strong id="reportNewClients">0</strong><span id="reportNewClientsShare">0%</span></article>
+                <article><small>Постоянные</small><strong id="reportReturningClients">0</strong><span id="reportReturningClientsShare">0%</span></article>
+              </div>
+            </section>
+            <section class="panel report-business-card report-sources" aria-labelledby="reportSourcesTitle">
+              <div class="report-section-heading"><div><small>Автоматизация</small><h3 id="reportSourcesTitle">Источник записей</h3></div></div>
+              <div class="report-source-bar" aria-hidden="true"><i id="reportSourceBarOnline" style="width:0%"></i></div>
+              <div class="report-source-list">
+                <article><span>Онлайн</span><strong id="reportOnlineBookings">0</strong><small id="reportOnlineShare">0%</small></article>
+                <article><span>Мастером</span><strong id="reportManualBookings">0</strong><small id="reportManualShare">0%</small></article>
+                <article><span>Не определено</span><strong id="reportUnknownBookings">0</strong></article>
+              </div>
+            </section>
+            <section class="panel report-business-card report-utilization" aria-labelledby="reportUtilizationTitle">
+              <div class="report-section-heading"><div><small>Рабочее время</small><h3 id="reportUtilizationTitle">Загрузка расписания</h3></div><strong id="reportUtilizationPercent">0%</strong></div>
+              <div class="report-progress" aria-hidden="true"><i id="reportUtilizationBar" style="width:0%"></i></div>
+              <div class="report-utilization-values">
+                <span>Занято <b id="reportBookedHours">0 ч</b></span>
+                <span>Доступно <b id="reportAvailableHours">0 ч</b></span>
+                <span>Свободно <b id="reportFreeHours">0 ч</b></span>
+              </div>
+              <p id="reportUtilizationNote">Учитываются рабочие часы без перерывов и закрытого времени.</p>
+            </section>
+            <section class="panel report-business-card report-retention" aria-labelledby="reportRetentionTitle">
+              <div class="report-section-heading"><div><small>Возврат клиентов</small><h3 id="reportRetentionTitle">Клиенты после перерыва</h3></div></div>
+              <div class="report-retention-list">
+                <article><span>Можно связаться</span><strong id="reportRetentionEligible">0</strong></article>
+                <article><span>Постоянные после перерыва</span><strong id="reportRetentionRegular">0</strong></article>
+                <article><span>Подготовлено</span><strong id="reportRetentionPrepared">0</strong></article>
+                <article><span>Отправлено</span><strong id="reportRetentionSent">0</strong></article>
+                <article><span>Согласие не указано</span><strong id="reportRetentionUnknownConsent">0</strong></article>
+              </div>
+            </section>
+          </div>
+          <section class="panel report-performers" id="reportPerformers" aria-labelledby="reportPerformersTitle">
+            <div class="report-section-heading"><div><small>Команда</small><h3 id="reportPerformersTitle">Результаты мастеров</h3></div><span>По выполненным визитам</span></div>
+            <div class="report-performer-list" id="reportPerformersList"><p class="report-empty-inline">Данные по мастерам появятся после завершённых визитов.</p></div>
+          </section>
           <div class="report-insights-grid">
             <section class="panel report-trend"><div class="panel-head"><div><small>Динамика</small><h3>Получено по дням</h3></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
             <section class="panel report-payments"><div class="panel-head"><div><small>Оплата</small><h3>Способы оплаты</h3></div></div><div id="reportPaymentsList"></div></section>
