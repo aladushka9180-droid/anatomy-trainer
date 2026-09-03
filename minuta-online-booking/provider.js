@@ -1762,11 +1762,27 @@ function renderReportRetention() {
   const payload = typeof payloadValue === 'function' ? payloadValue.call(retentionController) : payloadValue;
   const clients = Array.isArray(payload?.clients) ? payload.clients : [];
   const deliveries = Array.isArray(payload?.deliveries) ? payload.deliveries : [];
-  setReportText('#reportRetentionEligible', clients.filter(item => item.eligible === true).length);
-  setReportText('#reportRetentionRegular', clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length);
-  setReportText('#reportRetentionPrepared', deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length);
-  setReportText('#reportRetentionSent', deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length);
-  setReportText('#reportRetentionUnknownConsent', clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length);
+  const eligible = clients.filter(item => item.eligible === true).length;
+  const regular = clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length;
+  const prepared = deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length;
+  const sent = deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length;
+  const unknownConsent = clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length;
+  setReportText('#reportRetentionEligible', eligible);
+  setReportText('#reportRetentionRegular', regular);
+  setReportText('#reportRetentionPrepared', prepared);
+  setReportText('#reportRetentionSent', sent);
+  setReportText('#reportRetentionUnknownConsent', unknownConsent);
+  const panel = $('.report-retention');
+  if (panel) {
+    const isEmpty = eligible + regular + prepared + sent === 0;
+    panel.classList.toggle('is-empty', isEmpty);
+    let empty = panel.querySelector('.report-retention-empty');
+    if (!empty) {
+      panel.insertAdjacentHTML('beforeend', '<p class="report-retention-empty"></p>');
+      empty = panel.querySelector('.report-retention-empty');
+    }
+    empty.textContent = 'Клиентов для возвращения пока нет' + (unknownConsent ? ` · у ${unknownConsent} не указано согласие` : '');
+  }
 }
 
 let reportTeamAnalyticsState = { key:'', status:'idle', rows:[] };
@@ -1868,7 +1884,7 @@ function renderAnalytics() {
   const clients = reportClientMetrics(completed, range);
   const sources = reportSourceMetrics(items);
   const sourceTotal = sources.online + sources.manual + sources.unknown;
-  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · личная статистика мастера`;
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
@@ -1884,8 +1900,8 @@ function renderAnalytics() {
     { selector:'#reportCancelledMetric', value:cancelled.length, clear:'Без отмен' },
     { selector:'#reportNoShowMetric', value:noShows.length, clear:'Все пришли' }
   ];
-  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0);
-  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.value === 0; });
+  const clearMetrics = secondaryMetrics.filter(metric => metric.value === 0 && metric.selector !== '#reportNoShowMetric');
+  secondaryMetrics.forEach(metric => { const node = $(metric.selector); if (node) node.hidden = metric.selector !== '#reportNoShowMetric' && metric.value === 0; });
   const zeroSummary = $('#reportZeroSummary');
   if (zeroSummary) {
     zeroSummary.hidden = !clearMetrics.length;
@@ -1935,7 +1951,7 @@ function renderAnalytics() {
   });
   const paymentNames = { cash:'Наличные', card:'Карта', transfer:'Перевод', unpaid:'Без оплаты' };
   const visiblePayments = [...payments.entries()].filter(([, amount]) => amount > 0);
-  $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)}</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
+  $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)} · ${revenue ? Math.round(amount / revenue * 100) : 0}%</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
   const grouped = new Map();
   completed.forEach(item => {
     const entries = bookingSession(item).filter(entry => entry.title);
@@ -1968,7 +1984,7 @@ function renderAnalytics() {
       if (rows[0]) messages.push(`Больше всего принесла услуга «${rows[0].name}» — ${money(rows[0].revenue)} (${revenue ? Math.round(rows[0].revenue / revenue * 100) : 0}% дохода).`);
       if (utilizationPercent !== null) messages.push(`Расписание загружено на ${utilizationPercent}%.`);
     }
-    insight.innerHTML = `<small>Главное за период</small><p>${escapeHtml(messages.join(' '))}</p>`;
+    insight.innerHTML = `<small>Главное за период</small><ul>${messages.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
   }
 }
 
@@ -7872,6 +7888,13 @@ $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
 $$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));
 $('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
+$('#reportPendingMetric')?.addEventListener('click', () => setProviderView('bookings'));
+$('#reportPendingMetric')?.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    setProviderView('bookings');
+  }
+});
 $('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
 $$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));
 $('#reportExportDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
