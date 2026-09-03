@@ -89,6 +89,6 @@ assert.match(releaseWorkflow, /supabase-migration-v97\.sql/, 'release: v97 не 
 assert.match(releaseWorkflow, /recovery\/rollback-employee-analytics-v97\.sql/, 'release: test-only rollback v97 не проверяется');
 assert.match(releaseWorkflow, /supabase-migration-v94\.sql[\s\S]*supabase-migration-v96\.sql[\s\S]*supabase-migration-v95\.sql[\s\S]*supabase-migration-v97\.sql/, 'release: порядок должен быть v94 → v96 → v95 → v97');
 assert.doesNotMatch(validationBlock, /supabase-migration-v9[234567]\.sql/, 'release: v92–v97 нельзя репетировать на живой production в длинной транзакции');
-assert.match(releaseWorkflow, /MINUTA_TEST_RUN_ID[\s\S]*"test-migration" 21600 test/, 'release: production не требует успешный test-migration');
+assert.match(releaseWorkflow, /MINUTA_TEST_RUN_ID[\s\S]*"test-migration — \$MINUTA_MIGRATION_TARGET" 21600 test/, 'release: production должен требовать успешный test-migration для того же migration target');
 
 console.log('analytics v92-v94 static test: OK');
