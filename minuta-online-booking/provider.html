@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=284">
+  <link rel="stylesheet" href="styles.css?v=285">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -628,6 +628,7 @@
             <section class="panel organization-section organization-benefits" id="benefitsPanel" hidden>
               <div class="panel-head"><div><small>Возврат клиентов и предоплаченные услуги</small><h3>Абонементы и сертификаты</h3></div><span class="panel-count" id="benefitProductsCount">0</span></div>
               <p class="organization-invite-help">Баланс хранится в неизменяемом журнале. Продукт сначала резервируется на записи, а списывается только после завершённого визита.</p>
+              <div class="benefit-guide" aria-label="Как работают абонементы и сертификаты"><strong>Как это работает</strong><ol><li>Включите систему и создайте шаблон абонемента, пакета или сертификата.</li><li>Выдайте созданный продукт конкретному клиенту.</li><li>Примените продукт к записи: посещение или сумма временно резервируются.</li><li>После завершения визита нажмите «Погасить». При отмене нажмите «Вернуть».</li></ol><p id="benefitWorkflowStatus" role="status" aria-live="polite">Проверяем состояние системы…</p></div>
               <div class="loading-state compact" id="benefitsLoading" hidden><i></i><span>Загружаем абонементы…</span></div>
               <div class="resource-inline-error" id="benefitsUnavailable" role="status" hidden><div><strong>Абонементы временно недоступны</strong><small id="benefitsUnavailableText"></small></div><button class="secondary-button" id="reloadBenefits" type="button">Повторить</button></div>
               <div class="benefits-workspace" id="benefitsWorkspace" hidden>
@@ -637,21 +638,21 @@
                     <div class="resource-subhead"><div><small>Что можно продать клиенту</small><strong>Продукты</strong></div></div>
                     <div class="organization-list" id="benefitProductsList"></div>
                     <details class="organization-create" id="benefitProductCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать продукт</span></summary><form id="benefitProductForm">
-                      <div class="form-row"><label>Тип<select id="benefitProductKind"><option value="visit_pass">Абонемент</option><option value="package">Пакет услуг</option><option value="certificate">Сертификат</option></select></label><label>Название<input id="benefitProductName" maxlength="120" placeholder="Например, 5 сеансов массажа" required></label></div>
+                        <p class="benefit-form-help"><strong>Создаётся шаблон для продажи.</strong> Серый текст является примером, а не введённым значением.</p><div class="form-row"><label>Тип<select id="benefitProductKind"><option value="visit_pass">Абонемент</option><option value="package">Пакет услуг</option><option value="certificate">Сертификат</option></select><small>Абонемент: посещения. Пакет: посещения по разным услугам. Сертификат: сумма в рублях.</small></label><label>Название<input id="benefitProductName" maxlength="120" placeholder="Например, 5 сеансов массажа" required><small>Это название увидите вы и клиент.</small></label></div>
                       <div class="form-row"><label>Цена продажи, ₽<input id="benefitProductPrice" type="number" min="0" max="10000000" step="1" value="0" required></label><label>Срок, дней<input id="benefitProductValidity" type="number" min="1" max="3650" step="1" value="90" required></label></div>
-                      <div class="form-row"><label>Посещений<input id="benefitProductVisits" type="number" min="1" max="10000" step="1" value="5"></label><label>Номинал сертификата, ₽<input id="benefitProductValue" type="number" min="1" max="10000000" step="1" value="5000"></label></div>
-                      <fieldset class="benefit-service-fieldset"><legend>Услуги и количество</legend><div class="benefit-service-options" id="benefitProductServices"></div><small>Для пакета количество складывается по выбранным услугам.</small></fieldset>
-                      <p class="form-error" id="benefitProductError" hidden></p><button class="primary" type="submit" data-benefit-write>Сохранить продукт</button>
+                        <div class="form-row"><label id="benefitProductVisitsField">Посещений<input id="benefitProductVisits" type="number" min="1" max="10000" step="1" value="5"><small>Общее количество посещений в абонементе.</small></label><label id="benefitProductValueField" hidden>Номинал сертификата, ₽<input id="benefitProductValue" type="number" min="1" max="10000000" step="1" value="5000"><small>Сумма, которой клиент сможет оплачивать записи.</small></label></div>
+                        <fieldset class="benefit-service-fieldset"><legend>Услуги и количество</legend><div class="benefit-service-options" id="benefitProductServices"></div><small id="benefitProductServicesHint">Для абонемента можно выбрать разрешённые услуги. Если ничего не выбрать, он действует на все услуги.</small></fieldset>
+                        <p class="form-error" id="benefitProductError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Создать продукт</button>
                     </form></details>
                   </section>
                   <section>
                     <div class="resource-subhead"><div><small>Активные балансы клиентов</small><strong>Выданные продукты</strong></div><span class="panel-count" id="benefitInstrumentsCount">0</span></div>
                     <div class="organization-list" id="benefitInstrumentsList"></div>
-                    <details class="organization-create" id="benefitIssueCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Выдать клиенту</span></summary><form id="benefitIssueForm"><label>Продукт<select id="benefitIssueProduct" required></select></label><label>Клиент<select id="benefitIssueClient" required></select></label><label>Срок действия до<input id="benefitIssueExpiry" type="date"></label><p class="form-error" id="benefitIssueError" hidden></p><button class="primary" type="submit" data-benefit-write>Выдать</button></form></details>
+                      <details class="organization-create" id="benefitIssueCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Выдать клиенту</span></summary><form id="benefitIssueForm"><p class="benefit-form-help">Сначала создайте продукт, затем выберите клиента. Если срок не указать, он рассчитается по настройке продукта.</p><label>Продукт<select id="benefitIssueProduct" required></select></label><label>Клиент<select id="benefitIssueClient" required></select></label><label>Срок действия до<input id="benefitIssueExpiry" type="date"><small>Можно оставить пустым для автоматического расчёта.</small></label><p class="form-error" id="benefitIssueError" role="alert" hidden></p><button class="primary" type="submit" data-benefit-write>Выдать клиенту</button></form></details>
                   </section>
                 </div>
                 <section class="benefit-redemptions"><div class="resource-subhead"><div><small>Резерв и погашение без двойного списания</small><strong>Использование по записям</strong></div></div><div class="organization-list" id="benefitRedemptionsList"></div>
-                  <details class="organization-create" id="benefitApplyCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Применить к записи</span></summary><form id="benefitApplyForm"><div class="form-row"><label>Абонемент или сертификат<select id="benefitApplyInstrument" required></select></label><label>Запись клиента<select id="benefitApplyBooking" required></select></label></div><label>Сумма сертификата, ₽<input id="benefitApplyAmount" type="number" min="1" max="10000000" step="1" placeholder="Для абонемента не заполнять"></label><p class="form-error" id="benefitApplyError" hidden></p><button class="secondary-button" type="submit" data-benefit-write>Зарезервировать</button></form></details>
+                    <details class="organization-create" id="benefitApplyCreator"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Применить к записи</span></summary><form id="benefitApplyForm"><p class="benefit-form-help">Резерв защищает баланс от повторного использования. Окончательное погашение выполняется после завершения визита.</p><div class="form-row"><label>Абонемент или сертификат<select id="benefitApplyInstrument" required></select></label><label>Запись клиента<select id="benefitApplyBooking" required></select><small>Показываются записи владельца выбранного продукта.</small></label></div><label>Сумма сертификата, ₽<input id="benefitApplyAmount" type="number" min="1" max="10000000" step="1" placeholder="Автоматически по стоимости записи"><small id="benefitApplyAmountHint">Для абонемента и пакета сумма не требуется.</small></label><p class="form-error" id="benefitApplyError" role="alert" hidden></p><button class="secondary-button" type="submit" data-benefit-write>Зарезервировать</button></form></details>
                 </section>
               </div>
             </section>
@@ -1115,7 +1116,7 @@
   <script src="shift-management.js?v=284" defer></script>
   <script src="organization.js?v=284" defer></script>
   <script src="payroll-management.js?v=284" defer></script>
-  <script src="benefit-management.js?v=284" defer></script>
+  <script src="benefit-management.js?v=285" defer></script>
   <script src="loyalty-management.js?v=284" defer></script>
   <script src="inventory-management.js?v=284" defer></script>
   <script src="retention-management.js?v=284" defer></script>
