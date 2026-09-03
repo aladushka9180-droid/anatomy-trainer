@@ -1199,6 +1199,17 @@ function showProviderInstallGuide(id) {
   $('#installAppButton')?.setAttribute('aria-expanded', 'true');
   guide.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
+async function openProviderInstallHelp(id, statusText) {
+  if (!$('#dashboard')?.hidden) {
+    await Promise.resolve(setProviderView('settings'));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const sectionButton = $('[data-provider-panel="settings"] [data-section-target="installAppCard"]');
+    if (sectionButton) scrollToProviderSection(sectionButton);
+  }
+  showProviderInstallGuide(id);
+  const status = $('#installAppStatus');
+  if (statusText && status) status.textContent = statusText;
+}
 function refreshInstallAppCard() {
   const button = $('#installAppButton');
   const topbarButton = $('#desktopAppInstallButton');
@@ -1249,7 +1260,7 @@ async function installProviderApp() {
     return;
   }
   if (!providerAppHasSecureOrigin()) {
-    showProviderInstallGuide('browserInstallGuide');
+    await openProviderInstallHelp('browserInstallGuide', 'Для установки откройте опубликованную HTTPS-версию сайта.');
     return;
   }
   if (deferredInstallPrompt) {
@@ -1262,19 +1273,25 @@ async function installProviderApp() {
       notify(choice.outcome === 'accepted' ? 'Установка приложения началась' : 'Установка отменена');
     } catch {
       refreshInstallAppCard();
-      showProviderInstallGuide(providerAppIsAndroid() ? 'androidInstallGuide' : 'browserInstallGuide');
+      const guide = providerAppIsAndroid() ? 'androidInstallGuide' : providerAppIsDesktop() ? 'desktopInstallGuide' : 'browserInstallGuide';
+      await openProviderInstallHelp(guide, 'Системное окно установки не открылось. Используйте инструкцию ниже.');
     }
     return;
   }
   if (providerAppIsIos()) {
-    showProviderInstallGuide('iosInstallGuide');
+    await openProviderInstallHelp('iosInstallGuide', 'На iPhone и iPad установка выполняется через меню «Поделиться» в Safari.');
     return;
   }
   if (providerAppIsAndroid()) {
-    showProviderInstallGuide('androidInstallGuide');
+    await openProviderInstallHelp('androidInstallGuide', 'Браузер не показал системное окно. Установите приложение через меню Chrome по инструкции ниже.');
     return;
   }
-  showProviderInstallGuide(providerAppIsDesktop() ? 'desktopInstallGuide' : 'browserInstallGuide');
+  await openProviderInstallHelp(
+    providerAppIsDesktop() ? 'desktopInstallGuide' : 'browserInstallGuide',
+    providerAppIsDesktop()
+      ? 'Браузер не показал системное окно. Установите приложение через меню Microsoft Edge или Google Chrome по инструкции ниже.'
+      : 'Автоматическая установка недоступна в этом браузере. Используйте инструкцию ниже.'
+  );
 }
 async function toggleProviderFullscreen() {
   try {
@@ -5211,6 +5228,64 @@ function openRepeatBookingFromSheet(id) {
   });
 }
 
+function bookingIdFromRpcResult(value) {
+  if (Array.isArray(value)) return bookingIdFromRpcResult(value[0]);
+  if (value && typeof value === 'object') return String(value.booking_id || value.id || '');
+  const candidate = String(value || '');
+  return /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(candidate) ? candidate : '';
+}
+
+function findCreatedBooking({ id = '', service, date, time, phone }) {
+  const normalizedPhone = normalizePhone(phone);
+  return [...allBookings].reverse().find(item => (
+    (id && item.id === id)
+    || (
+      item.service_id === service
+      && item.booking_date === date
+      && String(item.booking_time).slice(0, 5) === time
+      && normalizePhone(item.client_phone) === normalizedPhone
+    )
+  )) || null;
+}
+
+async function loadCreatedBookingDirect(criteria) {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId || !navigator.onLine) return null;
+  let query = db.from('bookings')
+    .select('id,organization_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)')
+    .eq('performer_id', userId)
+    .eq('booking_date', criteria.date)
+    .eq('booking_time', `${criteria.time}:00`)
+    .order('created_at', { ascending:false })
+    .limit(5);
+  query = criteria.id ? query.eq('id', criteria.id) : query.eq('service_id', criteria.service);
+  const { data, error } = await query;
+  if (error || !sessionIsCurrent(userId, generation)) return null;
+  const item = (data || []).find(candidate => (
+    (criteria.id && candidate.id === criteria.id)
+    || normalizePhone(candidate.client_phone) === normalizePhone(criteria.phone)
+  ));
+  if (!item) return null;
+  const index = allBookings.findIndex(candidate => candidate.id === item.id);
+  if (index >= 0) allBookings[index] = item;
+  else allBookings = [...allBookings, item].sort((a, b) => `${a.booking_date}${a.booking_time}${a.id}`.localeCompare(`${b.booking_date}${b.booking_time}${b.id}`));
+  renderBookingData();
+  void saveProviderCache('bookings', allBookings, userId);
+  return item;
+}
+
+async function ensureCreatedBookingVisible(criteria) {
+  let created = findCreatedBooking(criteria);
+  if (created) return created;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt) await new Promise(resolve => setTimeout(resolve, 250));
+    created = await loadCreatedBookingDirect(criteria);
+    if (created) return created;
+  }
+  return null;
+}
+
 async function createNewBooking(event) {
   event.preventDefault();
   if (!requireBookingWrites()) return;
@@ -5448,14 +5523,14 @@ async function createNewBooking(event) {
     return;
   }
   const bookingParams = { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone };
-  let { error } = await db.rpc('provider_book_appointment', bookingParams);
+  let { data:bookingRpcResult, error } = await db.rpc('provider_book_appointment', bookingParams);
   if (!sessionIsCurrent(userId, generation)) return;
   const technicalProviderError = error && (
     ['42501', '42883', 'PGRST202'].includes(String(error.code || ''))
     || /permission denied|could not find the function|does not exist/i.test(String(error.message || ''))
   );
   if (technicalProviderError) {
-    ({ error } = await db.rpc('book_appointment', bookingParams));
+    ({ data:bookingRpcResult, error } = await db.rpc('book_appointment', bookingParams));
     if (!sessionIsCurrent(userId, generation)) return;
   }
   if (error) {
@@ -5510,7 +5585,9 @@ async function createNewBooking(event) {
   clearNewBookingDraft(userId);
   closeBookingSheet();
   await refreshAfterWrite();
-  createdBooking ||= [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone));
+  const createdCriteria = { id:bookingIdFromRpcResult(bookingRpcResult), service, date, time:newBookingTime, phone };
+  createdBooking ||= findCreatedBooking(createdCriteria);
+  createdBooking ||= await ensureCreatedBookingVisible(createdCriteria);
   let blockNoteLocalOnly = false;
   if (createdBooking) {
     await saveBookingColor(createdBooking.id, color, { rerender:false });
