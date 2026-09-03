@@ -90,6 +90,7 @@
     let workspace = null;
     let selectedPhone = '';
     let bound = false;
+    let definitionEditorOpen = false;
 
     function isManager() {
       return ['owner', 'admin'].includes(String(workspace?.current_role || organization?.current_role || ''));
@@ -125,7 +126,13 @@
       const list = $('#clientFieldDefinitionsList');
       if (list) list.innerHTML = definitions.length
         ? definitions.map((item) => `<article><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.field_key)} · ${escapeHtml(item.field_type)}${item.required ? ' · обязательно' : ''}${item.active ? '' : ' · выключено'}</small></div></article>`).join('')
-        : '<div class="provider-empty compact-empty"><strong>Дополнительных полей пока нет</strong><small>Создайте поле для важных данных клиента.</small></div>';
+        : '<div class="client-fields-empty"><strong>Полей пока нет</strong><small>Добавьте только действительно нужные сведения.</small></div>';
+      const count = $('#clientFieldDefinitionsCount');
+      if (count) count.textContent = definitions.length ? `${definitions.length} ${definitions.length === 1 ? 'поле' : definitions.length < 5 ? 'поля' : 'полей'}` : 'Пока нет';
+      const definitionForm = $('#clientFieldDefinitionForm');
+      if (definitionForm) definitionForm.hidden = !definitionEditorOpen;
+      const addButton = $('#showClientFieldForm');
+      if (addButton) addButton.hidden = definitionEditorOpen;
       const form = $('#clientCustomFieldsForm');
       if (form) {
         const active = definitions.filter((item) => item.active);
@@ -167,6 +174,11 @@
     }
 
     async function handleChange(event) {
+      if (event.target.id === 'clientFieldType') {
+        const optionsField = $('#clientFieldOptionsField');
+        if (optionsField) optionsField.hidden = event.target.value !== 'select';
+        return;
+      }
       if (event.target.id !== 'clientFieldsEnabled' || !api || !requireWrites()) return;
       event.target.disabled = true;
       try { await api.setEnabled(event.target.checked); workspace = await api.loadConfiguration(); }
@@ -187,6 +199,7 @@
             sortOrder:Number($('#clientFieldSort').value || 0)
           });
           event.target.reset();
+          definitionEditorOpen = false;
           await loadConfiguration();
           notify('Поле клиента сохранено');
         } catch { notify('Не удалось сохранить поле клиента'); }
@@ -221,6 +234,20 @@
       bound = true;
       document.addEventListener('change', handleChange);
       document.addEventListener('submit', handleSubmit);
+      document.addEventListener('click', (event) => {
+        if (event.target.closest('#showClientFieldForm')) {
+          definitionEditorOpen = true;
+          render();
+          $('#clientFieldLabel')?.focus();
+        }
+        if (event.target.closest('#cancelClientFieldForm')) {
+          definitionEditorOpen = false;
+          $('#clientFieldDefinitionForm')?.reset();
+          const optionsField = $('#clientFieldOptionsField');
+          if (optionsField) optionsField.hidden = true;
+          render();
+        }
+      });
     }
 
     return { bind, setOrganization, setClient, loadConfiguration, render };

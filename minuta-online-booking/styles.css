@@ -4685,13 +4685,43 @@ html.requires-top-level.top-level body { visibility:visible; }
 .unified-channel-card strong { color:var(--theme-ink,#173b2c); font-size:11px; }
 .unified-channel-card small { color:var(--theme-muted,#718278); font-size:9px; line-height:1.4; }
 .unified-channel-card:has(input:disabled) { cursor:not-allowed; opacity:.7; }
-.client-fields-settings { margin-bottom:18px; }
-.client-fields-settings>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; list-style:none; }
+.client-fields-settings { margin-bottom:18px; padding:18px 20px; }
+.client-fields-settings>summary { display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; list-style:none; }
 .client-fields-settings>summary::-webkit-details-marker { display:none; }
 .client-fields-settings>summary span:first-child { display:grid; gap:4px; }
+.client-fields-settings>summary strong { font-size:15px; }
+.client-fields-summary-action { display:flex; align-items:center; gap:8px; color:var(--theme-accent,var(--green)); font-size:11px; font-weight:850; }
+.client-fields-summary-action>span { display:grid; place-items:center; width:25px; height:25px; border-radius:50%; background:var(--theme-accent-soft,#e8f3ec); font-size:16px; transition:transform .18s ease; }
+.client-fields-settings[open] .client-fields-summary-action>span { transform:rotate(45deg); }
 .client-fields-settings>summary small,.client-custom-fields>div small { color:var(--theme-muted,#718278); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
-.client-fields-settings-body { display:grid; gap:16px; margin-top:16px; padding-top:16px; border-top:1px solid var(--theme-line,#dce7df); }
+.client-fields-settings-body { display:grid; gap:12px; margin-top:15px; padding-top:15px; border-top:1px solid var(--theme-line,#dce7df); }
+.provider-body .client-fields-toggle { display:grid!important; grid-template-columns:minmax(0,1fr) 42px; align-items:center; gap:14px; margin:0!important; padding:11px 13px!important; border:0!important; border-radius:13px; background:var(--theme-surface-alt,#f7faf8)!important; cursor:pointer; }
+.provider-body .client-fields-toggle>span { display:grid; grid-column:1; gap:3px; }
+.provider-body .client-fields-toggle>span strong { font-size:11px; }
+.provider-body .client-fields-toggle>span small { color:var(--theme-muted,#718278); font-size:9px; font-weight:650; line-height:1.35; }
+.provider-body .client-fields-toggle>input { appearance:none; grid-column:2; position:relative; width:42px!important; min-height:24px!important; height:24px!important; margin:0!important; padding:0!important; border:1px solid var(--theme-line,#dce7df); border-radius:999px; background:color-mix(in srgb,var(--theme-muted,#718278) 18%,var(--theme-surface,#fff)); cursor:pointer; }
+.provider-body .client-fields-toggle>input::after { content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:var(--theme-surface,#fff); box-shadow:0 1px 4px rgba(28,55,42,.18); transition:transform .16s ease; }
+.provider-body .client-fields-toggle>input:checked { border-color:var(--theme-accent,var(--green)); background:var(--theme-accent,var(--green)); }
+.provider-body .client-fields-toggle>input:checked::after { transform:translateX(18px); }
+.client-fields-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:3px; }
+.client-fields-toolbar>span { display:grid; gap:2px; }
+.client-fields-toolbar strong { font-size:12px; }
+.client-fields-toolbar small { color:var(--theme-muted,#718278); font-size:9px; }
+.client-fields-toolbar .secondary-button { min-height:36px; margin:0; padding:0 13px; }
+.client-fields-settings .organization-list { margin:0; }
+.client-fields-settings .organization-list article { min-height:auto; padding:10px 12px; }
+.client-fields-empty { display:grid; gap:3px; padding:12px 13px; border:1px dashed var(--theme-line,#dce7df); border-radius:12px; color:var(--theme-muted,#718278); }
+.client-fields-empty strong { color:var(--theme-ink,var(--ink)); font-size:11px; }
+.client-fields-empty small { font-size:9px; line-height:1.4; }
 .client-field-definition-form { padding:14px; border:1px solid var(--theme-line,#dce7df); border-radius:15px; background:var(--theme-surface-alt,#f7faf8); }
+.client-field-definition-form[hidden] { display:none; }
+.client-field-form-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.client-field-form-heading>div { display:grid; gap:3px; }
+.client-field-form-heading small { color:var(--theme-muted,#718278); font-size:8px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+.client-field-form-heading strong { font-size:13px; }
+.client-field-form-heading button { display:grid; place-items:center; width:30px; height:30px; padding:0; border:0; border-radius:50%; background:var(--theme-surface,#fff); color:var(--theme-muted,#718278); cursor:pointer; font-size:18px; }
+.client-field-definition-form>.primary { justify-self:start; min-height:40px; margin:2px 0 0; padding:0 16px; }
+.client-field-required { margin:0!important; }
 .client-custom-fields { display:grid; gap:12px; margin-top:18px; padding:16px; border:1px solid var(--theme-line,#dce7df); border-radius:16px; background:var(--theme-surface-alt,#f7faf8); }
 .client-custom-fields>div { display:grid; gap:4px; }
 .client-custom-fields textarea { min-height:82px; resize:vertical; }
@@ -4700,6 +4730,11 @@ html.requires-top-level.top-level body { visibility:visible; }
   .payment-fiscalization-fields,.unified-notification-channels { grid-template-columns:1fr; }
   .payment-attempt-row,.unified-notification-delivery { display:grid; }
   .payment-attempt-row span,.unified-notification-delivery span { text-align:left; }
+  .client-fields-settings { padding:15px 13px; }
+  .client-fields-summary-action { font-size:0; }
+  .client-fields-toolbar { align-items:flex-end; }
+  .client-field-definition-form .form-row { grid-template-columns:1fr; }
+  .client-field-definition-form>.primary { width:100%; }
 }
 
 /* Warm Beige: единая тёплая типографика во всех разделах кабинета. */
