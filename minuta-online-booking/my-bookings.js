@@ -6,6 +6,8 @@ let bookingsByToken = new Map();
 let currentReviewToken = '';
 let currentReviewRating = 0;
 let currentReviewEditing = false;
+let smsPhone = '';
+let smsCodeRequested = false;
 
 function loadSessionToken() {
   try {
@@ -156,6 +158,85 @@ async function login(event) {
   await openAccount();
 }
 
+function setSmsCodeStep(active) {
+  smsCodeRequested = active;
+  $('#clientSmsCodeStep').hidden = !active;
+  $('#clientSmsPhone').readOnly = active;
+  $('#clientSmsButton').textContent = active ? 'Подтвердить код' : 'Получить код';
+  if (active) setTimeout(() => $('#clientSmsCode').focus(), 0);
+}
+
+function changeClientSmsPhone() {
+  smsPhone = '';
+  $('#clientSmsCode').value = '';
+  $('#clientSmsError').hidden = true;
+  setSmsCodeStep(false);
+  $('#clientSmsPhone').focus();
+}
+
+async function resendClientSmsCode() {
+  const button = $('#clientSmsResend');
+  button.disabled = true;
+  $('#clientSmsError').hidden = true;
+  try {
+    await window.MinutaPhoneAuth.request(db, smsPhone, { shouldCreateUser:true, data:{ account_type:'client' } });
+    notify('Новый код отправлен');
+  } catch (error) {
+    showError($('#clientSmsError'), window.MinutaPhoneAuth.message(error, 'request'));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function clientSmsLogin(event) {
+  event.preventDefault();
+  const auth = window.MinutaPhoneAuth;
+  const button = $('#clientSmsButton');
+  $('#clientSmsError').hidden = true;
+  if (!auth) { showError($('#clientSmsError'), 'Модуль входа не загрузился. Обновите страницу.'); return; }
+  button.disabled = true;
+  try {
+    if (!smsCodeRequested) {
+      button.textContent = 'Отправляем…';
+      smsPhone = await auth.request(db, $('#clientSmsPhone').value, { shouldCreateUser:true, data:{ account_type:'client' } });
+      $('#clientSmsSentTo').textContent = `Код отправлен на ${auth.formatPhone(smsPhone)}`;
+      setSmsCodeStep(true);
+      notify('Код отправлен по SMS');
+      return;
+    }
+    button.textContent = 'Проверяем…';
+    await auth.verify(db, smsPhone, $('#clientSmsCode').value, 'sms');
+    const { data, error } = await db.rpc('bootstrap_client_sms_session', { p_device_name:navigator.userAgent.slice(0, 120) });
+    const result = data?.[0];
+    if (error || !result?.session_token) throw new Error(error?.message || 'client_sms_session_unavailable');
+    saveSessionToken(result.session_token);
+    await openAccount();
+  } catch (error) {
+    const migrationMissing = /bootstrap_client_sms_session|PGRST202|42883/i.test(`${error?.message || ''} ${error?.code || ''}`);
+    showError($('#clientSmsError'), migrationMissing ? 'Вход по SMS ещё не активирован на сервере. Используйте личный код.' : auth.message(error, smsCodeRequested ? 'verify' : 'request'));
+  } finally {
+    button.disabled = false;
+    button.textContent = smsCodeRequested ? 'Подтвердить код' : 'Получить код';
+  }
+}
+
+async function initializeSmsLogin() {
+  const button = $('#clientSmsButton');
+  const status = $('#clientSmsStatus');
+  if (!window.MinutaPhoneAuth) {
+    button.textContent = 'Вход по SMS недоступен';
+    status.textContent = 'Используйте личный код ниже.';
+    return;
+  }
+  const capability = await window.MinutaPhoneAuth.capability();
+  button.disabled = !capability.enabled;
+  button.textContent = capability.enabled ? 'Получить код' : 'Вход по SMS пока не подключён';
+  status.textContent = capability.enabled
+    ? 'Код действует ограниченное время. Никому его не сообщайте.'
+    : capability.reason === 'offline' ? 'Без интернета используйте ранее выданный личный код.' : capability.reason === 'backend' ? 'Безопасный вход по SMS ещё не установлен на сервере. Используйте личный код.' : 'SMS пока не подключены. Личный код ниже продолжает работать.';
+  if (!capability.enabled) $('#legacyClientLogin').open = true;
+}
+
 async function rotateCode() {
   if (!confirm('Создать новый личный код? Прежний код перестанет действовать.')) return;
   const button = $('#clientRotateCode'); button.disabled = true; button.textContent = 'Создаём…';
@@ -175,8 +256,17 @@ async function logout(options = {}) {
   $('#clientBookingsCard').hidden = true;
   $('#clientLoginCard').hidden = false;
   $('#clientLoginCode').value = '';
+  $('#clientSmsCode').value = '';
+  setSmsCodeStep(false);
+  const { data } = await db.auth.getSession();
+  if (data?.session?.user?.phone) await db.auth.signOut();
 }
 
+$('#clientSmsPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || formatPhone(event.target.value); });
+$('#clientSmsCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
+$('#clientSmsLoginForm').addEventListener('submit', clientSmsLogin);
+$('#clientSmsResend').addEventListener('click', resendClientSmsCode);
+$('#clientSmsChangePhone').addEventListener('click', changeClientSmsPhone);
 $('#clientLoginPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#clientLoginCode').addEventListener('input', event => { event.target.value = formatCode(event.target.value); });
 $('#clientLoginForm').addEventListener('submit', login);
@@ -189,4 +279,5 @@ $('#reviewForm').addEventListener('submit', submitReview);
 $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=229'));
+initializeSmsLogin();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=230'));

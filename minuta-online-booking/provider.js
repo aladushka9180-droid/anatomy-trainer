@@ -51,6 +51,10 @@ const BOOKING_COLOR_DEFAULT = 'auto';
 const PER_MINUTE_BOOKING_MIN = 1;
 const PER_MINUTE_BOOKING_MAX = 480;
 let currentUser = null;
+let providerLoginPhone = '';
+let providerLoginCodeRequested = false;
+let providerLinkPhone = '';
+let providerLinkCodeRequested = false;
 let currentFilter = restoreScheduleFilter();
 let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
@@ -1334,7 +1338,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=229#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=230#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2183,6 +2187,7 @@ function setAuthTabImmediate(tab) {
   $('#recoveryForm').hidden = true;
   $('#resetPasswordForm').hidden = true;
   $('#recoverySent').hidden = true;
+  $('#providerPhoneLoginForm').hidden = true;
   $$('[data-auth-tab]').forEach(button => button.classList.toggle('active', button.dataset.authTab === tab));
   $('#loginForm').hidden = tab !== 'login';
   $('#signupForm').hidden = tab !== 'signup';
@@ -2215,6 +2220,7 @@ function showRecoveryRequest() {
   $('#signupForm').hidden = true;
   $('#resetPasswordForm').hidden = true;
   $('#recoverySent').hidden = true;
+  $('#providerPhoneLoginForm').hidden = true;
   $('#recoveryForm').hidden = false;
   $('#authBadge').innerHTML = '<i></i> Восстановление доступа';
   $('#authTitle').textContent = 'Задайте новый пароль.';
@@ -2231,6 +2237,7 @@ function showRecoveryReset() {
   $('#signupForm').hidden = true;
   $('#recoveryForm').hidden = true;
   $('#recoverySent').hidden = true;
+  $('#providerPhoneLoginForm').hidden = true;
   $('#resetPasswordForm').hidden = false;
   $('#authBadge').innerHTML = '<i></i> Новый пароль';
   $('#authTitle').textContent = 'Придумайте новый пароль.';
@@ -5016,6 +5023,7 @@ async function logout() {
 async function handleSession(session) {
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
+    renderProviderPhoneState();
     return;
   }
   const previousUserId = currentUser?.id;
@@ -5047,6 +5055,14 @@ async function handleSession(session) {
   clientAvatars = new Map();
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
+  if (currentUser && navigator.onLine && !(await providerAccessAllowed(currentUser.id))) {
+    currentUser = null;
+    $('#authCard').hidden = false;
+    $('#dashboard').hidden = true;
+    setAuthTabImmediate('login');
+    showFormError('#loginError', 'Для этого номера нет доступа к кабинету исполнителя.');
+    return;
+  }
   let displayPreferencesNeedSync = false;
   if (currentUser) {
     loadBookingColors(currentUser.id);
@@ -5127,7 +5143,8 @@ async function handleSession(session) {
   $('#welcomeName').textContent = `Здравствуйте, ${name}!`;
   $('#sidebarName').textContent = name;
   $('#userAvatar').textContent = name.slice(0, 1).toUpperCase();
-  $('#accountEmail').textContent = currentUser.email || '';
+  $('#accountEmail').textContent = currentUser.email || (currentUser.phone ? (window.MinutaPhoneAuth?.formatPhone(currentUser.phone) || currentUser.phone) : '');
+  renderProviderPhoneState();
   renderTopbarDateTime();
   renderDateStrip();
   renderNotificationTemplates();
@@ -5142,6 +5159,157 @@ async function handleSession(session) {
   if (!bookingsChannel) startLiveUpdates();
   setProviderView(providerViewFromLocation(), { historyMode:'replace', focusHeading:false });
   syncScheduleContextHistory();
+}
+
+async function providerAccessAllowed(userId) {
+  const capability = await db.rpc('has_minuta_provider_access');
+  if (!capability.error) return capability.data === true;
+  const membership = await db.from('organization_memberships').select('organization_id').eq('user_id', userId).eq('active', true).limit(1);
+  if (!membership.error) return Boolean(membership.data?.length);
+  const profile = await db.from('performer_profiles').select('id').eq('id', userId).maybeSingle();
+  return !profile.error && Boolean(profile.data?.id);
+}
+
+function showProviderPhoneLogin() {
+  recoveryMode = false;
+  $('#authTabs').hidden = true;
+  $('#loginForm').hidden = true;
+  $('#signupForm').hidden = true;
+  $('#recoveryForm').hidden = true;
+  $('#resetPasswordForm').hidden = true;
+  $('#recoverySent').hidden = true;
+  $('#providerPhoneLoginForm').hidden = false;
+  $('#authBadge').innerHTML = '<i></i> Вход по телефону';
+  $('#authTitle').textContent = 'Код вместо пароля.';
+  $('#authDescription').textContent = 'Доступ откроется только для телефона, заранее подтверждённого в кабинете исполнителя.';
+  setTimeout(() => $('#providerLoginPhone').focus(), 0);
+}
+
+function resetProviderPhoneLogin() {
+  providerLoginPhone = '';
+  providerLoginCodeRequested = false;
+  $('#providerLoginPhone').readOnly = false;
+  $('#providerLoginCode').value = '';
+  $('#providerLoginCodeStep').hidden = true;
+  $('#providerPhoneLoginError').hidden = true;
+  $('#providerPhoneLoginSubmit').textContent = 'Получить код';
+  setAuthTab('login');
+}
+
+function changeProviderLoginPhone() {
+  providerLoginPhone = '';
+  providerLoginCodeRequested = false;
+  $('#providerLoginPhone').readOnly = false;
+  $('#providerLoginCode').value = '';
+  $('#providerLoginCodeStep').hidden = true;
+  $('#providerPhoneLoginError').hidden = true;
+  $('#providerPhoneLoginSubmit').textContent = 'Получить код';
+  $('#providerLoginPhone').focus();
+}
+
+async function resendProviderLoginCode() {
+  const button = $('#providerLoginResend');
+  button.disabled = true;
+  $('#providerPhoneLoginError').hidden = true;
+  try {
+    await window.MinutaPhoneAuth.request(db, providerLoginPhone, { shouldCreateUser:false });
+    notify('Новый код отправлен');
+  } catch (error) {
+    showFormError('#providerPhoneLoginError', window.MinutaPhoneAuth.message(error, 'request'));
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitProviderPhoneLogin(event) {
+  event.preventDefault();
+  const auth = window.MinutaPhoneAuth;
+  const button = $('#providerPhoneLoginSubmit');
+  $('#providerPhoneLoginError').hidden = true;
+  button.disabled = true;
+  try {
+    if (!providerLoginCodeRequested) {
+      button.textContent = 'Отправляем…';
+      providerLoginPhone = await auth.request(db, $('#providerLoginPhone').value, { shouldCreateUser:false });
+      providerLoginCodeRequested = true;
+      $('#providerLoginPhone').readOnly = true;
+      $('#providerLoginCodeStep').hidden = false;
+      $('#providerLoginSentTo').textContent = `Код отправлен на ${auth.formatPhone(providerLoginPhone)}`;
+      setTimeout(() => $('#providerLoginCode').focus(), 0);
+      notify('Код отправлен по SMS');
+    } else {
+      button.textContent = 'Проверяем…';
+      await auth.verify(db, providerLoginPhone, $('#providerLoginCode').value, 'sms');
+    }
+  } catch (error) {
+    showFormError('#providerPhoneLoginError', auth.message(error, providerLoginCodeRequested ? 'verify' : 'request'));
+  } finally {
+    button.disabled = false;
+    button.textContent = providerLoginCodeRequested ? 'Подтвердить код' : 'Получить код';
+  }
+}
+
+function renderProviderPhoneState() {
+  const label = $('#providerLinkedPhone');
+  if (!label) return;
+  const phone = currentUser?.phone || '';
+  label.textContent = phone ? `Подтверждён: ${window.MinutaPhoneAuth?.formatPhone(phone) || phone}` : 'Телефон не привязан';
+  if (phone && !providerLinkCodeRequested) $('#providerPhoneLinkInput').value = window.MinutaPhoneAuth?.formatPhone(phone) || phone;
+}
+
+async function submitProviderPhoneLink(event) {
+  event.preventDefault();
+  const auth = window.MinutaPhoneAuth;
+  const button = $('#providerPhoneLinkSubmit');
+  $('#providerPhoneLinkError').hidden = true;
+  button.disabled = true;
+  try {
+    if (!providerLinkCodeRequested) {
+      providerLinkPhone = auth.toE164($('#providerPhoneLinkInput').value);
+      button.textContent = 'Отправляем…';
+      const { error } = await db.auth.updateUser({ phone:providerLinkPhone });
+      if (error) throw error;
+      providerLinkCodeRequested = true;
+      $('#providerPhoneLinkInput').readOnly = true;
+      $('#providerPhoneLinkCodeStep').hidden = false;
+      $('#providerPhoneLinkHint').textContent = `Код отправлен на ${auth.formatPhone(providerLinkPhone)}`;
+      setTimeout(() => $('#providerPhoneLinkCode').focus(), 0);
+    } else {
+      button.textContent = 'Проверяем…';
+      await auth.verify(db, providerLinkPhone, $('#providerPhoneLinkCode').value, 'phone_change');
+      providerLinkCodeRequested = false;
+      $('#providerPhoneLinkInput').readOnly = false;
+      $('#providerPhoneLinkCodeStep').hidden = true;
+      $('#providerPhoneLinkCode').value = '';
+      $('#providerPhoneLinkHint').textContent = 'Телефон подтверждён. Теперь по нему можно входить без пароля.';
+      const { data } = await db.auth.getUser();
+      if (data?.user) currentUser = data.user;
+      renderProviderPhoneState();
+      notify('Телефон подтверждён');
+    }
+  } catch (error) {
+    showFormError('#providerPhoneLinkError', auth.message(error, providerLinkCodeRequested ? 'verify' : 'request'));
+  } finally {
+    button.disabled = false;
+    button.textContent = providerLinkCodeRequested ? 'Подтвердить код' : currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон';
+  }
+}
+
+async function initializePhoneAuth() {
+  const loginButton = $('#showPhoneLoginButton');
+  const linkButton = $('#providerPhoneLinkSubmit');
+  if (!window.MinutaPhoneAuth) {
+    loginButton.textContent = 'Вход по SMS недоступен';
+    linkButton.textContent = 'SMS недоступны';
+    return;
+  }
+  const capability = await window.MinutaPhoneAuth.capability();
+  loginButton.disabled = !capability.enabled;
+  loginButton.textContent = capability.enabled ? 'Войти по телефону' : 'Вход по SMS пока не подключён';
+  linkButton.disabled = !capability.enabled;
+  linkButton.textContent = capability.enabled ? (currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон') : 'SMS пока не подключены';
+  if (!capability.enabled) $('#providerPhoneLinkHint').textContent = capability.reason === 'offline' ? 'Подключитесь к интернету, чтобы настроить телефон.' : capability.reason === 'backend' ? 'Безопасный вход по телефону ещё не установлен на сервере.' : 'Сначала нужно подключить SMS-провайдера в настройках сервера.';
+  renderProviderPhoneState();
 }
 
 async function login(event) {
@@ -6625,6 +6793,13 @@ window.MinutaProviderAssistant = Object.freeze({
 window.dispatchEvent(new CustomEvent('minuta:provider-assistant-ready'));
 
 $('#loginForm').addEventListener('submit', login);
+$('#showPhoneLoginButton').addEventListener('click', showProviderPhoneLogin);
+$('#providerPhoneLoginForm').addEventListener('submit', submitProviderPhoneLogin);
+$('#providerPhoneLoginBack').addEventListener('click', resetProviderPhoneLogin);
+$('#providerLoginResend').addEventListener('click', resendProviderLoginCode);
+$('#providerLoginChangePhone').addEventListener('click', changeProviderLoginPhone);
+$('#providerLoginPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || event.target.value; });
+$('#providerLoginCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
 $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
@@ -6637,6 +6812,9 @@ $('#portfolioAfterFile').addEventListener('change', event => handlePortfolioFile
 $('#portfolioConsent').addEventListener('change', updatePortfolioPublishControl);
 $('#dayOffForm').addEventListener('submit', addDayOff);
 $('#passwordForm').addEventListener('submit', changePassword);
+$('#providerPhoneLinkForm').addEventListener('submit', submitProviderPhoneLink);
+$('#providerPhoneLinkInput').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || event.target.value; });
+$('#providerPhoneLinkCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
 $('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotificationSettings);
@@ -6814,4 +6992,5 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=229'));
+initializePhoneAuth();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=230'));

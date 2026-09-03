@@ -12,7 +12,7 @@ const releaseWorkflow = join(repositoryRoot, '.github', 'workflows', 'minuta-saf
 const PINNED_PROVIDER_DELETE_VERSION = 64;
 const PINNED_PROVIDER_DELETE_FILE = `supabase-migration-v${PINNED_PROVIDER_DELETE_VERSION}.sql`;
 const PROVIDER_DELETE_DEFINITION = /create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\s*\.\s*)?"?provider_delete_booking"?\s*\(/i;
-const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89];
+const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89, 90];
 
 // Эти пары исторически хранят одну миграцию в двух системах имён.
 // Новую пару можно разрешить только явным изменением этого списка.
@@ -153,8 +153,8 @@ function checkReleaseOrder() {
     }
 
     const expectedCounts = jobName === 'test-migration'
-      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2]])
-      : new Map([[49, 1], [87, 1], [88, 1], [89, 1]]);
+      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2]])
+      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1]]);
     for (const [version, expectedCount] of expectedCounts) {
       const actualCount = chain.filter(reference => reference.version === version).length;
       if (actualCount !== expectedCount) {

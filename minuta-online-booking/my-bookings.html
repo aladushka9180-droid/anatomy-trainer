@@ -10,7 +10,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Мои записи — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=229">
+  <link rel="stylesheet" href="styles.css?v=230">
 </head>
 <body class="manage-body client-account-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -22,14 +22,28 @@
     <section class="client-login-card" id="clientLoginCard">
       <span class="client-login-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg></span>
       <small>Личный раздел</small><h1>Мои записи</h1>
-      <p>Введите телефон и личный код, полученный после первой записи.</p>
-      <form id="clientLoginForm" novalidate>
-        <label>Номер телефона<input id="clientLoginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
-        <label>Личный код<input id="clientLoginCode" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" required></label>
-        <p class="form-error" id="clientLoginError" role="alert" hidden></p>
-        <button class="primary" id="clientLoginButton" type="submit">Открыть мои записи</button>
+      <p>Получите одноразовый код по SMS и посмотрите все записи на свой номер.</p>
+      <form id="clientSmsLoginForm" class="phone-auth-form" novalidate>
+        <label>Номер телефона<input id="clientSmsPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
+        <div id="clientSmsCodeStep" hidden>
+          <label>Код из SMS<input id="clientSmsCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="6 цифр" required></label>
+          <p class="phone-auth-note" id="clientSmsSentTo"></p>
+          <div class="phone-auth-actions"><button id="clientSmsResend" type="button">Отправить ещё раз</button><button id="clientSmsChangePhone" type="button">Изменить номер</button></div>
+        </div>
+        <p class="form-error" id="clientSmsError" role="alert" hidden></p>
+        <button class="primary" id="clientSmsButton" type="submit" disabled>Проверяем вход по SMS…</button>
       </form>
-      <p class="client-login-note">Код не приходит по SMS. Он выдаётся после первой онлайн-записи и действует вместе с вашим номером телефона.</p>
+      <p class="client-login-note" id="clientSmsStatus">Для входа по SMS требуется интернет.</p>
+      <details class="legacy-client-login" id="legacyClientLogin">
+        <summary>Войти по личному коду</summary>
+        <form id="clientLoginForm" novalidate>
+          <label>Номер телефона<input id="clientLoginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
+          <label>Личный код<input id="clientLoginCode" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" required></label>
+          <p class="form-error" id="clientLoginError" role="alert" hidden></p>
+          <button class="primary" id="clientLoginButton" type="submit">Открыть мои записи</button>
+        </form>
+        <p class="client-login-note">Личный код выдаётся после первой онлайн-записи и остаётся запасным способом входа.</p>
+      </details>
     </section>
     <section class="client-bookings-card" id="clientBookingsCard" hidden>
       <div class="client-bookings-head"><div><small>Личный раздел</small><h1>Мои записи</h1><p id="clientAccountPhone"></p></div><button class="manage-secondary" id="clientLogout" type="button">Выйти</button></div>
@@ -54,6 +68,6 @@
   </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=229"></script><script src="reliability.js?v=229"></script><script src="my-bookings.js?v=229" defer></script>
+  <script src="config.js?v=230"></script><script src="reliability.js?v=230"></script><script src="phone-auth.js?v=230"></script><script src="my-bookings.js?v=230" defer></script>
 </body>
 </html>
