@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '241';
+const version = '243';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -107,17 +107,17 @@ assert.match(voiceAssistant, /applyOfflineContext[\s\S]*сохранённая �
 assert.match(voiceAssistant, /data-voice-speak/, 'Ответ голосового помощника нельзя озвучить');
 assert.match(voiceAssistant, /Остановить голос[\s\S]*speechSynthesis\?\.cancel/, 'Озвучивание ответа нельзя остановить');
 assert.match(voiceAssistant, /Array\.from\(event\.results \|\| \[\]\)/, 'Мобильный формат результата распознавания не поддерживается');
-assert.doesNotMatch(voiceAssistant, /recognitionRetryTimer|retryAttempt|Повторно включаю микрофон|Микрофон перезапускается/, 'Мобильный микрофон самовольно запускается повторно после ошибки');
+assert.match(voiceAssistant, /recognitionRestartTimer[\s\S]*recordingRequested[\s\S]*restartAllowed[\s\S]*setTimeout\([\s\S]*startRecognitionSession\(\{ continuation:true \}\)/, 'Мобильная запись не удерживается активной при коротком onend движка');
 assert.match(voiceAssistant, /currentRecognition\.onstart[\s\S]*playMicrophoneCue\(true, !touchDevice\)/, 'Сигнал готовности срабатывает раньше фактического включения микрофона');
 assert.doesNotMatch(voiceAssistant, /pointerup[\s\S]{0,300}finishRecognition/, 'Отпускание кнопки преждевременно останавливает мобильный микрофон');
 assert.doesNotMatch(voiceAssistant, /ignoreSyntheticClickUntil|Date\.now\(\) \+ 900/, 'Подавление мобильного click снова зависит от длительности удержания');
 assert.match(voiceAssistant, /suppressCompatibilityClick[\s\S]*compatibilityClickResetTimer[\s\S]*setTimeout\(\(\) => \{ suppressCompatibilityClick = false; \}, 1200\)/, 'Длинное касание не защищено от отложенного compatibility click');
-assert.match(voiceAssistant, /currentRecognition\.continuous = touchDevice && !iosDevice/, 'Android-микрофон снова завершает запись после первой паузы');
+assert.match(voiceAssistant, /currentRecognition\.continuous = touchDevice/, 'Мобильный микрофон снова завершает запись после первой паузы');
 assert.match(voiceAssistant, /stopSpeech\(\);[\s\S]*if \(!directRecognitionAvailable\)/, 'Озвучивание помощника конкурирует с мобильным микрофоном');
 assert.match(voiceAssistant, /playMicrophoneCue\(true, !touchDevice\)/, 'Собственный звуковой сигнал может попадать в мобильный микрофон');
 assert.match(voiceAssistant, /function resetPointerGesture\(\{ preserveCompatibilityClick = false \} = \{\}\)[\s\S]*activeTouchPointerId = null[\s\S]*function abortRecognition/, 'Состояние старого указателя не очищается после отмены распознавания');
 assert.match(voiceAssistant, /abortRecognition\(\{ preserveCompatibilityClick:true \}\)/, 'Ошибка запуска может пропустить compatibility click и повторно включить микрофон');
-assert.match(voiceAssistant, /resultHandled[\s\S]*currentRecognition\.continuous[\s\S]*Можно продолжить[\s\S]*!resultHandled && latestTranscript/, 'Непрерывная запись выполняет команду до явной остановки');
+assert.match(voiceAssistant, /touchDevice && recordingRequested[\s\S]*остаётся включённым[\s\S]*restartAllowed[\s\S]*!resultHandled && input\.value\.trim\(\)/, 'Непрерывная запись выполняет команду до явной остановки');
 assert.match(providerHtml, /Кнопку удерживать не нужно; повторное касание завершит запись/, 'Инструкция голосового помощника всё ещё предлагает проблемное удержание');
 assert.match(voiceAssistant, /touchDevice[\s\S]*Открыть диктовку[\s\S]*значок микрофона на клавиатуре/, 'На мобильном устройстве нет безопасного fallback для диктовки');
 assert.match(providerHtml, /id="voiceAssistantInput"[^>]*inputmode="text"[^>]*enterkeyhint="done"/, 'Поле голосовой команды не подготовлено для мобильной диктовки');

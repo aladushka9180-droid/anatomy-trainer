@@ -30,7 +30,7 @@ for (const name of ['[Content_Types].xml', 'xl/workbook.xml', 'xl/styles.xml', '
   assert.ok(binaryText.includes(name), `В Excel-отчёте отсутствует ${name}`);
 }
 assert.ok(binaryText.includes('Аладушка &amp; партнёры'), 'Текст отчёта не экранирован для Excel');
-assert.match(source, /link\.download = `записи-\$\{businessTodayIso\(\)\}\.xlsx`/, 'Отчёт сохраняется не в формате XLSX');
+assert.match(source, /link\.download = `записи-\$\{range\.start\}-\$\{range\.end\}\.xlsx`/, 'Отчёт сохраняется не в формате XLSX');
 assert.match(source, /addEventListener\('click', exportBookingsXlsx\)/, 'Кнопка отчёта не подключена к экспорту XLSX');
 
 console.log('report xlsx test: ok');

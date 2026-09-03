@@ -59,4 +59,4 @@ const noExplicitTime = await runOfflineSlotLoader({ preferredTime:'', slots:[] }
 assert.equal(noExplicitTime.newBookingTime, '', 'Время нельзя выбирать за пользователя');
 assert.match(noExplicitTime.html, /Откройте нужное время из расписания/, 'Нет инструкции при отсутствии выбранного времени');
 
-console.log('offline booking draft v238 test: OK');
+console.log('offline booking draft v243 test: OK');
