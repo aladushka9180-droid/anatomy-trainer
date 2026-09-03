@@ -12,6 +12,7 @@ const html = readFileSync(new URL('provider.html', root), 'utf8');
 const xlsxVendorBytes = readFileSync(new URL('vendor/xlsx-0.20.3.full.min.js', root));
 const xlsxVendor = xlsxVendorBytes.toString('utf8');
 const xlsxLicense = readFileSync(new URL('vendor/xlsx-0.20.3.LICENSE', root), 'utf8');
+const releaseWorkflow = readFileSync(new URL('../.github/workflows/minuta-safe-release.yml', root), 'utf8');
 
 assert.match(migration, /v95_requires_v65_v94/i);
 assert.match(migration, /create table if not exists public\.organization_imported_clients/i);
@@ -31,6 +32,16 @@ assert.match(migration, /get_minuta_imported_clients\(p_organization uuid,p_limi
 assert.doesNotMatch(migration, /grant (?:select|insert|update|delete|all)[^;]*to authenticated/i);
 assert.match(rollback, /v95_rollback_blocked_imported_clients_exist/i);
 assert.match(rollback, /v95_rollback_blocked_import_batches_exist/i);
+const testClientImportGuard = releaseWorkflow.split('\n').find(line =>
+  line.includes("select (select count(*)=3 from information_schema.columns") &&
+  line.includes("client_import_batches_scope_v95_idx")
+);
+assert.ok(testClientImportGuard, 'release: не найдена итоговая проверка слоя v95');
+assert.match(
+  testClientImportGuard,
+  /client_import_batches_scope_v95_idx'[\s\S]*createindexclient_import_batches_scope_v95_idxonpublic\.client_import_batchesusingbtree\(organization_id,created_atdesc,iddesc\)'\)\)\);"/,
+  'release: проверка трёх индексов v95 должна закрывать условие и подзапрос'
+);
 assert.doesNotMatch(`${clientImport}\n${html}`, /YCLIENTS|DIKIDI|Masters/);
 assert.match(clientImport, /Поддерживаются XLS, XLSX, CSV, TSV и TXT/);
 assert.match(clientImport, /XLSX\.utils\.sheet_to_json/);
