@@ -44,4 +44,3 @@ $('#cancelWaitlist').addEventListener('click', async () => {
 });
 
 loadRequest();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=238'));
