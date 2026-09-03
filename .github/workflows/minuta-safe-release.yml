@@ -407,6 +407,11 @@ jobs:
               -f minuta-online-booking/recovery/rollback-multi-tenant-v67.sql
           fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_invitations') is not null;")" = "t"; then
+            # The shared test database can retain audit rows from earlier migration
+            # exercises. They are disposable test fixtures, but the production-safe
+            # v66 rollback correctly refuses to remove a foundation that contains data.
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -c \
+              "truncate table public.organization_invitations, public.organization_audit_log;"
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-multi-tenant-v66.sql
           fi
