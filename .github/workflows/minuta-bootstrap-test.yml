@@ -208,8 +208,6 @@ jobs:
           /usr/lib/postgresql/17/bin/pg_dump \
             --dbname="${MINUTA_TEST_DATABASE_URL/:6543/:5432}" \
             --format=custom \
-            --schema=public \
-            --schema=minuta_migration_guard \
             --no-owner \
             --file="$plain"
           /usr/lib/postgresql/17/bin/pg_restore --list "$plain" >/dev/null
@@ -276,18 +274,25 @@ jobs:
           $triggers$;
           SQL
 
+          production_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
+          reset_sql="$RUNNER_TEMP/minuta-test-public-reset.sql"
           /usr/lib/postgresql/17/bin/pg_restore \
-            --clean \
-            --if-exists \
             --no-owner \
-            --exit-on-error \
-            --single-transaction \
             --schema=public \
-            --dbname="$test_url" \
+            --file="$production_sql" \
             "$archive"
+          {
+            echo '\set ON_ERROR_STOP on'
+            echo 'begin;'
+            echo 'drop schema if exists public cascade;'
+            cat "$production_sql"
+            echo 'commit;'
+          } > "$reset_sql"
+          /usr/lib/postgresql/17/bin/psql "$test_url" \
+            --set=ON_ERROR_STOP=1 \
+            --file="$reset_sql"
 
           test_archive="$RUNNER_TEMP/minuta-test-public-schema.dump"
-          production_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
           test_sql="$RUNNER_TEMP/minuta-test-public-schema.sql"
           /usr/lib/postgresql/17/bin/pg_dump \
             --dbname="$test_url" \
@@ -300,7 +305,6 @@ jobs:
             --no-subscriptions \
             --no-blobs \
             --file="$test_archive"
-          /usr/lib/postgresql/17/bin/pg_restore --file="$production_sql" "$archive"
           /usr/lib/postgresql/17/bin/pg_restore --file="$test_sql" "$test_archive"
           sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$production_sql" \
             > "$production_sql.normalized"
