@@ -5351,3 +5351,19 @@ html.provider-booting .provider-main {
     width:100%;
   }
 }
+/* Performance layer: off-screen records are skipped by the browser without changing their visual design. */
+@supports (content-visibility:auto) {
+  #clientsList > *,
+  #reportServicesList > *,
+  .schedule-list > *,
+  .service-manage-list > *,
+  .provider-bookings:not(.timeline-view) > *,
+  .notification-list > *,
+  .days-off-list > * {
+    content-visibility:auto;
+    contain-intrinsic-size:auto 72px;
+  }
+}
+
+.provider-workspace { overflow-anchor:none; }
+#clientsList,.schedule-list,#reportServicesList { overflow-anchor:auto; }

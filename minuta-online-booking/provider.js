@@ -711,13 +711,42 @@ async function manualSynchronizeProvider() {
 function cachedStateText(savedAt) {
   return `Офлайн · данные на ${reliability?.savedAtLabel(savedAt) || 'последнюю синхронизацию'}`;
 }
+let providerBookingRenderRevision = 0;
+const providerBookingViewRevisions = new Map();
 function renderBookingData() {
+  providerBookingRenderRevision += 1;
   updateBookingStats();
-  renderBookings();
-  renderClients();
-  renderNotifications();
-  renderAnalytics();
-  if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
+  renderProviderBookingView(activeView);
+  scheduleProviderBookingWarmup(activeView);
+}
+
+function renderProviderBookingView(view) {
+  if (providerBookingViewRevisions.get(view) === providerBookingRenderRevision) return;
+  if (view === 'bookings') renderBookings();
+  if (view === 'clients') {
+    renderClients();
+    if (selectedClientPhone) renderClientDetail(selectedClientPhone);
+  }
+  if (view === 'notifications') renderNotifications();
+  if (view === 'analytics') renderAnalytics();
+  if (['bookings', 'clients', 'notifications', 'analytics'].includes(view)) providerBookingViewRevisions.set(view, providerBookingRenderRevision);
+}
+
+let providerBookingWarmupRevision = 0;
+function scheduleProviderBookingWarmup(activeView) {
+  const revision = ++providerBookingWarmupRevision;
+  const pending = ['clients', 'notifications', 'analytics'].filter(view => view !== activeView);
+  const schedule = window.requestIdleCallback
+    ? callback => window.requestIdleCallback(callback, { timeout:1500 })
+    : callback => window.setTimeout(() => callback({ timeRemaining:() => 8 }), 120);
+  const warmNext = deadline => {
+    if (revision !== providerBookingWarmupRevision || !pending.length) return;
+    if (!deadline.timeRemaining() && !deadline.didTimeout) { schedule(warmNext); return; }
+    renderProviderBookingView(pending.shift());
+    if (pending.length) schedule(warmNext);
+  };
+  schedule(warmNext);
 }
 
 function localIsoDate(date) {
@@ -1364,7 +1393,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=250#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=251#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2634,6 +2663,7 @@ function showRecoverySent() {
 }
 function setProviderViewImmediate(view, focusHeading = false) {
   $('#dashboard').dataset.activeView = view;
+  renderProviderBookingView(view);
   $$('[data-provider-view]').forEach(button => {
     const active = button.dataset.providerView === view;
     button.classList.toggle('active', active);
