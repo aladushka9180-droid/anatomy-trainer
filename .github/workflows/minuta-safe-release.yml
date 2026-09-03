@@ -288,6 +288,14 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_imported_booking_history') is not null or to_regclass('public.booking_history_import_batches') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-booking-history-import-v99.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is not null or to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-historical-bookings-v98.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.booking_events') is not null and (to_regprocedure('public.get_minuta_booking_events_v97(uuid,date,date,integer,integer)') is not null or to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null);")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-employee-analytics-v97.sql
