@@ -103,7 +103,7 @@ assert.doesNotMatch(providerHtml, /Сохранить уведомления<\/b
 assert.match(provider, /visitorNotificationsEnabled'\)\.addEventListener\('change', saveVisitorNotificationSettings\)/, 'Переключатель уведомлений не сохраняется сразу');
 assert.match(provider, /visitorNotificationSaving[\s\S]*applyWriteAvailability\(\)/, 'Сохранение уведомлений не защищено от повторного нажатия');
 assert.match(provider, /saveVisitorNotificationSettings[\s\S]*sessionIsCurrent\(userId, generation\)/, 'Старый ответ сохранения уведомлений не отбрасывается после смены сессии');
-assert.match(providerHtml, /id="visitorNotificationTestButton"[^>]*>Проверить на этом компьютере</, 'На компьютере нельзя проверить системное уведомление');
+assert.match(providerHtml, /id="visitorNotificationTestButton"[^>]*>Проверить уведомление и звук</, 'На компьютере нельзя проверить системное уведомление и звук');
 assert.match(provider, /Notification\.permission === 'granted'\) void showVisitorSystemNotification\(visit\)/, 'Системное уведомление подавляется, пока кабинет открыт на компьютере');
 assert.match(provider, /Promise\.race\(\[[\s\S]*navigator\.serviceWorker\.ready[\s\S]*service_worker_timeout/, 'Ожидание service worker может навсегда заблокировать системное уведомление');
 assert.match(provider, /visitorVisitsInitialized[\s\S]*nextVisitorVisits[\s\S]*forEach\(announceVisitorVisit\)/, 'Резервная синхронизация не сообщает о новых посетителях при сбое Realtime');
