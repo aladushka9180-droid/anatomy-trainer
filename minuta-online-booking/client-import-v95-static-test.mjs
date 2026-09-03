@@ -17,6 +17,9 @@ assert.match(migration, /on conflict \(organization_id,normalized_phone\) do upd
 assert.match(migration, /revoke all on table public\.client_import_batches,public\.organization_imported_clients from public,anon,authenticated/i);
 assert.match(migration, /grant execute on function public\.import_minuta_clients\(uuid,text,jsonb,uuid\) to authenticated/i);
 assert.match(migration, /v95_incompatible_existing_index/i);
+assert.match(migration, /v95_incompatible_existing_schema/i);
+assert.match(migration, /expected\(column_name,data_type,is_nullable\)/i);
+assert.match(migration, /array_agg\(attribute_row\.attname order by key_row\.ordinality\)/i);
 assert.match(migration, /create index concurrently if not exists organization_imported_clients_updated_v95_idx/i);
 assert.match(migration, /get_minuta_imported_clients\(p_organization uuid,p_limit integer,p_offset integer\)/i);
 assert.doesNotMatch(migration, /grant (?:select|insert|update|delete|all)[^;]*to authenticated/i);
