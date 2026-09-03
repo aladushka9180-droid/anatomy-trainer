@@ -5448,6 +5448,38 @@ html.provider-booting .provider-main {
 .provider-workspace { overflow-anchor:none; }
 #clientsList,.schedule-list,#reportServicesList { overflow-anchor:auto; }
 
+/* Заголовок статистики не делится внутри слова и не сжимается кнопкой отчёта. */
+@media (min-width:761px) {
+  #analyticsView .view-title {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+  }
+  #analyticsView .view-title>div:first-child {
+    flex:0 0 auto;
+    min-width:max-content;
+  }
+  #analyticsView .view-title h2 {
+    max-width:none;
+    overflow-wrap:normal;
+    word-break:keep-all;
+    white-space:nowrap;
+  }
+  #analyticsView #exportBookings {
+    flex:0 0 auto;
+    width:max-content;
+    max-width:100%;
+    margin-top:0;
+  }
+}
+@media (max-width:760px) {
+  #analyticsView .view-title h2 {
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+}
+
 /* Сотрудник в отчёте: единый фильтр периода и команды. */
 .report-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:12px}.report-toolbar .report-periods{margin:0}.report-performer-filter{display:grid;flex:0 0 min(260px,32vw);gap:5px}.report-performer-filter>span{color:var(--theme-muted);font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.report-performer-filter select{width:100%;min-height:42px;padding:0 38px 0 13px;border:1px solid var(--theme-line);border-radius:13px;background:var(--theme-surface);color:var(--theme-ink);font:850 10px/1 inherit;cursor:pointer}
 @media(max-width:760px){.report-toolbar{align-items:stretch;flex-direction:column}.report-performer-filter{width:100%;max-width:none}}

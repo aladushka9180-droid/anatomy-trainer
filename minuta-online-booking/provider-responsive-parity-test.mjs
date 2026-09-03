@@ -45,5 +45,8 @@ assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.time
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status\s*\{[^}]*display:inline-flex!important/, 'Статус обычной записи скрыт на телефоне');
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.client-badge-label\s*\{[^}]*display:block/, 'Название важной метки клиента скрыто на телефоне');
 assert.match(css, /\.service-visibility-toggle span\s*\{[^}]*display:inline/, 'Состояние услуги на телефоне обозначено только непонятным значком');
+assert.match(css, /#analyticsView \.view-title>div:first-child\s*\{[^}]*min-width:max-content/, 'Кнопка отчёта может сжать заголовок статистики');
+assert.match(css, /#analyticsView \.view-title h2\s*\{[^}]*overflow-wrap:normal;[^}]*word-break:keep-all;[^}]*white-space:nowrap/, 'Слово «Статистика» может разрываться посередине');
+assert.match(css, /#analyticsView #exportBookings\s*\{[^}]*width:max-content;[^}]*margin-top:0/, 'Кнопка отчёта растягивается и сжимает заголовок статистики');
 
 console.log(`Provider responsive parity checks passed: ${desktopViews.length} shared sections.`);
