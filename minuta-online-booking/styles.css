@@ -1502,6 +1502,47 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 }
 html.requires-top-level body { visibility:hidden; }
 html.requires-top-level.top-level body { visibility:visible; }
+.provider-boot-screen {
+  position:fixed;
+  z-index:1000;
+  inset:0;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  gap:9px;
+  padding:24px;
+  background:#f4f7f5;
+  color:#173b2c;
+  text-align:center;
+}
+.provider-boot-screen[hidden] { display:none!important; }
+.provider-boot-mark {
+  display:grid;
+  place-items:center;
+  width:58px;
+  height:58px;
+  margin-bottom:5px;
+  border-radius:18px;
+  background:#153c2c;
+  color:#fff;
+  font-size:25px;
+  font-weight:900;
+}
+.provider-boot-screen strong { font-size:17px; }
+.provider-boot-screen small { color:#718278; font-size:10px; }
+.provider-boot-screen i {
+  width:30px;
+  height:4px;
+  margin-top:8px;
+  overflow:hidden;
+  border-radius:999px;
+  background:linear-gradient(90deg,#dbe7df 0 34%,#2f7654 34% 66%,#dbe7df 66%);
+  background-size:300% 100%;
+  animation:provider-boot-progress 1s linear infinite;
+}
+@keyframes provider-boot-progress { to { background-position:-150% 0; } }
+@media (prefers-reduced-motion:reduce) { .provider-boot-screen i { animation:none; } }
+html.provider-booting .provider-main { visibility:hidden; }
 
 /* Заметные метки клиентов v95 */
 .client-badges { gap:6px; max-width:100%; }

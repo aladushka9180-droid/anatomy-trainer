@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const pages = ['index.html', 'provider.html', 'booking.html', 'my-bookings.html', 'waitlist.html', 'privacy.html'];
-const version = '247';
+const version = '248';
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
@@ -79,6 +79,11 @@ assert.match(provider, /hydrateCachedBookings\(userId\)[\s\S]*if \(!navigator\.o
 assert.match(provider, /bookingReady = results\.slice\(0, 4\)\.every[\s\S]*setBookingCreationReady\(bookingReady\)/, 'Создание записи зависит от необязательных разделов кабинета');
 assert.match(provider, /Связь прервалась\. Данные остались в форме/, 'Черновик записи теряется при обрыве связи');
 assert.match(providerHtml, /id="syncState"[\s\S]*id="manualSyncButton"/, 'В кабинете нет понятного ручного обновления');
+assert.match(providerHtml, /class="requires-top-level provider-booting"/, 'Кабинет не защищён нейтральным состоянием до проверки входа');
+assert.match(providerHtml, /id="providerBoot"[\s\S]*Открываем кабинет/, 'При обновлении нет нейтрального экрана загрузки');
+assert.match(providerHtml, /class="auth-card" id="authCard" hidden/, 'Форма входа мелькает до проверки сохранённой сессии');
+assert.match(provider, /function finishProviderBoot\(\)[\s\S]*classList\.remove\('provider-booting'\)/, 'Экран загрузки не завершается после проверки сессии');
+assert.match(provider, /db\.auth\.getSession\(\)\.then\(\(\{ data, error \}\)[\s\S]*showProviderStartupFailure/, 'Ошибка проверки сессии оставляет бесконечную загрузку');
 assert.match(providerHtml, /class="settings-check visitor-notification-toggle"[\s\S]*id="visitorNotificationSaveStatus"/, 'Настройка уведомлений использует старый компьютерный интерфейс');
 assert.doesNotMatch(providerHtml, /Сохранить уведомления<\/button>/, 'Настройка уведомлений всё ещё требует отдельного сохранения');
 assert.match(provider, /visitorNotificationsEnabled'\)\.addEventListener\('change', saveVisitorNotificationSettings\)/, 'Переключатель уведомлений не сохраняется сразу');

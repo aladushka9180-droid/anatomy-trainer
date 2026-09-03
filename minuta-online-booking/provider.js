@@ -6,6 +6,19 @@ const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window
 });
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
+function finishProviderBoot() {
+  const boot = $('#providerBoot');
+  if (boot) boot.hidden = true;
+  document.documentElement.classList.remove('provider-booting');
+}
+function showProviderStartupFailure() {
+  currentUser = null;
+  $('#authCard').hidden = false;
+  $('#dashboard').hidden = true;
+  setAuthTabImmediate('login');
+  showFormError('#loginError', 'Не удалось проверить сохранённый вход. Проверьте соединение и обновите страницу.');
+  finishProviderBoot();
+}
 function isMissingRpc(error, name) {
   const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
   return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
@@ -1340,7 +1353,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=247#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=248#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2597,6 +2610,7 @@ function showRecoveryReset() {
   $('#authBadge').innerHTML = '<i></i> Новый пароль';
   $('#authTitle').textContent = 'Придумайте новый пароль.';
   $('#authDescription').textContent = 'Ссылка подтверждена. Осталось сохранить новый пароль для кабинета.';
+  finishProviderBoot();
   setTimeout(() => $('#recoveryNewPassword').focus(), 0);
 }
 function showRecoverySent() {
@@ -5447,6 +5461,7 @@ async function handleSession(session) {
       ? 'Этот внешний аккаунт ещё не привязан к кабинету. Войдите по email и привяжите его в настройках.'
       : 'Для этого аккаунта нет доступа к кабинету исполнителя.');
     renderProviderSocialState();
+    finishProviderBoot();
     return;
   }
   const completedSocialFlow = window.MinutaSocialAuth?.flow();
@@ -5489,6 +5504,7 @@ async function handleSession(session) {
   if (recoveryMode) { showRecoveryReset(); return; }
   $('#authCard').hidden = Boolean(currentUser);
   $('#dashboard').hidden = !currentUser;
+  finishProviderBoot();
   if (!currentUser) {
     closeBookingSheet();
     allBookings = [];
@@ -7576,6 +7592,12 @@ new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attrib
 updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
-db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
+db.auth.getSession().then(({ data, error }) => {
+  if (error) { showProviderStartupFailure(); return; }
+  return recoveryMode ? showRecoveryReset() : handleSession(data.session);
+}).catch(() => {
+  if (document.documentElement.classList.contains('provider-booting')) showProviderStartupFailure();
+  else setSyncState('warning', 'Не удалось обновить данные · повторите позже');
+});
 initializePhoneAuth();
 initializeSocialAuth();
