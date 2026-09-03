@@ -181,7 +181,7 @@ insert into public.bookings(
   booking_date, booking_time, duration_minutes, total_price_rub,
   status, deposit_amount_rub, payment_status, payment_url,
   organization_id, location_id, booking_scope_source,
-  booking_source, created_by_user_id, created_by_role, created_at, updated_at
+  booking_source, created_by_user_id, created_by_role, created_at
 )
 select
   md5('demo-statistics-booking-' || booking_no)::uuid,
@@ -198,7 +198,7 @@ select
   case booking_no % 3 when 0 then 'client_online' when 1 then 'provider_manual' else 'admin_manual' end,
   case booking_no % 3 when 0 then null when 1 then performer_id else current_setting('minuta.demo_owner')::uuid end,
   case booking_no % 3 when 0 then null when 1 then 'specialist' else 'owner' end,
-  booking_date + booking_time - interval '7 days', booking_date + booking_time - interval '7 days'
+  booking_date + booking_time - interval '7 days'
 from prepared;
 
 with fixture as (
@@ -216,7 +216,7 @@ insert into public.bookings(
   booking_date, booking_time, duration_minutes, total_price_rub,
   status, deposit_amount_rub, payment_status, payment_url,
   organization_id, location_id, booking_scope_source,
-  booking_source, created_by_user_id, created_by_role, created_at, updated_at
+  booking_source, created_by_user_id, created_by_role, created_at
 )
 select
   md5('demo-statistics-future-' || future_no)::uuid,
@@ -235,7 +235,7 @@ select
   case when staff_no <= 3 then 'd3500000-0000-4000-8000-000000000201'::uuid
        when staff_no <= 5 then 'd3500000-0000-4000-8000-000000000202'::uuid
        else 'd3500000-0000-4000-8000-000000000203'::uuid end,
-  'team', 'admin_manual', current_setting('minuta.demo_owner')::uuid, 'owner', now(), now()
+  'team', 'admin_manual', current_setting('minuta.demo_owner')::uuid, 'owner', now()
 from fixture;
 
 with target as (
@@ -280,7 +280,7 @@ select
   case when fixture_visit_status = 'completed' then total_price_rub else null end,
   'manual',
   case when fixture_visit_status = 'completed' then performer_id else null end,
-  greatest(updated_at, booking_date + booking_time + make_interval(mins => duration_minutes))
+  booking_date + booking_time + make_interval(mins => duration_minutes)
 from prepared_outcome;
 set local session_replication_role = origin;
 
