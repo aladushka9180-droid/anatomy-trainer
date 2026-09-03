@@ -85,4 +85,18 @@ assert.equal((productionMigration.match(/-f minuta-online-booking\/supabase-migr
 assert.match(productionMigration, /test-migration — \$MINUTA_MIGRATION_TARGET/);
 assert.match(productionMigration, /validate-production-rollback — \$MINUTA_MIGRATION_TARGET/);
 
+const testAfterAuthorizationRepair = testMigration.split('authorization-repair-v100-integration.sql')[1] || '';
+assert.match(
+  testAfterAuthorizationRepair,
+  /if \[ "\$MINUTA_MIGRATION_TARGET" = "latest" \]; then[\s\S]*supabase-migration-v101\.sql[\s\S]*else[\s\S]*get_available_slots_v101\(uuid,date,date,uuid\)'\) is null[\s\S]*fi/,
+  'The v97 test target must stop after v100 and prove that v101 is absent'
+);
+
+const productionAfterAuthorizationRepair = productionMigration.split('supabase-migration-v100.sql')[1] || '';
+assert.match(
+  productionAfterAuthorizationRepair,
+  /if \[ "\$MINUTA_MIGRATION_TARGET" = "latest" \]; then[\s\S]*supabase-migration-v101\.sql[\s\S]*else[\s\S]*test "\$MINUTA_MIGRATION_TARGET" = "employee-analytics-v97"[\s\S]*get_available_slots_v101\(uuid,date,date,uuid\)'\) is null[\s\S]*fi/,
+  'The v97 production target must not deploy v101'
+);
+
 console.log('v100 authorization repair static checks passed');
