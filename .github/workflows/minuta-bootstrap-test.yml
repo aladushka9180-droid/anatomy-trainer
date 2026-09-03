@@ -470,6 +470,10 @@ jobs:
             'abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f',
             weekday, true, time '09:00', time '21:00', 30
           from generate_series(1, 7) as weekday;
+          -- The fixture profile can activate current organization triggers. The
+          -- isolated baseline must stay unused so every structural rollback is testable.
+          delete from public.organization_audit_log;
+          delete from public.organization_invitations;
           commit;
           SQL
 
@@ -494,6 +498,8 @@ jobs:
               and (select count(*) from public.bookings) = 0
               and (select count(*) from public.services where active and price_rub > 0) = 1
               and (select count(*) from public.provider_schedule where enabled) = 7
+              and (select count(*) from public.organization_audit_log) = 0
+              and (select count(*) from public.organization_invitations) = 0
               and has_schema_privilege('anon','public','USAGE')
               and has_schema_privilege('authenticated','public','USAGE')
               and has_schema_privilege('service_role','public','USAGE')
