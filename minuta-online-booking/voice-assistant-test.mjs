@@ -265,7 +265,9 @@ const servicePerformance = voice.interpretCommand('Какие услуги пр�
 assert.equal(servicePerformance.kind, 'service_performance');
 assert.match(servicePerformance.title, /сегодня/);
 assert.ok(!servicePerformance.points.some(item => /Отменённая услуга/.test(item)), 'отменённый визит не должен попадать в выручку услуг');
-assert.equal(voice.interpretCommand('Кто работает в команде?', businessSnapshot, now).kind, 'team_summary');
+const teamSummary = voice.interpretCommand('Кто работает в команде?', businessSnapshot, now);
+assert.equal(teamSummary.kind, 'team_summary');
+assert.match(teamSummary.points[0], /Владелец/, 'Системная роль владельца должна быть переведена для пользователя');
 
 function deferred() {
   let resolve;

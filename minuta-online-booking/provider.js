@@ -133,6 +133,7 @@ let topbarClockTimer = null;
 let deferredInstallPrompt = null;
 let journalMode = restoreJournalMode();
 let selectedDate = restoreSelectedDate();
+let timelineFullDay = false;
 let bookingSearchQuery = '';
 let bookingStatusFilter = 'all';
 let bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
@@ -478,7 +479,7 @@ function renderOfflineBookingQueue() {
   const conflicts = offlineBookingQueue.filter(item => item.status === 'conflict').length;
   const notifications = offlineBookingQueue.filter(item => item.status === 'notification_pending').length;
   const pending = offlineBookingQueue.length - conflicts - notifications;
-  status.textContent = [pending ? `${pending} ожидают синхронизации` : '', notifications ? `${notifications} ожидают уведомления` : '', conflicts ? `${conflicts} требуют внимания` : ''].filter(Boolean).join(' · ');
+  status.textContent = [pending ? `${pending} отправятся автоматически после подключения` : '', notifications ? `${notifications} ожидают уведомления` : '', conflicts ? `${conflicts} требуют внимания` : ''].filter(Boolean).join(' · ');
   list.innerHTML = offlineBookingQueue.map(item => {
     const date = parseLocalIsoDate(item.date);
     const dateLabel = date ? date.toLocaleDateString('ru-RU', { day:'numeric', month:'short' }) : item.date;
@@ -490,7 +491,10 @@ function renderOfflineBookingQueue() {
     return `<article class="offline-booking-item is-${item.status === 'conflict' ? 'conflict' : 'pending'}"><div><strong>${escapeHtml(item.clientName)}</strong><span>${escapeHtml(dateLabel)} · ${escapeHtml(item.time)} · ${escapeHtml(offlineBookingServiceName(item))}</span>${state}</div><div class="offline-booking-actions">${editButton}<button type="button" data-remove-offline-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}" ${removalLocked ? 'disabled' : ''}>${notificationOnly ? 'Не повторять' : 'Удалить'}</button></div></article>`;
   }).join('');
   const retry = $('#retryOfflineBookings');
-  if (retry) retry.disabled = !navigator.onLine || !currentUser || offlineBookingQueue.some(item => item.status === 'syncing');
+  if (retry) {
+    retry.hidden = !navigator.onLine || (!notifications && !conflicts);
+    retry.disabled = !currentUser || offlineBookingQueue.some(item => item.status === 'syncing');
+  }
 }
 async function queueOfflineBooking(payload) {
   const userId = currentUser?.id;
@@ -781,6 +785,42 @@ function cachedStateText(savedAt) {
 let providerBookingRenderRevision = 0;
 const providerBookingViewRevisions = new Map();
 let providerBookingRenderFrame = 0;
+function renderDayFocus() {
+  const panel = $('#providerDayFocus');
+  const title = $('#providerDayFocusTitle');
+  const details = $('#providerDayFocusDetails');
+  const label = $('#providerDayFocusLabel');
+  const open = $('#providerDayFocusOpen');
+  if (!panel || !title || !details || !label || !open) return;
+  const now = new Date();
+  const next = allBookings
+    .filter(item => item.status !== 'cancelled' && !isScheduleBlock(item) && bookingOutcome(item).visit_status === 'scheduled')
+    .map(item => {
+      const start = bookingStart(item);
+      const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+      return { item, start, end:new Date(start.getTime() + duration * 60000) };
+    })
+    .filter(entry => !Number.isNaN(entry.start.getTime()) && entry.end >= now)
+    .sort((left, right) => left.start - right.start)[0];
+  if (!next) {
+    panel.hidden = true;
+    open.removeAttribute('data-open-booking');
+    return;
+  }
+  const today = businessTodayIso();
+  const tomorrowDate = parseLocalIsoDate(today);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const dateLabel = next.item.booking_date === today
+    ? 'Сегодня'
+    : next.item.booking_date === localIsoDate(tomorrowDate)
+      ? 'Завтра'
+      : next.start.toLocaleDateString('ru-RU', { day:'numeric', month:'long' });
+  label.textContent = next.start <= now ? 'Сейчас идёт' : 'Ближайшая запись';
+  title.textContent = `${String(next.item.booking_time || '').slice(0, 5)} · ${next.item.client_name || 'Клиент'}`;
+  details.textContent = `${dateLabel} · ${serviceName(next.item.services?.name || 'Услуга')}`;
+  open.dataset.openBooking = next.item.id;
+  panel.hidden = false;
+}
 function renderBookingData() {
   if (providerBookingRenderFrame) return;
   providerBookingRenderFrame = window.requestAnimationFrame(() => {
@@ -788,6 +828,7 @@ function renderBookingData() {
     providerBookingRenderFrame = 0;
     providerBookingRenderRevision += 1;
     updateBookingStats();
+    renderDayFocus();
     const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
     renderProviderBookingView(activeView);
     scheduleProviderBookingWarmup(activeView);
@@ -1467,7 +1508,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=263#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=264#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2030,6 +2071,8 @@ function renderAnalytics() {
   const clients = reportClientMetrics(completed, range);
   const sources = reportSourceMetrics(items);
   const sourceTotal = sources.online + sources.manual + sources.unknown;
+  const analyticsPanel = $('[data-provider-panel="analytics"]');
+  if (analyticsPanel) analyticsPanel.dataset.reportEmpty = completed.length ? 'false' : 'true';
   $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
@@ -2148,7 +2191,10 @@ function renderAnalytics() {
       }
     }
     if (!messages.length) messages.push('Всё в порядке, важных изменений за период нет.');
-    insight.innerHTML = `<small>Главное за период</small><ul>${messages.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
+    const pendingAction = !completed.length && pending.length
+      ? `<button class="primary report-pending-action" type="button" data-open-pending-bookings>Завершить ${pending.length} ${reportVisitWord(pending.length)}</button>`
+      : '';
+    insight.innerHTML = `<small>Главное за период</small><ul>${messages.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>${pendingAction}`;
   }
 }
 
@@ -2407,7 +2453,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=263');
+    worker = new Worker('./report-worker.js?v=264');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -3113,6 +3159,8 @@ function setProviderViewImmediate(view, focusHeading = false) {
     panel.hidden = !active;
     panel.classList.toggle('active', active);
   });
+  const mobileCreate = $('#mobileNewBookingButton');
+  if (mobileCreate) mobileCreate.hidden = !['bookings', 'clients'].includes(view);
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
@@ -3182,6 +3230,8 @@ function setJournalMode(mode) {
 function updateJournalModeButtons() {
   const modeToggle = $('.journal-mode-toggle');
   if (modeToggle) modeToggle.hidden = teamCalendarController?.isTeamMode || currentFilter !== 'day' || calendarView !== 'day';
+  const filters = $('.booking-filters');
+  if (filters) filters.hidden = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day' || journalMode === 'timeline';
   $$('[data-journal-mode]').forEach(button => {
     const active = button.dataset.journalMode === journalMode;
     button.classList.toggle('active', active);
@@ -3276,7 +3326,7 @@ function updateCalendarViewControls() {
   const strip = $('#dateStrip');
   if (strip) strip.hidden = calendarView !== 'day' || currentFilter !== 'day';
   const filters = $('.booking-filters');
-  if (filters) filters.hidden = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day';
+  if (filters) filters.hidden = Boolean(teamCalendarController?.isTeamMode) || calendarView !== 'day' || journalMode === 'timeline';
   const labels = calendarView === 'day'
     ? ['Показать предыдущий день', 'Показать следующий день']
     : calendarView === 'week'
@@ -3293,6 +3343,7 @@ function setCalendarView(view) {
   const next = ['day', 'week', 'month'].includes(view) ? view : 'day';
   if (next === calendarView && currentFilter === 'day') return;
   calendarView = next;
+  timelineFullDay = false;
   currentFilter = 'day';
   try {
     localStorage.setItem(CALENDAR_VIEW_KEY, calendarView);
@@ -3312,7 +3363,9 @@ function setCalendarView(view) {
 function selectScheduleDate(value) {
   const date = parseLocalIsoDate(value);
   if (!date) return;
-  selectedDate = localIsoDate(date);
+  const nextDate = localIsoDate(date);
+  if (selectedDate !== nextDate) timelineFullDay = false;
+  selectedDate = nextDate;
   rememberSelectedDate();
   renderDateStrip();
   setFilter('day');
@@ -3360,6 +3413,8 @@ function renderDateStrip() {
   }).join('');
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
+  const todayButton = $('[data-date-today]');
+  if (todayButton) todayButton.hidden = calendarView === 'day' && selectedDate === todayIso;
   const active = $('#dateStrip [data-booking-date].active');
   if ($('#dateStrip').scrollWidth > $('#dateStrip').clientWidth) active?.scrollIntoView({ block: 'nearest', inline: 'center' });
   updateCalendarViewControls();
@@ -3754,8 +3809,17 @@ function stackMinuteTimelineItems(timelineItems, gap = 6) {
 
 function renderTimeline(items) {
   const holder = $('#providerBookings');
-  const { start, end } = timelineBounds(items);
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
+  const fullBounds = timelineBounds(items);
+  let { start, end } = fullBounds;
+  const lastBookingEnd = items.reduce((latest, item) => {
+    const itemStart = minutesFromTime(item.booking_time);
+    const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
+    return Math.max(latest, itemStart + duration);
+  }, start);
+  const compactEnd = Math.max(start + 180, Math.ceil((lastBookingEnd + 30) / 60) * 60);
+  const timelineWasCompacted = mobileTimeline && !timelineFullDay && fullBounds.end - compactEnd >= 120;
+  if (timelineWasCompacted) end = compactEnd;
   const hourHeight = mobileTimeline ? 72 : 76;
   const naturalTimelineHeight = ((end - start) / 60) * hourHeight;
   const timelineItems = items.map((item, index) => {
@@ -3814,8 +3878,11 @@ function renderTimeline(items) {
       ${cardContent}
     </button>`;
   }).join('');
+  const expandTimeline = timelineWasCompacted
+    ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
+    : '';
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" aria-label="Нажмите на свободное время, чтобы создать запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
 }
 
 function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {
@@ -5036,7 +5103,7 @@ function setTeamCalendarMode(active) {
   const filters = $('.booking-filters');
   const createButton = $('#newBookingButton');
   if (modeToggle) modeToggle.hidden = teamMode || currentFilter !== 'day' || calendarView !== 'day';
-  if (filters) filters.hidden = teamMode || calendarView !== 'day';
+  if (filters) filters.hidden = teamMode || calendarView !== 'day' || journalMode === 'timeline';
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
   updateBookingQueryTools();
@@ -7186,6 +7253,7 @@ document.addEventListener('click', async event => {
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const reportChartDate = event.target.closest('[data-report-date]');
+  const openPendingBookings = event.target.closest('[data-open-pending-bookings]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
   const openServiceCreator = event.target.closest('[data-open-service-creator]');
@@ -7211,6 +7279,7 @@ document.addEventListener('click', async event => {
   const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
+  const expandTimeline = event.target.closest('[data-expand-timeline]');
   const createEmptyBooking = event.target.closest('[data-create-empty-booking]');
   const editBooking = event.target.closest('[data-edit-booking]');
   const cancelBookingSeriesButton = event.target.closest('[data-cancel-booking-series]');
@@ -7247,6 +7316,14 @@ document.addEventListener('click', async event => {
   }
   if (reportChartDate) {
     selectScheduleDate(reportChartDate.dataset.reportDate);
+    setProviderView('bookings');
+  }
+  if (openPendingBookings) {
+    bookingStatusFilter = 'needs-result';
+    const statusFilter = $('#bookingStatusFilter');
+    if (statusFilter) statusFilter.value = bookingStatusFilter;
+    setJournalMode('list');
+    setFilter('all');
     setProviderView('bookings');
   }
   if (reportPeriodButton) {
@@ -7300,6 +7377,10 @@ document.addEventListener('click', async event => {
   if (filter) setFilter(filter.dataset.filter);
   if (journalView) setJournalMode(journalView.dataset.journalMode);
   if (calendarViewButton) setCalendarView(calendarViewButton.dataset.calendarView);
+  if (expandTimeline) {
+    timelineFullDay = true;
+    renderBookings();
+  }
   if (calendarOpenDate) {
     setCalendarView('day');
     selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);
@@ -8053,7 +8134,6 @@ $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $('#retryPasswordRecovery').addEventListener('click', showRecoveryRequest);
 $$('[data-back-to-login]').forEach(button => button.addEventListener('click', () => setAuthTab('login')));
 $('#logoutButton').addEventListener('click', logout);
-$('#refreshBookings').addEventListener('click', synchronizeProvider);
 $('#manualSyncButton').addEventListener('click', manualSynchronizeProvider);
 $('#syncState').addEventListener('click', () => { renderConnectionLog(); $('#connectionLogDialog').showModal(); });
 $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);

@@ -229,6 +229,9 @@ assert.doesNotMatch(provider, /renderSplitBookingView|splitBookingId/, 'В ка�
 assert.doesNotMatch(provider, /if \(currentFilter !== 'day'\) journalMode = 'list'/, 'Сохранённый фильтр безвозвратно переключает дневной журнал в список');
 assert.doesNotMatch(provider.match(/function setFilter\(filter\)[\s\S]*?\n\}/)?.[0] || '', /journalMode = 'list'/, 'Возврат к фильтру «День» оставляет журнал в режиме списка');
 assert.match(provider, /if \(currentFilter === 'day' && journalMode === 'timeline'\) renderTimeline\(items\)/, 'Мобильная версия не может отрисовать временную ленту');
+assert.match(provider, /timelineFullDay[\s\S]*data-expand-timeline/, 'Длинный пустой хвост мобильной ленты нельзя свернуть и раскрыть по запросу');
+assert.match(provider, /journalMode === 'timeline'/, 'Дублирующие фильтры не скрываются в режиме временной ленты');
+assert.doesNotMatch(providerHtml, /mobile-priority-shortcuts/, 'Быстрые ссылки дублируют нижнюю навигацию');
 assert.match(provider, /height < 54 \? ' compact'/, 'Записи до 45 минут снова получают переполняющийся обычный макет');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
@@ -552,12 +555,14 @@ assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая л
 assert.match(provider, /compactBookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
 assert.match(providerHtml, /id="mobileNewBookingButton"[^>]*aria-label="Создать запись"/, 'На телефоне нет постоянной быстрой кнопки создания записи');
 assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\(\)/, 'Мобильная быстрая кнопка не открывает форму записи');
+assert.match(provider, /mobileCreate\.hidden = !\['bookings', 'clients'\]\.includes\(view\)/, 'Кнопка создания записи перекрывает разделы, где она не нужна');
 assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[\s\S]*Записать снова/, 'В карточке клиента нет быстрого повторения записи');
 assert.match(provider, /function openQuickRepeatForClient[\s\S]*serviceId:previousBooking\.service_id/, 'Быстрое повторение не подставляет последнюю доступную услугу клиента');
 assert.match(provider, /<details class="new-booking-advanced"[^>]*>[\s\S]*Заметка о клиенте[\s\S]*compactBookingColorPicker\('newBookingColor'[\s\S]*newBookingRecurrence/, 'Необязательные поля новой записи не собраны в компактный раскрывающийся блок');
 assert.doesNotMatch(provider, /<details class="new-booking-advanced"[^>]*\sopen(?:\s|>)/, 'Необязательные поля новой записи раскрыты по умолчанию');
 assert.match(provider, /function focusCreatedBooking[\s\S]*scrollIntoView[\s\S]*booking-created-highlight/, 'После создания запись не выделяется и не показывается в журнале');
 assert.match(providerHtml, /id="offlineBookingQueuePanel"[\s\S]*id="retryOfflineBookings"[\s\S]*id="offlineBookingQueueList"/, 'В кабинете нет очереди отложенных офлайн-записей');
+assert.match(providerHtml, /Сохранено на устройстве[\s\S]*Как это работает/, 'Офлайн-очередь не объясняет автоматическую отправку компактно');
 assert.match(provider, /offline-bookings-v1/, 'Офлайн-записи не изолированы в отдельной версионированной очереди');
 assert.match(provider, /const OFFLINE_BOOKING_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Отложенные записи хранятся на устройстве без ограничения срока');
 assert.match(provider, /function canQueueOfflineBooking\(\)[\s\S]*offlineBookingInputsReady[\s\S]*offlineBookingSnapshotFresh\(\)[\s\S]*ownServices\.some\(item => item\.active\)/, 'Офлайн-запись разрешена без полного свежего кэша и доступной услуги');

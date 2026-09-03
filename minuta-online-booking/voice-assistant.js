@@ -526,6 +526,10 @@
     return '';
   }
 
+  function teamRoleLabel(role) {
+    return ({ owner:'Владелец', admin:'Администратор', manager:'Менеджер', specialist:'Специалист', performer:'Исполнитель' })[String(role || '').toLowerCase()] || String(role || '');
+  }
+
   function interpretCommand(command, snapshot = {}, now = new Date()) {
     const raw = String(command || '').trim().slice(0, 500);
     const text = normalizeText(raw);
@@ -539,7 +543,7 @@
     if (/(?:популярн[а-я]* услуг|лучш[а-я]* услуг|услуг[а-я]* принесли|услуг[а-я]* принос)/.test(text)) return servicePerformanceModel(text, snapshot, now);
     if (/(?:кто работает|команд[а-я]*|сотрудник[а-я]*|специалист[а-я]* работает)/.test(text)) {
       const members = snapshot.team || [];
-      return { kind:'team_summary', title:'Команда', message:members.length ? `Активных сотрудников: ${members.length}.` : 'Активные сотрудники не найдены.', points:members.map(item => `${item.name}${item.role ? ` · ${item.role}` : ''}`).slice(0, 12) };
+      return { kind:'team_summary', title:'Команда', message:members.length ? `Активных сотрудников: ${members.length}.` : 'Активные сотрудники не найдены.', points:members.map(item => `${item.name}${item.role ? ` · ${teamRoleLabel(item.role)}` : ''}`).slice(0, 12) };
     }
 
     const duration = parseDuration(text);
@@ -719,6 +723,7 @@
     const status = doc.querySelector('#voiceAssistantStatus');
     const result = doc.querySelector('#voiceAssistantResult');
     const starters = doc.querySelector('#voiceAssistantStarters');
+    const capabilities = doc.querySelector('.voice-assistant-capabilities');
     if (!dialog || !openButton || !form || !input || !listenButton || !status || !result) return { bind() {}, destroy() {} };
 
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
@@ -947,9 +952,10 @@
       stopSpeech();
       lastModel = model;
       lastSessionGeneration = sessionGeneration;
+      if (capabilities) capabilities.open = false;
       const planReady = model.kind === 'booking_draft' && model.canPrepare && model.plan?.serviceId && (model.plan?.time || model.offline) && (!model.plan.perMinute || Number(model.plan.durationMinutes));
       const prepareAction = planReady ? '<button class="primary" type="button" data-voice-prepare>Проверить запись</button>' : '';
-      const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
+      const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
       const actions = prepareAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${speakAction}</div>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       result.className = `voice-assistant-result is-${model.kind}`;
@@ -1235,6 +1241,7 @@
         result.hidden = true;
         result.replaceChildren();
         starters?.classList.remove('is-secondary');
+        if (capabilities) capabilities.open = false;
         status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
         setTimeout(() => (Recognition ? listenButton : input).focus(), 0);

@@ -32,15 +32,15 @@ for (const view of desktopViews) {
   assert.match(html, new RegExp(`data-provider-panel="${view}"`), `Для раздела ${view} отсутствует общая панель содержимого`);
 }
 
-const quickAccess = section(html, '<nav class="mobile-priority-shortcuts"', '</nav>');
-assert.deepEqual(providerViews(quickAccess), ['analytics', 'services', 'waitlist'], 'Быстрый доступ должен вести к услугам, статистике и листу ожидания');
+assert.doesNotMatch(html, /mobile-priority-shortcuts/, 'Быстрые ссылки не должны дублировать мобильный каталог разделов');
 for (const label of ['Помощник', 'Обновить', 'Клиентам']) {
   assert.match(html, new RegExp(`data-mobile-label="${label}"`), `На телефоне отсутствует видимая подпись «${label}»`);
 }
 
 assert.match(provider, /#newBookingButton, #mobileNewBookingButton/, 'Создание записи на телефоне и компьютере должно использовать общий обработчик');
 assert.match(provider, /client-badge-label/, 'В мобильной карточке нельзя показать расшифровку важной метки клиента');
-assert.match(css, /Мобильная функциональная чётность:[\s\S]*?\.mobile-priority-shortcuts\s*\{[\s\S]*?display:grid/, 'Быстрый доступ не включается на мобильной ширине');
+assert.match(html, /id="providerDayFocus"[\s\S]*id="providerDayFocusOpen"/, 'На телефоне отсутствует компактная карточка ближайшей записи');
+assert.match(provider, /mobileCreate\.hidden = !\['bookings', 'clients'\]\.includes\(view\)/, 'Кнопка создания записи перекрывает посторонние разделы');
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:inline!important/, 'Длительность обычной записи скрыта на телефоне');
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status\s*\{[^}]*display:inline-flex!important/, 'Статус обычной записи скрыт на телефоне');
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.client-badge-label\s*\{[^}]*display:block/, 'Название важной метки клиента скрыто на телефоне');
