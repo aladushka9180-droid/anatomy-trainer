@@ -2734,7 +2734,7 @@ html.requires-top-level.top-level body { visibility:visible; }
   .provider-body[data-provider-theme][data-provider-layout="editorial"] .provider-topbar { border-bottom-width:2px; }
 }
 
-/* Мобильная лента: длинные записи начинаются сверху, короткие не переполняются. */
+/* Мобильная лента: у карточки всегда остаются отдельные строки для услуги и клиента. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme] .timeline-booking,
   .provider-body[data-provider-theme] .timeline-booking.compact {
@@ -2782,11 +2782,12 @@ html.requires-top-level.top-level body { visibility:visible; }
   }
   .provider-body[data-provider-theme] .timeline-service-variant { display:inline; }
   .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-copy>strong {
-    display:block;
+    display:-webkit-box;
     overflow-wrap:anywhere;
     text-overflow:clip;
     white-space:normal;
-    -webkit-line-clamp:unset;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
   }
   .provider-body[data-provider-theme] .timeline-booking-client-row,
   .provider-body[data-provider-theme] .timeline-booking.compact .timeline-booking-client-row {
@@ -2809,12 +2810,16 @@ html.requires-top-level.top-level body { visibility:visible; }
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-client-row { overflow:visible; }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-client-row { overflow:hidden; }
   .provider-body[data-provider-theme] .timeline-booking:not(.compact) .timeline-booking-client {
-    overflow-wrap:anywhere;
-    text-overflow:clip;
-    white-space:normal;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
+  .provider-body[data-provider-theme] .timeline-booking:not(:has(.client-badges)) .timeline-booking-copy { padding-right:12px!important; }
+  /* В ленте длительность уже передана высотой карточки, а история визитов
+     остаётся в подробностях записи. На телефоне эти данные только дублировали
+     смысл и переносили подпись клиента на соседние строки. */
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact) :is(.timeline-client-visit-wrap,.timeline-client-duration) { display:none!important; }
   .provider-body[data-provider-theme] .timeline-mobile-time { display:inline; color:inherit; font-weight:850; opacity:1; }
   .provider-body[data-provider-theme] .timeline-client-visit { display:inline; padding:0; background:transparent!important; color:inherit!important; font-size:inherit; }
   .provider-body[data-provider-theme] .timeline-booking-note,
