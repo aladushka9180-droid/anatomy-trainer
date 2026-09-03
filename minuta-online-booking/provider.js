@@ -887,7 +887,7 @@ function renderTopbarDateTime() {
   const timeLabel = $('#currentTimeLabel');
   if (dateLabel) dateLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', weekday:'long', day:'numeric', month:'long' }).format(now);
   if (timeLabel) {
-    timeLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', hour12:false }).format(now);
+      timeLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(now);
     timeLabel.dateTime = now.toISOString();
   }
 }
@@ -899,7 +899,7 @@ function startTopbarClock() {
   stopTopbarClock();
   const tick = () => {
     renderTopbarDateTime();
-    topbarClockTimer = setTimeout(tick, 60050 - (Date.now() % 60000));
+      topbarClockTimer = setTimeout(tick, 1050 - (Date.now() % 1000));
   };
   tick();
 }
