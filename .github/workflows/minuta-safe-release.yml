@@ -434,7 +434,7 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v67.sql
           protected_booking_rpcs_before="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select md5(string_agg(pg_get_functiondef(p.oid) || coalesce(p.proacl::text,''), E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure));")"
+            "select md5(string_agg(pg_get_functiondef(p.oid) || coalesce(p.proacl::text,''), E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure);")"
           v67_definition="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select md5(pg_get_functiondef('public.get_public_minuta_catalog(text)'::regprocedure));")"
           v67_org_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -451,7 +451,7 @@ jobs:
             "select concat_ws('|',(select md5(coalesce(string_agg(to_jsonb(booking)::text,',' order by booking.id),'')) from public.bookings booking),(select md5(pg_get_functiondef('public.get_minuta_team_calendar(uuid,date,date,uuid,uuid)'::regprocedure))),(select md5(pg_get_functiondef('public.book_minuta_appointment(uuid,text,uuid,uuid,date,time without time zone,text,text)'::regprocedure))));")"
           test "$v68_snapshot" = "$v68_snapshot_after"
           protected_booking_rpcs_after="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select md5(string_agg(pg_get_functiondef(p.oid) || coalesce(p.proacl::text,''), E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure));")"
+            "select md5(string_agg(pg_get_functiondef(p.oid) || coalesce(p.proacl::text,''), E'\\n' order by p.oid::regprocedure::text)) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.oid in ('public.provider_delete_booking(uuid)'::regprocedure,'public.book_appointment(uuid,uuid,date,time without time zone,text,text)'::regprocedure,'public.get_available_slots(uuid,date,date,uuid)'::regprocedure);")"
           test "$protected_booking_rpcs_before" = "$protected_booking_rpcs_after"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/multi-tenant-v68-integration.sql
