@@ -429,23 +429,27 @@ const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_THEME_KEYS = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_TEXT_SCALE_KEYS = [^;]+;/)?.[0],
+  provider.match(/const PROVIDER_MOBILE_NAV_ITEMS = Object\.freeze\([\s\S]*?\);/)?.[0],
+  provider.match(/const DEFAULT_MOBILE_NAV = [^;]+;/)?.[0],
   provider.match(/const LEGACY_PROVIDER_THEME_MAP = [^;]+;/)?.[0],
   provider.match(/const DEFAULT_DISPLAY_PREFERENCES = Object\.freeze\([\s\S]*?\);/)?.[0],
+  provider.match(/function normalizeMobileNavigation\([\s\S]*?(?=\nfunction normalizeDisplayPreferences)/)?.[0],
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
-assert.match(appearanceSources[4], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
+assert.match(appearanceSources[6], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
+const defaultMobileNav = ['bookings', 'notifications', 'analytics', 'schedule'];
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
   for (const theme of ['luxury', 'loft', 'eco', 'hitech']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).layout, layout, `Структура ${layout} потерялась с темой ${theme}`);
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav }, 'Старый выбор Bento переносится неверно');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
-const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true };
+const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav };
+const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
@@ -471,6 +475,9 @@ assert.match(styles, /input,select,textarea\s*\{[^}]*font-size:16px!important/, 
 assert.match(providerHtml, /id="scheduleDatePicker"[^>]*type="date"/, 'В расписании нет выбора даты через календарь');
 assert.match(providerHtml, /data-date-shift="-1"[\s\S]*data-date-shift="1"/, 'В расписании нет навигации по выбранному периоду');
 assert.match(providerHtml, /data-calendar-view="day"[\s\S]*data-calendar-view="week"[\s\S]*data-calendar-view="month"/, 'В расписании нет переключения дня, недели и месяца');
+assert.match(providerHtml, /id="monthlyScheduleMonth"[^>]*type="month"[\s\S]*id="monthlyScheduleGrid"/, 'Рабочий график нельзя настроить по датам выбранного месяца');
+assert.equal((providerHtml.match(/data-mobile-nav-slot/g) || []).length, 4, 'В настройках нельзя выбрать четыре вкладки мобильной панели');
+assert.match(provider, /DEFAULT_MOBILE_NAV[\s\S]*?'analytics'/, 'Статистика не установлена в мобильной панели по умолчанию');
 assert.match(providerHtml, /data-provider-panel="portfolio"/, 'В кабинете нет раздела портфолио');
 assert.match(providerHtml, /id="portfolioSessions"[^>]*min="1"[^>]*max="999"/, 'Нельзя указать количество проведённых сеансов');
 assert.match(providerHtml, /id="portfolioBeforeFile"[^>]*accept="image\/jpeg,image\/png,image\/webp"/, 'Нет выбора фотографии «До»');
