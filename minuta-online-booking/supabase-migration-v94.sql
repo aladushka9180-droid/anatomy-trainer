@@ -71,7 +71,7 @@ begin
       )
     group by previous.client_account_id
   ), phone_first as (
-    select regexp_replace(coalesce(previous.client_phone,''),'[^0-9]','','g') normalized_phone,
+    select public.normalize_client_phone(previous.client_phone) normalized_phone,
       min(previous.booking_date) first_completed_date
     from public.bookings previous
     join public.booking_outcomes previous_outcome
@@ -79,13 +79,13 @@ begin
     where previous.organization_id=p_organization
       and previous.status<>'cancelled'
       and previous.client_account_id is null
-      and regexp_replace(coalesce(previous.client_phone,''),'[^0-9]','','g') in (
-        select distinct regexp_replace(coalesce(candidate.client_phone,''),'[^0-9]','','g')
+      and public.normalize_client_phone(previous.client_phone) in (
+        select distinct public.normalize_client_phone(candidate.client_phone)
         from page candidate
         where candidate.client_account_id is null
-          and nullif(regexp_replace(coalesce(candidate.client_phone,''),'[^0-9]','','g'),'') is not null
+          and nullif(public.normalize_client_phone(candidate.client_phone),'') is not null
       )
-    group by regexp_replace(coalesce(previous.client_phone,''),'[^0-9]','','g')
+    group by public.normalize_client_phone(previous.client_phone)
   ), numbered as (
     select page.*,
       row_number() over(order by page.booking_date,page.booking_time,page.id) page_number
@@ -130,7 +130,7 @@ begin
     from numbered
     left join account_first on account_first.client_account_id=numbered.client_account_id
     left join phone_first on numbered.client_account_id is null
-      and phone_first.normalized_phone=regexp_replace(coalesce(numbered.client_phone,''),'[^0-9]','','g')
+      and phone_first.normalized_phone=public.normalize_client_phone(numbered.client_phone)
   )
   select coalesce(jsonb_agg(payload order by page_number) filter(where page_number<=p_limit),'[]'::jsonb),
     coalesce(bool_or(page_number>p_limit),false)

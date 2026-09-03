@@ -113,45 +113,6 @@ $$;
 revoke all on function public.protect_minuta_booking_creation_attribution_v92()
   from public,anon,authenticated,service_role;
 
--- Hard deletion through the protected v64 RPC must also remove dependent
--- event rows instead of being blocked by the audit foreign key.
-do $$
-declare
-  v_constraint text;
-begin
-  for v_constraint in
-    select constraint_row.conname
-    from pg_constraint constraint_row
-    join pg_attribute attribute_row
-      on attribute_row.attrelid=constraint_row.conrelid
-     and attribute_row.attnum=any(constraint_row.conkey)
-    where constraint_row.conrelid='public.booking_events'::regclass
-      and constraint_row.confrelid='public.bookings'::regclass
-      and constraint_row.contype='f'
-      and attribute_row.attname='booking_id'
-  loop
-    execute format('alter table public.booking_events drop constraint %I',v_constraint);
-  end loop;
-end $$;
-alter table public.booking_events
-  add constraint booking_events_booking_id_fkey
-  foreign key (booking_id) references public.bookings(id) on delete cascade
-  not valid;
-
-commit;
-
-set lock_timeout = '5s';
-set statement_timeout = '30min';
-alter table public.booking_events
-  validate constraint booking_events_booking_id_fkey;
-reset lock_timeout;
-reset statement_timeout;
-
-begin;
-set local lock_timeout = '5s';
-set local statement_timeout = '10min';
-set local search_path = public, extensions, pg_catalog;
-
 -- total_price_rub is the authoritative total for composite and repriced visits.
 create or replace function public.minuta_booking_value_v93(p_row jsonb,p_booking uuid)
 returns integer

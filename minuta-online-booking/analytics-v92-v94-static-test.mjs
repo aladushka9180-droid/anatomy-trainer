@@ -13,7 +13,9 @@ const v94 = read('supabase-migration-v94.sql');
 const rollback94 = read('supabase-migration-v94-rollback.sql');
 const v96 = read('supabase-migration-v96.sql');
 const rollback96 = read('supabase-migration-v96-rollback.sql');
-const integration96 = read('analytics-v92-v96-integration.sql');
+const v97 = read('supabase-migration-v97.sql');
+const rollback97 = read('recovery/rollback-employee-analytics-v97.sql');
+const integration97 = read('analytics-v92-v97-integration.sql');
 const recoveryRollback92 = read('recovery/rollback-booking-attribution-v92.sql');
 const recoveryRollback93 = read('recovery/rollback-booking-events-v93.sql');
 const releaseWorkflow = readFileSync(join(root, '..', '.github', 'workflows', 'minuta-safe-release.yml'), 'utf8');
@@ -53,7 +55,7 @@ assert.match(v94, /limit p_limit\+1 offset p_offset/, 'v94: длинная ис�
 assert.doesNotMatch(v94, /to_jsonb\(booking\)/, 'v94: отчёт раскрывает весь row записи, включая внутренние поля');
 assert.match(rollback94, /drop function if exists public\.get_minuta_staff_report_bookings\(uuid,date,date,uuid,integer,integer\)/, 'rollback v94: RPC отчёта не удаляется');
 
-assert.match(v96, /on delete cascade/, 'v96: удаление записи всё ещё блокируется журналом событий');
+assert.doesNotMatch(v96, /on delete cascade/, 'v96: корректировка не должна удалять журнал каскадом');
 assert.match(v96, /p_row \? 'total_price_rub'/, 'v96: составная стоимость не считается по total_price_rub');
 assert.match(v96, /get_minuta_team_analytics\(uuid,date,date\)/, 'v96: нет явного контекста организации для аналитики');
 assert.match(v96, /v_role is null or v_role not in \('owner','admin'\)/, 'v96: отсутствующий membership может обойти tenant-проверку');
@@ -61,11 +63,18 @@ assert.match(v96, /not exists\(select 1 from auth\.users where id=old\.created_b
 assert.match(v96, /MINUTA_CONCURRENT_INDEXES_BEGIN[\s\S]*create index concurrently if not exists bookings_performer_date_time_v94_idx/, 'v96: индекс истории создаётся с блокировкой production-записей');
 assert.match(v96, /booking_events_scope_previous_date_v96_idx/, 'v96: нет индекса предыдущей даты события');
 assert.match(rollback96, /Только для изолированной тестовой базы/, 'rollback v96: нет предупреждения о test-only назначении');
-assert.match(integration96, /provider_delete_booking[\s\S]*v96_booking_event_cascade_failed/, 'integration v96: не проверяется удаление записи с событием');
-assert.match(integration96, /v96_attribution_set_null_failed/, 'integration v96: не проверяется удаление автора');
-assert.match(integration96, /v96_attribution_tamper_was_allowed/, 'integration v96: не проверяется запрет ручного стирания автора');
-assert.match(integration96, /v96_explicit_organization_analytics_failed/, 'integration v96: не проверяется multi-org аналитика');
-assert.match(integration96, /v96_cross_tenant_analytics_leak/, 'integration v96: не проверяется запрет cross-tenant аналитики');
+assert.match(v97, /on delete set null not valid/, 'v97: удаление записи должно сохранять журнал');
+assert.match(v97, /client_name_snapshot[\s\S]*service_name_snapshot[\s\S]*performer_name_snapshot/, 'v97: журнал не сохраняет отображаемые снимки');
+assert.match(v97, /get_minuta_staff_report_bookings_v97[\s\S]*p_limit integer,p_offset integer/, 'v97: отчёт сотрудников не постраничный');
+assert.match(v97, /get_minuta_booking_events_v97[\s\S]*p_limit integer,p_offset integer/, 'v97: история событий не постраничная');
+assert.match(v97, /coalesce\(outcome\.completed_performer_id,booking\.performer_id\)/, 'v97: завершённый визит не закреплён за историческим исполнителем');
+assert.doesNotMatch(v97, /to_jsonb\(booking\)/, 'v97: отчёт раскрывает весь row записи');
+assert.match(rollback97, /Снимки[\s\S]*сохраняются/, 'rollback v97: нет гарантии сохранения истории');
+assert.match(integration97, /provider_delete_booking[\s\S]*v97_booking_event_history_was_not_preserved/, 'integration v97: не проверяется сохранение события после удаления записи');
+assert.match(integration97, /v97_attribution_set_null_failed/, 'integration v97: не проверяется удаление автора');
+assert.match(integration97, /v97_attribution_tamper_was_allowed/, 'integration v97: не проверяется запрет ручного стирания автора');
+assert.match(integration97, /v97_explicit_organization_analytics_failed/, 'integration v97: не проверяется multi-org аналитика');
+assert.match(integration97, /v97_cross_tenant_analytics_leak/, 'integration v97: не проверяется запрет cross-tenant аналитики');
 assert.match(provider, /p_organization:organizationId, p_start:range\.start, p_end:range\.end/, 'provider: аналитика не передаёт активную организацию');
 assert.match(provider, /response\.error\.code === 'PGRST202'[\s\S]*p_start:range\.start, p_end:range\.end/, 'provider: нет совместимого fallback до установки v96');
 assert.match(provider, /payment_url,booking_source,created_by_user_id,created_by_role,services/, 'provider: загрузка записей не получает атрибуцию');
@@ -76,8 +85,10 @@ for (const version of ['92', '93', '94', '96']) {
 }
 assert.match(releaseWorkflow, /supabase-migration-v95\.sql/, 'release: v95 импорта не применяется');
 assert.match(releaseWorkflow, /recovery\/rollback-client-import-v95\.sql/, 'release: rollback v95 импорта не проверяется');
-assert.match(releaseWorkflow, /supabase-migration-v94\.sql[\s\S]*supabase-migration-v96\.sql[\s\S]*supabase-migration-v95\.sql/, 'release: порядок должен быть v94 → v96 → v95');
-assert.doesNotMatch(validationBlock, /supabase-migration-v9[23456]\.sql/, 'release: v92–v96 нельзя репетировать на живой production в длинной транзакции');
+assert.match(releaseWorkflow, /supabase-migration-v97\.sql/, 'release: v97 не применяется');
+assert.match(releaseWorkflow, /recovery\/rollback-employee-analytics-v97\.sql/, 'release: test-only rollback v97 не проверяется');
+assert.match(releaseWorkflow, /supabase-migration-v94\.sql[\s\S]*supabase-migration-v96\.sql[\s\S]*supabase-migration-v95\.sql[\s\S]*supabase-migration-v97\.sql/, 'release: порядок должен быть v94 → v96 → v95 → v97');
+assert.doesNotMatch(validationBlock, /supabase-migration-v9[234567]\.sql/, 'release: v92–v97 нельзя репетировать на живой production в длинной транзакции');
 assert.match(releaseWorkflow, /MINUTA_TEST_RUN_ID[\s\S]*"test-migration" 21600 test/, 'release: production не требует успешный test-migration');
 
 console.log('analytics v92-v94 static test: OK');
