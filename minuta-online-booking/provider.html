@@ -317,16 +317,22 @@
         <section class="provider-view" data-provider-panel="analytics" hidden>
           <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="primary compact-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать отчёт</span></button></div>
           <p class="view-description">Стоимость состоявшихся визитов и фактически полученная оплата учитываются отдельно.</p>
-          <div class="report-periods" aria-label="Период отчёта"><button class="active" type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="all">Всё время</button></div>
+          <div class="report-periods" aria-label="Период отчёта"><button class="active" type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="all">Всё время</button><button type="button" data-report-period="custom">Выбрать даты</button></div>
+          <form class="report-custom-period" id="reportCustomPeriod" hidden><label>С<input id="reportDateFrom" type="date" required></label><label>По<input id="reportDateTo" type="date" required></label><button class="secondary-button" type="submit">Показать</button></form>
+          <p class="report-period-label" id="reportPeriodLabel"></p>
           <div class="report-summary">
-            <article><small>Получено</small><strong id="reportRevenue">0 ₽</strong></article>
-            <article><small>Состоялось на</small><strong id="reportCompletedValue">0 ₽</strong></article>
-            <article><small>Визитов</small><strong id="reportCompleted">0</strong></article>
-            <article><small>Не оплачено</small><strong id="reportUnpaid">0</strong></article>
-            <article><small>Отменено</small><strong id="reportCancelled">0</strong></article>
-            <article><small>Не пришли</small><strong id="reportNoShow">0</strong></article>
+            <article><small>Получено</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
+            <article><small>Оказано на</small><strong id="reportCompletedValue">0 ₽</strong><span>Стоимость завершённых визитов</span></article>
+            <article><small>Долг</small><strong id="reportDebt">0 ₽</strong><span id="reportUnpaid">0 неоплаченных визитов</span></article>
+            <article><small>Визиты</small><strong id="reportCompleted">0</strong><span id="reportWorkload">0 часов работы</span></article>
           </div>
-          <section class="panel report-services"><div class="panel-head"><div><small>По услугам</small><h3>Доход и посещения</h3></div></div><div id="reportServicesList"></div></section>
+          <div class="report-secondary" aria-label="Дополнительные показатели"><article><small>Средний чек</small><strong id="reportAverage">0 ₽</strong></article><article><small>Без результата</small><strong id="reportPending">0</strong></article><article><small>Отменено</small><strong id="reportCancelled">0</strong></article><article><small>Не пришли</small><strong id="reportNoShow">0</strong></article></div>
+          <section class="report-reconciliation" id="reportReconciliation" aria-live="polite"></section>
+          <div class="report-insights-grid">
+            <section class="panel report-trend"><div class="panel-head"><div><small>Динамика</small><h3>Получено по дням</h3></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
+            <section class="panel report-payments"><div class="panel-head"><div><small>Оплата</small><h3>Способы оплаты</h3></div></div><div id="reportPaymentsList"></div></section>
+          </div>
+          <section class="panel report-services"><div class="panel-head"><div><small>По услугам</small><h3>Доход и посещения</h3></div><small>Сумма фактической оплаты</small></div><div id="reportServicesList"></div></section>
         </section>
 
         <section class="provider-view" data-provider-panel="services" hidden>

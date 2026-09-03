@@ -59,6 +59,8 @@ let currentFilter = restoreScheduleFilter();
 let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
 let reportPeriod = 'month';
+let reportCustomStart = '';
+let reportCustomEnd = '';
 let notificationTimer = null;
 let topbarClockTimer = null;
 let deferredInstallPrompt = null;
@@ -1451,43 +1453,151 @@ function outcomeSummary(item) {
   return `${actualTime}${paymentMethodLabel(outcome.payment_method, outcome.completion_source)}${outcome.amount_rub ? ` · получено ${money(outcome.amount_rub)}` : ''}`;
 }
 
-function reportBookings() {
-  const clientBookings = allBookings.filter(item => !isScheduleBlock(item));
-  if (reportPeriod === 'all') return clientBookings;
-  const today = parseLocalIsoDate(businessTodayIso());
-  today.setHours(0, 0, 0, 0);
-  const start = reportPeriod === 'month'
-    ? new Date(today.getFullYear(), today.getMonth(), 1)
-    : new Date(today.getTime() - 89 * 86400000);
-  return clientBookings.filter(item => new Date(`${item.booking_date}T12:00:00`) >= start);
+function reportDateText(value, options = { day:'numeric', month:'short' }) {
+  return parseLocalIsoDate(value).toLocaleDateString('ru-RU', options);
+}
+
+function reportRange(period = reportPeriod) {
+  const todayIso = businessTodayIso();
+  const today = parseLocalIsoDate(todayIso);
+  let start = todayIso;
+  let end = todayIso;
+  if (period === 'month') start = localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+  if (period === 'quarter') start = localIsoDate(new Date(today.getTime() - 89 * 86400000));
+  if (period === 'all') {
+    const dates = allBookings.filter(item => !isScheduleBlock(item) && item.booking_date <= todayIso).map(item => item.booking_date).sort();
+    start = dates[0] || todayIso;
+  }
+  if (period === 'custom') {
+    start = reportCustomStart || todayIso;
+    end = reportCustomEnd || todayIso;
+  }
+  return { start, end, period };
+}
+
+function reportBookings(range = reportRange()) {
+  return allBookings.filter(item => !isScheduleBlock(item) && item.booking_date >= range.start && item.booking_date <= range.end);
+}
+
+function previousReportRange(range) {
+  if (range.period === 'all') return null;
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+  const previousEnd = new Date(start.getTime() - 86400000);
+  return { start:localIsoDate(new Date(previousEnd.getTime() - (days - 1) * 86400000)), end:localIsoDate(previousEnd), period:'previous' };
+}
+
+function reportCompletedItems(items) {
+  return items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed');
+}
+
+function reportRevenue(items) {
+  return reportCompletedItems(items).reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+}
+
+function reportVisitWord(count) {
+  const value = Math.abs(Number(count || 0)) % 100;
+  const digit = value % 10;
+  return value > 10 && value < 20 ? 'визитов' : digit === 1 ? 'визит' : digit > 1 && digit < 5 ? 'визита' : 'визитов';
+}
+
+function reportTrendMarkup(completed, range) {
+  const chart = $('#reportRevenueChart');
+  if (!chart) return;
+  if (!completed.length) {
+    chart.innerHTML = '<div class="report-empty-inline">После завершённых визитов здесь появится динамика.</div>';
+    return;
+  }
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  const totalDays = Math.max(1, Math.round((end - start) / 86400000) + 1);
+  const bucketCount = Math.min(12, totalDays);
+  const bucketDays = Math.ceil(totalDays / bucketCount);
+  const buckets = Array.from({ length:bucketCount }, (_, index) => {
+    const from = new Date(start.getTime() + index * bucketDays * 86400000);
+    const to = new Date(Math.min(end.getTime(), from.getTime() + (bucketDays - 1) * 86400000));
+    return { from, to, value:0 };
+  }).filter(bucket => bucket.from <= end);
+  completed.forEach(item => {
+    const offset = Math.max(0, Math.floor((parseLocalIsoDate(item.booking_date) - start) / 86400000));
+    const bucket = buckets[Math.min(buckets.length - 1, Math.floor(offset / bucketDays))];
+    if (bucket) bucket.value += Number(bookingOutcome(item).amount_rub || 0);
+  });
+  const maximum = Math.max(...buckets.map(item => item.value), 1);
+  chart.innerHTML = buckets.map(bucket => {
+    const label = bucketDays === 1 ? reportDateText(localIsoDate(bucket.from)) : `${reportDateText(localIsoDate(bucket.from))}–${reportDateText(localIsoDate(bucket.to))}`;
+    const height = bucket.value ? Math.max(8, Math.round(bucket.value / maximum * 100)) : 2;
+    return `<div class="report-chart-column" title="${escapeHtml(label)}: ${escapeHtml(money(bucket.value))}"><span><i style="height:${height}%"></i></span><small>${escapeHtml(label)}</small></div>`;
+  }).join('');
 }
 
 function renderAnalytics() {
   const holder = $('#reportServicesList');
   if (!holder) return;
-  const items = reportBookings();
-  const completed = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed');
-  const unpaid = completed.filter(item => bookingOutcome(item).payment_method === 'unpaid');
+  const range = reportRange();
+  const items = reportBookings(range);
+  const completed = reportCompletedItems(items);
   const noShows = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'no_show');
   const cancelled = items.filter(item => item.status === 'cancelled');
-  const revenue = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+  const pending = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'scheduled' && bookingIsCompleted(item));
+  const revenue = reportRevenue(items);
   const completedValue = completed.reduce((sum, item) => sum + bookingCalculatedValue(item), 0);
+  const debt = completed.reduce((sum, item) => sum + Math.max(0, bookingCalculatedValue(item) - Number(bookingOutcome(item).amount_rub || 0)), 0);
+  const unpaid = completed.filter(item => Number(bookingOutcome(item).amount_rub || 0) < bookingCalculatedValue(item));
+  const adjustment = revenue - completedValue;
+  const average = completed.length ? revenue / completed.length : 0;
+  const workedMinutes = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).actual_duration_minutes || item.duration_minutes || item.services?.duration_minutes || 0), 0);
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · личная статистика мастера`;
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
+  $('#reportDebt').textContent = money(debt);
   $('#reportCompleted').textContent = String(completed.length);
-  $('#reportUnpaid').textContent = String(unpaid.length);
+  $('#reportUnpaid').textContent = `${unpaid.length} ${reportVisitWord(unpaid.length)} с долгом`;
+  $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
+  $('#reportAverage').textContent = money(average);
+  $('#reportPending').textContent = String(pending.length);
   $('#reportCancelled').textContent = String(cancelled.length);
   $('#reportNoShow').textContent = String(noShows.length);
+  const previousRange = previousReportRange(range);
+  const previousRevenue = previousRange ? reportRevenue(reportBookings(previousRange)) : 0;
+  const trend = $('#reportRevenueTrend');
+  trend.className = '';
+  if (!previousRange) trend.textContent = 'За весь доступный период';
+  else if (!previousRevenue) trend.textContent = revenue ? 'Новый доход за период' : 'Пока без поступлений';
+  else {
+    const percent = Math.round((revenue - previousRevenue) / previousRevenue * 100);
+    trend.textContent = `${percent >= 0 ? '+' : ''}${percent}% к предыдущему периоду`;
+    trend.className = percent > 0 ? 'is-positive' : percent < 0 ? 'is-negative' : '';
+  }
+  const differenceText = adjustment > 0 ? `Доплаты и корректировки: +${money(adjustment)}` : adjustment < 0 ? `Недополучено: ${money(Math.abs(adjustment))}` : 'Расхождений нет';
+  $('#reportReconciliation').innerHTML = `<div><small>Сверка денег</small><strong>${money(completedValue)} оказано → ${money(revenue)} получено</strong></div><span class="${adjustment > 0 ? 'is-positive' : adjustment < 0 ? 'is-negative' : ''}">${differenceText}</span>`;
+  reportTrendMarkup(completed, range);
+  const payments = new Map([['cash',0],['card',0],['transfer',0],['unpaid',0]]);
+  completed.forEach(item => {
+    const outcome = bookingOutcome(item);
+    const method = payments.has(outcome.payment_method) ? outcome.payment_method : 'unpaid';
+    payments.set(method, payments.get(method) + Number(outcome.amount_rub || 0));
+  });
+  const paymentNames = { cash:'Наличные', card:'Карта', transfer:'Перевод', unpaid:'Без оплаты' };
+  $('#reportPaymentsList').innerHTML = [...payments.entries()].map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)}</strong></article>`).join('');
   const grouped = new Map();
   completed.forEach(item => {
-    const name = serviceName(item.services?.name || 'Услуга');
-    const row = grouped.get(name) || { visits: 0, revenue: 0 };
-    row.visits += 1;
-    row.revenue += Number(bookingOutcome(item).amount_rub || 0);
-    grouped.set(name, row);
+    const entries = bookingSession(item).filter(entry => entry.title);
+    const weightTotal = entries.reduce((sum, entry) => sum + Math.max(0, Number(entry.price_rub || 0)), 0);
+    const received = Number(bookingOutcome(item).amount_rub || 0);
+    entries.forEach(entry => {
+      const name = serviceName(entry.title || 'Услуга');
+      const key = entry.service_id ? `service:${entry.service_id}` : `title:${name.toLowerCase()}`;
+      const row = grouped.get(key) || { name, visits:0, revenue:0 };
+      row.visits += 1;
+      row.revenue += received * (weightTotal > 0 ? Math.max(0, Number(entry.price_rub || 0)) / weightTotal : 1 / entries.length);
+      grouped.set(key, row);
+    });
   });
-  const rows = [...grouped.entries()].sort((a, b) => b[1].revenue - a[1].revenue || b[1].visits - a[1].visits);
-  holder.innerHTML = rows.length ? rows.map(([name, row]) => `<article class="report-service-row"><div><strong>${escapeHtml(name)}</strong><small>${row.visits} ${row.visits === 1 ? 'визит' : row.visits < 5 ? 'визита' : 'визитов'}</small></div><b>${money(row.revenue)}</b></article>`).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
+  const rows = [...grouped.values()].sort((a, b) => b.revenue - a.revenue || b.visits - a.visits);
+  const topRevenue = Math.max(...rows.map(row => row.revenue), 1);
+  holder.innerHTML = rows.length ? rows.map(row => `<article class="report-service-row"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)}</small><span><i style="width:${Math.max(2, Math.round(row.revenue / topRevenue * 100))}%"></i></span></div><b>${money(row.revenue)}</b></article>`).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
 }
 
 function reportXmlText(value) {
@@ -1597,7 +1707,8 @@ function exportBookingsXlsx() {
   const url = URL.createObjectURL(reportWorkbook([header, ...rows]));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `записи-${businessTodayIso()}.xlsx`;
+  const range = reportRange();
+  link.download = `записи-${range.start}-${range.end}.xlsx`;
   link.hidden = true;
   document.body.append(link);
   link.click();
@@ -6010,6 +6121,19 @@ async function loadOwnServices(options = {}) {
   return { ok: true };
 }
 
+async function queryAllProviderBookings(userId, selection) {
+  const pageSize = 1000;
+  const rows = [];
+  for (let from = 0; from < 50000; from += pageSize) {
+    const result = await db.from('bookings').select(selection).eq('performer_id', userId)
+      .order('booking_date', { ascending:true }).order('booking_time', { ascending:true }).range(from, from + pageSize - 1);
+    if (result.error) return result;
+    rows.push(...(result.data || []));
+    if ((result.data || []).length < pageSize) return { data:rows, error:null };
+  }
+  return { data:null, error:new Error('Слишком большой объём записей для безопасной загрузки') };
+}
+
 async function loadBookings(options = {}) {
   const holder = $('#providerBookings');
   const userId = currentUser?.id;
@@ -6020,21 +6144,9 @@ async function loadBookings(options = {}) {
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (!options.silent && !cached) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   if (!navigator.onLine) return cached ? { ok: false, cached: true, savedAt: cached.savedAt } : { ok: false };
-  let { data, error } = await db.from('bookings')
-    .select('id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)')
-    .eq('performer_id', userId)
-    .order('booking_date', { ascending: true })
-    .order('booking_time', { ascending: true });
-  if (error) ({ data, error } = await db.from('bookings')
-    .select('id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
-    .eq('performer_id', userId)
-    .order('booking_date', { ascending:true })
-    .order('booking_time', { ascending:true }));
-  if (error) ({ data, error } = await db.from('bookings')
-    .select('id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)')
-    .eq('performer_id', userId)
-    .order('booking_date', { ascending:true })
-    .order('booking_time', { ascending:true }));
+  let { data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
+  if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
+  if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (error) {
     if (cached?.data) {
@@ -6266,6 +6378,15 @@ document.addEventListener('click', async event => {
   if (reportPeriodButton) {
     reportPeriod = reportPeriodButton.dataset.reportPeriod;
     $$('[data-report-period]').forEach(button => button.classList.toggle('active', button === reportPeriodButton));
+    const customForm = $('#reportCustomPeriod');
+    customForm.hidden = reportPeriod !== 'custom';
+    if (reportPeriod === 'custom' && !reportCustomStart) {
+      const today = parseLocalIsoDate(businessTodayIso());
+      reportCustomEnd = businessTodayIso();
+      reportCustomStart = localIsoDate(new Date(today.getTime() - 29 * 86400000));
+      $('#reportDateFrom').value = reportCustomStart;
+      $('#reportDateTo').value = reportCustomEnd;
+    }
     renderAnalytics();
   }
   if (openNotificationTemplates) {
@@ -7032,6 +7153,15 @@ $$('[data-close-connection-log]').forEach(button => button.addEventListener('cli
 $('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
 $('#exportBookings').addEventListener('click', exportBookingsXlsx);
+$('#reportCustomPeriod').addEventListener('submit', event => {
+  event.preventDefault();
+  const start = $('#reportDateFrom').value;
+  const end = $('#reportDateTo').value;
+  if (!start || !end || start > end) { notify('Проверьте даты отчёта'); return; }
+  reportCustomStart = start;
+  reportCustomEnd = end;
+  renderAnalytics();
+});
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet());
