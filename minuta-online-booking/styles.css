@@ -1613,7 +1613,7 @@ html.provider-refresh-transition .provider-boot-screen {
 @keyframes provider-boot-progress { to { background-position:-150% 0; } }
 .provider-main {
   opacity:1;
-  transform:translateY(0) scale(1);
+  transform:none;
 }
 html.provider-refresh-transition .provider-main {
   transition:opacity .32s cubic-bezier(.22,1,.36,1),transform .38s cubic-bezier(.22,1,.36,1);
