@@ -45,6 +45,11 @@ for (const protectedRpc of [
 assert.match(rollback, /disable_payroll_before_rollback/i, 'rollback must refuse while payroll is enabled');
 assert.match(rollback, /export_and_remove_all_payroll_data_before_rollback/i, 'rollback must preserve every payroll business row');
 assert.doesNotMatch(rollback, /\bcascade\b/i, 'rollback must not use CASCADE');
+assert.ok(
+  rollback.search(/drop policy if exists payroll_periods_member_read/i)
+    < rollback.search(/drop table if exists public\.payroll_items/i),
+  'rollback must remove the payroll_periods policy dependency before payroll_items',
+);
 assert.match(integration, /v72_calculation_or_idempotency_failed/i, 'integration must exercise real calculation and idempotency');
 assert.match(integration, /v72_overlap_was_allowed/i, 'integration must reject overlapping periods');
 assert.match(integration, /v72_stale_source_was_approved/i, 'integration must reject stale source data');
