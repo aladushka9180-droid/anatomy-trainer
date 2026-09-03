@@ -258,7 +258,7 @@ with target as (
 )
 insert into public.booking_outcomes(
   booking_id, performer_id, visit_status, payment_method, amount_rub,
-  actual_duration_minutes, calculated_amount_rub, completion_source,
+  actual_duration_minutes, calculated_amount_rub,
   completed_performer_id, updated_at
 )
 select
@@ -278,7 +278,6 @@ select
   end,
   case when fixture_visit_status = 'completed' then greatest(30, duration_minutes + ((sequence_no % 3) - 1) * 10) else null end,
   case when fixture_visit_status = 'completed' then total_price_rub else null end,
-  'manual',
   case when fixture_visit_status = 'completed' then performer_id else null end,
   booking_date + booking_time + make_interval(mins => duration_minutes)
 from prepared_outcome;
