@@ -1,0 +1,439 @@
+name: Minuta bootstrap isolated test database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Для пересоздания public-схемы тестовой БД введите RESET_ISOLATED_TEST_SCHEMA
+        required: true
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  export-production-schema:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      PGSSLMODE: require
+    steps:
+      - name: Проверить явное разрешение и production-адрес
+        env:
+          BOOTSTRAP_CONFIRM: ${{ inputs.confirm }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$BOOTSTRAP_CONFIRM" = "RESET_ISOLATED_TEST_SCHEMA"
+          test -n "$SUPABASE_DB_URL"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" != "$MINUTA_TEST_PROJECT_REF"
+          node <<'NODE'
+          const url = new URL(process.env.SUPABASE_DB_URL);
+          const ref = String(process.env.MINUTA_PRODUCTION_PROJECT_REF || '').toLowerCase();
+          const host = url.hostname.toLowerCase();
+          const user = decodeURIComponent(url.username).toLowerCase();
+          const direct = host === `db.${ref}.supabase.co` && user === 'postgres';
+          const pooler = host.endsWith('.pooler.supabase.com') && user === `postgres.${ref}`;
+          if (!/^[a-z0-9]{20}$/.test(ref) || (!direct && !pooler)) {
+            throw new Error('SUPABASE_DB_URL не соответствует точному production project ref');
+          }
+          NODE
+
+      - name: Установить PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+
+      - name: Экспортировать только public-схему без данных
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          production_url="${SUPABASE_DB_URL/:6543/:5432}"
+          archive="$RUNNER_TEMP/minuta-production-public-schema.dump"
+          toc="$RUNNER_TEMP/minuta-production-public-schema.toc"
+          checksum="$RUNNER_TEMP/minuta-production-public-schema.dump.sha256"
+          metadata="$RUNNER_TEMP/minuta-production-public-schema.meta"
+
+          PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5s' \
+            /usr/lib/postgresql/17/bin/pg_dump \
+              --dbname="$production_url" \
+              --format=custom \
+              --schema=public \
+              --schema-only \
+              --no-owner \
+              --no-comments \
+              --no-publications \
+              --no-subscriptions \
+              --no-blobs \
+              --file="$archive"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$archive" > "$toc"
+          if grep -E 'TABLE DATA|SEQUENCE SET|BLOB|LARGE OBJECT|DATABASE|ALTER SYSTEM' "$toc"; then
+            echo "Schema-only архив содержит запрещённые секции" >&2
+            exit 1
+          fi
+          if grep -E ' EXTENSION ' "$toc" | grep -v 'btree_gist'; then
+            echo "Schema-only архив содержит расширение вне allowlist" >&2
+            exit 1
+          fi
+          archive_entries="$(awk '!/^;/ && NF { count++ } END { print count + 0 }' "$toc")"
+          test "$archive_entries" -gt 0
+          archive_hash="$(sha256sum "$archive" | awk '{print $1}')"
+          printf '%s  %s\n' "$archive_hash" "$(basename "$archive")" > "$checksum"
+          {
+            echo "client_version=$(/usr/lib/postgresql/17/bin/pg_dump --version)"
+            echo "server_version=$(/usr/lib/postgresql/17/bin/psql "$production_url" -X -Atc 'show server_version')"
+            echo "archive_entries=$archive_entries"
+          } > "$metadata"
+
+      - name: Передать schema-only архив изолированному test-job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-production-schema-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/minuta-production-public-schema.dump
+            ${{ runner.temp }}/minuta-production-public-schema.dump.sha256
+            ${{ runner.temp }}/minuta-production-public-schema.meta
+          if-no-files-found: error
+          retention-days: 1
+
+  bootstrap-test:
+    needs: export-production-schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Установить PostgreSQL 17 и OpenPGP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+
+      - name: Получить проверенный schema-only архив
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: minuta-production-schema-${{ github.run_id }}
+          path: ${{ runner.temp }}/production-schema
+
+      - name: Проверить test-цель и архив
+        env:
+          BOOTSTRAP_CONFIRM: ${{ inputs.confirm }}
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$BOOTSTRAP_CONFIRM" = "RESET_ISOLATED_TEST_SCHEMA"
+          test -n "$BACKUP_ENCRYPTION_PASSWORD"
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          cd "$RUNNER_TEMP/production-schema"
+          sha256sum --check minuta-production-public-schema.dump.sha256
+          /usr/lib/postgresql/17/bin/pg_restore --list minuta-production-public-schema.dump >/dev/null
+
+          test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          guard_count="$(/usr/lib/postgresql/17/bin/psql "$test_url" \
+            --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
+            --tuples-only --no-align <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref = :'expected_ref'
+            and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
+          test "$(/usr/lib/postgresql/17/bin/psql "$test_url" -X -Atc 'show server_version' | cut -d. -f1)" = "17"
+          test "$(grep '^server_version=' minuta-production-public-schema.meta | cut -d= -f2 | cut -d. -f1)" = "17"
+
+      - name: Создать зашифрованную копию test до замены
+        id: backup
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          name="minuta-test-before-bootstrap-$stamp"
+          plain="$RUNNER_TEMP/$name.dump"
+          verified="$RUNNER_TEMP/$name.verified.dump"
+          encrypted="$RUNNER_TEMP/$name.dump.gpg"
+          checksum="$RUNNER_TEMP/$name.dump.gpg.sha256"
+          trap 'rm -f "$plain" "$verified"' EXIT
+
+          /usr/lib/postgresql/17/bin/pg_dump \
+            --dbname="${MINUTA_TEST_DATABASE_URL/:6543/:5432}" \
+            --format=custom \
+            --schema=public \
+            --schema=minuta_migration_guard \
+            --no-owner \
+            --file="$plain"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$plain" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg \
+            --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 \
+            --output "$encrypted" "$plain"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg \
+            --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --output "$verified" --decrypt "$encrypted"
+          cmp --silent "$plain" "$verified"
+          sha256sum "$encrypted" | awk '{print $1}' > "$checksum"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "encrypted=$encrypted" >> "$GITHUB_OUTPUT"
+          echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
+
+      - name: Восстановить production-структуру и test-only baseline
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          archive="$RUNNER_TEMP/production-schema/minuta-production-public-schema.dump"
+
+          guard_count="$(/usr/lib/postgresql/17/bin/psql "$test_url" \
+            --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
+            --tuples-only --no-align <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref = :'expected_ref'
+            and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
+
+          /usr/lib/postgresql/17/bin/psql "$test_url" --set=ON_ERROR_STOP=1 <<'SQL'
+          create extension if not exists pg_cron with schema pg_catalog;
+          create extension if not exists pg_net with schema extensions;
+          do $jobs$
+          declare v_job bigint;
+          begin
+            select jobid into v_job from cron.job where jobname='telegram-client-reminders-hourly';
+            if v_job is not null then
+              perform cron.unschedule(v_job);
+            end if;
+          end
+          $jobs$;
+          do $triggers$
+          declare trigger_row record;
+          begin
+            for trigger_row in
+              select trigger_info.tgname
+              from pg_trigger trigger_info
+              join pg_proc handler on handler.oid=trigger_info.tgfoid
+              where trigger_info.tgrelid='auth.users'::regclass
+                and not trigger_info.tgisinternal
+                and pg_get_functiondef(handler.oid) ilike '%performer_profiles%'
+            loop
+              execute format('drop trigger %I on auth.users', trigger_row.tgname);
+            end loop;
+          end
+          $triggers$;
+          SQL
+
+          /usr/lib/postgresql/17/bin/pg_restore \
+            --clean \
+            --if-exists \
+            --no-owner \
+            --exit-on-error \
+            --single-transaction \
+            --schema=public \
+            --dbname="$test_url" \
+            "$archive"
+
+          test_archive="$RUNNER_TEMP/minuta-test-public-schema.dump"
+          production_sql="$RUNNER_TEMP/minuta-production-public-schema.sql"
+          test_sql="$RUNNER_TEMP/minuta-test-public-schema.sql"
+          /usr/lib/postgresql/17/bin/pg_dump \
+            --dbname="$test_url" \
+            --format=custom \
+            --schema=public \
+            --schema-only \
+            --no-owner \
+            --no-comments \
+            --no-publications \
+            --no-subscriptions \
+            --no-blobs \
+            --file="$test_archive"
+          /usr/lib/postgresql/17/bin/pg_restore --file="$production_sql" "$archive"
+          /usr/lib/postgresql/17/bin/pg_restore --file="$test_sql" "$test_archive"
+          sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$production_sql" \
+            > "$production_sql.normalized"
+          sed -E '/^--/d;/^\\(un)?restrict /d;/^[[:space:]]*$/d' "$test_sql" \
+            > "$test_sql.normalized"
+          diff --unified=3 "$production_sql.normalized" "$test_sql.normalized"
+
+          /usr/lib/postgresql/17/bin/psql "$test_url" --set=ON_ERROR_STOP=1 <<'SQL'
+          begin;
+          do $empty$
+          begin
+            if (select count(*) from public.performer_profiles) <> 0
+              or (select count(*) from public.services) <> 0
+              or (select count(*) from public.bookings) <> 0
+              or (select count(*) from public.provider_schedule) <> 0 then
+              raise exception 'Schema-only восстановление неожиданно перенесло production-данные';
+            end if;
+            if to_regprocedure('public.handle_new_performer()') is null then
+              raise exception 'В production-схеме отсутствует базовый auth-trigger handler';
+            end if;
+          end
+          $empty$;
+
+          do $triggers$
+          declare trigger_row record;
+          begin
+            for trigger_row in
+              select trigger_info.tgname
+              from pg_trigger trigger_info
+              join pg_proc handler on handler.oid=trigger_info.tgfoid
+              where trigger_info.tgrelid='auth.users'::regclass
+                and not trigger_info.tgisinternal
+                and pg_get_functiondef(handler.oid) ilike '%performer_profiles%'
+            loop
+              execute format('drop trigger %I on auth.users', trigger_row.tgname);
+            end loop;
+          end
+          $triggers$;
+          create trigger on_auth_user_created
+          after insert on auth.users
+          for each row execute function public.handle_new_performer();
+
+          delete from auth.users
+          where id='abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f'
+            and email='minuta-fixture@example.invalid'
+            and raw_user_meta_data @> '{"fixture":true}'::jsonb;
+          do $fixture_conflict$
+          begin
+            if exists (
+              select 1 from auth.users
+              where id='abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f'
+                 or email='minuta-fixture@example.invalid'
+            ) then
+              raise exception 'UUID или email тестовой фикстуры уже занят посторонней записью';
+            end if;
+          end
+          $fixture_conflict$;
+          set local session_replication_role = replica;
+          insert into auth.users (
+            instance_id, id, aud, role, email, email_confirmed_at,
+            raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+          ) values (
+            '00000000-0000-0000-0000-000000000000',
+            'abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f',
+            'authenticated', 'authenticated', 'minuta-fixture@example.invalid', now(),
+            '{"provider":"email","providers":["email"]}'::jsonb,
+            '{"fixture":true}'::jsonb, now(), now()
+          );
+          set local session_replication_role = origin;
+          insert into public.performer_profiles (id, display_name)
+          values ('abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f', 'Тестовый мастер');
+          insert into public.services (
+            id, performer_id, name, duration_minutes, price_rub, active
+          ) values (
+            '00000000-0000-4000-8000-000000000001',
+            'abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f',
+            'Тестовая услуга', 60, 1500, true
+          );
+          insert into public.provider_schedule (
+            performer_id, weekday, enabled, start_time, end_time, slot_interval_minutes
+          )
+          select
+            'abeb5b13-ca1d-45c6-a2ad-b0e4119b2e1f',
+            weekday, true, time '09:00', time '21:00', 30
+          from generate_series(1, 7) as weekday;
+          commit;
+          SQL
+
+      - name: Проверить изоляцию и готовность baseline
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          /usr/lib/postgresql/17/bin/psql "$test_url" \
+            --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
+            --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" -X -Atc \
+            "select to_regclass('public.bookings') is not null
+              and to_regclass('public.services') is not null
+              and to_regclass('public.provider_schedule') is not null
+              and to_regclass('public.performer_profiles') is not null
+              and (select count(*) from public.performer_profiles) = 1
+              and (select count(*) from public.bookings) = 0
+              and (select count(*) from public.services where active and price_rub > 0) = 1
+              and (select count(*) from public.provider_schedule where enabled) = 7
+              and exists (
+                select 1 from minuta_migration_guard.target
+                where project_ref = :'expected_ref' and allow_migrations is true
+              )
+              and exists (select 1 from pg_extension where extname='pg_cron')
+              and exists (select 1 from pg_extension where extname='pg_net')
+              and exists (select 1 from pg_extension where extname='btree_gist')
+              and (select count(*) from pg_trigger t join pg_proc p on p.oid=t.tgfoid
+                   where t.tgrelid='auth.users'::regclass and not t.tgisinternal
+                     and pg_get_functiondef(p.oid) ilike '%performer_profiles%'
+                     and position(' WHEN ' in upper(pg_get_triggerdef(t.oid,true)))=0) = 1
+              and not exists (
+                select 1 from cron.job
+                where jobname='telegram-client-reminders-hourly'
+                   or command like '%' || :'production_ref' || '%'
+              );" \
+            | grep -qx t
+
+      - name: Сохранить зашифрованную копию исходного test
+        if: always() && steps.backup.outputs.encrypted != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.backup.outputs.name }}
+          path: |
+            ${{ steps.backup.outputs.encrypted }}
+            ${{ steps.backup.outputs.checksum }}
+          if-no-files-found: error
+          retention-days: 35

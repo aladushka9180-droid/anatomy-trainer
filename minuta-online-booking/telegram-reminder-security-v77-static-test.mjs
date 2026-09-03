@@ -7,6 +7,9 @@ const edge = fs.readFileSync(new URL('./supabase/functions/telegram-client-notif
 
 assert.match(migration, /minuta_telegram_client_reminder_secret/);
 assert.match(migration, /x-reminder-secret/);
+assert.match(migration, /current_setting\('minuta\.telegram_reminder_url', true\)/);
+assert.match(migration, /cawexmmrqjvothcbgjxr\.supabase\.co\/functions\/v1\/telegram-client-notify\/reminders/);
+assert.match(migration, /format\(\$job\$/);
 assert.match(migration, /to_regproc\('vault\.create_secret'\)/);
 assert.match(migration, /get_telegram_reminder_secret_hash/);
 assert.match(migration, /revoke all on function public\.get_telegram_reminder_secret_hash\(\) from public, anon, authenticated, service_role/);

@@ -240,6 +240,9 @@ jobs:
       - name: Применить миграции к отдельной тестовой базе
         env:
           MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          PGOPTIONS: -c minuta.telegram_reminder_url=https://${{ vars.MINUTA_TEST_PROJECT_REF }}.supabase.co/functions/v1/telegram-client-notify/reminders
         shell: bash
         run: |
           set -euo pipefail
@@ -279,6 +282,10 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.booking_events') is not null and (to_regprocedure('public.get_minuta_booking_events_v97(uuid,date,date,integer,integer)') is not null or to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null);")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-employee-analytics-v97.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_imported_clients') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-client-import-v95.sql
@@ -316,6 +323,42 @@ jobs:
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_payment_provider_settings') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/supabase-migration-v87-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal);")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v86-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_batch_booking_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v85-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v84-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_retention_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-retention-v83.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_inventory_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v82-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_loyalty_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v81-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_group_booking_settings') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-group-bookings-v80.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.booking_series') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-recurring-series-v79.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null or exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly');")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-telegram-reminder-security-v77.sql
           fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.organization_booking_policy_settings') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -479,7 +522,7 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v77.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null and has_function_privilege('service_role','public.get_telegram_reminder_secret_hash()','EXECUTE') and not has_function_privilege('anon','public.get_telegram_reminder_secret_hash()','EXECUTE') and exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%x-reminder-secret%');" \
+            "select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null and has_function_privilege('service_role','public.get_telegram_reminder_secret_hash()','EXECUTE') and not has_function_privilege('anon','public.get_telegram_reminder_secret_hash()','EXECUTE') and exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%x-reminder-secret%' and command like '%$MINUTA_TEST_PROJECT_REF%' and command not like '%$MINUTA_PRODUCTION_PROJECT_REF%');" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v78.sql
@@ -664,6 +707,40 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select (select count(*)=5 and bool_and(class.relrowsecurity) from pg_class class join pg_namespace namespace on namespace.oid=class.relnamespace where namespace.nspname='public' and class.relname in ('resource_groups','resources','service_resource_requirements','booking_resource_allocations','resource_audit_log')) and to_regprocedure('public.get_minuta_resource_workspace(uuid)') is not null and to_regprocedure('public.get_public_minuta_catalog_v3(text)') is not null and to_regprocedure('public.get_public_minuta_available_slots_v3(text,uuid,uuid,date,date)') is not null and exists(select 1 from pg_constraint where conrelid='public.booking_resource_allocations'::regclass and conname='booking_resources_active_no_overlap') and exists(select 1 from pg_trigger where tgname='bookings_sync_minuta_resources' and not tgisinternal) and not has_table_privilege('anon','public.resources','SELECT') and not has_table_privilege('authenticated','public.resources','INSERT');" \
             | grep -qx t
+
+      - name: Безусловно отключить тестовые задания напоминаний
+        if: always()
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+          MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          guard_count="$(psql "$MINUTA_TEST_DATABASE_URL" \
+            --set=ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
+            --tuples-only --no-align <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref = :'expected_ref'
+            and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('cron.job') is not null;")" = "t"; then
+            job_ids="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -At \
+              --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" \
+              -c "select jobid from cron.job where jobname='telegram-client-reminders-hourly' or command like '%' || :'production_ref' || '%';")"
+            for job_id in $job_ids; do
+              psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -c "select cron.unschedule($job_id);"
+            done
+            remaining="$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -At \
+              --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" \
+              -c "select count(*) from cron.job where jobname='telegram-client-reminders-hourly' or command like '%' || :'production_ref' || '%';")"
+            test "$(tr -d '[:space:]' <<<"$remaining")" = "0"
+          fi
 
   validate-production-rollback:
     if: inputs.phase == 'validate-production-rollback' && github.ref == 'refs/heads/main'

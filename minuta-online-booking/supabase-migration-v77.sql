@@ -60,6 +60,10 @@ comment on function public.get_telegram_reminder_secret_hash() is
 
 do $$
 declare existing_job bigint;
+reminder_url text := coalesce(
+  nullif(current_setting('minuta.telegram_reminder_url', true), ''),
+  'https://cawexmmrqjvothcbgjxr.supabase.co/functions/v1/telegram-client-notify/reminders'
+);
 begin
   select jobid into existing_job
   from cron.job
@@ -72,9 +76,9 @@ begin
   perform cron.schedule(
     'telegram-client-reminders-hourly',
     '15 * * * *',
-    $job$
+    format($job$
       select net.http_post(
-        url := 'https://cawexmmrqjvothcbgjxr.supabase.co/functions/v1/telegram-client-notify/reminders',
+        url := %L,
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
           'x-reminder-secret', coalesce((
@@ -86,7 +90,7 @@ begin
         ),
         body := '{}'::jsonb
       );
-    $job$
+    $job$, reminder_url)
   );
 end;
 $$;
