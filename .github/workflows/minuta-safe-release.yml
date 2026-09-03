@@ -105,6 +105,7 @@ jobs:
           node --check minuta-online-booking/notification-center-v88-static-test.mjs
           node --check minuta-online-booking/client-fields-v89-static-test.mjs
           node --check minuta-online-booking/phone-auth-v90-static-test.mjs
+          node --check minuta-online-booking/social-auth-v91-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -157,6 +158,7 @@ jobs:
           node minuta-online-booking/notification-center-v88-static-test.mjs
           node minuta-online-booking/client-fields-v89-static-test.mjs
           node minuta-online-booking/phone-auth-v90-static-test.mjs
+          node minuta-online-booking/social-auth-v91-static-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -259,6 +261,10 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-social-auth-v91.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.bootstrap_client_sms_session(text)') is not null;")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/recovery/rollback-phone-auth-v90.sql
@@ -475,14 +481,17 @@ jobs:
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v89.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v90.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v90.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v91.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v91.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
-            "select exists(select 1 from information_schema.columns where table_schema='public' and table_name='client_accounts' and column_name='auth_user_id') and to_regprocedure('public.bootstrap_client_sms_session(text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_sms_session(text)','EXECUTE') and to_regprocedure('public.has_minuta_provider_access()') is not null and to_regprocedure('public.get_minuta_phone_auth_capability()') is not null and has_function_privilege('anon','public.get_minuta_phone_auth_capability()','EXECUTE') and (select count(*)=1 from public.minuta_auth_trigger_guard_v90);" \
+            "select exists(select 1 from information_schema.columns where table_schema='public' and table_name='client_accounts' and column_name='auth_user_id') and to_regprocedure('public.bootstrap_client_sms_session(text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_sms_session(text)','EXECUTE') and to_regprocedure('public.has_minuta_provider_access()') is not null and to_regprocedure('public.get_minuta_phone_auth_capability()') is not null and has_function_privilege('anon','public.get_minuta_phone_auth_capability()','EXECUTE') and (select count(*)=1 from public.minuta_auth_trigger_guard_v90) and to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_identity_session(text,text,text)','EXECUTE');" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.group_booking_events') is not null and to_regprocedure('public.get_minuta_group_booking_admin(uuid,date,date)') is not null and (select count(*)=8 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_loyalty_settings','loyalty_rules','client_loyalty_accounts','loyalty_visit_awards','loyalty_ledger','loyalty_redemptions','loyalty_promotions','loyalty_promo_redemptions')) and not coalesce((select bool_or(enabled) from public.organization_loyalty_settings),false) and (select count(*)=7 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_inventory_settings','inventory_items','inventory_warehouses','inventory_service_usage','inventory_stock_balances','inventory_movements','inventory_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_inventory_settings),false) and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_retention_settings','client_marketing_consents','retention_deliveries','retention_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_retention_settings),false) and to_regprocedure('public.enforce_minuta_booking_benefit_exclusivity()') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_batch_booking_settings','booking_batches','booking_batch_items','booking_batch_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_batch_booking_settings),false) and to_regprocedure('public.create_minuta_batch_bookings(uuid,uuid,uuid,text,text,jsonb,uuid,text)') is not null and exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zz_bookings_group_event_overlap_v86' and not tgisinternal and tgenabled<>'D') and not exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_group_event_overlap' and not tgisinternal) and (select count(*)=6 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_payment_provider_settings','payment_provider_attempts','payment_provider_refunds','payment_provider_events','payment_provider_reconciliations','payment_provider_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_payment_provider_settings),false) and to_regprocedure('public.get_minuta_payment_workspace(uuid)') is not null and (select count(*)=3 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_notification_settings','organization_notification_channels','notification_recipient_endpoints')) and not coalesce((select bool_or(enabled) from public.organization_notification_settings),false) and not coalesce((select bool_or(enabled) from public.organization_notification_channels),false) and to_regprocedure('public.get_minuta_notification_workspace(uuid)') is not null and (select count(*)=4 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('organization_client_field_settings','client_field_definitions','client_field_values','client_field_audit_log')) and not coalesce((select bool_or(enabled) from public.organization_client_field_settings),false) and to_regprocedure('public.get_minuta_client_field_workspace(uuid,text)') is not null;" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/booking-policies-v76-integration.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-social-auth-v91.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-phone-auth-v90.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-client-fields-v89.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-notification-center-v88.sql
@@ -603,7 +612,7 @@ jobs:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Проверить v47, v49 и v71–v90 в откатываемой транзакции production
+      - name: Проверить v47, v49 и v71–v91 в откатываемой транзакции production
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -641,6 +650,7 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v88.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v89.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v90.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v91.sql
             sed -E '/^[[:space:]]*(begin|rollback);[[:space:]]*$/Id' minuta-online-booking/booking-policies-v76-integration.sql
             echo 'rollback;'
           } > "$validation_sql"
@@ -984,6 +994,9 @@ jobs:
           v90_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "with state as (select exists(select 1 from information_schema.columns where table_schema='public' and table_name='client_accounts' and column_name='auth_user_id') has_column,to_regclass('public.minuta_auth_trigger_guard_v90') is not null has_guard,to_regprocedure('public.bootstrap_client_sms_session(text)') is not null has_client_rpc,to_regprocedure('public.has_minuta_provider_access()') is not null has_provider_rpc,to_regprocedure('public.get_minuta_phone_auth_capability()') is not null has_capability_rpc) select case when not has_column and not has_guard and not has_client_rpc and not has_provider_rpc and not has_capability_rpc then 'absent' when has_column and has_guard and has_client_rpc and has_provider_rpc and has_capability_rpc and has_function_privilege('authenticated','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_sms_session(text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_sms_session(text)','EXECUTE') and has_function_privilege('anon','public.get_minuta_phone_auth_capability()','EXECUTE') and (select count(*)=1 from public.minuta_auth_trigger_guard_v90) then 'complete' else 'partial' end from state;")"
           case "$v90_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v90.sql;; complete) echo "v90 phone identity layer already exists; preserving client links";; *) echo "Partial v90 phone identity layer detected; refusing production migration" >&2; exit 1;; esac
+          v91_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+            "select case when to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is null then 'absent' when has_function_privilege('authenticated','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('service_role','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') then 'complete' else 'partial' end;")"
+          case "$v91_layer_state" in absent) psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v91.sql;; complete) echo "v91 social identity bridge already exists; preserving client links";; *) echo "Partial v91 social identity layer detected; refusing production migration" >&2; exit 1;; esac
           migration_guard="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -F= -Atc \
             "with checks(name,ok) as (values
               ('feature_defaults_safe',(select count(*)=5 and bool_and(column_default='false' and is_nullable='NO') from information_schema.columns where table_schema='public' and column_name='enabled' and table_name in ('organization_group_booking_settings','organization_loyalty_settings','organization_inventory_settings','organization_retention_settings','organization_batch_booking_settings'))),

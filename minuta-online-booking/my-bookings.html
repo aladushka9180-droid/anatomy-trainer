@@ -10,7 +10,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Мои записи — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=240">
+  <link rel="stylesheet" href="styles.css?v=241">
 </head>
 <body class="manage-body client-account-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -22,7 +22,24 @@
     <section class="client-login-card" id="clientLoginCard">
       <span class="client-login-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg></span>
       <small>Личный раздел</small><h1>Мои записи</h1>
-      <p>Получите одноразовый код по SMS и посмотрите все записи на свой номер.</p>
+      <p>Выберите удобный способ входа и посмотрите свои записи.</p>
+      <div class="social-auth-buttons client-social-auth-buttons" aria-label="Вход через внешний аккаунт">
+        <button class="social-auth-button social-auth-telegram" type="button" data-social-auth-login data-social-auth-provider="telegram" disabled><span class="social-auth-mark">➤</span><strong>Telegram</strong><small data-social-auth-state>Не подключён</small></button>
+        <button class="social-auth-button social-auth-vk" type="button" data-social-auth-login data-social-auth-provider="vk" disabled><span class="social-auth-mark">VK</span><strong>VK ID</strong><small data-social-auth-state>Не подключён</small></button>
+        <button class="social-auth-button social-auth-yandex" type="button" data-social-auth-login data-social-auth-provider="yandex" disabled><span class="social-auth-mark">Я</span><strong>Яндекс ID</strong><small data-social-auth-state>Не подключён</small></button>
+      </div>
+      <p class="form-error" id="clientSocialAuthError" role="alert" hidden></p>
+      <section class="client-social-link" id="clientSocialLink" hidden>
+        <strong>Найдём ваши записи</strong>
+        <p>При первом входе подтвердите свой профиль телефоном и ранее выданным личным кодом.</p>
+        <form id="clientSocialLinkForm" novalidate>
+          <label>Номер телефона<input id="clientSocialPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
+          <label>Личный код<input id="clientSocialCode" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" required></label>
+          <p class="form-error" id="clientSocialLinkError" role="alert" hidden></p>
+          <button class="primary" id="clientSocialLinkSubmit" type="submit">Привязать и открыть</button>
+        </form>
+      </section>
+      <div class="auth-divider"><span>или по номеру</span></div>
       <form id="clientSmsLoginForm" class="phone-auth-form" novalidate>
         <label>Номер телефона<input id="clientSmsPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
         <div id="clientSmsCodeStep" hidden>
@@ -68,6 +85,6 @@
   </dialog>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=240"></script><script src="reliability.js?v=240"></script><script src="phone-auth.js?v=240"></script><script src="my-bookings.js?v=240" defer></script>
+  <script src="config.js?v=241"></script><script src="reliability.js?v=241"></script><script src="phone-auth.js?v=241"></script><script src="social-auth.js?v=241"></script><script src="my-bookings.js?v=241" defer></script>
 </body>
 </html>

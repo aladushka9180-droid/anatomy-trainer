@@ -1340,7 +1340,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=238#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=241#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -5157,6 +5157,7 @@ async function handleSession(session) {
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
     renderProviderPhoneState();
+    renderProviderSocialState();
     return;
   }
   const previousUserId = currentUser?.id;
@@ -5189,12 +5190,27 @@ async function handleSession(session) {
   clientAvatarsRemoteAvailable = false;
   currentUser = session?.user || null;
   if (currentUser && navigator.onLine && !(await providerAccessAllowed(currentUser.id))) {
+    const socialFlow = window.MinutaSocialAuth?.flow();
+    if (socialFlow?.mode === 'provider-login') {
+      await db.auth.signOut();
+      window.MinutaSocialAuth.clearFlow();
+    }
     currentUser = null;
     $('#authCard').hidden = false;
     $('#dashboard').hidden = true;
     setAuthTabImmediate('login');
-    showFormError('#loginError', 'Для этого номера нет доступа к кабинету исполнителя.');
+    showFormError('#loginError', socialFlow?.mode === 'provider-login'
+      ? 'Этот внешний аккаунт ещё не привязан к кабинету. Войдите по email и привяжите его в настройках.'
+      : 'Для этого аккаунта нет доступа к кабинету исполнителя.');
+    renderProviderSocialState();
     return;
+  }
+  const completedSocialFlow = window.MinutaSocialAuth?.flow();
+  if (currentUser && completedSocialFlow?.mode === 'provider-link') {
+    window.MinutaSocialAuth.clearFlow();
+    notify(`${window.MinutaSocialAuth.PROVIDERS[completedSocialFlow.provider].label} привязан`);
+  } else if (currentUser && completedSocialFlow?.mode === 'provider-login') {
+    window.MinutaSocialAuth.clearFlow();
   }
   let displayPreferencesNeedSync = false;
   if (currentUser) {
@@ -5216,6 +5232,7 @@ async function handleSession(session) {
   }
   applyDisplayPreferences();
   renderDisplayPreferencesForm();
+  renderProviderSocialState();
   if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
   scheduleDirty = false;
   if (previousUserId && currentUser?.id && previousUserId !== currentUser.id) await clearProviderDeviceData(previousUserId);
@@ -5301,6 +5318,42 @@ async function providerAccessAllowed(userId) {
   if (!membership.error) return Boolean(membership.data?.length);
   const profile = await db.from('performer_profiles').select('id').eq('id', userId).maybeSingle();
   return !profile.error && Boolean(profile.data?.id);
+}
+
+function renderProviderSocialState() {
+  const auth = window.MinutaSocialAuth;
+  if (!auth) return;
+  auth.render(document);
+  $$('[data-social-auth-link]').forEach(button => {
+    const linked = Boolean(currentUser) && auth.isLinked(currentUser, button.dataset.socialAuthProvider);
+    button.classList.toggle('is-linked', linked);
+    if (linked) button.disabled = true;
+    const state = button.querySelector('[data-social-auth-state]');
+    if (state && linked) state.textContent = 'Привязан';
+  });
+}
+
+async function startProviderSocialLogin(button) {
+  clearFormError('#loginError');
+  button.disabled = true;
+  try {
+    await window.MinutaSocialAuth.start(db, button.dataset.socialAuthProvider, 'provider-login', 'provider.html');
+  } catch (error) {
+    showFormError('#loginError', window.MinutaSocialAuth?.message(error) || 'Не удалось выполнить вход.');
+    renderProviderSocialState();
+  }
+}
+
+async function startProviderSocialLink(button) {
+  clearFormError('#providerSocialLinkError');
+  if (!currentUser) return;
+  button.disabled = true;
+  try {
+    await window.MinutaSocialAuth.start(db, button.dataset.socialAuthProvider, 'provider-link', 'provider.html?view=settings');
+  } catch (error) {
+    showFormError('#providerSocialLinkError', window.MinutaSocialAuth?.message(error) || 'Не удалось привязать аккаунт.');
+    renderProviderSocialState();
+  }
 }
 
 function showProviderPhoneLogin() {
@@ -5443,6 +5496,14 @@ async function initializePhoneAuth() {
   linkButton.textContent = capability.enabled ? (currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон') : 'SMS пока не подключены';
   if (!capability.enabled) $('#providerPhoneLinkHint').textContent = capability.reason === 'offline' ? 'Подключитесь к интернету, чтобы настроить телефон.' : capability.reason === 'backend' ? 'Безопасный вход по телефону ещё не установлен на сервере.' : 'Сначала нужно подключить SMS-провайдера в настройках сервера.';
   renderProviderPhoneState();
+}
+
+function initializeSocialAuth() {
+  if (!window.MinutaSocialAuth) {
+    $('#providerSocialAuthStatus').textContent = 'Модуль внешнего входа не загрузился.';
+    return;
+  }
+  renderProviderSocialState();
 }
 
 async function login(event) {
@@ -7057,6 +7118,8 @@ window.MinutaProviderAssistant = Object.freeze({
 window.dispatchEvent(new CustomEvent('minuta:provider-assistant-ready'));
 
 $('#loginForm').addEventListener('submit', login);
+$$('[data-social-auth-login]').forEach(button => button.addEventListener('click', () => startProviderSocialLogin(button)));
+$$('[data-social-auth-link]').forEach(button => button.addEventListener('click', () => startProviderSocialLink(button)));
 $('#showPhoneLoginButton').addEventListener('click', showProviderPhoneLogin);
 $('#providerPhoneLoginForm').addEventListener('submit', submitProviderPhoneLogin);
 $('#providerPhoneLoginBack').addEventListener('click', resetProviderPhoneLogin);
@@ -7266,4 +7329,5 @@ refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
 initializePhoneAuth();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=238'));
+initializeSocialAuth();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=241'));

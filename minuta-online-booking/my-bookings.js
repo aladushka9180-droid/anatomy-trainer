@@ -8,6 +8,7 @@ let currentReviewRating = 0;
 let currentReviewEditing = false;
 let smsPhone = '';
 let smsCodeRequested = false;
+let socialAuthUser = null;
 
 function loadSessionToken() {
   try {
@@ -135,8 +136,74 @@ async function openAccount() {
   const account = data?.[0];
   if (error || !account) { clearSessionToken(); $('#clientBookingsCard').hidden = true; $('#clientLoginCard').hidden = false; return false; }
   $('#clientAccountPhone').textContent = displayPhone(account.normalized_phone);
+  $('#clientSocialLink').hidden = true;
   await loadBookings();
   return true;
+}
+
+function socialSessionError(error, result) {
+  const raw = `${error?.message || ''} ${error?.code || ''}`;
+  if (/bootstrap_client_identity_session|PGRST202|42883/i.test(raw)) return 'Серверная часть внешнего входа ещё не активирована.';
+  if (result?.error_code === 'invalid_access') return 'Телефон или личный код не совпадают.';
+  if (result?.error_code === 'client_identity_conflict' || /client_identity_conflict|client_auth_already_linked/i.test(raw)) return 'Этот внешний аккаунт уже связан с другим клиентским профилем.';
+  return 'Не удалось связать аккаунт с вашими записями.';
+}
+
+async function bootstrapClientSocialSession(phone = null, code = null) {
+  const { data, error } = await db.rpc('bootstrap_client_identity_session', {
+    p_phone:phone,
+    p_access_code:code,
+    p_device_name:navigator.userAgent.slice(0, 120)
+  });
+  const result = data?.[0];
+  if (error || !result?.session_token) return { ok:false, error, result };
+  saveSessionToken(result.session_token);
+  window.MinutaSocialAuth?.clearFlow();
+  await openAccount();
+  return { ok:true, error:null, result };
+}
+
+async function initializeSocialLogin() {
+  const auth = window.MinutaSocialAuth;
+  if (!auth) return;
+  auth.render(document);
+  const { data } = await db.auth.getSession();
+  socialAuthUser = data?.session?.user || null;
+  if (!socialAuthUser || sessionToken) return;
+  const result = await bootstrapClientSocialSession();
+  if (result.ok) return;
+  const notLinked = result.result?.error_code === 'client_identity_not_linked';
+  $('#clientSocialLink').hidden = !notLinked;
+  if (!notLinked) showError($('#clientSocialAuthError'), socialSessionError(result.error, result.result));
+}
+
+async function startClientSocialLogin(button) {
+  $('#clientSocialAuthError').hidden = true;
+  button.disabled = true;
+  try {
+    await window.MinutaSocialAuth.start(db, button.dataset.socialAuthProvider, 'client-login', 'my-bookings.html');
+  } catch (error) {
+    showError($('#clientSocialAuthError'), window.MinutaSocialAuth?.message(error) || 'Не удалось выполнить вход.');
+    window.MinutaSocialAuth?.render(document);
+  }
+}
+
+async function linkClientSocialProfile(event) {
+  event.preventDefault();
+  const phone = $('#clientSocialPhone').value;
+  const code = $('#clientSocialCode').value;
+  const button = $('#clientSocialLinkSubmit');
+  $('#clientSocialLinkError').hidden = true;
+  if (phone.replace(/\D/g, '').length !== 11 || code.replace(/[^0-9a-f]/gi, '').length !== 16) {
+    showError($('#clientSocialLinkError'), 'Введите полный номер телефона и личный код.');
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Проверяем…';
+  const result = await bootstrapClientSocialSession(phone, code);
+  button.disabled = false;
+  button.textContent = 'Привязать и открыть';
+  if (!result.ok) showError($('#clientSocialLinkError'), socialSessionError(result.error, result.result));
 }
 
 async function login(event) {
@@ -259,9 +326,15 @@ async function logout(options = {}) {
   $('#clientSmsCode').value = '';
   setSmsCodeStep(false);
   const { data } = await db.auth.getSession();
-  if (data?.session?.user?.phone) await db.auth.signOut();
+  if (data?.session) await db.auth.signOut();
+  socialAuthUser = null;
+  window.MinutaSocialAuth?.clearFlow();
 }
 
+document.querySelectorAll('[data-social-auth-login]').forEach(button => button.addEventListener('click', () => startClientSocialLogin(button)));
+$('#clientSocialLinkForm').addEventListener('submit', linkClientSocialProfile);
+$('#clientSocialPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
+$('#clientSocialCode').addEventListener('input', event => { event.target.value = formatCode(event.target.value); });
 $('#clientSmsPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || formatPhone(event.target.value); });
 $('#clientSmsCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#clientSmsLoginForm').addEventListener('submit', clientSmsLogin);
@@ -280,4 +353,5 @@ $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
 openAccount();
 initializeSmsLogin();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=238'));
+initializeSocialLogin();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=241'));
