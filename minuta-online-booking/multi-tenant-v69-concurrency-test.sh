@@ -144,8 +144,16 @@ first_pid=$!
 
 ready="f"
 for _ in {1..200}; do
-  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v holder_app="$holder_app" \
-    -c "select exists(select 1 from pg_stat_activity where application_name=:'holder_app' and state='active' and query~*'pg_sleep')")"
+  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v holder_app="$holder_app" <<'SQL'
+select exists(
+  select 1
+  from pg_stat_activity
+  where application_name=:'holder_app'
+    and state='active'
+    and query~*'pg_sleep'
+);
+SQL
+  )"
   [[ "$ready" == "t" ]] && break
   sleep 0.05
 done
