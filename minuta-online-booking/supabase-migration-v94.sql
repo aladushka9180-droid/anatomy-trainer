@@ -97,6 +97,7 @@ begin
         'booking_code',numbered.booking_code,
         'service_id',numbered.service_id,
         'performer_id',numbered.performer_id,
+        'client_account_id',numbered.client_account_id,
         'client_name',numbered.client_name,
         'client_phone',numbered.client_phone,
         'booking_date',numbered.booking_date,

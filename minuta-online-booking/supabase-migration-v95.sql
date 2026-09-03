@@ -1,7 +1,6 @@
 \set ON_ERROR_STOP on
 
 begin;
-
 set local search_path = public, extensions, pg_catalog;
 
 do $$

@@ -80,7 +80,7 @@ const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
 const CALENDAR_VIEW_KEY = 'massage-calendar-view-v1';
 const SCHEDULE_BLOCK_PHONE = '0000000000';
-const SERVICE_SYNC_INTERVAL_MS = 30000;
+const SERVICE_SYNC_INTERVAL_MS = 300000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
@@ -1586,6 +1586,23 @@ function outcomeSummary(item) {
 let reportPerformerFilter = '';
 let reportCanViewTeam = false;
 let reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+let reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
+
+function reportSessionKey(organizationId, ...parts) {
+  return [sessionGeneration, currentUser?.id || '', organizationId || '', ...parts].join(':');
+}
+
+function resetReportSessionState() {
+  reportPerformerFilter = '';
+  reportCanViewTeam = false;
+  reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+  reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
+  reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
+  reportEventState = { key:'', rows:[], status:'idle' };
+  document.body.classList.remove('report-scope-loading');
+  const select = $('#reportPerformerFilter');
+  if (select) select.disabled = false;
+}
 
 function reportDateText(value, options = { day:'numeric', month:'short' }) {
   return parseLocalIsoDate(value).toLocaleDateString('ru-RU', options);
@@ -1599,8 +1616,11 @@ function reportRange(period = reportPeriod) {
   if (period === 'month') start = localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
   if (period === 'quarter') start = localIsoDate(new Date(today.getTime() - 89 * 86400000));
   if (period === 'all') {
-    const dates = allBookings.filter(item => !isScheduleBlock(item) && item.booking_date <= todayIso).map(item => item.booking_date).sort();
-    start = dates[0] || todayIso;
+    if (reportCanViewTeam) start = localIsoDate(new Date(today.getTime() - 3659 * 86400000));
+    else {
+      const dates = allBookings.filter(item => !isScheduleBlock(item) && item.booking_date <= todayIso).map(item => item.booking_date).sort();
+      start = dates[0] || todayIso;
+    }
   }
   if (period === 'custom') {
     start = reportCustomStart || todayIso;
@@ -1610,8 +1630,12 @@ function reportRange(period = reportPeriod) {
 }
 
 function reportBookings(range = reportRange()) {
-  const source = reportCanViewTeam && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
-  return source.filter(item => !isScheduleBlock(item) && item.booking_date >= range.start && item.booking_date <= range.end && (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all' || String(item.performer_id || '') === reportPerformerFilter));
+  const source = reportCanViewTeam ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  return source.filter(item => !isScheduleBlock(item)
+    && item.booking_date >= range.start && item.booking_date <= range.end
+    && (!organizationId || !item.organization_id || String(item.organization_id) === String(organizationId))
+    && (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all' || String(item.performer_id || '') === reportPerformerFilter));
 }
 
 function previousReportRange(range) {
@@ -1619,6 +1643,7 @@ function previousReportRange(range) {
   const start = parseLocalIsoDate(range.start);
   const end = parseLocalIsoDate(range.end);
   const days = Math.max(1, Math.round((end - start) / 86400000) + 1);
+  if (days * 2 > 3661) return null;
   const previousEnd = new Date(start.getTime() - 86400000);
   return { start:localIsoDate(new Date(previousEnd.getTime() - (days - 1) * 86400000)), end:localIsoDate(previousEnd), period:'previous' };
 }
@@ -1703,7 +1728,12 @@ function setReportComparison(selector, current, previous, formatDelta = value =>
 }
 
 function reportAvailableScheduleMinutes(range) {
-  if (reportCanViewTeam && reportPerformerFilter && reportPerformerFilter !== String(currentUser?.id || '')) return null;
+  if (reportCanViewTeam) {
+    const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+    const key = reportSessionKey(organizationId, range.start, range.end, reportPerformerFilter || 'all');
+    if (reportAvailabilityState.key === key && reportAvailabilityState.status === 'ready') return reportAvailabilityState.availableMinutes;
+    return null;
+  }
   const rowsByWeekday = new Map(scheduleRows.map(row => [Number(row.weekday), row]));
   if ([1, 2, 3, 4, 5, 6, 7].some(weekday => !rowsByWeekday.has(weekday))) return null;
   const start = parseLocalIsoDate(range.start);
@@ -1756,7 +1786,7 @@ function renderReportUtilization(range, workedMinutes) {
     setReportText('#reportAvailableHours', '—');
     setReportText('#reportFreeHours', '—');
     if (bar) bar.style.width = '0%';
-    if (note) note.textContent = 'Недостаточно данных для процента';
+    if (note) note.textContent = reportAvailabilityState.status === 'loading' ? 'Загружаем рабочие графики…' : reportAvailabilityState.total > reportAvailabilityState.configured ? `Не настроен график у ${reportAvailabilityState.total - reportAvailabilityState.configured} сотрудников` : 'Недостаточно данных для процента';
     return null;
   }
   const percent = availableMinutes ? Math.round(workedMinutes / availableMinutes * 100) : 0;
@@ -1809,26 +1839,52 @@ function renderReportPerformerFilter(range) {
   if (!wrap || !select) return;
   wrap.hidden = !reportCanViewTeam;
   if (!reportCanViewTeam) { reportPerformerFilter = String(currentUser?.id || ''); return; }
-  if (!reportPerformerFilter) reportPerformerFilter = 'all';
+  if (!reportPerformerFilter) {
+    try { reportPerformerFilter = localStorage.getItem(`minuta-report-performer:${organizationController?.getActiveOrganization?.()?.id || ''}`) || 'all'; } catch { reportPerformerFilter = 'all'; }
+  }
+  if (reportPerformerFilter !== 'all' && !reportTeamAnalyticsState.rows.some(row => String(row.performer_id || '') === reportPerformerFilter)) reportPerformerFilter = 'all';
   select.innerHTML = `<option value="all">Вся команда</option>${reportTeamAnalyticsState.rows.map(row => `<option value="${escapeHtml(String(row.performer_id || ''))}">${escapeHtml(row.performer_name || 'Сотрудник')}</option>`).join('')}`;
   select.value = reportPerformerFilter;
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+  loadReportAvailability(range, reportPerformerFilter);
+}
+
+async function loadReportAvailability(range, performerId) {
+  if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const key = reportSessionKey(organizationId, range.start, range.end, performerId);
+  if (!organizationId || reportAvailabilityState.key === key && ['loading','ready'].includes(reportAvailabilityState.status)) return;
+  reportAvailabilityState = { key, status:'loading', availableMinutes:null, configured:0, total:0 };
+  const { data, error } = await db.rpc('get_minuta_staff_report_availability', { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
+  if (!sessionIsCurrent(userId, generation) || reportAvailabilityState.key !== key) return;
+  reportAvailabilityState = error ? { key, status:'failed', availableMinutes:null, configured:0, total:0 } : { key, status:'ready', availableMinutes:Number(data?.available_minutes || 0), configured:Number(data?.configured_performers || 0), total:Number(data?.total_performers || 0) };
+  renderAnalytics();
 }
 
 async function loadReportScopedBookings(range, performerId) {
   if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
-  const key = `${organizationId}:${range.start}:${range.end}:${performerId}`;
+  const key = reportSessionKey(organizationId, range.start, range.end, performerId);
   if (!organizationId || reportScopedBookingsState.key === key && ['loading','ready'].includes(reportScopedBookingsState.status)) return;
   reportScopedBookingsState = { key, status:'loading', rows:[] };
+  document.body.classList.add('report-scope-loading');
+  const select = $('#reportPerformerFilter');
+  const exportButton = $('#exportBookings');
+  if (select) select.disabled = true;
+  if (exportButton) exportButton.disabled = true;
   const rows = [];
   const pageSize = 1000;
   const maxRows = 100000;
   let data = null;
   let error = null;
+  let rpcName = 'get_minuta_staff_report_bookings_v97';
   for (let offset = 0; offset <= maxRows; offset += pageSize) {
-    let response = await db.rpc('get_minuta_staff_report_bookings', {
+    let response = await db.rpc(rpcName, {
       p_organization:organizationId,
       p_start:range.start,
       p_end:range.end,
@@ -1836,17 +1892,24 @@ async function loadReportScopedBookings(range, performerId) {
       p_limit:pageSize,
       p_offset:offset
     });
-    if (offset === 0 && response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_staff_report_bookings|function .* does not exist/i.test(response.error.message || ''))) {
-      response = await db.rpc('get_minuta_staff_report_bookings', { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
+    const missingRpc = candidate => candidate?.error && (candidate.error.code === 'PGRST202' || /could not find.*get_minuta_staff_report_bookings|function .* does not exist/i.test(candidate.error.message || ''));
+    if (offset === 0 && missingRpc(response)) {
+      rpcName = 'get_minuta_staff_report_bookings';
+      response = await db.rpc(rpcName, { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId, p_limit:pageSize, p_offset:offset });
+      if (missingRpc(response)) response = await db.rpc(rpcName, { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
     }
+    if (!sessionIsCurrent(userId, generation) || reportScopedBookingsState.key !== key) return;
     ({ data, error } = response);
     if (error) break;
     rows.push(...(Array.isArray(data?.bookings) ? data.bookings : []));
     if (!data?.has_more) break;
     if (rows.length >= maxRows) { error = new Error('Слишком большой объём отчёта'); break; }
   }
-  if (reportScopedBookingsState.key !== key) return;
+  if (!sessionIsCurrent(userId, generation) || reportScopedBookingsState.key !== key) return;
   reportScopedBookingsState = error ? { key, status:'failed', rows:[] } : { key, status:'ready', rows };
+  document.body.classList.remove('report-scope-loading');
+  if (select) select.disabled = false;
+  if (exportButton) exportButton.disabled = false;
   if (error) { notify('Не удалось загрузить статистику сотрудника'); return; }
   renderAnalytics();
 }
@@ -1863,16 +1926,24 @@ function renderReportTeamRows(rows) {
     const minutes = Math.max(0, Number(row.worked_minutes) || 0);
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
     const hasPayroll = Object.prototype.hasOwnProperty.call(row, 'payroll_rub') && row.payroll_rub !== null && Number.isFinite(Number(row.payroll_rub));
-    return `<article class="report-performer-row"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} начислено</small>` : ''}</div></article>`;
+    const selected = reportPerformerFilter === String(row.performer_id || '');
+    return `<article class="report-performer-row${selected ? ' is-selected' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} начислено</small>` : '<small>Начисление не настроено</small>'}<span aria-hidden="true">→</span></div></article>`;
   }).join('');
+  holder.querySelectorAll('[data-report-performer]').forEach(row => {
+    const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
+    row.addEventListener('click', select);
+    row.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } });
+  });
 }
 
 async function loadReportTeamAnalytics(range) {
   const panel = $('#reportPerformers');
   if (!panel || !currentUser || !navigator.onLine) { if (panel) panel.hidden = true; return; }
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
   if (!organizationId) { panel.hidden = true; return; }
-  const key = `${organizationId}:${range.start}:${range.end}`;
+  const key = reportSessionKey(organizationId, range.start, range.end);
   if (reportTeamAnalyticsState.key === key) {
     if (reportTeamAnalyticsState.status === 'ready') { renderReportTeamRows(reportTeamAnalyticsState.rows); renderReportPerformerFilter(range); }
     return;
@@ -1880,11 +1951,12 @@ async function loadReportTeamAnalytics(range) {
   reportTeamAnalyticsState = { key, status:'loading', rows:[], canViewTeam:false };
   panel.hidden = true;
   let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
+  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
   if (response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_team_analytics|function .* does not exist/i.test(response.error.message || ''))) {
     response = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
   }
   const { data, error } = response;
-  if (reportTeamAnalyticsState.key !== key) return;
+  if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
   if (error) {
     reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:false };
     panel.hidden = true;
@@ -2075,9 +2147,17 @@ function renderReportEvents(rows) {
   list.innerHTML=rows.map(event=>`<article><time>${new Date(event.occurred_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</time><div><strong>${escapeHtml(reportEventTitle(event))}</strong><span>${escapeHtml(reportEventEffect(event))}</span><small>${escapeHtml(event.actor_name||'Система')}</small></div></article>`).join('');
 }
 async function loadReportEvents(range) {
-  const organizationId=organizationController?.getActiveOrganization?.()?.id||'',key=`${organizationId}:${range.start}:${range.end}`;
+  const userId=currentUser?.id||'',generation=sessionGeneration,organizationId=organizationController?.getActiveOrganization?.()?.id||'',key=reportSessionKey(organizationId,range.start,range.end);
   if(!organizationId||!currentUser||!navigator.onLine){renderReportEvents(reportEventState.key===key?reportEventState.rows:[]);return;}if(reportEventState.key===key&&reportEventState.status==='ready'){renderReportEvents(reportEventState.rows);return;}
-  reportEventState={key,rows:[],status:'loading'};const {data,error}=await db.rpc('get_minuta_booking_events',{p_organization:organizationId,p_start:range.start,p_end:range.end,p_limit:100});if(reportEventState.key!==key)return;reportEventState=error?{key,rows:[],status:'failed'}:{key,rows:Array.isArray(data?.events)?data.events:[],status:'ready'};renderReportEvents(reportEventState.rows);
+  reportEventState={key,rows:[],status:'loading'};
+  const rows=[];let error=null;const pageSize=500,maxRows=100000;
+  for(let offset=0;offset<=maxRows;offset+=pageSize){
+    let response=await db.rpc('get_minuta_booking_events_v97',{p_organization:organizationId,p_start:range.start,p_end:range.end,p_limit:pageSize,p_offset:offset});
+    if(offset===0&&response.error&&(response.error.code==='PGRST202'||/could not find.*get_minuta_booking_events|function .* does not exist/i.test(response.error.message||''))) response=await db.rpc('get_minuta_booking_events',{p_organization:organizationId,p_start:range.start,p_end:range.end,p_limit:100});
+    if(!sessionIsCurrent(userId,generation)||reportEventState.key!==key)return;
+    const data=response.data;error=response.error;if(error)break;rows.push(...(Array.isArray(data?.events)?data.events:[]));if(!data?.has_more)break;if(rows.length>=maxRows){error=new Error('Слишком большой объём журнала');break;}
+  }
+  if(!sessionIsCurrent(userId,generation)||reportEventState.key!==key)return;reportEventState=error?{key,rows:[],status:'failed'}:{key,rows,status:'ready'};renderReportEvents(reportEventState.rows.slice(0,100));
 }
 
 function reportXmlText(value) {
@@ -2228,7 +2308,7 @@ function reportExportData(privacy = 'masked') {
   const headers = ['Дата','Начало','Окончание','Клиент','Телефон','Услуга','Мастер','Длительность, мин','Ставка, ₽/мин','Стоимость, ₽','Получено, ₽','Долг, ₽','Оплата','Результат визита','Источник','Кто создал','Комментарий'];
   const rows = items.map(item => {
     const outcome = bookingOutcome(item), duration = reportExportDuration(item), value = reportExportValue(item);
-    return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,Number(outcome.amount_rub || 0),outcome.visit_status === 'completed' ? Math.max(0,value-Number(outcome.amount_rub || 0)) : 0,paymentMethodLabel(outcome.payment_method,outcome.completion_source),reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),item.note || item.comment || ''];
+    return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,Number(outcome.amount_rub || 0),outcome.visit_status === 'completed' ? Math.max(0,value-Number(outcome.amount_rub || 0)) : 0,paymentMethodLabel(outcome.payment_method,outcome.completion_source),reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),bookingDisplayNote(item)];
   });
   let team = (reportTeamAnalyticsState.rows || []).filter(row => !reportCanViewTeam || reportPerformerFilter === 'all' || String(row.performer_id || '') === reportPerformerFilter).map(row => [row.performer_name || 'Мастер',Number(row.completed_visits || 0),Number(row.unique_clients || 0),Math.round(Number(row.worked_minutes || 0)),Math.round(Number(row.revenue_rub || 0)),Number(row.completed_visits || 0) ? Math.round(Number(row.revenue_rub || 0)/Number(row.completed_visits)) : 0,row.payroll_rub === null || row.payroll_rub === undefined ? 'Не рассчитано' : Math.round(Number(row.payroll_rub || 0))]);
   if (!team.length) {
@@ -2238,7 +2318,8 @@ function reportExportData(privacy = 'masked') {
   }
   const periodKeys = new Set(completed.map(reportClientIdentity).filter(Boolean));
   const groups = new Map();
-  reportCompletedItems(allBookings.filter(item => !isScheduleBlock(item))).forEach(item => {
+  const clientHistorySource = reportCanViewTeam && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
+  reportCompletedItems(clientHistorySource.filter(item => !isScheduleBlock(item))).forEach(item => {
     const key = reportClientIdentity(item); if (!key || !periodKeys.has(key)) return;
     const row = groups.get(key) || { name:item.client_name || 'Без имени',phone:item.client_phone || '',visits:0,revenue:0,first:item.booking_date,last:item.booking_date };
     row.visits += 1; row.revenue += Number(bookingOutcome(item).amount_rub || 0); if (item.booking_date < row.first) row.first=item.booking_date; if (item.booking_date > row.last) row.last=item.booking_date; groups.set(key,row);
@@ -2277,7 +2358,8 @@ function reportExportSheets(data) {
   const clientHeaders=['Клиент','Телефон','Первый визит','Последний визит','Визиты','Получено, ₽','Средний чек, ₽','Дней без визита','Статус'];
   const clients=[[reportExportCell('КЛИЕНТЫ ЗА ПЕРИОД',1)],[reportExportCell(`Период: ${period}`,2)],[],clientHeaders.map(value=>reportExportCell(value,4)),...data.clientRows.map(row=>row.map((value,index)=>reportExportCell(value,index===5||index===6?7:index===4||index===7?6:5)))];
   const historyHeaders=['Дата и время','Событие','Клиент','Услуга','Мастер','Кто изменил','План, ₽','Оказано, ₽','Получено, ₽','Минуты'];
-  const history=[[reportExportCell('ИСТОРИЯ ИЗМЕНЕНИЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],historyHeaders.map(value=>reportExportCell(value,4)),...data.events.map(event=>[new Date(event.occurred_at).toLocaleString('ru-RU'),reportEventTitle(event),event.client_name||'Клиент',event.service_name||'Услуга',event.performer_name||'Мастер',event.actor_name||'Система',Number(event.delta_planned_rub||0),Number(event.delta_completed_rub||0),Number(event.delta_received_rub||0),Number(event.delta_duration_minutes||0)].map((value,index)=>reportExportCell(value,index>=6&&index<=8?7:index===9?6:5)))];
+  const historyEvents=data.events.filter(event=>!reportCanViewTeam||reportPerformerFilter==='all'||String(event.performer_id||'')===reportPerformerFilter);
+  const history=[[reportExportCell('ИСТОРИЯ ИЗМЕНЕНИЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],historyHeaders.map(value=>reportExportCell(value,4)),...historyEvents.map(event=>[new Date(event.occurred_at).toLocaleString('ru-RU'),reportEventTitle(event),event.client_name||'Клиент',event.service_name||'Услуга',event.performer_name||'Мастер',event.actor_name||'Система',Number(event.delta_planned_rub||0),Number(event.delta_completed_rub||0),Number(event.delta_received_rub||0),Number(event.delta_duration_minutes||0)].map((value,index)=>reportExportCell(value,index>=6&&index<=8?7:index===9?6:5)))];
   return [{name:'Сводка',rows:summary,options:{widths:[30,28,9,9,32,28,10,10],merges:['A1:H1','A2:H2','A4:H4','A8:H8','A14:H14','A18:H18','B19:H19','B20:H20'],heights:{1:34,2:24,20:34},freeze:2}},{name:'Записи',rows:detail,options:{widths:[13,10,11,24,20,38,22,16,16,17,17,15,18,19,17,22,30],merges:['A1:Q1','A2:Q2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:Q${Math.max(4,detail.length)}`}},{name:'Мастера',rows:team,options:{widths:[28,14,14,20,20,20,20],merges:['A1:G1','A2:G2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:G${Math.max(4,team.length)}`}},{name:'Клиенты',rows:clients,options:{widths:[28,21,16,16,14,20,20,19,22],merges:['A1:I1','A2:I2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:I${Math.max(4,clients.length)}`}},{name:'История изменений',rows:history,options:{widths:[22,38,24,34,24,24,16,16,16,14],merges:['A1:J1','A2:J2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:J${Math.max(4,history.length)}`}}];
 }
 function reportExportFilename(range,extension){return `Отчёт_Минута_${reportExportDate(range.start).replaceAll('.','-')}_${reportExportDate(range.end).replaceAll('.','-')}.${extension}`;}
@@ -5336,7 +5418,7 @@ async function loadBookingSessionItems() {
   const generation = sessionGeneration;
   if (!userId) return { ok:false, optional:true };
   const local = readLocalSessionItems(userId);
-  const { data, error } = await db.from('booking_session_items').select('id,booking_id,position,item_kind,service_id,title,duration_minutes,price_rub,extends_duration').eq('performer_id', userId).order('position');
+  const { data, error } = await queryAllProviderRows('booking_session_items', 'id,booking_id,position,item_kind,service_id,title,duration_minutes,price_rub,extends_duration', userId, ['booking_id','position','id'], 100000);
   if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, optional:true };
   sessionItemsRemoteAvailable = !error;
   if (error) bookingSessionItems = new Map(Object.entries(local));
@@ -5360,9 +5442,9 @@ async function loadBookingOutcomes() {
   const generation = sessionGeneration;
   if (!userId) return { ok: false, optional: true };
   const local = readLocalOutcomes();
-  let { data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,actual_duration_minutes,calculated_amount_rub,completion_source,updated_at').eq('performer_id', userId);
-  if (error) ({ data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,completion_source,updated_at').eq('performer_id', userId));
-  if (error) ({ data, error } = await db.from('booking_outcomes').select('booking_id,visit_status,payment_method,amount_rub,updated_at').eq('performer_id', userId));
+  let { data, error } = await queryAllProviderRows('booking_outcomes', 'booking_id,visit_status,payment_method,amount_rub,actual_duration_minutes,calculated_amount_rub,completion_source,updated_at', userId, ['booking_id']);
+  if (error) ({ data, error } = await queryAllProviderRows('booking_outcomes', 'booking_id,visit_status,payment_method,amount_rub,completion_source,updated_at', userId, ['booking_id']));
+  if (error) ({ data, error } = await queryAllProviderRows('booking_outcomes', 'booking_id,visit_status,payment_method,amount_rub,updated_at', userId, ['booking_id']));
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   outcomesRemoteAvailable = !error;
   if (error) bookingOutcomes = new Map(Object.entries(local));
@@ -5831,6 +5913,7 @@ async function handleSession(session) {
   }
   const previousUserId = currentUser?.id;
   const generation = ++sessionGeneration;
+  resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
@@ -6855,17 +6938,25 @@ async function loadOwnServices(options = {}) {
   return { ok: true };
 }
 
-async function queryAllProviderBookings(userId, selection) {
+async function queryAllProviderRows(table, selection, userId, orderColumns, maxRows = 50000) {
   const pageSize = 1000;
   const rows = [];
-  for (let from = 0; from < 50000; from += pageSize) {
-    const result = await db.from('bookings').select(selection).eq('performer_id', userId)
-      .order('booking_date', { ascending:true }).order('booking_time', { ascending:true }).range(from, from + pageSize - 1);
+  for (let from = 0; from <= maxRows; from += pageSize) {
+    let query = db.from(table).select(selection).eq('performer_id', userId);
+    orderColumns.forEach(column => { query = query.order(column, { ascending:true }); });
+    const result = await query.range(from, from === maxRows ? from : from + pageSize - 1);
     if (result.error) return result;
+    if (from === maxRows) return (result.data || []).length
+      ? { data:null, error:new Error('Слишком большой объём данных для безопасной загрузки') }
+      : { data:rows, error:null };
     rows.push(...(result.data || []));
     if ((result.data || []).length < pageSize) return { data:rows, error:null };
   }
-  return { data:null, error:new Error('Слишком большой объём записей для безопасной загрузки') };
+  return { data:null, error:new Error('Слишком большой объём данных для безопасной загрузки') };
+}
+
+async function queryAllProviderBookings(userId, selection) {
+  return queryAllProviderRows('bookings', selection, userId, ['booking_date','booking_time','id']);
 }
 
 async function loadBookings(options = {}) {
@@ -6895,8 +6986,8 @@ async function loadBookings(options = {}) {
     const offlineCache = await showCached();
     return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
   }
-  let { data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
-  if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
+  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
+  if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,organization_id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   networkFinished = true;
@@ -7610,6 +7701,7 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
+    resetReportSessionState();
     updateProviderClientLinks(organization);
     teamCalendarController.setOrganization(organization);
     resourceController.setOrganization(organization);
@@ -7956,10 +8048,13 @@ $('#reportPendingMetric')?.addEventListener('keydown', event => {
 });
 $('#reportPerformerFilter')?.addEventListener('change', event => {
   reportPerformerFilter = event.target.value || 'all';
+  try { localStorage.setItem(`minuta-report-performer:${organizationController?.getActiveOrganization?.()?.id || ''}`, reportPerformerFilter); } catch {}
   reportScopedBookingsState = { key:'', status:'idle', rows:[] };
+  reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
   const range = reportRange();
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:range.end }, reportPerformerFilter);
+  loadReportAvailability(range, reportPerformerFilter);
 });
 $('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
 $$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));

@@ -83,7 +83,7 @@ assert.deepEqual(specialistFunctions.visibleServices().map(item => item.id), ['b
 assert.match(indexHtml, /id="clientAccessDownload"[^>]*>Сохранить код в файл</, 'После записи нельзя сохранить личный код в файл');
 assert.match(app, /downloadClientAccessFile\(result\.access_code, phone\)/, 'Личный код не сохраняется автоматически после записи');
 assert.match(provider, /postgres_changes/, 'Кабинет не подписан на изменения записей');
-assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 30000/, 'Резервная синхронизация между устройствами выполняется слишком редко');
+assert.match(provider, /SERVICE_SYNC_INTERVAL_MS = 300000/, 'Резервная сверка должна дополнять Realtime без полной загрузки архива каждые 30 секунд');
 assert.match(provider, /PROVIDER_CACHE_MAX_AGE = 7 \* 24 \* 60 \* 60 \* 1000/, 'Офлайн-копия записей хранится недостаточно долго');
 assert.doesNotMatch(provider, /removeMatching\?\.\('provider:', ':bookings'\)/, 'Офлайн-копия записей периодически удаляется');
 assert.match(provider, /const cachePromise = readProviderCache\('bookings', userId\)[\s\S]*if \(!navigator\.onLine\)[\s\S]*await showCached\(\)/, 'Записи не показываются из кэша до сетевого запроса');
