@@ -547,6 +547,15 @@ jobs:
             -f minuta-online-booking/supabase-migration-v77.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v77.sql
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -P pager=off \
+            --set=test_ref="$MINUTA_TEST_PROJECT_REF" --set=production_ref="$MINUTA_PRODUCTION_PROJECT_REF" <<'SQL'
+          select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null as hash_rpc_ok,
+            has_function_privilege('service_role','public.get_telegram_reminder_secret_hash()','EXECUTE') as service_execute_ok,
+            not has_function_privilege('anon','public.get_telegram_reminder_secret_hash()','EXECUTE') as anon_execute_blocked,
+            exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%x-reminder-secret%') as secured_job_exists,
+            exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%' || :'test_ref' || '%') as test_endpoint_used,
+            not exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%' || :'production_ref' || '%') as production_endpoint_absent;
+          SQL
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null and has_function_privilege('service_role','public.get_telegram_reminder_secret_hash()','EXECUTE') and not has_function_privilege('anon','public.get_telegram_reminder_secret_hash()','EXECUTE') and exists(select 1 from cron.job where jobname='telegram-client-reminders-hourly' and command like '%x-reminder-secret%' and command like '%$MINUTA_TEST_PROJECT_REF%' and command not like '%$MINUTA_PRODUCTION_PROJECT_REF%');" \
             | grep -qx t
