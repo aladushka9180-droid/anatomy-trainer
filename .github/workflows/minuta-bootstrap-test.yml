@@ -119,7 +119,10 @@ jobs:
             and not trigger_info.tgisinternal
           order by relation.relname, trigger_info.tgname;
           SQL
-          cp "$toc" "$filtered_toc"
+          awk '
+            / DEFAULT ACL / { print ";" $0; next }
+            { print }
+          ' "$toc" > "$filtered_toc"
           while IFS=$'\t' read -r table_name trigger_name; do
             test -n "$table_name"
             test -n "$trigger_name"
@@ -137,7 +140,7 @@ jobs:
             --file="$schema_sql" \
             "$archive"
           test -s "$schema_sql"
-          if grep -Eiq '(^|[^a-z0-9_])supabase_functions([^a-z0-9_]|$)|new_booking_telegram' "$schema_sql" \
+          if grep -Eiq '(^|[^a-z0-9_])supabase_functions([^a-z0-9_]|$)|new_booking_telegram|ALTER DEFAULT PRIVILEGES' "$schema_sql" \
             || grep -Fqi "$MINUTA_PRODUCTION_PROJECT_REF" "$schema_sql"; then
             echo "Безопасный schema-only SQL содержит production-вебхук или production ref" >&2
             exit 1
@@ -339,6 +342,8 @@ jobs:
 
           test_archive="$RUNNER_TEMP/minuta-test-public-schema.dump"
           test_sql="$RUNNER_TEMP/minuta-test-public-schema.sql"
+          test_toc="$RUNNER_TEMP/minuta-test-public-schema.toc"
+          test_filtered_toc="$RUNNER_TEMP/minuta-test-public-schema.filtered.toc"
           /usr/lib/postgresql/17/bin/pg_dump \
             --dbname="$test_url" \
             --format=custom \
@@ -350,7 +355,13 @@ jobs:
             --no-subscriptions \
             --no-blobs \
             --file="$test_archive"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$test_archive" > "$test_toc"
+          awk '
+            / DEFAULT ACL / { print ";" $0; next }
+            { print }
+          ' "$test_toc" > "$test_filtered_toc"
           /usr/lib/postgresql/17/bin/pg_restore \
+            --use-list="$test_filtered_toc" \
             --no-owner \
             --schema=public \
             --file="$test_sql" \
