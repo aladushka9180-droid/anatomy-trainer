@@ -48,6 +48,8 @@ const BOOKING_COLOR_LABELS = Object.freeze({
   sage:'Шалфей', teal:'Бирюза', amber:'Янтарь', cocoa:'Какао', graphite:'Графит'
 });
 const BOOKING_COLOR_DEFAULT = 'auto';
+const PER_MINUTE_BOOKING_MIN = 1;
+const PER_MINUTE_BOOKING_MAX = 480;
 let currentUser = null;
 let currentFilter = restoreScheduleFilter();
 let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
@@ -268,7 +270,7 @@ function saveNewBookingDraft() {
   if (!form || !currentUser) return;
   const draft = {
     savedAt:Date.now(), mode:newBookingMode, name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
-    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || newBookingPreferredTime || '',
+    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', durationMinutes:$('#newBookingDuration')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || newBookingPreferredTime || '',
     occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT
   };
   try { sessionStorage.setItem(bookingDraftKey(), JSON.stringify(draft)); } catch {}
@@ -402,7 +404,7 @@ async function queueOfflineBooking(payload) {
   const nextItem = {
     id:editingIndex >= 0 ? offlineBookingQueue[editingIndex].id : createOfflineBookingId(), userId, createdAt:Date.now(), status:'pending', attempts:0,
     clientName:String(payload.clientName || '').slice(0, 80), clientPhone:String(payload.clientPhone || '').slice(0, 40),
-    serviceId:String(payload.serviceId || ''), serviceName:String(payload.serviceName || '').slice(0, 120), date:String(payload.date || ''), time:String(payload.time || '').slice(0, 5),
+    serviceId:String(payload.serviceId || ''), serviceName:String(payload.serviceName || '').slice(0, 120), durationMinutes:normalizePerMinuteDuration(payload.durationMinutes), date:String(payload.date || ''), time:String(payload.time || '').slice(0, 5),
     note:String(payload.note || '').slice(0, 1000), color:BOOKING_COLOR_KEYS.includes(payload.color) ? payload.color : BOOKING_COLOR_DEFAULT
   };
   if (editingIndex >= 0) offlineBookingQueue[editingIndex] = nextItem;
@@ -549,7 +551,20 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
         deliverOfflineBookingProviderNotice(providerNotice);
         break;
       }
-      await finalizeQueuedBooking(item, booking, userId, generation);
+      const queuedService = ownServices.find(service => service.id === item.serviceId);
+      const applied = await applyPerMinuteBookingTerms([booking.id], queuedService, item.durationMinutes);
+      if (!applied.ok) {
+        await rollbackCreatedBookings([booking.id]);
+        item.status = 'conflict';
+        item.reason = /overlap|slot|occupied|resource/i.test(String(applied.error?.message || '')) ? 'slot_unavailable' : 'unexpected_error';
+        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
+        await saveOfflineBookingQueue(userId, { generation });
+        renderOfflineBookingQueue();
+        deliverOfflineBookingProviderNotice(providerNotice);
+        continue;
+      }
+      if (Number(item.durationMinutes || 1) > 1) await loadBookings({ silent:true });
+      await finalizeQueuedBooking(item, queuedBookingMatch(item) || booking, userId, generation);
     }
     renderBookingData();
     return !offlineBookingQueue.some(item => item.status === 'pending' || item.status === 'syncing' || item.status === 'server_check_pending' || item.status === 'notification_pending');
@@ -1291,7 +1306,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=226#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=227#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3143,7 +3158,67 @@ async function saveBookingSheetNote(event) {
 
 function serviceOptions(selectedId, activeOnly = false) {
   const services = activeOnly ? ownServices.filter(item => item.active) : ownServices;
-  return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${item.duration_minutes} мин · ${money(item.price_rub)}</option>`).join('');
+  return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${Number(item.duration_minutes) === 1 ? `${money(item.price_rub)}/мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</option>`).join('');
+}
+
+function normalizePerMinuteDuration(value, fallback = PER_MINUTE_BOOKING_MIN) {
+  const parsed = Math.round(Number(value));
+  const safe = Number.isFinite(parsed) ? parsed : fallback;
+  return Math.max(PER_MINUTE_BOOKING_MIN, Math.min(PER_MINUTE_BOOKING_MAX, safe));
+}
+
+function selectedNewBookingService() {
+  return ownServices.find(item => item.id === $('#newBookingService')?.value && item.active) || null;
+}
+
+function newBookingDurationMinutes() {
+  const service = selectedNewBookingService();
+  if (!service) return 0;
+  return Number(service.duration_minutes) === 1
+    ? normalizePerMinuteDuration($('#newBookingDuration')?.value)
+    : Math.max(1, Number(service.duration_minutes || 60));
+}
+
+function updateNewBookingDurationControl({ reset = false } = {}) {
+  const holder = $('#newBookingDurationField');
+  const input = $('#newBookingDuration');
+  const summary = $('#newBookingDurationSummary');
+  const service = selectedNewBookingService();
+  const perMinute = newBookingMode === 'client' && Number(service?.duration_minutes) === 1;
+  if (!holder || !input || !summary) return;
+  holder.hidden = !perMinute;
+  if (!perMinute) return;
+  if (reset) input.value = String(PER_MINUTE_BOOKING_MIN);
+  const duration = normalizePerMinuteDuration(input.value);
+  input.value = String(duration);
+  const total = Math.max(0, Math.round(duration * Number(service.price_rub || 0)));
+  const start = newBookingTime || newBookingPreferredTime;
+  const end = start ? ` · ${start}–${timeFromMinutes(minutesFromTime(start) + duration)}` : '';
+  summary.textContent = `${duration} мин · ${money(total)}${end}`;
+}
+
+async function applyPerMinuteBookingTerms(bookingIds, service, durationMinutes) {
+  const duration = normalizePerMinuteDuration(durationMinutes);
+  if (Number(service?.duration_minutes) !== 1 || duration === 1 || !bookingIds.length) return { ok:true };
+  const totalPrice = Math.max(0, Math.round(duration * Number(service.price_rub || 0)));
+  for (const bookingId of bookingIds) {
+    const { error } = await db.from('bookings').update({
+      duration_minutes:duration,
+      original_price_rub:Number(service.price_rub || 0),
+      total_price_rub:totalPrice
+    }).eq('id', bookingId).eq('performer_id', currentUser.id);
+    if (error) return { ok:false, error };
+    if (sessionItemsRemoteAvailable) {
+      const { error:sessionError } = await db.from('booking_session_items').update({ duration_minutes:duration, price_rub:totalPrice })
+        .eq('booking_id', bookingId).eq('performer_id', currentUser.id).eq('item_kind', 'primary');
+      if (sessionError && !/booking_session_items|schema cache|does not exist/i.test(String(sessionError.message || ''))) return { ok:false, error:sessionError };
+    }
+  }
+  return { ok:true };
+}
+
+async function rollbackCreatedBookings(bookingIds) {
+  await Promise.all(bookingIds.map(id => db.rpc('provider_delete_booking', { p_booking:id })));
 }
 
 function blockDurationOptions(selectedId, activeOnly = false) {
@@ -3457,7 +3532,7 @@ async function saveBookingChanges(event) {
   openBookingSheet(id);
 }
 
-function offlineCandidateSlots(serviceId, dateIso) {
+function offlineCandidateSlots(serviceId, dateIso, requestedDuration = 0) {
   const service = ownServices.find(item => item.id === serviceId && item.active);
   const date = parseLocalIsoDate(dateIso);
   if (!service || !date || dateIso < businessTodayIso()) return [];
@@ -3465,7 +3540,7 @@ function offlineCandidateSlots(serviceId, dateIso) {
   const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
   if (schedule?.enabled === false) return [];
   const step = scheduleStepForDate(dateIso);
-  const duration = Math.max(1, Number(service.duration_minutes || 60));
+  const duration = Math.max(1, Number(requestedDuration || service.duration_minutes || 60));
   const start = minutesFromTime(schedule?.start_time || '10:00');
   const end = minutesFromTime(schedule?.end_time || '20:00');
   const now = new Date();
@@ -3479,7 +3554,7 @@ function offlineCandidateSlots(serviceId, dateIso) {
       if (item.date !== dateIso) return false;
       const queuedStart = minutesFromTime(item.time);
       const queuedService = ownServices.find(entry => entry.id === item.serviceId);
-      const queuedEnd = queuedStart + Math.max(1, Number(queuedService?.duration_minutes || 60));
+      const queuedEnd = queuedStart + Math.max(1, Number(item.durationMinutes || queuedService?.duration_minutes || 60));
       return minute < queuedEnd && minute + duration > queuedStart;
     });
     if (!issue && !queuedConflict) slots.push(timeFromMinutes(minute));
@@ -3493,11 +3568,12 @@ async function loadNewBookingSlots() {
   const holder = $('#newBookingTimes');
   if (!service || !date || !holder) return;
   const preferredTime = newBookingPreferredTime;
+  const duration = newBookingDurationMinutes();
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
   if (!navigator.onLine) {
-    newBookingSlots = offlineCandidateSlots(service, date);
+    newBookingSlots = offlineCandidateSlots(service, date, duration);
     // An offline booking is a request that the server will validate after the
     // connection returns. Keep an explicitly selected timeline/draft time even
     // when the cached snapshot cannot offer it as a confirmed free slot.
@@ -3516,11 +3592,16 @@ async function loadNewBookingSlots() {
     holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
     return;
   }
-  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5));
+  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
+  if (!newBookingSlots.length) {
+    holder.innerHTML = '<span>На эту дату нет окна нужной длительности</span>';
+    return;
+  }
   newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : (preferredTime ? '' : newBookingSlots[0]);
   newBookingHour = String(newBookingTime || preferredTime || newBookingSlots[0]).slice(0, 2);
   if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0].slice(0, 2);
   renderNewBookingTimePicker();
+  updateNewBookingDurationControl();
   clearFormError('#newBookingError');
 }
 
@@ -3592,6 +3673,7 @@ function setNewBookingMode(mode) {
   const serviceSelect = $('#newBookingService');
   const selectedService = serviceSelect.value;
   serviceSelect.innerHTML = block ? blockDurationOptions(selectedService, true) : serviceOptions(selectedService, true);
+  updateNewBookingDurationControl();
   updateNewBookingSubmitCaption();
   clearFormError('#newBookingError');
   loadNewBookingSlots();
@@ -3604,6 +3686,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   const defaultDate = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
   const presetDate = /^\d{4}-\d{2}-\d{2}$/.test(String(preset.date || '')) && preset.date >= businessTodayIso() ? preset.date : '';
   const date = presetDate || (/^\d{4}-\d{2}-\d{2}$/.test(String(draft?.date || '')) && draft.date >= businessTodayIso() ? draft.date : defaultDate);
+  const initialDuration = normalizePerMinuteDuration(preset.durationMinutes || draft?.durationMinutes || PER_MINUTE_BOOKING_MIN);
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
@@ -3619,6 +3702,12 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <div id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="name" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" required></label></div></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
+          <div class="new-booking-minute-duration" id="newBookingDurationField" hidden>
+            <div class="new-booking-minute-heading"><label for="newBookingDuration">Длительность, минут</label><strong id="newBookingDurationSummary"></strong></div>
+            <div class="new-booking-minute-input"><button type="button" data-new-booking-duration-step="-1" aria-label="Уменьшить длительность на минуту">−</button><input id="newBookingDuration" type="number" inputmode="numeric" min="${PER_MINUTE_BOOKING_MIN}" max="${PER_MINUTE_BOOKING_MAX}" step="1" value="${initialDuration}" required><button type="button" data-new-booking-duration-step="1" aria-label="Увеличить длительность на минуту">+</button></div>
+            <div class="new-booking-minute-presets" aria-label="Быстрый выбор длительности">${[15,30,45,60].map(value => `<button type="button" data-new-booking-duration="${value}">${value} мин</button>`).join('')}</div>
+            <small>Можно указать любое точное время от 1 до 480 минут.</small>
+          </div>
           <details class="new-booking-advanced" id="newBookingAdvanced"><summary><span>Дополнительные параметры</span><small id="newBookingAdvancedSummary">Заметка, цвет и серия</small></summary><div class="new-booking-advanced-content">
             <label id="newBookingClientNoteField">Заметка о клиенте<textarea id="newBookingNote" maxlength="1000" rows="3" placeholder="Пожелания или важная информация — необязательно"></textarea></label>
             <label id="newBookingBlockNoteField" hidden>Заметка к перерыву<textarea id="newBookingBlockNote" maxlength="1000" rows="2" placeholder="Например, обед или личное дело"></textarea></label>
@@ -3650,13 +3739,28 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
   if (draftColor) draftColor.checked = true;
   $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => { setNewBookingMode(button.dataset.newBookingMode); saveNewBookingDraft(); }));
-  $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; saveNewBookingDraft(); loadNewBookingSlots(); });
+  $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; updateNewBookingDurationControl({ reset:true }); saveNewBookingDraft(); loadNewBookingSlots(); });
+  $('#newBookingDuration').addEventListener('input', () => updateNewBookingDurationControl());
+  $('#newBookingDuration').addEventListener('change', () => { updateNewBookingDurationControl(); saveNewBookingDraft(); loadNewBookingSlots(); });
+  $$('[data-new-booking-duration]').forEach(button => button.addEventListener('click', () => {
+    $('#newBookingDuration').value = button.dataset.newBookingDuration;
+    updateNewBookingDurationControl();
+    saveNewBookingDraft();
+    loadNewBookingSlots();
+  }));
+  $$('[data-new-booking-duration-step]').forEach(button => button.addEventListener('click', () => {
+    $('#newBookingDuration').value = String(normalizePerMinuteDuration(Number($('#newBookingDuration').value || 1) + Number(button.dataset.newBookingDurationStep || 0)));
+    updateNewBookingDurationControl();
+    saveNewBookingDraft();
+    loadNewBookingSlots();
+  }));
   $('#newBookingDate').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; saveNewBookingDraft(); loadNewBookingSlots(); });
   $('#newBookingOccurrences').addEventListener('change', () => { updateNewBookingSubmitCaption(); saveNewBookingDraft(); });
   $('#newBookingForm').addEventListener('submit', createNewBooking);
   $('#newBookingForm').addEventListener('input', saveNewBookingDraft);
   $('#newBookingForm').addEventListener('change', saveNewBookingDraft);
   setNewBookingMode(newBookingMode);
+  updateNewBookingDurationControl();
   updateNewBookingConnectivity();
   if (preset.clientName) {
     $('#newBookingSheetTitle').textContent = preset.offlineEdit ? 'Исправить запись' : 'Повторная запись';
@@ -3676,7 +3780,8 @@ function openRepeatBookingFromSheet(id) {
   openNewBookingSheet('', {
     clientName: item.client_name,
     clientPhone: item.client_phone,
-    serviceId: item.service_id
+    serviceId: item.service_id,
+    durationMinutes:item.duration_minutes
   });
 }
 
@@ -3689,6 +3794,8 @@ async function createNewBooking(event) {
   const name = block ? ($('#newBookingBlockTitle').value.trim() || 'Перерыв') : $('#newBookingName').value.trim();
   const phone = block ? SCHEDULE_BLOCK_PHONE : $('#newBookingPhone').value.trim();
   const service = $('#newBookingService').value;
+  const serviceModel = ownServices.find(item => item.id === service && item.active);
+  const durationMinutes = newBookingDurationMinutes();
   const date = $('#newBookingDate').value;
   const color = $('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT;
   const occurrenceCount = block ? 1 : Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
@@ -3701,6 +3808,8 @@ async function createNewBooking(event) {
       ? 'Укажите полный номер телефона.'
       : !service
         ? (block ? 'Выберите длительность.' : 'Выберите услугу.')
+        : !durationMinutes
+          ? 'Укажите длительность записи.'
         : !date
           ? 'Выберите дату.'
           : !newBookingTime
@@ -3708,6 +3817,12 @@ async function createNewBooking(event) {
             : '';
   if (validationError) {
     showFormError('#newBookingError', validationError);
+    return;
+  }
+  const placementIssue = bookingPlacementIssue({ id:'new-booking-validation', duration_minutes:durationMinutes }, date, minutesFromTime(newBookingTime));
+  if (placementIssue) {
+    showFormError('#newBookingError', `${placementIssue}. Выберите другое время или длительность.`);
+    await loadNewBookingSlots();
     return;
   }
   if (occurrenceCount > 1) {
@@ -3726,8 +3841,7 @@ async function createNewBooking(event) {
   button.textContent = editingOfflineBookingId ? 'Сохраняем…' : block ? 'Занимаем…' : 'Создаём…';
   const note = block ? ($('#newBookingBlockNote')?.value.trim() || '') : $('#newBookingNote').value.trim();
   if (editingOfflineBookingId) {
-    const selectedService = ownServices.find(item => item.id === service && item.active);
-    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:selectedService?.name, date, time:newBookingTime, note, color });
+    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, note, color });
     button.disabled = false;
     updateNewBookingSubmitCaption();
     if (!queued.ok) {
@@ -3751,8 +3865,7 @@ async function createNewBooking(event) {
       showFormError('#newBookingError', block ? 'Без интернета можно отложить только запись клиента, но не блокировку времени.' : 'Без интернета можно отложить одну запись. Серии создаются после подключения.');
       return;
     }
-    const selectedService = ownServices.find(item => item.id === service && item.active);
-    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:selectedService?.name, date, time:newBookingTime, note, color });
+    const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, note, color });
     button.disabled = false;
     updateNewBookingSubmitCaption();
     if (!queued.ok) {
@@ -3801,6 +3914,16 @@ async function createNewBooking(event) {
       clientNotes.set(normalizedPhone, note);
     }
     const created = Array.isArray(data?.created) ? data.created : [];
+    const createdIds = created.map(entry => entry.booking_id).filter(Boolean);
+    const adjusted = await applyPerMinuteBookingTerms(createdIds, serviceModel, durationMinutes);
+    if (!adjusted.ok) {
+      await rollbackCreatedBookings(createdIds);
+      button.disabled = false;
+      button.textContent = `Создать серию из ${occurrenceCount}`;
+      showFormError('#newBookingError', 'Для выбранной длительности одно из окон уже занято. Серия не создана — выберите другое время или длительность.');
+      await loadNewBookingSlots();
+      return;
+    }
     await Promise.all(created.map(entry => db.rpc('set_booking_color', { p_booking:entry.booking_id, p_color:color })));
     selectScheduleDate(date);
     clearNewBookingDraft(userId);
@@ -3840,6 +3963,27 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', message);
     return;
   }
+  let createdBooking = null;
+  if (!block && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
+    const refreshed = await loadBookings({ silent:true });
+    createdBooking = refreshed?.ok ? [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone)) : null;
+    if (!createdBooking) {
+      button.disabled = false;
+      button.textContent = 'Создать запись';
+      showFormError('#newBookingError', 'Запись создана, но точную длительность не удалось подтвердить. Обновите записи и проверьте её.');
+      return;
+    }
+    const adjusted = await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
+    if (!adjusted.ok) {
+      await rollbackCreatedBookings([createdBooking.id]);
+      await loadBookings({ silent:true });
+      button.disabled = false;
+      button.textContent = 'Создать запись';
+      showFormError('#newBookingError', 'Окно не вмещает выбранную длительность. Запись не создана — выберите другое время или длительность.');
+      await loadNewBookingSlots();
+      return;
+    }
+  }
   const normalizedPhone = normalizePhone(phone);
   if (!block && note) {
     await db.from('client_notes').upsert({ performer_id: userId, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
@@ -3850,7 +3994,7 @@ async function createNewBooking(event) {
   clearNewBookingDraft(userId);
   closeBookingSheet();
   await refreshAfterWrite();
-  const createdBooking = [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone));
+  createdBooking ||= [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone));
   let blockNoteLocalOnly = false;
   if (createdBooking) {
     await saveBookingColor(createdBooking.id, color, { rerender:false });
@@ -5948,12 +6092,14 @@ document.addEventListener('click', async event => {
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
     clearFormError('#newBookingError');
     saveNewBookingDraft();
+    updateNewBookingDurationControl();
     updateNewBookingSubmitCaption();
   }
   if (newHour) {
     newBookingHour = newHour.dataset.newBookingHour;
     if (!newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || '';
     renderNewBookingTimePicker({ offline:!navigator.onLine });
+    updateNewBookingDurationControl();
     clearFormError('#newBookingError');
     saveNewBookingDraft();
     updateNewBookingSubmitCaption();
@@ -6153,6 +6299,7 @@ $('#offlineBookingQueueList')?.addEventListener('click', async event => {
       clientName:item.clientName,
       clientPhone:item.clientPhone,
       serviceId:item.serviceId,
+      durationMinutes:item.durationMinutes,
       date:item.date,
       note:item.note,
       color:item.color
@@ -6605,4 +6752,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=226'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=227'));

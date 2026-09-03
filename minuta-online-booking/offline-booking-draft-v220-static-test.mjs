@@ -34,6 +34,7 @@ const runOfflineSlotLoader = new Function(`
     const navigator = { onLine:false };
     const $ = selector => selector === '#newBookingService' ? { value:'service-1' } : selector === '#newBookingDate' ? { value:'2099-09-07' } : selector === '#newBookingTimes' ? holder : null;
     const offlineCandidateSlots = () => slots;
+    const newBookingDurationMinutes = () => 60;
     const renderNewBookingTimePicker = () => { pickerRendered = true; };
     const escapeHtml = value => String(value);
     const clearFormError = () => {};
@@ -58,4 +59,4 @@ const noExplicitTime = await runOfflineSlotLoader({ preferredTime:'', slots:[] }
 assert.equal(noExplicitTime.newBookingTime, '', 'Время нельзя выбирать за пользователя');
 assert.match(noExplicitTime.html, /Откройте нужное время из расписания/, 'Нет инструкции при отсутствии выбранного времени');
 
-console.log('offline booking draft v226 test: OK');
+console.log('offline booking draft v227 test: OK');
