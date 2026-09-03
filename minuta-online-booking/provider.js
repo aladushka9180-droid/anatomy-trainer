@@ -94,6 +94,7 @@ let visitorVisitsInitialized = false;
 let announcedVisitorVisitIds = new Set();
 let visitorNotificationSaving = false;
 let ownServices = [];
+let serviceDurationDefaults = {};
 let portfolioItems = [];
 let providerReviews = [];
 let portfolioRemoteAvailable = false;
@@ -795,6 +796,33 @@ function applyClientHighlightClasses(element, phone, prefix = 'client-') {
   element?.classList.toggle(`${prefix}attention`, value.attention);
 }
 function providerDisplayStorageKey(userId = currentUser?.id) { return `massage-provider-display-v1:${userId || 'guest'}`; }
+function serviceDurationDefaultsStorageKey(userId = currentUser?.id) { return `massage-service-duration-defaults-v1:${userId || 'guest'}`; }
+function normalizeServiceDurationDefaults(value = {}) {
+  const source = value?.values && typeof value.values === 'object' ? value.values : value;
+  return Object.fromEntries(Object.entries(source && typeof source === 'object' ? source : {})
+    .slice(0, 500)
+    .map(([serviceId, duration]) => [String(serviceId), normalizePerMinuteDuration(duration, 60)]));
+}
+function restoreServiceDurationDefaults(user = currentUser) {
+  let local = {};
+  try { local = normalizeServiceDurationDefaults(JSON.parse(localStorage.getItem(serviceDurationDefaultsStorageKey(user?.id)) || '{}')); } catch {}
+  const remote = normalizeServiceDurationDefaults(user?.user_metadata?.provider_service_duration_defaults || {});
+  serviceDurationDefaults = Object.keys(remote).length ? remote : local;
+  try { localStorage.setItem(serviceDurationDefaultsStorageKey(user?.id), JSON.stringify(serviceDurationDefaults)); } catch {}
+}
+function serviceDefaultDuration(serviceId) {
+  return normalizePerMinuteDuration(serviceDurationDefaults[String(serviceId)] || 60, 60);
+}
+async function saveServiceDefaultDuration(serviceId, duration) {
+  if (!currentUser?.id || !serviceId) return false;
+  serviceDurationDefaults[String(serviceId)] = normalizePerMinuteDuration(duration, 60);
+  try { localStorage.setItem(serviceDurationDefaultsStorageKey(), JSON.stringify(serviceDurationDefaults)); } catch {}
+  if (!navigator.onLine) return false;
+  const snapshot = { version:1, values:serviceDurationDefaults, updated_at:Date.now() };
+  const { data, error } = await db.auth.updateUser({ data:{ provider_service_duration_defaults:snapshot } });
+  if (data?.user) currentUser = data.user;
+  return !error;
+}
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const storedTheme = String(source.theme || '');
@@ -1306,7 +1334,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=228#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=229#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3158,7 +3186,7 @@ async function saveBookingSheetNote(event) {
 
 function serviceOptions(selectedId, activeOnly = false) {
   const services = activeOnly ? ownServices.filter(item => item.active) : ownServices;
-  return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${Number(item.duration_minutes) === 1 ? `${money(item.price_rub)}/мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</option>`).join('');
+  return services.map(item => `<option value="${item.id}" ${item.id === selectedId ? 'selected' : ''}>${escapeHtml(serviceName(item.name))} · ${Number(item.duration_minutes) === 1 ? `${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</option>`).join('');
 }
 
 function normalizePerMinuteDuration(value, fallback = PER_MINUTE_BOOKING_MIN) {
@@ -3188,13 +3216,31 @@ function updateNewBookingDurationControl({ reset = false } = {}) {
   if (!holder || !input || !summary) return;
   holder.hidden = !perMinute;
   if (!perMinute) return;
-  if (reset) input.value = String(PER_MINUTE_BOOKING_MIN);
+  if (reset) input.value = String(serviceDefaultDuration(service.id));
   const duration = normalizePerMinuteDuration(input.value);
   input.value = String(duration);
   const total = Math.max(0, Math.round(duration * Number(service.price_rub || 0)));
   const start = newBookingTime || newBookingPreferredTime;
   const end = start ? ` · ${start}–${timeFromMinutes(minutesFromTime(start) + duration)}` : '';
   summary.textContent = `${duration} мин · ${money(total)}${end}`;
+}
+
+function updateServiceDefaultDurationField(selectSelector, holderSelector, inputSelector) {
+  const select = $(selectSelector);
+  const holder = $(holderSelector);
+  const input = $(inputSelector);
+  if (!select || !holder || !input) return;
+  const perMinute = Number(select.value) === 1;
+  holder.hidden = !perMinute;
+  input.required = perMinute;
+  if (perMinute) input.value = String(normalizePerMinuteDuration(input.value, 60));
+}
+
+function bindServiceDefaultDurationPresets(holderSelector, inputSelector) {
+  $$(holderSelector).forEach(button => button.addEventListener('click', () => {
+    const input = $(inputSelector);
+    if (input) input.value = String(normalizePerMinuteDuration(button.dataset.serviceDefaultDuration, 60));
+  }));
 }
 
 async function applyPerMinuteBookingTerms(bookingIds, service, durationMinutes) {
@@ -3246,6 +3292,7 @@ function openServiceEditor(id) {
     <form class="booking-editor-form service-edit-form" id="serviceEditForm" data-service-id="${item.id}">
       <label>Название услуги<input id="editServiceName" maxlength="120" value="${escapeHtml(item.name)}" required></label>
       <div class="service-edit-row"><label>Длительность<select id="editServiceDuration" required>${durationOptions(item.duration_minutes)}</select></label><label>Цена, ₽<input id="editServicePrice" type="number" min="0" max="1000000" step="1" value="${item.price_rub}" required></label></div>
+      <div class="service-default-duration" id="editServiceDefaultDurationField" ${Number(item.duration_minutes) === 1 ? '' : 'hidden'}><div><label for="editServiceDefaultDuration">Обычная длительность, минут</label><small>Автоматически подставляется при новой записи.</small></div><input id="editServiceDefaultDuration" type="number" inputmode="numeric" min="1" max="480" step="1" value="${serviceDefaultDuration(item.id)}"><div class="service-default-duration-presets"><button type="button" data-edit-service-default-duration="30">30</button><button type="button" data-edit-service-default-duration="45">45</button><button type="button" data-edit-service-default-duration="60">60</button><button type="button" data-edit-service-default-duration="90">90</button></div></div>
       <label class="service-visibility-option"><input id="editServiceActive" type="checkbox" ${item.active ? 'checked' : ''}><span><strong>Показывать в онлайн-записи</strong><small>${item.active ? 'Клиенты могут выбрать эту услугу' : 'Сейчас услуга скрыта от клиентов'}</small></span></label>
       <p class="form-error" id="serviceEditError" hidden></p>
       <div class="service-edit-actions"><button class="secondary-button" type="button" data-close-booking-sheet>Отмена</button><button class="primary" type="submit">Сохранить изменения</button></div>
@@ -3253,6 +3300,8 @@ function openServiceEditor(id) {
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   $('#serviceEditForm').addEventListener('submit', saveServiceChanges);
+  $('#editServiceDuration').addEventListener('change', () => updateServiceDefaultDurationField('#editServiceDuration', '#editServiceDefaultDurationField', '#editServiceDefaultDuration'));
+  bindServiceDefaultDurationPresets('[data-edit-service-default-duration]', '#editServiceDefaultDuration');
   setTimeout(() => $('#editServiceName')?.focus(), 0);
 }
 
@@ -3263,6 +3312,7 @@ async function saveServiceChanges(event) {
   const id = event.currentTarget.dataset.serviceId;
   const name = $('#editServiceName').value.trim();
   const duration = Number($('#editServiceDuration').value);
+  const defaultDuration = normalizePerMinuteDuration($('#editServiceDefaultDuration')?.value, serviceDefaultDuration(id));
   const price = Number($('#editServicePrice').value);
   const active = $('#editServiceActive').checked;
   if (name.length < 2 || !Number.isFinite(duration) || duration < 1 || duration > 480 || !Number.isFinite(price) || price < 0) {
@@ -3279,6 +3329,7 @@ async function saveServiceChanges(event) {
     showFormError('#serviceEditError', 'Не удалось сохранить услугу. Попробуйте ещё раз.');
     return;
   }
+  if (duration === 1) await saveServiceDefaultDuration(id, defaultDuration);
   closeBookingSheet();
   await refreshAfterWrite();
   notify('Услуга обновлена');
@@ -3686,7 +3737,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   const defaultDate = selectedDate < businessTodayIso() ? businessTodayIso() : selectedDate;
   const presetDate = /^\d{4}-\d{2}-\d{2}$/.test(String(preset.date || '')) && preset.date >= businessTodayIso() ? preset.date : '';
   const date = presetDate || (/^\d{4}-\d{2}-\d{2}$/.test(String(draft?.date || '')) && draft.date >= businessTodayIso() ? draft.date : defaultDate);
-  const initialDuration = normalizePerMinuteDuration(preset.durationMinutes || draft?.durationMinutes || PER_MINUTE_BOOKING_MIN);
+  const initialDuration = normalizePerMinuteDuration(preset.durationMinutes || draft?.durationMinutes || serviceDefaultDuration(selectedService?.id), 60);
   newBookingTime = '';
   newBookingSlots = [];
   newBookingHour = '';
@@ -4937,6 +4988,7 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
         || key === clientLabelPendingStorageKey(userId)
         || key === sessionItemsStorageKey(userId)
         || key === connectionLogKey(userId)
+        || key === serviceDurationDefaultsStorageKey(userId)
         || key === autoCompleteStorageKey(userId)) localStorage.removeItem(key);
     });
   } catch {}
@@ -5000,6 +5052,7 @@ async function handleSession(session) {
     loadBookingColors(currentUser.id);
     loadBookingNotes(currentUser.id);
     loadLocalClientLabels(currentUser.id);
+    restoreServiceDurationDefaults(currentUser);
     displayPreferencesNeedSync = restoreDisplayPreferences(currentUser).pending;
   } else {
     bookingColors = new Map();
@@ -5007,6 +5060,7 @@ async function handleSession(session) {
     pendingBookingNotes = new Set();
     clientLabels = new Map();
     pendingClientLabels = new Set();
+    serviceDurationDefaults = {};
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
     displayPreferencesUpdatedAt = 0;
     displayPreferencesPending = false;
@@ -5183,17 +5237,21 @@ async function addService(event) {
   const name = $('#serviceName').value.trim();
   const price = Number($('#servicePrice').value);
   const duration = Number($('#serviceDuration').value);
+  const defaultDuration = normalizePerMinuteDuration($('#serviceDefaultDuration')?.value, 60);
   if (name.length < 2 || !Number.isFinite(duration) || duration < 1 || duration > 480 || !Number.isFinite(price) || price < 0) {
     showFormError('#serviceError', 'Укажите название, длительность и корректную цену.');
     return;
   }
   const button = event.submitter;
   button.disabled = true;
-  const { error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true });
+  const { data:createdService, error } = await db.from('services').insert({ performer_id: currentUser.id, name, price_rub: Math.round(price), duration_minutes: duration, active: true }).select('id').single();
   button.disabled = false;
   if (error) { showFormError('#serviceError', 'Не удалось добавить услугу.'); return; }
+  if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
   event.target.reset();
   $('#serviceDuration').value = '60';
+  $('#serviceDefaultDuration').value = '60';
+  updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
   $('#serviceCreatorDialog').close();
   notify('Услуга добавлена');
   await refreshAfterWrite();
@@ -5732,7 +5790,7 @@ function renderOwnServices() {
     list.innerHTML = `<button class="provider-empty provider-empty-action" type="button" data-open-service-creator aria-label="Добавить первую услугу"><span class="provider-empty-icon">${uiIcon('plus')}</span><strong>Услуг пока нет</strong><small>Нажмите здесь, чтобы добавить первую — она сразу появится у клиентов.</small></button>`;
     return;
   }
-  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
+  list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
 }
 
 async function loadOwnServices(options = {}) {
@@ -6027,6 +6085,8 @@ document.addEventListener('click', async event => {
   if (openServiceCreator) {
     $('#serviceForm').reset();
     $('#serviceDuration').value = '60';
+    $('#serviceDefaultDuration').value = '60';
+    updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
     clearFormError('#serviceError');
     $('#serviceCreatorDialog').showModal();
   }
@@ -6569,6 +6629,8 @@ $('#signupForm').addEventListener('submit', signup);
 $('#recoveryForm').addEventListener('submit', requestPasswordReset);
 $('#resetPasswordForm').addEventListener('submit', completePasswordRecovery);
 $('#serviceForm').addEventListener('submit', addService);
+$('#serviceDuration').addEventListener('change', () => updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration'));
+bindServiceDefaultDurationPresets('[data-service-default-duration]', '#serviceDefaultDuration');
 $('#portfolioForm').addEventListener('submit', savePortfolioItem);
 $('#portfolioBeforeFile').addEventListener('change', event => handlePortfolioFile('before', event.target.files?.[0]));
 $('#portfolioAfterFile').addEventListener('change', event => handlePortfolioFile('after', event.target.files?.[0]));
@@ -6752,4 +6814,4 @@ updateProviderClientLinks();
 refreshSectionNavigation();
 refreshInstallAppCard();
 db.auth.getSession().then(({ data }) => recoveryMode ? showRecoveryReset() : handleSession(data.session));
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=228'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=229'));
