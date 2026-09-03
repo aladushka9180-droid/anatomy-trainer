@@ -1125,4 +1125,4 @@ loadServices();
 publicGroupBookingsController.load();
 loadPublicReviews();
 updateSubmitAvailability();
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=227'));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js?v=228'));
