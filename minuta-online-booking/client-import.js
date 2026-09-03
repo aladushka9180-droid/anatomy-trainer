@@ -132,14 +132,30 @@
     return { rows, invalid, duplicateCount:Math.max(0, table.length - 1 - invalid.length - rows.length), headers };
   }
 
+  function parseSpreadsheet(bytes) {
+    if (!global.XLSX?.read || !global.XLSX?.utils?.sheet_to_json) {
+      throw new Error('Модуль чтения Excel не загрузился. Обновите страницу и попробуйте снова.');
+    }
+    let workbook;
+    try { workbook = global.XLSX.read(bytes, { type:'array', dense:true, cellDates:false }); }
+    catch { throw new Error('Не удалось прочитать файл Excel. Возможно, файл повреждён или защищён паролем.'); }
+    const sheetName = workbook.SheetNames?.[0];
+    if (!sheetName || !workbook.Sheets?.[sheetName]) throw new Error('В файле Excel нет доступных листов.');
+    const rows = global.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+      header:1, raw:false, defval:'', blankrows:false
+    });
+    return rows.map(row => row.map(value => String(value ?? '').trim()));
+  }
+
   async function decodeFile(file) {
-    if (!file || file.size < 1) throw new Error('Выберите непустой CSV-файл.');
+    if (!file || file.size < 1) throw new Error('Выберите непустой файл с клиентами.');
     if (file.size > 12 * 1024 * 1024) throw new Error('Файл должен быть не больше 12 МБ.');
-    if (!/\.(csv|tsv|txt)$/i.test(file.name)) throw new Error('Поддерживаются CSV, TSV и TXT. Для Excel сохраните таблицу как CSV UTF-8.');
+    if (!/\.(csv|tsv|txt|xls|xlsx)$/i.test(file.name)) throw new Error('Поддерживаются XLS, XLSX, CSV, TSV и TXT.');
     const bytes = await file.arrayBuffer();
+    if (/\.xlsx?$/i.test(file.name)) return parseSpreadsheet(new Uint8Array(bytes));
     let text = new TextDecoder('utf-8', { fatal:false }).decode(bytes);
     if (text.includes('\ufffd')) text = new TextDecoder('windows-1251').decode(bytes);
-    return text;
+    return parseDelimited(text);
   }
 
   function createController(options = {}) {
@@ -233,7 +249,7 @@
 
     async function chooseFile(file) {
       try {
-        pendingTable = parseDelimited(await decodeFile(file));
+        pendingTable = await decodeFile(file);
         const { indexes } = detectedIndexes(pendingTable);
         preview = null;
         $('#clientImportPreview').hidden = true;
@@ -302,5 +318,5 @@
     };
   }
 
-  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, mapRows, normalizePhone });
+  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, parseSpreadsheet, mapRows, normalizePhone });
 })(window);
