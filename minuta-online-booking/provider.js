@@ -1496,6 +1496,177 @@ function reportRevenue(items) {
   return reportCompletedItems(items).reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
 }
 
+function reportClientIdentity(item) {
+  const clientId = String(item?.client_account_id || item?.client_id || '').trim();
+  if (clientId) return `id:${clientId}`;
+  const phone = normalizePhone(item?.client_phone || '');
+  return phone ? `phone:${phone}` : '';
+}
+
+function reportClientMetrics(completed, range) {
+  const currentClients = new Set(completed.map(reportClientIdentity).filter(Boolean));
+  const previousClients = new Set(reportCompletedItems(allBookings.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
+  let newClients = 0;
+  let returningClients = 0;
+  currentClients.forEach(key => {
+    if (previousClients.has(key)) returningClients += 1;
+    else newClients += 1;
+  });
+  return { uniqueClients:currentClients.size, newClients, returningClients };
+}
+
+function reportBookingSource(item) {
+  const source = String(item?.booking_source || '').trim().toLowerCase();
+  if (source === 'client_online') return 'online';
+  if (['provider_manual', 'admin_manual', 'provider_series', 'provider_repeat'].includes(source)) return 'manual';
+  return 'unknown';
+}
+
+function reportSourceMetrics(items) {
+  return items.reduce((result, item) => {
+    result[reportBookingSource(item)] += 1;
+    return result;
+  }, { online:0, manual:0, unknown:0 });
+}
+
+function reportShare(value, total) { return total ? `${Math.round(value / total * 100)}%` : '0%'; }
+function reportHours(minutes) { return `${Math.round(Math.max(0, Number(minutes) || 0) / 6) / 10} ч`; }
+
+function setReportText(selector, value) {
+  const element = $(selector);
+  if (element) element.textContent = String(value);
+}
+
+function setReportTrend(selector, current, previous, hasPreviousRange) {
+  const element = $(selector);
+  if (!element) return;
+  element.className = '';
+  if (!hasPreviousRange) element.textContent = 'За весь доступный период';
+  else if (!previous) element.textContent = current ? 'Новый результат' : 'Без изменений';
+  else {
+    const percent = Math.round((current - previous) / previous * 100);
+    element.textContent = `${percent >= 0 ? '+' : ''}${percent}% к предыдущему периоду`;
+    element.className = percent > 0 ? 'is-positive' : percent < 0 ? 'is-negative' : '';
+  }
+}
+
+function reportAvailableScheduleMinutes(range) {
+  const rowsByWeekday = new Map(scheduleRows.map(row => [Number(row.weekday), row]));
+  if ([1, 2, 3, 4, 5, 6, 7].some(weekday => !rowsByWeekday.has(weekday))) return null;
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  const days = Math.round((end - start) / 86400000) + 1;
+  if (!Number.isFinite(days) || days < 1 || days > 3660) return null;
+  let available = 0;
+  for (let offset = 0; offset < days; offset += 1) {
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + offset);
+    const dateIso = localIsoDate(date);
+    const weekday = ((date.getDay() + 6) % 7) + 1;
+    const row = rowsByWeekday.get(weekday);
+    if (row.enabled === false) continue;
+    const dayStart = minutesFromTime(row.start_time);
+    const dayEnd = minutesFromTime(row.end_time);
+    if (!/^\d{2}:\d{2}/.test(String(row.start_time || '')) || !/^\d{2}:\d{2}/.test(String(row.end_time || '')) || dayEnd <= dayStart) return null;
+    let dayMinutes = dayEnd - dayStart;
+    if (row.break_enabled) {
+      const breakStartValue = row.break_start_time || row.break_start;
+      const breakEndValue = row.break_end_time || row.break_end;
+      const breakStart = minutesFromTime(breakStartValue);
+      const breakEnd = minutesFromTime(breakEndValue);
+      if (!/^\d{2}:\d{2}/.test(String(breakStartValue || '')) || !/^\d{2}:\d{2}/.test(String(breakEndValue || '')) || breakEnd <= breakStart) return null;
+      dayMinutes -= Math.max(0, Math.min(dayEnd, breakEnd) - Math.max(dayStart, breakStart));
+    }
+    const exceptions = daysOff.filter(item => String(item.date || item.day_off_date || '') === dateIso);
+    for (const exception of exceptions) {
+      if (exception.all_day === true || exception.is_all_day === true) {
+        dayMinutes = 0;
+        break;
+      }
+      const exceptionStartValue = exception.start_time;
+      const exceptionEndValue = exception.end_time;
+      if (!/^\d{2}:\d{2}/.test(String(exceptionStartValue || '')) || !/^\d{2}:\d{2}/.test(String(exceptionEndValue || ''))) return null;
+      dayMinutes -= Math.max(0, Math.min(dayEnd, minutesFromTime(exceptionEndValue)) - Math.max(dayStart, minutesFromTime(exceptionStartValue)));
+    }
+    available += Math.max(0, dayMinutes);
+  }
+  return available;
+}
+
+function renderReportUtilization(range, workedMinutes) {
+  const availableMinutes = reportAvailableScheduleMinutes(range);
+  setReportText('#reportBookedHours', reportHours(workedMinutes));
+  const percentNode = $('#reportUtilizationPercent');
+  const bar = $('#reportUtilizationBar');
+  const note = $('#reportUtilizationNote') || $('#reportUtilizationCaption');
+  if (availableMinutes === null) {
+    if (percentNode) percentNode.textContent = '—';
+    setReportText('#reportAvailableHours', '—');
+    setReportText('#reportFreeHours', '—');
+    if (bar) bar.style.width = '0%';
+    if (note) note.textContent = 'Недостаточно данных для процента';
+    return;
+  }
+  const percent = availableMinutes ? Math.round(workedMinutes / availableMinutes * 100) : 0;
+  if (percentNode) percentNode.textContent = `${percent}%`;
+  setReportText('#reportAvailableHours', reportHours(availableMinutes));
+  setReportText('#reportFreeHours', reportHours(Math.max(0, availableMinutes - workedMinutes)));
+  if (bar) bar.style.width = `${Math.min(100, Math.max(0, percent))}%`;
+  if (note) note.textContent = 'Состоявшиеся визиты относительно доступного рабочего времени';
+}
+
+function renderReportRetention() {
+  const payloadValue = retentionController?.payload;
+  const payload = typeof payloadValue === 'function' ? payloadValue.call(retentionController) : payloadValue;
+  const clients = Array.isArray(payload?.clients) ? payload.clients : [];
+  const deliveries = Array.isArray(payload?.deliveries) ? payload.deliveries : [];
+  setReportText('#reportRetentionEligible', clients.filter(item => item.eligible === true).length);
+  setReportText('#reportRetentionRegular', clients.filter(item => item.eligible === true && Number(item.completed_visits || 0) >= 3).length);
+  setReportText('#reportRetentionPrepared', deliveries.filter(item => ['prepared', 'draft'].includes(String(item.status || '').toLowerCase())).length);
+  setReportText('#reportRetentionSent', deliveries.filter(item => ['sent', 'delivered'].includes(String(item.status || '').toLowerCase())).length);
+  setReportText('#reportRetentionUnknownConsent', clients.filter(item => !item.consent_status || String(item.consent_status).toLowerCase() === 'unknown').length);
+}
+
+let reportTeamAnalyticsState = { key:'', status:'idle', rows:[] };
+
+function renderReportTeamRows(rows) {
+  const panel = $('#reportPerformers');
+  const holder = $('#reportPerformersList');
+  if (!panel || !holder) return;
+  panel.hidden = !rows.length;
+  if (!rows.length) { holder.innerHTML = ''; return; }
+  holder.innerHTML = rows.map(row => {
+    const visits = Math.max(0, Number(row.completed_visits) || 0);
+    const clients = Math.max(0, Number(row.unique_clients) || 0);
+    const minutes = Math.max(0, Number(row.worked_minutes) || 0);
+    const revenue = Math.max(0, Number(row.revenue_rub) || 0);
+    const hasPayroll = Object.prototype.hasOwnProperty.call(row, 'payroll_rub') && row.payroll_rub !== null && Number.isFinite(Number(row.payroll_rub));
+    return `<article class="report-performer-row"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} начислено</small>` : ''}</div></article>`;
+  }).join('');
+}
+
+async function loadReportTeamAnalytics(range) {
+  const panel = $('#reportPerformers');
+  if (!panel || !currentUser || !navigator.onLine) { if (panel) panel.hidden = true; return; }
+  const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+  const key = `${organizationId}:${range.start}:${range.end}`;
+  if (reportTeamAnalyticsState.key === key) {
+    if (reportTeamAnalyticsState.status === 'ready') renderReportTeamRows(reportTeamAnalyticsState.rows);
+    return;
+  }
+  reportTeamAnalyticsState = { key, status:'loading', rows:[] };
+  panel.hidden = true;
+  const { data, error } = await db.rpc('get_minuta_team_analytics', { p_start:range.start, p_end:range.end });
+  if (reportTeamAnalyticsState.key !== key) return;
+  if (error) {
+    reportTeamAnalyticsState = { key, status:'failed', rows:[] };
+    panel.hidden = true;
+    return;
+  }
+  const rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
+  reportTeamAnalyticsState = { key, status:'ready', rows };
+  renderReportTeamRows(rows);
+}
+
 function reportVisitWord(count) {
   const value = Math.abs(Number(count || 0)) % 100;
   const digit = value % 10;
@@ -1548,6 +1719,9 @@ function renderAnalytics() {
   const adjustment = revenue - completedValue;
   const average = completed.length ? revenue / completed.length : 0;
   const workedMinutes = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).actual_duration_minutes || item.duration_minutes || item.services?.duration_minutes || 0), 0);
+  const clients = reportClientMetrics(completed, range);
+  const sources = reportSourceMetrics(items);
+  const sourceTotal = sources.online + sources.manual + sources.unknown;
   $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · личная статистика мастера`;
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
@@ -1555,21 +1729,37 @@ function renderAnalytics() {
   $('#reportCompleted').textContent = String(completed.length);
   $('#reportUnpaid').textContent = `${unpaid.length} ${reportVisitWord(unpaid.length)} с долгом`;
   $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
-  $('#reportAverage').textContent = money(average);
+  $('#reportAverage').textContent = money(Math.round(average));
   $('#reportPending').textContent = String(pending.length);
   $('#reportCancelled').textContent = String(cancelled.length);
   $('#reportNoShow').textContent = String(noShows.length);
   const previousRange = previousReportRange(range);
-  const previousRevenue = previousRange ? reportRevenue(reportBookings(previousRange)) : 0;
-  const trend = $('#reportRevenueTrend');
-  trend.className = '';
-  if (!previousRange) trend.textContent = 'За весь доступный период';
-  else if (!previousRevenue) trend.textContent = revenue ? 'Новый доход за период' : 'Пока без поступлений';
-  else {
-    const percent = Math.round((revenue - previousRevenue) / previousRevenue * 100);
-    trend.textContent = `${percent >= 0 ? '+' : ''}${percent}% к предыдущему периоду`;
-    trend.className = percent > 0 ? 'is-positive' : percent < 0 ? 'is-negative' : '';
-  }
+  const previousItems = previousRange ? reportBookings(previousRange) : [];
+  const previousCompleted = reportCompletedItems(previousItems);
+  const previousRevenue = previousRange ? reportRevenue(previousItems) : 0;
+  const previousClients = previousRange ? reportClientMetrics(previousCompleted, previousRange) : { uniqueClients:0 };
+  const previousSources = previousRange ? reportSourceMetrics(previousItems) : { online:0 };
+  setReportTrend('#reportRevenueTrend', revenue, previousRevenue, Boolean(previousRange));
+  setReportTrend('#reportComparisonRevenue', revenue, previousRevenue, Boolean(previousRange));
+  setReportTrend('#reportComparisonVisits', completed.length, previousCompleted.length, Boolean(previousRange));
+  setReportTrend('#reportComparisonClients', clients.uniqueClients, previousClients.uniqueClients, Boolean(previousRange));
+  setReportTrend('#reportComparisonOnline', sources.online, previousSources.online, Boolean(previousRange));
+  setReportText('#reportUniqueClients', clients.uniqueClients);
+  setReportText('#reportNewClients', clients.newClients);
+  setReportText('#reportNewClientsShare', reportShare(clients.newClients, clients.uniqueClients));
+  setReportText('#reportReturningClients', clients.returningClients);
+  setReportText('#reportReturningClientsShare', reportShare(clients.returningClients, clients.uniqueClients));
+  setReportText('#reportOnlineBookings', sources.online);
+  setReportText('#reportOnlineShare', reportShare(sources.online, sourceTotal));
+  setReportText('#reportManualBookings', sources.manual);
+  setReportText('#reportManualShare', reportShare(sources.manual, sourceTotal));
+  setReportText('#reportUnknownBookings', sources.unknown);
+  setReportText('#reportUnknownShare', reportShare(sources.unknown, sourceTotal));
+  const sourceBar = $('#reportSourceBar');
+  if (sourceBar) sourceBar.innerHTML = `<i class="is-online" style="width:${sourceTotal ? sources.online / sourceTotal * 100 : 0}%"></i><i class="is-manual" style="width:${sourceTotal ? sources.manual / sourceTotal * 100 : 0}%"></i><i class="is-unknown" style="width:${sourceTotal ? sources.unknown / sourceTotal * 100 : 0}%"></i>`;
+  renderReportUtilization(range, workedMinutes);
+  renderReportRetention();
+  loadReportTeamAnalytics(range);
   const differenceText = adjustment > 0 ? `Доплаты и корректировки: +${money(adjustment)}` : adjustment < 0 ? `Недополучено: ${money(Math.abs(adjustment))}` : 'Расхождений нет';
   $('#reportReconciliation').innerHTML = `<div><small>Сверка денег</small><strong>${money(completedValue)} оказано → ${money(revenue)} получено</strong></div><span class="${adjustment > 0 ? 'is-positive' : adjustment < 0 ? 'is-negative' : ''}">${differenceText}</span>`;
   reportTrendMarkup(completed, range);
