@@ -394,7 +394,7 @@ assert.match(styles, /Mobile Sage Studio \+ Мягкий минимализм:[\
 assert.match(styles, /\[data-provider-panel="analytics"\] \.view-title \{[\s\S]*?grid-template-columns:minmax\(0,1fr\)[\s\S]*?\[data-provider-panel="analytics"\] #exportBookings \{[\s\S]*?width:100%/, 'Кнопка отчёта снова перекрывает заголовок статистики на телефоне');
 assert.match(providerHtml, /id="reportInsight"[\s\S]*?>Получено от клиентов<[\s\S]*?>Стоимость оказанных услуг<[\s\S]*?>Долг клиентов</, 'Главные показатели статистики снова названы неоднозначно');
 assert.match(providerHtml, /Без данных об источнике[\s\S]*id="reportUnknownShare"/, 'Неизвестный источник записей снова не объяснён или не показывает долю');
-assert.match(provider, /function setReportComparison\([\s\S]*?formatDelta[\s\S]*?новый результат/, 'Сравнение периодов не показывает абсолютное изменение');
+assert.match(provider, /function setReportComparison\([\s\S]*?formatDelta\(Math\.abs\(difference\)\)[\s\S]*?Math\.abs\(percent\)/, 'Сравнение периодов не показывает абсолютное изменение');
 assert.match(provider, /data-report-date="\$\{openDate\}"[\s\S]*?Открыть расписание/, 'Столбцы дохода нельзя открыть в расписании');
 assert.match(provider, /reportZeroSummary[\s\S]*?clearMetrics\.map/, 'Нулевые проблемные показатели снова перегружают отчёт');
 assert.match(provider, /revenueShare[\s\S]*?% дохода/, 'В услугах не показывается доля дохода');
