@@ -31,7 +31,9 @@ assert.doesNotMatch(v93, /provider_delete_booking/i);
 
 assert.match(v94, /v94_requires_v93/i);
 assert.match(v94, /create index if not exists bookings_performer_date_time_v94_idx/i);
+assert.match(v94, /get_minuta_staff_report_bookings\(p_organization uuid,p_start date,p_end date,p_performer uuid default null\)/i);
 assert.match(rollback94, /drop index if exists public\.bookings_performer_date_time_v94_idx/i);
+assert.match(rollback94, /drop function if exists public\.get_minuta_staff_report_bookings\(uuid,date,date,uuid\)/i);
 assert.match(rollback93, /v93_rollback_blocked_booking_events_exist/i);
 assert.match(rollback93, /drop trigger if exists booking_outcomes_capture_event_v93/i);
 assert.match(rollback92, /v92_rollback_requires_v93_removed/i);

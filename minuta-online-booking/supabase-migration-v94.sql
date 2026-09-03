@@ -1,6 +1,19 @@
 begin;
 set local search_path = public, extensions, pg_catalog;
 
+do $$
+begin
+  if to_regclass('public.bookings') is null
+     or to_regclass('public.booking_events') is null
+     or to_regprocedure('public.get_minuta_booking_events(uuid,date,date,integer)') is null then
+    raise exception using errcode='P0001',message='v94_requires_v93';
+  end if;
+end $$;
+
+-- Supports ordered provider booking lookups and the staff analytics filter.
+create index if not exists bookings_performer_date_time_v94_idx
+  on public.bookings (performer_id,booking_date,booking_time);
+
 create or replace function public.get_minuta_staff_report_bookings(p_organization uuid,p_start date,p_end date,p_performer uuid default null)
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare v_user uuid:=auth.uid(); v_role text; v_effective_performer uuid; v_bookings jsonb;
