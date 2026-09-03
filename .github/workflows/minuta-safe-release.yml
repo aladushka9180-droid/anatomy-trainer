@@ -63,7 +63,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: minuta-production-database
+  group: ${{ inputs.phase == 'test-migration' && 'minuta-test-database' || 'minuta-production-database' }}
   cancel-in-progress: false
 
 jobs:

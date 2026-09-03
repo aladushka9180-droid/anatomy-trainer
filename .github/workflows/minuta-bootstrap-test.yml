@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: minuta-production-database
+  group: minuta-test-database
   cancel-in-progress: false
 
 jobs:
