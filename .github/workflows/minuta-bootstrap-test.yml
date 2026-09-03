@@ -285,6 +285,7 @@ jobs:
             echo '\set ON_ERROR_STOP on'
             echo 'begin;'
             echo 'drop schema if exists public cascade;'
+            echo 'create schema public authorization pg_database_owner;'
             cat "$production_sql"
             echo 'commit;'
           } > "$reset_sql"
