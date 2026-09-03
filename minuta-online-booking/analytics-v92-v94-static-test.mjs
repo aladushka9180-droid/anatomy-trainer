@@ -14,6 +14,8 @@ const rollback94 = read('supabase-migration-v94-rollback.sql');
 const v96 = read('supabase-migration-v96.sql');
 const rollback96 = read('supabase-migration-v96-rollback.sql');
 const integration96 = read('analytics-v92-v96-integration.sql');
+const recoveryRollback92 = read('recovery/rollback-booking-attribution-v92.sql');
+const recoveryRollback93 = read('recovery/rollback-booking-events-v93.sql');
 const releaseWorkflow = readFileSync(join(root, '..', '.github', 'workflows', 'minuta-safe-release.yml'), 'utf8');
 const provider = read('provider.js');
 const validationBlock = /^  validate-production-rollback:\r?\n([\s\S]*?)(?=^  [a-zA-Z][a-zA-Z0-9-]*:)/m.exec(releaseWorkflow)?.[0] || '';
@@ -41,6 +43,9 @@ assert.match(v93, /revoke all on table public\.booking_events from public,anon,a
 assert.match(v93, /grant select on table public\.booking_events to authenticated/, 'v93: кабинет не может читать разрешённые события');
 assert.match(rollback93, /drop trigger if exists booking_outcomes_capture_event_v93/, 'rollback v93: outcome-trigger не удаляется');
 assert.match(rollback93, /drop table if exists public\.booking_events/, 'rollback v93: журнал не удаляется');
+assert.match(recoveryRollback93, /v93_rollback_blocked_booking_events_exist/i);
+assert.match(recoveryRollback92, /v92_rollback_requires_v93_removed/i);
+assert.match(recoveryRollback92, /v92_rollback_blocked_booking_attribution_exists/i);
 
 assert.match(v94, /v94_requires_v93/, 'v94: нет проверки prerequisites');
 assert.match(v94, /get_minuta_staff_report_bookings\([\s\S]*p_limit integer[\s\S]*p_offset integer/, 'v94: нет постраничной RPC отчёта сотрудников');

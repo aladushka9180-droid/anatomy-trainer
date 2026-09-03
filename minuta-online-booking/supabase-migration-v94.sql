@@ -5,6 +5,7 @@ do $$
 begin
   if to_regclass('public.bookings') is null
      or to_regclass('public.booking_outcomes') is null
+     or to_regclass('public.booking_events') is null
      or to_regclass('public.services') is null
      or to_regclass('public.organizations') is null
      or to_regclass('public.organization_memberships') is null
