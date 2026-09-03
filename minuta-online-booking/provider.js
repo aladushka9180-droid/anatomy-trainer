@@ -91,6 +91,19 @@ const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
+const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
+  { key:'bookings', label:'Записи', icon:'grid' },
+  { key:'notifications', label:'Уведомления', icon:'bell' },
+  { key:'analytics', label:'Статистика', icon:'chart' },
+  { key:'schedule', label:'График', icon:'clock' },
+  { key:'clients', label:'Клиенты', icon:'users' },
+  { key:'services', label:'Услуги', icon:'spark' },
+  { key:'organization', label:'Организация', icon:'users' },
+  { key:'portfolio', label:'Портфолио', icon:'image' },
+  { key:'waitlist', label:'Ожидание', icon:'clock' },
+  { key:'settings', label:'Настройки', icon:'settings' }
+]);
+const DEFAULT_MOBILE_NAV = Object.freeze(['bookings', 'notifications', 'analytics', 'schedule']);
 const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
@@ -111,7 +124,8 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   show_client_type: true,
   show_client_labels: true,
   show_notes: true,
-  ios_transitions: true
+  ios_transitions: true,
+  mobile_nav: DEFAULT_MOBILE_NAV
 });
 const BOOKING_COLOR_KEYS = ['auto', 'mint', 'sky', 'lavender', 'peach', 'rose', 'vanilla', 'sage', 'teal', 'amber', 'cocoa', 'graphite'];
 const BOOKING_COLOR_LABELS = Object.freeze({
@@ -208,6 +222,7 @@ let recentlyCreatedBookingId = '';
 let recentlyCreatedBookingTimer = null;
 let scheduleRows = [];
 let daysOff = [];
+let monthlyScheduleMonth = businessTodayIso().slice(0, 7);
 let scheduleDirty = false;
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let bookingsChannel = null;
@@ -1008,6 +1023,16 @@ async function saveServiceDefaultDuration(serviceId, duration) {
   if (data?.user) currentUser = data.user;
   return !error;
 }
+function normalizeMobileNavigation(value) {
+  const allowed = new Set(PROVIDER_MOBILE_NAV_ITEMS.map(item => item.key));
+  const result = [];
+  const requested = Array.isArray(value) ? value : [];
+  [...requested, ...DEFAULT_MOBILE_NAV, ...PROVIDER_MOBILE_NAV_ITEMS.map(item => item.key)].forEach(key => {
+    const normalized = String(key || '');
+    if (allowed.has(normalized) && !result.includes(normalized) && result.length < 4) result.push(normalized);
+  });
+  return result;
+}
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const storedTheme = String(source.theme || '');
@@ -1023,7 +1048,8 @@ function normalizeDisplayPreferences(value = {}) {
     show_client_type: source.show_client_type ?? DEFAULT_DISPLAY_PREFERENCES.show_client_type,
     show_client_labels: source.show_client_labels ?? DEFAULT_DISPLAY_PREFERENCES.show_client_labels,
     show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes,
-    ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions
+    ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
+    mobile_nav: normalizeMobileNavigation(source.mobile_nav ?? source.mobileNav)
   };
 }
 function displayPreferencesEqual(left, right) {
@@ -1037,7 +1063,8 @@ function displayPreferencesEqual(left, right) {
     && a.show_client_type === b.show_client_type
     && a.show_client_labels === b.show_client_labels
     && a.show_notes === b.show_notes
-    && a.ios_transitions === b.ios_transitions;
+    && a.ios_transitions === b.ios_transitions
+    && JSON.stringify(a.mobile_nav) === JSON.stringify(b.mobile_nav);
 }
 function normalizeDisplayPreferencesRecord(value = {}, exists = true) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -1090,7 +1117,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 3,
+      version: 4,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -1112,7 +1139,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 3,
+    version: 4,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -1146,6 +1173,22 @@ function queueDisplayPreferencesSync(delay = 350) {
     }
   }, Math.max(0, Number(delay) || 0));
 }
+function renderMobileNavigation() {
+  const nav = $('.provider-mobile-nav');
+  if (!nav) return;
+  const selected = normalizeMobileNavigation(displayPreferences.mobile_nav);
+  const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
+  nav.innerHTML = `${selected.map(key => {
+    const item = PROVIDER_MOBILE_NAV_ITEMS.find(entry => entry.key === key);
+    return `<button type="button" data-provider-view="${item.key}">${uiIcon(item.icon)}<span>${item.label}</span></button>`;
+  }).join('')}<button type="button" data-provider-view="more">${uiIcon('more')}<span>Разделы</span></button>`;
+  nav.querySelectorAll('[data-provider-view]').forEach(button => {
+    const active = button.dataset.providerView === activeView || (button.dataset.providerView === 'more' && !selected.includes(activeView));
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+}
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
@@ -1153,6 +1196,7 @@ function applyDisplayPreferences() {
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
   const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
+  renderMobileNavigation();
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -1169,6 +1213,15 @@ function renderDisplayPreferencesForm() {
   $('#showBookingClientLabels').checked = displayPreferences.show_client_labels;
   $('#showBookingNotes').checked = displayPreferences.show_notes;
   $('#iosTransitionsEnabled').checked = displayPreferences.ios_transitions;
+  const selected = normalizeMobileNavigation(displayPreferences.mobile_nav);
+  $$('[data-mobile-nav-slot]').forEach((select, index) => {
+    select.innerHTML = PROVIDER_MOBILE_NAV_ITEMS.map(item => `<option value="${item.key}">${item.label}</option>`).join('');
+    select.value = selected[index];
+  });
+  $$('[data-mobile-nav-slot]').forEach(select => {
+    const current = select.value;
+    select.querySelectorAll('option').forEach(option => { option.disabled = option.value !== current && selected.includes(option.value); });
+  });
 }
 function providerAppIsInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -1321,7 +1374,8 @@ function displayPreferencesFromForm() {
     show_client_type: $('#showBookingClientType').checked,
     show_client_labels: $('#showBookingClientLabels').checked,
     show_notes: $('#showBookingNotes').checked,
-    ios_transitions: $('#iosTransitionsEnabled').checked
+    ios_transitions: $('#iosTransitionsEnabled').checked,
+    mobile_nav: $$('[data-mobile-nav-slot]').map(select => select.value)
   });
 }
 function saveDisplayPreferences() {
@@ -1330,6 +1384,7 @@ function saveDisplayPreferences() {
   displayPreferencesPending = true;
   persistLocalDisplayPreferences();
   applyDisplayPreferences();
+  renderDisplayPreferencesForm();
   renderBookings();
   queueDisplayPreferencesSync();
 }
@@ -1560,7 +1615,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=288#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=289#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2690,7 +2745,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=288');
+    worker = new Worker('./report-worker.js?v=289');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -3420,7 +3475,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  if (view === 'services' || view === 'organization' || view === 'portfolio' || view === 'settings' || view === 'analytics' || view === 'waitlist') {
+  if (!normalizeMobileNavigation(displayPreferences.mobile_nav).includes(view)) {
     const moreButton = $('.provider-mobile-nav [data-provider-view="more"]');
     moreButton?.classList.add('active');
     moreButton?.setAttribute('aria-current', 'page');
@@ -7247,6 +7302,85 @@ function defaultScheduleRows(userId) {
 function comparableSchedule(rows) {
   return rows.map(row => ({ weekday: Number(row.weekday), enabled: Boolean(row.enabled), start_time: shortTime(row.start_time, ''), end_time: shortTime(row.end_time, ''), break_start: shortTime(row.break_start, ''), break_end: shortTime(row.break_end, ''), slot_interval_minutes: Number(row.slot_interval_minutes || 5) })).sort((a, b) => a.weekday - b.weekday);
 }
+function normalizeScheduleMonth(value) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(value || ''));
+  if (!match) return businessTodayIso().slice(0, 7);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  return year >= 2000 && year <= 2100 && month >= 1 && month <= 12 ? `${match[1]}-${match[2]}` : businessTodayIso().slice(0, 7);
+}
+function shiftScheduleMonth(value, direction) {
+  const normalized = normalizeScheduleMonth(value);
+  const [year, month] = normalized.split('-').map(Number);
+  const shifted = new Date(year, month - 1 + Number(direction || 0), 1, 12);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+}
+function scheduleStateForDate(dateIso) {
+  const date = parseLocalIsoDate(dateIso);
+  const weekday = date ? ((date.getDay() + 6) % 7) + 1 : 0;
+  const weekly = scheduleRows.find(row => Number(row.weekday) === weekday);
+  const fullDayOff = daysOff.find(item => item.off_date === dateIso && item.all_day);
+  const partialDayOff = daysOff.some(item => item.off_date === dateIso && !item.all_day);
+  return { weekly, fullDayOff, partialDayOff, working:Boolean(weekly?.enabled) && !fullDayOff };
+}
+function renderMonthlySchedule() {
+  const grid = $('#monthlyScheduleGrid');
+  const input = $('#monthlyScheduleMonth');
+  if (!grid || !input) return;
+  monthlyScheduleMonth = normalizeScheduleMonth(monthlyScheduleMonth);
+  input.value = monthlyScheduleMonth;
+  if (!scheduleRows.length) {
+    grid.innerHTML = '<div class="provider-empty compact-empty"><strong>Загружаем график…</strong></div>';
+    return;
+  }
+  const [year, month] = monthlyScheduleMonth.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const leading = (new Date(year, month - 1, 1, 12).getDay() + 6) % 7;
+  const today = businessTodayIso();
+  const leadingMarkup = Array.from({ length:leading }, () => '<span class="monthly-schedule-blank" aria-hidden="true"></span>').join('');
+  grid.innerHTML = leadingMarkup + Array.from({ length:daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const dateIso = `${monthlyScheduleMonth}-${String(day).padStart(2, '0')}`;
+    const date = new Date(year, month - 1, day, 12);
+    const state = scheduleStateForDate(dateIso);
+    const past = dateIso < today;
+    const weeklyClosed = !state.weekly?.enabled;
+    const status = weeklyClosed ? 'По неделе' : state.fullDayOff ? 'Выходной' : state.partialDayOff ? 'Частично' : 'Рабочий';
+    const className = weeklyClosed ? 'is-weekly-closed' : state.fullDayOff ? 'is-closed' : 'is-working';
+    const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Сделать выходным';
+    const label = `${date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}. ${status}. ${action}`;
+    return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${state.working}" ${past ? 'disabled' : ''}><strong>${day}</strong><small>${status}</small></button>`;
+  }).join('');
+}
+async function toggleMonthlyScheduleDay(dateIso, button) {
+  if (!requireWrites()) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || dateIso < businessTodayIso()) return;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return;
+  const state = scheduleStateForDate(dateIso);
+  if (!state.weekly?.enabled) {
+    notify(`Сначала включите ${weekdayNames[Number(state.weekly?.weekday || 1) - 1] || 'этот день'} в обычной неделе`);
+    return;
+  }
+  const status = $('#monthlyScheduleStatus');
+  button.disabled = true;
+  if (status) status.textContent = state.fullDayOff ? 'Открываем день…' : 'Сохраняем выходной…';
+  const request = state.fullDayOff
+    ? db.from('provider_days_off').delete().eq('id', state.fullDayOff.id).eq('performer_id', userId)
+    : db.from('provider_days_off').insert({ performer_id:userId, off_date:dateIso, all_day:true, start_time:null, end_time:null, note:'Месячный график' });
+  const { error } = await request;
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (error) {
+    button.disabled = false;
+    if (status) status.textContent = 'Не удалось изменить день. Попробуйте ещё раз.';
+    return;
+  }
+  await loadDaysOff();
+  renderBookings();
+  freeSlotsController.refresh();
+  if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День отмечен выходным.';
+}
 
 function renderSchedule() {
   const holder = $('#weeklySchedule');
@@ -7261,6 +7395,7 @@ function renderSchedule() {
       <small class="day-off-label" ${enabled ? 'hidden' : ''}>Выходной</small>
     </article>`;
   }).join('');
+  renderMonthlySchedule();
 }
 
 async function loadSchedule() {
@@ -7347,6 +7482,7 @@ async function saveSchedule() {
   scheduleRows = rows;
   scheduleDirty = false;
   await saveProviderCache('schedule', scheduleRows, userId);
+  renderMonthlySchedule();
   if (!sessionIsCurrent(userId, generation)) return;
   notify('Расписание сохранено');
 }
@@ -7355,6 +7491,7 @@ function renderDaysOff() {
   const holder = $('#daysOffList');
   if (!daysOff.length) {
     holder.innerHTML = `<div class="provider-empty compact-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div>`;
+    renderMonthlySchedule();
     return;
   }
   holder.innerHTML = daysOff.map(item => {
@@ -7362,6 +7499,7 @@ function renderDaysOff() {
     const period = item.all_day ? 'Весь день' : `${shortTime(item.start_time, '')}–${shortTime(item.end_time, '')}`;
     return `<article class="day-off-item"><div><strong>${date}</strong><span>${period}${item.note ? ` · ${escapeHtml(item.note)}` : ''}</span></div><button type="button" data-delete-day-off="${item.id}" aria-label="Удалить исключение">${uiIcon('trash')}</button></article>`;
   }).join('');
+  renderMonthlySchedule();
 }
 
 async function loadDaysOff() {
@@ -8986,6 +9124,21 @@ $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
+$('#monthlyScheduleMonth').min = businessTodayIso().slice(0, 7);
+$('#monthlyScheduleMonth').addEventListener('change', event => {
+  monthlyScheduleMonth = normalizeScheduleMonth(event.target.value);
+  $('#monthlyScheduleStatus').textContent = '';
+  renderMonthlySchedule();
+});
+$$('[data-monthly-schedule-shift]').forEach(button => button.addEventListener('click', () => {
+  monthlyScheduleMonth = shiftScheduleMonth(monthlyScheduleMonth, button.dataset.monthlyScheduleShift);
+  $('#monthlyScheduleStatus').textContent = '';
+  renderMonthlySchedule();
+}));
+$('#monthlyScheduleGrid').addEventListener('click', event => {
+  const button = event.target.closest('[data-monthly-schedule-date]');
+  if (button) void toggleMonthlyScheduleDay(button.dataset.monthlyScheduleDate, button);
+});
 $('#slotInterval').addEventListener('change', event => { scheduleDirty = true; syncSlotIntervalOptions(event.target.value); });
 $('#dayOffDate').min = businessTodayIso();
 $('#weeklySchedule').addEventListener('change', event => {
