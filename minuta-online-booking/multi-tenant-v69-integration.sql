@@ -223,7 +223,7 @@ begin
     );
     raise exception using errcode='P0001', message='v69_cross_organization_write_was_allowed';
   exception when insufficient_privilege then
-    if sqlerrm <> 'resource_management_denied' then raise; end if;
+    if sqlerrm not in ('organization_access_denied', 'resource_management_denied') then raise; end if;
   end;
 end;
 $$;
