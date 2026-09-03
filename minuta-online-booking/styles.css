@@ -5172,6 +5172,30 @@ html.provider-booting .provider-main {
   color:var(--theme-accent)!important;
 }
 
+/* Мобильная навигация остаётся закреплённой при прокрутке, включая Safari/PWA. */
+@media (max-width:760px) {
+  .provider-mobile-nav {
+    position:fixed!important;
+    z-index:1000;
+    right:10px;
+    bottom:max(10px,env(safe-area-inset-bottom,0px));
+    left:10px;
+    visibility:visible;
+    opacity:1;
+    transform:translate3d(0,0,0);
+    -webkit-backface-visibility:hidden;
+    backface-visibility:hidden;
+    will-change:transform;
+  }
+  .provider-workspace {
+    padding-bottom:max(96px,calc(84px + env(safe-area-inset-bottom,0px)))!important;
+  }
+  .provider-body.booking-sheet-open .provider-mobile-nav {
+    visibility:hidden;
+    pointer-events:none;
+  }
+}
+
 /* Матрица тем: уведомления и мобильная навигация сохраняют контраст и геометрию во всех палитрах. */
 .provider-body[data-provider-theme] .provider-view[data-provider-panel="notifications"] :is(
   .view-description,
