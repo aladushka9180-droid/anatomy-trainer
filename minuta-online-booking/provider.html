@@ -417,11 +417,19 @@
             </section>
           </div>
           <section class="panel report-performers" id="reportPerformers" aria-labelledby="reportPerformersTitle">
-            <div class="report-section-heading"><div><small>Команда</small><h3 id="reportPerformersTitle">Результаты команды</h3></div><span>По состоявшимся визитам</span></div>
+            <div class="report-section-heading"><div><small>Команда</small><h3 id="reportPerformersTitle">Рейтинг сотрудников</h3></div><span id="reportTeamPeriod">Выбранный период</span></div>
+            <div class="report-team-controls" role="group" aria-label="Показатель рейтинга сотрудников">
+              <button class="active" type="button" data-report-team-metric="revenue" aria-pressed="true">Выручка</button>
+              <button type="button" data-report-team-metric="payroll" aria-pressed="false">Заработок</button>
+              <button type="button" data-report-team-metric="visits" aria-pressed="false">Визиты</button>
+              <button type="button" data-report-team-metric="hours" aria-pressed="false">Часы</button>
+              <button type="button" data-report-team-metric="efficiency" aria-pressed="false">Выручка в час</button>
+            </div>
+            <p class="report-team-note" id="reportTeamMetricNote">Фактически полученная оплата за состоявшиеся визиты.</p>
             <div class="report-performer-list" id="reportPerformersList"><p class="report-empty-inline">Данные по мастерам появятся после завершённых визитов.</p></div>
           </section>
           <div class="report-insights-grid">
-            <section class="panel report-trend"><div class="panel-head"><div><small>Динамика</small><h3>Оплачено по дням</h3></div><small>Нажмите столбец, чтобы открыть расписание</small></div><div class="report-chart" id="reportRevenueChart"></div></section>
+            <section class="panel report-trend"><div class="panel-head"><div><small>Динамика</small><h3 id="reportTrendTitle">Получено по дням</h3><p id="reportTrendPeriod">Выбранный период</p></div><div class="report-chart-context"><strong id="reportTrendTotal">0 ₽</strong><small>Нажмите столбец, чтобы открыть расписание</small></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
             <section class="panel report-payments"><div class="panel-head"><div><small>Оплата</small><h3>Способы оплаты</h3></div></div><div id="reportPaymentsList"></div></section>
           </div>
           <section class="panel report-services"><div class="panel-head"><div><small>По услугам</small><h3>Доход и посещения</h3></div><small>Оплата и доля в доходе</small></div><div id="reportServicesList"></div></section>

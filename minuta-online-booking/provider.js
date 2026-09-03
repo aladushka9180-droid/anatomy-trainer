@@ -1640,6 +1640,7 @@ function resetReportSessionState() {
   reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0 };
   reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
   reportEventState = { key:'', rows:[], status:'idle' };
+  reportTeamMetric = 'revenue';
   document.body.classList.remove('report-scope-loading');
   const select = $('#reportPerformerFilter');
   if (select) select.disabled = false;
@@ -1868,6 +1869,7 @@ function renderReportRetention() {
 }
 
 let reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
+let reportTeamMetric = 'revenue';
 
 function reportPerformerName() {
   if (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all') return reportCanViewTeam ? 'Вся команда' : 'Личная статистика';
@@ -1963,14 +1965,52 @@ function renderReportTeamRows(rows) {
   panel.hidden = !allTeamSelected || !rows.length;
   if (!allTeamSelected) { holder.innerHTML = ''; return; }
   if (!rows.length) { holder.innerHTML = ''; return; }
-  holder.innerHTML = rows.map(row => {
+  const controls = $$('[data-report-team-metric]');
+  controls.forEach(button => {
+    const active = button.dataset.reportTeamMetric === reportTeamMetric;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    button.onclick = () => {
+      reportTeamMetric = button.dataset.reportTeamMetric || 'revenue';
+      renderReportTeamRows(reportTeamAnalyticsState.rows || []);
+    };
+  });
+  const metricNotes = {
+    revenue:'Фактически полученная оплата за состоявшиеся визиты.',
+    payroll:'Сумма к выплате по настроенной схеме начисления.',
+    visits:'Количество состоявшихся визитов.',
+    hours:'Фактическое время состоявшихся визитов.',
+    efficiency:'Полученная оплата за один фактически отработанный час.'
+  };
+  setReportText('#reportTeamMetricNote', metricNotes[reportTeamMetric] || metricNotes.revenue);
+  const metricValue = row => {
+    const visits = Math.max(0, Number(row.completed_visits) || 0);
+    const minutes = Math.max(0, Number(row.worked_minutes) || 0);
+    const revenue = Math.max(0, Number(row.revenue_rub) || 0);
+    if (reportTeamMetric === 'payroll') return row.payroll_rub === null || row.payroll_rub === undefined ? null : Math.max(0, Number(row.payroll_rub) || 0);
+    if (reportTeamMetric === 'visits') return visits;
+    if (reportTeamMetric === 'hours') return minutes / 60;
+    if (reportTeamMetric === 'efficiency') return minutes > 0 ? revenue / (minutes / 60) : 0;
+    return revenue;
+  };
+  const metricLabel = (value, row) => {
+    if (value === null) return 'Не настроено';
+    if (reportTeamMetric === 'visits') return `${Math.round(value)} ${reportVisitWord(value)}`;
+    if (reportTeamMetric === 'hours') return reportHours(Number(row.worked_minutes) || 0);
+    if (reportTeamMetric === 'efficiency') return `${money(Math.round(value))}/ч`;
+    return money(Math.round(value));
+  };
+  const rankedRows = rows.map(row => ({ row, value:metricValue(row) })).sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
+  const maximum = Math.max(1, ...rankedRows.map(item => item.value || 0));
+  holder.innerHTML = rankedRows.map((item, index) => {
+    const row = item.row;
     const visits = Math.max(0, Number(row.completed_visits) || 0);
     const clients = Math.max(0, Number(row.unique_clients) || 0);
     const minutes = Math.max(0, Number(row.worked_minutes) || 0);
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
-    const hasPayroll = Object.prototype.hasOwnProperty.call(row, 'payroll_rub') && row.payroll_rub !== null && Number.isFinite(Number(row.payroll_rub));
-    const selected = reportPerformerFilter === String(row.performer_id || '');
-    return `<article class="report-performer-row${selected ? ' is-selected' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><div><strong>${escapeHtml(row.performer_name || 'Мастер')}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)}</small></div><div><b>${money(Math.round(revenue))} выручки</b>${hasPayroll ? `<small>${money(Math.round(Number(row.payroll_rub)))} заработок сотрудника</small>` : '<small>Заработок не рассчитан · настройте начисление</small>'}<span aria-hidden="true">→</span></div></article>`;
+    const average = visits ? revenue / visits : 0;
+    const width = item.value === null ? 0 : Math.max(item.value > 0 ? 3 : 0, Math.round((item.value || 0) / maximum * 100));
+    return `<article class="report-performer-row${index === 0 && item.value !== null ? ' is-leader' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><div class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${money(Math.round(average))}/визит</small></div><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><div class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Настройте начисление</small>' : ''}</div><span class="report-team-arrow" aria-hidden="true">→</span></article>`;
   }).join('');
   holder.querySelectorAll('[data-report-performer]').forEach(row => {
     const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
@@ -2021,6 +2061,8 @@ function reportVisitWord(count) {
 function reportTrendMarkup(completed, range) {
   const chart = $('#reportRevenueChart');
   if (!chart) return;
+  const total = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+  setReportText('#reportTrendTotal', money(total));
   if (!completed.length) {
     chart.innerHTML = '<div class="report-empty-inline">После завершённых визитов здесь появится динамика.</div>';
     return;
@@ -2028,8 +2070,9 @@ function reportTrendMarkup(completed, range) {
   const start = parseLocalIsoDate(range.start);
   const end = parseLocalIsoDate(range.end);
   const totalDays = Math.max(1, Math.round((end - start) / 86400000) + 1);
-  const bucketCount = Math.min(12, totalDays);
-  const bucketDays = Math.ceil(totalDays / bucketCount);
+  const bucketDays = totalDays <= 14 ? 1 : totalDays <= 90 ? 7 : totalDays <= 730 ? 30 : 365;
+  const bucketCount = Math.ceil(totalDays / bucketDays);
+  setReportText('#reportTrendTitle', `Получено ${bucketDays === 1 ? 'по дням' : bucketDays === 7 ? 'по неделям' : bucketDays === 30 ? 'по месяцам' : 'по годам'}`);
   const buckets = Array.from({ length:bucketCount }, (_, index) => {
     const from = new Date(start.getTime() + index * bucketDays * 86400000);
     const to = new Date(Math.min(end.getTime(), from.getTime() + (bucketDays - 1) * 86400000));
@@ -2074,6 +2117,9 @@ function renderAnalytics() {
   const analyticsPanel = $('[data-provider-panel="analytics"]');
   if (analyticsPanel) analyticsPanel.dataset.reportEmpty = completed.length ? 'false' : 'true';
   $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
+  const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
+  setReportText('#reportTrendPeriod', visualPeriod);
+  setReportText('#reportTeamPeriod', visualPeriod);
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
