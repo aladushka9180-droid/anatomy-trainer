@@ -257,6 +257,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v46.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
