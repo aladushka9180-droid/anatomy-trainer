@@ -1901,6 +1901,7 @@ function renderAnalytics() {
   const utilizationPercent = renderReportUtilization(range, workedMinutes);
   renderReportRetention();
   loadReportTeamAnalytics(range);
+  loadReportEvents(range);
   const differenceText = adjustment > 0 ? `Доплаты и корректировки: +${money(adjustment)}` : adjustment < 0 ? `Недополучено: ${money(Math.abs(adjustment))}` : 'Расхождений нет';
   $('#reportReconciliation').innerHTML = `<div><small>Итог периода</small><strong>${money(completedValue)} стоимость визитов → ${money(revenue)} оплачено</strong></div><span class="${adjustment > 0 ? 'is-positive' : adjustment < 0 ? 'is-negative' : ''}">${differenceText}</span>`;
   reportTrendMarkup(completed, range);
@@ -1947,6 +1948,26 @@ function renderAnalytics() {
     }
     insight.innerHTML = `<small>Главное за период</small><p>${escapeHtml(messages.join(' '))}</p>`;
   }
+}
+
+let reportEventState = { key:'', rows:[], status:'idle' };
+function reportEventTitle(event) {
+  const labels={booking_created_online:'Новая онлайн-запись',booking_created_manual:'Запись создана мастером',booking_created_admin:'Запись создана администратором',booking_rescheduled:'Запись перенесена',booking_cancelled:'Запись отменена',booking_restored:'Запись восстановлена',service_changed:'Услуга изменена',performer_changed:'Мастер изменён',duration_changed:'Длительность изменена',visit_completed:'Визит отмечен как состоявшийся',visit_no_show:'Клиент не пришёл',visit_reopened:'Результат визита отменён',payment_received:'Получена оплата',payment_adjusted:'Оплата скорректирована',payment_method_changed:'Способ оплаты изменён',booking_updated:'Запись изменена'};
+  return `${labels[event.event_type]||'Запись изменена'} · ${event.client_name||'Клиент'} · ${event.service_name||'Услуга'}`;
+}
+function reportEventEffect(event) {
+  const parts=[],add=(value,label)=>{const amount=Number(value||0);if(amount)parts.push(`${amount>0?'+':'−'}${money(Math.abs(amount))} ${label}`);};
+  add(event.delta_planned_rub,'к плану');add(event.delta_completed_rub,'оказано');add(event.delta_received_rub,'получено');const minutes=Number(event.delta_duration_minutes||0);if(minutes)parts.push(`${minutes>0?'+':'−'}${Math.abs(minutes)} мин`);return parts.join(' · ')||'Финансовые показатели не изменились';
+}
+function renderReportEvents(rows) {
+  const panel=$('#reportLastChange'),list=$('#reportEventList');if(!panel||!list)return;panel.hidden=!rows.length;if(!rows.length){list.innerHTML='';return;}
+  const latest=rows[0],date=new Date(latest.occurred_at);$('#reportLastChangeTime').textContent=date.toLocaleString('ru-RU',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});$('#reportLastChangeTime').dateTime=latest.occurred_at;$('#reportLastChangeTitle').textContent=reportEventTitle(latest);$('#reportLastChangeEffect').textContent=reportEventEffect(latest);$('#reportLastChangeActor').textContent=`Изменил: ${latest.actor_name||'Система'} · синхронизировано`;
+  list.innerHTML=rows.map(event=>`<article><time>${new Date(event.occurred_at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</time><div><strong>${escapeHtml(reportEventTitle(event))}</strong><span>${escapeHtml(reportEventEffect(event))}</span><small>${escapeHtml(event.actor_name||'Система')}</small></div></article>`).join('');
+}
+async function loadReportEvents(range) {
+  const organizationId=organizationController?.getActiveOrganization?.()?.id||'',key=`${organizationId}:${range.start}:${range.end}`;
+  if(!organizationId||!currentUser||!navigator.onLine){renderReportEvents(reportEventState.key===key?reportEventState.rows:[]);return;}if(reportEventState.key===key&&reportEventState.status==='ready'){renderReportEvents(reportEventState.rows);return;}
+  reportEventState={key,rows:[],status:'loading'};const {data,error}=await db.rpc('get_minuta_booking_events',{p_organization:organizationId,p_start:range.start,p_end:range.end,p_limit:100});if(reportEventState.key!==key)return;reportEventState=error?{key,rows:[],status:'failed'}:{key,rows:Array.isArray(data?.events)?data.events:[],status:'ready'};renderReportEvents(reportEventState.rows);
 }
 
 function reportXmlText(value) {
@@ -2045,25 +2066,123 @@ function reportWorkbook(rows) {
   });
 }
 
-function exportBookingsXlsx() {
-  const header = ['Дата', 'Время', 'Клиент', 'Телефон', 'Услуга', 'Статус записи', 'Результат визита', 'Оплата', 'Получено, ₽', 'Стоимость услуги, ₽'];
-  const rows = reportBookings().map(item => {
-    const outcome = bookingOutcome(item);
-    const visit = outcome.visit_status === 'completed' ? 'Состоялся' : outcome.visit_status === 'no_show' ? 'Не пришёл' : 'Запланирован';
-    const block = isScheduleBlock(item);
-    return [item.booking_date, String(item.booking_time).slice(0, 5), item.client_name, block ? '' : item.client_phone, block ? 'Занятое время' : bookingSession(item).map(entry => entry.title).join(' + '), bookingStatus(item, true), block ? '—' : visit, block ? '—' : paymentMethodLabel(outcome.payment_method, outcome.completion_source), block ? 0 : (outcome.amount_rub || 0), block ? 0 : bookingSessionTotal(item)];
-  });
-  const url = URL.createObjectURL(reportWorkbook([header, ...rows]));
-  const link = document.createElement('a');
-  link.href = url;
+function reportExportCell(value, style = 5) { return { value, style }; }
+function reportExportDate(value) { return value ? new Intl.DateTimeFormat('ru-RU', { day:'2-digit', month:'2-digit', year:'numeric' }).format(parseLocalIsoDate(value)) : ''; }
+function reportExportPhone(value, privacy) {
+  if (privacy === 'none') return '';
+  const digits = normalizePhone(value);
+  if (!digits) return String(value || '');
+  const local = digits.startsWith('7') && digits.length === 11 ? digits.slice(1) : digits;
+  if (privacy === 'masked') return `+7 *** ***-${local.slice(-4,-2)}-${local.slice(-2)}`;
+  return local.length === 10 ? `+7 (${local.slice(0,3)}) ${local.slice(3,6)}-${local.slice(6,8)}-${local.slice(8)}` : `+${digits}`;
+}
+function reportExportDuration(item) {
+  const outcome = bookingOutcome(item);
+  const planned = Math.max(0, Number(item.duration_minutes) || bookingSessionDuration(bookingSession(item)) || 0);
+  return outcome.visit_status === 'completed' && Number(outcome.actual_duration_minutes) > 0 ? Number(outcome.actual_duration_minutes) : planned;
+}
+function reportExportValue(item) {
+  const outcome = bookingOutcome(item);
+  if (isPerMinuteBooking(item)) return Math.max(0, Math.round(Number(outcome.calculated_amount_rub) || bookingMinuteRate(item) * reportExportDuration(item)));
+  return Math.max(0, Math.round(bookingSessionTotal(item)));
+}
+function reportExportEnd(item, duration) {
+  const [hours, minutes] = String(item.booking_time || '00:00').slice(0,5).split(':').map(Number);
+  const total = Math.max(0, hours * 60 + minutes + duration);
+  return `${String(Math.floor(total / 60) % 24).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
+}
+function reportExportSource(item) { return item.booking_source === 'client_online' ? 'Онлайн' : item.booking_source === 'provider_manual' ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено'; }
+function reportExportVisit(item) {
+  const status = bookingOutcome(item).visit_status;
+  return status === 'completed' ? 'Состоялся' : status === 'no_show' ? 'Не пришёл' : item.status === 'cancelled' ? 'Отменён' : 'Запланирован';
+}
+function reportExportPerformers() { return new Map((reportTeamAnalyticsState.rows || []).map(row => [String(row.performer_id || ''), row.performer_name || 'Мастер'])); }
+function reportExportMaster(item, performers) { return performers.get(String(item.performer_id || '')) || 'Мастер'; }
+function reportExportCreator(item, performers) {
+  if (item.booking_source === 'client_online') return 'Клиент';
+  if (item.created_by_user_id && performers.has(String(item.created_by_user_id))) return performers.get(String(item.created_by_user_id));
+  return item.booking_source === 'provider_manual' ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено';
+}
+function reportExportData(privacy = 'masked') {
   const range = reportRange();
-  link.download = `записи-${range.start}-${range.end}.xlsx`;
-  link.hidden = true;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  notify('Отчёт Excel скачан');
+  const items = reportBookings(range).filter(item => !isScheduleBlock(item));
+  const completed = reportCompletedItems(items);
+  const revenue = reportRevenue(completed);
+  const completedValue = completed.reduce((sum,item) => sum + reportExportValue(item),0);
+  const debt = completed.reduce((sum,item) => sum + Math.max(0,reportExportValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0);
+  const workedMinutes = completed.reduce((sum,item) => sum + reportExportDuration(item),0);
+  const average = completed.length ? Math.round(revenue/completed.length) : 0;
+  const clients = reportClientMetrics(completed,range);
+  const sources = reportSourceMetrics(items);
+  const performers = reportExportPerformers();
+  const headers = ['Дата','Начало','Окончание','Клиент','Телефон','Услуга','Мастер','Длительность, мин','Ставка, ₽/мин','Стоимость, ₽','Получено, ₽','Долг, ₽','Оплата','Результат визита','Источник','Кто создал','Комментарий'];
+  const rows = items.map(item => {
+    const outcome = bookingOutcome(item), duration = reportExportDuration(item), value = reportExportValue(item);
+    return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,Number(outcome.amount_rub || 0),outcome.visit_status === 'completed' ? Math.max(0,value-Number(outcome.amount_rub || 0)) : 0,paymentMethodLabel(outcome.payment_method,outcome.completion_source),reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),item.note || item.comment || ''];
+  });
+  let team = (reportTeamAnalyticsState.rows || []).map(row => [row.performer_name || 'Мастер',Number(row.completed_visits || 0),Number(row.unique_clients || 0),Math.round(Number(row.worked_minutes || 0)),Math.round(Number(row.revenue_rub || 0)),Number(row.completed_visits || 0) ? Math.round(Number(row.revenue_rub || 0)/Number(row.completed_visits)) : 0,row.payroll_rub === null || row.payroll_rub === undefined ? 'Не рассчитано' : Math.round(Number(row.payroll_rub || 0))]);
+  if (!team.length) {
+    const grouped = new Map();
+    completed.forEach(item => { const key = String(item.performer_id || 'master'), row = grouped.get(key) || { name:reportExportMaster(item,performers),visits:0,clients:new Set(),minutes:0,revenue:0 }; row.visits += 1; row.clients.add(reportClientIdentity(item)); row.minutes += reportExportDuration(item); row.revenue += Number(bookingOutcome(item).amount_rub || 0); grouped.set(key,row); });
+    team = [...grouped.values()].map(row => [row.name,row.visits,[...row.clients].filter(Boolean).length,row.minutes,row.revenue,row.visits ? Math.round(row.revenue/row.visits) : 0,'Не рассчитано']);
+  }
+  const periodKeys = new Set(completed.map(reportClientIdentity).filter(Boolean));
+  const groups = new Map();
+  reportCompletedItems(allBookings.filter(item => !isScheduleBlock(item))).forEach(item => {
+    const key = reportClientIdentity(item); if (!key || !periodKeys.has(key)) return;
+    const row = groups.get(key) || { name:item.client_name || 'Без имени',phone:item.client_phone || '',visits:0,revenue:0,first:item.booking_date,last:item.booking_date };
+    row.visits += 1; row.revenue += Number(bookingOutcome(item).amount_rub || 0); if (item.booking_date < row.first) row.first=item.booking_date; if (item.booking_date > row.last) row.last=item.booking_date; groups.set(key,row);
+  });
+  const clientRows = [...groups.values()].sort((a,b) => b.revenue-a.revenue).map(row => { const days=Math.max(0,Math.round((parseLocalIsoDate(range.end)-parseLocalIsoDate(row.last))/86400000)); return [row.name,reportExportPhone(row.phone,privacy),reportExportDate(row.first),reportExportDate(row.last),row.visits,row.revenue,row.visits?Math.round(row.revenue/row.visits):0,days,days>=60?'Давно не приходил':row.first>=range.start?'Новый':row.visits>=2?'Постоянный':'Разовый']; });
+  return { range,items,completed,revenue,completedValue,debt,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:reportEventState.rows||[] };
+}
+function reportExportSheet(rows, options) {
+  const body = rows.map((row,rowIndex) => `<row r="${rowIndex+1}"${options.heights?.[rowIndex+1] ? ` ht="${options.heights[rowIndex+1]}" customHeight="1"` : ''}>${row.map((raw,columnIndex) => { if (raw === '' || raw === null || raw === undefined) return ''; const cell = raw && typeof raw === 'object' && 'value' in raw ? raw : reportExportCell(raw); const ref=`${reportColumnName(columnIndex)}${rowIndex+1}`; return typeof cell.value === 'number' && Number.isFinite(cell.value) ? `<c r="${ref}" s="${cell.style}"><v>${cell.value}</v></c>` : `<c r="${ref}" t="inlineStr" s="${cell.style}"><is><t xml:space="preserve">${reportXmlText(cell.value)}</t></is></c>`; }).join('')}</row>`).join('');
+  const columns = options.widths.map((width,index) => `<col min="${index+1}" max="${index+1}" width="${width}" customWidth="1"/>`).join('');
+  const merges = (options.merges || []).map(ref => `<mergeCell ref="${ref}"/>`).join('');
+  const freeze = options.freeze || 0;
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView showGridLines="0" workbookViewId="0">${freeze?`<pane ySplit="${freeze}" topLeftCell="A${freeze+1}" activePane="bottomLeft" state="frozen"/>`:''}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols>${columns}</cols><sheetData>${body}</sheetData>${merges?`<mergeCells count="${options.merges.length}">${merges}</mergeCells>`:''}${options.filter?`<autoFilter ref="${options.filter}"/>`:''}<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+}
+function reportProfessionalWorkbook(sheets) {
+  const overrides=sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('');
+  const sheetList=sheets.map((sheet,i)=>`<sheet name="${reportXmlText(sheet.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('');
+  const rels=sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('');
+  const files={
+    '[Content_Types].xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${overrides}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+    '_rels/.rels':'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/workbook.xml':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>${sheetList}</sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels':`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+    'xl/styles.xml':'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="# ##0 &quot;₽&quot;"/></numFmts><fonts count="6"><font><sz val="11"/><color rgb="FF332923"/><name val="Aptos"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="18"/><name val="Aptos Display"/></font><font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Aptos"/></font><font><b/><color rgb="FFA9664C"/><sz val="11"/><name val="Aptos"/></font><font><color rgb="FF78695F"/><sz val="10"/><name val="Aptos"/></font><font><b/><color rgb="FF332923"/><sz val="11"/><name val="Aptos"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFA9664C"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2E6DD"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFDFA"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFEADFD4"/></left><right style="thin"><color rgb="FFEADFD4"/></right><top style="thin"><color rgb="FFEADFD4"/></top><bottom style="thin"><color rgb="FFEADFD4"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="11"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="4" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="164" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/><xf numFmtId="164" fontId="5" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/></cellXfs><cellStyles count="1"><cellStyle name="Обычный" xfId="0" builtinId="0"/></cellStyles></styleSheet>'
+  };
+  sheets.forEach((sheet,index)=>{files[`xl/worksheets/sheet${index+1}.xml`]=reportExportSheet(sheet.rows,sheet.options);});
+  return reportZip(files);
+}
+function reportExportSheets(data) {
+  const period=`${reportExportDate(data.range.start)} — ${reportExportDate(data.range.end)}`, totalSources=data.sources.online+data.sources.manual+data.sources.unknown;
+  const cancelled=data.items.filter(item=>item.status==='cancelled').length, noShow=data.items.filter(item=>bookingOutcome(item).visit_status==='no_show').length;
+  const summary=[[reportExportCell('ОТЧЁТ «МИНУТА — ОНЛАЙН-ЗАПИСЬ»',1)],[reportExportCell(`Период: ${period} · сформирован ${new Date().toLocaleString('ru-RU')}`,2)],[],[reportExportCell('ФИНАНСЫ',3)],[reportExportCell('Получено',5),reportExportCell(data.revenue,10),'',reportExportCell('Оказано услуг на',5),reportExportCell(data.completedValue,10)],[reportExportCell('Долг',5),reportExportCell(data.debt,10),'',reportExportCell('Средний чек',5),reportExportCell(data.average,10)],[],[reportExportCell('ВИЗИТЫ И КЛИЕНТЫ',3)],[reportExportCell('Состоялось',5),reportExportCell(data.completed.length,6),'',reportExportCell('Уникальных клиентов',5),reportExportCell(data.clients.uniqueClients,6)],[reportExportCell('Отменено',5),reportExportCell(cancelled,6),'',reportExportCell('Новых клиентов',5),reportExportCell(data.clients.newClients,6)],[reportExportCell('Не пришли',5),reportExportCell(noShow,6),'',reportExportCell('Вернувшихся клиентов',5),reportExportCell(data.clients.returningClients,6)],[reportExportCell('Отработано',5),reportExportCell(reportHours(data.workedMinutes),6)],[],[reportExportCell('ИСТОЧНИК ЗАПИСИ',3)],[reportExportCell('Онлайн',5),reportExportCell(data.sources.online,6),reportExportCell(reportShare(data.sources.online,totalSources),8),reportExportCell('Создано вручную',5),reportExportCell(data.sources.manual,6),reportExportCell(reportShare(data.sources.manual,totalSources),8)],[reportExportCell('Не определено',5),reportExportCell(data.sources.unknown,6),reportExportCell(reportShare(data.sources.unknown,totalSources),8)],[],[reportExportCell('КОНТРОЛЬ',3)],[reportExportCell('Сверка денег',5),reportExportCell(`${data.completedValue.toLocaleString('ru-RU')} ₽ оказано → ${data.revenue.toLocaleString('ru-RU')} ₽ получено`,9)],[reportExportCell('Правило',5),reportExportCell('Будущие и отменённые записи не входят в полученную выручку. Для поминутной услуги итог равен ставке за минуту × длительность.',9)]];
+  const detail=[[reportExportCell('ДЕТАЛЬНЫЙ РЕЕСТР ЗАПИСЕЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],data.headers.map(value=>reportExportCell(value,4)),...data.rows.map(row=>row.map((value,index)=>reportExportCell(value,index>=8&&index<=11?7:index===7?6:5)))];
+  const teamHeaders=['Мастер','Визиты','Клиенты','Отработано, мин','Выручка, ₽','Средний чек, ₽','Начислено, ₽'];
+  const team=[[reportExportCell('РЕЗУЛЬТАТЫ МАСТЕРОВ',1)],[reportExportCell(`Период: ${period}`,2)],[],teamHeaders.map(value=>reportExportCell(value,4)),...data.team.map(row=>row.map((value,index)=>reportExportCell(value,index>=4&&typeof value==='number'?7:index>0?6:5)))];
+  const clientHeaders=['Клиент','Телефон','Первый визит','Последний визит','Визиты','Получено, ₽','Средний чек, ₽','Дней без визита','Статус'];
+  const clients=[[reportExportCell('КЛИЕНТЫ ЗА ПЕРИОД',1)],[reportExportCell(`Период: ${period}`,2)],[],clientHeaders.map(value=>reportExportCell(value,4)),...data.clientRows.map(row=>row.map((value,index)=>reportExportCell(value,index===5||index===6?7:index===4||index===7?6:5)))];
+  const historyHeaders=['Дата и время','Событие','Клиент','Услуга','Мастер','Кто изменил','План, ₽','Оказано, ₽','Получено, ₽','Минуты'];
+  const history=[[reportExportCell('ИСТОРИЯ ИЗМЕНЕНИЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],historyHeaders.map(value=>reportExportCell(value,4)),...data.events.map(event=>[new Date(event.occurred_at).toLocaleString('ru-RU'),reportEventTitle(event),event.client_name||'Клиент',event.service_name||'Услуга',event.performer_name||'Мастер',event.actor_name||'Система',Number(event.delta_planned_rub||0),Number(event.delta_completed_rub||0),Number(event.delta_received_rub||0),Number(event.delta_duration_minutes||0)].map((value,index)=>reportExportCell(value,index>=6&&index<=8?7:index===9?6:5)))];
+  return [{name:'Сводка',rows:summary,options:{widths:[26,24,14,27,24,18],merges:['A1:F1','A2:F2','A4:F4','A8:F8','A14:F14','A18:F18'],heights:{1:34,2:24},freeze:2}},{name:'Записи',rows:detail,options:{widths:[13,10,11,24,20,38,22,16,16,17,17,15,18,19,17,22,30],merges:['A1:Q1','A2:Q2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:Q${Math.max(4,detail.length)}`}},{name:'Мастера',rows:team,options:{widths:[28,14,14,20,20,20,20],merges:['A1:G1','A2:G2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:G${Math.max(4,team.length)}`}},{name:'Клиенты',rows:clients,options:{widths:[28,21,16,16,14,20,20,19,22],merges:['A1:I1','A2:I2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:I${Math.max(4,clients.length)}`}},{name:'История изменений',rows:history,options:{widths:[22,38,24,34,24,24,16,16,16,14],merges:['A1:J1','A2:J2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:J${Math.max(4,history.length)}`}}];
+}
+function reportExportFilename(range,extension){return `Отчёт_Минута_${reportExportDate(range.start).replaceAll('.','-')}_${reportExportDate(range.end).replaceAll('.','-')}.${extension}`;}
+function reportExportDownload(blob,filename){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;link.hidden=true;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
+function exportBookingsXlsx(privacy='masked'){const data=reportExportData(privacy);reportExportDownload(reportProfessionalWorkbook(reportExportSheets(data)),reportExportFilename(data.range,'xlsx'));notify('Готовый отчёт Excel скачан');}
+function exportBookingsCsv(privacy='masked'){const data=reportExportData(privacy),quote=value=>`"${String(value??'').replaceAll('"','""')}"`,csv=[data.headers,...data.rows].map(row=>row.map(quote).join(';')).join('\r\n');reportExportDownload(new Blob([`\ufeff${csv}`],{type:'text/csv;charset=utf-8'}),reportExportFilename(data.range,'csv'));notify('Таблица CSV скачана');}
+function reportPdfText(ctx,text,x,y,maxWidth){let value=String(text??'');if(ctx.measureText(value).width<=maxWidth){ctx.fillText(value,x,y);return;}while(value.length&&ctx.measureText(`${value}…`).width>maxWidth)value=value.slice(0,-1);ctx.fillText(`${value}…`,x,y);}
+function reportPdfPage(title,subtitle){const canvas=document.createElement('canvas');canvas.width=1600;canvas.height=1131;const ctx=canvas.getContext('2d');ctx.fillStyle='#f6f1ea';ctx.fillRect(0,0,1600,1131);ctx.fillStyle='#a9664c';ctx.fillRect(55,45,1490,105);ctx.fillStyle='#fff';ctx.font='700 34px Arial';ctx.fillText(title,85,92);ctx.font='20px Arial';ctx.fillText(subtitle,85,128);return {canvas,ctx};}
+function reportPdfImageBytes(canvas){const base64=canvas.toDataURL('image/jpeg',.92).split(',')[1],binary=atob(base64),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i+=1)bytes[i]=binary.charCodeAt(i);return bytes;}
+function reportPdfBlob(images){const encoder=new TextEncoder(),objects=[],pageIds=images.map((_,i)=>3+i*3);objects[0]=encoder.encode('<< /Type /Catalog /Pages 2 0 R >>');objects[1]=encoder.encode(`<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] /Count ${images.length} >>`);images.forEach((image,index)=>{const pageId=pageIds[index],contentId=pageId+1,imageId=pageId+2,content=`q 842 0 0 595 0 0 cm /Im${index+1} Do Q`;objects[pageId-1]=encoder.encode(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /XObject << /Im${index+1} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);objects[contentId-1]=encoder.encode(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);const head=encoder.encode(`<< /Type /XObject /Subtype /Image /Width 1600 /Height 1131 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.length} >>\nstream\n`),tail=encoder.encode('\nendstream');objects[imageId-1]=new Blob([head,image,tail]);});const chunks=[encoder.encode('%PDF-1.4\n%PDF\n')],offsets=[0];let offset=chunks[0].length;objects.forEach((object,index)=>{offsets[index+1]=offset;const head=encoder.encode(`${index+1} 0 obj\n`),tail=encoder.encode('\nendobj\n');chunks.push(head,object,tail);offset+=head.length+(object.size??object.length)+tail.length;});const xref=offset;let table=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let i=1;i<=objects.length;i+=1)table+=`${String(offsets[i]).padStart(10,'0')} 00000 n \n`;chunks.push(encoder.encode(`${table}trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`));return new Blob(chunks,{type:'application/pdf'});}
+function exportBookingsPdf(privacy='masked'){
+  const data=reportExportData(privacy),period=`${reportExportDate(data.range.start)} — ${reportExportDate(data.range.end)}`,images=[];
+  let page=reportPdfPage('Отчёт «Минута»',`Период: ${period}`),ctx=page.ctx;const cards=[['Получено',money(data.revenue)],['Оказано на',money(data.completedValue)],['Визиты',data.completed.length],['Клиенты',data.clients.uniqueClients]];cards.forEach((card,index)=>{const x=55+index*378;ctx.fillStyle='#fffdfa';ctx.fillRect(x,180,352,125);ctx.fillStyle='#78695f';ctx.font='20px Arial';ctx.fillText(card[0],x+22,218);ctx.fillStyle='#332923';ctx.font='700 32px Arial';ctx.fillText(String(card[1]),x+22,270);});ctx.fillStyle='#332923';ctx.font='700 26px Arial';ctx.fillText('Результаты мастеров',55,365);const teamHeaders=['Мастер','Визиты','Клиенты','Минуты','Выручка','Средний чек'];ctx.font='700 17px Arial';teamHeaders.forEach((value,index)=>ctx.fillText(value,65+[0,460,610,760,940,1170][index],410));ctx.font='17px Arial';data.team.slice(0,12).forEach((row,rowIndex)=>{const y=450+rowIndex*45;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-28,1490,40);ctx.fillStyle='#332923';row.slice(0,6).forEach((value,index)=>reportPdfText(ctx,index>=4&&typeof value==='number'?money(value):value,65+[0,460,610,760,940,1170][index],y,index===0?390:190));});images.push(reportPdfImageBytes(page.canvas));
+  const perPage=22;for(let start=0;start<data.rows.length;start+=perPage){page=reportPdfPage('Реестр записей',`${period} · строки ${start+1}–${Math.min(start+perPage,data.rows.length)}`);ctx=page.ctx;const columns=[['Дата',0,120],['Время',125,90],['Клиент',220,260],['Услуга',485,420],['Мастер',910,210],['Мин.',1125,80],['Получено',1210,155],['Результат',1370,170]];ctx.fillStyle='#332923';ctx.font='700 16px Arial';columns.forEach(column=>ctx.fillText(column[0],60+column[1],190));ctx.font='15px Arial';data.rows.slice(start,start+perPage).forEach((row,rowIndex)=>{const y=230+rowIndex*38;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-25,1490,34);ctx.fillStyle='#332923';const values=[row[0],row[1],row[3],row[5],row[6],row[7],money(row[10]),row[13]];values.forEach((value,index)=>reportPdfText(ctx,value,60+columns[index][1],y,columns[index][2]-10));});images.push(reportPdfImageBytes(page.canvas));}
+  reportExportDownload(reportPdfBlob(images),reportExportFilename(data.range,'pdf'));notify('Готовый отчёт PDF скачан');
 }
 
 async function exportBookingsXlsxInBackground() {
@@ -7670,7 +7789,16 @@ $('#connectionLogRefresh').addEventListener('click', manualSynchronizeProvider);
 $$('[data-close-connection-log]').forEach(button => button.addEventListener('click', () => $('#connectionLogDialog').close()));
 $('#clearConnectionLog').addEventListener('click', () => { try { localStorage.removeItem(connectionLogKey()); } catch {} lastConnectionLogSignature = ''; renderConnectionLog(); });
 $('#refreshNotifications').addEventListener('click', synchronizeProvider);
-$('#exportBookings').addEventListener('click', exportBookingsXlsxInBackground);
+$('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
+$$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));
+$('#reportExportDialog').addEventListener('click', event => { if (event.target === event.currentTarget) event.currentTarget.close(); });
+$$('[data-report-export]').forEach(button => button.addEventListener('click', () => {
+  const privacy = $('#reportExportPrivacy').value;
+  $('#reportExportDialog').close();
+  if (button.dataset.reportExport === 'xlsx') exportBookingsXlsx(privacy);
+  else if (button.dataset.reportExport === 'csv') exportBookingsCsv(privacy);
+  else exportBookingsPdf(privacy);
+}));
 $('#reportCustomPeriod').addEventListener('submit', event => {
   event.preventDefault();
   const start = $('#reportDateFrom').value;

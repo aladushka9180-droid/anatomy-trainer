@@ -334,11 +334,22 @@
 
         <section class="provider-view" data-provider-panel="analytics" hidden>
           <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="primary compact-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать отчёт</span></button></div>
+          <dialog class="report-export-dialog" id="reportExportDialog" aria-labelledby="reportExportTitle">
+            <div class="report-export-head"><div><small>Готовый документ</small><h3 id="reportExportTitle">Скачать отчёт</h3><p>Выберите формат и уровень видимости телефонов клиентов.</p></div><button type="button" data-close-report-export aria-label="Закрыть">×</button></div>
+            <label class="report-export-privacy">Телефоны в отчёте<select id="reportExportPrivacy"><option value="masked" selected>Показывать частично</option><option value="full">Показывать полностью</option><option value="none">Не добавлять телефоны</option></select></label>
+            <div class="report-export-formats">
+              <button type="button" data-report-export="xlsx"><span class="report-export-format-icon">X</span><span><strong>Excel (.xlsx)</strong><small>Сводка, записи, мастера и клиенты</small></span><b>Рекомендуется</b></button>
+              <button type="button" data-report-export="csv"><span class="report-export-format-icon">C</span><span><strong>CSV (.csv)</strong><small>Простая таблица для импорта</small></span></button>
+              <button type="button" data-report-export="pdf"><span class="report-export-format-icon">P</span><span><strong>PDF (.pdf)</strong><small>Готовый документ для просмотра и печати</small></span></button>
+            </div>
+            <p class="report-export-note">Excel может открыть скачанный файл в защищённом режиме — это стандартная защита Windows.</p>
+          </dialog>
           <p class="view-description">Стоимость состоявшихся визитов и фактически полученная оплата учитываются отдельно.</p>
           <div class="report-periods" aria-label="Период отчёта"><button class="active" type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="all">Всё время</button><button type="button" data-report-period="custom">Выбрать даты</button></div>
           <form class="report-custom-period" id="reportCustomPeriod" hidden><label>С<input id="reportDateFrom" type="date" required></label><label>По<input id="reportDateTo" type="date" required></label><button class="secondary-button" type="submit">Показать</button></form>
           <p class="report-period-label" id="reportPeriodLabel"></p>
           <section class="report-insight" id="reportInsight" aria-live="polite"><small>Главное за период</small><p>Статистика появится после первых завершённых визитов.</p></section>
+          <section class="report-last-change" id="reportLastChange" hidden aria-live="polite"><div class="report-last-change-label"><small>Последнее изменение</small><time id="reportLastChangeTime"></time></div><div class="report-last-change-main"><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><small id="reportLastChangeActor"></small></div><details class="report-event-history"><summary>Все изменения</summary><div class="report-event-list" id="reportEventList"></div></details></section>
           <div class="report-summary">
             <article><small>Оплачено</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
             <article><small>Стоимость визитов</small><strong id="reportCompletedValue">0 ₽</strong><span>По завершённым визитам</span></article>
