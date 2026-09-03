@@ -33,6 +33,9 @@ assert.match(clientImport, /import_minuta_clients/);
 assert.match(clientImport, /p_source_system:'other'/);
 assert.match(clientImport, /showMapping\(pendingTable\)/);
 assert.match(clientImport, /applyManualMapping/);
+assert.match(clientImport, /мобильный номер/);
+assert.match(clientImport, /const IMPORT_BATCH_SIZE = 500/);
+assert.match(clientImport, /preview\.rows\.slice\(offset, offset \+ IMPORT_BATCH_SIZE\)/);
 assert.match(provider, /importedClients\.forEach/);
 assert.match(provider, /clientImportController\.setOrganization\(organization\)/);
 assert.match(html, /id="clientImportPanel"[\s\S]*Импорт клиентов[\s\S]*id="clientImportFile"[\s\S]*id="clientImportMapping"[\s\S]*client-import\.js\?v=\d+/);
@@ -46,5 +49,18 @@ const manuallyMapped = context.window.MinutaClientImport.mapRows([
 ], { name:0, phone:1 });
 assert.equal(manuallyMapped.rows[0].name, 'Анна');
 assert.equal(manuallyMapped.rows[0].phone, '79991112233');
+const exportedFormat = context.window.MinutaClientImport.mapRows([
+  ['Имя клиента','Фамилия клиента','Мобильный номер','Количество записей','Потрачено'],
+  ['Анна','Иванова','+7 999 111-22-33','12','25000']
+]);
+assert.equal(exportedFormat.rows[0].name, 'Анна Иванова');
+assert.equal(exportedFormat.rows[0].phone, '79991112233');
+assert.equal(exportedFormat.rows[0].visit_count, 12);
+assert.equal(exportedFormat.rows[0].total_spent_rub, 25000);
+const largeExport = [
+  ['Имя клиента','Мобильный номер'],
+  ...Array.from({ length:501 }, (_, index) => [`Клиент ${index + 1}`, String(79000000000 + index)])
+];
+assert.equal(context.window.MinutaClientImport.mapRows(largeExport).rows.length, 501);
 
 console.log('v95 client import static checks passed');

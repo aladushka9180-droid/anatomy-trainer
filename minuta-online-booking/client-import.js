@@ -3,17 +3,20 @@
 
   const FIELD_ALIASES = Object.freeze({
     name:['имя','фио','клиент','имя клиента','client','client name','name','full name'],
-    phone:['телефон','номер телефона','мобильный телефон','phone','phone number','mobile','client phone'],
+    surname:['фамилия','фамилия клиента','surname','last name','family name'],
+    phone:['телефон','номер телефона','мобильный телефон','мобильный номер','phone','phone number','mobile','mobile number','client phone'],
     email:['email','e-mail','электронная почта','почта'],
     note:['комментарий','заметка','примечание','комментарий о клиенте','comment','note','notes'],
     birthday:['дата рождения','день рождения','birthday','birth date','date of birth'],
-    visit_count:['визиты','количество визитов','число визитов','посещения','visits','visit count'],
-    total_spent_rub:['потратил','оплатил','сумма оплат','всего оплачено','выручка','total spent','paid'],
+    visit_count:['визиты','количество визитов','количество записей','число визитов','посещения','visits','visit count','booking count'],
+    total_spent_rub:['потратил','потрачено','оплатил','сумма оплат','всего оплачено','выручка','total spent','paid'],
     last_visit_on:['последний визит','дата последнего визита','last visit','last visit date'],
     external_id:['id клиента','client id','ид клиента','идентификатор клиента','id'],
     marketing_consent:['согласен на получение рассылок','согласие на рассылку','marketing consent','newsletter consent'],
     personal_data_consent:['согласен на обработку персональных данных','согласие на обработку персональных данных','personal data consent']
   });
+  const IMPORT_BATCH_SIZE = 500;
+  const IMPORT_MAX_ROWS = 20000;
 
   function uuid() {
     if (global.crypto?.randomUUID) return global.crypto.randomUUID();
@@ -112,7 +115,7 @@
     table.slice(1).forEach((row, offset) => {
       const get = field => indexes[field] >= 0 ? String(row[indexes[field]] || '').trim() : '';
       const phone = normalizePhone(get('phone'));
-      const name = get('name').slice(0, 80);
+      const name = [get('name'), get('surname')].filter(Boolean).join(' ').trim().slice(0, 80);
       if (!phone || !name) { invalid.push(offset + 2); return; }
       clients.set(phone, {
         phone, display_phone:get('phone').slice(0,24), name,
@@ -125,7 +128,7 @@
     });
     const rows = [...clients.values()];
     if (!rows.length) throw new Error('Не найдено ни одного клиента с корректным именем и телефоном.');
-    if (rows.length > 500) throw new Error('За один раз можно импортировать не больше 500 уникальных клиентов.');
+    if (rows.length > IMPORT_MAX_ROWS) throw new Error(`За один раз можно импортировать не больше ${IMPORT_MAX_ROWS} уникальных клиентов.`);
     return { rows, invalid, duplicateCount:Math.max(0, table.length - 1 - invalid.length - rows.length), headers };
   }
 
@@ -250,22 +253,39 @@
       event.preventDefault();
       if (!preview?.rows?.length || !organization?.id || !requireWrites()) return;
       const button = $('#clientImportSubmit');
+      const originalCaption = button.textContent;
+      const totalCount = preview.rows.length;
       button.disabled = true;
+      let processedCount = 0;
+      let createdCount = 0;
+      let updatedCount = 0;
       try {
-        const { data, error } = await db.rpc('import_minuta_clients', {
-          p_organization:organization.id,p_source_system:'other',
-          p_rows:preview.rows,p_request_id:uuid()
-        });
-        if (error) throw error;
-        notify(`Импортировано: ${Number(data?.created_count || 0)} новых, ${Number(data?.updated_count || 0)} обновлено`);
+        for (let offset = 0; offset < totalCount; offset += IMPORT_BATCH_SIZE) {
+          const batch = preview.rows.slice(offset, offset + IMPORT_BATCH_SIZE);
+          button.textContent = `Импортируем ${Math.min(offset + batch.length, totalCount)} из ${totalCount}`;
+          const { data, error } = await db.rpc('import_minuta_clients', {
+            p_organization:organization.id,p_source_system:'other',
+            p_rows:batch,p_request_id:uuid()
+          });
+          if (error) throw error;
+          processedCount += batch.length;
+          createdCount += Number(data?.created_count || 0);
+          updatedCount += Number(data?.updated_count || 0);
+        }
+        notify(`Импортировано: ${createdCount} новых, ${updatedCount} обновлено`);
         $('#clientImportForm').reset();
         pendingTable = null;
         preview = null;
         $('#clientImportPreview').hidden = true;
         hideMapping();
         await load();
-      } catch (error) { notify(error?.message || 'Импорт не выполнен'); }
-      finally { button.disabled = false; }
+      } catch (error) {
+        const retryPreview = processedCount ? { ...preview, rows:preview.rows.slice(processedCount) } : null;
+        const prefix = processedCount ? `Успешно перенесено ${processedCount} из ${totalCount}. ` : '';
+        notify(`${prefix}${error?.message || 'Импорт не выполнен'}`);
+        if (retryPreview?.rows.length) { await load(); renderPreview(retryPreview); }
+      }
+      finally { button.disabled = false; button.textContent = originalCaption; }
     }
 
     function bind() {
