@@ -4842,10 +4842,13 @@ html.requires-top-level.top-level body { visibility:visible; }
 .booking-time-slots-all {
   grid-template-columns:repeat(4,minmax(0,1fr));
   max-height:260px;
-  padding:2px 6px 2px 0;
+  padding:10px;
   overflow-y:auto;
   overscroll-behavior:contain;
   scrollbar-gutter:stable;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 24%,transparent);
+  border-radius:18px;
+  background:color-mix(in srgb,var(--theme-accent) 3%,var(--theme-surface));
 }
 .booking-time-selection-summary {
   display:grid;
@@ -4854,9 +4857,10 @@ html.requires-top-level.top-level body { visibility:visible; }
   align-items:center;
   margin-top:16px;
   padding:16px 18px;
-  border:1px solid color-mix(in srgb,var(--theme-accent) 30%,transparent);
+  border:1px solid color-mix(in srgb,var(--theme-accent) 52%,transparent);
   border-radius:18px;
-  background:color-mix(in srgb,var(--theme-accent) 8%,var(--theme-surface));
+  background:linear-gradient(135deg,color-mix(in srgb,var(--theme-accent) 16%,var(--theme-surface)),color-mix(in srgb,var(--theme-accent) 7%,var(--theme-surface)));
+  box-shadow:0 12px 28px color-mix(in srgb,var(--theme-accent) 13%,transparent);
 }
 .booking-time-selection-summary>div {
   display:flex;
@@ -4879,7 +4883,7 @@ html.requires-top-level.top-level body { visibility:visible; }
 }
 .booking-time-selection-summary>div:last-child strong {
   color:var(--theme-accent);
-  font-size:19px;
+  font-size:22px;
 }
 @media (max-width:720px) {
   .booking-time-slots-all { grid-template-columns:repeat(3,minmax(0,1fr));max-height:230px; }
