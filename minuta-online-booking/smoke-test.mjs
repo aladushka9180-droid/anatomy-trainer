@@ -212,8 +212,8 @@ assert.match(provider, /await prompt\.prompt\(\)/, 'Кнопка не запус
 assert.match(provider, /appinstalled/, 'Интерфейс не узнаёт об успешной установке');
 assert.match(provider, /function providerAppIsAndroid\(\)/, 'Нет отдельного сценария установки для Android');
 assert.match(provider, /function providerAppHasSecureOrigin\(\)/, 'Не проверяется защищённый адрес перед установкой');
-assert.match(provider, /showProviderInstallGuide\('iosInstallGuide'\)/, 'Кнопка не открывает инструкцию для iPhone');
-assert.match(provider, /showProviderInstallGuide\('androidInstallGuide'\)/, 'Кнопка не открывает инструкцию для Android');
+assert.match(provider, /openProviderInstallHelp\('iosInstallGuide'/, 'Кнопка не открывает инструкцию для iPhone');
+assert.match(provider, /openProviderInstallHelp\('androidInstallGuide'/, 'Кнопка не открывает инструкцию для Android');
 const installDetectionSource = ['providerAppIsIos', 'providerAppIsAndroid', 'providerAppIsInAppBrowser']
   .map(name => provider.match(new RegExp(`function ${name}\\(\\) \\{[\\s\\S]*?\\n\\}`))?.[0])
   .join('\n');

@@ -263,7 +263,10 @@ async function openReschedule() {
   $('#manageDates').innerHTML = '<div class="loading-state compact"><i></i><span>Ищем свободные даты…</span></div>';
   $('#manageTimes').innerHTML = '';
   const parameters = { p_token: token, p_start: state.dates[0].iso, p_end: state.dates[state.dates.length - 1].iso };
-  let { data, error } = await db.rpc('get_minuta_group_safe_reschedule_slots', parameters);
+  let { data, error } = await db.rpc('get_reschedule_slots_v101', parameters);
+  if (error && isMissingRpc(error, 'get_reschedule_slots_v101')) {
+    ({ data, error } = await db.rpc('get_minuta_group_safe_reschedule_slots', parameters));
+  }
   if (error && isMissingRpc(error, 'get_minuta_group_safe_reschedule_slots')) {
     ({ data, error } = await db.rpc('get_reschedule_slots_v5', parameters));
   }
@@ -308,7 +311,7 @@ async function confirmReschedule() {
       await loadBooking({ silent: true });
       return;
     }
-    const conflict = error.message?.includes('slot_unavailable') || error.code === '23P01' || error.code === '23505';
+    const conflict = error.message?.includes('slot_unavailable') || error.message?.includes('booking_buffer_conflict') || error.code === '23P01' || error.code === '23505';
     if (conflict) await openReschedule();
     if (!conflict) {
       const verified = await loadBooking({ silent: true });
@@ -318,7 +321,7 @@ async function confirmReschedule() {
       }
       if (!verified) { button.disabled = true; button.textContent = 'Сначала обновите запись'; }
     }
-    $('#manageFormError').textContent = conflict ? 'Это время уже занято. Выберите другое.' : 'Результат переноса не подтверждён. Не повторяйте действие сразу — сначала обновите состояние записи.';
+    $('#manageFormError').textContent = conflict ? (error.message?.includes('booking_buffer_conflict') ? 'Это время попадает в перерыв рядом с другой записью. Выберите другое.' : 'Это время уже занято. Выберите другое.') : 'Результат переноса не подтверждён. Не повторяйте действие сразу — сначала обновите состояние записи.';
     $('#manageFormError').hidden = false;
     return;
   }

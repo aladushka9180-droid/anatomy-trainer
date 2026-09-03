@@ -28,12 +28,14 @@ const runOfflineSlotLoader = new Function(`
     let newBookingTime = '';
     let newBookingSlots = [];
     let newBookingHour = '';
+    let newBookingHistoricalMode = false;
     let pickerRendered = false;
     let submitUpdated = false;
     const holder = { innerHTML:'' };
     const navigator = { onLine:false };
     const $ = selector => selector === '#newBookingService' ? { value:'service-1' } : selector === '#newBookingDate' ? { value:'2099-09-07' } : selector === '#newBookingTimes' ? holder : null;
     const offlineCandidateSlots = () => slots;
+    const businessTodayIso = () => '2026-09-01';
     const newBookingDurationMinutes = () => 60;
     const renderNewBookingTimePicker = () => { pickerRendered = true; };
     const escapeHtml = value => String(value);

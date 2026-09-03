@@ -75,6 +75,12 @@ function isMissingRpc(error, name) {
   const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
   return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
 }
+async function getProviderAvailableSlots({ p_service, p_start, p_end, p_ignore_booking = null }) {
+  const parameters = { p_service, p_start, p_end, p_ignore_booking };
+  const protectedResult = await db.rpc('get_available_slots_v101', parameters);
+  if (!isMissingRpc(protectedResult.error, 'get_available_slots_v101')) return protectedResult;
+  return db.rpc('get_available_slots', parameters);
+}
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
@@ -154,7 +160,7 @@ let pendingBookingColors = new Set();
 let bookingNotes = new Map();
 let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
-let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false };
+let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
 let displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
 let displayPreferencesUpdatedAt = 0;
 let displayPreferencesPending = false;
@@ -442,7 +448,7 @@ function offlineBookingServiceName(item) {
   return serviceName(ownServices.find(service => service.id === item.serviceId)?.name || item.serviceName || 'Услуга');
 }
 function offlineBookingConflictText(reason) {
-  return ({ slot_unavailable:'Выбранное время уже занято', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
+  return ({ slot_unavailable:'Выбранное время уже занято', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
 }
 function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false } = {}) {
   const reason = item.reason || '';
@@ -626,9 +632,9 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
           break;
         }
         const reason = String(error.message || '');
-        if (reason.includes('slot_unavailable') || reason.includes('service_unavailable') || reason.includes('invalid_client_data')) {
+        if (reason.includes('slot_unavailable') || reason.includes('booking_buffer_conflict') || reason.includes('service_unavailable') || reason.includes('invalid_client_data')) {
           item.status = 'conflict';
-          item.reason = reason.includes('slot_unavailable') ? 'slot_unavailable' : reason.includes('service_unavailable') ? 'service_unavailable' : 'invalid_client_data';
+          item.reason = reason.includes('booking_buffer_conflict') ? 'booking_buffer_conflict' : reason.includes('slot_unavailable') ? 'slot_unavailable' : reason.includes('service_unavailable') ? 'service_unavailable' : 'invalid_client_data';
           const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
           await saveOfflineBookingQueue(userId, { generation }); renderOfflineBookingQueue();
           deliverOfflineBookingProviderNotice(providerNotice);
@@ -1553,7 +1559,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=279#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=283#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2683,7 +2689,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=279');
+    worker = new Worker('./report-worker.js?v=283');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -3774,6 +3780,10 @@ function timelineMinuteFromPointer(stage, clientY, pointerOffsetY, duration, dat
 function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, ignoreSchedule = false } = {}) {
   const duration = Math.max(1, Number(item?.duration_minutes || item?.services?.duration_minutes || 60));
   const endMinute = startMinute + duration;
+  const automaticBuffer = bookingPolicy.booking_buffer_enabled
+    ? Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60))
+    : 0;
+  const candidateIsBlock = isScheduleBlock(item);
   if (dateIso < businessTodayIso() && !allowPast) return 'Нельзя переносить запись в прошлое';
   const date = parseLocalIsoDate(dateIso);
   if (!date) return 'Не удалось определить выбранную дату';
@@ -3803,9 +3813,14 @@ function bookingPlacementIssue(item, dateIso, startMinute, { allowPast = false, 
     if (other.id === item.id || other.status === 'cancelled' || other.booking_date !== dateIso) return false;
     const otherStart = minutesFromTime(other.booking_time);
     const otherEnd = otherStart + Math.max(1, Number(other.duration_minutes || other.services?.duration_minutes || 60));
-    return startMinute < otherEnd && endMinute > otherStart;
+    const buffer = automaticBuffer && !candidateIsBlock && !isScheduleBlock(other) ? automaticBuffer : 0;
+    return startMinute < otherEnd + buffer && endMinute > otherStart - buffer;
   });
-  return conflict ? `В ${String(conflict.booking_time).slice(0, 5)} уже есть запись` : '';
+  return conflict
+    ? (automaticBuffer && !candidateIsBlock && !isScheduleBlock(conflict)
+      ? `Рядом с записью в ${String(conflict.booking_time).slice(0, 5)} действует перерыв ${automaticBuffer} мин`
+      : `В ${String(conflict.booking_time).slice(0, 5)} уже есть запись`)
+    : '';
 }
 
 function finishTimelineBookingDrag({ restore = true } = {}) {
@@ -3874,10 +3889,10 @@ async function persistTimelineBookingMove(state) {
   state.card.setAttribute('aria-busy', 'true');
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const { data: availableSlots, error: availabilityError } = await db.rpc('get_available_slots', {
-    p_service: item.service_id,
-    p_start: state.date,
-    p_end: state.date,
+  const { data: availableSlots, error: availabilityError } = await getProviderAvailableSlots({
+    p_service:item.service_id,
+    p_start:state.date,
+    p_end:state.date,
     p_ignore_booking: item.id
   });
   if (!sessionIsCurrent(userId, generation)) {
@@ -4067,7 +4082,7 @@ function bookingSeriesScopeMarkup(item, name, actionLabel) {
 
 function seriesRpcErrorMessage(error, action) {
   const reason = String(error?.message || '');
-  if (reason.includes('series_slot_unavailable') || reason.includes('overlap') || reason.includes('resource_unavailable')) {
+  if (reason.includes('series_slot_unavailable') || reason.includes('overlap') || reason.includes('resource_unavailable') || reason.includes('booking_buffer_conflict')) {
     return 'Одно из новых времён занято. Серия осталась без изменений.';
   }
   if (reason.includes('series_reschedule_out_of_range')) return 'После переноса часть серии окажется в прошлом или слишком далеко. Выберите более позднюю дату.';
@@ -4086,7 +4101,55 @@ function stackMinuteTimelineItems(timelineItems, gap = 6) {
   });
 }
 
-function renderTimeline(items) {
+function automaticBookingBreaks(items, dateIso = selectedDate) {
+  if (!bookingPolicy.booking_buffer_enabled) return [];
+  const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
+  const date = parseLocalIsoDate(dateIso);
+  if (!date) return [];
+  const weekday = ((date.getDay() + 6) % 7) + 1;
+  const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+  if (schedule?.enabled === false) return [];
+  const workStart = minutesFromTime(schedule?.start_time || '10:00');
+  const workEnd = minutesFromTime(schedule?.end_time || '20:00');
+  if (workEnd <= workStart) return [];
+  const active = items.filter(item => item.status !== 'cancelled' && item.booking_date === dateIso);
+  const bookings = active.filter(item => !isScheduleBlock(item));
+  if (!bookings.length) return [];
+  const occupied = active.map(item => {
+    const start = minutesFromTime(item.booking_time);
+    return [start, start + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60))];
+  });
+  const candidates = bookings.flatMap(item => {
+    const start = minutesFromTime(item.booking_time);
+    const end = start + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
+    return [[Math.max(workStart, start - buffer), start], [end, Math.min(workEnd, end + buffer)]];
+  }).filter(([start, end]) => end > start);
+  const clearSegments = candidates.flatMap(candidate => occupied.reduce((segments, [occupiedStart, occupiedEnd]) => segments.flatMap(([start, end]) => {
+    if (occupiedEnd <= start || occupiedStart >= end) return [[start, end]];
+    return [[start, Math.min(end, occupiedStart)], [Math.max(start, occupiedEnd), end]].filter(([left, right]) => right > left);
+  }), [candidate])).sort((left, right) => left[0] - right[0]);
+  const merged = [];
+  clearSegments.forEach(([start, end]) => {
+    const previous = merged.at(-1);
+    if (previous && start <= previous[1]) previous[1] = Math.max(previous[1], end);
+    else merged.push([start, end]);
+  });
+  return merged.map(([start, end], index) => ({
+    id:`automatic-break:${dateIso}:${start}:${end}:${index}`,
+    performer_id:currentUser?.id || '',
+    booking_date:dateIso,
+    booking_time:`${timeFromMinutes(start)}:00`,
+    duration_minutes:end - start,
+    client_name:'Перерыв',
+    client_phone:SCHEDULE_BLOCK_PHONE,
+    status:'confirmed',
+    automatic_break:true,
+    services:{ name:'Перерыв', duration_minutes:end - start }
+  }));
+}
+
+function renderTimeline(sourceItems) {
+  const items = [...sourceItems, ...automaticBookingBreaks(sourceItems)];
   const holder = $('#providerBookings');
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
   const fullBounds = timelineBounds(items);
@@ -4137,14 +4200,16 @@ function renderTimeline(items) {
     const visibleNote = displayPreferences.show_notes ? note : '';
     const visitText = block ? '' : bookingVisitSummaryText(item);
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item, 'timeline-client-visit');
-    const clientDetails = block ? 'Занятое время' : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', visitText, `${duration} мин`].filter(Boolean).join(' · ');
+    const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', visitText, `${duration} мин`].filter(Boolean).join(' · ');
     const clientDetailsMarkup = block
-      ? 'Занятое время'
+      ? (item.automatic_break ? 'Автоматически' : 'Занятое время')
       : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${displayPreferences.show_phone ? `<span class="timeline-client-phone"> · ${escapeHtml(item.client_phone)}</span>` : ''}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}<span class="timeline-client-duration"> · ${duration} мин</span>`;
     const ariaDetails = visibleNote ? `${clientDetails}, заметка: ${visibleNote}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
-    const timelineStatus = statusClass === 'visited'
+    const timelineStatus = item.automatic_break
+      ? '<span class="timeline-booking-status">Авто</span>'
+      : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
@@ -4153,9 +4218,11 @@ function renderTimeline(items) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
-    return `<button class="timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(statusText)}" title="Зажмите и перетащите, чтобы изменить время">
-      ${cardContent}
-    </button>`;
+    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
+    const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
+    return item.automatic_break
+      ? `<div class="${className}" data-booking-duration="${duration}" style="top:${visualTop + 2}px;height:${height}px" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
+      : `<button class="${className}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${ariaLabel}" title="Зажмите и перетащите, чтобы изменить время">${cardContent}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
@@ -4540,7 +4607,7 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
   const movesSeveral = Boolean(item.series_id && scope !== 'one');
   if (!preserveCurrent) bookingEditTime = '';
   holder.innerHTML = '<span>Ищем свободное время…</span>';
-  const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date, p_ignore_booking: item.id });
+  const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date, p_ignore_booking:item.id });
   const currentTime = String(item.booking_time).slice(0, 5);
   const times = error ? [] : (data || []).map(slot => String(slot.booking_time).slice(0, 5));
   if (movesSeveral && !times.includes(currentTime)) times.unshift(currentTime);
@@ -4882,7 +4949,8 @@ async function loadNewBookingSlots() {
       );
       if (!issue) newBookingSlots.push(timeFromMinutes(minute));
     }
-    newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : '';
+    newBookingTime = preferredTime || '';
+    if (newBookingTime && !newBookingSlots.includes(newBookingTime)) newBookingTime = '';
     newBookingHour = String(newBookingTime || preferredTime || '10:00').slice(0, 2);
     if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0]?.slice(0, 2) || '';
     if (!navigator.onLine) {
@@ -4916,7 +4984,7 @@ async function loadNewBookingSlots() {
     return;
   }
   holder.innerHTML = '<span>Ищем свободное время…</span>';
-  const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date });
+  const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date });
   if (error) {
     holder.innerHTML = '<div class="booking-time-warning">Не удалось проверить рабочий график. Обновите данные и повторите попытку.</div>';
     return;
@@ -4930,7 +4998,8 @@ async function loadNewBookingSlots() {
     holder.innerHTML = '<span>На эту дату нет окна нужной длительности</span>';
     return;
   }
-  newBookingTime = preferredTime && newBookingSlots.includes(preferredTime) ? preferredTime : (preferredTime ? '' : newBookingSlots[0]);
+  newBookingTime = preferredTime || newBookingSlots[0];
+  if (preferredTime && !newBookingSlots.includes(preferredTime)) newBookingTime = '';
   newBookingHour = String(newBookingTime || preferredTime || newBookingSlots[0]).slice(0, 2);
   if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0].slice(0, 2);
   renderNewBookingTimePicker();
@@ -4978,7 +5047,8 @@ function updateNewBookingSubmitCaption() {
   const occurrenceCount = Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
   submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingOutsideSchedule ? (newBookingMode === 'block' ? 'Занять вне графика' : 'Создать вне графика') : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
   const historicalOffline = newBookingHistoricalMode && !navigator.onLine;
-  submit.disabled = Boolean(historicalOffline || (!navigator.onLine && newBookingMode === 'client' && !newBookingTime));
+  submit.disabled = Boolean(!navigator.onLine && newBookingMode === 'client' && !newBookingTime);
+  if (historicalOffline) submit.disabled = true;
   submit.title = historicalOffline ? 'Запись в прошлом создаётся только при подключении к интернету' : submit.disabled ? 'Сначала выберите время в расписании' : '';
 }
 
@@ -5336,7 +5406,7 @@ async function createNewBooking(event) {
     return;
   }
   const placementIssue = bookingPlacementIssue(
-    { id:'new-booking-validation', duration_minutes:durationMinutes },
+    { id:'new-booking-validation', duration_minutes:durationMinutes, client_phone:phone },
     date,
     minutesFromTime(newBookingTime),
     historical ? { allowPast:true, ignoreSchedule:true } : newBookingOutsideSchedule ? { ignoreSchedule:true } : undefined
@@ -5489,8 +5559,8 @@ async function createNewBooking(event) {
       if (connectionError) recordConnectionEvent('error', 'Создание серии: связь прервалась');
       const message = connectionError
         ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать» ещё раз.'
-        : reason.includes('series_slot_unavailable') || reason.includes('slot_unavailable')
-        ? 'Одно из времён серии занято. Измените дату, время или интервал.'
+      : reason.includes('series_slot_unavailable') || reason.includes('slot_unavailable') || reason.includes('booking_buffer_conflict')
+        ? 'Одно из времён серии занято записью или автоматическим перерывом. Измените дату, время или интервал.'
         : reason.includes('invalid_recurring_booking')
           ? 'Проверьте количество и интервал: последний визит должен быть не дальше двух лет.'
         : /create_minuta_recurring_bookings|schema cache|could not find/i.test(reason)
@@ -5543,8 +5613,8 @@ async function createNewBooking(event) {
     if (connectionError) recordConnectionEvent('error', 'Создание записи: связь прервалась');
     const message = connectionError
       ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать запись» ещё раз.'
-      : reason.includes('slot_unavailable')
-      ? 'Это время уже занято. Выберите другое.'
+      : reason.includes('slot_unavailable') || reason.includes('booking_buffer_conflict')
+      ? (reason.includes('booking_buffer_conflict') ? 'Это время попадает в перерыв до или после другой записи. Выберите другое.' : 'Это время уже занято. Выберите другое.')
       : reason.includes('service_unavailable')
         ? 'Услуга недоступна для записи. Обновите список услуг.'
         : reason.includes('invalid_client_data')
@@ -5693,7 +5763,7 @@ function renderBookings() {
   const paginated = currentFilter !== 'day' && items.length > bookingRenderLimit;
   const visibleItems = paginated ? items.slice(0, bookingRenderLimit) : items;
   const clientCount = items.filter(item => !isScheduleBlock(item)).length;
-  const blockCount = items.filter(isScheduleBlock).length;
+  const blockCount = items.filter(isScheduleBlock).length + (currentFilter === 'day' ? automaticBookingBreaks(items).length : 0);
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
     ? (daySummary || 'Свободный день')
@@ -5879,7 +5949,7 @@ async function loadRepeatSlots() {
   repeatTime = '';
   if (!service || !date) { $('#repeatTimes').innerHTML = '<span>Выберите услугу и дату</span>'; return; }
   $('#repeatTimes').innerHTML = '<span>Ищем свободное время…</span>';
-  const { data, error } = await db.rpc('get_available_slots', { p_service: service, p_start: date, p_end: date });
+  const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date });
   if (error || !data?.length) { $('#repeatTimes').innerHTML = '<span>На эту дату свободного времени нет</span>'; return; }
   $('#repeatTimes').innerHTML = data.map(item => `<button type="button" data-repeat-time="${String(item.booking_time).slice(0,5)}">${String(item.booking_time).slice(0,5)}</button>`).join('');
 }
@@ -6219,6 +6289,9 @@ function renderBookingPolicyForm() {
   $('#depositAmount').value = String(bookingPolicy.deposit_amount_rub || 0);
   $('#paymentUrlTemplate').value = bookingPolicy.payment_url_template || '';
   $('#autoCompleteVisits').checked = Boolean(bookingPolicy.auto_complete_visits);
+  $('#bookingBufferEnabled').checked = Boolean(bookingPolicy.booking_buffer_enabled);
+  $('#bookingBufferMinutes').value = String(Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60)));
+  $('#bookingBufferDuration').hidden = !$('#bookingBufferEnabled').checked;
   $('#depositSettings').hidden = !$('#depositEnabled').checked;
 }
 
@@ -6228,7 +6301,7 @@ async function loadBookingSettings() {
   if (!userId) return { ok: false, optional: true };
   const [policyResult, templatesResult, marksResult, outboxResult, visitorVisitsResult] = await Promise.all([
     (async () => {
-      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits,visitor_notifications_enabled').eq('performer_id', userId).maybeSingle();
+      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits,visitor_notifications_enabled,booking_buffer_enabled,booking_buffer_minutes').eq('performer_id', userId).maybeSingle();
       if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits').eq('performer_id', userId).maybeSingle();
       if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template').eq('performer_id', userId).maybeSingle();
       return result;
@@ -6257,6 +6330,7 @@ async function loadBookingSettings() {
   }
   notificationSettingsRemoteAvailable = !policyResult.error && !templatesResult.error && !marksResult.error;
   renderBookingPolicyForm();
+  renderBookings();
   renderVisitorNotificationForm();
   renderVisitorVisits();
   renderNotificationTemplates();
@@ -6269,6 +6343,8 @@ async function saveBookingPolicy(event) {
   if (!requireWrites()) return;
   clearFormError('#bookingPolicyError');
   const depositEnabled = $('#depositEnabled').checked;
+  const bookingBufferEnabled = $('#bookingBufferEnabled').checked;
+  const bookingBufferMinutes = Math.round(Number($('#bookingBufferMinutes').value) || 0);
   const record = {
     performer_id: currentUser.id,
     cancel_cutoff_hours: Math.round(Number($('#cancelCutoffHours').value)),
@@ -6277,10 +6353,16 @@ async function saveBookingPolicy(event) {
     deposit_enabled: depositEnabled,
     deposit_amount_rub: Math.max(0, Math.round(Number($('#depositAmount').value) || 0)),
     payment_url_template: $('#paymentUrlTemplate').value.trim(),
-    auto_complete_visits: $('#autoCompleteVisits').checked
+    auto_complete_visits: $('#autoCompleteVisits').checked,
+    booking_buffer_enabled: bookingBufferEnabled,
+    booking_buffer_minutes: bookingBufferEnabled ? bookingBufferMinutes : (bookingBufferMinutes >= 1 && bookingBufferMinutes <= 1440 ? bookingBufferMinutes : 60)
   };
   if (![record.cancel_cutoff_hours, record.reschedule_cutoff_hours].every(value => value >= 0 && value <= 168) || record.max_reschedules < 0 || record.max_reschedules > 20) {
     showFormError('#bookingPolicyError', 'Проверьте ограничения отмены и переноса.');
+    return;
+  }
+  if (bookingBufferEnabled && (bookingBufferMinutes < 1 || bookingBufferMinutes > 1440)) {
+    showFormError('#bookingPolicyError', 'Укажите перерыв от 1 минуты до 24 часов.');
     return;
   }
   const managedCheckoutEnabled = paymentController?.isCheckoutEnabled?.() === true;
@@ -6293,17 +6375,18 @@ async function saveBookingPolicy(event) {
   button.disabled = true;
   button.textContent = 'Сохраняем…';
   let { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
-  if (error) {
+  if (error && !/booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`)) {
     const compatibleRecord = { ...record };
     delete compatibleRecord.auto_complete_visits;
     ({ error } = await db.from('booking_policies').upsert(compatibleRecord, { onConflict:'performer_id' }));
   }
   button.disabled = false;
   button.textContent = buttonLabel;
-  if (error) { showFormError('#bookingPolicyError', 'Не удалось сохранить правила.'); return; }
+  if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : 'Не удалось сохранить правила.'); return; }
   bookingPolicy = record;
   localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
   renderBookingPolicyForm();
+  renderBookings();
   await applyAutomaticVisitOutcomes();
   notify('Правила онлайн-записи сохранены');
 }
@@ -6411,7 +6494,7 @@ async function createRepeatBooking(event) {
   const button = event.submitter; button.disabled = true; button.textContent = 'Создаём…';
   const { error } = await db.rpc('provider_book_appointment', { p_service: $('#repeatService').value, p_date: $('#repeatDate').value, p_time: `${repeatTime}:00`, p_client_name: client.name, p_client_phone: client.displayPhone });
   button.disabled = false; button.textContent = 'Создать запись';
-  if (error) { showFormError('#repeatBookingError', error.message?.includes('slot_unavailable') ? 'Это время уже заняли. Выберите другое.' : 'Не удалось создать запись.'); await loadRepeatSlots(); return; }
+  if (error) { showFormError('#repeatBookingError', /slot_unavailable|booking_buffer_conflict/.test(error.message || '') ? 'Это время занято записью или автоматическим перерывом. Выберите другое.' : 'Не удалось создать запись.'); await loadRepeatSlots(); return; }
   notify('Повторная запись создана');
   await refreshAfterWrite();
 }
@@ -6725,7 +6808,7 @@ async function handleSession(session) {
     bookingOutcomes = new Map();
     bookingSessionItems = new Map();
     sessionItemsRemoteAvailable = false;
-    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false };
+    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
     serverNotificationTemplates = {};
     serverNotificationMarks = {};
     notificationSettingsRemoteAvailable = false;
@@ -8648,7 +8731,7 @@ window.MinutaProviderAssistant = Object.freeze({
     const duration = requestedDuration;
     const { data:sessionData, error:sessionError } = await db.auth.getSession();
     if (sessionError || !sessionIsCurrent(userId, generation) || sessionData?.session?.user?.id !== userId) return { ok:false, reason:'stale_session', slots:[] };
-    const { data, error } = await db.rpc('get_available_slots', { p_service:service.id, p_start:date, p_end:date });
+    const { data, error } = await getProviderAvailableSlots({ p_service:service.id, p_start:date, p_end:date });
     if (!sessionIsCurrent(userId, generation)) return { ok:false, reason:'stale_session', slots:[] };
     if (error) return { ok:false, reason:'request_failed', slots:[] };
     const currentMinute = date === today ? providerAssistantCurrentMinute() : -1;
@@ -8718,6 +8801,11 @@ $('#providerPhoneLinkForm').addEventListener('submit', submitProviderPhoneLink);
 $('#providerPhoneLinkInput').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || event.target.value; });
 $('#providerPhoneLinkCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
+$('#bookingBufferEnabled').addEventListener('change', event => { $('#bookingBufferDuration').hidden = !event.target.checked; });
+$$('[data-booking-buffer-minutes]').forEach(button => button.addEventListener('click', () => {
+  $('#bookingBufferMinutes').value = button.dataset.bookingBufferMinutes;
+  $('#bookingBufferMinutes').focus();
+}));
 $('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotificationSettings);
 $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemNotification);

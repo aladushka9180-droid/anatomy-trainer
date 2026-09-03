@@ -159,6 +159,8 @@ async function loadPublicSlots(service, start, end, locationId = state.locationI
       p_start: start,
       p_end: end
     };
+    const bufferedResult = await db.rpc('get_public_minuta_available_slots_v101', parameters);
+    if (!isMissingRpc(bufferedResult.error, 'get_public_minuta_available_slots_v101')) return bufferedResult;
     if (state.groupBookingSafety) {
       const safeResult = await db.rpc('get_public_minuta_available_slots_group_safe', parameters);
       if (!isMissingRpc(safeResult.error, 'get_public_minuta_available_slots_group_safe')) return safeResult;
@@ -171,7 +173,10 @@ async function loadPublicSlots(service, start, end, locationId = state.locationI
     }
     return db.rpc('get_public_minuta_available_slots_v3', parameters);
   }
-  return db.rpc('get_available_slots', { p_service: service.id, p_start: start, p_end: end });
+  const parameters = { p_service:service.id, p_start:start, p_end:end, p_ignore_booking:null };
+  const bufferedResult = await db.rpc('get_available_slots_v101', parameters);
+  if (!isMissingRpc(bufferedResult.error, 'get_available_slots_v101')) return bufferedResult;
+  return db.rpc('get_available_slots', parameters);
 }
 
 function renderLocations() {
@@ -961,7 +966,7 @@ async function submitBooking(event) {
     if (missingTeamBookingRpc) {
       clearBookingAttempt();
       showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
-    } else if (error.message?.includes('slot_unavailable') || error.message?.includes('resource_unavailable') || error.code === '23P01' || error.code === '23505') {
+    } else if (error.message?.includes('slot_unavailable') || error.message?.includes('resource_unavailable') || error.message?.includes('booking_buffer_conflict') || error.code === '23P01' || error.code === '23505') {
       clearBookingAttempt();
       showError('Это время только что заняли. Выберите другое.');
       await showStep(2);
