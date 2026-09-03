@@ -4838,3 +4838,51 @@ html.requires-top-level.top-level body { visibility:visible; }
 ) {
   color:var(--theme-accent)!important;
 }
+
+.booking-time-slots-all {
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  max-height:260px;
+  padding:2px 6px 2px 0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.booking-time-selection-summary {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:16px;
+  align-items:center;
+  margin-top:16px;
+  padding:16px 18px;
+  border:1px solid color-mix(in srgb,var(--theme-accent) 30%,transparent);
+  border-radius:18px;
+  background:color-mix(in srgb,var(--theme-accent) 8%,var(--theme-surface));
+}
+.booking-time-selection-summary>div {
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.booking-time-selection-summary>div:last-child {
+  min-width:92px;
+  padding-left:16px;
+  border-left:1px solid color-mix(in srgb,var(--theme-accent) 20%,transparent);
+}
+.booking-time-selection-summary strong {
+  color:var(--theme-ink);
+  font-size:16px;
+}
+.booking-time-selection-summary span {
+  color:var(--theme-muted);
+  font-size:13px;
+  font-weight:700;
+}
+.booking-time-selection-summary>div:last-child strong {
+  color:var(--theme-accent);
+  font-size:19px;
+}
+@media (max-width:720px) {
+  .booking-time-slots-all { grid-template-columns:repeat(3,minmax(0,1fr));max-height:230px; }
+  .booking-time-selection-summary { gap:10px;padding:14px; }
+  .booking-time-selection-summary>div:last-child { min-width:78px;padding-left:10px; }
+}

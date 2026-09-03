@@ -3670,8 +3670,21 @@ function renderNewBookingTimePicker({ offline = false } = {}) {
     && Number(selectedNewBookingService()?.duration_minutes) === 1;
   if (perMinuteService) {
     const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
+    const duration = newBookingDurationMinutes();
+    const minutePrice = Math.max(0, Number(selectedNewBookingService()?.price) || 0);
+    const totalPrice = Math.round(minutePrice * duration);
+    const startParts = String(newBookingTime || '').split(':').map(Number);
+    const endMinutes = startParts.length === 2 && startParts.every(Number.isFinite)
+      ? startParts[0] * 60 + startParts[1] + duration
+      : null;
+    const endTime = endMinutes === null
+      ? ''
+      : `${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
+    const selectionSummary = newBookingTime
+      ? `<div class="booking-time-selection-summary"><div><strong>Запись: ${newBookingTime}–${endTime}</strong><span>${duration} мин</span></div><div><span>Итого</span><strong>${new Intl.NumberFormat('ru-RU').format(totalPrice)} ₽</strong></div></div>`
+      : '';
     holder.innerHTML = `${offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${newBookingPreferredTime} сейчас недоступно. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>Выберите время</strong><span>${newBookingSlots.length} свободных вариантов · шаг ${scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
-      <div class="booking-time-slots booking-time-slots-all" style="max-height:260px;padding-right:4px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable">${newBookingSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
+      <div class="booking-time-slots booking-time-slots-all">${newBookingSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>${selectionSummary}`;
     return;
   }
   const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
@@ -6325,6 +6338,7 @@ document.addEventListener('click', async event => {
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;
     newBookingPreferredTime = newBookingTime;
+    renderNewBookingTimePicker({ offline:!navigator.onLine });
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
     clearFormError('#newBookingError');
     saveNewBookingDraft();
