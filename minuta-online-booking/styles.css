@@ -838,6 +838,16 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .new-booking-minute-presets { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
 .new-booking-minute-presets button { min-height:36px; padding:0 6px; font-size:11px; }
 .new-booking-minute-duration>small { color:#607469; font-size:10px; line-height:1.4; }
+.new-booking-history-option { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; min-height:52px; padding:9px 11px; border:1px solid var(--theme-line,#d7e5dc); border-radius:13px; background:var(--theme-surface,#fff); color:var(--theme-ink,#214b37); cursor:pointer; text-align:left; }
+.new-booking-history-option span,.new-booking-history-option strong,.new-booking-history-option small { display:block; min-width:0; }
+.new-booking-history-option strong { font-size:12px; }
+.new-booking-history-option small { margin-top:3px; color:var(--theme-muted,#677d71); font-size:9px; line-height:1.35; }
+.new-booking-history-option b { flex:none; padding:5px 8px; border-radius:999px; background:var(--theme-surface-alt,#f2f6f3); color:var(--theme-muted,#677d71); font-size:9px; }
+.new-booking-history-option.active { border-color:color-mix(in srgb,var(--theme-accent,#255f43) 52%,var(--theme-line,#d7e5dc)); background:var(--theme-accent-soft,#e1f0e6); }
+.new-booking-history-option.active b { background:var(--theme-accent,#255f43); color:var(--theme-accent-contrast,#fff); }
+.new-booking-history-option.is-locked { cursor:default; opacity:1; }
+.provider-body[data-provider-layout="linear"] .new-booking-history-option,.provider-body[data-provider-layout="editorial"] .new-booking-history-option { border-radius:0; }
+.provider-body[data-provider-layout="capsule"] .new-booking-history-option { border-radius:999px; }
 @keyframes sheet-in { from { transform:translateY(18px); opacity:0; } to { transform:translateY(0); opacity:1; } }
 @keyframes new-booking-sheet-in { from { transform:translate3d(0,100%,0); } to { transform:translate3d(0,0,0); } }
 @keyframes new-booking-backdrop-in { from { opacity:0; } to { opacity:1; } }
