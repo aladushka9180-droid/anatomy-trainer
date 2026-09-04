@@ -13,14 +13,46 @@ begin
      or to_regclass('public.booking_policies') is null
      or to_regclass('public.organization_memberships') is null
      or to_regclass('public.services') is null
-     or to_regclass('public.locations') is null
-     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits')
-     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source')
-     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='actual_duration_minutes')
-     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='calculated_amount_rub') then
-    raise exception using errcode='P0001',message='v106_requires_booking_outcomes_v57_and_organizations_v65';
+     or to_regclass('public.locations') is null then
+    raise exception using errcode='P0001',message='v106_requires_booking_outcomes_and_organizations';
   end if;
 end $$;
+
+-- Some long-lived production installations started their managed chain after
+-- v52/v57. Repair only the missing additive fields; existing outcome data is
+-- retained and validated before constraints are installed.
+alter table public.booking_policies
+  add column if not exists auto_complete_visits boolean not null default false;
+
+alter table public.booking_outcomes
+  add column if not exists completion_source text not null default 'manual',
+  add column if not exists actual_duration_minutes integer,
+  add column if not exists calculated_amount_rub integer;
+
+do $$
+begin
+  if not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name='auto_complete_visits' and data_type='boolean')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source' and data_type='text')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='actual_duration_minutes' and data_type='integer')
+     or not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='calculated_amount_rub' and data_type='integer')
+     or exists(select 1 from public.booking_outcomes where completion_source is not null and completion_source not in ('manual','auto'))
+     or exists(select 1 from public.booking_outcomes where actual_duration_minutes is not null and actual_duration_minutes not between 0 and 1440)
+     or exists(select 1 from public.booking_outcomes where calculated_amount_rub is not null and calculated_amount_rub not between 0 and 10000000) then
+    raise exception using errcode='P0001',message='v106_incompatible_outcome_metadata';
+  end if;
+end $$;
+
+update public.booking_outcomes set completion_source='manual' where completion_source is null;
+alter table public.booking_outcomes alter column completion_source set default 'manual', alter column completion_source set not null;
+alter table public.booking_outcomes drop constraint if exists booking_outcomes_completion_source_check;
+alter table public.booking_outcomes add constraint booking_outcomes_completion_source_check check (completion_source in ('manual','auto')) not valid;
+alter table public.booking_outcomes validate constraint booking_outcomes_completion_source_check;
+alter table public.booking_outcomes drop constraint if exists booking_outcomes_actual_duration_minutes_check;
+alter table public.booking_outcomes add constraint booking_outcomes_actual_duration_minutes_check check (actual_duration_minutes is null or actual_duration_minutes between 0 and 1440) not valid;
+alter table public.booking_outcomes validate constraint booking_outcomes_actual_duration_minutes_check;
+alter table public.booking_outcomes drop constraint if exists booking_outcomes_calculated_amount_rub_check;
+alter table public.booking_outcomes add constraint booking_outcomes_calculated_amount_rub_check check (calculated_amount_rub is null or calculated_amount_rub between 0 and 10000000) not valid;
+alter table public.booking_outcomes validate constraint booking_outcomes_calculated_amount_rub_check;
 
 create or replace function public.save_minuta_booking_outcome_v106(
   p_booking uuid,
