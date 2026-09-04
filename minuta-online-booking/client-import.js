@@ -264,23 +264,25 @@
 
     async function load() {
       const currentRevision = ++revision;
+      const organizationId = organization?.id || '';
+      const requestIsCurrent = () => currentRevision === revision && organization?.id === organizationId;
       preview = null;
       pendingTable = null;
       $('#clientImportPreview')?.setAttribute('hidden','');
       $('#clientImportMapping')?.setAttribute('hidden','');
-      if (!organization?.id || !navigator.onLine) { workspace = null; onLoaded?.([], []); render(); return { ok:true,optional:true,skipped:true }; }
+      if (!organizationId || !navigator.onLine) { workspace = null; onLoaded?.([], []); render(); return { ok:true,optional:true,skipped:true }; }
       const clients = [];
       const pageSize = 1000;
       const maxClients = 100000;
       let payload = null;
       let error = null;
       for (let offset = 0; offset <= maxClients; offset += pageSize) {
-        let response = await db.rpc('get_minuta_imported_clients', { p_organization:organization.id, p_limit:pageSize, p_offset:offset });
+        let response = await db.rpc('get_minuta_imported_clients', { p_organization:organizationId, p_limit:pageSize, p_offset:offset });
         if (offset === 0 && response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_imported_clients|function .* does not exist/i.test(response.error.message || ''))) {
-          response = await db.rpc('get_minuta_imported_clients', { p_organization:organization.id });
+          response = await db.rpc('get_minuta_imported_clients', { p_organization:organizationId });
         }
         ({ data:payload, error } = response);
-        if (currentRevision !== revision) return { ok:false,optional:true,stale:true };
+        if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
         if (error) break;
         clients.push(...(Array.isArray(payload?.clients) ? payload.clients : []));
         if (!payload?.has_more) break;
@@ -290,7 +292,8 @@
       let historyPayload = null;
       const historyRows = [];
       for (let offset = 0; offset <= 100000; offset += pageSize) {
-        const response = await db.rpc('get_minuta_imported_booking_history', { p_organization:organization.id,p_limit:pageSize,p_offset:offset });
+        const response = await db.rpc('get_minuta_imported_booking_history', { p_organization:organizationId,p_limit:pageSize,p_offset:offset });
+        if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
         if (response.error) {
           if (response.error.code === 'PGRST202' || /could not find.*get_minuta_imported_booking_history|function .* does not exist/i.test(response.error.message || '')) break;
           historyPayload = null; historyRows.length = 0; break;
@@ -299,6 +302,7 @@
         historyRows.push(...(Array.isArray(historyPayload.rows) ? historyPayload.rows : []));
         if (!historyPayload.has_more) break;
       }
+      if (!requestIsCurrent()) return { ok:false,optional:true,stale:true };
       workspace = { ...(payload || {}), clients,history_rows:historyRows,history_summary:historyPayload?.summary || null };
       onLoaded?.(clients, historyRows, workspace.history_summary);
       render();

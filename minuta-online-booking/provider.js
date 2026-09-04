@@ -215,6 +215,7 @@ let pendingClientLabels = new Set();
 let clientLabelReasonTimer = null;
 const clientLabelSaveQueues = new Map();
 let selectedClientPhone = '';
+let activeClientOrganizationId = '';
 let repeatTime = '';
 let bookingEditTime = '';
 let newBookingTime = '';
@@ -1657,7 +1658,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=302#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=303#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1872,7 +1873,13 @@ function reportRange(period = reportPeriod) {
     if (reportDataSource === 'demo') start = localIsoDate(new Date(today.getFullYear(), today.getMonth() - 3, 1));
     else if (reportCanViewTeam) start = localIsoDate(new Date(today.getTime() - 3659 * 86400000));
     else {
-      const dates = allBookings.filter(item => !isScheduleBlock(item) && item.booking_date <= todayIso).map(item => item.booking_date).sort();
+      const organizationId = reportOrganizationId();
+      const dates = [...allBookings, ...importedBookingHistory]
+        .filter(item => !isScheduleBlock(item)
+          && item.booking_date <= todayIso
+          && (!organizationId || !item.organization_id || String(item.organization_id) === String(organizationId)))
+        .map(item => item.booking_date)
+        .sort();
       start = dates[0] || todayIso;
     }
   }
@@ -3212,7 +3219,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=302');
+    worker = new Worker('./report-worker.js?v=303');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6394,6 +6401,9 @@ function setTeamCalendarMode(active, options = {}) {
 
 function buildClients() {
   const clients = new Map();
+  const activeOrganizationId = activeClientOrganizationId;
+  const belongsToActiveOrganization = booking => !activeOrganizationId
+    || (Boolean(booking?.organization_id) && String(booking.organization_id) === String(activeOrganizationId));
   importedClients.forEach(imported => {
     const phone = normalizePhone(imported.phone || imported.display_phone);
     if (!phone) return;
@@ -6406,6 +6416,7 @@ function buildClients() {
     });
   });
   importedBookingHistory.forEach(booking => {
+    if (!belongsToActiveOrganization(booking)) return;
     const phone = normalizePhone(booking.client_phone);
     if (!phone) return;
     const current = clients.get(phone) || { phone,displayPhone:booking.client_phone,name:booking.client_name,bookings:[] };
@@ -6415,7 +6426,7 @@ function buildClients() {
     clients.set(phone, current);
   });
   allBookings.forEach(booking => {
-    if (isScheduleBlock(booking)) return;
+    if (isScheduleBlock(booking) || !belongsToActiveOrganization(booking)) return;
     const phone = normalizePhone(booking.client_phone);
     if (!phone) return;
     const current = clients.get(phone) || { phone, displayPhone: booking.client_phone, name: booking.client_name, bookings: [] };
@@ -9257,6 +9268,20 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
+    const nextClientOrganizationId = organization?.id || '';
+    const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
+    activeClientOrganizationId = nextClientOrganizationId;
+    importedClients = [];
+    importedBookingHistory = [];
+    if (clientOrganizationChanged) {
+      selectedClientPhone = '';
+      const clientSearch = $('#clientSearch');
+      if (clientSearch) clientSearch.value = '';
+      const clientProfileEmpty = $('#clientProfileEmpty');
+      const clientProfileContent = $('#clientProfileContent');
+      if (clientProfileEmpty) clientProfileEmpty.hidden = false;
+      if (clientProfileContent) clientProfileContent.hidden = true;
+    }
     resetReportSessionState();
     renderReportDataSourceControl();
     updateProviderClientLinks(organization);
@@ -9274,7 +9299,7 @@ const organizationController = window.MinutaOrganization.createController({
     paymentController.setOrganization(organization);
     notificationCenterController.setOrganization(organization);
     clientFieldsController.setOrganization(organization);
-    clientImportController.setOrganization(organization);
+    clientImportController.setOrganization(organization?.public_slug === REPORT_DEMO_SLUG ? null : organization);
   }
 });
 organizationController.bind();
