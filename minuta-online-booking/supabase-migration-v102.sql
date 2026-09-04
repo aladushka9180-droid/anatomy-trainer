@@ -1,11 +1,13 @@
 begin;
 
+-- The dispatcher works through its own organization-scoped RPC functions.
+-- Do not block this additive layer on the legacy public booking RPC: some
+-- production installations intentionally expose only the newer booking path.
 do $$
 begin
   if to_regprocedure('public.get_minuta_team_calendar_v2(uuid,date,date,uuid,uuid,uuid)') is null
      or to_regprocedure('public.get_minuta_schedule_role(uuid)') is null
      or to_regprocedure('public.minuta_booking_fits_active_shift(uuid,uuid,uuid,date,time without time zone,integer)') is null
-     or to_regprocedure('public.book_appointment(uuid,uuid,date,time without time zone,text,text)') is null
      or to_regprocedure('public.write_minuta_schedule_audit(uuid,text,uuid,jsonb)') is null
      or to_regprocedure('public.enqueue_minuta_booking_notification(uuid,text)') is null
      or to_regclass('public.staff_location_shifts') is null
