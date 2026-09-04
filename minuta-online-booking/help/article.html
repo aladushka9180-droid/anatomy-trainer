@@ -38,6 +38,7 @@
         <h1 id="articleTitle">Загружаем инструкцию…</h1>
         <p class="article-intro" id="articleIntro"></p>
       </header>
+      <div id="articleVisual"></div>
       <div class="article-steps" id="articleSteps"></div>
       <aside class="article-note" id="articleNote"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-info"></use></svg><div><strong>Важно</strong><p></p></div></aside>
       <section class="article-feedback" aria-labelledby="feedbackTitle">
@@ -51,6 +52,11 @@
     </article>
     <noscript><p class="article-script-note">Для просмотра пошаговой инструкции включите JavaScript.</p></noscript>
   </main>
+
+  <dialog class="article-visual-dialog" id="articleVisualDialog" aria-labelledby="visualDialogTitle">
+    <div class="article-visual-dialog-head"><strong id="visualDialogTitle">Схема к инструкции</strong><button type="button" id="closeVisualDialog" aria-label="Закрыть увеличенное изображение"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-close"></use></svg></button></div>
+    <img id="articleVisualFull" alt="">
+  </dialog>
 
   <footer class="help-footer">
     <span>© Minuta</span>

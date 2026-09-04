@@ -43,6 +43,46 @@
   }
   try { sessionStorage.setItem('minuta-help-audience', article.audience); } catch { /* Navigation still works. */ }
 
+  if (article.visual) {
+    const visualRoot = document.querySelector('#articleVisual');
+    const dialog = document.querySelector('#articleVisualDialog');
+    const fullImage = document.querySelector('#articleVisualFull');
+    const figure = document.createElement('figure');
+    figure.className = 'article-visual';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-label', `Увеличить изображение: ${article.visual.alt}`);
+    const image = document.createElement('img');
+    image.src = article.visual.src;
+    image.alt = article.visual.alt;
+    image.width = 1200;
+    image.height = 675;
+    image.loading = 'eager';
+    const zoom = document.createElement('span');
+    const zoomIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    zoomIcon.setAttribute('aria-hidden', 'true');
+    const zoomUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    zoomUse.setAttribute('href', '../ui-icons.svg#icon-search');
+    zoomIcon.append(zoomUse);
+    zoom.append(zoomIcon, document.createTextNode('Увеличить'));
+    button.append(image, zoom);
+    const caption = document.createElement('figcaption');
+    caption.textContent = article.visual.caption;
+    figure.append(button, caption);
+    visualRoot?.append(figure);
+    button.addEventListener('click', () => {
+      if (!dialog || !fullImage || typeof dialog.showModal !== 'function') {
+        window.open(article.visual.src, '_blank', 'noopener');
+        return;
+      }
+      fullImage.src = article.visual.src;
+      fullImage.alt = article.visual.alt;
+      dialog.showModal();
+    });
+    document.querySelector('#closeVisualDialog')?.addEventListener('click', () => dialog?.close());
+    dialog?.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  }
+
   const steps = document.querySelector('#articleSteps');
   article.steps.forEach((step, index) => {
     const section = document.createElement('section');

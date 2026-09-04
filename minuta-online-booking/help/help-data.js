@@ -377,4 +377,16 @@
       'Проверьте статус|Дождитесь «Telegram подключён».'
     ], 'Чат запускать вручную не нужно. Подключение сохранится для следующих записей.', true)
   ];
+
+  const visuals = {
+    'view-team-calendar': { src: 'images/team-calendar.svg', alt: 'Схема расписания команды с фильтрами филиала, специалиста и периода.', caption: 'Фильтры находятся над календарём, а вид и период переключаются справа.' },
+    'service-resources': { src: 'images/service-resources.svg', alt: 'Схема настройки группы ресурсов, кабинета и требований услуги.', caption: 'Порядок важен: сначала группа, затем ресурс, после этого — требования услуги.' },
+    'import-clients-and-booking-history': { src: 'images/client-import.svg', alt: 'Схема импорта клиентов: выбор файла, сопоставление столбцов и предварительная проверка.', caption: 'До импорта Minuta показывает найденные столбцы и результат проверки.' },
+    'calculate-payroll': { src: 'images/payroll.svg', alt: 'Схема расчёта зарплаты с выбором периода, корректировкой и утверждением.', caption: 'Корректировку можно добавить, пока расчёт остаётся черновиком.' },
+    'setup-yookassa': { src: 'images/yookassa.svg', alt: 'Схема подключения ЮKassa: секреты, тестовый режим и включение предоплаты.', caption: 'Секреты добавляет администратор системы, после чего владелец завершает настройку в кабинете.' },
+    'inventory-setup': { src: 'images/inventory.svg', alt: 'Схема складского учёта с каталогом материалов, складом филиала и остатками.', caption: 'Сначала создайте позицию и склад, затем проводите операции с остатком.' },
+    'telegram': { src: 'images/telegram-settings.svg', alt: 'Схема настроек Telegram с username и переключателями событий.', caption: 'Выберите только нужные события и сохраните публичный username без ссылки.' },
+    'install-app': { src: 'images/install-app.svg', alt: 'Схема установки Minuta в Chrome, Android и Safari на iPhone.', caption: 'На iPhone установка выполняется через меню «Поделиться», на Android и компьютере — через браузер.' }
+  };
+  window.MINUTA_HELP_ARTICLES.forEach(item => { if (visuals[item.slug]) item.visual = visuals[item.slug]; });
 }());
