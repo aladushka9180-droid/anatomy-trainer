@@ -144,6 +144,10 @@
                 <label><span>Специалист</span><select id="teamCalendarPerformer" aria-label="Специалист командного календаря"></select></label>
                 <label id="teamCalendarResourceField" hidden><span>Ресурс</span><select id="teamCalendarResource" aria-label="Ресурс командного календаря"></select></label>
               </fieldset>
+              <div class="team-calendar-density" id="teamCalendarDensity" role="group" aria-label="Плотность командного календаря" hidden>
+                <button class="active" type="button" data-team-density="compact" aria-pressed="true">Компактно</button>
+                <button type="button" data-team-density="detailed" aria-pressed="false">Подробно</button>
+              </div>
               <span class="team-calendar-status" id="teamCalendarStatus" role="status" aria-live="polite"></span>
             </div>
             <div class="date-navigation" aria-label="Навигация по расписанию">
@@ -1199,7 +1203,12 @@
     <div class="connection-log-list" id="connectionLogList"></div>
     <div class="connection-log-actions"><button class="secondary-button" id="clearConnectionLog" type="button">Очистить журнал</button><button class="primary" id="connectionLogRefresh" type="button">Обновить сейчас</button></div>
   </dialog>
-  <div class="toast" id="toast" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+  <div class="team-calendar-undo" id="teamCalendarUndo" role="region" aria-label="Отмена последнего переноса" hidden>
+    <div><p id="teamCalendarUndoMessage" role="status" aria-live="polite" aria-atomic="true"></p><small id="teamCalendarUndoCountdown"></small></div>
+    <button id="teamCalendarUndoButton" type="button">Отменить</button>
+    <i aria-hidden="true"></i>
+  </div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="vendor/xlsx-0.20.3.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" defer></script>
   <script src="config.js?v=297"></script>

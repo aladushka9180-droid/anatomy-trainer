@@ -8,6 +8,8 @@
   const DEFAULT_START = 8 * 60;
   const DEFAULT_END = 20 * 60;
   const STEP_MINUTES = 5;
+  const UNDO_WINDOW_MS = 10000;
+  const movableStatuses = new Set(['new', 'confirmed']);
 
   function minutesFromTime(value) {
     const [hours = 0, minutes = 0] = String(value || '').split(':').map(Number);
@@ -47,6 +49,12 @@
     let actionPending = false;
     let moveState = null;
     let suppressClickUntil = 0;
+    let density = 'compact';
+    let undoState = null;
+    let undoTimeout = null;
+    let undoInterval = null;
+    let undoHovered = false;
+    let undoFocused = false;
 
     function canUseTeamCalendar(value = organization) {
       return Boolean(value?.id && allowedRoles.has(value.current_role) && value.can_manage !== false);
@@ -58,6 +66,7 @@
     }
 
     function resetData() {
+      clearUndo();
       rows = [];
       locations = [];
       members = [];
@@ -227,6 +236,7 @@
         button.setAttribute('aria-pressed',String(active));
       });
       if (status) status.textContent = mode !== 'team' ? '' : availability === 'loading' ? 'Загружаем календарь команды…' : availability === 'error' ? 'Календарь команды временно недоступен. Личные записи не изменены.' : '';
+      updateDensityControls();
       const resourceField = $('#teamCalendarResourceField');
       if (availability !== 'ready') {
         if (resourceField) resourceField.hidden = true;
@@ -240,6 +250,18 @@
       const selectableResources = resources.filter(item => item.active && (!locationId || item.location_id === locationId));
       if (resourceField) resourceField.hidden = !resourceCalendar || selectableResources.length === 0;
       if (resourceSelect) resourceSelect.innerHTML = `<option value="">Все ресурсы</option>${selectableResources.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === resourceId ? 'selected' : ''}>${escapeHtml(item.group_name ? `${item.group_name} · ${item.name}` : item.name)}</option>`).join('')}`;
+    }
+
+    function updateDensityControls() {
+      const control = $('#teamCalendarDensity');
+      const calendarView = getCalendarView() || 'day';
+      const timeGridVisible = calendarView === 'day' || (calendarView === 'week' && Boolean(performerId));
+      if (control) control.hidden = mode !== 'team' || availability !== 'ready' || !timeGridVisible;
+      $$('[data-team-density]').forEach(button => {
+        const active = button.dataset.teamDensity === density;
+        button.classList.toggle('active',active);
+        button.setAttribute('aria-pressed',String(active));
+      });
     }
 
     function filteredRows() {
@@ -259,6 +281,111 @@
     function localIso(date) {
       const offset = date.getTimezoneOffset() * 60000;
       return new Date(date.getTime() - offset).toISOString().slice(0,10);
+    }
+
+    function shortDate(value) {
+      const date = localDate(value);
+      return date ? date.toLocaleDateString('ru-RU',{ day:'numeric',month:'short' }).replace('.','') : value;
+    }
+
+    function clearUndo() {
+      if (undoTimeout) clearTimeout(undoTimeout);
+      if (undoInterval) clearInterval(undoInterval);
+      undoTimeout = null;
+      undoInterval = null;
+      undoHovered = false;
+      undoFocused = false;
+      undoState = null;
+      const holder = $('#teamCalendarUndo');
+      if (holder) {
+        holder.hidden = true;
+        holder.classList.remove('is-pending');
+        holder.classList.remove('is-active');
+        holder.classList.remove('is-paused');
+      }
+      const button = $('#teamCalendarUndoButton');
+      if (button) { button.disabled = false; button.textContent = 'Отменить'; }
+    }
+
+    function updateUndoCountdown() {
+      if (!undoState) return;
+      const seconds = Math.max(0,Math.ceil((undoState.expiresAt - Date.now()) / 1000));
+      const label = $('#teamCalendarUndoCountdown');
+      if (label) label.textContent = seconds ? `Отмена доступна ещё ${seconds} сек.` : 'Время отмены истекло';
+      if (!seconds) clearUndo();
+    }
+
+    function scheduleUndoCountdown(restartAnimation = false) {
+      if (!undoState) return;
+      if (undoTimeout) clearTimeout(undoTimeout);
+      if (undoInterval) clearInterval(undoInterval);
+      const delay = Math.max(0,undoState.expiresAt - Date.now());
+      undoInterval = setInterval(updateUndoCountdown,1000);
+      undoTimeout = setTimeout(clearUndo,delay + 100);
+      const holder = $('#teamCalendarUndo');
+      if (holder && restartAnimation) {
+        holder.classList.remove('is-active');
+        void holder.offsetWidth;
+        holder.classList.add('is-active');
+      }
+    }
+
+    function pauseUndoCountdown() {
+      if (!undoState || actionPending || undoState.paused) return;
+      undoState.remainingMs = Math.max(0,undoState.expiresAt - Date.now());
+      undoState.paused = true;
+      if (undoTimeout) clearTimeout(undoTimeout);
+      if (undoInterval) clearInterval(undoInterval);
+      undoTimeout = null;
+      undoInterval = null;
+      $('#teamCalendarUndo')?.classList.add('is-paused');
+    }
+
+    function resumeUndoCountdown() {
+      if (!undoState || actionPending || !undoState.paused || undoHovered || undoFocused) return;
+      undoState.expiresAt = Date.now() + Math.max(0,undoState.remainingMs || 0);
+      undoState.paused = false;
+      $('#teamCalendarUndo')?.classList.remove('is-paused');
+      updateUndoCountdown();
+      scheduleUndoCountdown();
+    }
+
+    function showUndo(previous,current) {
+      const holder = $('#teamCalendarUndo');
+      const message = $('#teamCalendarUndoMessage');
+      if (!holder || !message || !current) {
+        notify(`Запись перенесена на ${shortDate(current?.booking_date || previous.booking_date)} в ${current?.booking_time || previous.booking_time}`);
+        return;
+      }
+      clearUndo();
+      undoState = {
+        bookingId:current.id,
+        previous:{
+          performer_id:previous.performer_id, location_id:previous.location_id, service_id:previous.service_id,
+          booking_date:previous.booking_date, booking_time:previous.booking_time
+        },
+        expected:{
+          performer_id:current.performer_id, location_id:current.location_id,
+          booking_date:current.booking_date, booking_time:current.booking_time
+        },
+        expiresAt:Date.now() + UNDO_WINDOW_MS,
+        remainingMs:UNDO_WINDOW_MS,
+        paused:false
+      };
+      const state = undoState;
+      holder.hidden = false;
+      message.textContent = '';
+      const announcement = `Запись перенесена: ${shortDate(current.booking_date)}, ${current.booking_time}, ${current.performer_name}`;
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
+        if (undoState === state) message.textContent = announcement;
+      });
+      else message.textContent = announcement;
+      updateUndoCountdown();
+      scheduleUndoCountdown(true);
+    }
+
+    function bookingMatchesPoint(item,point) {
+      return Boolean(item && point && item.performer_id === point.performer_id && item.location_id === point.location_id && item.booking_date === point.booking_date && item.booking_time === point.booking_time);
     }
 
     function datesBetween(startValue,endValue) {
@@ -298,7 +425,56 @@
 
     function bookingConflict(item,performer,date,minute) {
       const end = minute + item.duration_minutes;
-      return rows.some(other => other.id !== item.id && other.performer_id === performer && other.booking_date === date && other.status !== 'cancelled' && minute < minutesFromTime(other.booking_time) + other.duration_minutes && end > minutesFromTime(other.booking_time));
+      return rows.find(other => other.id !== item.id && other.performer_id === performer && other.booking_date === date && other.status !== 'cancelled' && minute < minutesFromTime(other.booking_time) + other.duration_minutes && end > minutesFromTime(other.booking_time)) || null;
+    }
+
+    function moveRestriction(item) {
+      if (item.status === 'cancelled') return 'Отменённую запись нельзя переносить.';
+      if (item.status === 'completed') return 'Завершённую запись нельзя переносить.';
+      if (item.status === 'no_show') return 'Запись с отметкой «Не пришли» нельзя переносить.';
+      if (!movableStatuses.has(item.status)) return 'Эту запись нельзя переносить в текущем статусе.';
+      if (item.series_id) return 'Запись входит в серию. Выберите область изменений в управлении серией.';
+      return '';
+    }
+
+    function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId) {
+      const restricted = moveRestriction(item);
+      if (restricted) return restricted;
+      const member = memberById(targetPerformer);
+      const memberName = member?.display_name || 'выбранного специалиста';
+      if (item.has_addons && targetPerformer !== item.performer_id) return 'Сеанс с дополнительными услугами можно перенести только по времени у текущего специалиста.';
+      const service = matchingService(item,targetPerformer);
+      if (!service) return `У специалиста ${memberName} нет совместимой услуги «${item.service_name}» той же длительности.`;
+      const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
+      if (!location) return 'Не удалось определить филиал. Сначала выберите филиал в фильтре календаря.';
+      const targetTime = timeFromMinutes(minute);
+      if (item.performer_id === targetPerformer && item.location_id === location && item.booking_date === date && item.booking_time === targetTime) return 'Запись уже находится в выбранном времени.';
+      const absence = absenceFor(targetPerformer,date);
+      if (absence) {
+        const title = absenceLabels[absence.kind] || 'Недоступен';
+        return `${memberName}: ${title.toLowerCase()}${absence.note ? ` — ${absence.note}` : ''}.`;
+      }
+      const dayShifts = shiftsFor(targetPerformer,date).filter(item => !location || item.location_id === location);
+      const range = getCalendarRange() || { start:getSelectedDate(),end:getSelectedDate() };
+      const shiftDataCoversDate = loadedDate === `${range.start}:${range.end}` && date >= range.start && date <= range.end;
+      if (shifts.length && shiftDataCoversDate && !dayShifts.length) return `У специалиста ${memberName} на ${shortDate(date)} нет смены в выбранном филиале.`;
+      if (shifts.length && shiftDataCoversDate) {
+        const fittingShift = dayShifts.find(shift => minute >= minutesFromTime(shift.start_time) && minute + item.duration_minutes <= minutesFromTime(shift.end_time));
+        const breakShift = dayShifts.find(shift => {
+          if (!shift.break_start || !shift.break_end) return false;
+          const breakStart = minutesFromTime(shift.break_start);
+          const breakEnd = minutesFromTime(shift.break_end);
+          return minute < breakEnd && minute + item.duration_minutes > breakStart;
+        });
+        if (breakShift) return `В это время у специалиста перерыв ${breakShift.break_start}–${breakShift.break_end}.`;
+        if (!fittingShift) {
+          const intervals = dayShifts.map(item => `${item.start_time}–${item.end_time}`).join(', ');
+          return `Запись не помещается в смену специалиста${intervals ? ` (${intervals})` : ''}.`;
+        }
+      }
+      const conflict = bookingConflict(item,targetPerformer,date,minute);
+      if (conflict) return `В ${conflict.booking_time} у специалиста уже есть запись «${conflict.service_name}» до ${timeFromMinutes(minutesFromTime(conflict.booking_time) + conflict.duration_minutes)}.`;
+      return '';
     }
 
     function timelineBounds(columns) {
@@ -363,12 +539,14 @@
       const start = minutesFromTime(item.booking_time);
       const end = start + item.duration_minutes;
       const top = ((start - bounds.start) / 60) * hourHeight;
-      const height = Math.max(34,((end - start) / 60) * hourHeight - 3);
+      const height = Math.max(density === 'detailed' ? 38 : 34,((end - start) / 60) * hourHeight - 3);
       const statusClass = String(item.status || 'new').replaceAll('_','-');
       const resourcesLabel = item.resources.map(resource => resource.name).filter(Boolean).join(' · ');
-      const movable = dispatcherActions && item.status !== 'cancelled' && !item.series_id;
+      const restriction = moveRestriction(item);
+      const movable = dispatcherActions && !restriction;
       const label = `${item.client_name}, ${item.service_name}, ${item.booking_time}–${timeFromMinutes(end)}, ${item.performer_name}`;
-      return `<button class="team-dispatcher-booking status-${escapeHtml(statusClass)}${movable ? ' is-movable' : ''}" type="button" data-team-booking-id="${escapeHtml(item.id)}" style="top:${top}px;height:${height}px;--lane:${lane};--lanes:${lanes}" aria-label="${escapeHtml(label)}. Открыть запись"><time>${escapeHtml(item.booking_time)}–${escapeHtml(timeFromMinutes(end))}</time><strong>${escapeHtml(item.service_name)}</strong><span>${escapeHtml(item.client_name)}</span>${resourcesLabel ? `<small>${escapeHtml(resourcesLabel)}</small>` : ''}${item.series_id ? '<i>Серия</i>' : ''}</button>`;
+      const actionLabel = restriction ? ` Перенос недоступен: ${restriction}` : ' Можно перетащить в другое свободное время.';
+      return `<button class="team-dispatcher-booking status-${escapeHtml(statusClass)}${movable ? ' is-movable' : ''}" type="button" data-team-booking-id="${escapeHtml(item.id)}" style="top:${top}px;height:${height}px;--lane:${lane};--lanes:${lanes}" aria-label="${escapeHtml(label)}.${escapeHtml(actionLabel)} Открыть запись"><time>${escapeHtml(item.booking_time)}–${escapeHtml(timeFromMinutes(end))}</time><strong>${escapeHtml(item.service_name)}</strong><span>${escapeHtml(item.client_name)}</span>${resourcesLabel ? `<small>${escapeHtml(resourcesLabel)}</small>` : ''}${item.series_id ? '<i>Серия</i>' : ''}</button>`;
     }
 
     function renderTimeline(holder,columns,extraClass = '') {
@@ -378,7 +556,7 @@
         return;
       }
       const mobile = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches;
-      const hourHeight = mobile ? 64 : 72;
+      const hourHeight = density === 'detailed' ? (mobile ? 80 : 92) : (mobile ? 64 : 72);
       const bounds = timelineBounds(columns);
       const height = ((bounds.end - bounds.start) / 60) * hourHeight;
       const labels = [];
@@ -392,6 +570,7 @@
         return `<section class="team-dispatcher-column"><div class="team-dispatcher-column-head"><strong>${escapeHtml(column.label)}</strong><small>${escapeHtml(column.subtitle || '')}</small><span>${column.items.filter(item => item.status !== 'cancelled').length}</span></div><div class="team-dispatcher-stage" data-team-stage data-team-performer="${escapeHtml(column.performer_id)}" data-team-date="${escapeHtml(column.date)}" data-team-location="${escapeHtml(columnLocation)}" data-team-start="${bounds.start}" data-team-end="${bounds.end}" data-team-hour-height="${hourHeight}" style="height:${height}px"><button class="team-dispatcher-slot-surface" type="button" data-team-slot-surface aria-label="Выбрать свободное время для ${escapeHtml(column.label)}"></button>${shiftMarkup(column,bounds,hourHeight)}${layoutItems(column.items).map(entry => timelineBookingMarkup(entry,bounds,hourHeight)).join('')}${currentLine}<span class="team-dispatcher-drop-time" aria-hidden="true"></span></div></section>`;
       }).join('');
       holder.className = `provider-bookings team-calendar-list team-dispatcher-scroll${extraClass ? ` ${extraClass}` : ''}`;
+      holder.dataset.teamDensity = density;
       holder.innerHTML = `<div class="team-dispatcher" style="--team-columns:${columns.length};--team-hour-height:${hourHeight}px"><div class="team-dispatcher-axis-head"><strong>Время</strong><small>${dispatcherActions ? 'Нажмите или перетащите' : 'Просмотр'}</small></div><div class="team-dispatcher-axis" style="height:${height}px">${labels.join('')}</div><div class="team-dispatcher-columns">${stages}</div></div>`;
     }
 
@@ -464,6 +643,7 @@
       });
       const weekdayHeader = view === 'month' ? `<div class="calendar-overview-weekdays" aria-hidden="true">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day => `<span>${day}</span>`).join('')}</div>` : '';
       holder.className = `provider-bookings calendar-overview calendar-overview-${view} team-calendar-period`;
+      holder.dataset.teamDensity = density;
       holder.innerHTML = `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="Календарь команды">${placeholders.join('')}${cells.join('')}</div>`;
       const status = $('#teamCalendarStatus');
       if (status) status.textContent = view === 'week' ? `Выберите одного специалиста для почасовой недели · записей ${visible.length}` : `Загрузка команды за месяц · записей ${visible.length}`;
@@ -471,6 +651,7 @@
 
     function render(holder = getHolder()) {
       if (!holder || mode !== 'team') return false;
+      updateDensityControls();
       const range = getCalendarRange() || { start:getSelectedDate(),end:getSelectedDate() };
       const rangeKey = `${range.start}:${range.end}`;
       if (availability === 'loading' || (availability === 'ready' && loadedDate !== rangeKey)) {
@@ -517,49 +698,137 @@
 
     function actionError(error) {
       const text = `${error?.message || ''} ${error?.details || ''}`;
+      if (/team_booking_changed/i.test(text)) return 'Запись уже изменена другим администратором. Расписание обновлено, чужие изменения сохранены.';
+      if (/atomic_team_booking_move_unavailable/i.test(text)) return 'Безопасная отмена переноса станет доступна после обновления базы. Запись не изменена.';
       if (/team_series_move_requires_scope/i.test(text)) return 'Эта запись входит в серию. Откройте управление серией и выберите область изменений.';
       if (/addons_require_manual_move/i.test(text)) return 'Сеанс с дополнительными услугами нужно перенести через подробное редактирование.';
       if (/incompatible_team_booking_service/i.test(text)) return 'У выбранного специалиста нет совместимой услуги той же длительности.';
-      if (/outside_shift|shift_required|shift_break|staff_absence/i.test(text)) return 'Это время находится вне смены, в перерыве или во время отсутствия сотрудника.';
-      if (/slot_unavailable|resource|overlap|buffer/i.test(text)) return 'Время или необходимый ресурс уже заняты. Выберите соседний свободный интервал.';
+      if (/staff_absence/i.test(text)) return 'Специалист отсутствует в выбранную дату. Проверьте отпуск, больничный или личное время.';
+      if (/shift_break/i.test(text)) return 'Выбранное время пересекает перерыв специалиста.';
+      if (/outside_shift|shift_required/i.test(text)) return 'Запись не помещается в рабочую смену специалиста.';
+      if (/resource/i.test(text)) return 'Необходимый кабинет или ресурс уже занят в это время.';
+      if (/overlap/i.test(text)) return 'У специалиста уже есть запись, пересекающаяся с выбранным временем.';
+      if (/buffer/i.test(text)) return 'Между записями не хватает обязательного технологического перерыва.';
+      if (/slot_unavailable/i.test(text)) return 'Выбранное время только что стало недоступно. Расписание обновлено.';
       if (/denied|42501/i.test(text)) return 'Недостаточно прав для изменения командного расписания.';
       return 'Не удалось сохранить изменение. Расписание обновлено, попробуйте другое время.';
     }
 
-    async function moveBooking(item,targetPerformer,date,minute,targetLocationId) {
+    async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
+      const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false } = options;
       if (!dispatcherActions || actionPending || !requireWrites()) return false;
-      if (item.series_id) { notify('Запись входит в серию · перенесите её через управление серией'); return false; }
-      const service = matchingService(item,targetPerformer);
-      if (!service) { notify('У выбранного специалиста нет услуги с таким названием и длительностью'); return false; }
       const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
-      if (!location) { notify('Сначала выберите филиал командного календаря'); return false; }
-      if (!minuteFitsShift(targetPerformer,date,minute,item.duration_minutes,location)) { notify('Это время находится вне смены или пересекает перерыв'); return false; }
-      if (bookingConflict(item,targetPerformer,date,minute)) { notify('Это время уже занято у выбранного специалиста'); return false; }
+      const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location);
+      if (unavailableReason) { notify(unavailableReason); return false; }
+      const service = matchingService(item,targetPerformer);
+      const previous = { ...item };
       actionPending = true;
-      const result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organization.id,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
+      let result;
+      let atomicMove = true;
+      try {
+        const expected = expectedPoint || item;
+        result = await db.rpc('move_minuta_team_booking_v104', {
+          p_organization:organization.id,p_booking:item.id,
+          p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
+          p_expected_date:expected.booking_date,p_expected_time:`${expected.booking_time}:00`,
+          p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
+        });
+        if (result?.error && isMissingRpc(result.error)) {
+          if (requireAtomic) result = { error:{ message:'atomic_team_booking_move_unavailable' } };
+          else {
+            atomicMove = false;
+            result = await db.rpc('move_minuta_team_booking_v102', { p_organization:organization.id,p_booking:item.id,p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00` });
+          }
+        }
+      } catch (error) {
+        result = { error };
+      }
       actionPending = false;
-      if (result.error) { notify(actionError(result.error)); await load(); return false; }
+      if (!result || result.error) { notify(actionError(result?.error || new Error('empty move response'))); await load(); return false; }
       closeSheet();
       await load();
       Promise.resolve(onDataChange()).catch(() => {});
-      notify(`Запись перенесена на ${timeFromMinutes(minute)}`);
+      const current = rows.find(row => row.id === item.id) || {
+        ...item, performer_id:targetPerformer, performer_name:memberById(targetPerformer)?.display_name || item.performer_name,
+        location_id:location, location_name:locationById(location)?.name || item.location_name,
+        service_id:service.id, booking_date:date, booking_time:timeFromMinutes(minute)
+      };
+      if (offerUndo && atomicMove) showUndo(previous,current);
+      else if (offerUndo) notify(`Запись перенесена на ${shortDate(current.booking_date)} в ${current.booking_time}`);
+      else notify(successMessage || 'Перенос отменён. Запись возвращена на прежнее время.');
       return true;
+    }
+
+    async function bookingForUndo(state) {
+      let result;
+      try {
+        result = await db.rpc('get_minuta_team_calendar_v3', {
+          p_organization:organization.id, p_start:state.expected.booking_date, p_end:state.expected.booking_date,
+          p_location:null, p_performer:null, p_resource:null
+        });
+      } catch (error) {
+        return { ok:false,error };
+      }
+      if (!result || result.error) return { ok:false,error:result?.error || new Error('empty calendar response') };
+      return { ok:true,item:normalizePayload(result.data,true).rows.find(row => row.id === state.bookingId) || null };
+    }
+
+    async function undoLastMove() {
+      const state = undoState;
+      const expired = state && (state.paused ? state.remainingMs <= 0 : Date.now() >= state.expiresAt);
+      if (!state || actionPending || expired || !requireWrites()) { clearUndo(); return; }
+      if (undoTimeout) clearTimeout(undoTimeout);
+      if (undoInterval) clearInterval(undoInterval);
+      undoTimeout = null;
+      undoInterval = null;
+      const holder = $('#teamCalendarUndo');
+      const button = $('#teamCalendarUndoButton');
+      const countdown = $('#teamCalendarUndoCountdown');
+      holder?.classList.add('is-pending');
+      if (button) { button.disabled = true; button.textContent = 'Возвращаем…'; }
+      if (countdown) countdown.textContent = 'Проверяем, что запись никто не изменил…';
+      const refreshed = await bookingForUndo(state);
+      if (!undoState || undoState !== state) return;
+      if (!refreshed.ok) {
+        clearUndo();
+        notify('Не удалось проверить запись для безопасной отмены. Запись не изменена.');
+        return false;
+      }
+      const current = refreshed.item;
+      if (!bookingMatchesPoint(current,state.expected)) {
+        clearUndo();
+        notify('Отмена недоступна: запись уже изменена другим администратором. Чужие изменения сохранены.');
+        return;
+      }
+      const success = await moveBooking(current,state.previous.performer_id,state.previous.booking_date,minutesFromTime(state.previous.booking_time),state.previous.location_id,{ offerUndo:false,expectedPoint:state.expected,requireAtomic:true });
+      clearUndo();
+      return success;
     }
 
     function openBookingDetails(item) {
       const start = minutesFromTime(item.booking_time);
       const end = timeFromMinutes(start + item.duration_minutes);
       const resourceNames = item.resources.map(resource => resource.name).filter(Boolean).join(' · ');
-      const canMove = dispatcherActions && item.status !== 'cancelled' && !item.series_id;
+      const restriction = moveRestriction(item);
+      const canMove = dispatcherActions && !restriction;
       const performerOptions = members.map(member => `<option value="${escapeHtml(member.user_id)}" ${member.user_id === item.performer_id ? 'selected' : ''}>${escapeHtml(member.display_name || 'Специалист')}</option>`).join('');
-      const moveForm = canMove ? `<form class="team-booking-move-form" id="teamBookingMoveForm"><div class="form-row"><label>Специалист<select id="teamBookingMovePerformer">${performerOptions}</select></label><label>Дата<input id="teamBookingMoveDate" type="date" value="${escapeHtml(item.booking_date)}" required></label></div><label>Время<input id="teamBookingMoveTime" type="time" step="300" value="${escapeHtml(item.booking_time)}" required></label><p class="team-booking-move-hint">Можно также перетащить карточку прямо в календаре.</p><button class="primary" type="submit">Перенести запись</button></form>` : item.series_id ? '<div class="booking-sheet-block"><span>↻</span><div><small>Серия записей</small><strong>Для безопасного переноса выберите одну запись, последующие или всю серию в управлении серией.</strong></div></div>' : '';
+      const moveForm = canMove ? `<form class="team-booking-move-form" id="teamBookingMoveForm"><div class="form-row"><label>Специалист<select id="teamBookingMovePerformer">${performerOptions}</select></label><label>Дата<input id="teamBookingMoveDate" type="date" value="${escapeHtml(item.booking_date)}" required></label></div><label>Время<input id="teamBookingMoveTime" type="time" step="300" value="${escapeHtml(item.booking_time)}" required></label><p class="team-booking-move-hint">Можно также перетащить карточку прямо в календаре.</p><p class="form-error" id="teamBookingMoveError" role="alert" hidden></p><button class="primary" type="submit">Перенести запись</button></form>` : dispatcherActions && restriction ? `<div class="booking-sheet-block"><span>!</span><div><small>Перенос недоступен</small><strong>${escapeHtml(restriction)}</strong></div></div>` : '';
       if (!setSheet(`<small class="booking-sheet-kicker">Командное расписание · ${escapeHtml(item.location_name)}</small><h2 id="bookingSheetTitle">${escapeHtml(item.service_name)}</h2><div class="booking-sheet-meta"><strong>${escapeHtml(item.booking_time)}–${escapeHtml(end)}</strong><span>${item.duration_minutes} минут</span><span class="booking-status status-${escapeHtml(String(item.status).replaceAll('_','-'))}">${escapeHtml(statusLabels[item.status] || item.status)}</span></div><div class="booking-sheet-summary"><div class="booking-sheet-client"><small class="booking-sheet-client-label">Клиент</small><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong></div>${item.client_phone ? `<a href="tel:${escapeHtml(item.client_phone.replace(/[^+\d]/g,''))}">${escapeHtml(item.client_phone)}</a>` : ''}</div><div class="booking-sheet-price"><small>Специалист</small><strong>${escapeHtml(item.performer_name)}</strong></div></div>${resourceNames ? `<div class="booking-sheet-block"><span>⌂</span><div><small>Ресурсы</small><strong>${escapeHtml(resourceNames)}</strong></div></div>` : ''}${moveForm}`)) return;
-      $('#teamBookingMoveForm')?.addEventListener('submit',event => {
+      $('#teamBookingMoveForm')?.addEventListener('submit',async event => {
         event.preventDefault();
         const targetPerformer = $('#teamBookingMovePerformer').value;
         const date = $('#teamBookingMoveDate').value;
         const minute = minutesFromTime($('#teamBookingMoveTime').value);
-        moveBooking(item,targetPerformer,date,minute,targetLocation(targetPerformer,date,item.location_id));
+        const targetLocationId = targetLocation(targetPerformer,date,item.location_id);
+        const errorHolder = $('#teamBookingMoveError');
+        const reason = moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId);
+        if (reason) {
+          if (errorHolder) { errorHolder.textContent = reason; errorHolder.hidden = false; }
+          return;
+        }
+        if (errorHolder) errorHolder.hidden = true;
+        const moved = await moveBooking(item,targetPerformer,date,minute,targetLocationId);
+        if (!moved && errorHolder) { errorHolder.textContent = 'Перенос не выполнен. Проверьте сообщение и выберите другое время.'; errorHolder.hidden = false; }
       });
     }
 
@@ -621,16 +890,29 @@
 
     function clearMoveVisual(state = moveState) {
       state?.card?.classList.remove('is-dragging');
-      $$('[data-team-stage].is-drop-target').forEach(stage => stage.classList.remove('is-drop-target'));
+      $$('[data-team-stage].is-drop-target').forEach(stage => {
+        stage.classList.remove('is-drop-target');
+        stage.classList.remove('is-drop-invalid');
+      });
       $$('[data-team-stage] .team-dispatcher-drop-time').forEach(marker => { marker.style.display = ''; marker.dataset.label = ''; });
+      const status = $('#teamCalendarStatus');
+      if (status && state?.statusText !== undefined) {
+        status.textContent = state.statusText;
+        status.classList.remove('is-warning');
+        status.setAttribute('aria-live','polite');
+      }
       moveState = null;
     }
 
     function beginMove(event,card) {
       if (!dispatcherActions || actionPending || event.button !== 0) return;
       const item = rows.find(row => row.id === card.dataset.teamBookingId);
-      if (!item || item.status === 'cancelled' || item.series_id) return;
-      moveState = { pointerId:event.pointerId,card,item,startX:event.clientX,startY:event.clientY,active:false,targetStage:null,targetMinute:minutesFromTime(item.booking_time) };
+      if (!item || moveRestriction(item)) return;
+      moveState = {
+        pointerId:event.pointerId,card,item,startX:event.clientX,startY:event.clientY,active:false,targetStage:null,
+        targetMinute:minutesFromTime(item.booking_time), unavailableReason:'', lastStatusText:'', statusText:$('#teamCalendarStatus')?.textContent || ''
+      };
+      $('#teamCalendarStatus')?.setAttribute('aria-live','off');
       card.setPointerCapture?.(event.pointerId);
     }
 
@@ -641,19 +923,38 @@
       if (!state.active) { state.active = true; state.card.classList.add('is-dragging'); }
       event.preventDefault?.();
       const stage = stageFromPoint(event.clientX,event.clientY);
-      $$('[data-team-stage].is-drop-target').forEach(item => item.classList.remove('is-drop-target'));
+      $$('[data-team-stage].is-drop-target').forEach(item => {
+        item.classList.remove('is-drop-target');
+        item.classList.remove('is-drop-invalid');
+      });
       $$('[data-team-stage] .team-dispatcher-drop-time').forEach(marker => { marker.style.display = ''; marker.dataset.label = ''; });
       state.targetStage = stage;
-      if (!stage) return;
+      state.unavailableReason = '';
+      if (!stage) {
+        const status = $('#teamCalendarStatus');
+        if (status) { status.textContent = state.statusText; status.classList.remove('is-warning'); }
+        state.lastStatusText = '';
+        return;
+      }
       stage.classList.add('is-drop-target');
       state.targetMinute = stageMinute(stage,event.clientY);
+      const targetLocationId = stage.dataset.teamLocation || targetLocation(stage.dataset.teamPerformer,stage.dataset.teamDate,state.item.location_id);
+      state.unavailableReason = moveUnavailableReason(state.item,stage.dataset.teamPerformer,stage.dataset.teamDate,state.targetMinute,targetLocationId);
+      stage.classList.toggle('is-drop-invalid',Boolean(state.unavailableReason));
       const marker = stage.querySelector?.('.team-dispatcher-drop-time');
       if (marker) {
         const start = Number(stage.dataset.teamStart || DEFAULT_START);
         const hourHeight = Number(stage.dataset.teamHourHeight || 72);
         marker.style.display = 'block';
         marker.style.top = `${((state.targetMinute - start) / 60) * hourHeight}px`;
-        marker.dataset.label = timeFromMinutes(state.targetMinute);
+        marker.dataset.label = state.unavailableReason ? `${timeFromMinutes(state.targetMinute)} · нельзя` : timeFromMinutes(state.targetMinute);
+      }
+      const status = $('#teamCalendarStatus');
+      const nextStatus = state.unavailableReason ? `Нельзя перенести на ${timeFromMinutes(state.targetMinute)}: ${state.unavailableReason}` : `Перенести на ${shortDate(stage.dataset.teamDate)} в ${timeFromMinutes(state.targetMinute)}`;
+      if (status && state.lastStatusText !== nextStatus) {
+        state.lastStatusText = nextStatus;
+        status.textContent = nextStatus;
+        status.classList.toggle('is-warning',Boolean(state.unavailableReason));
       }
     }
 
@@ -663,10 +964,18 @@
       const target = state.targetStage;
       const active = state.active;
       const minute = state.targetMinute;
+      const unavailableReason = state.unavailableReason;
       clearMoveVisual(state);
       if (!active || !target) return;
       suppressClickUntil = Date.now() + 450;
+      if (unavailableReason) { notify(unavailableReason); return; }
       moveBooking(state.item,target.dataset.teamPerformer,target.dataset.teamDate,minute,target.dataset.teamLocation);
+    }
+
+    function cancelMove(event) {
+      const state = moveState;
+      if (!state || state.pointerId !== event.pointerId) return;
+      clearMoveVisual(state);
     }
 
     async function setMode(nextMode, options = {}) {
@@ -715,9 +1024,27 @@
       if (bound) return;
       bound = true;
       $$('[data-calendar-mode]').forEach(button => button.addEventListener('click',() => setMode(button.dataset.calendarMode)));
+      $$('[data-team-density]').forEach(button => button.addEventListener('click',() => {
+        const nextDensity = button.dataset.teamDensity;
+        if (nextDensity !== 'compact' && nextDensity !== 'detailed') return;
+        density = nextDensity;
+        updateDensityControls();
+        render(getHolder());
+      }));
       $('#teamCalendarLocation')?.addEventListener('change',handleChange);
       $('#teamCalendarPerformer')?.addEventListener('change',handleChange);
       $('#teamCalendarResource')?.addEventListener('change',handleChange);
+      $('#teamCalendarUndoButton')?.addEventListener('click',undoLastMove);
+      const undoHolder = $('#teamCalendarUndo');
+      undoHolder?.addEventListener('mouseenter',() => { undoHovered = true; pauseUndoCountdown(); });
+      undoHolder?.addEventListener('mouseleave',() => { undoHovered = false; resumeUndoCountdown(); });
+      undoHolder?.addEventListener('focusin',() => { undoFocused = true; pauseUndoCountdown(); });
+      undoHolder?.addEventListener('focusout',event => {
+        if (!undoHolder.contains?.(event.relatedTarget)) {
+          undoFocused = false;
+          resumeUndoCountdown();
+        }
+      });
       const holder = getHolder();
       holder?.addEventListener('click',handleHolderClick);
       holder?.addEventListener('pointerdown',event => {
@@ -727,7 +1054,7 @@
       if (typeof document !== 'undefined') {
         document.addEventListener('pointermove',updateMove,{ passive:false });
         document.addEventListener('pointerup',finishMove);
-        document.addEventListener('pointercancel',finishMove);
+        document.addEventListener('pointercancel',cancelMove);
       }
       updateControls();
     }
