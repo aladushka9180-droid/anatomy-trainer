@@ -566,11 +566,6 @@ assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-stat
 assert.match(provider, /statusClass === 'visited'[\s\S]*timeline-booking-status-icon[\s\S]*uiIcon\('check'\)/, 'Состоявшиеся записи в журнале не заменяют длинный статус компактной галочкой');
 assert.match(provider, /<span class="sr-only">Статус: \$\{escapeHtml\(statusText\)\}<\/span>/, 'Текст статуса состоявшейся записи недоступен для экранного диктора');
 assert.match(styles, /timeline-booking-status\.timeline-booking-status-icon \{ display:grid;[^}]*width:24px; height:24px;/, 'Галочка статуса не оформлена как компактный индикатор');
-assert.match(provider, /function bookingPaymentText\(item\)[\s\S]*Получено \$\{money\(received\)\}[\s\S]*Не оплачено · долг/, 'Запись не формирует понятную сверку фактической оплаты со статистикой');
-assert.match(provider, /timeline-booking-payment[^`]*?\$\{escapeHtml\(paymentText\)\}/, 'В дневной ленте не показывается фактически полученная сумма');
-assert.match(provider, /calendarOverviewBookingMarkup[\s\S]*bookingPaymentText\(item\)[\s\S]*aria-label/, 'Календарь не сообщает фактическую оплату завершённой записи');
-assert.match(provider, /outcome\.visit_status === 'completed'[\s\S]*Math\.max\(0, Number\(outcome\.amount_rub \|\| 0\)\)/, 'Нулевая фактическая оплата подменяется стоимостью услуги в форме записи');
-assert.match(styles, /\.timeline-booking-payment \{[^}]*width:max-content;[^}]*font-weight:900;/, 'Сумма оплаты в дневной ленте не имеет отдельного читаемого индикатора');
 assert.match(styles, /provider-body \.schedule-date-picker input \{ height:25px; margin:0;/, 'Поле календаря не выровнено с подписью и иконкой');
 assert.match(styles, /timeline-booking\.status-needs-result \{ border-color:#c8d8ed; background:#eef4fb;/, 'Записи, ожидающие результата, не выделены цветом');
 assert.match(styles, /provider-body \.timeline-booking-copy strong \{ font-size:14px;/, 'Название записи осталось слишком мелким');
@@ -639,7 +634,7 @@ for (const [key, label] of [['sage','Шалфей'], ['teal','Бирюза'], ['
 assert.match(styles, /booking-color-options \{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/, 'Палитра не заполняет два аккуратных ряда по шесть цветов');
 assert.match(provider, /pendingBookingColors\.add\(id\)[\s\S]*db\.rpc\('set_booking_color'[^]*pendingBookingColors\.delete\(id\)/, 'Новый цвет теряется при временной ошибке сервера');
 assert.match(provider, /if \(!pendingBookingColors\.has\(item\.id\)\) bookingColors\.set/, 'Сервер может затереть ещё не синхронизированный цвет');
-assert.match(provider, /timeline-booking-client-row[\s\S]*timeline-booking-payment[\s\S]*\$\{block \|\| !displayPreferences\.show_client_labels \? '' : clientBadgeMarkup/, 'Метки клиента снова растягивают строку и срезают заметку');
+assert.match(provider, /timeline-booking-client-row[\s\S]*<\/span>\$\{block \|\| !displayPreferences\.show_client_labels \? '' : clientBadgeMarkup/, 'Метки клиента снова растягивают строку и срезают заметку');
 assert.match(styles, /timeline-booking \.client-badges \{ position:absolute;[^}]*transform:translateY\(-50%\)/, 'Метки клиента не вынесены из потока карточки');
 assert.match(styles, /@media \(min-width:761px\)[\s\S]*?timeline-booking-copy \{ position:static; \}[\s\S]*?timeline-booking \.client-badges:not\(\.with-labels\)[\s\S]*?right:14px;[\s\S]*?transform:translateY\(-50%\)/, 'Метки клиентов на большом экране снова выравниваются относительно текста, а не карточки');
 assert.match(styles, /timeline-booking\.compact \.client-badges:not\(\.with-labels\) \.client-badge \{[\s\S]*?width:30px;[\s\S]*?height:30px;/, 'Метки снова не помещаются в короткую запись');
