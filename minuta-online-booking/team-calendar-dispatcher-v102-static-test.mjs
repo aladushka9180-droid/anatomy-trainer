@@ -31,7 +31,7 @@ assert.match(sessionMigration,/column_name='calculated_amount_rub'[\s\S]*outcome
 assert.doesNotMatch(sessionMigration,/outcome\.amount_rub/, 'received payment must never be backfilled as the historical service price');
 assert.match(clientBookingMigration,/where service\.id = booking\.service_id[\s\S]*booking\.booking_date >= current_date[\s\S]*booking\.original_price_rub is null/i,'v56 must not overwrite unknown historical prices with the current service price');
 assert.match(releaseWorkflow,/case "\$v53_layer_state"[\s\S]*repairable\)[\s\S]*supabase-migration-v53\.sql[\s\S]*complete\)[\s\S]*without replay/i,'complete v53 must not be replayed in production');
-assert.match(integration,/create_minuta_team_booking_v102[\s\S]*session_replication_role','replica'[\s\S]*duration_minutes=0[\s\S]*move_minuta_team_booking_v102[\s\S]*v_duration<>v_service_duration[\s\S]*rollback;/i,'create and zero-duration repair must be exercised against PostgreSQL and rolled back');
+assert.match(integration,/create_minuta_team_booking_v102[\s\S]*duration_minutes=0[\s\S]*move_minuta_team_booking_v102[\s\S]*v_duration<>v_service_duration[\s\S]*rollback;/i,'create and zero-duration repair must be exercised against PostgreSQL and rolled back');
 assert.match(releaseWorkflow,/supabase-migration-v102\.sql[\s\S]*team-calendar-dispatcher-v102-integration\.sql[\s\S]*supabase-migration-v103\.sql/i,'v102 integration test must run in the isolated migration database');
 
 console.log('team calendar dispatcher v102 static tests passed');

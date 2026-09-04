@@ -64,10 +64,8 @@ begin
     raise exception 'v102_create_result_invalid';
   end if;
 
-  -- Reproduce a legacy zero-duration row without firing modern write guards.
-  perform set_config('session_replication_role','replica',true);
+  -- Reproduce a legacy zero-duration row, then let the dispatcher repair it.
   update public.bookings set duration_minutes=0 where id=v_booking;
-  perform set_config('session_replication_role','origin',true);
 
   v_result:=public.move_minuta_team_booking_v102(
     v_organization,v_booking,v_location,v_service,v_date,v_time
