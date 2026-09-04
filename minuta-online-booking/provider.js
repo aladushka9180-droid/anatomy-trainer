@@ -125,6 +125,7 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   show_client_labels: true,
   show_notes: true,
   ios_transitions: true,
+  team_calendar_enabled: false,
   mobile_nav: ['bookings', 'notifications', 'analytics', 'schedule'],
   analytics_goals: Object.freeze({ revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 }),
   analytics_goals_by_scope: Object.freeze({})
@@ -1071,6 +1072,7 @@ function normalizeDisplayPreferences(value = {}) {
     show_client_labels: source.show_client_labels ?? DEFAULT_DISPLAY_PREFERENCES.show_client_labels,
     show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes,
     ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
+    team_calendar_enabled: source.team_calendar_enabled ?? source.teamCalendarEnabled ?? DEFAULT_DISPLAY_PREFERENCES.team_calendar_enabled,
     mobile_nav: normalizeMobileNavigation(source.mobile_nav ?? source.mobileNav),
     analytics_goals:normalizeAnalyticsGoals(source.analytics_goals ?? source.analyticsGoals),
     analytics_goals_by_scope:normalizeAnalyticsGoalsByScope(source.analytics_goals_by_scope ?? source.analyticsGoalsByScope)
@@ -1088,6 +1090,7 @@ function displayPreferencesEqual(left, right) {
     && a.show_client_labels === b.show_client_labels
     && a.show_notes === b.show_notes
     && a.ios_transitions === b.ios_transitions
+    && a.team_calendar_enabled === b.team_calendar_enabled
     && JSON.stringify(a.mobile_nav) === JSON.stringify(b.mobile_nav)
     && JSON.stringify(a.analytics_goals) === JSON.stringify(b.analytics_goals)
     && JSON.stringify(a.analytics_goals_by_scope) === JSON.stringify(b.analytics_goals_by_scope);
@@ -1223,6 +1226,16 @@ function applyDisplayPreferences() {
   const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
   renderMobileNavigation();
+}
+
+function setTeamCalendarEnabledPreference(nextEnabled) {
+  const normalized = nextEnabled === true;
+  if (displayPreferences.team_calendar_enabled === normalized) return;
+  displayPreferences = normalizeDisplayPreferences({ ...displayPreferences, team_calendar_enabled:normalized });
+  displayPreferencesUpdatedAt = Math.max(Date.now(), displayPreferencesUpdatedAt + 1);
+  displayPreferencesPending = true;
+  persistLocalDisplayPreferences();
+  queueDisplayPreferencesSync();
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -1644,7 +1657,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=298#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=300#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3199,7 +3212,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=298');
+    worker = new Worker('./report-worker.js?v=300');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -9086,7 +9099,9 @@ teamCalendarController = window.MinutaTeamCalendar.createController({
   renderLegacy: renderBookings,
   notify,
   requireWrites,
-  onDataChange: refreshAfterWrite
+  onDataChange: refreshAfterWrite,
+  getEnabledPreference: () => displayPreferences.team_calendar_enabled === true,
+  onEnabledChange: setTeamCalendarEnabledPreference
 });
 teamCalendarController.bind();
 

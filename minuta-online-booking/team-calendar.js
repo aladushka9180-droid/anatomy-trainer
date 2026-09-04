@@ -8,7 +8,6 @@
   const DEFAULT_START = 8 * 60;
   const DEFAULT_END = 20 * 60;
   const STEP_MINUTES = 5;
-  const TEAM_CALENDAR_ENABLED_KEY_PREFIX = 'minuta-team-calendar-enabled-v1';
   const UNDO_WINDOW_MS = 10000;
   const movableStatuses = new Set(['new', 'confirmed']);
 
@@ -27,7 +26,8 @@
       db, $, $$, escapeHtml, getCurrentUser, getSessionGeneration, sessionIsCurrent,
       getSelectedDate, getCalendarRange = () => ({ start:getSelectedDate(),end:getSelectedDate() }),
       getCalendarView = () => 'day', getHolder, onModeChange = () => {},
-      renderLegacy = () => {}, notify = () => {}, requireWrites = () => true, onDataChange = () => {}
+      renderLegacy = () => {}, notify = () => {}, requireWrites = () => true, onDataChange = () => {},
+      getEnabledPreference = () => true, onEnabledChange = () => {}
     } = options;
     let organization = null;
     let rows = [];
@@ -58,16 +58,12 @@
     let undoFocused = false;
     let enabled = false;
 
-    function preferenceKey(value = organization) {
-      return `${TEAM_CALENDAR_ENABLED_KEY_PREFIX}:${value?.id || 'none'}:${getCurrentUser()?.id || 'anonymous'}`;
-    }
-
     function readEnabled(value) {
-      try { return localStorage.getItem(preferenceKey(value)) === 'true'; } catch { return false; }
+      try { return getEnabledPreference(value) === true; } catch { return false; }
     }
 
     function persistEnabled() {
-      try { localStorage.setItem(preferenceKey(), String(enabled)); } catch {}
+      try { onEnabledChange(enabled,organization); } catch {}
     }
 
     function canUseTeamCalendar(value = organization) {
@@ -246,7 +242,7 @@
         enabled = false;
         persistEnabled();
       }
-      if ((!enabled || !hasTeam) && mode === 'team') {
+      if ((!enabled || (availability === 'ready' && !hasTeam)) && mode === 'team') {
         mode = 'personal';
         onModeChange(false);
       }
@@ -257,7 +253,7 @@
         toggle.disabled = !configurable;
       }
       if (settingNote) settingNote.textContent = enabled ? 'Функция включена. Переключатель команды доступен в расписании.' : 'Функция выключена. В расписании остаются только ваши записи.';
-      const supported = enabled && configurable;
+      const supported = enabled && canUseTeamCalendar() && (availability === 'error' || configurable);
       if (toolbar) toolbar.hidden = !supported;
       if (filters) filters.hidden = mode !== 'team' || availability !== 'ready';
       $$('[data-calendar-mode]').forEach(button => {
