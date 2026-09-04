@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
+assert.match(provider, /clientTelegramResult = await deliverTelegramClientNotification\(createdBooking\.id, 'confirmation'\)/, 'Обычная запись, созданная мастером, не отправляет подтверждение подключённому Telegram-клиенту');
+assert.match(provider, /клиент получил подтверждение в Telegram/, 'Мастер не видит успешный результат Telegram-отправки');
 const start = provider.indexOf('function offlineBookingConflictText');
 const end = provider.indexOf('function renderOfflineBookingQueue', start);
 assert.ok(start >= 0 && end > start, 'Не удалось извлечь обработчики уведомлений офлайн-записи');

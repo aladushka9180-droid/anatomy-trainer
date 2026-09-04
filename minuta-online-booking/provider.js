@@ -1673,7 +1673,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=344#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=345#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3363,7 +3363,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=344');
+    worker = new Worker('./report-worker.js?v=345');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6540,17 +6540,24 @@ async function createNewBooking(event) {
   createdBooking ||= findCreatedBooking(createdCriteria);
   createdBooking ||= await ensureCreatedBookingVisible(createdCriteria);
   let blockNoteLocalOnly = false;
+  let clientTelegramResult = null;
   if (createdBooking) {
     await saveBookingColor(createdBooking.id, color, { rerender:false });
     if (block) {
       const remoteSaved = await saveBookingNote(createdBooking.id, note);
       blockNoteLocalOnly = !remoteSaved && Boolean(note);
+    } else {
+      clientTelegramResult = await deliverTelegramClientNotification(createdBooking.id, 'confirmation');
     }
     focusCreatedBooking(createdBooking.id);
   }
   notify(block
     ? (blockNoteLocalOnly ? 'Перерыв создан. Заметка сохранена на этом устройстве' : 'Время занято')
-    : 'Новая запись создана');
+    : clientTelegramResult?.delivered
+      ? 'Новая запись создана · клиент получил подтверждение в Telegram'
+      : clientTelegramResult?.reason === 'not_connected'
+        ? 'Новая запись создана · клиент ещё не подключил Telegram'
+        : 'Новая запись создана · подтверждение в Telegram не отправлено');
 }
 
 function closeBookingSheet() {
