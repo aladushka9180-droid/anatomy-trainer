@@ -669,12 +669,14 @@
       moveBooking(state.item,target.dataset.teamPerformer,target.dataset.teamDate,minute,target.dataset.teamLocation);
     }
 
-    async function setMode(nextMode) {
+    async function setMode(nextMode, options = {}) {
       if (nextMode !== 'team' || !canUseTeamCalendar() || availability === 'unsupported') {
         mode = 'personal';
         updateControls();
-        onModeChange(false);
-        renderLegacy();
+        if (options.silent !== true) {
+          onModeChange(false);
+          renderLegacy();
+        }
         return;
       }
       mode = 'team';

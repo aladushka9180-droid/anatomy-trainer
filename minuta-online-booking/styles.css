@@ -78,6 +78,21 @@
   .team-dispatcher-week .team-dispatcher { grid-template-columns:58px minmax(calc(var(--team-columns,1) * 172px),1fr); min-width:calc(58px + var(--team-columns,1) * 172px); }
 }
 
+.journal-mode-toggle .journal-default-button {
+  padding-inline:13px;
+  border-right:1px solid var(--theme-line,#dce7df);
+  color:var(--theme-accent,#315b47);
+}
+.journal-mode-toggle .journal-default-button:active {
+  background:var(--theme-accent-soft,#edf6f0);
+}
+@media (max-width:760px) {
+  .journal-mode-toggle .journal-default-button {
+    min-width:max-content;
+    padding-inline:10px;
+  }
+}
+
 @media (prefers-reduced-motion:reduce) {
   .team-dispatcher-booking { transition:none!important; }
 }

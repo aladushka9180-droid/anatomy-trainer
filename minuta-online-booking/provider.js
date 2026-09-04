@@ -4008,6 +4008,32 @@ function setJournalMode(mode) {
   renderBookings();
 }
 
+function restoreDefaultScheduleView() {
+  if (teamCalendarController?.isTeamMode) teamCalendarController.setMode('personal', { silent:true });
+  calendarView = 'day';
+  currentFilter = 'day';
+  journalMode = 'timeline';
+  timelineFullDay = false;
+  try {
+    localStorage.setItem(CALENDAR_VIEW_KEY, calendarView);
+    localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter);
+    localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
+  } catch {}
+  setTeamCalendarMode(false, { render:false });
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  updateCalendarViewControls();
+  updateJournalModeButtons();
+  updateBookingQueryTools();
+  syncScheduleContextHistory();
+  renderDateStrip();
+  renderBookings();
+  notify('По умолчанию: мои записи, день, лента');
+}
+
 function updateJournalModeButtons() {
   const modeToggle = $('.journal-mode-toggle');
   if (modeToggle) modeToggle.hidden = teamCalendarController?.isTeamMode || currentFilter !== 'day' || calendarView !== 'day';
@@ -6324,7 +6350,7 @@ function renderBookings() {
   }
 }
 
-function setTeamCalendarMode(active) {
+function setTeamCalendarMode(active, options = {}) {
   const teamMode = active === true;
   const modeToggle = $('.journal-mode-toggle');
   const filters = $('.booking-filters');
@@ -6334,7 +6360,7 @@ function setTeamCalendarMode(active) {
   if (createButton) createButton.hidden = teamMode;
   if (!teamMode) updateJournalModeButtons();
   updateBookingQueryTools();
-  renderBookings();
+  if (options.render !== false) renderBookings();
 }
 
 function buildClients() {
@@ -9620,6 +9646,7 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   renderAnalytics();
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
+$('#restoreDefaultSchedule')?.addEventListener('click', restoreDefaultScheduleView);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);
