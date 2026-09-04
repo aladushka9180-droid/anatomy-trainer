@@ -7327,6 +7327,7 @@ async function handleSession(session) {
   const generation = ++sessionGeneration;
   resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
+  window.MinutaProviderOnboarding?.reset();
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
   offlineBookingInputsReady = false;
@@ -7473,6 +7474,13 @@ async function handleSession(session) {
   if (!sessionIsCurrent(userId, generation)) return;
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
+  window.MinutaProviderOnboarding?.handleSession({
+    db,
+    user: currentUser,
+    hasServices: ownServices.length > 0,
+    refresh: synchronizeProvider,
+    onComplete: () => setProviderView('bookings', { historyMode:'replace', focusHeading:true })
+  });
   if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
   if (!sessionIsCurrent(userId, generation)) return;
   if (!bookingsChannel) startLiveUpdates();
@@ -7698,7 +7706,14 @@ async function signup(event) {
   const { data, error } = await db.auth.signUp({
     email: $('#signupEmail').value.trim(),
     password: $('#signupPassword').value,
-    options: { data: { display_name: name }, emailRedirectTo: new URL('provider.html', location.href).href }
+    options: {
+      data: {
+        display_name: name,
+        minuta_onboarding_status: 'pending',
+        minuta_onboarding_version: 1
+      },
+      emailRedirectTo: new URL('provider.html', location.href).href
+    }
   });
   button.disabled = false;
   button.textContent = 'Создать кабинет';
