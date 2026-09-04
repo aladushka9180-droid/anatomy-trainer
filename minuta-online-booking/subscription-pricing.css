@@ -353,3 +353,88 @@
 .subscription-plan-top {
   min-height: 0 !important;
 }
+
+/* Pricing alignment v382 */
+.subscription-cycle-switch {
+  width: min(100%, 440px) !important;
+  padding: 4px !important;
+  border-radius: 13px !important;
+}
+
+.subscription-cycle-switch label {
+  min-height: 40px !important;
+  padding: 6px 10px !important;
+  border-radius: 9px !important;
+}
+
+.subscription-plan-grid {
+  gap: 12px !important;
+}
+
+.subscription-plan-card {
+   min-height: 0 !important;  grid-template-rows: auto auto auto !important;  align-content: start !important;   gap: 17px !important;
+  padding: 22px !important;
+  border-radius: 18px !important;
+}
+
+.subscription-plan-top {
+  min-height: 58px !important;
+  padding-right: 0 !important;
+}
+
+.subscription-plan-featured .subscription-plan-top {
+  padding-right: 138px !important;
+}
+
+.subscription-plan-label {
+  top: 18px !important;
+  right: 18px !important;
+  padding: 6px 9px !important;
+  white-space: nowrap !important;
+}
+
+.subscription-plan-card ul {
+  align-content: start !important;
+  margin-top: 2px !important;
+  padding-top: 16px !important;
+}
+
+.subscription-plan-card li {
+  padding-left: 14px !important;
+}
+
+.subscription-plan-card li::before {
+  content: '' !important;
+  top: .58em !important;
+  left: 1px !important;
+  width: 4px !important;
+  height: 4px !important;
+  border-radius: 50% !important;
+  background: var(--theme-accent, #b66e4e) !important;
+}
+
+@media (max-width: 1120px) {
+  .subscription-plan-featured .subscription-plan-top {
+    padding-right: 138px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .subscription-cycle-switch {
+    width: 100% !important;
+  }
+
+  .subscription-plan-card {
+    padding: 18px !important;
+  }
+
+  .subscription-plan-featured .subscription-plan-top {
+    padding-right: 118px !important;
+  }
+
+  .subscription-plan-label {
+    top: 16px !important;
+    right: 16px !important;
+    font-size: 7px !important;
+  }
+}
