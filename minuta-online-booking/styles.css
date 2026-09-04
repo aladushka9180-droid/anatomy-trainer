@@ -6984,3 +6984,42 @@ html.provider-booting .provider-main {
 
 /* Завершение остаётся доступно скринридеру и в подробностях, но не занимает отдельный кружок в ленте. */
 .provider-body[data-provider-theme] .timeline-booking .timeline-booking-status-icon { display:none!important; }
+
+/* Luxury: основные действия статистики используют одну форму и отделку. */
+.provider-body[data-provider-theme="luxury"] #analyticsView :is(
+  #exportBookings,
+  .report-data-source button.active,
+  .report-view-tabs button.active
+) {
+  min-height:44px!important;
+  padding:0 16px;
+  border:1px solid #e0b35e;
+  border-radius:10px!important;
+  background:linear-gradient(145deg,#a9772e,#d9a950 58%,#8b6022)!important;
+  color:#1c1207!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 22px rgba(214,166,77,.15)!important;
+  font:700 12px/1 Georgia,"Times New Roman",serif;
+}
+.provider-body[data-provider-theme="luxury"] #analyticsView #exportBookings {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin:0;
+}
+.provider-body[data-provider-theme="luxury"] #analyticsView :is(
+  #exportBookings,
+  .report-data-source button.active,
+  .report-view-tabs button.active
+):hover {
+  border-color:#f0c76f;
+  background:linear-gradient(145deg,#bd8937,#ebbf65 58%,#9d702c)!important;
+}
+.provider-body[data-provider-theme="luxury"] #analyticsView :is(
+  #exportBookings,
+  .report-data-source button.active,
+  .report-view-tabs button.active
+):focus-visible {
+  outline:2px solid #f0c76f;
+  outline-offset:3px;
+}
