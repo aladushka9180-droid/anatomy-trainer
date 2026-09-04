@@ -6123,3 +6123,15 @@ html.provider-booting .provider-main {
   .team-dispatcher-booking.is-dragging { transform:none; }
   .team-calendar-undo>i { animation:none!important; opacity:.35; }
 }
+
+/* На узком экране Bento использует почти всю ширину: временная шкала остаётся
+   читаемой, но больше не отнимает у карточек записей четверть колонки. */
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-app { padding-right:4px; padding-left:4px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-mobile-nav { right:4px; left:4px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-view { padding-right:4px; padding-left:4px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .day-timeline { grid-template-columns:44px minmax(0,1fr); }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-hour { right:6px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-booking { right:4px; left:5px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-day-expand { width:calc(100% - 44px); }
+}
