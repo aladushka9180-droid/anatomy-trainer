@@ -286,7 +286,7 @@ const defaultNotificationTemplates = {
 };
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 
-function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v2' : name}`; }
+function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v3' : name}`; }
 function sessionIsCurrent(userId, generation) { return currentUser?.id === userId && sessionGeneration === generation; }
 function cachePayload(name, data) {
   if (name !== 'bookings' || !Array.isArray(data)) return data;
@@ -294,9 +294,12 @@ function cachePayload(name, data) {
   cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() - 90);
   const cutoffIso = localIsoDate(cutoff);
-  return data.filter(item => item.booking_date >= cutoffIso).slice(-500).map(item => isScheduleBlock(item)
-    ? { ...item, booking_code: '', client_name: item.client_name || 'Перерыв', client_phone: SCHEDULE_BLOCK_PHONE }
-    : { ...item, booking_code: '', client_name: 'Клиент', client_phone: '' });
+  return data.filter(item => item.booking_date >= cutoffIso).slice(-500).map(item => ({
+    ...item,
+    booking_code: '',
+    client_name: isScheduleBlock(item) ? (item.client_name || 'Перерыв') : item.client_name,
+    client_phone: isScheduleBlock(item) ? SCHEDULE_BLOCK_PHONE : item.client_phone
+  }));
 }
 async function saveProviderCache(name, data, userId = currentUser?.id) {
   if (!userId) return null;
@@ -1662,7 +1665,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=324#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=325#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3246,7 +3249,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=324');
+    worker = new Worker('./report-worker.js?v=325');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4870,13 +4873,13 @@ function renderTimeline(sourceItems) {
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item, 'timeline-client-visit');
     const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', visitText, `${duration} мин`].filter(Boolean).join(' · ');
     const clientDetailsMarkup = block
-      ? (item.automatic_break ? 'Автоматически' : 'Занятое время')
+      ? ''
       : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${displayPreferences.show_phone ? `<span class="timeline-client-phone"><span class="timeline-client-phone-separator" aria-hidden="true"> · </span>${escapeHtml(item.client_phone)}</span>` : ''}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}<span class="timeline-client-duration"> · ${duration} мин</span>`;
     const ariaDetails = visibleNote ? `${clientDetails}, заметка: ${visibleNote}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
-    const timelineStatus = item.automatic_break
-      ? '<span class="timeline-booking-status">Авто</span>'
+    const timelineStatus = block
+      ? ''
       : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
@@ -4884,7 +4887,7 @@ function renderTimeline(sourceItems) {
     const cardContent = minuteOnly
       ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
+      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;

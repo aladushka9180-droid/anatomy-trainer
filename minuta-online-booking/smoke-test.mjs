@@ -237,8 +237,8 @@ assert.doesNotMatch(providerHtml, /mobile-priority-shortcuts/, 'Быстрые �
 assert.match(provider, /height < 54 \? ' compact'/, 'Записи до 45 минут снова получают переполняющийся обычный макет');
 assert.match(provider, /requiredResults\.every\(result => result\?\.ok\)/, 'Запись разрешается без полной синхронизации');
 assert.match(provider, /removePrefix\(`provider:\$\{userId\}:`\)/, 'Кэш клиента не очищается при выходе');
-assert.match(provider, /bookings-v2/, 'Новый обезличенный кэш не отделён от старого PII-кэша');
-assert.match(provider, /client_name: 'Клиент', client_phone: ''/, 'Офлайн-кэш записей содержит данные клиента');
+assert.match(provider, /bookings-v3/, 'Полноценный кэш записей не отделён от старой обезличенной версии');
+assert.match(provider, /client_name: isScheduleBlock\(item\)[\s\S]*client_phone: isScheduleBlock\(item\)/, 'Офлайн-кэш не сохраняет имя и телефон обычной записи');
 assert.match(provider, /booking_policies/, 'Кабинет не загружает правила отмены и предоплаты');
 assert.match(provider, /notification_templates/, 'Шаблоны уведомлений не синхронизируются с сервером');
 assert.match(provider, /set_booking_payment_status/, 'Нет управления статусом предоплаты');
@@ -322,7 +322,9 @@ assert.equal(timelineTimeFromClick(timelineStage, { clientY: 530 }), '19:00', '�
 assert.match(provider, /enteringBlock[\s\S]*?duration_minutes\) === 60/, 'Новый перерыв не выбирает 60 минут по умолчанию');
 assert.match(provider, /timeline-client-phone-separator/, 'Телефон в мобильной карточке нельзя отделить от имени клиента');
 assert.match(styles, /timeline-client-phone[^}]*display:block;[^}]*white-space:nowrap;/, 'Телефон не переносится на отдельную строку мобильной карточки');
-assert.match(provider, /const cachedBookings = navigator\.onLine \? null : await hydrateCachedBookings/, 'При обновлении онлайн сначала показывается обезличенная офлайн-копия без телефона');
+assert.match(provider, /const timelineStatus = block\s*\? ''/, 'Перерыв дублируется меткой «Занято»');
+assert.match(provider, /\$\{timeRange\}\$\{block \? '' : ' · '\}/, 'Перерыв дублирует подпись «Занятое время» после диапазона времени');
+assert.match(provider, /const cachedBookings = navigator\.onLine \? null : await hydrateCachedBookings/, 'При обновлении онлайн сначала показывается устаревшая офлайн-копия');
 assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безопасного маркера занятого времени');
 assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
 assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
@@ -557,6 +559,7 @@ assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Моби�
 assert.match(styles, /timeline-service-variant\s*\{\s*display:none/, 'На мобильном экране второстепенное уточнение продолжает сокращать основное название');
 assert.match(styles, /-webkit-line-clamp:2/, 'Длинное основное название услуги не может занять две строки');
 assert.match(styles, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{\s*display:none!important/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');
+assert.match(styles, /data-provider-theme="luxury"\][^}]*\.timeline-booking-status\s*\{[^}]*border:1px solid #8f6c32;[^}]*background:rgba\(38,28,13,\.96\);[^}]*color:#e7bd65!important;/, 'Метки состояния мобильной записи Luxury выбиваются из золотой темы');
 assert.match(providerHtml, /<details class="panel settings-card account-settings-card">/, 'Смена пароля не свёрнута в дополнительный раздел');
 assert.match(provider, /class="service-more"/, 'Повторяющиеся действия услуги не убраны в компактное меню');
 assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-status[\s\S]*display:none/, 'Подтверждённые записи продолжают показывать повторяющийся статус');

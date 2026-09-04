@@ -5316,6 +5316,17 @@ html.provider-booting .provider-main {
   .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-client-phone-separator {
     display:none;
   }
+  .provider-body[data-provider-theme="luxury"] .timeline-booking:not(.compact):not(.minute-only) .timeline-booking-status {
+    border:1px solid #8f6c32;
+    background:rgba(38,28,13,.96);
+    color:#e7bd65!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .provider-body[data-provider-theme="luxury"] .timeline-booking:not(.compact):not(.minute-only).status-needs-result .timeline-booking-status {
+    border-color:#c4933e;
+    background:rgba(199,147,62,.18);
+    color:#f2cc7a!important;
+  }
   .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .client-badges:not(.with-labels) {
     max-width:108px;
   }
