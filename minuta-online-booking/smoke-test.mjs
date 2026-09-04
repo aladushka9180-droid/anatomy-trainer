@@ -329,7 +329,7 @@ assert.match(provider, /booking-sheet-client-label">Клиент<\/small>\$\{cli
 assert.match(styles, /\.booking-sheet-client>\.booking-sheet-client-name \{[^}]*grid-row:2;[^}]*align-self:center;/, 'Имя клиента и аватар снова оказались в разных строках сетки');
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.booking-sheet-client>\.booking-client-avatar-control \{ background:transparent; color:inherit; \}/, 'Контейнер аватара снова получил лишний фон темы');
 assert.match(styles, /connection-log-dialog[\s\S]*connection-log-entry/, 'Журнал связи не оформлен для кабинета');
-assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-dialog \{[\s\S]*provider-luxury-marble-v4\.webp/, 'Журнал связи не получил поверхность Luxury');
+assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-dialog \{[^}]*background-color:#070809;/, 'Журнал связи не получил тёмную поверхность Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-entry \{[\s\S]*background:linear-gradient/, 'Записи журнала связи не оформлены для Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-actions \{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/, 'Действия журнала связи не выровнены в Luxury');
 assert.match(styles, /\.schedule-empty-create/, 'Кнопка пустого расписания не оформлена');

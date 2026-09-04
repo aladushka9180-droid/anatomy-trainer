@@ -2,6 +2,7 @@
   'use strict';
 
   const roleLabels = { owner: 'Владелец', admin: 'Администратор', specialist: 'Специалист' };
+  const DEMO_ORGANIZATION_SLUG = 'minuta-demo-statistics';
   const actionLabels = {
     organization_updated: 'Изменено название организации',
     location_created: 'Добавлен филиал',
@@ -20,8 +21,14 @@
     let availability = null;
     let requestRevision = 0;
 
+    function workingOrganizations() {
+      const items = organizations.filter(item => item.public_slug !== DEMO_ORGANIZATION_SLUG);
+      return items.length ? items : organizations;
+    }
+
     function activeOrganization() {
-      return organizations.find(item => item.id === activeOrganizationId) || organizations[0] || null;
+      const items = workingOrganizations();
+      return items.find(item => item.id === activeOrganizationId) || items[0] || null;
     }
 
     function getActiveOrganization() {
@@ -89,7 +96,8 @@
       const source = payload?.workspace || payload;
       organizations = Array.isArray(source?.organizations) ? source.organizations : [];
       pendingInvitations = Array.isArray(source?.pending_invitations) ? source.pending_invitations : [];
-      if (!organizations.some(item => item.id === activeOrganizationId)) activeOrganizationId = organizations[0]?.id || '';
+      const availableOrganizations = workingOrganizations();
+      if (!availableOrganizations.some(item => item.id === activeOrganizationId)) activeOrganizationId = availableOrganizations[0]?.id || '';
       availability = 'ready';
       render();
       emitActiveOrganization();
@@ -145,6 +153,7 @@
         return;
       }
       const organization = activeOrganization();
+      const availableOrganizations = workingOrganizations();
       const canManage = Boolean(organization.can_manage);
       const members = Array.isArray(organization.members) ? organization.members : [];
       const locations = Array.isArray(organization.locations) ? organization.locations : [];
@@ -163,8 +172,8 @@
       $('#organizationName').value = organization.name;
       $('#organizationName').disabled = !canManage;
       $('#organizationForm').querySelector('button').hidden = !canManage;
-      $('#organizationSwitcherField').hidden = organizations.length < 2;
-      switcher.innerHTML = organizations.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === organization.id ? 'selected' : ''}>${escapeHtml(item.name)} · ${escapeHtml(roleLabels[item.current_role] || item.current_role)}</option>`).join('');
+      $('#organizationSwitcherField').hidden = availableOrganizations.length < 2;
+      switcher.innerHTML = availableOrganizations.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === organization.id ? 'selected' : ''}>${escapeHtml(item.name)} · ${escapeHtml(roleLabels[item.current_role] || item.current_role)}</option>`).join('');
 
       $('#locationsCount').textContent = String(locations.filter(item => item.active).length);
       $('#locationsList').innerHTML = locations.length ? locations.map(location => locationCard(location, canManage)).join('') : emptyState('Филиалов пока нет', 'Добавьте первое место работы.');
