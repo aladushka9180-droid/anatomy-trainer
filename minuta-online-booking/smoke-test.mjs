@@ -487,6 +487,12 @@ assert.match(providerHtml, /class="schedule-title-line"[\s\S]*class="dashboard-s
 assert.match(providerHtml, /class="policy-grid"[\s\S]*class="field-with-unit"/, 'Правила записи не собраны в компактную сетку с единицами');
 assert.match(providerHtml, /id="autoCompleteVisits"/, 'В настройках нет автоматического учёта завершённых визитов');
 assert.match(providerHtml, /id="reportUnpaid"/, 'Статистика не показывает неоплаченные визиты отдельно');
+assert.match(providerHtml, /data-report-period="week"[\s\S]*data-report-period="year"/, 'В статистике нет быстрых периодов за неделю и год');
+assert.match(providerHtml, /id="reportCommandCenter"[\s\S]*id="reportHealthRing"[\s\S]*id="reportSmartActions"/, 'В статистике отсутствует центр управления бизнесом');
+assert.match(providerHtml, /id="reportFunnel"[\s\S]*id="reportHeatmap"/, 'В статистике отсутствуют воронка и тепловая карта загрузки');
+assert.match(provider, /function renderReportCommandCenter[\s\S]*function renderAnalytics/, 'Пульс бизнеса не рассчитывается из данных отчёта');
+assert.match(provider, /renderReportFunnel\(items, completed\)[\s\S]*renderReportHeatmap\(items\)/, 'Воронка и карта спроса не обновляются вместе со статистикой');
+assert.match(styles, /\.report-command-center[\s\S]*\.report-health>div[\s\S]*conic-gradient/, 'Визуальный центр статистики потерял оформление пульса бизнеса');
 assert.match(provider, /function applyAutomaticVisitOutcomes/, 'Прошедшие визиты не отмечаются автоматически после рабочего дня');
 assert.match(provider, /completion_source:'auto'/, 'Автоматическое завершение нельзя отличить от ручного');
 assert.match(provider, /Будет учтён автоматически/, 'Карточка не объясняет автоматический учёт визита');

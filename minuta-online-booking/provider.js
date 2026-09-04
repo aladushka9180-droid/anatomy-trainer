@@ -1615,7 +1615,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=291#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=292#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1822,8 +1822,10 @@ function reportRange(period = reportPeriod) {
   const today = parseLocalIsoDate(todayIso);
   let start = todayIso;
   let end = todayIso;
+  if (period === 'week') start = localIsoDate(new Date(today.getTime() - 6 * 86400000));
   if (period === 'month') start = localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
   if (period === 'quarter') start = localIsoDate(new Date(today.getTime() - 89 * 86400000));
+  if (period === 'year') start = localIsoDate(new Date(today.getFullYear(), 0, 1));
   if (period === 'all') {
     if (reportDataSource === 'demo') start = localIsoDate(new Date(today.getFullYear(), today.getMonth() - 3, 1));
     else if (reportCanViewTeam) start = localIsoDate(new Date(today.getTime() - 3659 * 86400000));
@@ -2285,6 +2287,140 @@ function openReportBookings({ service = '', source = 'all', status = 'all', filt
   setProviderView('bookings');
 }
 
+function reportForecastMetrics(range, revenue) {
+  const todayIso = businessTodayIso();
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  const today = parseLocalIsoDate(todayIso);
+  let caption = 'Получено за период';
+  let forecast = revenue;
+  let note = 'Фактический результат';
+  if (range.period === 'month' && range.end === todayIso) {
+    const totalDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const elapsedDays = Math.max(1, today.getDate());
+    forecast = Math.round(revenue / elapsedDays * totalDays);
+    caption = 'Прогноз к концу месяца';
+    note = `${elapsedDays} из ${totalDays} дней`;
+  } else if (range.period === 'year' && range.end === todayIso) {
+    const yearStart = new Date(today.getFullYear(), 0, 1, 12);
+    const nextYear = new Date(today.getFullYear() + 1, 0, 1, 12);
+    const elapsedDays = Math.max(1, Math.round((today - yearStart) / 86400000) + 1);
+    const totalDays = Math.round((nextYear - yearStart) / 86400000);
+    forecast = Math.round(revenue / elapsedDays * totalDays);
+    caption = 'Прогноз к концу года';
+    note = `${elapsedDays} из ${totalDays} дней`;
+  } else if (range.end === todayIso && start < end) {
+    note = 'По завершённой части периода';
+  }
+  return { caption, forecast, note };
+}
+
+function renderReportFunnel(items, completed) {
+  const holder = $('#reportFunnel');
+  if (!holder) return;
+  const booked = items.length;
+  const accepted = items.filter(item => item.status !== 'cancelled').length;
+  const paid = completed.filter(item => Number(bookingOutcome(item).amount_rub || 0) > 0).length;
+  const steps = [
+    { label:'Записались', value:booked, icon:'calendar' },
+    { label:'Запись сохранена', value:accepted, icon:'check' },
+    { label:'Пришли', value:completed.length, icon:'users' },
+    { label:'Оплатили', value:paid, icon:'check' }
+  ];
+  holder.innerHTML = steps.map((step, index) => {
+    const width = booked ? Math.max(step.value ? 14 : 3, Math.round(step.value / booked * 100)) : 3;
+    const conversion = index ? reportShare(step.value, steps[index - 1].value) : '100%';
+    return `<article><div><span>${uiIcon(step.icon)}</span><strong>${escapeHtml(step.label)}</strong><b>${step.value}</b><small>${index ? `${conversion} от предыдущего шага` : 'Все записи периода'}</small></div><i style="width:${width}%"></i></article>`;
+  }).join('');
+}
+
+function renderReportHeatmap(items) {
+  const holder = $('#reportHeatmap');
+  if (!holder) return;
+  const weekdays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+  const bands = [
+    { label:'До 12', from:0, to:12 * 60 },
+    { label:'12–16', from:12 * 60, to:16 * 60 },
+    { label:'16–20', from:16 * 60, to:20 * 60 },
+    { label:'После 20', from:20 * 60, to:24 * 60 }
+  ];
+  const values = Array.from({ length:bands.length }, () => Array(7).fill(0));
+  items.filter(item => item.status !== 'cancelled').forEach(item => {
+    const date = parseLocalIsoDate(item.booking_date);
+    const time = String(item.booking_time || '').slice(0, 5);
+    if (!date || !/^\d{2}:\d{2}$/.test(time)) return;
+    const minute = minutesFromTime(time);
+    const bandIndex = bands.findIndex(band => minute >= band.from && minute < band.to);
+    if (bandIndex < 0) return;
+    const weekday = (date.getDay() + 6) % 7;
+    values[bandIndex][weekday] += 1;
+  });
+  const maximum = Math.max(...values.flat(), 0);
+  let peak = { value:0, band:0, weekday:0 };
+  values.forEach((row, band) => row.forEach((value, weekday) => {
+    if (value > peak.value) peak = { value, band, weekday };
+  }));
+  const header = `<span class="report-heatmap-corner"></span>${weekdays.map(day => `<b>${day}</b>`).join('')}`;
+  const cells = bands.map((band, bandIndex) => `<strong>${band.label}</strong>${weekdays.map((weekday, weekdayIndex) => {
+    const value = values[bandIndex][weekdayIndex];
+    const intensity = maximum ? Math.max(value ? 18 : 4, Math.round(value / maximum * 100)) : 4;
+    return `<span class="report-heatmap-cell${value === maximum && value ? ' is-peak' : ''}" style="--heat:${intensity}%" title="${weekday}, ${band.label}: ${value} ${reportVisitWord(value)}"><i>${value || ''}</i></span>`;
+  }).join('')}`).join('');
+  holder.innerHTML = header + cells;
+  const peakText = peak.value ? `${weekdays[peak.weekday]}, ${bands[peak.band].label.toLowerCase()} · ${peak.value} ${reportVisitWord(peak.value)}` : 'Пиковое время появится после записей';
+  setReportText('#reportHeatmapPeak', peakText);
+  holder.setAttribute('aria-label', peak.value ? `Пиковая загрузка: ${peakText}` : 'Записей для тепловой карты пока нет');
+}
+
+function renderReportCommandCenter({ range, items, completed, revenue, completedValue, debt, pending, clients, sources, utilizationPercent, rows }) {
+  const forecast = reportForecastMetrics(range, revenue);
+  const concluded = completed.length + items.filter(item => item.status === 'cancelled' || bookingOutcome(item).visit_status === 'no_show').length + pending.length;
+  const conversion = concluded ? Math.round(completed.length / concluded * 100) : 0;
+  const repeatRate = clients.uniqueClients ? Math.round(clients.returningClients / clients.uniqueClients * 100) : 0;
+  const paymentRate = completedValue ? Math.min(100, Math.round(revenue / completedValue * 100)) : completed.length ? 0 : 60;
+  const utilizationSignal = utilizationPercent === null ? 60 : Math.min(100, Math.round(utilizationPercent / 70 * 100));
+  const hasHealthData = concluded > 0;
+  const healthScore = hasHealthData ? Math.round(conversion * .35 + paymentRate * .25 + repeatRate * .2 + utilizationSignal * .2) : 0;
+  const healthLabel = !items.length ? 'Нужны данные' : !hasHealthData ? 'Ждём результаты' : healthScore >= 80 ? 'Отличный темп' : healthScore >= 60 ? 'Уверенный рост' : healthScore >= 40 ? 'Есть точки роста' : 'Нужно внимание';
+  setReportText('#reportForecastCaption', forecast.caption);
+  setReportText('#reportForecast', money(forecast.forecast));
+  setReportText('#reportForecastTrend', forecast.note);
+  setReportText('#reportVisitConversion', `${conversion}%`);
+  setReportText('#reportVisitConversionNote', concluded ? `${completed.length} из ${concluded} завершённых записей` : 'Появится после визитов');
+  setReportText('#reportRepeatRate', `${repeatRate}%`);
+  setReportText('#reportRepeatRateNote', clients.uniqueClients ? `${clients.returningClients} из ${clients.uniqueClients} клиентов` : 'Появится после визитов');
+  setReportText('#reportHealthScore', hasHealthData ? healthScore : '—');
+  setReportText('#reportHealthLabel', healthLabel);
+  const ring = $('#reportHealthRing');
+  if (ring) {
+    ring.style.setProperty('--report-health', `${healthScore * 3.6}deg`);
+    ring.setAttribute('aria-label', hasHealthData ? `Пульс бизнеса: ${healthScore} из 100, ${healthLabel}` : 'Пульс бизнеса: недостаточно завершённых визитов');
+  }
+  const leader = [...rows].sort((a, b) => b.revenue - a.revenue)[0];
+  const narrative = !items.length
+    ? 'После первых записей здесь появятся прогноз, конверсия и персональные рекомендации.'
+    : pending.length
+      ? `${pending.length} ${reportVisitWord(pending.length)} требуют завершения — после этого картина станет точнее.`
+      : debt > 0
+        ? `Результат выглядит устойчиво, но ${money(debt)} ещё не отмечено как полученная оплата.`
+        : leader
+          ? `${leader.name} сейчас лидирует по выручке. Показатели пересчитываются при каждом изменении записи.`
+          : 'Показатели пересчитываются при каждом изменении записи.';
+  setReportText('#reportCommandNarrative', narrative);
+  const smartActions = [];
+  if (pending.length) smartActions.push({ tone:'attention', icon:'clock', title:'Завершить визиты', text:`${pending.length} записей ждут результата`, action:'data-open-pending-bookings', label:'Открыть' });
+  if (debt > 0) smartActions.push({ tone:'money', icon:'alert', title:'Проверить оплаты', text:`Не отмечено ${money(debt)}`, action:'data-report-outcome="completed" data-report-status="visited" data-report-filter="all"', label:'Проверить' });
+  if (clients.uniqueClients >= 3 && repeatRate < 35) smartActions.push({ tone:'growth', icon:'users', title:'Вернуть клиентов', text:`Возвращаются только ${repeatRate}%`, action:'data-provider-view="clients"', label:'К клиентам' });
+  if (utilizationPercent !== null && utilizationPercent < 45) smartActions.push({ tone:'growth', icon:'spark', title:'Заполнить свободные часы', text:`Загрузка расписания ${utilizationPercent}%`, action:'data-provider-view="schedule"', label:'Открыть график' });
+  if (!smartActions.length && items.length) smartActions.push({ tone:'success', icon:'check', title:'Всё под контролем', text:'Критичных отклонений не найдено', action:'', label:'' });
+  const smartHolder = $('#reportSmartActions');
+  if (smartHolder) smartHolder.innerHTML = smartActions.slice(0, 3).map(item => `<article class="is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small></div>${item.action ? `<button type="button" ${item.action}>${escapeHtml(item.label)} →</button>` : ''}</article>`).join('');
+  const command = $('#reportCommandCenter');
+  if (command) command.classList.toggle('is-empty', !items.length);
+  const onlineShare = sources.online + sources.manual + sources.unknown ? Math.round(sources.online / (sources.online + sources.manual + sources.unknown) * 100) : 0;
+  command?.style.setProperty('--report-online-share', `${onlineShare}%`);
+}
+
 function renderAnalytics() {
   const holder = $('#reportServicesList');
   if (!holder) return;
@@ -2437,6 +2573,9 @@ function renderAnalytics() {
     });
   });
   const rows = [...grouped.values()].sort((a, b) => b[reportServiceMetric] - a[reportServiceMetric] || b.revenue - a.revenue || b.visits - a.visits);
+  renderReportFunnel(items, completed);
+  renderReportHeatmap(items);
+  renderReportCommandCenter({ range, items, completed, revenue, completedValue, debt, pending, clients, sources, utilizationPercent, rows });
   const maximumServiceValue = Math.max(...rows.map(row => row[reportServiceMetric]), 1);
   const visibleServiceRows = reportServicesExpanded ? rows : rows.slice(0, 5);
   $$('[data-report-service-metric]').forEach(button => {
@@ -2745,7 +2884,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=291');
+    worker = new Worker('./report-worker.js?v=292');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
