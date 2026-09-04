@@ -1902,6 +1902,7 @@ let reportCanViewTeam = false;
 let reportScopedBookingsState = { key:'', status:'idle', rows:[] };
 let reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0, complete:false };
 let reportDataSource = 'own';
+let reportUtmFunnelState = { key:'', status:'idle', data:null };
 let ownBookingContextBeforeDemo = null;
 const REPORT_DEMO_SLUG = 'minuta-demo-statistics';
 
@@ -2049,6 +2050,7 @@ function resetReportSessionState() {
   reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0, complete:false };
   reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
   reportEventState = { key:'', rows:[], status:'idle' };
+  reportUtmFunnelState = { key:'', status:'idle', data:null };
   reportTeamMetric = 'revenue';
   document.body.classList.remove('report-scope-loading');
   const select = $('#reportPerformerFilter');
@@ -2513,6 +2515,77 @@ async function loadReportTeamAnalytics(range) {
   reportTeamAnalyticsState = { key, status:'ready', rows, canViewTeam:reportCanViewTeam };
   renderReportTeamRows(rows);
   renderReportPerformerFilter(range);
+}
+
+function reportUtmSourceTitle(row) {
+  const source = String(row?.utm_source || '').trim().toLowerCase();
+  const channel = String(row?.source_kind || '').trim().toLowerCase();
+  const names = { telegram:'Telegram', whatsapp:'WhatsApp', vk:'ВКонтакте', yandex:'Яндекс', google:'Google', qr:'QR-код' };
+  const base = names[source] || row?.utm_source || ({ direct:'Прямые переходы', referral:'Другие сайты', social:'Соцсети', search:'Поиск', campaign:'Реклама' })[channel] || 'Источник не определён';
+  return row?.utm_campaign ? `${base} · ${row.utm_campaign}` : base;
+}
+
+function renderReportUtmFunnel() {
+  const card = $('#reportUtmFunnelCard');
+  const status = $('#reportUtmFunnelState');
+  const stages = $('#reportUtmFunnelStages');
+  const outcomes = $('#reportUtmFunnelOutcomes');
+  const sources = $('#reportUtmFunnelSources');
+  if (!card || !status || !stages || !outcomes || !sources) return;
+  card.hidden = reportDataSource === 'demo';
+  if (card.hidden) return;
+  const state = reportUtmFunnelState;
+  const messages = { idle:'Подключаем аналитику переходов…', loading:'Загружаем путь клиентов…', unavailable:'Сбор воронки подготовлен. Примените серверное обновление v107, чтобы начать получать данные.', failed:'Не удалось загрузить воронку. Остальная статистика продолжает работать.', offline:'Для обновления воронки требуется интернет.' };
+  if (state.status !== 'ready') {
+    status.hidden = false;
+    status.textContent = messages[state.status] || messages.idle;
+    stages.hidden = outcomes.hidden = sources.hidden = true;
+    return;
+  }
+  const totals = state.data?.totals || {};
+  const rows = Array.isArray(state.data?.rows) ? state.data.rows : [];
+  const visitors = Math.max(0, Number(totals.visitors) || 0);
+  const percent = value => visitors ? `${Math.round((Number(value) || 0) / visitors * 100)}%` : '0%';
+  const stageRows = [
+    ['Открыли страницу', totals.visitors, '100%'],
+    ['Выбрали услугу', totals.service_selected, percent(totals.service_selected)],
+    ['Посмотрели время', totals.slots_viewed, percent(totals.slots_viewed)],
+    ['Начали оформление', totals.details_started, percent(totals.details_started)],
+    ['Создали запись', totals.bookings, percent(totals.bookings)]
+  ];
+  status.hidden = true;
+  stages.hidden = false;
+  stages.innerHTML = stageRows.map(([label,value,share], index) => `<article><small>${index + 1}</small><span>${escapeHtml(label)}</span><strong>${Number(value) || 0}</strong><em>${share}</em></article>`).join('');
+  outcomes.hidden = false;
+  outcomes.innerHTML = `<article><small>Пришли</small><strong>${Number(totals.completed) || 0}</strong></article><article><small>Отменили</small><strong>${Number(totals.cancelled) || 0}</strong></article><article><small>Не пришли</small><strong>${Number(totals.no_show) || 0}</strong></article><article><small>Оплатили</small><strong>${Number(totals.paid) || 0}</strong></article><article><small>Получено</small><strong>${money(Number(totals.revenue_rub) || 0)}</strong></article>`;
+  sources.hidden = false;
+  if (!rows.length) {
+    sources.innerHTML = '<p class="report-empty-inline">Новые переходы появятся здесь после применения серверного обновления и посещения страницы записи.</p>';
+    return;
+  }
+  sources.innerHTML = `<div class="report-utm-source-head"><span>Источник</span><span>Посетители</span><span>Записи</span><span>Конверсия</span><span>Получено</span></div>${rows.map(row => {
+    const rowVisitors = Math.max(0, Number(row.visitors) || 0);
+    const bookings = Math.max(0, Number(row.bookings) || 0);
+    const conversion = rowVisitors ? Math.round(bookings / rowVisitors * 100) : 0;
+    return `<article><div><strong>${escapeHtml(reportUtmSourceTitle(row))}</strong><small>${escapeHtml(row.utm_medium || row.source_kind || 'без метки')}</small></div><span>${rowVisitors}</span><span>${bookings}</span><span><b>${conversion}%</b><i style="--utm-conversion:${Math.min(100, conversion)}%"></i></span><span>${money(Number(row.revenue_rub) || 0)}</span></article>`;
+  }).join('')}`;
+}
+
+async function loadReportUtmFunnel(range) {
+  const organizationId = reportOrganizationId();
+  const key = reportSessionKey(organizationId, range.start, range.end, 'utm');
+  if (reportDataSource === 'demo' || !organizationId || !currentUser) return;
+  if (!navigator.onLine) { reportUtmFunnelState = { key, status:'offline', data:null }; renderReportUtmFunnel(); return; }
+  if (reportUtmFunnelState.key === key && ['loading','ready','unavailable'].includes(reportUtmFunnelState.status)) { renderReportUtmFunnel(); return; }
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  reportUtmFunnelState = { key, status:'loading', data:null };
+  renderReportUtmFunnel();
+  const response = await db.rpc('get_minuta_utm_funnel_v107', { p_organization:organizationId, p_start:range.start, p_end:range.end });
+  if (!sessionIsCurrent(userId, generation) || reportUtmFunnelState.key !== key) return;
+  const unavailable = response.error && (response.error.code === 'PGRST202' || /could not find.*get_minuta_utm_funnel_v107|function .* does not exist/i.test(response.error.message || ''));
+  reportUtmFunnelState = response.error ? { key, status:unavailable ? 'unavailable' : 'failed', data:null } : { key, status:'ready', data:response.data || {} };
+  renderReportUtmFunnel();
 }
 
 function reportVisitWord(count) {
@@ -3097,6 +3170,8 @@ function renderAnalytics() {
   const utilizationPercent = renderReportUtilization(range, workedMinutes);
   renderReportRetention();
   loadReportTeamAnalytics(range);
+  renderReportUtmFunnel();
+  void loadReportUtmFunnel(range);
   loadReportEvents(range);
   const reconciliation = $('#reportReconciliation');
   if (reconciliation) {

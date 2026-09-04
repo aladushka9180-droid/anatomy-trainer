@@ -54,6 +54,7 @@ const ASSETS = [
   './provider-icon-maskable-512.png',
   './provider-luxury-marble-v4.webp',
   './styles.css?v=379',
+  './utm-funnel.css?v=379',
   './onboarding.css?v=379',
   './visitor-presence.css?v=379',
   './subscription-pricing.css?v=379',

@@ -67,17 +67,24 @@ function sourceTitle(value) {
 
 function detectVisitorSource() {
   const storageKey = `${VISITOR_SOURCE_KEY}:${requestedOrganizationSlug || 'default'}`;
+  const queryAttribution = {
+    utmSource: cleanVisitorSource(bookingQuery.get('utm_source'), 80).toLowerCase(),
+    utmMedium: cleanVisitorSource(bookingQuery.get('utm_medium'), 80).toLowerCase(),
+    utmCampaign: cleanVisitorSource(bookingQuery.get('utm_campaign'), 120),
+    utmContent: cleanVisitorSource(bookingQuery.get('utm_content'), 120),
+    utmTerm: cleanVisitorSource(bookingQuery.get('utm_term'), 120)
+  };
   try {
     const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
-    if (saved?.label && saved?.kind) return saved;
+    if (saved?.label && saved?.kind && !queryAttribution.utmSource) return saved;
   } catch {}
-  const source = cleanVisitorSource(bookingQuery.get('utm_source'), 40).toLowerCase();
-  const medium = cleanVisitorSource(bookingQuery.get('utm_medium'), 40).toLowerCase();
-  const campaign = cleanVisitorSource(bookingQuery.get('utm_campaign'), 60);
+  const source = queryAttribution.utmSource;
+  const medium = queryAttribution.utmMedium;
+  const campaign = queryAttribution.utmCampaign;
   let result;
   if (source) {
     const kind = source === 'qr' || medium === 'offline' ? 'qr' : ['telegram','whatsapp'].includes(source) || medium === 'messenger' ? 'social' : source === 'vk' || medium === 'social' ? 'social' : ['yandex','google'].includes(source) || medium === 'search' ? 'search' : 'campaign';
-    result = { kind, label:`${sourceTitle(source)}${campaign ? ` · ${campaign}` : ''}` };
+    result = { kind, label:`${sourceTitle(source)}${campaign ? ` · ${campaign}` : ''}`, ...queryAttribution, referrerHost:'' };
   } else {
     let referrer = null;
     try { referrer = document.referrer ? new URL(document.referrer) : null; } catch {}
@@ -85,11 +92,37 @@ function detectVisitorSource() {
       const host = referrer.hostname.replace(/^www\./, '').slice(0, 80);
       const search = /(^|\.)(yandex\.|google\.)/i.test(host);
       const social = /(^|\.)(t\.me|telegram\.|vk\.|wa\.me|whatsapp\.)/i.test(host);
-      result = { kind:search ? 'search' : social ? 'social' : 'referral', label:sourceTitle(search ? (/yandex/i.test(host) ? 'yandex' : 'google') : social ? (/vk/i.test(host) ? 'vk' : /whatsapp|wa\.me/i.test(host) ? 'whatsapp' : 'telegram') : host) };
-    } else result = { kind:'direct', label:'Прямой переход или источник скрыт' };
+      result = { kind:search ? 'search' : social ? 'social' : 'referral', label:sourceTitle(search ? (/yandex/i.test(host) ? 'yandex' : 'google') : social ? (/vk/i.test(host) ? 'vk' : /whatsapp|wa\.me/i.test(host) ? 'whatsapp' : 'telegram') : host), ...queryAttribution, referrerHost:host };
+    } else result = { kind:'direct', label:'Прямой переход или источник скрыт', ...queryAttribution, referrerHost:'' };
   }
   try { sessionStorage.setItem(storageKey, JSON.stringify(result)); } catch {}
   return result;
+}
+
+const funnelEventRequests = new Map();
+function trackBookingFunnelEvent(eventName, { serviceId = '', manageToken = '' } = {}) {
+  if (!requestedOrganizationSlug || !visitorPresenceAllowed() || !navigator.onLine) return Promise.resolve(false);
+  const allowed = ['page_opened','service_selected','slots_viewed','details_started','booking_created'];
+  if (!allowed.includes(eventName)) return Promise.resolve(false);
+  const requestKey = `${eventName}:${serviceId}:${manageToken}`;
+  if (funnelEventRequests.has(requestKey)) return funnelEventRequests.get(requestKey);
+  const source = detectVisitorSource();
+  const request = db.rpc('track_public_booking_funnel_event', {
+    p_slug:requestedOrganizationSlug,
+    p_session:visitorSessionId(),
+    p_event:eventName,
+    p_service:/^[0-9a-f-]{36}$/i.test(serviceId || '') ? serviceId : null,
+    p_manage_token:/^[0-9a-f-]{36}$/i.test(manageToken || '') ? manageToken : null,
+    p_source_kind:source.kind,
+    p_utm_source:source.utmSource || null,
+    p_utm_medium:source.utmMedium || null,
+    p_utm_campaign:source.utmCampaign || null,
+    p_utm_content:source.utmContent || null,
+    p_utm_term:source.utmTerm || null,
+    p_referrer_host:source.referrerHost || null
+  }).then(result => !result.error && result.data === true).catch(() => false);
+  funnelEventRequests.set(requestKey, request);
+  return request;
 }
 
 function firstVisitorSource(current) {
@@ -452,7 +485,10 @@ async function loadServices() {
   setBookingStatus(locationServices.length ? 'open' : 'closed', locationServices.length ? 'Запись открыта' : 'В этом филиале пока нет доступных услуг');
   renderSpecialists();
   renderServices();
-  if (state.organization) void registerBookingPageVisit();
+  if (state.organization) {
+    void registerBookingPageVisit();
+    void trackBookingFunnelEvent('page_opened');
+  }
   if (state.teamMode && !state.locations.length) {
     setBookingStatus('error', 'Запись команды пока не активирована');
     $('#toDate').disabled = true;
@@ -799,10 +835,12 @@ async function showStep(step) {
       renderDates();
       renderTimes();
     } else await loadAvailability();
+    if (selectedService()) void trackBookingFunnelEvent('slots_viewed', { serviceId:state.serviceId });
   }
   if (step === 3) {
     renderSummary();
     await validateCurrentSelection();
+    if (!selectionValidationBlocked) void trackBookingFunnelEvent('details_started', { serviceId:state.serviceId });
     updateSubmitAvailability();
   }
 }
@@ -1086,6 +1124,7 @@ async function submitBooking(event) {
     return;
   }
   const manageToken = data?.[0]?.manage_token;
+  void trackBookingFunnelEvent('booking_created', { serviceId:service.id, manageToken });
   const bookedLocation = state.teamMode ? state.locations.find(item => item.id === state.locationId) : null;
   currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: serviceName(service.name), performer: service.performer_profiles?.display_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: state.date, time: state.time, duration: service.duration_minutes, uid: manageToken || attempt.requestId });
   saveClientContact(name, phone);
@@ -1164,6 +1203,7 @@ document.addEventListener('click', event => {
       state.time = '';
     }
     renderServices();
+    if (state.serviceId) void trackBookingFunnelEvent('service_selected', { serviceId:state.serviceId });
     if (state.serviceId) void showStep(2);
   }
   if (date && !date.disabled) { bookingInputChanged(); state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
