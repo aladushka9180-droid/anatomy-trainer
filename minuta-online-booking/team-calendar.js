@@ -366,7 +366,8 @@
         },
         expected:{
           performer_id:current.performer_id, location_id:current.location_id,
-          booking_date:current.booking_date, booking_time:current.booking_time
+          service_id:current.service_id, booking_date:current.booking_date,
+          booking_time:current.booking_time
         },
         expiresAt:Date.now() + UNDO_WINDOW_MS,
         remainingMs:UNDO_WINDOW_MS,
@@ -385,7 +386,9 @@
     }
 
     function bookingMatchesPoint(item,point) {
-      return Boolean(item && point && item.performer_id === point.performer_id && item.location_id === point.location_id && item.booking_date === point.booking_date && item.booking_time === point.booking_time);
+      return Boolean(item && point && item.performer_id === point.performer_id
+        && item.location_id === point.location_id && item.service_id === point.service_id
+        && item.booking_date === point.booking_date && item.booking_time === point.booking_time);
     }
 
     function datesBetween(startValue,endValue) {
@@ -437,13 +440,15 @@
       return '';
     }
 
-    function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId) {
+    function moveUnavailableReason(item,targetPerformer,date,minute,targetLocationId,targetServiceId = '') {
       const restricted = moveRestriction(item);
       if (restricted) return restricted;
       const member = memberById(targetPerformer);
       const memberName = member?.display_name || 'выбранного специалиста';
       if (item.has_addons && targetPerformer !== item.performer_id) return 'Сеанс с дополнительными услугами можно перенести только по времени у текущего специалиста.';
-      const service = matchingService(item,targetPerformer);
+      const service = targetServiceId
+        ? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
+        : matchingService(item,targetPerformer);
       if (!service) return `У специалиста ${memberName} нет совместимой услуги «${item.service_name}» той же длительности.`;
       const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
       if (!location) return 'Не удалось определить филиал. Сначала выберите филиал в фильтре календаря.';
@@ -715,12 +720,15 @@
     }
 
     async function moveBooking(item,targetPerformer,date,minute,targetLocationId,options = {}) {
-      const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false } = options;
+      const { offerUndo = true, successMessage = '', expectedPoint = null, requireAtomic = false, targetServiceId = '' } = options;
       if (!dispatcherActions || actionPending || !requireWrites()) return false;
       const location = targetLocationId || targetLocation(targetPerformer,date,item.location_id);
-      const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location);
+      const unavailableReason = moveUnavailableReason(item,targetPerformer,date,minute,location,targetServiceId);
       if (unavailableReason) { notify(unavailableReason); return false; }
-      const service = matchingService(item,targetPerformer);
+      const service = targetServiceId
+        ? services.find(candidate => candidate.id === targetServiceId && candidate.performer_id === targetPerformer)
+        : matchingService(item,targetPerformer);
+      if (!service) { notify('Выбранная услуга больше недоступна у специалиста. Расписание обновлено.'); await load(); return false; }
       const previous = { ...item };
       actionPending = true;
       let result;
@@ -730,7 +738,8 @@
         result = await db.rpc('move_minuta_team_booking_v104', {
           p_organization:organization.id,p_booking:item.id,
           p_expected_performer:expected.performer_id,p_expected_location:expected.location_id,
-          p_expected_date:expected.booking_date,p_expected_time:`${expected.booking_time}:00`,
+          p_expected_service:expected.service_id,p_expected_date:expected.booking_date,
+          p_expected_time:`${expected.booking_time}:00`,
           p_location:location,p_service:service.id,p_date:date,p_time:`${timeFromMinutes(minute)}:00`
         });
         if (result?.error && isMissingRpc(result.error)) {
@@ -800,7 +809,11 @@
         notify('Отмена недоступна: запись уже изменена другим администратором. Чужие изменения сохранены.');
         return;
       }
-      const success = await moveBooking(current,state.previous.performer_id,state.previous.booking_date,minutesFromTime(state.previous.booking_time),state.previous.location_id,{ offerUndo:false,expectedPoint:state.expected,requireAtomic:true });
+      const success = await moveBooking(
+        current,state.previous.performer_id,state.previous.booking_date,
+        minutesFromTime(state.previous.booking_time),state.previous.location_id,
+        { offerUndo:false,expectedPoint:state.expected,requireAtomic:true,targetServiceId:state.previous.service_id }
+      );
       clearUndo();
       return success;
     }
