@@ -322,6 +322,7 @@ assert.equal(timelineTimeFromClick(timelineStage, { clientY: 530 }), '19:00', '�
 assert.match(provider, /enteringBlock[\s\S]*?duration_minutes\) === 60/, 'Новый перерыв не выбирает 60 минут по умолчанию');
 assert.match(provider, /timeline-client-phone-separator/, 'Телефон в мобильной карточке нельзя отделить от имени клиента');
 assert.match(styles, /timeline-client-phone[^}]*display:block;[^}]*white-space:nowrap;/, 'Телефон не переносится на отдельную строку мобильной карточки');
+assert.match(provider, /const cachedBookings = navigator\.onLine \? null : await hydrateCachedBookings/, 'При обновлении онлайн сначала показывается обезличенная офлайн-копия без телефона');
 assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безопасного маркера занятого времени');
 assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
 assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
@@ -555,7 +556,7 @@ assert.match(provider, /timeline-service-variant/, 'Уточнение услу�
 assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт телефону всю доступную ширину');
 assert.match(styles, /timeline-service-variant\s*\{\s*display:none/, 'На мобильном экране второстепенное уточнение продолжает сокращать основное название');
 assert.match(styles, /-webkit-line-clamp:2/, 'Длинное основное название услуги не может занять две строки');
-assert.match(styles, /timeline-client-duration\s*\{\s*display:none/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');
+assert.match(styles, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{\s*display:none!important/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');
 assert.match(providerHtml, /<details class="panel settings-card account-settings-card">/, 'Смена пароля не свёрнута в дополнительный раздел');
 assert.match(provider, /class="service-more"/, 'Повторяющиеся действия услуги не убраны в компактное меню');
 assert.match(styles, /timeline-booking\.status-confirmed \.timeline-booking-status[\s\S]*display:none/, 'Подтверждённые записи продолжают показывать повторяющийся статус');

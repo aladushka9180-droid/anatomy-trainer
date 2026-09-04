@@ -5286,8 +5286,7 @@ html.provider-booting .provider-main {
   }
 
   .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-client-duration {
-    display:inline!important;
-    font-weight:800;
+    display:none!important;
   }
   .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-booking-status {
     display:inline-flex!important;

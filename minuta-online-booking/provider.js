@@ -1662,7 +1662,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=323#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=324#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3246,7 +3246,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=323');
+    worker = new Worker('./report-worker.js?v=324');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7619,7 +7619,10 @@ async function handleSession(session) {
     return;
   }
   const userId = currentUser.id;
-  const cachedBookings = await hydrateCachedBookings(userId);
+  // When the network is available, do not paint the privacy-safe offline copy
+  // first: it intentionally contains neither the client's name nor phone and
+  // therefore looks like the details disappeared during refresh.
+  const cachedBookings = navigator.onLine ? null : await hydrateCachedBookings(userId);
   if (!sessionIsCurrent(userId, generation)) return;
   await hydrateOfflineBookingInputs(userId, generation, cachedBookings);
   if (!sessionIsCurrent(userId, generation)) return;
@@ -8661,10 +8664,8 @@ async function loadBookings(options = {}) {
     }
     return candidate;
   };
-  const cacheTimer = window.setTimeout(showCached, 250);
   if (!options.silent) holder.innerHTML = '<div class="loading-state"><i></i><span>Загружаем записи…</span></div>';
   if (!navigator.onLine) {
-    window.clearTimeout(cacheTimer);
     const offlineCache = await showCached();
     return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
   }
@@ -8673,7 +8674,6 @@ async function loadBookings(options = {}) {
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (error) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   networkFinished = true;
-  window.clearTimeout(cacheTimer);
   if (!sessionIsCurrent(userId, generation) || revision !== bookingsRequestRevision) return { ok: false, stale: true };
   if (error) {
     cached ||= await cachePromise;
