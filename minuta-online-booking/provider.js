@@ -4914,26 +4914,6 @@ function stackMinuteTimelineItems(timelineItems, gap = 6) {
   });
 }
 
-function fitMobileTimelineCards(holder, naturalTimelineHeight) {
-  const timeline = holder.querySelector('.day-timeline');
-  const stage = holder.querySelector('.timeline-stage');
-  if (!timeline || !stage || !window.matchMedia('(max-width: 760px)').matches) return;
-  const cards = [...stage.querySelectorAll('[data-mobile-timeline-top]')]
-    .sort((left, right) => Number(left.dataset.mobileTimelineTop) - Number(right.dataset.mobileTimelineTop));
-  let previousBottom = -Infinity;
-  cards.forEach(card => {
-    const originalTop = Number(card.dataset.mobileTimelineTop) || 0;
-    const top = Math.max(originalTop, previousBottom + 6);
-    card.style.top = `${top}px`;
-    card.style.height = 'auto';
-    const height = Math.max(44, Math.ceil(card.scrollHeight));
-    card.style.height = `${height}px`;
-    previousBottom = top + height;
-  });
-  const fittedHeight = Math.max(naturalTimelineHeight, Number.isFinite(previousBottom) ? previousBottom + 6 : 0);
-  timeline.style.setProperty('--timeline-height', `${fittedHeight}px`);
-}
-
 function automaticBookingBreaks(items, dateIso = selectedDate) {
   if (!bookingPolicy.booking_buffer_enabled) return [];
   const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
@@ -5059,7 +5039,8 @@ function renderTimeline(sourceItems) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${serviceTitleMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${badgeMarkup}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
-    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
+    const tight = mobileTimeline && !minuteOnly && duration <= 60 ? ' timeline-tight' : '';
+    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     return item.automatic_break
       ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
@@ -5070,7 +5051,6 @@ function renderTimeline(sourceItems) {
     : '';
   holder.className = 'provider-bookings timeline-view';
   holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
-  if (mobileTimeline && cards) requestAnimationFrame(() => fitMobileTimelineCards(holder, naturalTimelineHeight));
 }
 
 function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {

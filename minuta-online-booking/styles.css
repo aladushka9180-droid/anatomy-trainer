@@ -7039,3 +7039,49 @@ html.provider-booting .provider-main {
   outline:2px solid #f0c76f;
   outline-offset:3px;
 }
+
+/* В мобильной ленте высота записи всегда равна её реальной длительности. */
+@media (max-width:760px) {
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] {
+    min-height:0!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-booking-copy {
+    max-height:100%!important;
+    overflow:hidden!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-booking-note {
+    display:none!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].has-note:not(.compact) .timeline-booking-client::after {
+    content:' · есть заметка';
+    font-weight:750;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight {
+    padding:5px 9px!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight .timeline-booking-copy {
+    align-content:center;
+    gap:2px;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight .timeline-client-visit-wrap,
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight .timeline-booking-status {
+    display:none!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight .timeline-booking-client {
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight .timeline-client-phone {
+    display:inline!important;
+    margin:0;
+    overflow:visible;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight .timeline-client-phone-separator {
+    display:inline;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].timeline-tight.compact:not(.minute-only) .timeline-booking-client-row {
+    display:none!important;
+  }
+}
