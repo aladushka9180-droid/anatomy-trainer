@@ -1615,6 +1615,7 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .privacy-lead { max-width:650px; margin:22px 0 0; color:#53685d; font-size:17px; line-height:1.6; }
 .privacy-card section { padding:22px 0; border-bottom:1px solid #e7ede9; }
 .privacy-card section h2 { margin:0; font-size:17px; }.privacy-card section p { margin:8px 0 0; color:#607168; font-size:13px; line-height:1.65; }.privacy-card section a { color:#296d4a; font-weight:800; }
+.privacy-choice { margin-top:12px; min-height:42px; padding:0 16px; border:1px solid #b8cbbf; border-radius:12px; background:#f4f8f5; color:#24573d; font:inherit; font-size:12px; font-weight:850; cursor:pointer; }
 .privacy-updated { margin:22px 0 0; color:#8a9890; font-size:10px; }
 .report-periods { display:flex; width:max-content; max-width:100%; gap:5px; margin-top:18px; padding:4px; border-radius:12px; background:var(--theme-surface-alt); }
 .report-periods button { min-height:34px; padding:0 13px; border:0; border-radius:9px; background:transparent; color:var(--theme-muted); cursor:pointer; font-size:10px; font-weight:850; }

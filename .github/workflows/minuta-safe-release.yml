@@ -122,6 +122,9 @@ jobs:
           node --check minuta-online-booking/team-calendar-dispatcher-v102-static-test.mjs
           node --check minuta-online-booking/team-calendar-concurrency-v104-static-test.mjs
           bash -n minuta-online-booking/team-calendar-concurrency-v104-integration-test.sh
+          node --check minuta-online-booking/visitor-presence-v105-static-test.mjs
+          node --check minuta-online-booking/privacy.js
+          bash -n minuta-online-booking/visitor-presence-v105-integration-test.sh
           node --check minuta-online-booking/analytics-experience-v294-test.mjs
           node --check minuta-online-booking/mobile-minimalism-v310-test.mjs
           node --check minuta-online-booking/booking-history-organization-regression-test.mjs
@@ -193,6 +196,7 @@ jobs:
           node minuta-online-booking/booking-buffer-v101-static-test.mjs
           node minuta-online-booking/team-calendar-dispatcher-v102-static-test.mjs
           node minuta-online-booking/team-calendar-concurrency-v104-static-test.mjs
+          node minuta-online-booking/visitor-presence-v105-static-test.mjs
           node minuta-online-booking/analytics-experience-v294-test.mjs
           node minuta-online-booking/mobile-minimalism-v310-test.mjs
           node minuta-online-booking/booking-history-organization-regression-test.mjs
@@ -698,6 +702,15 @@ jobs:
               "select to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is not null and has_function_privilege('authenticated','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('service_role','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE');" \
               | grep -qx t
             bash minuta-online-booking/team-calendar-concurrency-v104-integration-test.sh
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select (select count(*)=8 from information_schema.columns where table_schema='public' and table_name='booking_page_visits' and column_name in ('session_id','client_name','client_phone','page_name','source_kind','source_label','first_source_label','last_seen_at')) and to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null and has_function_privilege('anon','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('authenticated','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('service_role','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and exists(select 1 from pg_policy where polrelid='public.booking_page_visits'::regclass and polname='booking_page_visits_owner_read' and polroles @> array['authenticated'::regrole::oid] and cardinality(polroles)=1) and exists(select 1 from pg_index where indexrelid='public.booking_page_visits_owner_session_idx'::regclass and indisunique and indisvalid and indisready) and exists(select 1 from pg_index where indexrelid='public.bookings_organization_phone_v105_idx'::regclass and indisvalid and indisready) and position('booking.organization_id=v_organization' in replace(pg_get_functiondef('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure),' ',''))>0 and position('v_recent_new_count>=60orv_retained_count>=2500' in replace(pg_get_functiondef('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure),' ',''))>0;" \
+              | grep -qx t
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select coalesce((select relrowsecurity from pg_class where oid='public.booking_page_visits'::regclass),false) and exists(select 1 from pg_policy policy where policy.polrelid='public.booking_page_visits'::regclass and policy.polname='booking_page_visits_owner_read' and policy.polroles @> array['authenticated'::regrole::oid] and cardinality(policy.polroles)=1 and position('get_minuta_schedule_role(organization_id)' in replace(pg_get_expr(policy.polqual,policy.polrelid),' ',''))>0 and position('performer_id=' in replace(pg_get_expr(policy.polqual,policy.polrelid),' ',''))>0);" \
+              | grep -qx t
+            bash minuta-online-booking/visitor-presence-v105-integration-test.sh
           else
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name in ('booking_buffer_enabled','booking_buffer_minutes')) and to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is null and to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null and to_regprocedure('public.get_reschedule_slots_v101(uuid,date,date)') is null;" \
@@ -717,6 +730,10 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105-rollback.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is null and to_regclass('public.bookings_organization_phone_v105_idx') is null and not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_page_visits' and column_name in ('session_id','client_name','client_phone','page_name','source_kind','source_label','first_source_label','last_seen_at')) and to_regprocedure('public.register_public_booking_visit(text)') is not null and has_function_privilege('anon','public.register_public_booking_visit(text)','EXECUTE') and has_function_privilege('authenticated','public.register_public_booking_visit(text)','EXECUTE') and has_function_privilege('service_role','public.register_public_booking_visit(text)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.register_public_booking_visit(text)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and exists(select 1 from pg_policy where polrelid='public.booking_page_visits'::regclass and polname='booking_page_visits_owner_read');" \
+              | grep -qx t
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v104-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is null and to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is null;" \
@@ -934,6 +951,11 @@ jobs:
           PGOPTIONS='-c default_transaction_read_only=on -c lock_timeout=5s -c statement_timeout=2min' \
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select to_regclass('public.bookings') is not null
+              and to_regclass('public.booking_page_visits') is not null
+              and to_regclass('public.booking_policies') is not null
+              and to_regclass('public.organization_memberships') is not null
+              and to_regprocedure('public.normalize_client_phone(text)') is not null
+              and to_regprocedure('public.register_public_booking_visit(text)') is not null
               and to_regprocedure('public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)') is not null
               and has_function_privilege('authenticated','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE')
               and not has_function_privilege('anon','public.create_minuta_historical_booking(uuid,uuid,date,time without time zone,text,text,integer)','EXECUTE')
@@ -998,6 +1020,53 @@ jobs:
           v104_after="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "select coalesce(md5(string_agg(p.oid::regprocedure::text||pg_get_functiondef(p.oid)||coalesce(p.proacl::text,'')||p.proowner::text,E'\\n' order by p.oid::regprocedure::text)),'absent') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='move_minuta_team_booking_v104';")"
           test "$v104_before" = "$v104_after"
+          v105_before="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atf minuta-online-booking/v105-state-hash.sql)"
+          {
+            echo 'begin;'
+            echo "set local lock_timeout='5s';"
+            echo "set local statement_timeout='2min';"
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v105.sql
+            cat <<'SQL'
+          do $v105_validation$
+          declare v_function oid;
+          begin
+            v_function:=to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)');
+            if v_function is null
+               or not (select prosecdef from pg_proc where oid=v_function)
+               or not exists(select 1 from pg_proc p cross join lateral unnest(coalesce(p.proconfig,array[]::text[])) setting where p.oid=v_function and setting in ('search_path=','search_path=""'))
+               or not has_function_privilege('anon',v_function,'EXECUTE')
+               or not has_function_privilege('authenticated',v_function,'EXECUTE')
+               or not has_function_privilege('service_role',v_function,'EXECUTE')
+               or exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid=v_function and privilege.grantee=0 and privilege.privilege_type='EXECUTE')
+               or not exists(select 1 from pg_index where indexrelid=to_regclass('public.booking_page_visits_owner_session_idx') and indisunique and indisvalid and indisready)
+               or not exists(select 1 from pg_index where indexrelid=to_regclass('public.bookings_organization_phone_v105_idx') and indisvalid and indisready)
+               or not coalesce((select relrowsecurity from pg_class where oid='public.booking_page_visits'::regclass),false)
+               or not exists(select 1 from pg_policy policy where policy.polrelid='public.booking_page_visits'::regclass and policy.polname='booking_page_visits_owner_read' and policy.polroles @> array['authenticated'::regrole::oid] and cardinality(policy.polroles)=1 and position('get_minuta_schedule_role(organization_id)' in replace(pg_get_expr(policy.polqual,policy.polrelid),' ',''))>0)
+               or position('booking.organization_id=v_organization' in replace(pg_get_functiondef(v_function),' ',''))=0
+               or position('v_recent_new_count>=60orv_retained_count>=2500' in replace(pg_get_functiondef(v_function),' ',''))=0 then
+              raise exception 'v105_validation_failed';
+            end if;
+          end
+          $v105_validation$;
+          SQL
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v105-rollback.sql
+            cat <<'SQL'
+          do $v105_rollback_validation$
+          begin
+            if to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null
+               or to_regclass('public.bookings_organization_phone_v105_idx') is not null
+               or exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_page_visits' and column_name in ('session_id','client_name','client_phone','page_name','source_kind','source_label','first_source_label','last_seen_at'))
+               or to_regprocedure('public.register_public_booking_visit(text)') is null then
+              raise exception 'v105_rollback_validation_failed';
+            end if;
+          end
+          $v105_rollback_validation$;
+          SQL
+            echo 'rollback;'
+          } > "$validation_sql"
+          psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -f "$validation_sql"
+          v105_after="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atf minuta-online-booking/v105-state-hash.sql)"
+          test "$v105_before" = "$v105_after"
 
   production-migration:
     if: inputs.phase == 'production-migration' && github.ref == 'refs/heads/main'
@@ -1409,6 +1478,13 @@ jobs:
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is not null and has_function_privilege('authenticated','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('service_role','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE');" \
               | grep -qx t
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105.sql
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null and has_function_privilege('anon','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('authenticated','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('service_role','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and exists(select 1 from pg_index where indexrelid='public.booking_page_visits_owner_session_idx'::regclass and indisunique and indisvalid and indisready) and exists(select 1 from pg_index where indexrelid='public.bookings_organization_phone_v105_idx'::regclass and indisvalid and indisready);" \
+              | grep -qx t
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select coalesce((select relrowsecurity from pg_class where oid='public.booking_page_visits'::regclass),false) and exists(select 1 from pg_policy policy where policy.polrelid='public.booking_page_visits'::regclass and policy.polname='booking_page_visits_owner_read' and policy.polroles @> array['authenticated'::regrole::oid] and cardinality(policy.polroles)=1 and position('get_minuta_schedule_role(organization_id)' in replace(pg_get_expr(policy.polqual,policy.polrelid),' ',''))>0);" \
+              | grep -qx t
           else
             test "$MINUTA_MIGRATION_TARGET" = "employee-analytics-v97"
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -1438,6 +1514,7 @@ jobs:
               ('social_identity_guard',to_regprocedure('public.bootstrap_client_identity_session(text,text,text)') is not null and has_function_privilege('authenticated','public.bootstrap_client_identity_session(text,text,text)','EXECUTE') and not has_function_privilege('anon','public.bootstrap_client_identity_session(text,text,text)','EXECUTE')),
               ('staff_report_guard',to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and to_regprocedure('public.get_minuta_staff_report_availability(uuid,date,date,uuid)') is not null and has_function_privilege('authenticated','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_outcomes' and column_name='completion_source' and data_type='text' and is_nullable='NO' and column_default like '%manual%') and exists(select 1 from pg_constraint c where c.conrelid='public.booking_outcomes'::regclass and c.conname='booking_outcomes_completion_source_check' and c.contype='c' and c.convalidated)),
               ('team_calendar_atomic_guard',to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is not null and has_function_privilege('authenticated','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('service_role','public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)','EXECUTE')),
+              ('visitor_presence_guard',(select count(*)=8 from information_schema.columns where table_schema='public' and table_name='booking_page_visits' and column_name in ('session_id','client_name','client_phone','page_name','source_kind','source_label','first_source_label','last_seen_at')) and to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null and has_function_privilege('anon','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('authenticated','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('service_role','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and exists(select 1 from pg_index where indexrelid='public.booking_page_visits_owner_session_idx'::regclass and indisunique and indisvalid and indisready) and exists(select 1 from pg_index where indexrelid='public.bookings_organization_phone_v105_idx'::regclass and indisvalid and indisready) and position('booking.organization_id=v_organization' in replace(pg_get_functiondef('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure),' ',''))>0 and position('v_recent_new_count>=60orv_retained_count>=2500' in replace(pg_get_functiondef('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure),' ',''))>0),
               ('yookassa_guard',to_regclass('public.organization_payment_provider_settings') is not null and to_regprocedure('public.get_minuta_payment_workspace(uuid)') is not null and not has_table_privilege('authenticated','public.payment_provider_attempts','INSERT,UPDATE,DELETE'))
             ) select name,coalesce(ok,false) from checks order by name;")"
           printf '%s\n' "$migration_guard"
@@ -1459,6 +1536,7 @@ jobs:
             'social_identity_guard=t' \
             'staff_report_guard=t' \
             'team_calendar_atomic_guard=t' \
+            'visitor_presence_guard=t' \
             'yookassa_guard=t')"
           if [ "$migration_guard" != "$expected_migration_guard" ]; then
             echo "Production migration guard failed" >&2

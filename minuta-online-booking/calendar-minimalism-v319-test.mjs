@@ -18,4 +18,4 @@ assert.match(styles, /\.schedule-view-title \.view-title-actions \.compact-butto
 assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.calendar-overview-month \.calendar-overview-day \{ min-height:72px;[\s\S]*\.calendar-overview-month \.calendar-overview-date \{ min-height:66px;[\s\S]*\.calendar-overview-month \.calendar-overview-count \{ display:block;[\s\S]*\.calendar-overview-month \.calendar-overview-items \{ display:none; \}/, 'Мобильный месяц не сведён к одной крупной кнопке дня со счётчиком');
 assert.match(styles, /@media \(min-width:761px\) and \(max-width:1100px\)[\s\S]*\.calendar-overview-month \.calendar-overview-booking span \{ display:none; \}/, 'На средней ширине названия записей продолжают бессмысленно обрезаться');
 
-console.log('Calendar minimalism v319 checks passed.');
+console.log('Calendar minimalism v320 checks passed.');

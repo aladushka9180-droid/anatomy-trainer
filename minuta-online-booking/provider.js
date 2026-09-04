@@ -1662,7 +1662,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=319#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=320#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3246,7 +3246,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=319');
+    worker = new Worker('./report-worker.js?v=320');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7051,8 +7051,16 @@ async function loadBookingSettings() {
     db.from('notification_marks').select('task_key,status').eq('performer_id', userId),
     db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50),
     (async () => {
-      let result = await db.from('booking_page_visits').select('id,performer_id,session_id,client_name,client_phone,page_name,source_kind,source_label,first_source_label,last_seen_at,created_at').eq('performer_id', userId).gte('last_seen_at', new Date(Date.now() - 86400000).toISOString()).order('last_seen_at', { ascending:false }).limit(20);
-      if (result.error) result = await db.from('booking_page_visits').select('id,performer_id,created_at').eq('performer_id', userId).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending:false }).limit(20);
+      const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
+      if (!organizationId) return { data:[], error:null };
+      let query = db.from('booking_page_visits').select('id,organization_id,performer_id,session_id,client_name,client_phone,page_name,source_kind,source_label,first_source_label,last_seen_at,created_at').eq('performer_id', userId);
+      query = query.eq('organization_id', organizationId);
+      let result = await query.gte('last_seen_at', new Date(Date.now() - 86400000).toISOString()).order('last_seen_at', { ascending:false }).limit(20);
+      if (result.error) {
+        let fallback = db.from('booking_page_visits').select('id,organization_id,performer_id,created_at').eq('performer_id', userId);
+        fallback = fallback.eq('organization_id', organizationId);
+        result = await fallback.gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending:false }).limit(20);
+      }
       return result;
     })()
   ]);
@@ -9448,6 +9456,7 @@ const organizationController = window.MinutaOrganization.createController({
     resetReportSessionState();
     renderReportDataSourceControl();
     updateProviderClientLinks(organization);
+    if (clientOrganizationChanged && currentUser && navigator.onLine) void loadBookingSettings();
     teamCalendarController.setOrganization(organization);
     resourceController.setOrganization(organization);
     shiftController.setOrganization(organization);

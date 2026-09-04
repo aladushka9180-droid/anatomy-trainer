@@ -29,7 +29,7 @@ assert.match(releaseWorkflow,/supabase-migration-v104\.sql[\s\S]*move_minuta_tea
 assert.match(releaseWorkflow,/supabase-migration-v104-rollback\.sql[\s\S]*supabase-migration-v103-rollback\.sql/i,'rollback validation must remove v104 before v103 and v102');
 assert.match(releaseWorkflow,/supabase-migration-v104-rollback\.sql[\s\S]*to_regprocedure\('public\.move_minuta_team_booking_v104[\s\S]*is null/i,'rollback validation must prove that v104 was removed');
 assert.match(releaseWorkflow,/team_calendar_atomic_guard[\s\S]*expected_migration_guard[\s\S]*team_calendar_atomic_guard=t/i,'production guard must retain v104 and its ACL');
-assert.match(migrationGuard,/REQUIRED_RELEASE_TAIL\s*=\s*\[[^\]]*103\s*,\s*104\]/i,'migration guard must require v104 after v103');
+assert.match(migrationGuard,/REQUIRED_RELEASE_TAIL\s*=\s*\[[^\]]*103\s*,\s*104\s*,\s*105\]/i,'migration guard must require v104 after v103 and before v105');
 assert.match(migrationGuard,/\[104\s*,\s*2\][\s\S]*\[104\s*,\s*1\]/i,'migration guard must require two test applications and one production application of v104');
 
 console.log('team calendar v104 concurrency static tests passed');

@@ -14,7 +14,7 @@ const PINNED_PROVIDER_DELETE_FILE = `supabase-migration-v${PINNED_PROVIDER_DELET
 const PROVIDER_DELETE_DEFINITION = /create\s+(?:or\s+replace\s+)?function\s+(?:"?public"?\s*\.\s*)?"?provider_delete_booking"?\s*\(/i;
 // v96 creates the historical lookup index concurrently before v95 import;
 // v97 then adds employee snapshots and deletion-safe audit history.
-const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 96, 95, 97, 100, 101, 102, 103, 104];
+const REQUIRED_RELEASE_TAIL = [84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 96, 95, 97, 100, 101, 102, 103, 104, 105];
 
 // Эти пары исторически хранят одну миграцию в двух системах имён.
 // Новую пару можно разрешить только явным изменением этого списка.
@@ -155,8 +155,8 @@ function checkReleaseOrder() {
     }
 
     const expectedCounts = jobName === 'test-migration'
-      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2], [96, 2], [97, 2], [100, 2], [101, 2], [102, 2], [103, 2], [104, 2]])
-      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1], [96, 1], [97, 1], [100, 1], [101, 1], [102, 1], [103, 1], [104, 1]]);
+      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2], [96, 2], [97, 2], [100, 2], [101, 2], [102, 2], [103, 2], [104, 2], [105, 2]])
+      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1], [96, 1], [97, 1], [100, 1], [101, 1], [102, 1], [103, 1], [104, 1], [105, 1]]);
     for (const [version, expectedCount] of expectedCounts) {
       const actualCount = chain.filter(reference => reference.version === version).length;
       if (actualCount !== expectedCount) {

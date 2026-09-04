@@ -14,6 +14,8 @@ const CLIENT_CONTACT_TTL = 90 * 24 * 60 * 60 * 1000;
 const VISITOR_PRESENCE_KEY = 'minuta-visitor-presence-v1';
 const VISITOR_SOURCE_KEY = 'minuta-visitor-source-v1';
 const VISITOR_FIRST_SOURCE_KEY = 'minuta-visitor-first-source-v1';
+const VISITOR_PRESENCE_OPT_OUT_KEY = 'minuta-visitor-presence-opt-out-v1';
+const VISITOR_FIRST_SOURCE_TTL = 90 * 24 * 60 * 60 * 1000;
 const bookingQuery = new URLSearchParams(location.search);
 const requestedServiceId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '';
 const organizationSlugFromQuery = bookingQuery.get('org') || '';
@@ -43,13 +45,19 @@ function cleanVisitorSource(value, limit = 80) {
 }
 
 function visitorSessionId() {
+  const storageKey = `${VISITOR_PRESENCE_KEY}:${requestedOrganizationSlug || 'default'}`;
   try {
-    const saved = sessionStorage.getItem(VISITOR_PRESENCE_KEY);
+    const saved = sessionStorage.getItem(storageKey);
     if (/^[0-9a-f-]{36}$/i.test(saved || '')) return saved;
     const created = createRequestId();
-    sessionStorage.setItem(VISITOR_PRESENCE_KEY, created);
+    sessionStorage.setItem(storageKey, created);
     return created;
   } catch { return createRequestId(); }
+}
+
+function visitorPresenceAllowed() {
+  try { return localStorage.getItem(VISITOR_PRESENCE_OPT_OUT_KEY) !== '1'; }
+  catch { return true; }
 }
 
 function sourceTitle(value) {
@@ -88,7 +96,9 @@ function firstVisitorSource(current) {
   const storageKey = `${VISITOR_FIRST_SOURCE_KEY}:${requestedOrganizationSlug || 'default'}`;
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
-    if (saved?.label) return cleanVisitorSource(saved.label);
+    const savedAt = Number(saved?.savedAt || 0);
+    if (saved?.label && Number.isFinite(savedAt) && Date.now() - savedAt <= VISITOR_FIRST_SOURCE_TTL) return cleanVisitorSource(saved.label);
+    localStorage.removeItem(storageKey);
     localStorage.setItem(storageKey, JSON.stringify({ label:current.label, savedAt:Date.now() }));
   } catch {}
   return current.label;
@@ -107,7 +117,7 @@ function ensureVisitorHeartbeat() {
 }
 
 function registerBookingPageVisit({ force = false } = {}) {
-  if (!requestedOrganizationSlug || document.hidden || !navigator.onLine) return Promise.resolve(false);
+  if (!requestedOrganizationSlug || !visitorPresenceAllowed() || document.hidden || !navigator.onLine) return Promise.resolve(false);
   ensureVisitorHeartbeat();
   if (visitorRegistrationPromise) return visitorRegistrationPromise;
   if (!force && Date.now() - visitorLastHeartbeatAt < 20000) return Promise.resolve(false);
