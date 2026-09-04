@@ -27,7 +27,7 @@
   setText('#articleCategory', article.category);
   const categoryLink = document.querySelector('#articleCategory');
   if (categoryLink) categoryLink.href = categoryUrl(article);
-  setText('#articleMeta', `${article.category} · ${article.time} на чтение · Обновлено ${article.updated}`);
+  setText('#articleMeta', article.category);
   setText('#articleTitle', article.title);
   setText('#articleIntro', article.intro);
   const productLink = document.querySelector('#productLink');
@@ -96,7 +96,7 @@
     const title = document.createElement('strong');
     title.textContent = item.title;
     const meta = document.createElement('small');
-    meta.textContent = `${item.category} · ${item.time}`;
+    meta.textContent = item.category;
     copy.append(title, meta);
     const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     icon.setAttribute('aria-hidden', 'true');

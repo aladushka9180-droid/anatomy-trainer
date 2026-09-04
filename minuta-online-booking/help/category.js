@@ -63,9 +63,7 @@
     title.textContent = article.title;
     const excerpt = document.createElement('small');
     excerpt.textContent = article.excerpt;
-    const meta = document.createElement('em');
-    meta.textContent = `${article.time} на чтение`;
-    copy.append(title, excerpt, meta);
+    copy.append(title, excerpt);
     const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     arrow.setAttribute('aria-hidden', 'true');
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');

@@ -10,10 +10,12 @@ const ASSETS = [
   './privacy.html',
   './help/index.html',
   './help/article.html',
+  './help/category.html',
   './help/help.css?v=363',
   './help/help-data.js?v=363',
   './help/help.js?v=363',
   './help/article.js?v=363',
+  './help/category.js?v=363',
   './provider.webmanifest?v=363',
   './provider-icon-192.png',
   './provider-icon-512.png',
@@ -109,7 +111,7 @@ async function navigationResponse(request) {
     return response;
   } catch {
     const path = new URL(request.url).pathname;
-    const shell = path.endsWith('/help/article.html') ? './help/article.html' : path.endsWith('/help/') || path.endsWith('/help/index.html') ? './help/index.html' : path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/waitlist.html') ? './waitlist.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
+    const shell = path.endsWith('/help/article.html') ? './help/article.html' : path.endsWith('/help/category.html') ? './help/category.html' : path.endsWith('/help/') || path.endsWith('/help/index.html') ? './help/index.html' : path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/waitlist.html') ? './waitlist.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
     return (await caches.match(shell)) || (await caches.match('./index.html'));
   }
 }

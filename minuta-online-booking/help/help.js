@@ -43,7 +43,8 @@
       if (!count) return;
       const link = document.createElement('a');
       link.className = 'section-card';
-      link.href = categoryUrl(category);
+      const categoryArticles = articles.filter(article => article.audience === audience && article.categorySlug === category.slug);
+      link.href = count === 1 ? articleUrl(categoryArticles[0]) : categoryUrl(category);
 
       const iconWrap = document.createElement('span');
       iconWrap.className = 'section-icon';
@@ -96,7 +97,7 @@
       const title = document.createElement('strong');
       title.textContent = article.title;
       const meta = document.createElement('small');
-      meta.textContent = `${article.category} · ${article.time}`;
+      meta.textContent = article.category;
       copy.append(title, meta);
       const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       icon.setAttribute('aria-hidden', 'true');
@@ -117,7 +118,11 @@
       input.setAttribute('aria-expanded', 'false');
       return;
     }
-    const matches = articles.filter(article => article.audience === audience && normalize(`${article.title} ${article.excerpt} ${article.category} ${article.tags}`).includes(query)).slice(0, 5);
+    const matches = articles.filter(article => {
+      if (article.audience !== audience) return false;
+      const stepText = article.steps.map(step => `${step.title} ${step.text}`).join(' ');
+      return normalize(`${article.title} ${article.excerpt} ${article.category} ${article.tags} ${stepText} ${article.note}`).includes(query);
+    });
     results.replaceChildren();
     if (!matches.length) {
       const empty = document.createElement('div');
@@ -129,7 +134,7 @@
       empty.append(strong, small);
       results.append(empty);
     } else {
-      matches.forEach(article => {
+      matches.slice(0, 8).forEach(article => {
         const link = document.createElement('a');
         link.href = articleUrl(article);
         const copy = document.createElement('span');
@@ -143,6 +148,12 @@
         link.append(copy, category);
         results.append(link);
       });
+      if (matches.length > 8) {
+        const more = document.createElement('div');
+        more.className = 'search-more';
+        more.textContent = `Показано 8 из ${matches.length}. Уточните запрос, чтобы сузить список.`;
+        results.append(more);
+      }
     }
     results.hidden = false;
     input.setAttribute('aria-expanded', 'true');
@@ -200,7 +211,12 @@
   results?.addEventListener('keydown', event => {
     if (!['ArrowDown', 'ArrowUp', 'Escape'].includes(event.key)) return;
     event.preventDefault();
-    if (event.key === 'Escape') { input?.focus(); results.hidden = true; return; }
+    if (event.key === 'Escape') {
+      input?.focus();
+      results.hidden = true;
+      input?.setAttribute('aria-expanded', 'false');
+      return;
+    }
     const links = [...results.querySelectorAll('a')];
     const current = links.indexOf(document.activeElement);
     const next = event.key === 'ArrowDown' ? Math.min(current + 1, links.length - 1) : current <= 0 ? -1 : current - 1;
