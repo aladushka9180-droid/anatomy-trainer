@@ -109,7 +109,7 @@ const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
   organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
   benefitsPanel:['loyaltyPanel', 'retentionPanel'],
-  bookingRulesCard:['groupBookingSettingsCard']
+  bookingRulesCard:['teamCalendarSettingsCard', 'groupBookingSettingsCard']
 });
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
@@ -4015,16 +4015,28 @@ function setJournalMode(mode) {
 
 function restoreDefaultScheduleView() {
   if (teamCalendarController?.isTeamMode) teamCalendarController.setMode('personal', { silent:true });
+  selectedDate = businessTodayIso();
   calendarView = 'day';
   currentFilter = 'day';
   journalMode = 'timeline';
   timelineFullDay = false;
+  bookingSearchQuery = '';
+  bookingStatusFilter = 'all';
+  bookingSourceFilter = 'all';
+  bookingAnalyticsFilter = '';
+  bookingAnalyticsScope = null;
+  bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   try {
     localStorage.setItem(CALENDAR_VIEW_KEY, calendarView);
     localStorage.setItem(SCHEDULE_FILTER_KEY, currentFilter);
     localStorage.setItem(JOURNAL_MODE_KEY, journalMode);
   } catch {}
+  rememberSelectedDate(true);
   setTeamCalendarMode(false, { render:false });
+  const search = $('#bookingSearch');
+  const status = $('#bookingStatusFilter');
+  if (search) search.value = '';
+  if (status) status.value = 'all';
   $$('[data-filter]').forEach(button => {
     const active = button.dataset.filter === currentFilter;
     button.classList.toggle('active', active);
@@ -4036,7 +4048,6 @@ function restoreDefaultScheduleView() {
   syncScheduleContextHistory();
   renderDateStrip();
   renderBookings();
-  notify('По умолчанию: мои записи, день, лента');
 }
 
 function updateJournalModeButtons() {
@@ -4226,7 +4237,7 @@ function renderDateStrip() {
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
-  if (todayButton) todayButton.hidden = calendarView === 'day' && selectedDate === todayIso;
+  if (todayButton) todayButton.hidden = false;
   const active = $('#dateStrip [data-booking-date].active');
   if ($('#dateStrip').scrollWidth > $('#dateStrip').clientWidth) active?.scrollIntoView({ block: 'nearest', inline: 'center' });
   updateCalendarViewControls();
@@ -8791,7 +8802,7 @@ document.addEventListener('click', async event => {
     selectScheduleDate(calendarOpenDate.dataset.calendarOpenDate);
   }
   if (dateShift) shiftScheduleDate(Number(dateShift.dataset.dateShift));
-  if (dateToday) selectScheduleDate(businessTodayIso());
+  if (dateToday) restoreDefaultScheduleView();
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
@@ -9651,7 +9662,6 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   renderAnalytics();
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
-$('#restoreDefaultSchedule')?.addEventListener('click', restoreDefaultScheduleView);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet());
 $('#saveSchedule').addEventListener('click', saveSchedule);

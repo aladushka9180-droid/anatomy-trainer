@@ -8,6 +8,7 @@
   const DEFAULT_START = 8 * 60;
   const DEFAULT_END = 20 * 60;
   const STEP_MINUTES = 5;
+  const TEAM_CALENDAR_ENABLED_KEY_PREFIX = 'minuta-team-calendar-enabled-v1';
   const UNDO_WINDOW_MS = 10000;
   const movableStatuses = new Set(['new', 'confirmed']);
 
@@ -55,6 +56,19 @@
     let undoInterval = null;
     let undoHovered = false;
     let undoFocused = false;
+    let enabled = false;
+
+    function preferenceKey(value = organization) {
+      return `${TEAM_CALENDAR_ENABLED_KEY_PREFIX}:${value?.id || 'none'}:${getCurrentUser()?.id || 'anonymous'}`;
+    }
+
+    function readEnabled(value) {
+      try { return localStorage.getItem(preferenceKey(value)) === 'true'; } catch { return false; }
+    }
+
+    function persistEnabled() {
+      try { localStorage.setItem(preferenceKey(), String(enabled)); } catch {}
+    }
 
     function canUseTeamCalendar(value = organization) {
       return Boolean(value?.id && allowedRoles.has(value.current_role) && value.can_manage !== false);
@@ -87,6 +101,7 @@
       organization = null;
       resetData();
       mode = 'personal';
+      enabled = false;
       availability = null;
       updateControls();
       onModeChange(false);
@@ -104,6 +119,7 @@
       resetData();
       availability = next ? null : 'forbidden';
       mode = 'personal';
+      enabled = next ? readEnabled(next) : false;
       updateControls();
       onModeChange(false);
       renderLegacy();
@@ -222,12 +238,26 @@
       const toolbar = $('#teamCalendarToolbar');
       const filters = $('#teamCalendarFilters');
       const status = $('#teamCalendarStatus');
+      const settings = $('#teamCalendarSettingsCard');
+      const toggle = $('#teamCalendarEnabled');
+      const settingNote = $('#teamCalendarSettingNote');
       const hasTeam = members.length > 1;
-      if (availability === 'ready' && !hasTeam && mode === 'team') {
+      if (availability === 'ready' && !hasTeam && enabled) {
+        enabled = false;
+        persistEnabled();
+      }
+      if ((!enabled || !hasTeam) && mode === 'team') {
         mode = 'personal';
         onModeChange(false);
       }
-      const supported = canUseTeamCalendar() && (availability === 'error' || (availability === 'ready' && hasTeam));
+      const configurable = canUseTeamCalendar() && availability === 'ready' && hasTeam;
+      if (settings) settings.hidden = !configurable;
+      if (toggle) {
+        toggle.checked = enabled;
+        toggle.disabled = !configurable;
+      }
+      if (settingNote) settingNote.textContent = enabled ? 'Функция включена. Переключатель команды доступен в расписании.' : 'Функция выключена. В расписании остаются только ваши записи.';
+      const supported = enabled && configurable;
       if (toolbar) toolbar.hidden = !supported;
       if (filters) filters.hidden = mode !== 'team' || availability !== 'ready';
       $$('[data-calendar-mode]').forEach(button => {
@@ -992,7 +1022,7 @@
     }
 
     async function setMode(nextMode, options = {}) {
-      if (nextMode !== 'team' || !canUseTeamCalendar() || availability === 'unsupported') {
+      if (nextMode !== 'team' || !enabled || !canUseTeamCalendar() || availability === 'unsupported') {
         mode = 'personal';
         updateControls();
         if (options.silent !== true) {
@@ -1005,6 +1035,15 @@
       onModeChange(true);
       updateControls();
       await load();
+    }
+
+    function setEnabled(nextEnabled) {
+      const canEnable = canUseTeamCalendar() && availability === 'ready' && members.length > 1;
+      enabled = canEnable && nextEnabled === true;
+      persistEnabled();
+      if (!enabled && mode === 'team') setMode('personal');
+      else updateControls();
+      notify(enabled ? 'Расписание команды включено' : 'Расписание команды выключено');
     }
 
     function handleChange(event) {
@@ -1037,6 +1076,7 @@
       if (bound) return;
       bound = true;
       $$('[data-calendar-mode]').forEach(button => button.addEventListener('click',() => setMode(button.dataset.calendarMode)));
+      $('#teamCalendarEnabled')?.addEventListener('change',event => setEnabled(event.target.checked));
       $$('[data-team-density]').forEach(button => button.addEventListener('click',() => {
         const nextDensity = button.dataset.teamDensity;
         if (nextDensity !== 'compact' && nextDensity !== 'detailed') return;
@@ -1072,7 +1112,7 @@
       updateControls();
     }
 
-    return { bind,load,render,reset,setOrganization,setMode,get isTeamMode() { return mode === 'team'; },get dispatcherEnabled() { return dispatcherActions; } };
+    return { bind,load,render,reset,setOrganization,setMode,setEnabled,get isTeamMode() { return mode === 'team'; },get dispatcherEnabled() { return dispatcherActions; } };
   }
 
   window.MinutaTeamCalendar = { createController };
