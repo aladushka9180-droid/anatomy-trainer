@@ -13,7 +13,7 @@ const ASSETS = [
   './provider-icon-512.png',
   './provider-icon-maskable-512.png',
   './provider-luxury-marble-v4.webp',
-  './styles.css?v=313',
+  './styles.css?v=314',
   './onboarding.css?v=313',
   './config.js?v=313',
   './site-update.js?v=313',
