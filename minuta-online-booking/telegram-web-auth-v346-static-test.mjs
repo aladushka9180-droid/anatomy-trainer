@@ -42,14 +42,14 @@ for (const html of [index, booking]) {
   assert.match(html, /id="(?:telegramConnect|manageTelegramConnect)"[^>]*type="button"/, 'Telegram action is not an in-page button');
   assert.match(html, /Подключить Telegram/, 'Telegram action has no clear label');
   assert.match(html, /запускать бота не нужно/, 'The interface still asks the client to start a bot');
-  assert.match(html, /telegram-auth\.js\?v=361/, 'Telegram authorization controller is not loaded');
+  assert.match(html, /telegram-auth\.js\?v=362/, 'Telegram authorization controller is not loaded');
 }
 
 assert.match(styles, /\.telegram-connect-button strong \{ font-size:14px/, 'Telegram action title is too small');
 assert.match(styles, /\.telegram-connect-button small \{[^}]*font-size:12px/, 'Telegram action explanation is too small');
 assert.match(index, /Можно пропустить — запись всё равно сохранена/, 'Optional Telegram authorization is not explained');
 assert.match(provider, /telegramClientSettingsForm/, 'Master Telegram notification settings are not wired');
-assert.match(sw, /'\.\/telegram-auth\.js\?v=361'/, 'Telegram authorization controller is not cached');
+assert.match(sw, /'\.\/telegram-auth\.js\?v=362'/, 'Telegram authorization controller is not cached');
 assert.match(setup, /\/setdomain/, 'Required BotFather domain setup is not documented');
 
-console.log('Telegram web authorization v361 checks passed');
+console.log('Telegram web authorization v362 checks passed');
