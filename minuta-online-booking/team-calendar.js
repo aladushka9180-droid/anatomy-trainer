@@ -223,7 +223,11 @@
       const filters = $('#teamCalendarFilters');
       const status = $('#teamCalendarStatus');
       const hasTeam = members.length > 1;
-      const supported = hasTeam && canUseTeamCalendar() && (availability === 'ready' || availability === 'error');
+      if (availability === 'ready' && !hasTeam && mode === 'team') {
+        mode = 'personal';
+        onModeChange(false);
+      }
+      const supported = canUseTeamCalendar() && (availability === 'error' || (availability === 'ready' && hasTeam));
       if (toolbar) toolbar.hidden = !supported;
       if (filters) filters.hidden = mode !== 'team' || availability !== 'ready';
       $$('[data-calendar-mode]').forEach(button => {

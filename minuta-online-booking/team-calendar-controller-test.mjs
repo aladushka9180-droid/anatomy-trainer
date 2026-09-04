@@ -143,12 +143,37 @@ const ownerOrganization = { id: 'org-1', current_role: 'owner', can_manage: true
 
 {
   const dom = makeDom();
+  const controller = createController({
+    db: { rpc: async () => ({ data:null, error:{ code:'57014', message:'calendar timeout' } }) },
+    ...dom, escapeHtml,
+    getCurrentUser: () => ({ id:'owner-1' }), getSessionGeneration: () => 1,
+    sessionIsCurrent: () => true, getSelectedDate: () => '2026-09-02',
+    getHolder: () => dom.elements.providerBookings, onModeChange: () => {},
+    renderLegacy: () => {}
+  });
+  controller.bind();
+  controller.setOrganization(ownerOrganization);
+  await controller.setMode('team');
+  assert.equal(controller.isTeamMode, true, 'Временная ошибка не должна насильно менять выбранный режим');
+  assert.equal(dom.elements.teamCalendarToolbar.hidden, false, 'При ошибке переключатель на личные записи должен оставаться доступным');
+  assert.match(dom.elements.providerBookings.innerHTML, /временно недоступен/);
+}
+
+{
+  const dom = makeDom();
   let rpcCalls = 0;
   const controller = createController({
     db: { rpc: async name => {
       rpcCalls += 1;
       if (name === 'get_minuta_team_calendar_v3') return { data: null, error: { code: 'PGRST202', message: 'Could not find the function get_minuta_team_calendar_v3' } };
-      return { data: { organization_id:'org-1', current_role:'owner', can_view_team:true, locations:[], performers:[], bookings:[] }, error:null };
+      return { data: {
+        organization_id:'org-1', current_role:'owner', can_view_team:true, locations:[],
+        performers:[
+          { id:'owner-1', display_name:'Владелец', role:'owner' },
+          { id:'specialist-1', display_name:'Специалист', role:'specialist' }
+        ],
+        bookings:[]
+      }, error:null };
     } },
     ...dom,
     escapeHtml,
