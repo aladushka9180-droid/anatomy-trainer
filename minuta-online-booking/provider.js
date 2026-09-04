@@ -5593,11 +5593,12 @@ async function saveBookingSession(event) {
   openBookingSheet(item.id);
 }
 
-function openBookingEditor(id) {
+function openBookingEditor(id, preset = {}) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item) return;
   const block = isScheduleBlock(item);
-  bookingEditTime = String(item.booking_time).slice(0, 5);
+  const presetDate = providerAssistantIsoDate(preset.date) || item.booking_date;
+  bookingEditTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(preset.time || '')) ? String(preset.time) : String(item.booking_time).slice(0, 5);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   applyClientHighlightClasses($('#bookingSheet'), block ? '' : item.client_phone, 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
@@ -5607,7 +5608,7 @@ function openBookingEditor(id) {
       <label>${block ? 'Длительность' : 'Основная услуга'}<select id="editBookingService" required ${block ? '' : 'disabled'}>${block ? blockDurationOptions(item.service_id) : serviceOptions(item.service_id)}</select>${block ? '' : '<small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small>'}</label>
       <label>${block ? 'Заметка к перерыву' : 'Заметка о клиенте'}<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="${block ? 'Например, обед или личное дело' : 'Пожелания, особенности или важная информация'}">${escapeHtml(bookingDisplayNote(item))}</textarea></label>
       ${bookingColorPicker('editBookingColor', bookingColor(item))}
-      <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${item.booking_date}" required></label>
+      <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${presetDate}" required></label>
       <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
       ${block ? '' : bookingSeriesScopeMarkup(item, 'editBookingSeriesScope', 'Какие записи перенести')}
       <p class="form-error" id="bookingEditError" hidden></p>
@@ -10064,6 +10065,8 @@ window.MinutaProviderAssistant = Object.freeze({
       today:businessTodayIso(),
       selectedDate,
       organizationName:readable ? String(organization?.name || '') : '',
+      currentRole:readable ? String(organization?.current_role || '') : '',
+      canManage:Boolean(readable && organization?.can_manage),
       dataQuality:{
         bookings:readable ? (bookingsSnapshotFromCache ? 'anonymized_cache' : 'server') : 'unavailable',
         outcomes:outcomesRemoteAvailable ? 'server' : bookingOutcomes.size ? 'local_fallback' : 'unavailable',
@@ -10080,6 +10083,7 @@ window.MinutaProviderAssistant = Object.freeze({
         perMinute:Number(item.duration_minutes) === 1
       })),
       bookings:(readable ? allBookings : []).filter(item => !isScheduleBlock(item)).map(item => ({
+        id:String(item.id || ''),
         outcome:bookingOutcome(item).visit_status,
         paymentMethod:bookingOutcome(item).payment_method,
         amountRub:providerAssistantNumber(bookingOutcome(item).amount_rub),
@@ -10126,6 +10130,24 @@ window.MinutaProviderAssistant = Object.freeze({
     if (!currentUser || !allowed.has(view)) return { ok:false, reason:'invalid_request' };
     setProviderView(view);
     return { ok:true };
+  },
+  prepareBookingOperation(plan = {}) {
+    const synchronized = Boolean(currentUser && navigator.onLine && bookingCreationReady && !bookingsSnapshotFromCache);
+    if (!synchronized) return { ok:false, reason:'not_synchronized' };
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok:false, reason:'invalid_request' };
+    const item = allBookings.find(booking => String(booking.id) === String(plan.bookingId || ''));
+    if (!item || isScheduleBlock(item) || item.status === 'cancelled' || bookingOutcome(item).visit_status === 'completed') return { ok:false, reason:'invalid_request' };
+    setProviderView('bookings');
+    selectScheduleDate(item.booking_date);
+    if (plan.operation === 'cancel') {
+      openBookingSheet(item.id);
+      return { ok:true, confirmationRequired:true };
+    }
+    const date = providerAssistantIsoDate(plan.targetDate);
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(plan.targetTime || '')) ? String(plan.targetTime) : '';
+    if (plan.operation !== 'reschedule' || !date || date < businessTodayIso() || !time) return { ok:false, reason:'invalid_request' };
+    openBookingEditor(item.id, { date, time });
+    return { ok:true, confirmationRequired:true };
   },
   async findAvailableSlots(plan = {}) {
     const generation = sessionGeneration;

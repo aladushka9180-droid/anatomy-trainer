@@ -586,7 +586,7 @@
       .filter(item => !requestedDate || item.date === requestedDate)
       .sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
     const matched = clientBookingMatches(command, future);
-    if (matched.length) return matched[0];
+    if (matched.length) return matched.sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`))[0];
     return future.length === 1 ? future[0] : null;
   }
 
@@ -742,14 +742,73 @@
     if (next) points.push(`Ближайшая запись: ${next.time} · ${next.clientName || 'Клиент'} · ${next.serviceName || 'Услуга'}.`);
     points.push(...(attention.points || []).slice(0, 4));
     if (!points.length) points.push('Срочных задач по доступным данным не найдено.');
+    const metrics = [{ value:String(schedule.length), label:'записей сегодня' }, { value:String(attention.points?.length || 0), label:'требует внимания' }];
+    if (roleAllowsFinancialData(snapshot)) metrics.splice(1, 0, { value:moneyLabel(revenue.revenue), label:'получено сегодня' });
     return {
       kind:'operational_briefing',
       title:'Короткая сводка и следующий шаг',
       message:schedule.length ? `Сегодня ${countLabel(schedule.length, ['активная запись', 'активные записи', 'активных записей'])}. Начните с ближайшей и проверьте пункты ниже.` : 'Активных записей сегодня нет. Можно проверить свободные окна и продвижение.',
-      metrics:[{ value:String(schedule.length), label:'записей сегодня' }, { value:moneyLabel(revenue.revenue), label:'получено сегодня' }, { value:String(attention.points?.length || 0), label:'требует внимания' }],
+      metrics,
       points,
       openSection:'bookings',
       openLabel:'Открыть записи'
+    };
+  }
+
+  function roleAllowsFinancialData(snapshot) {
+    const role = String(snapshot.currentRole || '').toLowerCase();
+    return !role || ['owner', 'admin', 'manager'].includes(role);
+  }
+
+  function permissionNoticeModel() {
+    return {
+      kind:'permission_notice',
+      title:'Недостаточно прав для финансовых данных',
+      message:'Вы можете работать со своим расписанием, но выручка и рекомендации по цене доступны владельцу, администратору или менеджеру.',
+      openSection:'bookings',
+      openLabel:'Открыть записи'
+    };
+  }
+
+  function operationPreviewModel(command, snapshot, now = new Date()) {
+    const text = repairCommand(command).text;
+    const operation = /(?:отмен|удал|освобод)/.test(text) ? 'cancel' : 'reschedule';
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const future = (snapshot.bookings || [])
+      .filter(item => item.id && item.date >= today && item.status !== 'cancelled' && item.outcome !== 'completed')
+      .sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
+    const explicitId = text.match(/(?:^|\s)запись-id-([a-z0-9-]+)(?=\s|$)/)?.[1] || '';
+    const matches = clientBookingMatches(text, future).sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
+    const booking = future.find(item => String(item.id) === explicitId) || matches[0] || (future.length === 1 ? future[0] : null);
+    const targetDate = operation === 'reschedule' ? parseRussianDate(text, now) : '';
+    const targetTime = operation === 'reschedule' ? parseRussianTime(text) : '';
+    if (!booking) return {
+      kind:'operation_preview',
+      operation,
+      title:operation === 'cancel' ? 'Уточните запись для отмены' : 'Уточните запись для переноса',
+      message:'Назовите клиента или исходную дату. Ничего не изменено.',
+      needsDetail:'клиент или исходная дата',
+      candidates:future.slice(0, 6),
+      plan:{ operation, bookingId:'', targetDate, targetTime }
+    };
+    const missing = operation === 'reschedule' ? [!targetDate ? 'новая дата' : '', !targetTime ? 'новое время' : ''].filter(Boolean) : [];
+    return {
+      kind:'operation_preview',
+      operation,
+      title:operation === 'cancel' ? `Проверка отмены · ${booking.clientName || 'Клиент'}` : `Проверка переноса · ${booking.clientName || 'Клиент'}`,
+      message:missing.length ? `Запись найдена. Уточните: ${missing.join(', ')}.` : operation === 'cancel' ? 'Открою карточку записи. Отмена произойдёт только после отдельного подтверждения.' : 'Открою форму переноса с выбранными данными. Сохранение останется за вами.',
+      needsDetail:missing.join(', '),
+      candidates:[],
+      plan:{
+        operation,
+        bookingId:String(booking.id || ''),
+        clientName:String(booking.clientName || 'Клиент'),
+        serviceName:String(booking.serviceName || 'Услуга'),
+        fromDate:String(booking.date || ''),
+        fromTime:String(booking.time || ''),
+        targetDate,
+        targetTime
+      }
     };
   }
 
@@ -832,18 +891,19 @@
 
     const bookingRequest = bookingSignal(text);
     const writingAction = /(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*|подготов[а-я]*|ответ[а-я]*)(?=\s|$)/.test(text);
+    if (/(?:^|\s)(?:перенес[а-я]*|перенести|перенеси|сдвин[а-я]*|перестав[а-я]*|отмен[а-я]*|удал[а-я]*\s+запис[а-я]*|освобод[а-я]*\s+(?:запис[а-я]*|время))(?=\s|$)/.test(text)) return finish(operationPreviewModel(text, snapshot, now));
     if (/(?:что\s+(?:делать|важно)|с\s+чего\s+начать|дай\s+(?:сводку|план)|план\s+на\s+день|коротк[а-я]*\s+сводк)/.test(text)) return finish(operationalBriefingModel(snapshot, now));
     if ((writingAction || /(?:ответ[а-я]*\s+на\s+отзыв)/.test(text)) && /(?:сообщен|напоминан|подтвержден|отзыв|клиент)/.test(text)) return finish(messageDraftModel(text, snapshot, now));
     if (writingAction && /(?:пост|публикац|описан|карточк\s+услуг|текст\s+для\s+соц)/.test(text)) return finish(contentDraftModel(text, snapshot));
-    if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'подбери', 'поставить', 'изменить', 'поднять'])) return finish(priceAdviceModel(text, snapshot));
+    if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'подбери', 'поставить', 'изменить', 'поднять'])) return finish(roleAllowsFinancialData(snapshot) ? priceAdviceModel(text, snapshot) : permissionNoticeModel());
     if (/(?:иде[а-я]*\s+(?:для\s+)?продвижен|как\s+продвиг|что\s+рекламир|рекламн[а-я]*\s+иде|акци[а-я]*\s+предлож)/.test(text)) return finish(promotionIdeasModel(snapshot, now));
     if ((/(?:^|\s)(?:как|где|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
 
-    if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(revenueModel(text, snapshot, now));
+    if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(roleAllowsFinancialData(snapshot) ? revenueModel(text, snapshot, now) : permissionNoticeModel());
     if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || fuzzyRoot(text, ['материал', 'остаток', 'склад']) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return finish(inventoryModel(text, snapshot, now));
     if (/(?:требует внимания|важн[а-я]*|проблем[а-я]*|что проверить)/.test(text) || fuzzyRoot(text, ['важное', 'проблемы'])) return finish(attentionModel(snapshot, now));
     if (/(?:нов[а-я]* клиент|повторн[а-я]* клиент|сколько клиент)/.test(text)) return finish(clientSummaryModel(text, snapshot, now));
-    if (/(?:популярн[а-я]* услуг|лучш[а-я]* услуг|услуг[а-я]* принесли|услуг[а-я]* принос)/.test(text)) return finish(servicePerformanceModel(text, snapshot, now));
+    if (/(?:популярн[а-я]* услуг|лучш[а-я]* услуг|услуг[а-я]* принесли|услуг[а-я]* принос)/.test(text)) return finish(roleAllowsFinancialData(snapshot) ? servicePerformanceModel(text, snapshot, now) : permissionNoticeModel());
     if (/(?:кто работает|команд[а-я]*|сотрудник[а-я]*|специалист[а-я]* работает)/.test(text)) {
       const members = snapshot.team || [];
       return finish({ kind:'team_summary', title:'Команда', message:members.length ? `Активных сотрудников: ${members.length}.` : 'Активные сотрудники не найдены.', points:members.map(item => `${item.name}${item.role ? ` · ${teamRoleLabel(item.role)}` : ''}`).slice(0, 12) });
@@ -917,7 +977,8 @@
     if (model.kind === 'find_slots') return 90 + (model.plan?.serviceId ? 12 : 0) + (model.plan?.date ? 4 : 0);
     if (model.kind === 'schedule_summary') return 80;
     if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
-    if (['message_draft','content_draft','price_advice','promotion_ideas','operational_briefing','workspace_help'].includes(model.kind)) return 84;
+    if (model.kind === 'operation_preview') return 108 + (model.plan?.bookingId ? 14 : 0) + (model.needsDetail ? 0 : 12);
+    if (['message_draft','content_draft','price_advice','promotion_ideas','operational_briefing','workspace_help','permission_notice'].includes(model.kind)) return 84;
     if (['revenue_summary','revenue_change','inventory_summary','inventory_forecast','attention','clients_summary','service_performance','team_summary'].includes(model.kind)) return 76;
     return Math.min(10, normalizeText(command).split(' ').filter(Boolean).length);
   }
@@ -1070,6 +1131,7 @@
     let listening = false;
     let finishingRecognition = false;
     let lastModel = null;
+    let lastCommand = '';
     let lastSessionGeneration = null;
     let pendingCommand = '';
     let recognitionEpoch = 0;
@@ -1210,6 +1272,7 @@
       result.hidden = true;
       result.replaceChildren();
       lastModel = null;
+      lastCommand = '';
       lastSessionGeneration = null;
       pendingCommand = '';
       input.placeholder = 'Например: найди окно завтра';
@@ -1242,6 +1305,17 @@
           Number(plan.durationMinutes) ? ['Длительность', `${plan.durationMinutes} минут`] : null
         ].filter(Boolean);
         return `${rows.length ? `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : ''}${draft}`;
+      }
+      if (model.kind === 'operation_preview') {
+        if (model.candidates?.length) return `<div class="voice-result-choices" aria-label="Выберите запись">${model.candidates.map(item => `<button class="voice-result-choice" type="button" data-voice-booking-option="${escapeHtml(`запись-id-${item.id || ''}`)}"><strong>${escapeHtml(item.clientName || 'Клиент')}</strong><span>${escapeHtml(`${formatDate(item.date)} · ${item.time || ''} · ${item.serviceName || 'Услуга'}`)}</span></button>`).join('')}</div>`;
+        const plan = model.plan || {};
+        const rows = [
+          ['Клиент', plan.clientName || 'Клиент'],
+          ['Услуга', plan.serviceName || 'Услуга'],
+          ['Было', `${formatDate(plan.fromDate)} · ${plan.fromTime || ''}`],
+          plan.operation === 'reschedule' && plan.targetDate ? ['Станет', `${formatDate(plan.targetDate)}${plan.targetTime ? ` · ${plan.targetTime}` : ''}`] : null
+        ].filter(Boolean);
+        return `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`;
       }
       if (model.kind === 'schedule_summary' || model.kind === 'client_search') {
         const list = (model.items || []).map(item => `<li><strong>${escapeHtml(item.time || '')}</strong><span>${escapeHtml(item.clientName || 'Клиент')} · ${escapeHtml(item.serviceName || 'Услуга')}</span></li>`).join('');
@@ -1293,16 +1367,42 @@
       const prepareAction = planReady ? '<button class="primary" type="button" data-voice-prepare>Проверить запись</button>' : '';
       const copyAction = model.draftText && !model.needsDetail ? `<button class="primary" type="button" data-voice-copy>${escapeHtml(model.copyLabel || 'Скопировать')}</button>` : '';
       const openAction = model.openSection ? `<button class="secondary-button" type="button" data-voice-open-section="${escapeHtml(model.openSection)}">${escapeHtml(model.openLabel || 'Открыть раздел')}</button>` : '';
+      const operationAction = model.kind === 'operation_preview' && model.plan?.bookingId && !model.needsDetail ? `<button class="primary" type="button" data-voice-operation>${model.operation === 'cancel' ? 'Открыть отмену' : 'Открыть перенос'}</button>` : '';
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
-      const actions = prepareAction || copyAction || openAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${copyAction}${openAction}${speakAction}</div>` : '';
+      const actions = prepareAction || copyAction || openAction || operationAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${copyAction}${operationAction}${openAction}${speakAction}</div>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
+      const sourceNote = model.sourceLabel ? `<p class="voice-source-note">${escapeHtml(model.sourceLabel)}</p>` : '';
       const correctionNote = model.corrections?.length
         ? `<p class="voice-correction-note">Понял с исправлением: ${model.corrections.map(item => `«${escapeHtml(item.from)}» → «${escapeHtml(item.to)}»`).join(', ')}</p>`
         : '';
+      const feedback = lastCommand && model.kind !== 'error' ? '<div class="voice-feedback" aria-label="Оценить понимание команды"><span>Я правильно понял?</span><button type="button" data-voice-feedback="yes">Да</button><button type="button" data-voice-feedback="fix">Исправить</button></div>' : '';
       result.className = `voice-assistant-result is-${model.kind}`;
-      result.innerHTML = `${offlineNotice}${correctionNote}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${actions}`;
+      result.innerHTML = `${offlineNotice}${correctionNote}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${sourceNote}${actions}${feedback}`;
       result.hidden = false;
       starters?.classList.add('is-secondary');
+      result.querySelectorAll?.('[data-voice-feedback]')?.forEach(button => button.addEventListener('click', () => {
+        if (button.dataset.voiceFeedback === 'fix') {
+          input.value = lastCommand;
+          input.focus();
+          status.textContent = 'Исправьте команду и отправьте её ещё раз. Предыдущий вариант не сохраняется.';
+          return;
+        }
+        status.textContent = 'Понял. Оценка учтена только в текущем окне и не сохраняет текст команды.';
+      }));
+      result.querySelectorAll?.('[data-voice-booking-option]')?.forEach(button => button.addEventListener('click', () => {
+        input.value = button.dataset.voiceBookingOption || '';
+        understand();
+      }));
+      result.querySelector('[data-voice-operation]')?.addEventListener('click', () => {
+        const snapshot = bridge.getReadOnlySnapshot();
+        if (!snapshot?.authenticated || !snapshot.synchronized || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
+          status.textContent = 'Данные изменились. Повторите команду после синхронизации.';
+          return;
+        }
+        const response = bridge.prepareBookingOperation?.(lastModel?.plan || {});
+        if (response?.ok) { pendingCommand = ''; close(); }
+        else status.textContent = 'Не удалось открыть операцию. Обновите расписание и повторите команду.';
+      });
       result.querySelector('[data-voice-copy]')?.addEventListener('click', async () => {
         const draftText = String(lastModel?.draftText || '');
         if (!draftText) return;
@@ -1443,9 +1543,14 @@
       const now = new Date();
       const continued = canContinueCommand(pendingCommand, lastModel, enteredCommand, snapshot, now);
       const command = continued ? continueCommand(pendingCommand, lastModel, enteredCommand) : enteredCommand;
+      lastCommand = command;
       const interpreted = interpretCommand(command, snapshot, now);
       if (['booking_draft','find_slots'].includes(interpreted.kind)) interpreted.availableServices = snapshot.services || [];
-      const model = applyOfflineContext(interpreted, snapshot);
+      const contextual = applyOfflineContext(interpreted, snapshot);
+      const sourceLabel = snapshot.offlineReadable
+        ? `Источник: сохранённая копия · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}`
+        : snapshot.synchronized ? `Источник: актуальные данные кабинета${snapshot.lastUpdatedAt ? ` · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}` : ''}` : '';
+      const model = { ...contextual, sourceLabel };
       if (needsClarification(model)) {
         pendingCommand = command;
         input.value = '';

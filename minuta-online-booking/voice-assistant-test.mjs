@@ -359,6 +359,35 @@ assert.equal(incompletePrice.kind, 'price_advice');
 assert.equal(voice.needsClarification(incompletePrice), true);
 assert.equal(voice.interpretCommand(voice.continueCommand('Какую цену поставить?', incompletePrice, 'массаж'), assistantSnapshot, now).needsDetail, undefined);
 
+const reschedulePreview = voice.interpretCommand('Перенеси Анну на 5 сентября в 15:00', assistantSnapshot, now);
+assert.equal(reschedulePreview.kind, 'operation_preview');
+assert.equal(reschedulePreview.operation, 'reschedule');
+assert.equal(reschedulePreview.plan.bookingId, 'future-anna');
+assert.equal(reschedulePreview.plan.fromTime, '10:30');
+assert.equal(reschedulePreview.plan.targetDate, '2026-09-05');
+assert.equal(reschedulePreview.plan.targetTime, '15:00');
+assert.equal(voice.needsClarification(reschedulePreview), false);
+
+const cancelPreview = voice.interpretCommand('Отмени запись Анны завтра', assistantSnapshot, now);
+assert.equal(cancelPreview.kind, 'operation_preview');
+assert.equal(cancelPreview.operation, 'cancel');
+assert.equal(cancelPreview.plan.bookingId, 'future-anna');
+assert.match(cancelPreview.message, /отдельного подтверждения/i);
+
+const ambiguousCancellation = voice.interpretCommand('Отмени запись', {
+  ...assistantSnapshot,
+  bookings:[...assistantSnapshot.bookings, { id:'future-maria', clientName:'Мария', clientKey:'79990000005', date:'2026-09-04', time:'12:00', status:'confirmed', outcome:'scheduled', serviceId:'cut', serviceName:'Стрижка' }]
+}, now);
+assert.equal(ambiguousCancellation.kind, 'operation_preview');
+assert.equal(voice.needsClarification(ambiguousCancellation), true);
+assert.ok(ambiguousCancellation.candidates.length >= 2);
+
+const specialistRevenue = voice.interpretCommand('Какая выручка сегодня?', { ...assistantSnapshot, currentRole:'specialist' }, now);
+assert.equal(specialistRevenue.kind, 'permission_notice');
+const specialistBriefing = voice.interpretCommand('Дай короткую сводку и план на день', { ...assistantSnapshot, currentRole:'specialist' }, now);
+assert.equal(specialistBriefing.kind, 'operational_briefing');
+assert.ok(!specialistBriefing.metrics.some(item => item.label === 'получено сегодня'));
+
 function deferred() {
   let resolve;
   let reject;
@@ -415,7 +444,7 @@ const controllerDocument = {
   querySelectorAll:() => [],
   addEventListener() {}
 };
-let controllerSnapshot = { ...businessSnapshot, authenticated:true, synchronized:true, offline:false, offlineReadable:false, sessionGeneration:1 };
+let controllerSnapshot = { ...assistantSnapshot, currentRole:'owner', authenticated:true, synchronized:true, offline:false, offlineReadable:false, lastUpdatedAt:'2026-09-02T15:00:00+04:00', sessionGeneration:1 };
 const slotResponses = [];
 let slotRequests = 0;
 const controllerBridge = {
@@ -429,6 +458,14 @@ const controllerBridge = {
 const controller = voice.createController({ document:controllerDocument, bridge:controllerBridge });
 controller.bind();
 controllerOpen.emit('click');
+
+controllerInput.value = 'Перенеси Анну на 5 сентября в 15:00';
+controllerForm.emit('submit');
+assert.match(controllerResultHtml, /Было/);
+assert.match(controllerResultHtml, /Станет/);
+assert.match(controllerResultHtml, /data-voice-operation/);
+assert.match(controllerResultHtml, /Источник: актуальные данные кабинета/);
+assert.match(controllerResultHtml, /Я правильно понял/);
 
 controllerInput.value = 'Придумай пост про массаж';
 controllerForm.emit('submit');

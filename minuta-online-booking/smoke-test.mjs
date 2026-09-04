@@ -117,6 +117,12 @@ assert.match(provider, /new Set\(\['bookings', 'clients', 'notifications'.*'sett
 assert.match(voiceAssistant, /kind:'message_draft'/, 'Помощник не готовит сообщения клиентам');
 assert.match(voiceAssistant, /kind:'operational_briefing'/, 'Помощник не формирует операционную сводку');
 assert.match(voiceAssistant, /data-voice-copy/, 'Черновики помощника нельзя скопировать');
+assert.match(voiceAssistant, /kind:'operation_preview'/, 'Помощник не показывает предпросмотр переноса или отмены');
+assert.match(voiceAssistant, /data-voice-feedback="fix"/, 'Пользователь не может исправить неверно понятую команду');
+assert.match(voiceAssistant, /Источник: актуальные данные кабинета/, 'Помощник не показывает свежесть источника');
+assert.match(provider, /prepareBookingOperation\(plan = \{\}\)/, 'Безопасный переход от предпросмотра к штатной форме записи не подключён');
+assert.match(provider, /openBookingEditor\(item\.id, \{ date, time \}\)/, 'Форма переноса не получает проверенные дату и время');
+assert.match(provider, /currentRole:readable \? String\(organization\?\.current_role/, 'Помощник не получает роль сотрудника для проверки доступа');
 assert.match(provider, /offlineDraftAllowed[\s\S]*if \(!synchronized && !offlineDraftAllowed\) return \{ ok:false, reason:'not_synchronized' \}/, 'Черновик голосового помощника не отделяет синхронизированный и безопасный офлайн-режимы');
 assert.match(provider, /const offlineReadable = Boolean\(offline && snapshotCurrent\)[\s\S]*offlineReadable,/, 'Голосовой помощник не проверяет срок локальной копии');
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');
