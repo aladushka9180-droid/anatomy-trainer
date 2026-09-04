@@ -447,6 +447,7 @@ assert.deepEqual(
 );
 
 const annaSearch = voice.interpretCommand('Найди клиента Анну Петрову', assistantSnapshot, now);
+assert.equal(annaSearch.clientKey, '79990000004', 'результат поиска клиента не содержит безопасный ключ карточки');
 const annaContext = voice.updateConversationContext({}, annaSearch);
 assert.equal(annaContext.clientName, 'Анна Петрова');
 const pronounSearch = voice.interpretCommand('Когда она записана?', assistantSnapshot, now, annaSearch, annaContext);
@@ -553,6 +554,23 @@ assert.equal(notificationsHelp.openSection, 'notifications');
 const exportHelp = voice.interpretCommand('Выгрузи записи', assistantSnapshot, now);
 assert.equal(exportHelp.kind, 'workspace_help');
 assert.equal(exportHelp.openSection, 'analytics');
+const navigationCases = new Map([
+  ['Открой записи', 'bookings'],
+  ['Перейди в раздел клиентов', 'clients'],
+  ['Открой уведомления', 'notifications'],
+  ['Открой лист ожидания', 'waitlist'],
+  ['Открой рабочие часы', 'schedule'],
+  ['Открой услуги', 'services'],
+  ['Открой организацию', 'organization'],
+  ['Перейди в раздел статистики', 'analytics'],
+  ['Открой портфолио', 'portfolio'],
+  ['Открой настройки', 'settings']
+]);
+for (const [command, section] of navigationCases) {
+  const navigation = voice.interpretCommand(command, assistantSnapshot, now);
+  assert.equal(navigation.kind, 'workspace_help', `навигационная команда «${command}» распознана как другая функция`);
+  assert.equal(navigation.openSection, section, `навигационная команда «${command}» ведёт не в тот раздел`);
+}
 const incompletePrice = voice.interpretCommand('Какую цену поставить?', assistantSnapshot, now);
 assert.equal(incompletePrice.kind, 'price_advice');
 assert.equal(voice.needsClarification(incompletePrice), true);

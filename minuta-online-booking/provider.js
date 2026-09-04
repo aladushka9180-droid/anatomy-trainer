@@ -1756,7 +1756,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=367#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=368#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3446,7 +3446,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=367');
+    worker = new Worker('./report-worker.js?v=368');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -10250,6 +10250,10 @@ function clearProviderAssistantPreferences() {
 
 const PROVIDER_ASSISTANT_UNDO_TTL_MS = 10 * 60 * 1000;
 let providerAssistantUndoState = null;
+let providerAssistantClientLookup = new Map();
+let providerAssistantClientKeys = new Map();
+let providerAssistantClientKeyGeneration = -1;
+let providerAssistantNextClientKey = 1;
 
 function providerAssistantOpenBookingId() {
   const sheet = $('#bookingSheet');
@@ -10336,14 +10340,20 @@ window.MinutaProviderAssistant = Object.freeze({
       && inventoryController.availability === 'ready'
       && organization?.id
       && String(inventoryPayload.organization_id || '') === String(organization.id));
-    const clientKeys = new Map();
-    let nextClientKey = 1;
+    if (providerAssistantClientKeyGeneration !== sessionGeneration) {
+      providerAssistantClientKeys = new Map();
+      providerAssistantClientKeyGeneration = sessionGeneration;
+      providerAssistantNextClientKey = 1;
+    }
+    providerAssistantClientLookup = new Map();
     const clientKey = item => {
       if (offline) return '';
       const phone = normalizePhone(item.client_phone);
       if (!phone) return '';
-      if (!clientKeys.has(phone)) clientKeys.set(phone, `client-${nextClientKey++}`);
-      return clientKeys.get(phone);
+      if (!providerAssistantClientKeys.has(phone)) providerAssistantClientKeys.set(phone, `client-${providerAssistantNextClientKey++}`);
+      const key = providerAssistantClientKeys.get(phone);
+      providerAssistantClientLookup.set(key, { phone, userId:currentUser.id, sessionGeneration });
+      return key;
     };
     const marks = notificationMarks();
     const now = new Date();
@@ -10463,6 +10473,22 @@ window.MinutaProviderAssistant = Object.freeze({
     if (!currentUser || !allowed.has(view)) return { ok:false, reason:'invalid_request' };
     captureProviderAssistantNavigation();
     setProviderView(view);
+    return { ok:true };
+  },
+  openClient(request = {}) {
+    const key = String(request?.clientKey || '');
+    const expectedGeneration = Number(request?.sessionGeneration);
+    const target = providerAssistantClientLookup.get(key);
+    if (!currentUser || !key || !target || target.userId !== currentUser.id || target.sessionGeneration !== sessionGeneration || expectedGeneration !== sessionGeneration) return { ok:false, reason:'stale_session' };
+    if (!buildClients().some(item => item.phone === target.phone)) return { ok:false, reason:'not_found' };
+    captureProviderAssistantNavigation();
+    const transition = setProviderView('clients');
+    const showClient = () => {
+      $('#clientsLayout')?.classList.add('is-detail');
+      renderClientDetail(target.phone);
+    };
+    if (transition?.updateCallbackDone?.then) transition.updateCallbackDone.then(showClient).catch(showClient);
+    else showClient();
     return { ok:true };
   },
   undoLastAssistantStep() {

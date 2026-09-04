@@ -144,6 +144,9 @@ assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защ�
 assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');
 assert.match(provider, /openSection\(section = ''\)/, 'Помощник не может безопасно открыть нужный раздел кабинета');
 assert.match(provider, /new Set\(\['bookings', 'clients', 'notifications'.*'settings'\]\)/, 'Навигация помощника не ограничена белым списком разделов');
+assert.match(voiceAssistant, /function workspaceNavigationModel[\s\S]*section:'waitlist'[\s\S]*section:'portfolio'[\s\S]*section:'organization'[\s\S]*section:'analytics'/, 'Прямые команды навигации покрывают не все разделы кабинета');
+assert.match(voiceAssistant, /data-voice-open-client/, 'Поиск клиента не позволяет открыть найденную карточку');
+assert.match(provider, /openClient\(request = \{\}\)[\s\S]*providerAssistantClientLookup[\s\S]*renderClientDetail/, 'Безопасный переход в карточку клиента не подключён');
 assert.match(voiceAssistant, /kind:'message_draft'/, 'Помощник не готовит сообщения клиентам');
 assert.match(voiceAssistant, /kind:'operational_briefing'/, 'Помощник не формирует операционную сводку');
 assert.match(voiceAssistant, /data-voice-copy/, 'Черновики помощника нельзя скопировать');

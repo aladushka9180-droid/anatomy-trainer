@@ -1046,7 +1046,10 @@
     const text = repairCommand(command).text;
     let section = 'settings';
     let label = 'настройки кабинета';
-    if (/(?:уведом|напоминан|сообщен)/.test(text)) { section = 'notifications'; label = 'уведомления'; }
+    if (/(?:лист\s+ожидан|ожидающ[а-я]*\s+клиент)/.test(text)) { section = 'waitlist'; label = 'лист ожидания'; }
+    else if (/(?:портфолио|фото\s+работ)/.test(text)) { section = 'portfolio'; label = 'портфолио'; }
+    else if (/(?:организац|команд|филиал)/.test(text)) { section = 'organization'; label = 'организацию'; }
+    else if (/(?:уведом|напоминан|сообщен)/.test(text)) { section = 'notifications'; label = 'уведомления'; }
     else if (/(?:экспорт|выгруз|отчет|статист)/.test(text)) { section = 'analytics'; label = 'статистику и экспорт'; }
     else if (/(?:расписан|рабоч|выходн|перерыв)/.test(text)) { section = 'schedule'; label = 'рабочие часы'; }
     else if (/(?:цен|стоимост|услуг)/.test(text)) { section = 'services'; label = 'услуги и цены'; }
@@ -1059,6 +1062,34 @@
       points:section === 'analytics' ? ['В разделе статистики доступна выгрузка записей.'] : section === 'schedule' ? ['Там можно настроить рабочие дни, перерывы и выходные.'] : section === 'notifications' ? ['Там находятся очередь и шаблоны сообщений клиентам.'] : [],
       openSection:section,
       openLabel:`Открыть ${label}`
+    };
+  }
+
+  function workspaceNavigationModel(command) {
+    const text = repairCommand(command).text.replace(/[.!?]+$/g, '').trim();
+    const match = text.match(/^(?:пожалуйста\s+)?(?:открой|открыть|перейди|перейти|зайди|зайти)(?:\s+мне)?(?:\s+(?:в|на|к))?(?:\s+раздел)?\s+(.+)$/);
+    if (!match) return null;
+    const target = match[1].replace(/\s+пожалуйста$/g, '').trim();
+    const destinations = [
+      { pattern:/^(?:лист\s+ожидания|ожидающие\s+клиенты)$/, section:'waitlist', label:'лист ожидания' },
+      { pattern:/^(?:портфолио|фото\s+работ)$/, section:'portfolio', label:'портфолио' },
+      { pattern:/^(?:организацию|организация|организации|команду|команда|команды|филиалы?|филиалов|склад)$/, section:'organization', label:'организацию' },
+      { pattern:/^(?:статистику|статистика|статистики|аналитику|аналитика|аналитики|отчеты?|отчёты?|выручку)$/, section:'analytics', label:'статистику' },
+      { pattern:/^(?:уведомления|уведомление|уведомлений|напоминания|сообщения)$/, section:'notifications', label:'уведомления' },
+      { pattern:/^(?:рабочие\s+часы|рабочих\s+часов|график\s+работы|настройки\s+расписания|выходные|перерывы)$/, section:'schedule', label:'рабочие часы' },
+      { pattern:/^(?:услуги|услугу|услуг|цены|прайс|каталог\s+услуг)$/, section:'services', label:'услуги и цены' },
+      { pattern:/^(?:клиентов|клиенты|клиентам|клиентскую\s+базу|базу\s+клиентов)$/, section:'clients', label:'клиентскую базу' },
+      { pattern:/^(?:записи|записей|мои\s+записи|журнал|журнал\s+записей|расписание|календарь)$/, section:'bookings', label:'записи' },
+      { pattern:/^(?:настройки|настроек|настройки\s+кабинета|кабинет)$/, section:'settings', label:'настройки кабинета' }
+    ];
+    const destination = destinations.find(item => item.pattern.test(target));
+    if (!destination) return null;
+    return {
+      kind:'workspace_help',
+      title:`Открыть ${destination.label}`,
+      message:'Переход подготовлен. В выбранном разделе ничего не изменится без вашего действия.',
+      openSection:destination.section,
+      openLabel:`Открыть ${destination.label}`
     };
   }
 
@@ -1429,6 +1460,8 @@
     if (screenCommand) return finish({ ...interpretCommand(screenCommand, snapshot, now, previousModel, conversationContext, false), continuedFromScreen:true });
     const smallTalk = smallTalkModel(text, previousModel);
     if (smallTalk) return finish(smallTalk);
+    const directNavigation = workspaceNavigationModel(text);
+    if (directNavigation) return finish(directNavigation);
     const revisedDraft = reviseDraftModel(text, previousModel, snapshot);
     if (revisedDraft) return finish(revisedDraft);
     const rememberedCommand = contextualMemoryCommand(text, conversationContext);
@@ -1453,7 +1486,7 @@
     if (contentRequest && /(?:пост|публикац|описан|карточк\s+услуг|текст\s+(?:для\s+)?соц)/.test(text)) return finish(contentDraftModel(text, snapshot));
     if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'подбери', 'поставить', 'изменить', 'поднять'])) return finish(roleAllowsFinancialData(snapshot) ? priceAdviceModel(text, snapshot) : permissionNoticeModel());
     if (/(?:иде[а-я]*\s+(?:для\s+)?продвижен|как\s+продвиг|чем\s+привлеч|что\s+рекламир|рекламн[а-я]*\s+иде|акци[а-я]*\s+предлож)/.test(text)) return finish(promotionIdeasModel(snapshot, now));
-    if ((/(?:^|\s)(?:как|где|куда|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*|поменя[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
+    if ((/(?:^|\s)(?:как|где|куда|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*|поменя[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|отчет|статист|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад|лист\s+ожидан|портфолио|организац|команд|филиал)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
 
     if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(roleAllowsFinancialData(snapshot) ? revenueModel(text, snapshot, now) : permissionNoticeModel());
     if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || fuzzyRoot(text, ['материал', 'остаток', 'склад']) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return finish(inventoryModel(text, snapshot, now));
@@ -1517,7 +1550,8 @@
     if (searchedClientName) {
       const needle = normalizeText(searchedClientName);
       const matches = clientBookingMatches(needle, snapshot.bookings || []);
-      return finish({ kind:'client_search', title:`Клиент: ${searchedClientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length });
+      const clientKey = matches.find(item => item.clientKey)?.clientKey || '';
+      return finish({ kind:'client_search', title:`Клиент: ${searchedClientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length, clientKey });
     }
 
     return finish(guidedHelpModel(text));
@@ -2242,6 +2276,7 @@
       const planReady = model.kind === 'booking_draft' && model.canPrepare && model.plan?.serviceId && (model.plan?.time || model.offline) && (!model.plan.perMinute || Number(model.plan.durationMinutes));
       const prepareAction = planReady ? '<button class="primary" type="button" data-voice-prepare>Проверить запись</button>' : '';
       const copyAction = model.draftText && !model.needsDetail ? `<button class="primary" type="button" data-voice-copy>${escapeHtml(model.copyLabel || 'Скопировать')}</button>` : '';
+      const clientAction = model.kind === 'client_search' && model.clientKey ? '<button class="primary" type="button" data-voice-open-client>Открыть карточку клиента</button>' : '';
       const openAction = model.openSection ? `<button class="secondary-button" type="button" data-voice-open-section="${escapeHtml(model.openSection)}">${escapeHtml(model.openLabel || 'Открыть раздел')}</button>` : '';
       const operationAction = model.kind === 'operation_preview' && model.plan?.bookingId && !model.needsDetail ? `<button class="primary" type="button" data-voice-operation>${model.operation === 'cancel' ? 'Открыть отмену' : 'Открыть перенос'}</button>` : '';
       const undoAction = model.kind === 'undo_preview' && model.canUndo ? '<button class="primary" type="button" data-voice-undo>Вернуть предыдущий экран</button>' : '';
@@ -2249,7 +2284,7 @@
       const planNextAction = activePlan && model.kind !== 'compound_plan' && activePlan.index + 1 < activePlan.steps.length ? '<button class="primary" type="button" data-voice-plan-next>Следующий шаг</button>' : '';
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
       const speechSettingsAction = speakAction ? '<button class="secondary-button voice-speech-settings-action" type="button" data-voice-speech-settings>Голос и скорость</button>' : '';
-      const actions = prepareAction || copyAction || openAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${operationAction}${undoAction}${openAction}${speakAction}${speechSettingsAction}</div>` : '';
+      const actions = prepareAction || copyAction || clientAction || openAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${clientAction}${operationAction}${undoAction}${openAction}${speakAction}${speechSettingsAction}</div>` : '';
       const planProgress = activePlan && model.kind !== 'compound_plan' ? `<p class="voice-source-note">План · шаг ${activePlan.index + 1} из ${activePlan.steps.length}</p>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       const sourceNote = model.sourceLabel ? `<p class="voice-source-note">${escapeHtml(model.sourceLabel)}</p>` : '';
@@ -2321,6 +2356,16 @@
         const response = bridge.openSection?.(section);
         if (response?.ok) { pendingCommand = ''; close(); }
         else status.textContent = 'Не удалось открыть раздел. Повторите после входа в кабинет.';
+      });
+      result.querySelector('[data-voice-open-client]')?.addEventListener('click', () => {
+        const snapshot = bridge.getReadOnlySnapshot();
+        if (!snapshot?.authenticated || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
+          status.textContent = 'Сессия кабинета изменилась. Повторите поиск клиента.';
+          return;
+        }
+        const response = bridge.openClient?.({ clientKey:lastModel?.clientKey || '', sessionGeneration:lastSessionGeneration });
+        if (response?.ok) { pendingCommand = ''; close(); }
+        else status.textContent = 'Карточка клиента уже недоступна. Обновите данные и повторите поиск.';
       });
       result.querySelectorAll?.('[data-voice-service]')?.forEach(button => button.addEventListener('click', () => {
         const snapshot = bridge.getReadOnlySnapshot();
@@ -2767,7 +2812,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, workspaceNavigationModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
