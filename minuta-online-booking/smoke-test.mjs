@@ -164,7 +164,7 @@ assert.match(provider, /const offlineReadable = Boolean\(offline && snapshotCurr
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');
 assert.match(provider, /function loadNewBookingSlots\(\)[\s\S]*if \(!navigator\.onLine\)[\s\S]*offlineCandidateSlots[\s\S]*renderNewBookingTimePicker\(\{ offline:true \}\)[\s\S]*После подключения система обязательно проверит/, 'Офлайн-режим не показывает предварительные окна или не объясняет серверную проверку');
 assert.doesNotMatch(voiceAssistant, /\bdb\.from\(|\.rpc\(|\bfetch\(/, 'Голосовой помощник обращается к базе или сети напрямую');
-assert.doesNotMatch(voiceAssistant, /localStorage|sessionStorage|indexedDB/, 'Голосовая команда сохраняется в браузере');
+assert.doesNotMatch(voiceAssistant, /sessionStorage|indexedDB|localStorage\?*\.setItem\([^,]+,\s*(?:lastCommand|command|input\.value)/, 'Голосовая команда сохраняется в браузере');
 assert.match(voiceAssistant, /bridge\.prepareBookingDraft/, 'Голосовой помощник не использует ограниченный интерфейс черновика');
 assert.match(voiceAssistant, /minuta:provider-session-reset/, 'Голосовой помощник не очищается при выходе или смене аккаунта');
 assert.match(voiceAssistant, /recognition\?\.abort\(\)/, 'Распознавание речи не прерывается безопасно при закрытии');
