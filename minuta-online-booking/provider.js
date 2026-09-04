@@ -2734,6 +2734,7 @@ function renderReportHeatmap(items, range) {
   for (let from = earliest; from < latest && bands.length < 8; from += 120) bands.push({ label:`${timeFromMinutes(from)}–${timeFromMinutes(Math.min(1439, from + 120))}`, from, to:Math.min(1440, from + 120) });
   const bookedMinutes = Array.from({ length:bands.length }, () => Array(7).fill(0));
   const counts = Array.from({ length:bands.length }, () => Array(7).fill(0));
+  const popularStarts = Array.from({ length:bands.length }, () => Array.from({ length:7 }, () => new Map()));
   items.filter(item => item.status !== 'cancelled').forEach(item => {
     const date = parseLocalIsoDate(item.booking_date);
     const time = String(item.booking_time || '').slice(0, 5);
@@ -2741,6 +2742,8 @@ function renderReportHeatmap(items, range) {
     const weekday = (date.getDay() + 6) % 7;
     const visitStart = minutesFromTime(time);
     const visitEnd = Math.min(1440, visitStart + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60)));
+    const startBandIndex = bands.findIndex(band => visitStart >= band.from && visitStart < band.to);
+    if (startBandIndex >= 0) popularStarts[startBandIndex][weekday].set(time, (popularStarts[startBandIndex][weekday].get(time) || 0) + 1);
     bands.forEach((band, bandIndex) => {
       const overlap = Math.max(0, Math.min(visitEnd, band.to) - Math.max(visitStart, band.from));
       if (!overlap) return;
@@ -2750,6 +2753,10 @@ function renderReportHeatmap(items, range) {
   });
   const availability = reportHeatmapAvailability(range, bands);
   const percentages = bookedMinutes.map((row, bandIndex) => row.map((minutes, weekday) => availability?.minutes?.[bandIndex]?.[weekday] ? Math.min(100, Math.round(minutes / availability.minutes[bandIndex][weekday] * 100)) : null));
+  const popularTimes = (bandIndex, weekdayIndex, limit = 2) => [...popularStarts[bandIndex][weekdayIndex].entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'ru'))
+    .slice(0, limit);
+  const popularTimesText = entries => entries.map(([time, count]) => `${time} ×${count}`).join(' · ');
   let peak = { percent:-1, minutes:0, band:0, weekday:0 };
   bookedMinutes.forEach((row, band) => row.forEach((minutes, weekday) => {
     const percent = percentages[band][weekday];
@@ -2763,13 +2770,17 @@ function renderReportHeatmap(items, range) {
     const value = percent === null ? (counts[bandIndex][weekdayIndex] || '—') : `${percent}%`;
     const intensity = percent === null ? (minutes ? 18 : 4) : Math.max(percent ? 12 : 4, percent);
     const isPeak = availability ? percent !== null && percent === peak.percent && percent > 0 : minutes === peak.minutes && minutes > 0;
-    const title = percent === null
+    const popular = popularTimes(bandIndex, weekdayIndex);
+    const popularTitle = popular.length ? `; чаще начинали: ${popularTimesText(popular)}` : '';
+    const title = (percent === null
       ? `${weekday}, ${band.label}: ${counts[bandIndex][weekdayIndex]} записей; нет данных о доступном времени команды`
-      : `${weekday}, ${band.label}: занято ${reportHours(minutes)} из ${reportHours(available)}, ${percent}%`;
-    return `<span class="report-heatmap-cell${isPeak ? ' is-peak' : ''}" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i>${value}</i></span>`;
+      : `${weekday}, ${band.label}: занято ${reportHours(minutes)} из ${reportHours(available)}, ${percent}%`) + popularTitle;
+    const popularLabel = popular[0] ? `<small class="report-heatmap-popular-time">${escapeHtml(popularTimesText(popular.slice(0, 1)))}</small>` : '';
+    return `<span class="report-heatmap-cell${isPeak ? ' is-peak' : ''}" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i>${value}</i>${popularLabel}</span>`;
   }).join('')}`).join('');
   holder.innerHTML = header + cells;
-  const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : `${counts[peak.band][peak.weekday]} записей`}` : 'Пиковое время появится после записей';
+  const peakPopular = peak.minutes ? popularTimes(peak.band, peak.weekday) : [];
+  const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : `${counts[peak.band][peak.weekday]} записей`}${peakPopular.length ? ` · чаще ${popularTimesText(peakPopular)}` : ''}` : 'Пиковое время появится после записей';
   setReportText('#reportHeatmapPeak', peakText);
   holder.setAttribute('aria-label', peak.minutes ? `Пиковая загрузка: ${peakText}` : 'Записей для тепловой карты пока нет');
   const title = $('#reportHeatmapTitle');

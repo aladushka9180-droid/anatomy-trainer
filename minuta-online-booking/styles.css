@@ -6313,8 +6313,9 @@ html.provider-booting .provider-main {
 .report-heatmap { display:grid; grid-template-columns:56px repeat(7,minmax(30px,1fr)); gap:5px; margin-top:15px; }
 .report-heatmap>b,.report-heatmap>strong { display:grid; min-height:25px; place-items:center; color:var(--theme-muted); font-size:7px; }
 .report-heatmap>strong { justify-items:start; white-space:nowrap; }
-.report-heatmap-cell { position:relative; display:grid; min-height:38px; place-items:center; border:1px solid color-mix(in srgb,var(--theme-accent) 12%,var(--theme-line)); border-radius:9px; background:color-mix(in srgb,var(--theme-accent) var(--heat,4%),var(--theme-surface)); color:color-mix(in srgb,var(--theme-ink) 88%,var(--theme-accent)); }
+.report-heatmap-cell { position:relative; display:grid; min-height:38px; place-content:center; place-items:center; gap:2px; padding:3px 2px; border:1px solid color-mix(in srgb,var(--theme-accent) 12%,var(--theme-line)); border-radius:9px; background:color-mix(in srgb,var(--theme-accent) var(--heat,4%),var(--theme-surface)); color:color-mix(in srgb,var(--theme-ink) 88%,var(--theme-accent)); }
 .report-heatmap-cell i { font-size:8px; font-style:normal; font-weight:900; }
+.report-heatmap-popular-time { color:var(--theme-muted); font-size:6px; font-weight:800; line-height:1; white-space:nowrap; }
 .report-heatmap-cell.is-peak { border-color:var(--theme-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 12%,transparent),0 8px 18px color-mix(in srgb,var(--theme-shadow) 45%,transparent); }
 .provider-view[data-provider-panel="analytics"][data-report-empty="true"] .report-visual-grid { display:none!important; }
 @media (prefers-reduced-motion:reduce) { .report-command-kicker i { animation:none; } }
