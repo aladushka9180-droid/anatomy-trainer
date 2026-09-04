@@ -15,7 +15,7 @@ assert.match(css, /timeline-booking-copy,[\s\S]*?top:50%;[\s\S]*?justify-content
 assert.match(css, /timeline-booking:not\(\.compact\) \.timeline-booking-copy>strong \{[^}]*display:-webkit-box;[^}]*white-space:normal;[^}]*-webkit-line-clamp:2;/, 'Название часовой записи не ограничено безопасными двумя строками');
 assert.match(css, /timeline-booking:not\(\.compact\) \.timeline-booking-client \{[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/, 'Данные клиента снова могут занять несколько пересекающихся строк');
 assert.ok(mobileTimeline.includes('.timeline-booking:not(.compact) :is(.timeline-client-visit-wrap,.timeline-client-duration) { display:none!important; }'), 'Базовая компактная раскладка должна уметь скрывать вторичные данные');
-assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:inline!important/, 'Итоговая мобильная раскладка не возвращает важную длительность записи');
+assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:none!important/, 'Итоговая мобильная раскладка снова показывает дублирующую длительность записи');
 assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status\s*\{[^}]*display:inline-flex!important/, 'Итоговая мобильная раскладка не показывает статус записи');
 assert.match(css, /timeline-booking:not\(:has\(\.client-badges\)\) \.timeline-booking-copy \{[^}]*padding-right:12px!important;/, 'Карточка без метки клиента теряет полезную ширину под пустой отступ');
 
