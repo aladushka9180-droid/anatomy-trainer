@@ -1006,14 +1006,15 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .weekly-schedule-details,.day-off-editor { margin-top:12px; border:1px solid var(--theme-line,#dce8e0); border-radius:13px; background:var(--theme-surface,#fff); }
 .weekly-schedule-details>summary,.day-off-editor>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:48px; padding:9px 12px; color:var(--theme-ink,#173b2a); cursor:pointer; list-style:none; }
 .weekly-schedule-details>summary::-webkit-details-marker,.day-off-editor>summary::-webkit-details-marker { display:none; }
-.weekly-schedule-details>summary span { display:grid; gap:3px; min-width:0; }
-.weekly-schedule-details>summary strong,.day-off-editor>summary span { font-size:10px; font-weight:850; }
-.weekly-schedule-details>summary small { overflow:hidden; color:var(--theme-muted,#718178); font-size:8px; font-weight:650; text-overflow:ellipsis; white-space:nowrap; }
+.weekly-schedule-details>summary span { display:grid; align-content:center; gap:3px; min-width:0; }
+.weekly-schedule-details>summary strong { color:var(--theme-ink,#173b2a); font-family:inherit; font-size:12px; font-weight:700; letter-spacing:0; line-height:1.25; }
+.day-off-editor>summary span { font-size:10px; font-weight:850; }
+.weekly-schedule-details>summary small { color:var(--theme-muted,#718178); font-family:inherit; font-size:9px; font-weight:500; letter-spacing:0; line-height:1.4; white-space:normal; }
 .weekly-schedule-details>summary .ui-icon,.day-off-editor>summary .ui-icon { flex:0 0 auto; width:15px; height:15px; transition:transform .2s ease; }
 .weekly-schedule-details[open]>summary .ui-icon,.day-off-editor[open]>summary .ui-icon { transform:rotate(90deg); }
 .weekly-schedule-details[open]>summary,.day-off-editor[open]>summary { border-bottom:1px solid var(--theme-line,#dce8e0); }
 .weekly-schedule { display:grid; gap:6px; margin:0; padding:10px; }
-.schedule-day { display:grid; grid-template-columns:minmax(145px,1fr) 190px 84px 150px; align-items:center; gap:11px; min-height:60px; padding:10px 12px; border:1px solid #e5ece7; border-radius:14px; background:#fbfcfb; }
+.schedule-day { display:grid; grid-template-columns:minmax(145px,1fr) 224px 84px minmax(118px,150px); align-items:center; gap:11px; min-height:60px; padding:10px 12px; border:1px solid #e5ece7; border-radius:14px; background:#fbfcfb; }
 .schedule-day.disabled { background:#f5f7f6; color:#88958e; }
 .day-toggle { display:grid; grid-template-columns:34px 1fr; align-items:center; gap:10px; margin:0; }
 .day-toggle input { position:absolute; opacity:0; pointer-events:none; }
@@ -1023,7 +1024,10 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .day-toggle strong { grid-column:2; grid-row:1; font-size:11px; }
 .day-hours,.break-hours { display:flex; align-items:center; gap:6px; }
 .day-hours label { display:flex; align-items:center; gap:5px; margin:0; color:#76867d; font-size:9px; }
-.day-hours input,.break-hours input { width:76px; min-height:36px; margin:0; padding:7px; font-size:10px; }
+.day-hours input,.break-hours input { box-sizing:border-box; width:96px; min-width:96px; min-height:40px; margin:0; padding:7px 8px; font-family:inherit; font-size:11px; font-variant-numeric:tabular-nums; font-weight:650; line-height:1.2; text-align:center; }
+.day-hours input[type="time"]::-webkit-datetime-edit,.break-hours input[type="time"]::-webkit-datetime-edit { min-width:0; padding:0; }
+.day-hours input[type="time"]::-webkit-datetime-edit-fields-wrapper,.break-hours input[type="time"]::-webkit-datetime-edit-fields-wrapper { padding:0; }
+.day-hours input[type="time"]::-webkit-calendar-picker-indicator,.break-hours input[type="time"]::-webkit-calendar-picker-indicator { flex:0 0 16px; width:16px; height:16px; margin:0 0 0 4px; padding:0; }
 .break-toggle { display:flex; align-items:center; gap:6px; margin:0; color:#63766b; font-size:9px; font-weight:800; }
 .break-toggle input,.all-day-control input { width:16px; height:16px; margin:0; accent-color:#2f7654; }
 .break-hours span { color:#91a097; }.day-off-label { color:#88978f; font-size:9px; font-weight:800; }
