@@ -14,7 +14,7 @@ const version = cacheVersion;
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
   assert.match(html, /Content-Security-Policy/, `${page}: нет политики безопасности`);
-  assert.doesNotMatch(html, /v=(?:38|39|40|41|42|43|44)/, `${page}: осталась старая версия ресурсов`);
+  assert.doesNotMatch(html, /v=(?:38|39|40|41|42|43|44)(?!\d)/, `${page}: осталась старая версия ресурсов`);
   for (const match of html.matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"#]*)?"/g)) {
     const reference = match[1];
     if (/^(?:https?:|mailto:|tel:)/.test(reference)) continue;

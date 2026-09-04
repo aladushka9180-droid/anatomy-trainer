@@ -32,6 +32,10 @@ async function load(relativePath) {
   await page.goto(`${baseUrl}/${relativePath}`, { waitUntil: 'networkidle' });
   await page.addStyleTag({ content: screenshotCss });
   await page.evaluate(() => {
+    document.querySelectorAll('.brand strong').forEach(element => { element.textContent = 'Ваш бизнес'; });
+    document.querySelectorAll('.brand small').forEach(element => {
+      if (/Рамиль|массажист/i.test(element.textContent || '')) element.textContent = 'онлайн-запись';
+    });
     const ribbon = document.createElement('div');
     ribbon.className = 'kb-shot-ribbon';
     ribbon.textContent = 'Интерфейс Minuta · учебные данные';
@@ -144,7 +148,7 @@ async function injectBookingEditor(kind) {
       const colors = [['auto', 'Авто'], ['mint', 'Мята'], ['sky', 'Небо'], ['lavender', 'Лаванда'], ['peach', 'Персик'], ['rose', 'Роза'], ['vanilla', 'Ваниль'], ['sage', 'Шалфей'], ['teal', 'Бирюза'], ['amber', 'Янтарь'], ['cocoa', 'Какао'], ['graphite', 'Графит']];
       const colorPicker = `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${colors.map(([color, label], index) => `<label class="booking-color-option color-${color}" title="${label}"><input type="radio" name="editBookingColor" value="${color}" aria-label="${label}" ${index === 0 ? 'checked' : ''}><span aria-hidden="true"></span><small>${label}</small></label>`).join('')}</div></fieldset>`;
       const seriesScope = `<fieldset class="booking-series-scope"><legend>Какие записи перенести</legend><label><input type="radio" name="editBookingSeriesScope" value="one" checked><span><strong>Только эту запись</strong><small>Остальные визиты не изменятся</small></span></label><label><input type="radio" name="editBookingSeriesScope" value="following"><span><strong>Эту и последующие</strong><small>4 записи</small></span></label><label><input type="radio" name="editBookingSeriesScope" value="all"><span><strong>Все будущие записи</strong><small>6 записей; прошедшие визиты сохранятся</small></span></label></fieldset>`;
-      content.innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=375#icon-arrow-left"></use></svg><span>К записи</span></button><small class="booking-sheet-kicker">Изменение записи</small></div><h2 id="bookingSheetTitle">Перенести или изменить</h2><form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="demo"><label>Основная услуга<select id="editBookingService" required disabled><option>Классический массаж · 60 мин</option></select><small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small></label><label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="Пожелания, особенности или важная информация"></textarea></label>${colorPicker}<label>Новая дата<input id="editBookingDate" type="date" min="2026-09-05" value="2026-09-12" required></label><label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes">${editTimes}</div></label>${seriesScope}<p class="form-error" id="bookingEditError" hidden></p><button class="primary" type="button">Сохранить изменения</button></form>`;
+      content.innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=381#icon-arrow-left"></use></svg><span>К записи</span></button><small class="booking-sheet-kicker">Изменение записи</small></div><h2 id="bookingSheetTitle">Перенести или изменить</h2><form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="demo"><label>Основная услуга<select id="editBookingService" required disabled><option>Классический массаж · 60 мин</option></select><small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small></label><label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="Пожелания, особенности или важная информация"></textarea></label>${colorPicker}<label>Новая дата<input id="editBookingDate" type="date" min="2026-09-05" value="2026-09-12" required></label><label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes">${editTimes}</div></label>${seriesScope}<p class="form-error" id="bookingEditError" hidden></p><button class="primary" type="button">Сохранить изменения</button></form>`;
       document.querySelector('#editBookingNote').closest('label').hidden = true;
       document.querySelector('#editBookingService').closest('label').hidden = true;
       document.querySelector('.booking-color-picker').hidden = true;
@@ -237,6 +241,11 @@ await providerShot('batch-bookings', 'clients', '#batchBookingComposer', () => {
   const composer = document.querySelector('#batchBookingComposer');
   composer.hidden = false;
   composer.open = true;
+  composer.style.width = '900px';
+  composer.style.maxWidth = 'calc(100vw - 320px)';
+  const profile = composer.closest('.client-profile');
+  profile.style.width = '900px';
+  profile.style.maxWidth = 'calc(100vw - 320px)';
   document.querySelector('#batchBookingClientName').textContent = 'Учебный клиент';
   document.querySelector('#batchBookingLocation').innerHTML = '<option>Филиал — Центр</option>';
   document.querySelector('#batchBookingService').innerHTML = '<option>Классический массаж · 60 мин</option>';
