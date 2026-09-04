@@ -324,7 +324,7 @@
         </section>
 
         <section class="provider-view" data-provider-panel="schedule" hidden>
-          <div class="view-title"><div><span>Доступность</span><h2>Рабочее расписание</h2></div><button class="primary compact-button" id="saveSchedule" type="button">Сохранить</button></div>
+          <div class="view-title"><div><span>Доступность</span><h2>Рабочее расписание</h2></div><div class="schedule-save-actions"><small id="scheduleSaveState" role="status" aria-live="polite">Сохранено</small><button class="primary compact-button" id="saveSchedule" type="button" disabled>Сохранить</button></div></div>
           <p class="view-description">Клиенты увидят только свободные интервалы внутри выбранных рабочих часов.</p>
           <div class="schedule-settings-layout">
             <section class="panel weekly-schedule-panel">
@@ -332,7 +332,7 @@
               <section class="schedule-quick-setup" aria-labelledby="scheduleQuickTitle">
                 <div class="schedule-quick-head">
                   <div><small>Быстрая настройка</small><strong id="scheduleQuickTitle">Одинаковые часы для нескольких дней</strong></div>
-                  <span>Сначала пример, затем «Сохранить»</span>
+                  <span>Выберите дни и часы</span>
                 </div>
                 <div class="schedule-quick-presets" role="group" aria-label="Шаблон рабочих дней">
                   <button type="button" data-schedule-quick-preset="weekdays">Будни</button>
@@ -355,7 +355,7 @@
                   <label class="schedule-quick-break-toggle"><input id="scheduleQuickBreak" type="checkbox"><span>Общий перерыв</span></label>
                   <div class="schedule-quick-break-times" id="scheduleQuickBreakTimes" hidden><label>С<input id="scheduleQuickBreakStart" type="time" value="13:00"></label><span>—</span><label>До<input id="scheduleQuickBreakEnd" type="time" value="14:00"></label></div>
                 </div>
-                <div class="schedule-quick-actions"><button class="secondary-button" id="applyQuickSchedule" type="button">Применить к неделе</button><small id="scheduleQuickStatus" role="status" aria-live="polite"></small></div>
+                <div class="schedule-quick-actions"><button class="secondary-button" id="applyQuickSchedule" type="button">Применить</button><small id="scheduleQuickStatus" role="status" aria-live="polite"></small></div>
               </section>
               <div class="booking-step-setting">
                 <div><strong>Шаг записи</strong><small>Через какой интервал клиенту показывать начало записи</small></div>
@@ -366,7 +366,10 @@
                   </div>
                 </div>
               </div>
-              <div class="weekly-schedule" id="weeklySchedule"><div class="loading-state"><i></i><span>Загружаем расписание…</span></div></div>
+              <details class="weekly-schedule-details" id="weeklyScheduleDetails">
+                <summary><span><strong>Настроить дни отдельно</strong><small id="weeklyScheduleSummary">Загружаем расписание…</small></span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
+                <div class="weekly-schedule" id="weeklySchedule"><div class="loading-state"><i></i><span>Загружаем расписание…</span></div></div>
+              </details>
               <p class="form-error" id="scheduleError" hidden></p>
             </section>
             <section class="panel monthly-schedule-panel">
@@ -386,14 +389,17 @@
             <section class="panel days-off-panel">
               <div class="panel-head"><div><small>Исключения</small><h3>Выходные и закрытое время</h3></div></div>
               <div class="schedule-priority-note"><strong>Как формируется доступность</strong><span>Обычная неделя → исключение на дату → смена сотрудника в филиале. Существующие записи не удаляются.</span><button type="button" data-provider-view="organization">График команды и филиалов</button></div>
-              <form id="dayOffForm" class="day-off-form">
-                <label>Дата<input id="dayOffDate" type="date" required></label>
-                <label class="all-day-control"><input id="dayOffAllDay" type="checkbox" checked><span>Закрыть весь день</span></label>
-                <div class="day-off-time" id="dayOffTime" hidden><label>С<input id="dayOffStart" type="time" value="13:00"></label><label>До<input id="dayOffEnd" type="time" value="15:00"></label></div>
-                <label>Комментарий<input id="dayOffNote" maxlength="120" placeholder="Например, личное время"></label>
-                <p class="form-error" id="dayOffError" hidden></p>
-                <button class="secondary-button icon-label-button" type="submit"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Закрыть время</span></button>
-              </form>
+              <details class="day-off-editor" id="dayOffEditor">
+                <summary><span>Добавить выходной или закрытое время</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
+                <form id="dayOffForm" class="day-off-form">
+                  <label>Дата<input id="dayOffDate" type="date" required></label>
+                  <label class="all-day-control"><input id="dayOffAllDay" type="checkbox" checked><span>Закрыть весь день</span></label>
+                  <div class="day-off-time" id="dayOffTime" hidden><label>С<input id="dayOffStart" type="time" value="13:00"></label><label>До<input id="dayOffEnd" type="time" value="15:00"></label></div>
+                  <label>Комментарий<input id="dayOffNote" maxlength="120" placeholder="Например, личное время"></label>
+                  <p class="form-error" id="dayOffError" hidden></p>
+                  <button class="secondary-button icon-label-button" type="submit"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Закрыть время</span></button>
+                </form>
+              </details>
               <div class="days-off-list" id="daysOffList"></div>
             </section>
           </div>

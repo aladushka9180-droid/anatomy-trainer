@@ -744,6 +744,7 @@ function applyWriteAvailability() {
       delete control.dataset.reliabilityDisabled;
     }
   });
+  updateScheduleSaveState();
 }
 function setWritesAllowed(value) {
   writesAllowed = Boolean(value);
@@ -7809,6 +7810,7 @@ async function handleSession(session) {
   renderProviderSocialState();
   if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
   scheduleDirty = false;
+  updateScheduleSaveState();
   if (previousUserId && currentUser?.id && previousUserId !== currentUser.id) await clearProviderDeviceData(previousUserId);
   else if (!currentUser && previousUserId) await clearProviderDeviceData(previousUserId, { preserveOfflineBookings:true });
   if (generation !== sessionGeneration) return;
@@ -8290,6 +8292,44 @@ function scheduleRowsFromForm() {
     };
   });
 }
+function scheduleDayRangeLabel(days) {
+  const labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const ordered = [...new Set(days.map(Number).filter(day => day >= 1 && day <= 7))].sort((a, b) => a - b);
+  if (!ordered.length) return 'Нет рабочих дней';
+  const continuous = ordered.every((day, index) => index === 0 || day === ordered[index - 1] + 1);
+  if (continuous && ordered.length > 2) return `${labels[ordered[0] - 1]}–${labels[ordered.at(-1) - 1]}`;
+  return ordered.map(day => labels[day - 1]).join(', ');
+}
+function updateWeeklyScheduleSummary(rows = scheduleRowsFromForm()) {
+  const holder = $('#weeklyScheduleSummary');
+  if (!holder) return;
+  const enabledRows = rows.filter(row => row.enabled);
+  const interval = Number($('#slotInterval')?.value || enabledRows[0]?.slot_interval_minutes || 5);
+  if (!enabledRows.length) {
+    holder.textContent = `Нет рабочих дней · шаг ${interval} мин`;
+    return;
+  }
+  const sample = enabledRows[0];
+  const sameHours = enabledRows.every(row => shortTime(row.start_time, '') === shortTime(sample.start_time, '') && shortTime(row.end_time, '') === shortTime(sample.end_time, ''));
+  const range = scheduleDayRangeLabel(enabledRows.map(row => row.weekday));
+  holder.textContent = sameHours
+    ? `${range} · ${shortTime(sample.start_time, '10:00')}–${shortTime(sample.end_time, '20:00')} · шаг ${interval} мин`
+    : `${range} · разные часы · шаг ${interval} мин`;
+}
+function updateScheduleSaveState() {
+  const button = $('#saveSchedule');
+  const status = $('#scheduleSaveState');
+  if (!button || !status) return;
+  const busy = button.dataset.operationDisabled === 'true';
+  button.disabled = busy || !writesAllowed || !scheduleDirty;
+  status.textContent = busy ? 'Сохраняем…' : !writesAllowed ? 'Только просмотр' : scheduleDirty ? 'Есть несохранённые изменения' : 'Сохранено';
+  status.dataset.state = scheduleDirty ? 'dirty' : 'saved';
+}
+function setScheduleDirty(value = true) {
+  scheduleDirty = Boolean(value);
+  updateWeeklyScheduleSummary();
+  updateScheduleSaveState();
+}
 function scheduleStateForDate(dateIso) {
   const date = parseLocalIsoDate(dateIso);
   const weekday = date ? ((date.getDay() + 6) % 7) + 1 : 0;
@@ -8373,8 +8413,8 @@ function applyQuickSchedule() {
     }
     syncScheduleDayCard(card, enabled);
   });
-  scheduleDirty = true;
-  status.textContent = 'Шаблон применён. Проверьте дни ниже и нажмите «Сохранить».';
+  setScheduleDirty(true);
+  status.textContent = 'Шаблон применён. Сохраните изменения.';
   status.dataset.state = 'ready';
   renderMonthlySchedule();
 }
@@ -8431,7 +8471,7 @@ function renderMonthlySchedule() {
     const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Сделать выходным';
     const label = `${date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}. ${status}. ${action}`;
     const selected = selectedMonthlyScheduleDate === dateIso;
-    return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}${selected ? ' is-selected' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${selected}" ${past ? 'disabled' : ''}><strong>${day}</strong><small>${status}</small></button>`;
+    return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}${selected ? ' is-selected' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${selected}" ${past ? 'disabled' : ''}><strong>${day}</strong><i aria-hidden="true"></i><span class="sr-only">${status}</span></button>`;
   }).join('');
   renderMonthlyScheduleDetails();
 }
@@ -8479,6 +8519,8 @@ function renderSchedule() {
     </article>`;
   }).join('');
   syncScheduleQuickControls();
+  updateWeeklyScheduleSummary(scheduleRows);
+  updateScheduleSaveState();
   renderMonthlySchedule();
 }
 
@@ -8520,37 +8562,36 @@ async function saveSchedule() {
   clearFormError('#scheduleError');
   const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
   const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
-  if (invalid) { showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
+  if (invalid) { $('#weeklyScheduleDetails').open = true; showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
   const button = $('#saveSchedule');
   button.dataset.operationDisabled = 'true';
-  button.disabled = true;
   button.textContent = 'Проверяем…';
+  updateScheduleSaveState();
   const { data: serverSchedule, error: checkError } = await db.from('provider_schedule').select('*').eq('performer_id', userId).order('weekday');
   if (!sessionIsCurrent(userId, generation)) return;
   if (checkError) {
-    button.disabled = false;
     delete button.dataset.operationDisabled;
     button.textContent = 'Сохранить';
+    updateScheduleSaveState();
     showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
     return;
   }
   const serverRows = serverSchedule?.length ? serverSchedule : defaultScheduleRows(userId);
   if (JSON.stringify(comparableSchedule(serverRows)) !== JSON.stringify(comparableSchedule(scheduleRows))) {
-    button.disabled = false;
     delete button.dataset.operationDisabled;
     button.textContent = 'Сохранить';
+    updateScheduleSaveState();
     showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
     return;
   }
   button.textContent = 'Сохраняем…';
   const { error } = await db.from('provider_schedule').upsert(rows, { onConflict: 'performer_id,weekday' });
   if (!sessionIsCurrent(userId, generation)) return;
-  button.disabled = false;
   delete button.dataset.operationDisabled;
   button.textContent = 'Сохранить';
-  if (error) { showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
+  if (error) { updateScheduleSaveState(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
   scheduleRows = rows;
-  scheduleDirty = false;
+  setScheduleDirty(false);
   await saveProviderCache('schedule', scheduleRows, userId);
   const quickStatus = $('#scheduleQuickStatus');
   if (quickStatus) {
@@ -8565,7 +8606,7 @@ async function saveSchedule() {
 function renderDaysOff() {
   const holder = $('#daysOffList');
   if (!daysOff.length) {
-    holder.innerHTML = `<div class="provider-empty compact-empty"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div>`;
+    holder.innerHTML = `<div class="days-off-empty"><span>${uiIcon('check')}</span><div><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div></div>`;
     renderMonthlySchedule();
     return;
   }
@@ -8619,6 +8660,7 @@ async function addDayOff(event) {
   $('#dayOffAllDay').checked = true;
   $('#dayOffTime').hidden = true;
   $('#dayOffDate').min = businessTodayIso();
+  $('#dayOffEditor').open = false;
   notify('Исключение добавлено');
   await refreshAfterWrite();
 }
@@ -10325,10 +10367,12 @@ $('#monthlyScheduleDetails').addEventListener('click', event => {
   const button = event.target.closest('[data-monthly-schedule-action]');
   if (!button || !selectedMonthlyScheduleDate) return;
   if (button.dataset.monthlyScheduleAction === 'weekly') {
+    $('#weeklyScheduleDetails').open = true;
     $('.weekly-schedule-panel')?.scrollIntoView({ behavior:'smooth', block:'start' });
     return;
   }
   if (button.dataset.monthlyScheduleAction === 'partial') {
+    $('#dayOffEditor').open = true;
     $('#dayOffDate').value = selectedMonthlyScheduleDate;
     $('#dayOffAllDay').checked = false;
     $('#dayOffTime').hidden = false;
@@ -10338,12 +10382,12 @@ $('#monthlyScheduleDetails').addEventListener('click', event => {
   }
   void toggleMonthlyScheduleDay(selectedMonthlyScheduleDate, button);
 });
-$('#slotInterval').addEventListener('change', event => { scheduleDirty = true; syncSlotIntervalOptions(event.target.value); });
+$('#slotInterval').addEventListener('change', event => { syncSlotIntervalOptions(event.target.value); setScheduleDirty(true); renderMonthlySchedule(); });
 $('#dayOffDate').min = businessTodayIso();
 $('#weeklySchedule').addEventListener('change', event => {
   const card = event.target.closest('[data-schedule-day]');
   if (!card) return;
-  scheduleDirty = true;
+  setScheduleDirty(true);
   if (event.target.matches('[data-schedule-enabled]')) {
     const enabled = event.target.checked;
     syncScheduleDayCard(card, enabled);

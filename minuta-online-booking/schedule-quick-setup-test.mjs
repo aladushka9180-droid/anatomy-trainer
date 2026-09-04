@@ -17,7 +17,7 @@ for (let weekday = 1; weekday <= 7; weekday += 1) {
   assert.match(html, new RegExp(`data-schedule-quick-day="${weekday}"`), `Нет выбора дня недели ${weekday}`);
 }
 
-assert.match(provider, /function applyQuickSchedule\(\)[\s\S]*scheduleDirty = true;[\s\S]*Шаблон применён\. Проверьте дни ниже и нажмите «Сохранить»\./, 'Быстрый шаблон должен создавать проверяемый черновик, а не отдельное расписание');
+assert.match(provider, /function applyQuickSchedule\(\)[\s\S]*setScheduleDirty\(true\);[\s\S]*Шаблон применён\. Сохраните изменения\./, 'Быстрый шаблон должен создавать проверяемый черновик, а не отдельное расписание');
 assert.doesNotMatch(provider.match(/function applyQuickSchedule\(\)[\s\S]*?\n\}/)?.[0] || '', /db\./, 'Быстрый шаблон не должен сохраняться в обход основной кнопки');
 assert.match(provider, /function scheduleRowsFromForm\(\)[\s\S]*slot_interval_minutes/, 'Предпросмотр и сохранение используют разные данные недельного графика');
 assert.match(provider, /scheduleDirty \? scheduleRowsFromForm\(\) : scheduleRows/, 'Месяц не показывает ещё не сохранённый недельный черновик');
