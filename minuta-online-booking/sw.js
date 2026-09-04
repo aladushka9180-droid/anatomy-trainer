@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v313`;
+const CACHE = `${CACHE_PREFIX}v314`;
 const ASSETS = [
   './',
   './index.html',

@@ -6057,7 +6057,8 @@ html.provider-booting .provider-main {
   .report-smart-actions .report-smart-action:nth-of-type(n+2) { display:none; }
   .report-smart-actions.is-expanded .report-smart-action:nth-of-type(n+2) { display:grid; }
   .report-smart-actions .report-actions-toggle { display:block; grid-column:1/-1; justify-self:stretch; width:100%; min-height:42px; border:1px solid var(--theme-line); background:transparent; color:var(--theme-accent); }
-  .report-view-tabs { position:static; width:100%; margin:10px 0; }
+  .report-view-tabs { position:sticky; z-index:14; top:max(8px,calc(env(safe-area-inset-top,0px) + 8px)); width:100%; margin:10px 0; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .report-view-tabs::-webkit-scrollbar { display:none; }
   .report-view-tabs button { flex:1 0 auto; min-width:78px; }
   .report-summary { grid-template-columns:1fr 1fr; }
   .report-summary article:first-child { display:none; }
