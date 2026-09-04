@@ -25,4 +25,4 @@ for (let index = 1; index < shortItems.length; index += 1) {
   assert.ok(shortItems[index].visualTop >= shortItems[index - 1].visualTop + shortItems[index - 1].height + 3, 'Короткие записи перекрываются и блокируют нажатия');
 }
 
-console.log('Desktop week timeline v348 checks passed.');
+console.log('Desktop week timeline v349 checks passed.');
