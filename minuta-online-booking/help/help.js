@@ -1,8 +1,9 @@
 (function () {
   const articles = Array.isArray(window.MINUTA_HELP_ARTICLES) ? window.MINUTA_HELP_ARTICLES : [];
+  const categories = Array.isArray(window.MINUTA_HELP_CATEGORIES) ? window.MINUTA_HELP_CATEGORIES : [];
   const input = document.querySelector('#helpSearchInput');
   const results = document.querySelector('#searchResults');
-  const cards = [...document.querySelectorAll('.section-card')];
+  const sectionGrid = document.querySelector('#sectionGrid');
   const audienceButtons = [...document.querySelectorAll('[data-audience][type="button"]')];
   const popular = document.querySelector('#popularGuides');
   const productLink = document.querySelector('#productLink');
@@ -20,6 +21,62 @@
     return `article.html?slug=${encodeURIComponent(article.slug)}`;
   }
 
+  function categoryUrl(category) {
+    return `category.html?category=${encodeURIComponent(category.slug)}`;
+  }
+
+  function pluralize(count, forms) {
+    const remainder100 = count % 100;
+    const remainder10 = count % 10;
+    if (remainder100 >= 11 && remainder100 <= 19) return forms[2];
+    if (remainder10 === 1) return forms[0];
+    if (remainder10 >= 2 && remainder10 <= 4) return forms[1];
+    return forms[2];
+  }
+
+  function renderSections() {
+    if (!sectionGrid) return;
+    sectionGrid.replaceChildren();
+    const visibleCategories = categories.filter(category => category.audience === audience);
+    visibleCategories.forEach(category => {
+      const count = articles.filter(article => article.audience === audience && article.categorySlug === category.slug).length;
+      if (!count) return;
+      const link = document.createElement('a');
+      link.className = 'section-card';
+      link.href = categoryUrl(category);
+
+      const iconWrap = document.createElement('span');
+      iconWrap.className = 'section-icon';
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      icon.setAttribute('aria-hidden', 'true');
+      const iconUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      iconUse.setAttribute('href', `../ui-icons.svg#${category.icon || 'icon-list'}`);
+      icon.append(iconUse);
+      iconWrap.append(icon);
+
+      const copy = document.createElement('span');
+      copy.className = 'section-copy';
+      const title = document.createElement('strong');
+      title.textContent = category.title;
+      const description = document.createElement('small');
+      description.textContent = category.description;
+      const total = document.createElement('em');
+      total.textContent = `${count} ${pluralize(count, ['инструкция', 'инструкции', 'инструкций'])}`;
+      copy.append(title, description, total);
+
+      const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      arrow.classList.add('section-arrow');
+      arrow.setAttribute('aria-hidden', 'true');
+      const arrowUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      arrowUse.setAttribute('href', '../ui-icons.svg#icon-arrow-right');
+      arrow.append(arrowUse);
+      link.append(iconWrap, copy, arrow);
+      sectionGrid.append(link);
+    });
+    const count = document.querySelector('#sectionCount');
+    if (count) count.textContent = `${visibleCategories.length} ${pluralize(visibleCategories.length, ['раздел', 'раздела', 'разделов'])}`;
+  }
+
   function normalize(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').trim();
   }
@@ -27,7 +84,9 @@
   function renderPopular() {
     if (!popular) return;
     popular.replaceChildren();
-    articles.filter(article => article.audience === audience).slice(0, 4).forEach((article, index) => {
+    const audienceArticles = articles.filter(article => article.audience === audience);
+    const featured = audienceArticles.filter(article => article.featured);
+    (featured.length ? featured : audienceArticles).slice(0, 6).forEach((article, index) => {
       const link = document.createElement('a');
       link.href = articleUrl(article);
       link.className = 'guide-item';
@@ -96,14 +155,7 @@
       item.classList.toggle('active', active);
       item.setAttribute('aria-pressed', String(active));
     });
-    let visible = 0;
-    cards.forEach(card => {
-      const show = card.dataset.audience === audience;
-      card.hidden = !show;
-      if (show) visible += 1;
-    });
-    const count = document.querySelector('#sectionCount');
-    if (count) count.textContent = `${visible} ${visible === 1 ? 'раздел' : visible < 5 ? 'раздела' : 'разделов'}`;
+    renderSections();
     if (productLink) {
       productLink.href = audience === 'client' ? '../index.html' : '../provider.html';
       const label = productLink.querySelector('span');

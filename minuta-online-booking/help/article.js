@@ -8,6 +8,7 @@
     if (element) element.textContent = value;
   };
   const articleUrl = item => `article.html?slug=${encodeURIComponent(item.slug)}`;
+  const categoryUrl = item => `category.html?category=${encodeURIComponent(item.categorySlug)}`;
 
   if (!article) {
     document.title = 'Инструкция не найдена — Minuta';
@@ -24,6 +25,8 @@
   document.title = `${article.title} — Minuta`;
   document.querySelector('meta[name="description"]')?.setAttribute('content', article.excerpt);
   setText('#articleCategory', article.category);
+  const categoryLink = document.querySelector('#articleCategory');
+  if (categoryLink) categoryLink.href = categoryUrl(article);
   setText('#articleMeta', `${article.category} · ${article.time} на чтение · Обновлено ${article.updated}`);
   setText('#articleTitle', article.title);
   setText('#articleIntro', article.intro);
@@ -75,7 +78,7 @@
   if (note) note.textContent = article.note;
 
   const sectionNav = document.querySelector('#articleSectionNav');
-  articles.filter(item => item.category === article.category).forEach(item => {
+  articles.filter(item => item.categorySlug === article.categorySlug && item.audience === article.audience).forEach(item => {
     const link = document.createElement('a');
     link.href = articleUrl(item);
     link.textContent = item.title;
@@ -84,7 +87,9 @@
   });
 
   const related = document.querySelector('#relatedList');
-  articles.filter(item => item.audience === article.audience && item.slug !== article.slug).slice(0, 3).forEach(item => {
+  const sameCategory = articles.filter(item => item.audience === article.audience && item.categorySlug === article.categorySlug && item.slug !== article.slug);
+  const otherCategories = articles.filter(item => item.audience === article.audience && item.categorySlug !== article.categorySlug && item.slug !== article.slug);
+  [...sameCategory, ...otherCategories].slice(0, 3).forEach(item => {
     const link = document.createElement('a');
     link.href = articleUrl(item);
     const copy = document.createElement('span');
