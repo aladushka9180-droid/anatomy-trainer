@@ -1780,7 +1780,18 @@ function outcomeSummary(item) {
   if (outcome.visit_status === 'no_show') return 'Клиент не пришёл';
   if (outcome.visit_status !== 'completed') return '';
   const actualTime = isPerMinuteBooking(item) && outcome.actual_duration_minutes ? `${outcome.actual_duration_minutes} мин · ${money(bookingCalculatedValue(item))} · ` : '';
-  return `${actualTime}${paymentMethodLabel(outcome.payment_method, outcome.completion_source)}${outcome.amount_rub ? ` · получено ${money(outcome.amount_rub)}` : ''}`;
+  const received = Math.max(0, Number(outcome.amount_rub || 0));
+  const payment = received > 0
+    ? `Получено ${money(received)} · ${paymentMethodLabel(outcome.payment_method, outcome.completion_source)}`
+    : `Не оплачено · долг ${money(bookingCalculatedValue(item))}`;
+  return `${actualTime}${payment}`;
+}
+
+function bookingPaymentText(item) {
+  const outcome = bookingOutcome(item);
+  if (outcome.visit_status !== 'completed') return '';
+  const received = Math.max(0, Number(outcome.amount_rub || 0));
+  return received > 0 ? `Получено ${money(received)}` : `Не оплачено · долг ${money(bookingCalculatedValue(item))}`;
 }
 
 let reportPerformerFilter = '';
@@ -4871,6 +4882,7 @@ function renderTimeline(sourceItems) {
     const visibleNote = displayPreferences.show_notes ? note : '';
     const visitText = block ? '' : bookingVisitSummaryText(item);
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item, 'timeline-client-visit');
+    const paymentText = block ? '' : bookingPaymentText(item);
     const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', visitText, `${duration} мин`].filter(Boolean).join(' · ');
     const clientDetailsMarkup = block
       ? ''
@@ -4887,7 +4899,7 @@ function renderTimeline(sourceItems) {
     const cardContent = minuteOnly
       ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
+      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${paymentText ? `<small class="timeline-booking-payment">${escapeHtml(paymentText)}</small>` : ''}${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
@@ -4972,7 +4984,9 @@ function openBookingSheet(id) {
   const minuteRate = bookingMinuteRate(item);
   const actualMinutes = Number(outcome.actual_duration_minutes || 0);
   const calculatedAmount = Number(outcome.calculated_amount_rub || (actualMinutes ? actualMinutes * minuteRate : bookingSessionTotal(item)));
-  const amount = Number(outcome.amount_rub || calculatedAmount);
+  const amount = outcome.visit_status === 'completed'
+    ? Math.max(0, Number(outcome.amount_rub || 0))
+    : Math.max(0, Number(outcome.amount_rub || calculatedAmount));
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   applyClientHighlightClasses($('#bookingSheet'), isScheduleBlock(item) ? '' : item.client_phone, 'booking-sheet-');
   if (isScheduleBlock(item)) {
@@ -6408,8 +6422,9 @@ function calendarOverviewBookingMarkup(item, compact) {
   const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
   const client = block ? 'Занятое время' : item.client_name;
   const statusClass = bookingStatusClass(item);
-  const details = `${title}, ${client}, ${time}`;
-  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}</small>`}</span></button>`;
+  const paymentText = block ? '' : bookingPaymentText(item);
+  const details = `${title}, ${client}, ${time}${paymentText ? `, ${paymentText}` : ''}`;
+  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}${paymentText ? ` · ${escapeHtml(paymentText)}` : ''}</small>`}</span></button>`;
 }
 
 function calendarWeekTimelineBounds(days, byDate) {
@@ -6474,8 +6489,9 @@ function calendarWeekTimelineMarkup(days, byDate, today) {
       const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
       const client = block ? 'Занятое время' : item.client_name;
       const statusClass = bookingStatusClass(item);
-      const details = `${title}, ${client}, с ${startTime} до ${endTime}`;
-      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}</small></button>`;
+      const paymentText = block ? '' : bookingPaymentText(item);
+      const details = `${title}, ${client}, с ${startTime} до ${endTime}${paymentText ? `, ${paymentText}` : ''}`;
+      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}${paymentText ? ` · ${escapeHtml(paymentText)}` : ''}</small></button>`;
     }).join('');
     return `<section class="calendar-week-day-stage${iso === today ? ' is-today' : ''}" style="grid-column:${index + 2}" aria-label="${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}">${cards}</section>`;
   }).join('');
