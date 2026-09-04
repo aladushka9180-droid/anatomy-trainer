@@ -22,7 +22,10 @@
   }
 
   function createController(options) {
-    const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
+    const { db, escapeHtml, notify, requireWrites, applyWriteAvailability } = options;
+    const getCurrentUser = typeof options.getCurrentUser === 'function' ? options.getCurrentUser : () => null;
+    const getSessionGeneration = typeof options.getSessionGeneration === 'function' ? options.getSessionGeneration : () => 0;
+    const sessionIsCurrent = typeof options.sessionIsCurrent === 'function' ? options.sessionIsCurrent : () => false;
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
     function $(selector) { return select(selector); }
     let organization = null;

@@ -22,8 +22,7 @@
     let requestRevision = 0;
 
     function workingOrganizations() {
-      const items = organizations.filter(item => item.public_slug !== DEMO_ORGANIZATION_SLUG);
-      return items.length ? items : organizations;
+      return organizations.filter(item => item.public_slug !== DEMO_ORGANIZATION_SLUG);
     }
 
     function activeOrganization() {
@@ -146,14 +145,21 @@
       $('#organizationUnavailable').hidden = true;
       $('#organizationPersonalInvites').hidden = !pendingInvitations.length;
       $('#personalInvitationsList').innerHTML = pendingInvitations.map(personalInvitationCard).join('');
-      $('#organizationWorkspace').hidden = !organizations.length;
-      if (!organizations.length) {
-        if (!pendingInvitations.length) setUnavailable('Вы пока не состоите в активной организации. Обратитесь к владельцу или администратору.');
+      const availableOrganizations = workingOrganizations();
+      $('#organizationWorkspace').hidden = !availableOrganizations.length;
+      if (!availableOrganizations.length) {
+        availability = 'error';
+        if (!pendingInvitations.length) {
+          $('#organizationUnavailable').hidden = false;
+          $('#organizationUnavailableText').textContent = organizations.length
+            ? 'Рабочая организация пока не создана. Создайте её или обратитесь к владельцу команды.'
+            : 'Вы пока не состоите в активной организации. Обратитесь к владельцу или администратору.';
+        }
         $('#organizationRoleBadge').textContent = pendingInvitations.length ? 'Приглашение' : 'Нет доступа';
+        if ($('#teamBadge')) $('#teamBadge').textContent = '0';
         return;
       }
       const organization = activeOrganization();
-      const availableOrganizations = workingOrganizations();
       const canManage = Boolean(organization.can_manage);
       const members = Array.isArray(organization.members) ? organization.members : [];
       const locations = Array.isArray(organization.locations) ? organization.locations : [];
@@ -253,13 +259,14 @@
       if (!requireWrites()) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
+      const revision = ++requestRevision;
       if (!userId) return false;
       if (errorSelector) clearError(errorSelector);
       const oldText = button?.textContent;
       if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
       const { data, error } = await db.rpc(rpc, parameters);
       if (button) { button.disabled = false; button.textContent = oldText; }
-      if (!sessionIsCurrent(userId, generation)) return false;
+      if (!sessionIsCurrent(userId, generation) || revision !== requestRevision) return false;
       if (error) {
         const messages = {
           last_owner_must_remain: 'Нельзя отключить или понизить последнего владельца.',
@@ -336,8 +343,9 @@
 
     function handleChange(event) {
       if (event.target.id !== 'organizationSwitcher') return;
-      const next = organizations.find(item => item.id === event.target.value);
+      const next = workingOrganizations().find(item => item.id === event.target.value);
       if (!next) return;
+      requestRevision += 1;
       activeOrganizationId = next.id;
       render();
       emitActiveOrganization();

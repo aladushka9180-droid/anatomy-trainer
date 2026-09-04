@@ -14,9 +14,14 @@ const buildClients = provider.match(/function buildClients\(\) \{[\s\S]*?\n\}/)?
 assert.ok(reportRange, 'Не найдена логика выбора периода статистики');
 assert.match(
   reportRange,
-  /\[\.\.\.allBookings,\s*\.\.\.importedBookingHistory\]/,
+  /\[\.\.\.liveSource,\s*\.\.\.importedBookingHistory\]/,
   'Период «Всё время» должен начинаться с самой ранней обычной или импортированной записи'
 );
+assert.doesNotMatch(reportRange, /3659\s*\*\s*86400000/, 'Период «Всё время» не должен искусственно растягиваться на десять лет');
+assert.match(reportRange, /reportScopedBookingsState\.status === 'ready'[\s\S]*reportScopedBookingsState\.rows[\s\S]*allBookings/, 'Для «Всё время» должна использоваться фактически доступная история организации');
+assert.match(provider, /function reportDataQueryRange\(range\)[\s\S]*reportPeriod !== 'all' \|\| reportDataSource === 'demo'[\s\S]*start:'2000-01-01'/, 'Техническая выборка «Всё время» должна охватывать историю всей команды, не меняя отображаемый период');
+assert.match(provider, /async function loadReportScopedBookings\(range, performerId\)[\s\S]*?range = reportDataQueryRange\(range\);/);
+assert.match(provider, /async function loadReportTeamAnalytics\(range\)[\s\S]*?range = reportDataQueryRange\(range\);/);
 
 assert.ok(reportBookings, 'Не найдена выборка записей для статистики');
 assert.match(

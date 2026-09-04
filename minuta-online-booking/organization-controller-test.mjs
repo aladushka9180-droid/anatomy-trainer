@@ -67,4 +67,16 @@ assert.equal(controller.getActiveOrganization()?.id, 'work', 'Рабочая о�
 assert.equal(controller.getOrganizations().length, 2, 'Demo должна оставаться доступной для статистики');
 assert.doesNotMatch(element('organizationSwitcher').innerHTML, /minuta-demo-statistics|>Demo ·/, 'Demo не должна смешиваться с рабочими организациями в переключателе');
 
+rpcPayload = {
+  organizations: [
+    { id:'demo',name:'Demo',public_slug:'minuta-demo-statistics',current_role:'owner',can_manage:true,locations:[],members:[],invitations:[],audit:[] }
+  ],
+  pending_invitations: []
+};
+await controller.load();
+assert.equal(controller.getActiveOrganization(), null, 'Demo не должна становиться рабочей организацией даже без других организаций');
+assert.equal(controller.getOrganizations().length, 1, 'Demo должна оставаться доступной источнику аналитики');
+assert.equal(element('organizationWorkspace').hidden, true, 'Рабочие контроллеры должны быть скрыты при наличии только demo');
+assert.equal(element('organizationUnavailable').hidden, false, 'Пользователь должен увидеть безопасное объяснение отсутствия рабочей организации');
+
 console.log('organization controller runtime test: OK');

@@ -357,8 +357,11 @@
     }
 
     async function chooseFile(file) {
+      const currentRevision = revision;
+      const organizationId = organization?.id || '';
       try {
         const decoded = await decodeFile(file);
+        if (currentRevision !== revision || organization?.id !== organizationId) return;
         preview = null;
         $('#clientImportPreview').hidden = true;
         if (decoded.kind === 'history') { pendingTable = null; renderPreview(decoded); return; }
@@ -368,6 +371,7 @@
         if (indexes.name < 0 || indexes.phone < 0) { showMapping(pendingTable); return; }
         renderPreview(mapRows(pendingTable));
       } catch (error) {
+        if (currentRevision !== revision || organization?.id !== organizationId) return;
         pendingTable = null;
         preview = null;
         $('#clientImportPreview').hidden = true;
@@ -379,26 +383,32 @@
     async function submit(event) {
       event.preventDefault();
       if (!preview?.rows?.length || !organization?.id || !requireWrites()) return;
+      const importPreview = preview;
+      const organizationId = organization.id;
+      const currentRevision = ++revision;
+      const requestIsCurrent = () => currentRevision === revision && organization?.id === organizationId;
       const button = $('#clientImportSubmit');
       const originalCaption = button.textContent;
-      const totalCount = preview.rows.length;
+      const totalCount = importPreview.rows.length;
       button.disabled = true;
       let processedCount = 0;
       let createdCount = 0;
       let updatedCount = 0;
       try {
         for (let offset = 0; offset < totalCount; offset += IMPORT_BATCH_SIZE) {
-          const batch = preview.rows.slice(offset, offset + IMPORT_BATCH_SIZE);
+          if (!requestIsCurrent()) return;
+          const batch = importPreview.rows.slice(offset, offset + IMPORT_BATCH_SIZE);
           button.textContent = `Импортируем ${Math.min(offset + batch.length, totalCount)} из ${totalCount}`;
-          const { data, error } = preview.kind === 'history'
-            ? await db.rpc('import_minuta_booking_history', { p_organization:organization.id,p_rows:batch,p_request_id:uuid(),p_source_file:preview.fileName || 'journal.xls' })
-            : await db.rpc('import_minuta_clients', { p_organization:organization.id,p_source_system:'other',p_rows:batch,p_request_id:uuid() });
+          const { data, error } = importPreview.kind === 'history'
+            ? await db.rpc('import_minuta_booking_history', { p_organization:organizationId,p_rows:batch,p_request_id:uuid(),p_source_file:importPreview.fileName || 'journal.xls' })
+            : await db.rpc('import_minuta_clients', { p_organization:organizationId,p_source_system:'other',p_rows:batch,p_request_id:uuid() });
+          if (!requestIsCurrent()) return;
           if (error) throw error;
           processedCount += batch.length;
           createdCount += Number(data?.created_count || 0);
           updatedCount += Number(data?.updated_count || data?.duplicate_count || 0);
         }
-        notify(preview.kind === 'history' ? `История загружена: ${createdCount} записей${updatedCount ? `, ${updatedCount} дублей пропущено` : ''}` : `Импортировано: ${createdCount} новых, ${updatedCount} обновлено`);
+        notify(importPreview.kind === 'history' ? `История загружена: ${createdCount} записей${updatedCount ? `, ${updatedCount} дублей пропущено` : ''}` : `Импортировано: ${createdCount} новых, ${updatedCount} обновлено`);
         $('#clientImportForm').reset();
         pendingTable = null;
         preview = null;
@@ -406,10 +416,15 @@
         hideMapping();
         await load();
       } catch (error) {
-        const retryPreview = processedCount ? { ...preview, rows:preview.rows.slice(processedCount) } : null;
+        if (!requestIsCurrent()) return;
+        const retryPreview = processedCount ? { ...importPreview, rows:importPreview.rows.slice(processedCount) } : null;
         const prefix = processedCount ? `Успешно перенесено ${processedCount} из ${totalCount}. ` : '';
         notify(`${prefix}${error?.message || 'Импорт не выполнен'}`);
-        if (retryPreview?.rows.length) { await load(); renderPreview(retryPreview); }
+        if (retryPreview?.rows.length) {
+          await load();
+          if (organization?.id !== organizationId) return;
+          renderPreview(retryPreview);
+        }
       }
       finally { button.disabled = false; button.textContent = originalCaption; }
     }
@@ -424,7 +439,17 @@
 
     return {
       bind, load,
-      setOrganization(next) { organization = next || null; workspace = null; onLoaded?.([], []); render(); void load(); }
+      setOrganization(next) {
+        const normalized = next || null;
+        const currentOrganizationId = organization?.id || '';
+        const nextOrganizationId = normalized?.id || '';
+        organization = normalized;
+        if (currentOrganizationId && currentOrganizationId === nextOrganizationId) return;
+        workspace = null;
+        onLoaded?.([], []);
+        render();
+        void load();
+      }
     };
   }
 

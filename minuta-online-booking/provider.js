@@ -1658,7 +1658,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=305#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=306#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1871,10 +1871,12 @@ function reportRange(period = reportPeriod) {
   if (period === 'year') start = localIsoDate(new Date(today.getFullYear(), 0, 1));
   if (period === 'all') {
     if (reportDataSource === 'demo') start = localIsoDate(new Date(today.getFullYear(), today.getMonth() - 3, 1));
-    else if (reportCanViewTeam) start = localIsoDate(new Date(today.getTime() - 3659 * 86400000));
     else {
       const organizationId = reportOrganizationId();
-      const dates = [...allBookings, ...importedBookingHistory]
+      const liveSource = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready'
+        ? reportScopedBookingsState.rows
+        : allBookings;
+      const dates = [...liveSource, ...importedBookingHistory]
         .filter(item => !isScheduleBlock(item)
           && item.booking_date <= todayIso
           && (!organizationId || !item.organization_id || String(item.organization_id) === String(organizationId)))
@@ -1888,6 +1890,11 @@ function reportRange(period = reportPeriod) {
     end = reportCustomEnd || todayIso;
   }
   return { start, end, period };
+}
+
+function reportDataQueryRange(range) {
+  if (reportPeriod !== 'all' || reportDataSource === 'demo') return range;
+  return { ...range, start:'2000-01-01' };
 }
 
 function reportBookings(range = reportRange()) {
@@ -2140,6 +2147,7 @@ async function loadReportAvailability(range, performerId) {
 
 async function loadReportScopedBookings(range, performerId) {
   if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
+  range = reportDataQueryRange(range);
   const userId = currentUser.id;
   const generation = sessionGeneration;
   const organizationId = reportOrganizationId();
@@ -2257,6 +2265,7 @@ async function loadReportTeamAnalytics(range) {
   const generation = sessionGeneration;
   const organizationId = reportOrganizationId();
   if (!organizationId) { panel.hidden = true; return; }
+  range = reportDataQueryRange(range);
   const key = reportSessionKey(organizationId, range.start, range.end);
   if (reportTeamAnalyticsState.key === key) {
     if (reportTeamAnalyticsState.status === 'ready') { renderReportTeamRows(reportTeamAnalyticsState.rows); renderReportPerformerFilter(range); }
@@ -3219,7 +3228,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=305');
+    worker = new Worker('./report-worker.js?v=306');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {

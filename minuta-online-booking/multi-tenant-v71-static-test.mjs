@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const migration = await readFile(join(root, 'supabase-migration-v71.sql'), 'utf8');
@@ -40,11 +41,33 @@ assert.match(rollback, /disable_branch_shifts_before_rollback/i, 'rollback must 
 assert.doesNotMatch(rollback, /\bcascade\b/i, 'rollback must not use CASCADE');
 assert.doesNotMatch(controller, /localStorage|sessionStorage|indexedDB/i, 'tenant schedules must not be cached on the device');
 assert.match(controller, /sessionIsCurrent[\s\S]*organization_id/i, 'controller must reject stale and cross-organization responses');
+assert.match(controller, /typeof options\.getCurrentUser === 'function' \? options\.getCurrentUser : \(\) => null/, 'missing session accessor must fail closed without crashing the organization workspace');
 assert.match(controller, /absence_has_bookings[\s\S]*Сначала замените специалиста/i, 'unsafe absence changes need a clear explanation');
-assert.match(provider, /MinutaShifts[\s\S]*shiftController\.setOrganization/i, 'provider must scope the optional controller to the active organization');
+assert.match(provider, /window\.MinutaShifts\.createController\(\{[\s\S]*getCurrentUser:\s*\(\) => currentUser[\s\S]*shiftController\.setOrganization/i, 'provider must pass the live session accessor and scope shifts to the active organization');
 assert.match(html, /id="shiftsPanel"[\s\S]*id="shiftForm"[\s\S]*id="absenceForm"[\s\S]*id="substitutionForm"/i, 'organization UI must expose all v71 workflows');
 assert.match(app, /get_public_minuta_catalog_v4[\s\S]*get_public_minuta_catalog_v3/i, 'public catalog must fall back safely when v71 is absent');
 assert.match(app, /get_public_minuta_available_slots_v4[\s\S]*get_public_minuta_available_slots_v3/i, 'public slots must fall back safely when v71 is absent');
 assert.match(workflow, /multi-tenant-v71-static-test\.mjs/i, 'v71 static safety checks must run in CI');
+
+const elements = new Map();
+const element = id => {
+  if (!elements.has(id)) elements.set(id, { id, value:'', hidden:false, querySelectorAll:() => [] });
+  return elements.get(id);
+};
+const runtime = { window:{}, document:{ querySelector:selector => element(selector.replace(/^#/, '')), addEventListener:() => {} } };
+vm.runInNewContext(controller, runtime);
+let rpcCalls = 0;
+const failClosedController = runtime.window.MinutaShifts.createController({
+  db:{ rpc:async () => { rpcCalls += 1; return { data:null, error:null }; } },
+  $:selector => element(selector.replace(/^#/, '')),
+  escapeHtml:value => String(value),
+  notify:() => {},
+  requireWrites:() => true,
+  applyWriteAvailability:() => {}
+});
+const failClosedResult = await failClosedController.setOrganization({ id:'organization-a' });
+assert.equal(failClosedResult?.ok, false, 'missing session accessor must fail closed');
+assert.equal(failClosedResult?.optional, true, 'missing session accessor must keep the organization workspace optional');
+assert.equal(rpcCalls, 0, 'missing session accessor must never request organization data');
 
 console.log('multi-tenant v71 static test: OK');
