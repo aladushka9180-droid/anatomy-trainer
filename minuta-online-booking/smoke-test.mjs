@@ -394,6 +394,7 @@ assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty,\.emp
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty-icon,\.empty-service-mark\) \{[^}]*background:linear-gradient/, 'Иконки пустых состояний Luxury не используют золотой акцент');
 assert.match(styles, /data-provider-theme="luxury"\] \.timeline-client-name \{[^}]*color:#d5c9b6/, 'Имя клиента в расписании Luxury недостаточно контрастное');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-client-duration,\.timeline-service-duration\) \{[^}]*color:#d9aa51/, 'Длительность записи рядом с услугой Luxury не выделена приглушённым золотом');
+assert.match(styles, /data-provider-theme="luxury"\] :is\([^)]*\.refresh-button,\.sync-tool-button,[^)]*\.topbar-client-link[^)]*\) \{[^}]*border-color:#5c4625;[^}]*background:#0a0b0c;[^}]*color:#e5dac7;/, 'Кнопка «Обновить» в шапке не использует тёмно-золотой стиль Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] \.client-list-main i \{[^}]*color:#d9aa51!important/, 'Дата следующей записи клиента Luxury снова стала зелёной');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.booking-client-visit,\.timeline-client-visit\) \{[^}]*font-size:9px/, 'Метка визита Luxury не стала заметнее');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-booking-status-icon,\.provider-booking-chevron\) \{[^}]*background:linear-gradient/, 'Галочка завершённой записи Luxury не использует золотой акцент');
