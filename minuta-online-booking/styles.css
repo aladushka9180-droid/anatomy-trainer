@@ -6276,3 +6276,82 @@ html.provider-booting .provider-main {
 .provider-body[data-provider-theme] .notification-template-dialog-head button { border:1px solid var(--theme-line); background:var(--theme-accent-soft); color:var(--theme-accent); }
 .provider-body[data-provider-theme] .notification-device-note { border:1px solid color-mix(in srgb,#d69b37 34%,var(--theme-line)); background:color-mix(in srgb,#d69b37 10%,var(--theme-surface)); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .notification-filters button.active { color:var(--theme-accent-contrast,#fff)!important; }
+
+/* Эко / Натуральный: спокойный месяц без тяжёлой табличной сетки. */
+.provider-body[data-provider-theme="eco"] .calendar-overview-month {
+  margin:0;
+  padding:12px 14px 16px;
+  background:transparent;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-weekdays {
+  padding:2px 4px 9px;
+  color:#727765;
+  font-size:9px;
+  letter-spacing:.08em;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-grid {
+  gap:7px;
+  overflow:visible;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-day {
+  min-height:92px;
+  padding:7px;
+  border:1px solid rgba(207,199,183,.78);
+  border-radius:10px;
+  background:rgba(255,253,248,.78);
+  box-shadow:none;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-day.is-selected {
+  border-color:#aeb99b;
+  box-shadow:inset 0 0 0 1px rgba(114,129,93,.2);
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-date {
+  min-height:28px;
+  padding:0;
+  border-bottom:0;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-date strong {
+  width:27px;
+  height:27px;
+  border-radius:50%;
+  font-size:12px;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-items {
+  gap:3px;
+  padding-top:4px;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-booking {
+  grid-template-columns:32px minmax(0,1fr);
+  min-height:27px;
+  padding:4px 5px;
+  border:0;
+  border-left:2px solid #7e8c69;
+  border-radius:4px;
+  background:rgba(114,129,93,.075);
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-booking time,
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-booking strong {
+  color:#46523f;
+  font-size:9px;
+}
+.provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-more {
+  min-height:25px;
+  border-radius:4px;
+  background:transparent;
+  color:#647253;
+}
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="eco"] .calendar-overview-month { padding:5px 3px 8px; }
+  .provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-weekdays { padding:0 1px 6px; }
+  .provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-grid { gap:4px; }
+  .provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-day {
+    min-height:66px;
+    padding:2px;
+    border-radius:8px;
+  }
+  .provider-body[data-provider-theme="eco"] .calendar-overview-month .calendar-overview-date { min-height:60px; }
+}

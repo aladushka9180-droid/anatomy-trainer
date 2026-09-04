@@ -17,5 +17,8 @@ assert.match(styles, /\.calendar-overview-day\.is-today \.calendar-overview-date
 assert.match(styles, /\.schedule-view-title \.view-title-actions \.compact-button \{ width:auto; margin-top:0; \}/, 'Компактные действия шапки растягиваются на всю ширину');
 assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.calendar-overview-month \.calendar-overview-day \{ min-height:72px;[\s\S]*\.calendar-overview-month \.calendar-overview-date \{ min-height:66px;[\s\S]*\.calendar-overview-month \.calendar-overview-count \{ display:block;[\s\S]*\.calendar-overview-month \.calendar-overview-items \{ display:none; \}/, 'Мобильный месяц не сведён к одной крупной кнопке дня со счётчиком');
 assert.match(styles, /@media \(min-width:761px\) and \(max-width:1100px\)[\s\S]*\.calendar-overview-month \.calendar-overview-booking span \{ display:none; \}/, 'На средней ширине названия записей продолжают бессмысленно обрезаться');
+assert.match(styles, /data-provider-theme="eco"[^}]*\.calendar-overview-month \.calendar-overview-grid \{[^}]*gap:7px;[^}]*border:0;[^}]*background:transparent;/, 'Месяц Эко всё ещё выглядит как тяжёлая таблица');
+assert.match(styles, /data-provider-theme="eco"[^}]*\.calendar-overview-month \.calendar-overview-date \{[^}]*min-height:28px;[^}]*border-bottom:0;/, 'Дата в месяце Эко сохраняет лишнюю разделительную линию');
+assert.match(styles, /data-provider-theme="eco"[^}]*\.calendar-overview-month \.calendar-overview-booking \{[^}]*min-height:27px;[^}]*background:rgba\(114,129,93,\.075\);/, 'Записи месяца Эко не получили спокойное компактное оформление');
 
-console.log('Calendar minimalism v322 checks passed.');
+console.log('Calendar minimalism v323 checks passed.');
