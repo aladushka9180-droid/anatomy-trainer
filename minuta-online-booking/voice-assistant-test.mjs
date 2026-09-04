@@ -14,6 +14,12 @@ const services = [
 ];
 
 assert.equal(voice.normalizeText('  Ёлка, МАССАЖ!  '), 'елка массаж');
+const repairedCommand = voice.repairCommand('Запеши А на зафтра в 10:30 на масаж');
+assert.equal(repairedCommand.text, 'запиши а на завтра в 10:30 на масаж');
+assert.deepEqual(repairedCommand.corrections, [
+  { from:'запеши', to:'запиши' },
+  { from:'зафтра', to:'завтра' }
+]);
 
 assert.equal(voice.parseRussianDate('сегодня', now), '2026-09-02');
 assert.equal(voice.parseRussianDate('завтра', now), '2026-09-03');
@@ -94,6 +100,18 @@ assert.equal(naturalBooking.plan.clientName, 'Анна');
 assert.equal(naturalBooking.plan.time, '10:30');
 assert.equal(naturalBooking.plan.serviceId, 'massage');
 
+const noisyBooking = voice.interpretCommand(
+  'Запеши А на зафтра в 10:30 на масаж',
+  { today:'2026-09-02', services },
+  now
+);
+assert.equal(noisyBooking.kind, 'booking_draft');
+assert.equal(noisyBooking.plan.clientName, 'Анна');
+assert.equal(noisyBooking.plan.date, '2026-09-03');
+assert.equal(noisyBooking.plan.serviceId, 'massage');
+assert.equal(noisyBooking.understandingConfidence, 'medium');
+assert.ok(noisyBooking.corrections.length >= 2);
+
 const politeBooking = voice.interpretCommand(
   'Хочу записать Марию послезавтра в 18:25 на укладку волос',
   { today:'2026-09-02', services },
@@ -117,6 +135,11 @@ const naturalSlots = voice.interpretCommand('Есть ли свободное о
 assert.equal(naturalSlots.kind, 'find_slots');
 assert.equal(naturalSlots.plan.serviceId, 'massage');
 assert.equal(voice.interpretCommand('Когда можно записать на массаж', { today:'2026-09-02', services }, now).kind, 'find_slots');
+const noisySlots = voice.interpretCommand('Наиди свабоднае акно завтро на масаж', { today:'2026-09-02', services }, now);
+assert.equal(noisySlots.kind, 'find_slots');
+assert.equal(noisySlots.plan.date, '2026-09-03');
+assert.equal(noisySlots.plan.serviceId, 'massage');
+assert.ok(noisySlots.corrections.some(item => item.to === 'свободное'));
 
 const snapshot = {
   today:'2026-09-02',
@@ -133,6 +156,8 @@ assert.equal(summary.total, 2);
 assert.deepEqual(summary.items.map(item => item.id), ['early', 'late']);
 assert.equal(voice.interpretCommand('Что у меня завтра?', snapshot, now).kind, 'schedule_summary');
 assert.equal(voice.interpretCommand('Покажи расписание на завтра', snapshot, now).kind, 'schedule_summary');
+assert.equal(voice.interpretCommand('Какие запеси завтро?', snapshot, now).kind, 'schedule_summary');
+assert.equal(voice.interpretCommand('Покажи распиасние на завтра', snapshot, now).kind, 'schedule_summary');
 
 const offlineSummary = voice.applyOfflineContext(summary, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' });
 assert.equal(offlineSummary.offline, true);
@@ -158,6 +183,17 @@ assert.equal(voice.applyOfflineContext(client, { offlineReadable:true, lastUpdat
 const naturalClient = voice.interpretCommand('что было у Анны Петровой', snapshot, now);
 assert.equal(naturalClient.kind, 'client_search');
 assert.equal(naturalClient.total, 1);
+const noisyClient = voice.interpretCommand('найди клентку ану петрову', snapshot, now);
+assert.equal(noisyClient.kind, 'client_search');
+assert.equal(noisyClient.total, 1);
+
+const incompleteBooking = voice.interpretCommand('Запиши завтра в 10:30 на массаж', snapshot, now);
+assert.equal(voice.needsClarification(incompleteBooking), true);
+assert.equal(voice.canContinueCommand('Запиши завтра в 10:30 на массаж', incompleteBooking, 'Анну', snapshot, now), true);
+const continuedBookingCommand = voice.continueCommand('Запиши завтра в 10:30 на массаж', incompleteBooking, 'Анну');
+assert.equal(continuedBookingCommand, 'запиши Анну завтра в 10:30 на массаж');
+assert.equal(voice.interpretCommand(continuedBookingCommand, snapshot, now).plan.clientName, 'Анна');
+assert.equal(voice.canContinueCommand('Запиши завтра в 10:30 на массаж', incompleteBooking, 'Как настроить уведомления?', snapshot, now), false, 'новая команда не должна случайно продолжать незавершённую запись');
 
 const alternatives = [Object.assign([
   { transcript:'расскажи анекдот', confidence:0.95 },
@@ -184,6 +220,10 @@ assert.equal(selectedVoice, russianVoice, 'озвучивание не долж�
 assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
 
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
+assert.equal(voice.interpretCommand('Сколько выручька сиводня?', snapshot, now).kind, 'revenue_summary');
+const priceQuestion = voice.interpretCommand('Какую цену поставить на массаж?', snapshot, now);
+assert.equal(priceQuestion.kind, 'help');
+assert.equal(priceQuestion.title, 'Вопрос о цене понят');
 
 const businessSnapshot = {
   today:'2026-09-02',
@@ -339,6 +379,15 @@ const controllerBridge = {
 const controller = voice.createController({ document:controllerDocument, bridge:controllerBridge });
 controller.bind();
 controllerOpen.emit('click');
+
+controllerInput.value = 'Запиши завтра в 10:30 на массаж';
+controllerForm.emit('submit');
+assert.equal(controllerInput.value, '', 'после неполной команды поле должно ждать короткое уточнение');
+assert.match(controllerResultHtml, /имя клиента/i);
+controllerInput.value = 'Анну';
+controllerForm.emit('submit');
+assert.match(controllerResultHtml, /Анна/);
+assert.doesNotMatch(controllerResultHtml, /Нужно уточнить: имя клиента/i);
 
 const staleSlots = deferred();
 slotResponses.push(staleSlots.promise);

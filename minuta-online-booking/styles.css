@@ -5204,9 +5204,13 @@ html.provider-booting .provider-main {
 .voice-result-points li::before { content:''; width:7px; height:7px; margin-top:4px; border-radius:50%; background:var(--theme-accent,#235b40); }
 .voice-result-actions>[data-voice-speak].is-speaking { border-color:#a83f3f; background:#a83f3f; color:#fff; }
 .voice-offline-notice { margin:0 0 12px; padding:8px 10px; border:1px solid #e4c36d; border-radius:10px; background:#fff7dc; color:#74591a; font-size:10px; font-weight:850; line-height:1.35; }
+.voice-correction-note { margin:0 0 12px; padding:8px 10px; border:1px solid color-mix(in srgb,var(--theme-accent,#235b40) 28%,var(--theme-line,#dbe5df)); border-radius:10px; background:var(--theme-accent-soft,#edf6f0); color:var(--theme-accent,#235b40); font-size:10px; font-weight:800; line-height:1.4; }
 .provider-body[data-provider-theme="luxury"] .voice-offline-notice,
 .provider-body[data-provider-theme="graphite"] .voice-offline-notice,
 .provider-body[data-provider-theme="loft"] .voice-offline-notice { border-color:#826f3d; background:#332d1d; color:#f4dc98; }
+.provider-body[data-provider-theme="luxury"] .voice-correction-note,
+.provider-body[data-provider-theme="graphite"] .voice-correction-note,
+.provider-body[data-provider-theme="loft"] .voice-correction-note { border-color:#665532; background:#211d16; color:#efdca6; }
 .voice-help-list li { display:list-item; margin-left:18px; padding:2px 0; background:transparent; list-style:disc; }
 .voice-assistant-capabilities { margin-top:14px; border-top:1px solid var(--theme-line,#dce7df); }
 .voice-assistant-capabilities>summary { padding:13px 2px 0; color:var(--theme-accent,#315b47); cursor:pointer; font-size:10px; font-weight:850; }
@@ -5227,8 +5231,8 @@ html.provider-booting .provider-main {
 .voice-assistant-privacy p { margin:8px 0 0; padding:10px 12px; border-radius:10px; background:var(--theme-surface-alt,#f7faf8); }
 .voice-assistant-privacy .ui-icon { flex:0 0 auto; width:14px; height:14px; color:var(--theme-accent,#235b40); }
 
-.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.voice-assistant-open,.voice-assistant-dialog,.voice-assistant-head button,.voice-assistant-starters>button,.voice-listen-button,.voice-transcript-field textarea,.voice-understand-button,.voice-assistant-result,.voice-assistant-result dl>div,.voice-assistant-result li,.voice-result-choice,.voice-result-progress,.voice-result-empty,.voice-offline-notice,.voice-assistant-examples button),
-.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.voice-assistant-open,.voice-assistant-dialog,.voice-assistant-head button,.voice-assistant-starters>button,.voice-listen-button,.voice-transcript-field textarea,.voice-understand-button,.voice-assistant-result,.voice-assistant-result dl>div,.voice-assistant-result li,.voice-result-choice,.voice-result-progress,.voice-result-empty,.voice-offline-notice,.voice-assistant-examples button) { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.voice-assistant-open,.voice-assistant-dialog,.voice-assistant-head button,.voice-assistant-starters>button,.voice-listen-button,.voice-transcript-field textarea,.voice-understand-button,.voice-assistant-result,.voice-assistant-result dl>div,.voice-assistant-result li,.voice-result-choice,.voice-result-progress,.voice-result-empty,.voice-offline-notice,.voice-correction-note,.voice-assistant-examples button),
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.voice-assistant-open,.voice-assistant-dialog,.voice-assistant-head button,.voice-assistant-starters>button,.voice-listen-button,.voice-transcript-field textarea,.voice-understand-button,.voice-assistant-result,.voice-assistant-result dl>div,.voice-assistant-result li,.voice-result-choice,.voice-result-progress,.voice-result-empty,.voice-offline-notice,.voice-correction-note,.voice-assistant-examples button) { border-radius:0; box-shadow:none; }
 .provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.voice-assistant-open,.voice-listen-button,.voice-understand-button,.voice-assistant-examples button) { border-radius:999px; }
 .provider-body[data-provider-theme="warm"] .voice-assistant-dialog,
 .provider-body[data-provider-theme="warm"] .voice-assistant-composer { background:#fffaf4; }

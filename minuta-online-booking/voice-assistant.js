@@ -46,6 +46,22 @@
   const FREE_SLOT_WORDS = /(?:^|\s)(?:свободн[а-я]*\s+(?:окн[а-я]*|окошк[а-я]*|врем[а-я]*|слот[а-я]*)|(?:найд[а-я]*|покаж[а-я]*|подбер[а-я]*|предлож[а-я]*)\s+(?:свободн[а-я]*\s+)?(?:окн[а-я]*|окошк[а-я]*|врем[а-я]*|слот[а-я]*)|есть\s+ли\s+(?:свободн[а-я]*\s+)?(?:окн[а-я]*|окошк[а-я]*|врем[а-я]*|мест[а-я]*)|когда\s+(?:можно|получится)\s+(?:записать|прийти)|куда\s+(?:можно\s+)?(?:поставить|записать))(?=\s|$)/i;
   const SCHEDULE_WORDS = /(?:^|\s)(расписан[а-я]*|график|план[а-я]*|запис[а-я]*|визит[а-я]*|прием[а-я]*|сеанс[а-я]*|клиент[а-я]*)(?=\s|$)/i;
   const COMMAND_FILLERS = new Set(['пожалуйста', 'пожалуйсто', 'мне', 'новую', 'новый', 'запись', 'визит', 'прием', 'сеанс', 'клиента', 'клиентку', 'для']);
+  const COMMAND_ALIASES = Object.freeze({
+    ана:'анна', ану:'анну', акно:'окно', акошко:'окошко', выручька:'выручка', дабавь:'добавь', завтраа:'завтра', завтро:'завтра', зафтра:'завтра',
+    запеси:'записи', запесы:'записи', запесать:'записать', запеши:'запиши', запешы:'запиши', клеент:'клиент', клент:'клиент', клиен:'клиент', клентку:'клиентку', клеентку:'клиентку',
+    матереал:'материал', напаминание:'напоминание', пажалуйста:'пожалуйста', питницу:'пятницу', пятнецу:'пятницу',
+    позавтра:'послезавтра', позафтра:'послезавтра', свабоднае:'свободное', свабодное:'свободное', свабодный:'свободный', севодня:'сегодня', сиводня:'сегодня',
+    увидамление:'уведомление', увидамления:'уведомления'
+  });
+  const COMMAND_VOCABULARY = Object.freeze([...new Set([
+    ...Object.keys(MONTHS), ...Object.keys(WEEKDAYS), ...Object.keys(HOURS),
+    'десять', 'пятнадцать', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'девяносто', 'полтора', 'минута', 'минуты', 'минут',
+    'час', 'часа', 'часов', 'утра', 'дня', 'вечера', 'ночи', 'день', 'дни', 'неделю', 'недели', 'недель', 'продолжительность',
+    'сегодня', 'завтра', 'послезавтра', 'запиши', 'записать', 'добавь', 'добавить', 'поставь', 'поставить',
+    'забронируй', 'забронировать', 'создай', 'создать', 'найди', 'покажи', 'подбери', 'предложи', 'свободное', 'свободный', 'окно', 'окошко', 'слот',
+    'расписание', 'график', 'запись', 'записи', 'визит', 'прием', 'сеанс', 'новую', 'новый', 'клиент', 'клиента', 'клиентку', 'выручка', 'доход', 'оплата', 'материал', 'остаток', 'склад', 'цена', 'стоимость',
+    'уведомление', 'напоминание', 'экспорт', 'настройки', 'напиши', 'придумай', 'составь', 'пожалуйста'
+  ])]);
 
   function normalizeText(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^a-zа-я0-9:.\s-]/gi, ' ').replace(/\s+/g, ' ').trim();
@@ -56,26 +72,86 @@
     const b = String(right || '');
     if (!a.length) return b.length;
     if (!b.length) return a.length;
-    const row = Array.from({ length:b.length + 1 }, (_, index) => index);
+    const matrix = Array.from({ length:a.length + 1 }, (_, i) => Array.from({ length:b.length + 1 }, (_, j) => i ? (j ? 0 : i) : j));
     for (let i = 1; i <= a.length; i += 1) {
-      let previous = row[0];
-      row[0] = i;
       for (let j = 1; j <= b.length; j += 1) {
-        const saved = row[j];
-        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1));
-        previous = saved;
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+        );
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) matrix[i][j] = Math.min(matrix[i][j], matrix[i - 2][j - 2] + 1);
       }
     }
-    return row[b.length];
+    return matrix[a.length][b.length];
+  }
+
+  function phoneticKey(value) {
+    return serviceStem(value)
+      .replace(/[ьъ]/g, '')
+      .replace(/й/g, 'и')
+      .replace(/(тся|ться)$/g, 'ца')
+      .replace(/([a-zа-я])\1+/g, '$1');
   }
 
   function wordsAreClose(left, right) {
     const a = serviceStem(left);
     const b = serviceStem(right);
     if (a === b) return true;
+    if (phoneticKey(a) === phoneticKey(b)) return true;
     const longest = Math.max(a.length, b.length);
     if (longest < 6 || Math.min(a.length, b.length) < 5) return false;
     return levenshteinDistance(a, b) <= (longest >= 8 ? 2 : 1);
+  }
+
+  function repairCommand(value) {
+    const source = normalizeText(value).replace(/(?:^|\s)после\s+завтра(?=\s|$)/g, ' послезавтра').trim();
+    const corrections = [];
+    const words = source.split(' ').map(word => {
+      if (!word || /\d|[:.\-]/.test(word)) return word;
+      const direct = COMMAND_ALIASES[word];
+      if (direct) {
+        corrections.push({ from:word, to:direct });
+        return direct;
+      }
+      if (word.length < 5 || COMMAND_VOCABULARY.includes(word)) return word;
+      const limit = word.length >= 8 ? 2 : 1;
+      const candidates = COMMAND_VOCABULARY
+        .filter(item => Math.abs(item.length - word.length) <= limit && (item[0] === word[0] || phoneticKey(item)[0] === phoneticKey(word)[0]))
+        .map(item => ({ item, distance:levenshteinDistance(phoneticKey(word), phoneticKey(item)) }))
+        .sort((left, right) => left.distance - right.distance || left.item.localeCompare(right.item, 'ru'));
+      if (!candidates.length || candidates[0].distance > limit || candidates[1]?.distance === candidates[0].distance) return word;
+      corrections.push({ from:word, to:candidates[0].item });
+      return candidates[0].item;
+    });
+    return { text:words.join(' '), corrections:corrections.slice(0, 4) };
+  }
+
+  function fuzzyRoot(text, roots) {
+    const words = normalizeText(text).split(' ').filter(Boolean);
+    return words.some(word => roots.some(root => word.startsWith(root) || (Math.min(word.length, root.length) >= 5 && levenshteinDistance(phoneticKey(word), phoneticKey(root)) <= (Math.max(word.length, root.length) >= 8 ? 2 : 1))));
+  }
+
+  function bookingSignal(text) {
+    if (BOOKING_WORDS.test(text) || BOOKING_PHRASES.test(text)) return true;
+    const nounForms = new Set(['запись', 'записи', 'записей', 'записью']);
+    return normalizeText(text).split(' ').filter(word => word && !nounForms.has(word)).some(word =>
+      ['запиш', 'записать', 'добавь', 'поставь', 'забронируй', 'оформи', 'назначь', 'запланируй', 'создай'].some(root =>
+        word.startsWith(root) || (Math.min(word.length, root.length) >= 5 && levenshteinDistance(phoneticKey(word), phoneticKey(root)) <= 1)
+      )
+    );
+  }
+
+  function freeSlotSignal(text) {
+    if (FREE_SLOT_WORDS.test(text)) return true;
+    const slot = fuzzyRoot(text, ['свободн', 'окошк', 'окно', 'слот']);
+    const search = fuzzyRoot(text, ['найди', 'покажи', 'подбери', 'предложи']);
+    return slot && (search || /(?:^|\s)есть\s+ли(?=\s|$)/.test(text));
+  }
+
+  function understanding(model, repaired) {
+    if (!repaired?.corrections?.length) return { ...model, understandingConfidence:model.kind === 'help' ? 'low' : 'high' };
+    return { ...model, understandingConfidence:'medium', corrections:repaired.corrections };
   }
 
   function localIsoDate(date) {
@@ -92,7 +168,7 @@
   }
 
   function parseRussianDate(command, now = new Date()) {
-    const text = normalizeText(command);
+    const text = repairCommand(command).text;
     const base = dateAtNoon(now);
     if (/(?:^|\s)послезавтра(?=\s|$)/.test(text)) { base.setDate(base.getDate() + 2); return localIsoDate(base); }
     if (/(?:^|\s)завтра(?=\s|$)/.test(text)) { base.setDate(base.getDate() + 1); return localIsoDate(base); }
@@ -147,7 +223,7 @@
   }
 
   function parseRussianTime(command) {
-    const text = normalizeText(command);
+    const text = repairCommand(command).text;
     const compactHalf = text.match(/(?:^|\s)пол\s*([а-я]+)(?=\s|$)/);
     if (compactHalf && HALF_HOURS[compactHalf[1]]) return HALF_HOURS[compactHalf[1]];
     const spokenHalf = text.match(/(?:^|\s)(?:в\s+)?половин(?:а|е|у)\s+([а-я]+)(?=\s|$)/);
@@ -200,7 +276,7 @@
   }
 
   function parseDuration(command) {
-    const text = normalizeText(command);
+    const text = repairCommand(command).text;
     const minutes = text.match(/(?:^|\s)(\d{1,3})\s*(?:мин|минута|минуту|минуты|минут)(?=\s|$)/);
     if (minutes) return Math.min(1440, Math.max(1, Number(minutes[1])));
     const spokenMinutes = text.match(/(?:^|\s)(пять|десять|пятнадцать|двадцать|двадцать\s+пять|тридцать|сорок|сорок\s+пять|пятьдесят|шестьдесят|девяносто|сто\s+двадцать)\s+(?:мин|минута|минуту|минуты|минут)(?=\s|$)/);
@@ -265,7 +341,7 @@
   }
 
   function parseClientName(command) {
-    const cleaned = String(command || '').replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleaned = repairCommand(command).text.replace(/(?:^|\s)а\s+на(?=\s|$)/g, ' анна').trim();
     const match = cleaned.match(/(?:хочу\s+|нужно\s+|надо\s+|давай\s+)?(?:запиш[а-яё]*|записать|добав[а-яё]*|постав[а-яё]*|заброниру[а-яё]*|оформ[а-яё]*|назнач[а-яё]*|запланиру[а-яё]*|созда[а-яё]*)(?:\s+(?:новую?\s+)?(?:запись|визит|прием|приём|сеанс))?(?:\s+(?:для\s+)?(?:клиента?|клиентку))?\s+(.+)/iu);
     if (!match) return '';
     const dateWords = new Set([...Object.keys(MONTHS), ...Object.keys(WEEKDAYS), ...Object.keys(ORDINAL_DAYS), 'сегодня', 'завтра', 'послезавтра', 'через']);
@@ -316,7 +392,7 @@
   }
 
   function reportingPeriod(command, now = new Date()) {
-    const text = normalizeText(command);
+    const text = repairCommand(command).text;
     const today = localIsoDate(dateAtNoon(now));
     if (/месяц/.test(text)) {
       const date = dateAtNoon(now);
@@ -510,7 +586,7 @@
   }
 
   function extractClientSearch(command) {
-    const raw = String(command || '').replace(/[,.!?]/g, ' ').replace(/\s+/g, ' ').trim();
+    const raw = repairCommand(command).text;
     const patterns = [
       /(?:найд[а-яё]*|покаж[а-яё]*|откро[а-яё]*)\s+(?:историю\s+)?(?:клиента?\s+|клиентку\s+)?([А-ЯЁA-ZА-ЯЁA-Za-zа-яё-]{2,}(?:\s+[А-ЯЁA-Za-zа-яё-]{2,})?)/iu,
       /(?:история|карточка)\s+(?:клиента?\s+)?([А-ЯЁA-ZА-ЯЁA-Za-zа-яё-]{2,}(?:\s+[А-ЯЁA-Za-zа-яё-]{2,})?)/iu,
@@ -530,20 +606,47 @@
     return ({ owner:'Владелец', admin:'Администратор', manager:'Менеджер', specialist:'Специалист', performer:'Исполнитель' })[String(role || '').toLowerCase()] || String(role || '');
   }
 
+  function clientBookingMatches(query, bookings = []) {
+    const needle = normalizeText(query);
+    const needleWords = needle.split(' ').filter(word => word.length > 1);
+    if (!needleWords.length) return [];
+    const scored = (bookings || []).map(item => {
+      const name = normalizeText(item.clientName);
+      const nameWords = name.split(' ').filter(Boolean);
+      const exact = name.includes(needle) ? 100 : 0;
+      const wordScore = needleWords.reduce((sum, word) => {
+        if (nameWords.some(candidate => serviceStem(candidate) === serviceStem(word))) return sum + 12;
+        if (nameWords.some(candidate => wordsAreClose(candidate, word))) return sum + 6;
+        return sum;
+      }, 0);
+      return { item, score:exact + wordScore };
+    }).filter(entry => entry.score > 0).sort((left, right) => right.score - left.score || `${right.item.date}${right.item.time}`.localeCompare(`${left.item.date}${left.item.time}`));
+    if (!scored.length) return [];
+    const threshold = Math.max(6, scored[0].score - 6);
+    return scored.filter(entry => entry.score >= threshold).map(entry => entry.item);
+  }
+
   function interpretCommand(command, snapshot = {}, now = new Date()) {
     const raw = String(command || '').trim().slice(0, 500);
-    const text = normalizeText(raw);
+    const repaired = repairCommand(raw);
+    const text = repaired.text;
+    const finish = model => understanding(model, repaired);
     const today = snapshot.today || localIsoDate(dateAtNoon(now));
-    if (!text) return { kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' };
+    if (!text) return finish({ kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' });
 
-    if (!BOOKING_WORDS.test(text) && !BOOKING_PHRASES.test(text) && /(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text)) return revenueModel(text, snapshot, now);
-    if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return inventoryModel(text, snapshot, now);
-    if (/(?:требует внимания|важн[а-я]*|проблем[а-я]*|что проверить)/.test(text)) return attentionModel(snapshot, now);
-    if (/(?:нов[а-я]* клиент|повторн[а-я]* клиент|сколько клиент)/.test(text)) return clientSummaryModel(text, snapshot, now);
-    if (/(?:популярн[а-я]* услуг|лучш[а-я]* услуг|услуг[а-я]* принесли|услуг[а-я]* принос)/.test(text)) return servicePerformanceModel(text, snapshot, now);
+    const bookingRequest = bookingSignal(text);
+    if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'поставить'])) return finish({ kind:'help', title:'Вопрос о цене понят', message:'Помощник пока не рекомендует цены и ничего не изменил.' });
+    if (/(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*)(?=\s|$)/.test(text) && fuzzyRoot(text, ['сообщен', 'пост', 'описан', 'отзыв', 'напоминан'])) return finish({ kind:'help', title:'Задача на текст понята', message:'Генерация сообщений и постов пока не подключена. Данные не изменены.' });
+    if (fuzzyRoot(text, ['настройк', 'уведомлен', 'тариф', 'экспорт']) && fuzzyRoot(text, ['как', 'где', 'покажи', 'открой', 'настроить', 'экспортируй'])) return finish({ kind:'help', title:'Вопрос о настройках понят', message:'Помощник пока не меняет настройки и не запускает экспорт. Никаких действий не выполнено.' });
+
+    if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(revenueModel(text, snapshot, now));
+    if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || fuzzyRoot(text, ['материал', 'остаток', 'склад']) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return finish(inventoryModel(text, snapshot, now));
+    if (/(?:требует внимания|важн[а-я]*|проблем[а-я]*|что проверить)/.test(text) || fuzzyRoot(text, ['важное', 'проблемы'])) return finish(attentionModel(snapshot, now));
+    if (/(?:нов[а-я]* клиент|повторн[а-я]* клиент|сколько клиент)/.test(text)) return finish(clientSummaryModel(text, snapshot, now));
+    if (/(?:популярн[а-я]* услуг|лучш[а-я]* услуг|услуг[а-я]* принесли|услуг[а-я]* принос)/.test(text)) return finish(servicePerformanceModel(text, snapshot, now));
     if (/(?:кто работает|команд[а-я]*|сотрудник[а-я]*|специалист[а-я]* работает)/.test(text)) {
       const members = snapshot.team || [];
-      return { kind:'team_summary', title:'Команда', message:members.length ? `Активных сотрудников: ${members.length}.` : 'Активные сотрудники не найдены.', points:members.map(item => `${item.name}${item.role ? ` · ${teamRoleLabel(item.role)}` : ''}`).slice(0, 12) };
+      return finish({ kind:'team_summary', title:'Команда', message:members.length ? `Активных сотрудников: ${members.length}.` : 'Активные сотрудники не найдены.', points:members.map(item => `${item.name}${item.role ? ` · ${teamRoleLabel(item.role)}` : ''}`).slice(0, 12) });
     }
 
     const duration = parseDuration(text);
@@ -552,58 +655,57 @@
     const candidates = findServices(text, snapshot.services || [], duration);
     const service = candidates.length === 1 ? candidates[0] : null;
 
-    const clientName = parseClientName(raw);
-    const bookingRequest = BOOKING_WORDS.test(text) || BOOKING_PHRASES.test(text);
-    if (bookingRequest && !FREE_SLOT_WORDS.test(text)) {
+    const clientName = parseClientName(text);
+    if (bookingRequest && !freeSlotSignal(text)) {
       const missing = [];
       if (!clientName) missing.push('имя клиента');
       if (!time) missing.push('время');
       if (!service && candidates.length !== 1) missing.push(candidates.length > 1 ? 'точная услуга' : 'услуга');
-      return {
+      return finish({
         kind:'booking_draft',
         title:'Черновик новой записи',
         message:missing.length ? `Нужно уточнить: ${missing.join(', ')}.` : 'Команда распознана. Перед созданием проверьте данные в защищённой форме.',
         plan:{ clientName, date, time, serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || (service?.perMinute ? 0 : Number(service?.durationMinutes || 0)), ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
         candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:Boolean(clientName || service || time)
-      };
+      });
     }
 
-    if (FREE_SLOT_WORDS.test(text)) {
-      return {
+    if (freeSlotSignal(text)) {
+      return finish({
         kind:'find_slots',
         title:'Поиск свободного времени',
         message:service ? 'Проверю расписание и покажу действительно свободные интервалы.' : 'Сначала выберите услугу — от неё зависит длительность свободного окна.',
         plan:{ clientName:'', date, time:'', serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || (service?.perMinute ? 0 : Number(service?.durationMinutes || 0)), ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
         candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:true
-      };
+      });
     }
 
     if (isScheduleRequest(text)) {
       const items = activeBookings(snapshot, date);
-      return {
+      return finish({
         kind:'schedule_summary',
         title:`Записи: ${formatDate(date)}`,
         message:items.length ? `Найдено записей: ${items.length}.` : 'Активных записей на этот день нет.',
         items:items.slice(0, 12),
         total:items.length
-      };
+      });
     }
 
     const searchedClientName = extractClientSearch(raw);
     if (searchedClientName) {
       const needle = normalizeText(searchedClientName);
-      const matches = (snapshot.bookings || []).filter(item => normalizeText(item.clientName).includes(needle)).sort((a, b) => `${b.date}${b.time}`.localeCompare(`${a.date}${a.time}`));
-      return { kind:'client_search', title:`Клиент: ${searchedClientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length };
+      const matches = clientBookingMatches(needle, snapshot.bookings || []);
+      return finish({ kind:'client_search', title:`Клиент: ${searchedClientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length });
     }
 
-    return {
+    return finish({
       kind:'help',
       title:'Я пока не уверен в команде',
       message:'Попробуйте назвать действие, дату, время и услугу. Никакие данные не были изменены.',
       examples:['Какие записи завтра?', 'Найди свободное время в пятницу на массаж 60 минут', 'Запиши Анну завтра в 10:30 на массаж']
-    };
+    });
   }
 
   function commandUnderstandingScore(command, snapshot = {}, now = new Date()) {
@@ -710,6 +812,34 @@
     return String(value ?? '').replace(/[&<>'"]/g, symbol => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[symbol]);
   }
 
+  function needsClarification(model) {
+    if (model?.kind === 'find_slots') return !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
+    if (model?.kind !== 'booking_draft') return false;
+    return !model.plan?.clientName || !model.plan?.time || !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
+  }
+
+  function canContinueCommand(previousCommand, previousModel, followUp, snapshot = {}, now = new Date()) {
+    if (!String(previousCommand || '').trim() || !String(followUp || '').trim() || !needsClarification(previousModel)) return false;
+    const standalone = interpretCommand(followUp, snapshot, now);
+    return standalone.kind === 'help' && standalone.title === 'Я пока не уверен в команде';
+  }
+
+  function continueCommand(previousCommand, previousModel, followUp) {
+    const previous = String(previousCommand || '').trim();
+    const addition = String(followUp || '').trim();
+    if (!previous || !addition) return `${previous} ${addition}`.trim().slice(0, 500);
+    if (previousModel?.kind === 'booking_draft' && !previousModel.plan?.clientName) {
+      const repaired = repairCommand(previous).text;
+      const action = /(?:^|\s)(?:запиш[а-я]*|записать|добав[а-я]*|постав[а-я]*|забронир[а-я]*|оформ[а-я]*|назнач[а-я]*|запланир[а-я]*|созда[а-я]*)(?=\s|$)/i;
+      const match = action.exec(repaired);
+      if (match) {
+        const end = (match.index || 0) + match[0].length;
+        return `${repaired.slice(0, end)} ${addition} ${repaired.slice(end)}`.replace(/\s+/g, ' ').trim().slice(0, 500);
+      }
+    }
+    return `${previous} ${addition}`.replace(/\s+/g, ' ').trim().slice(0, 500);
+  }
+
   function createController(options = {}) {
     const doc = options.document || global.document;
     const bridge = options.bridge || global.MinutaProviderAssistant;
@@ -739,6 +869,7 @@
     let finishingRecognition = false;
     let lastModel = null;
     let lastSessionGeneration = null;
+    let pendingCommand = '';
     let recognitionEpoch = 0;
     let speechEpoch = 0;
     let speaking = false;
@@ -878,6 +1009,8 @@
       result.replaceChildren();
       lastModel = null;
       lastSessionGeneration = null;
+      pendingCommand = '';
+      input.placeholder = 'Например: найди окно завтра';
       starters?.classList.remove('is-secondary');
       status.textContent = 'Нажмите «Говорить» или введите команду текстом.';
     }
@@ -958,8 +1091,11 @@
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
       const actions = prepareAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${speakAction}</div>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
+      const correctionNote = model.corrections?.length
+        ? `<p class="voice-correction-note">Понял с исправлением: ${model.corrections.map(item => `«${escapeHtml(item.from)}» → «${escapeHtml(item.to)}»`).join(', ')}</p>`
+        : '';
       result.className = `voice-assistant-result is-${model.kind}`;
-      result.innerHTML = `${offlineNotice}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${actions}`;
+      result.innerHTML = `${offlineNotice}${correctionNote}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${actions}`;
       result.hidden = false;
       starters?.classList.add('is-secondary');
       result.querySelectorAll?.('[data-voice-service]')?.forEach(button => button.addEventListener('click', () => {
@@ -971,6 +1107,7 @@
         }
         const service = (snapshot.services || []).find(item => String(item.id) === button.dataset.voiceService);
         if (!service || !lastModel?.plan) return;
+        if (pendingCommand) pendingCommand = `${pendingCommand} ${service.name}`.trim().slice(0, 500);
         const updated = { ...lastModel, candidates:[], availableServices:[], plan:{ ...lastModel.plan, serviceId:String(service.id), serviceName:String(service.name), perMinute:Boolean(service.perMinute), defaultDurationMinutes:Number(service.defaultDurationMinutes || service.durationMinutes || 60), durationMinutes:lastModel.plan.durationMinutes || (service.perMinute ? 0 : Number(service.durationMinutes || 60)) } };
         updated.message = updated.plan.perMinute && !updated.plan.durationMinutes ? 'Укажите длительность — для поминутной услуги можно выбрать любое значение.' : (updated.kind === 'find_slots' ? 'Проверю расписание и покажу свободные интервалы.' : 'Услуга выбрана. Проверьте остальные данные записи.');
         if (updated.kind === 'find_slots') findSlots(updated); else renderModel(updated, lastSessionGeneration);
@@ -984,6 +1121,7 @@
           return;
         }
         const durationMinutes = Math.max(1, Math.min(480, Math.round(Number(button.dataset.voiceDuration) || 0)));
+        if (pendingCommand) pendingCommand = `${pendingCommand} ${durationMinutes} минут`.trim().slice(0, 500);
         const updated = { ...lastModel, plan:{ ...lastModel.plan, durationMinutes }, message:lastModel.kind === 'find_slots' ? 'Проверю расписание и покажу свободные интервалы.' : 'Длительность выбрана. Проверьте данные записи.' };
         if (updated.kind === 'find_slots') findSlots(updated); else renderModel(updated, lastSessionGeneration);
       }));
@@ -1002,6 +1140,7 @@
           return;
         }
         const durationMinutes = Math.round(requestedDuration);
+        if (pendingCommand) pendingCommand = `${pendingCommand} ${durationMinutes} минут`.trim().slice(0, 500);
         const updated = { ...lastModel, plan:{ ...lastModel.plan, durationMinutes }, message:lastModel.kind === 'find_slots' ? 'Проверю расписание и покажу свободные интервалы.' : 'Длительность выбрана. Проверьте данные записи.' };
         if (updated.kind === 'find_slots') findSlots(updated); else renderModel(updated, lastSessionGeneration);
       });
@@ -1078,9 +1217,21 @@
         status.textContent = 'Помощник не показывает устаревшие данные.';
         return;
       }
-      const interpreted = interpretCommand(input.value, snapshot, new Date());
+      const enteredCommand = input.value.trim();
+      const now = new Date();
+      const continued = canContinueCommand(pendingCommand, lastModel, enteredCommand, snapshot, now);
+      const command = continued ? continueCommand(pendingCommand, lastModel, enteredCommand) : enteredCommand;
+      const interpreted = interpretCommand(command, snapshot, now);
       if (['booking_draft','find_slots'].includes(interpreted.kind)) interpreted.availableServices = snapshot.services || [];
       const model = applyOfflineContext(interpreted, snapshot);
+      if (needsClarification(model)) {
+        pendingCommand = command;
+        input.value = '';
+        input.placeholder = model.kind === 'find_slots' ? 'Уточните услугу или длительность' : 'Добавьте недостающую деталь';
+      } else {
+        pendingCommand = '';
+        input.placeholder = 'Например: найди окно завтра';
+      }
       lastSessionGeneration = snapshot.sessionGeneration;
       const shouldFindSlots = snapshot.synchronized && ['find_slots','booking_draft'].includes(model.kind) && model.plan?.serviceId && !model.plan?.time && (!model.plan.perMinute || Number(model.plan.durationMinutes));
       if (shouldFindSlots) {
@@ -1238,6 +1389,8 @@
         input.value = '';
         lastModel = null;
         lastSessionGeneration = null;
+        pendingCommand = '';
+        input.placeholder = 'Например: найди окно завтра';
         result.hidden = true;
         result.replaceChildren();
         starters?.classList.remove('is-secondary');
@@ -1309,7 +1462,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, clientBookingMatches, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
