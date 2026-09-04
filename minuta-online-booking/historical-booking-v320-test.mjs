@@ -18,4 +18,4 @@ assert.match(styles, /\.new-booking-history-option \{[^}]*min-height:52px;/, 'П
 assert.match(migration, /p_date\+p_time\+make_interval\(mins=>v_effective_duration\)>timezone\(v_timezone,now\(\)\)/, 'Сервер не подтверждает, что визит действительно завершился');
 assert.match(migration, /message='slot_unavailable'/, 'Сервер не защищает прошедшие записи от пересечений');
 
-console.log('Historical booking v338 checks passed.');
+console.log('Historical booking v339 checks passed.');

@@ -6411,10 +6411,41 @@ html.provider-booting .provider-main {
 .report-visual-grid { grid-template-columns:minmax(280px,.82fr) minmax(420px,1.18fr); gap:12px; }
 .report-visual-grid>.panel,#analyticsView .panel { background-image:none; }
 .report-funnel strong { font-size:11px; }.report-funnel b { font-size:16px; }.report-funnel small { font-size:10px; }
-.report-heatmap { grid-template-columns:72px repeat(7,minmax(38px,1fr)); gap:5px; }
-.report-heatmap>b,.report-heatmap>strong { font-size:10px; }
-.report-heatmap-cell { appearance:none; min-height:42px; padding:0; cursor:pointer; font:inherit; }
-.report-heatmap-cell i { font-size:10px; }
+.report-heatmap { grid-template-columns:minmax(92px,.65fr) repeat(7,minmax(82px,1fr)); gap:8px; }
+.report-heatmap>b,.report-heatmap>strong {
+  min-height:34px;
+  color:color-mix(in srgb,var(--theme-ink) 84%,var(--theme-muted));
+  font-size:clamp(12px,.92vw,15px);
+  font-weight:850;
+  line-height:1.25;
+}
+.report-heatmap-cell {
+  appearance:none;
+  min-height:66px;
+  gap:6px;
+  padding:9px 6px;
+  cursor:pointer;
+  font:inherit;
+}
+.report-heatmap-cell i {
+  font-size:clamp(17px,1.25vw,21px);
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+.report-heatmap-popular-time {
+  color:color-mix(in srgb,var(--theme-ink) 72%,var(--theme-muted));
+  font-size:clamp(11px,.78vw,13px);
+  line-height:1.2;
+  font-variant-numeric:tabular-nums;
+}
+.report-heatmap-card .report-section-heading small { font-size:11px; }
+.report-heatmap-card .report-section-heading h3 { font-size:clamp(22px,2vw,28px); line-height:1.12; }
+.report-heatmap-card .report-section-heading>span {
+  max-width:48%;
+  color:color-mix(in srgb,var(--theme-ink) 76%,var(--theme-muted));
+  font-size:12px;
+  line-height:1.35;
+}
 .report-methodology { margin-top:12px; border:1px solid var(--theme-line); border-radius:var(--report-radius); background:var(--theme-surface); }
 .report-methodology.has-warning { border-color:color-mix(in srgb,#d69b37 40%,var(--theme-line)); }
 .report-methodology>summary { min-height:48px; display:flex; align-items:center; padding:0 15px; color:var(--theme-muted); cursor:pointer; font-size:11px; font-weight:850; }
@@ -6483,7 +6514,24 @@ html.provider-booting .provider-main {
   .report-insight { display:none!important; }
   .report-health-factors,.report-methodology-grid,.report-goals-grid { grid-template-columns:1fr; }
   .report-heatmap-card { overflow:hidden; }
-  .report-heatmap-card .report-heatmap { grid-template-columns:64px repeat(7,40px); width:100%; min-width:0; max-width:100%; overflow-x:auto; }
+  .report-heatmap-card .report-heatmap {
+    grid-template-columns:76px repeat(7,72px);
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    padding-bottom:8px;
+    overflow-x:auto;
+    overscroll-behavior-inline:contain;
+    scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch;
+  }
+  .report-heatmap-card .report-heatmap>b,
+  .report-heatmap-card .report-heatmap>strong { font-size:12px; }
+  .report-heatmap-card .report-heatmap-cell { min-height:60px; padding:8px 5px; }
+  .report-heatmap-card .report-heatmap-cell i { font-size:17px; }
+  .report-heatmap-card .report-heatmap-popular-time { font-size:10px; }
+  .report-heatmap-card .report-section-heading { align-items:flex-start; flex-direction:column; }
+  .report-heatmap-card .report-section-heading>span { max-width:none; font-size:11px; text-align:left; }
   .report-goal-settings-link>div { align-items:stretch; flex-direction:column; }
   .schedule-settings-layout,.schedule-settings-layout>.panel,.weekly-schedule,.monthly-schedule-panel,.days-off-panel { width:100%; min-width:0; max-width:100%; box-sizing:border-box; }
   .schedule-settings-layout :is(input,select,textarea,.field-with-unit) { min-width:0; max-width:100%; box-sizing:border-box; }
