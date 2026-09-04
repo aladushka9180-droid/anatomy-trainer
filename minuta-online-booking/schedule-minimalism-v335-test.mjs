@@ -29,4 +29,4 @@ assert.match(styles, /\.days-off-empty \{[^}]*padding:11px 2px 0/, 'Пустое
 assert.match(styles, /@media \(max-width:440px\)[\s\S]*\.monthly-schedule-day \{ min-height:42px/, 'Месячный график не уплотнён на телефоне');
 assert.match(styles, /var\(--theme-(?:line|surface|accent|muted|ink)/, 'Новые элементы не наследуют выбранную тему');
 
-console.log('Schedule minimalism v334 checks passed.');
+console.log('Schedule minimalism v335 checks passed.');
