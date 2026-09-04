@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
       - name: Установить клиент PostgreSQL
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Освободить просроченные неоплаченные окна
+      - name: Обслужить просроченные записи и результаты визитов
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         shell: bash
@@ -50,6 +50,18 @@ jobs:
           remaining="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc "select count(*) from public.bookings booking where booking.status<>'cancelled' and booking.payment_status='pending' and booking.payment_due_at<=now() and booking.expired_unpaid_at is null and not exists(select 1 from public.benefit_redemptions redemption where redemption.booking_id=booking.id and redemption.status='redeemed');")"
           test "$remaining" -eq 0
           echo "Освобождено неоплаченных окон: $total"
+          if test "$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.process_minuta_auto_completed_visits_v106(integer)') is not null;")" = "t"; then
+            completed_total=0
+            for attempt in {1..10}; do
+              completed="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc "select public.process_minuta_auto_completed_visits_v106(500);")"
+              test "$completed" -ge 0
+              completed_total="$((completed_total+completed))"
+              test "$completed" -eq 500 || break
+            done
+            echo "Автоматически завершено визитов: $completed_total"
+          else
+            echo "v106 ещё не установлена; автоматическое завершение пропущено"
+          fi
       - name: Сообщить об ошибке в Telegram
         if: failure()
         env:

@@ -1719,6 +1719,19 @@ function writeLocalOutcomes() {
   try { localStorage.setItem(outcomeStorageKey(), JSON.stringify(Object.fromEntries(bookingOutcomes))); }
   catch { notify('Не удалось сохранить результат визита'); }
 }
+function cleanOutcomeRecord(record) {
+  const clean = { ...record };
+  delete clean._sync_pending;
+  delete clean._sync_error;
+  delete clean._sync_updated_at;
+  return clean;
+}
+function pendingOutcomeRecord(record, error) {
+  return { ...cleanOutcomeRecord(record), _sync_pending:true, _sync_error:String(error?.message || error || ''), _sync_updated_at:new Date().toISOString() };
+}
+function outcomeRpcMissing(error) {
+  return error?.code === 'PGRST202' || /save_minuta_booking_outcome_v106|schema cache|could not find the function/i.test(`${error?.message || ''} ${error?.details || ''}`);
+}
 function bookingOutcome(item) {
   const embedded = item?.booking_outcomes;
   return bookingOutcomes.get(item.id) || (embedded?.visit_status ? embedded : null) || { visit_status: 'scheduled', payment_method: 'unpaid', amount_rub: 0, actual_duration_minutes: 0, calculated_amount_rub: 0, completion_source: 'manual' };
@@ -1742,6 +1755,7 @@ function bookingWillCompleteAutomatically(item) {
     && bookingOutcome(item).visit_status === 'scheduled';
 }
 function automaticOutcomeHint(item) {
+  if (bookingOutcome(item)._sync_pending) return 'Ожидает синхронизации';
   if (!bookingWillCompleteAutomatically(item)) return '';
   return bookingSessionEnd(item) <= new Date() ? 'Учитывается автоматически' : 'Будет учтён автоматически';
 }
@@ -7187,30 +7201,63 @@ async function loadBookingOutcomes() {
   if (error) bookingOutcomes = new Map(Object.entries(local));
   else {
     bookingOutcomes = new Map((data || []).map(item => [item.booking_id, { ...item, completion_source:item.completion_source || local[item.booking_id]?.completion_source || 'manual' }]));
-    Object.entries(local).forEach(([id, value]) => { if (!bookingOutcomes.has(id)) bookingOutcomes.set(id, value); });
+    Object.entries(local).forEach(([id, value]) => { if (value?._sync_pending || !bookingOutcomes.has(id)) bookingOutcomes.set(id, value); });
+    await syncPendingBookingOutcomes(userId, generation);
   }
+  writeLocalOutcomes();
   renderBookingData();
   return { ok: !error, optional: true };
 }
 
 async function persistBookingOutcome(record) {
-  if (!outcomesRemoteAvailable) return false;
-  let { error } = await db.from('booking_outcomes').upsert(record, { onConflict:'booking_id' });
+  const clean = cleanOutcomeRecord(record);
+  let { data, error } = await db.rpc('save_minuta_booking_outcome_v106', {
+    p_booking:clean.booking_id,
+    p_visit_status:clean.visit_status,
+    p_payment_method:clean.payment_method,
+    p_amount_rub:clean.amount_rub,
+    p_actual_duration_minutes:clean.actual_duration_minutes ?? null,
+    p_completion_source:clean.completion_source || 'manual'
+  });
+  if (!error) {
+    outcomesRemoteAvailable = true;
+    return { ok:true, outcome:data && typeof data === 'object' ? data : clean };
+  }
+  if (!outcomeRpcMissing(error)) {
+    outcomesRemoteAvailable = false;
+    return { ok:false, error };
+  }
+  ({ error } = await db.from('booking_outcomes').upsert(clean, { onConflict:'booking_id' }));
   if (error && (Object.hasOwn(record, 'actual_duration_minutes') || Object.hasOwn(record, 'calculated_amount_rub'))) {
-    const compatibleRecord = { ...record };
+    const compatibleRecord = { ...clean };
     delete compatibleRecord.actual_duration_minutes;
     delete compatibleRecord.calculated_amount_rub;
     ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
   }
   if (error && Object.hasOwn(record, 'completion_source')) {
-    const compatibleRecord = { ...record };
+    const compatibleRecord = { ...clean };
     delete compatibleRecord.actual_duration_minutes;
     delete compatibleRecord.calculated_amount_rub;
     delete compatibleRecord.completion_source;
     ({ error } = await db.from('booking_outcomes').upsert(compatibleRecord, { onConflict:'booking_id' }));
   }
-  if (error) outcomesRemoteAvailable = false;
-  return !error;
+  outcomesRemoteAvailable = !error;
+  return error ? { ok:false, error } : { ok:true, outcome:clean };
+}
+
+async function syncPendingBookingOutcomes(userId = currentUser?.id, generation = sessionGeneration) {
+  if (!userId || !writesAllowed) return 0;
+  let synced = 0;
+  for (const [bookingId, record] of bookingOutcomes) {
+    if (!record?._sync_pending) continue;
+    const result = await persistBookingOutcome(record);
+    if (!sessionIsCurrent(userId, generation)) return synced;
+    if (!result.ok) continue;
+    bookingOutcomes.set(bookingId, cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }));
+    synced += 1;
+  }
+  if (synced) writeLocalOutcomes();
+  return synced;
 }
 
 async function applyAutomaticVisitOutcomes() {
@@ -7227,13 +7274,15 @@ async function applyAutomaticVisitOutcomes() {
   const updatedAt = now.toISOString();
   for (const item of items) {
     const outcome = bookingOutcome(item);
-    const record = { booking_id:item.id, performer_id:currentUser.id, visit_status:'completed', payment_method:outcome.payment_method === 'unpaid' ? 'cash' : outcome.payment_method, amount_rub:bookingCalculatedValue(item), completion_source:'auto', updated_at:updatedAt };
+    const bookedMinutes = Math.max(1, Math.min(1440, Math.round(Number(item.duration_minutes || item.services?.duration_minutes || 60))));
+    const calculatedAmount = isPerMinuteBooking(item) ? bookedMinutes * bookingMinuteRate(item) : bookingCalculatedValue(item);
+    const record = { booking_id:item.id, performer_id:item.performer_id || currentUser.id, visit_status:'completed', payment_method:outcome.payment_method === 'unpaid' ? 'cash' : outcome.payment_method, amount_rub:calculatedAmount, completion_source:'auto', updated_at:updatedAt };
     if (isPerMinuteBooking(item)) {
-      record.actual_duration_minutes = Number(outcome.actual_duration_minutes || 0);
-      record.calculated_amount_rub = Number(outcome.calculated_amount_rub || 0);
+      record.actual_duration_minutes = bookedMinutes;
+      record.calculated_amount_rub = calculatedAmount;
     }
-    await persistBookingOutcome(record);
-    bookingOutcomes.set(item.id, record);
+    const result = await persistBookingOutcome(record);
+    bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
   }
   writeLocalOutcomes();
   renderBookings();
@@ -7286,7 +7335,16 @@ async function loadBookingSettings() {
     })()
   ]);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
-  if (!policyResult.error && policyResult.data) bookingPolicy = { ...bookingPolicy, ...policyResult.data, auto_complete_visits:policyResult.data.auto_complete_visits ?? localStorage.getItem(autoCompleteStorageKey(userId)) === 'true' };
+  if (!policyResult.error && policyResult.data) bookingPolicy = { ...bookingPolicy, ...policyResult.data };
+  const localAutoCompleteEnabled = localStorage.getItem(autoCompleteStorageKey(userId)) === 'true';
+  const promotionKey = `massage-auto-complete-promoted-v106-${userId}`;
+  if (!policyResult.error && localAutoCompleteEnabled && !bookingPolicy.auto_complete_visits && localStorage.getItem(promotionKey) !== 'true') {
+    const promotion = await db.from('booking_policies').upsert({ performer_id:userId, auto_complete_visits:true }, { onConflict:'performer_id' });
+    if (!promotion.error && sessionIsCurrent(userId, generation)) {
+      bookingPolicy.auto_complete_visits = true;
+      localStorage.setItem(promotionKey, 'true');
+    }
+  }
   if (!templatesResult.error && templatesResult.data) serverNotificationTemplates = templatesResult.data;
   if (!marksResult.error) serverNotificationMarks = Object.fromEntries((marksResult.data || []).map(item => [item.task_key, item.status]));
   notificationOutboxRemoteAvailable = !outboxResult.error;
@@ -7348,15 +7406,10 @@ async function saveBookingPolicy(event) {
   const buttonLabel = button.textContent;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  let { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
-  if (error && !/booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`)) {
-    const compatibleRecord = { ...record };
-    delete compatibleRecord.auto_complete_visits;
-    ({ error } = await db.from('booking_policies').upsert(compatibleRecord, { onConflict:'performer_id' }));
-  }
+  const { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
   button.disabled = false;
   button.textContent = buttonLabel;
-  if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : 'Не удалось сохранить правила.'); return; }
+  if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : /auto_complete_visits/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматическое завершение ещё не установлено на сервере.' : 'Не удалось сохранить правила.'); return; }
   bookingPolicy = record;
   localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
   renderBookingPolicyForm();
@@ -7429,16 +7482,13 @@ async function saveBookingOutcome(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  let remoteSaved = false;
-  if (outcomesRemoteAvailable) {
-    remoteSaved = await persistBookingOutcome(record);
-    if (!sessionIsCurrent(userId, generation)) return;
-  }
-  bookingOutcomes.set(item.id, record);
+  const result = await persistBookingOutcome(record);
+  if (!sessionIsCurrent(userId, generation)) return;
+  bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
   writeLocalOutcomes();
   button.disabled = false;
   button.textContent = 'Сохранить результат';
-  notify(remoteSaved ? 'Результат визита сохранён' : 'Результат сохранён на этом устройстве');
+  notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
   renderAnalytics();
