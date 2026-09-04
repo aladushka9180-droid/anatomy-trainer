@@ -1671,7 +1671,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=326#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=328#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2292,12 +2292,8 @@ async function loadReportScopedBookings(range, performerId) {
   document.body.classList.remove('report-scope-loading');
   if (select) select.disabled = false;
   if (exportButton) exportButton.disabled = false;
-  if (error) {
-    renderAnalytics();
-    if (bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') renderBookings();
-    notify('Не удалось загрузить статистику сотрудника');
-    return;
-  }
+  if (error && bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') renderBookings();
+  if (error) { renderAnalytics(); notify('Не удалось загрузить статистику сотрудника'); return; }
   renderAnalytics();
   if (bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') {
     prepareDemoBookingContext();
@@ -3331,7 +3327,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=326');
+    worker = new Worker('./report-worker.js?v=328');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5966,6 +5962,7 @@ function setNewBookingMode(mode) {
 }
 
 function openNewBookingSheet(preferredTime = '', preset = {}) {
+  if (bookingUsesDemoData()) { notify('Демо-записи доступны только для просмотра'); return; }
   const services = ownServices.filter(item => item.active);
   const draft = preset.clientName ? null : readNewBookingDraft();
   const selectedService = services.find(item => item.id === (preset.serviceId || draft?.serviceId)) || services[0];
@@ -10033,8 +10030,8 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   setReportFiltersExpanded(false);
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
-$('#newBookingButton').addEventListener('click', () => { if (requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }); });
-$('#mobileNewBookingButton').addEventListener('click', () => { if (requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }); });
+$('#newBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
+$('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#monthlyScheduleMonth').min = businessTodayIso().slice(0, 7);
