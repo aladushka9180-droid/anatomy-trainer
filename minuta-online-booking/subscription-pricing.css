@@ -511,3 +511,79 @@
     width: 100% !important;
   }
 }
+
+/* Balanced billing switch with discount v386 */
+.subscription-cycle-switch {
+  box-sizing: border-box !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  width: min(100%, 440px) !important;
+  height: 58px !important;
+  min-height: 58px !important;
+  padding: 4px !important;
+  overflow: hidden !important;
+  border: 1px solid var(--theme-line, var(--line)) !important;
+  border-radius: 14px !important;
+  background: var(--theme-surface-alt, var(--soft)) !important;
+}
+
+.subscription-cycle-switch label {
+  box-sizing: border-box !important;
+  position: static !important;
+  inset: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-self: stretch !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  width: 100% !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  overflow: hidden !important;
+  border: 1px solid transparent !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  line-height: 1.05 !important;
+}
+
+.subscription-cycle-switch label span {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--theme-muted, var(--muted)) !important;
+  font-size: 8px !important;
+  font-weight: 750 !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+}
+
+.subscription-cycle-switch label[for=subscriptionAnnual] span {
+  color: var(--theme-accent, #a75f43) !important;
+}
+
+#subscriptionMonthly:checked ~ .subscription-cycle-switch label[for=subscriptionMonthly],
+#subscriptionAnnual:checked ~ .subscription-cycle-switch label[for=subscriptionAnnual] {
+  border-color: var(--theme-line, var(--line)) !important;
+  background: var(--theme-surface, #fff) !important;
+}
+
+@media (max-width: 760px) {
+  .subscription-cycle-switch {
+    width: 100% !important;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+
+  .subscription-cycle-switch label {
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 6px !important;
+  }
+}
