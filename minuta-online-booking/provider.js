@@ -8333,8 +8333,10 @@ function updateScheduleSaveState() {
   if (!button || !status) return;
   const busy = button.dataset.operationDisabled === 'true';
   button.disabled = busy || !writesAllowed || !scheduleDirty;
-  status.textContent = busy ? 'Сохраняем…' : !writesAllowed ? 'Только просмотр' : scheduleDirty ? 'Есть несохранённые изменения' : 'Сохранено';
-  status.dataset.state = scheduleDirty ? 'dirty' : 'saved';
+  const nextText = busy ? 'Сохраняем…' : !writesAllowed ? 'Только просмотр' : scheduleDirty ? 'Есть несохранённые изменения' : 'Сохранено';
+  const nextState = scheduleDirty ? 'dirty' : 'saved';
+  if (status.textContent !== nextText) status.textContent = nextText;
+  if (status.dataset.state !== nextState) status.dataset.state = nextState;
 }
 function setScheduleDirty(value = true) {
   scheduleDirty = Boolean(value);

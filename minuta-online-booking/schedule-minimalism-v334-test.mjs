@@ -14,6 +14,7 @@ assert.match(html, /<details class="day-off-editor" id="dayOffEditor">/, 'Фор
 assert.match(provider, /function updateWeeklyScheduleSummary\(/, 'Краткая сводка графика не обновляется');
 assert.match(provider, /function setScheduleDirty\(value = true\)/, 'Нет единого состояния несохранённых изменений');
 assert.match(provider, /button\.disabled = busy \|\| !writesAllowed \|\| !scheduleDirty/, 'Кнопка сохранения не учитывает доступ и изменения');
+assert.match(provider, /if \(status\.textContent !== nextText\) status\.textContent = nextText/, 'Статус сохранения повторно изменяет DOM и может зациклить MutationObserver');
 assert.match(provider, /<strong>\$\{day\}<\/strong><i aria-hidden="true"><\/i><span class="sr-only">\$\{status\}<\/span>/, 'Ячейки месяца должны показывать статус точкой, сохраняя доступность для скринридера');
 assert.doesNotMatch(provider, /<strong>\$\{day\}<\/strong><small>\$\{status\}<\/small>/, 'В каждой дате повторяется лишняя подпись статуса');
 assert.match(provider, /\$\('#dayOffEditor'\)\.open = true/, 'Переход к частичному закрытию не раскрывает форму');
