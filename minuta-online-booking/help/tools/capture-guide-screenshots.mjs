@@ -9,13 +9,14 @@ const sharp = require('sharp');
 
 const outputDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', 'images');
 const baseUrl = process.env.MINUTA_SCREENSHOT_BASE_URL || 'http://127.0.0.1:4174/minuta-online-booking';
-const edgePath = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
+const edgePath = process.env.MINUTA_EDGE_PATH || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 mkdirSync(outputDirectory, { recursive: true });
 
 const browser = await chromium.launch({ executablePath: edgePath, headless: true });
 const page = await browser.newPage({ viewport: { width: 1365, height: 768 }, deviceScaleFactor: 1 });
 await page.route(/\.js(?:\?|$)/, route => route.abort());
 
+try {
 const screenshotCss = `
   *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }
   html { scroll-behavior: auto !important; }
@@ -32,7 +33,7 @@ async function load(relativePath) {
   await page.evaluate(() => {
     const ribbon = document.createElement('div');
     ribbon.className = 'kb-shot-ribbon';
-    ribbon.textContent = 'Реальный интерфейс Minuta · учебный пример';
+    ribbon.textContent = 'Интерфейс Minuta · учебные данные';
     document.body.append(ribbon);
   });
 }
@@ -43,11 +44,14 @@ async function addHighlights(selectors) {
       const element = document.querySelector(selector);
       if (!element) throw new Error(`Не найден элемент для подсветки: ${selector}`);
       element.classList.add('kb-focus');
+      const host = element.matches('input, select, textarea') ? (element.closest('label') || element.parentElement) : element;
+      if (!host) throw new Error(`Не найден контейнер для подсветки: ${selector}`);
+      host.style.position = 'relative';
       const badge = document.createElement('span');
       badge.className = 'kb-step';
       badge.textContent = String(index + 1);
       badge.setAttribute('aria-hidden', 'true');
-      element.append(badge);
+      host.append(badge);
     });
   }, selectors);
 }
@@ -78,8 +82,8 @@ async function prepareProvider(view, targetSelector = '') {
     document.querySelectorAll('[data-provider-view]').forEach(button => button.classList.toggle('active', button.dataset.providerView === view));
     const sync = document.querySelector('#syncState');
     if (sync) { sync.className = 'sync-state is-online'; sync.innerHTML = '<i></i><span>Сохранено</span>'; }
-    const clock = document.querySelector('.provider-topbar-clock');
-    if (clock) clock.textContent = '10:24';
+    const clock = document.querySelector('#currentTimeLabel');
+    if (clock) { clock.textContent = '10:24'; clock.setAttribute('datetime', '10:24'); }
     document.querySelectorAll('select').forEach(select => {
       if (!select.options.length) select.add(new Option('Учебный вариант', 'demo'));
     });
@@ -90,10 +94,16 @@ async function prepareProvider(view, targetSelector = '') {
     if (view === 'organization') {
       const roleBadge = document.querySelector('#organizationRoleBadge');
       if (roleBadge) roleBadge.textContent = 'Владелец';
-      document.querySelectorAll('[data-section-target]').forEach(button => {
-        button.classList.toggle('active', button.dataset.sectionTarget === target.id);
-      });
     }
+    const targetIds = new Set();
+    let targetAncestor = target;
+    while (targetAncestor && targetAncestor !== panel) {
+      if (targetAncestor.id) targetIds.add(targetAncestor.id);
+      targetAncestor = targetAncestor.parentElement;
+    }
+    document.querySelectorAll('[data-section-target]').forEach(button => {
+      button.classList.toggle('active', targetIds.has(button.dataset.sectionTarget));
+    });
     target.hidden = false;
     let node = target;
     while (node && node !== panel) {
@@ -129,7 +139,15 @@ async function injectBookingEditor(kind) {
     const times = '<div class="booking-time-hours"><button type="button" class="active">10:00</button><button type="button">11:00</button><button type="button">14:00</button></div><div class="booking-time-slots"><button type="button" class="active">10:30</button><button type="button">10:45</button><button type="button">11:15</button></div>';
     if (kind === 'reschedule') {
       sheet.classList.remove('booking-sheet-wide', 'new-booking-sheet');
-      content.innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button"><span>← К записи</span></button><small class="booking-sheet-kicker">Изменение записи</small></div><h2 id="bookingSheetTitle">Перенести или изменить</h2><form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm"><label>Основная услуга<select disabled><option>Классический массаж · 60 мин</option></select><small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small></label><label>Заметка о клиенте<textarea rows="2" placeholder="Пожелания, особенности или важная информация"></textarea></label><label>Новая дата<input type="date" value="2026-09-12"></label><label>Свободное время<div class="repeat-times booking-editor-times">${times}</div></label><fieldset><legend>Какие записи перенести</legend><label><input type="radio" checked> Только эту запись</label><label><input type="radio"> Эту и последующие</label></fieldset><button class="primary" type="button">Сохранить изменения</button></form>`;
+      const editTimes = '<button type="button" class="active" data-edit-booking-time="10:30">10:30</button><button type="button" data-edit-booking-time="10:45">10:45</button><button type="button" data-edit-booking-time="11:15">11:15</button><button type="button" data-edit-booking-time="14:00">14:00</button>';
+      const colors = [['auto', 'Авто'], ['mint', 'Мята'], ['sky', 'Небо'], ['lavender', 'Лаванда'], ['peach', 'Персик'], ['rose', 'Роза'], ['vanilla', 'Ваниль'], ['sage', 'Шалфей'], ['teal', 'Бирюза'], ['amber', 'Янтарь'], ['cocoa', 'Какао'], ['graphite', 'Графит']];
+      const colorPicker = `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${colors.map(([color, label], index) => `<label class="booking-color-option color-${color}" title="${label}"><input type="radio" name="editBookingColor" value="${color}" aria-label="${label}" ${index === 0 ? 'checked' : ''}><span aria-hidden="true"></span><small>${label}</small></label>`).join('')}</div></fieldset>`;
+      const seriesScope = `<fieldset class="booking-series-scope"><legend>Какие записи перенести</legend><label><input type="radio" name="editBookingSeriesScope" value="one" checked><span><strong>Только эту запись</strong><small>Остальные визиты не изменятся</small></span></label><label><input type="radio" name="editBookingSeriesScope" value="following"><span><strong>Эту и последующие</strong><small>4 записи</small></span></label><label><input type="radio" name="editBookingSeriesScope" value="all"><span><strong>Все будущие записи</strong><small>6 записей; прошедшие визиты сохранятся</small></span></label></fieldset>`;
+      content.innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=371#icon-arrow-left"></use></svg><span>К записи</span></button><small class="booking-sheet-kicker">Изменение записи</small></div><h2 id="bookingSheetTitle">Перенести или изменить</h2><form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="demo"><label>Основная услуга<select id="editBookingService" required disabled><option>Классический массаж · 60 мин</option></select><small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small></label><label>Заметка о клиенте<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="Пожелания, особенности или важная информация"></textarea></label>${colorPicker}<label>Новая дата<input id="editBookingDate" type="date" min="2026-09-05" value="2026-09-12" required></label><label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes">${editTimes}</div></label>${seriesScope}<p class="form-error" id="bookingEditError" hidden></p><button class="primary" type="button">Сохранить изменения</button></form>`;
+      document.querySelector('#editBookingNote').closest('label').hidden = true;
+      document.querySelector('#editBookingService').closest('label').hidden = true;
+      document.querySelector('.booking-color-picker').hidden = true;
+      document.querySelector('.booking-sheet-panel').style.zoom = '.82';
       return;
     }
     const advancedOpen = kind === 'recurring' ? ' open' : '';
@@ -144,12 +162,18 @@ await save('manual-booking');
 
 await prepareProvider('bookings');
 await injectBookingEditor('recurring');
+await page.evaluate(() => {
+  document.querySelector('.new-booking-mode-toggle').hidden = true;
+  document.querySelector('.booking-client-fields').hidden = true;
+  document.querySelector('.new-booking-section > label').hidden = true;
+  document.querySelector('.new-booking-draft-status').hidden = true;
+});
 await addHighlights(['#newBookingForm .new-booking-advanced', '#newBookingForm .new-booking-recurrence', '#newBookingForm .new-booking-submit']);
 await save('recurring-series');
 
 await prepareProvider('bookings');
 await injectBookingEditor('reschedule');
-await addHighlights(['#bookingEditForm input[type="date"]', '#bookingEditForm .booking-editor-times', '#bookingEditForm fieldset', '#bookingEditForm .primary']);
+await addHighlights(['#editBookingDate', '#editBookingTimes', '.booking-series-scope', '#bookingEditForm .primary']);
 await save('reschedule-booking');
 
 await providerShot('team-calendar', 'bookings', '.schedule-card', () => {
@@ -161,11 +185,24 @@ await providerShot('team-calendar', 'bookings', '.schedule-card', () => {
 }, ['#teamCalendarToolbar .team-calendar-mode', '#teamCalendarFilters', '#teamCalendarDensity']);
 
 await providerShot('date-exceptions', 'schedule', '#monthlyScheduleEditor', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="schedule"] > .view-title').hidden = true;
   document.querySelector('#monthlyScheduleEditor').open = true;
   document.querySelector('#monthlyScheduleMonth').value = '2026-09';
-  document.querySelector('#monthlyScheduleGrid').innerHTML = '<button class="monthly-schedule-day"><strong>12</strong><span>Рабочий день</span></button><button class="monthly-schedule-day"><strong>13</strong><span>По графику</span></button><button class="monthly-schedule-day"><strong>14</strong><span>По графику</span></button>';
+  const grid = document.querySelector('#monthlyScheduleGrid');
+  const leading = '<span class="monthly-schedule-blank" aria-hidden="true"></span>';
+  grid.innerHTML = leading + Array.from({ length: 30 }, (_, index) => {
+    const day = index + 1;
+    const weekday = new Date(2026, 8, day, 12).getDay();
+    const weeklyClosed = weekday === 0 || weekday === 6;
+    const selected = day === 15;
+    const className = weeklyClosed ? 'is-weekly-closed' : 'is-working';
+    const status = weeklyClosed ? 'По неделе' : selected ? 'Частично' : 'Рабочий';
+    const iso = `2026-09-${String(day).padStart(2, '0')}`;
+    return `<button class="monthly-schedule-day ${className}${selected ? ' is-selected' : ''}" type="button" data-monthly-schedule-date="${iso}" aria-label="${day} сентября. ${status}" aria-pressed="${selected}"><strong>${day}</strong><i aria-hidden="true"></i><span class="sr-only">${status}</span></button>`;
+  }).join('');
   document.querySelector('#monthlyScheduleDetails').hidden = false;
-  document.querySelector('#monthlyScheduleDetails').innerHTML = '<div class="monthly-schedule-detail-head"><div><small>12 сентября</small><strong>Изменить доступность</strong></div></div><div class="monthly-schedule-actions"><button class="primary">Сделать выходным</button><button class="secondary-button">Закрыть часть дня</button><button class="secondary-button">Открыть по обычному графику</button></div>';
+  document.querySelector('#monthlyScheduleDetails').innerHTML = '<div class="monthly-schedule-details-head"><div><small>Выбранная дата</small><strong>вторник, 15 сентября</strong></div><span>Рабочий с закрытым временем</span></div><dl><div><dt>По неделе</dt><dd>10:00–20:00</dd></div><div><dt>Закрыто частично</dt><dd>14:00–15:00</dd></div><div><dt>Записей</dt><dd>2</dd></div></dl><p>Записи сохранятся. Изменится только доступность для новых клиентов.</p><div class="monthly-schedule-details-actions"><button class="secondary-button" type="button">Сделать выходным</button><button type="button">Закрыть часть дня</button><button type="button">Вернуть обычный график</button></div>';
 }, ['#monthlyScheduleMonth', '#monthlyScheduleGrid', '#monthlyScheduleDetails']);
 
 await prepareProvider('bookings');
@@ -176,6 +213,9 @@ await page.evaluate(() => {
   document.querySelector('#freeSlotsFrom').value = '2026-09-12';
   document.querySelector('#freeSlotsText').value = 'Свободное время на 12 сентября: 10:30, 12:00, 16:15';
   document.querySelector('#freeSlotsBookingLink').textContent = 'minuta.online/book/demo';
+  document.querySelector('.free-slots-help').hidden = true;
+  document.querySelector('.free-slots-text-label').hidden = true;
+  document.querySelector('.free-slots-preview').hidden = true;
 });
 await addHighlights(['.free-slots-mode', '.free-slots-dates', '.free-slots-source', '.free-slots-actions']);
 await save('share-free-slots');
@@ -191,13 +231,18 @@ await providerShot('client-card', 'clients', '.clients-layout', () => {
 }, ['#clientSearch', '#clientProfileContent .client-profile-head', '.client-labels-panel', '.client-note-label']);
 
 await providerShot('batch-bookings', 'clients', '#batchBookingComposer', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="clients"] > .view-title').hidden = true;
   const composer = document.querySelector('#batchBookingComposer');
   composer.hidden = false;
   composer.open = true;
   document.querySelector('#batchBookingClientName').textContent = 'Учебный клиент';
   document.querySelector('#batchBookingLocation').innerHTML = '<option>Филиал — Центр</option>';
   document.querySelector('#batchBookingService').innerHTML = '<option>Классический массаж · 60 мин</option>';
-  document.querySelector('#batchBookingRows').innerHTML = '<div class="batch-booking-row"><label>Дата<input type="date" value="2026-09-12"></label><label>Время<input type="time" value="10:30"></label></div><div class="batch-booking-row"><label>Дата<input type="date" value="2026-09-19"></label><label>Время<input type="time" value="10:30"></label></div>';
+  document.querySelector('#batchBookingForm > p').hidden = true;
+  document.querySelector('#batchBookingComment').closest('label').hidden = true;
+  document.querySelector('#batchBookingCount').textContent = '2 из 12';
+  document.querySelector('#batchBookingRows').innerHTML = '<div class="batch-booking-row" data-batch-row data-request-id="demo-1"><span class="batch-booking-number" aria-hidden="true">1</span><label>Дата<input type="date" data-batch-date min="2026-09-05" value="2026-09-12" required></label><label>Время<input type="time" data-batch-time value="10:30" required></label><label class="batch-booking-comment">Комментарий к визиту<input type="text" data-batch-comment maxlength="500" value="Первый визит" placeholder="Необязательно"></label><button type="button" class="batch-booking-remove" data-remove-batch-row aria-label="Удалить дату">×</button></div><div class="batch-booking-row" data-batch-row data-request-id="demo-2"><span class="batch-booking-number" aria-hidden="true">2</span><label>Дата<input type="date" data-batch-date min="2026-09-05" value="2026-09-19" required></label><label>Время<input type="time" data-batch-time value="10:30" required></label><label class="batch-booking-comment">Комментарий к визиту<input type="text" data-batch-comment maxlength="500" value="" placeholder="Необязательно"></label><button type="button" class="batch-booking-remove" data-remove-batch-row aria-label="Удалить дату">×</button></div>';
 }, ['#batchBookingService', '#batchBookingRows', '#addBatchBookingRow', '#createBatchBookings']);
 
 await providerShot('client-import', 'clients', '#clientImportPanel', () => {
@@ -214,28 +259,51 @@ await providerShot('employee-access', 'organization', '#organizationPeopleSectio
 }, ['#memberCreator summary', '#memberRole', '#memberBookable', '#memberInviteForm .primary']);
 
 await providerShot('service-resources', 'organization', '#resourcesPanel', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
+  document.querySelector('#resourcesPanel > .panel-head').hidden = true;
+  document.querySelector('#resourcesPanel > .organization-invite-help').hidden = true;
   document.querySelector('#resourceWorkspace').hidden = false;
-  document.querySelector('#resourceGroupCreator').open = true;
-  document.querySelector('#resourceCreator').open = true;
   document.querySelector('#resourceRequirementService').innerHTML = '<option>Классический массаж</option>';
   document.querySelector('#resourceRequirementsList').innerHTML = '<label>Кабинет массажа<input type="number" value="1" min="0"></label>';
-}, ['#resourceGroupCreator', '#resourceCreator', '#resourceRequirementsPanel']);
+  document.querySelector('#resourcesPanel').style.zoom = '.84';
+}, ['#resourceGroupCreator summary', '#resourceCreator summary', '#resourceRequirementsPanel']);
 
-await providerShot('staff-absence', 'organization', '#shiftsPanel', () => {
+await providerShot('staff-absence', 'organization', '#absenceCreator', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
   document.querySelector('#shiftWorkspace').hidden = false;
   document.querySelector('#absenceCreator').open = true;
   document.querySelector('#absencePerformer').innerHTML = '<option>Специалист</option>';
   document.querySelector('#absenceStart').value = '2026-09-12';
   document.querySelector('#absenceEnd').value = '2026-09-18';
+  document.querySelector('#absenceNote').closest('label').hidden = true;
+  document.querySelector('#absenceCreator').style.zoom = '.88';
+}, ['#absencePerformer', '#absenceStart', '#absenceKind', '#absenceForm .primary']);
+
+await providerShot('staff-substitution', 'organization', '#shiftSubstitutionPanel', () => {
+  document.querySelector('#shiftWorkspace').hidden = false;
   document.querySelector('#substitutionBooking').innerHTML = '<option>12 сентября · 10:30 · Учебный клиент</option>';
   document.querySelector('#substitutionService').innerHTML = '<option>Другой специалист · Классический массаж</option>';
-}, ['#shiftSubstitutionPanel', '#absenceCreator', '#absenceKind']);
+}, ['#substitutionBooking', '#substitutionService', '#substitutionForm .secondary-button']);
 
-await providerShot('payroll', 'organization', '#payrollPanel', () => {
+await providerShot('payroll', 'organization', '#payrollWorkspace', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
   document.querySelector('#payrollWorkspace').hidden = false;
   document.querySelector('#payrollStartDate').value = '2026-09-01';
   document.querySelector('#payrollEndDate').value = '2026-09-30';
-}, ['#payrollStartDate', '#payrollEndDate', '#payrollPanel .payroll-toolbar', '#payrollPanel .primary']);
+  document.querySelector('.payroll-management-grid > section:first-child').hidden = true;
+  document.querySelector('#payrollPeriodCreator').open = true;
+  document.querySelector('#payrollPeriodName').value = 'Сентябрь 2026';
+  document.querySelector('#payrollPeriodLocation').innerHTML = '<option>Все филиалы</option>';
+  document.querySelector('#payrollEnabledField').hidden = true;
+  document.querySelector('#payrollPeriodLocation').closest('label').hidden = true;
+  document.querySelector('#payrollPeriodForm .organization-invite-help').hidden = true;
+  document.querySelector('#payrollAdjustmentPanel').hidden = true;
+  document.querySelectorAll('#payrollWorkspace > .resource-audit').forEach(element => { element.hidden = true; });
+  document.querySelector('#payrollWorkspace').style.zoom = '.86';
+}, ['#payrollWorkspace .payroll-toolbar', '#payrollPeriodName', '#payrollPeriodForm .primary']);
 
 await providerShot('yookassa', 'organization', '#paymentProviderPanel', () => {
   document.querySelector('#paymentProviderWorkspace').hidden = false;
@@ -243,31 +311,74 @@ await providerShot('yookassa', 'organization', '#paymentProviderPanel', () => {
   document.querySelector('#paymentProviderEnvironment').value = 'test';
 }, ['#paymentProviderEnabled', '#paymentProviderEnvironment', '#paymentProviderSettingsForm .primary']);
 
-await providerShot('loyalty-rules', 'organization', '#loyaltyPanel', () => {
+await providerShot('loyalty-rules', 'organization', '#loyaltyWorkspace', () => {
   document.querySelector('#loyaltyWorkspace').hidden = false;
   document.querySelector('#loyaltyEnabled').checked = true;
   document.querySelector('#loyaltyEarnPercent').value = '5';
   document.querySelector('#loyaltyMinPaid').value = '1000';
   document.querySelector('#loyaltyMaxRedeemPercent').value = '30';
+  document.querySelector('#loyaltyActions').hidden = true;
+  document.querySelector('.loyalty-promotions').hidden = true;
+  document.querySelector('#loyaltyWorkspace > .resource-audit').hidden = true;
 }, ['#loyaltyEnabled', '#loyaltyRuleForm .loyalty-form-grid', '#loyaltyRuleForm .primary']);
 
-await providerShot('promo', 'organization', '#loyaltyPanel', () => {
+await providerShot('promo', 'organization', '.loyalty-promotions', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
   document.querySelector('#loyaltyWorkspace').hidden = false;
-  document.querySelectorAll('.loyalty-management-grid, .loyalty-guide, .loyalty-example, .loyalty-rule-form, .loyalty-enable-field').forEach(element => element.hidden = true);
   const details = document.querySelectorAll('.loyalty-promotions details');
   details.forEach(element => { element.open = true; });
   document.querySelector('#loyaltyPromoCode').value = 'WELCOME10';
   document.querySelector('#loyaltyPromoValue').value = '10';
   document.querySelector('#loyaltyPromoFrom').value = '2026-09-01';
   document.querySelector('#loyaltyPromoUntil').value = '2026-09-30';
-}, ['#loyaltyPromoForm', '#loyaltyPromoForm .primary', '#loyaltyPromoApplyForm']);
+  document.querySelector('#loyaltyPromoClient').innerHTML = '<option>Учебный клиент</option>';
+  document.querySelector('#loyaltyPromoBooking').innerHTML = '<option>12 сентября · 10:30</option>';
+  document.querySelector('#loyaltyPromoApplyCode').value = 'WELCOME10';
+  document.querySelector('#loyaltyPromoForm > .loyalty-form-help').hidden = true;
+  document.querySelector('#loyaltyPromoFrom').closest('.form-row').hidden = true;
+  document.querySelector('#loyaltyPromoTotalLimit').closest('.form-row').hidden = true;
+  document.querySelector('#loyaltyPromoApplyForm > .loyalty-form-help').hidden = true;
+  document.querySelector('.loyalty-promotions').style.zoom = '.68';
+}, ['.loyalty-promotions details:first-of-type summary', '#loyaltyPromoForm .primary', '.loyalty-promotions details:last-of-type summary', '#loyaltyPromoApplyForm .secondary-button']);
 
-await providerShot('benefit', 'organization', '#benefitsPanel', () => {
+await providerShot('benefit-product', 'organization', '#benefitProductCreator', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
   document.querySelector('#benefitsWorkspace').hidden = false;
+  document.querySelector('#benefitProductCreator').open = true;
+  document.querySelector('#benefitProductKind').value = 'visit_pass';
+  document.querySelector('#benefitProductName').value = '5 сеансов массажа';
+  document.querySelector('#benefitProductPrice').value = '10000';
+  document.querySelector('#benefitProductVisits').value = '5';
+  document.querySelector('#benefitProductServices').innerHTML = '<label><input type="checkbox" checked> Классический массаж</label><label><input type="checkbox"> Массаж спины</label>';
+  document.querySelector('#benefitProductForm > .benefit-form-help').hidden = true;
+  document.querySelector('#benefitProductVisitsField small').hidden = true;
+  document.querySelector('#benefitProductServicesHint').hidden = true;
+  document.querySelector('#benefitProductCreator').style.zoom = '.67';
+}, ['#benefitProductKind', '#benefitProductName', '.benefit-service-fieldset', '#benefitProductForm .primary']);
+
+await providerShot('benefit', 'organization', '#benefitsWorkspace', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
+  document.querySelector('#benefitsWorkspace').hidden = false;
+  document.querySelector('.benefits-enable-field').hidden = true;
+  document.querySelector('.benefits-management-grid > section:first-child').hidden = true;
   document.querySelector('#benefitIssueCreator').open = true;
+  document.querySelector('#benefitIssueProduct').innerHTML = '<option>5 сеансов массажа</option>';
+  document.querySelector('#benefitIssueClient').innerHTML = '<option>Учебный клиент</option>';
+  document.querySelector('#benefitIssueExpiry').value = '2026-12-31';
   document.querySelector('#benefitApplyCreator').open = true;
-  document.querySelectorAll('#benefitIssueForm select, #benefitApplyForm select').forEach(select => { select.innerHTML = '<option>Учебный вариант</option>'; });
-}, ['#benefitIssueCreator', '#benefitApplyCreator', '#benefitApplyForm .secondary-button']);
+  document.querySelector('#benefitApplyInstrument').innerHTML = '<option>5 сеансов массажа · Учебный клиент</option>';
+  document.querySelector('#benefitApplyBooking').innerHTML = '<option>12 сентября · 10:30 · Классический массаж</option>';
+  document.querySelector('#benefitIssueForm > .benefit-form-help').hidden = true;
+  document.querySelector('#benefitApplyForm > .benefit-form-help').hidden = true;
+  document.querySelector('#benefitApplyAmount').closest('label').hidden = true;
+  document.querySelector('#benefitRedemptionsList').innerHTML = '<article class="organization-row"><div class="organization-row-main"><strong>Классический массаж · 1 посещ.</strong><small>Учебный клиент · Зарезервировано</small></div><span class="organization-tags"><button class="primary-button" type="button">Погасить</button><button class="secondary-button" type="button">Вернуть</button></span></article>';
+  const redemptions = document.querySelector('.benefit-redemptions');
+  document.querySelector('.benefits-management-grid').append(redemptions);
+  document.querySelector('#benefitsWorkspace').style.zoom = '.72';
+}, ['#benefitIssueForm', '#benefitApplyForm', '#benefitRedemptionsList .organization-tags']);
 
 await providerShot('inventory', 'organization', '#inventoryPanel', () => {
   document.querySelector('#inventoryWorkspace').hidden = false;
@@ -277,17 +388,41 @@ await providerShot('inventory', 'organization', '#inventoryPanel', () => {
   document.querySelector('#inventoryWarehouseCreator').open = true;
 }, ['#inventoryEnabled', '#inventoryItemCreator', '#inventoryWarehouseCreator']);
 
-await providerShot('inventory-operations', 'organization', '#inventoryPanel', () => {
+await providerShot('inventory-operations', 'organization', '#inventoryMovementForm', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="organization"] > .view-title').hidden = true;
   document.querySelector('#inventoryWorkspace').hidden = false;
   document.querySelector('#inventoryControls').hidden = false;
-  document.querySelector('.inventory-settings').hidden = true;
-  document.querySelector('.inventory-balances-section').hidden = true;
-  document.querySelectorAll('#inventoryMovementForm select, #inventoryUsageForm select').forEach(select => { if (!select.options.length) select.innerHTML = '<option>Учебный вариант</option>'; });
-}, ['#inventoryMovementForm', '#inventoryUsageForm', '#inventoryMovementsPanel']);
+  document.querySelector('#inventoryMovementWarehouse').innerHTML = '<option>Учебный склад</option>';
+  document.querySelector('#inventoryMovementItem').innerHTML = '<option>Массажное масло</option>';
+  document.querySelector('#inventoryMovementKind').value = 'receipt';
+  document.querySelector('#inventoryMovementQuantity').value = '500';
+  document.querySelector('#inventoryMovementReason').value = 'Поставка материалов';
+  document.querySelector('#inventoryMovementForm').style.zoom = '.88';
+}, ['#inventoryMovementWarehouse', '#inventoryMovementItem', '#inventoryMovementKind', '#inventoryMovementForm .primary']);
+
+await providerShot('inventory-auto-deduct', 'organization', '#inventoryUsageForm', () => {
+  document.querySelector('#inventoryWorkspace').hidden = false;
+  document.querySelector('#inventoryControls').hidden = false;
+  document.querySelector('#inventoryAutoDeduct').checked = true;
+  document.querySelector('#inventoryUsageService').innerHTML = '<option>Классический массаж</option>';
+  document.querySelector('#inventoryUsageItem').innerHTML = '<option>Массажное масло</option>';
+  document.querySelector('#inventoryUsageQuantity').value = '30';
+}, ['#inventoryUsageService', '#inventoryUsageItem', '#inventoryUsageQuantity', '#inventoryUsageForm .secondary-button']);
 
 await providerShot('statistics-report', 'analytics', '#analyticsView', () => {
-  document.querySelectorAll('.report-stat strong').forEach((element, index) => { element.textContent = ['82 500 ₽', '76%', '34', '2 430 ₽'][index] || element.textContent; });
-}, ['.report-filters', '.report-view-tabs', '.report-summary', '#exportBookings']);
+  const values = {
+    reportHeroRevenue: '82 500 ₽', reportPlanProgress: '83%', reportForecast: '99 000 ₽', reportHeroUtilization: '76%',
+    reportHealthScore: '82', reportHealthLabel: 'Хороший темп', reportRevenue: '82 500 ₽', reportCompletedValue: '89 000 ₽',
+    reportDebt: '6 500 ₽', reportCompleted: '34', reportAverage: '2 426 ₽', reportPending: '2'
+  };
+  Object.entries(values).forEach(([id, value]) => { const element = document.querySelector(`#${id}`); if (element) element.textContent = value; });
+  document.querySelector('#reportCommandNarrative').textContent = 'Выручка и загрузка растут относительно прошлого периода.';
+  document.querySelector('#reportRevenueTrend').textContent = '+12% к прошлому периоду';
+  document.querySelector('#reportWorkload').textContent = '34 часа работы';
+  document.querySelector('#reportFilterContent').hidden = false;
+  document.querySelector('#reportFilterToggle').setAttribute('aria-expanded', 'true');
+}, ['.report-filters', '.report-view-tabs', '#reportCommandCenter', '#exportBookings']);
 
 await providerShot('portfolio', 'portfolio', '', () => {
   const dialog = document.querySelector('#portfolioEditorDialog');
@@ -295,25 +430,52 @@ await providerShot('portfolio', 'portfolio', '', () => {
   dialog.setAttribute('open', '');
   document.querySelector('#portfolioProcedure').value = 'Учебный пример';
   document.querySelector('#portfolioSessions').value = '6';
-}, ['#portfolioProcedure', '.portfolio-photo-fields', '.portfolio-consent', '.portfolio-form-actions .primary']);
+  document.querySelector('#portfolioDescription').closest('label').hidden = true;
+  document.querySelector('#portfolioSessions').closest('label').querySelector('small').hidden = true;
+  document.querySelector('.portfolio-photo-help').hidden = true;
+  document.querySelector('#portfolioConsent').checked = true;
+  document.querySelector('#portfolioPublished').checked = true;
+  dialog.style.zoom = '.61';
+  dialog.style.setProperty('max-height', 'none', 'important');
+  dialog.style.setProperty('overflow', 'visible', 'important');
+}, ['.portfolio-photo-fields', '.portfolio-consent', '#portfolioPublished', '.portfolio-form-actions .primary']);
+
+await providerShot('portfolio-manage', 'portfolio', '#portfolioManageList', () => {
+  document.querySelector('#portfolioCount').textContent = '2 работы';
+  document.querySelector('#portfolioManageList').innerHTML = '<article class="portfolio-card" draggable="true" data-portfolio-card="demo-1"><div class="portfolio-card-photos"><div class="portfolio-photo"><div class="portfolio-photo-empty">Фото «До»</div><span>До</span></div><div class="portfolio-photo"><div class="portfolio-photo-empty">Фото «После»</div><span>После 6 сеансов</span></div></div><div class="portfolio-card-body"><h3>Учебный пример</h3><small>Работа · 6 сеансов</small><span class="portfolio-card-status published">Опубликовано</span></div><div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" disabled>↑ Выше</button><button type="button" data-portfolio-move="down">↓ Ниже</button><button class="portfolio-edit" type="button">Изменить</button><button class="danger" type="button">Удалить</button></div></article><article class="portfolio-card" draggable="true" data-portfolio-card="demo-2"><div class="portfolio-card-photos"><div class="portfolio-photo"><div class="portfolio-photo-empty">Фото «До»</div><span>До</span></div><div class="portfolio-photo"><div class="portfolio-photo-empty">Фото «После»</div><span>После</span></div></div><div class="portfolio-card-body"><h3>Второй пример</h3><small>Работа · 3 сеанса</small><span class="portfolio-card-status">Черновик</span></div><div class="portfolio-card-actions"><button type="button" data-portfolio-move="up">↑ Выше</button><button type="button" data-portfolio-move="down" disabled>↓ Ниже</button><button class="portfolio-edit" type="button">Изменить</button><button class="danger" type="button">Удалить</button></div></article>';
+}, ['[data-portfolio-card="demo-1"] .portfolio-card-status', '[data-portfolio-card="demo-1"] .portfolio-card-actions', '[data-portfolio-card="demo-2"] .portfolio-card-actions']);
 
 await providerShot('telegram-settings', 'settings', '#telegramClientSettingsCard', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="settings"] > .view-title').hidden = true;
   document.querySelector('#telegramContactUsername').value = '@minuta_demo';
   document.querySelector('#telegramNotifyConfirmation').checked = true;
   document.querySelector('#telegramNotifyReminder').checked = true;
 }, ['#telegramContactUsername', '.telegram-event-settings', '.telegram-client-settings-actions .primary']);
 
 await providerShot('install-app', 'settings', '#installAppCard', () => {
+  document.querySelector('.provider-topbar').hidden = true;
+  document.querySelector('[data-provider-panel="settings"] > .view-title').hidden = true;
   document.querySelector('#installAppStatus').textContent = 'Выберите инструкцию для своего устройства';
   document.querySelector('#desktopInstallGuide').hidden = false;
   document.querySelector('#androidInstallGuide').hidden = false;
   document.querySelector('#iosInstallGuide').hidden = false;
+  document.querySelector('#installAppCard').style.zoom = '.84';
 }, ['#installAppButton', '#desktopInstallGuide', '#androidInstallGuide', '#iosInstallGuide']);
+
+await prepareProvider('analytics');
+await page.evaluate(() => {
+  const dialog = document.querySelector('#reportExportDialog');
+  dialog.showModal();
+  document.querySelector('#reportExportPrivacy').value = 'masked';
+});
+await addHighlights(['#exportBookings', '#reportExportPrivacy', '[data-report-export="xlsx"]', '[data-report-export="csv"]', '[data-report-export="pdf"]']);
+await save('export-report');
 
 await load('index.html');
 await page.evaluate(() => {
   document.querySelector('#bookingStatus').innerHTML = '<i></i><span>Онлайн-запись доступна</span>';
-  document.querySelector('#services').innerHTML = '<label class="option active"><input type="radio" checked><span><strong>Классический массаж</strong><small>60 минут</small></span><b>2 500 ₽</b></label><label class="option"><input type="radio"><span><strong>Массаж спины</strong><small>45 минут</small></span><b>2 000 ₽</b></label>';
+  document.querySelector('#services').innerHTML = '<button class="option selected" type="button" data-service="demo-1" aria-pressed="true"><span class="option-main"><strong>Классический массаж</strong><small>60 мин · Специалист</small></span><span class="option-price">2 500 ₽</span></button><button class="option" type="button" data-service="demo-2" aria-pressed="false"><span class="option-main"><strong>Массаж спины</strong><small>45 мин · Специалист</small></span><span class="option-price">2 000 ₽</span></button>';
   document.querySelector('#toDate').disabled = false;
 });
 await addHighlights(['#services', '#toDate']);
@@ -321,10 +483,13 @@ await save('online-booking');
 
 await load('my-bookings.html');
 await page.evaluate(() => {
+  document.querySelector('.client-social-auth-buttons').hidden = true;
+  document.querySelector('#clientLoginCard > p').hidden = true;
   document.querySelector('#clientSmsButton').disabled = false;
   document.querySelector('#clientSmsButton').textContent = 'Получить код';
   document.querySelector('#clientSmsStatus').textContent = 'Код придёт на подтверждённый номер телефона.';
   document.querySelector('#legacyClientLogin').open = true;
+  document.querySelector('#clientLoginCard').style.zoom = '.82';
 });
 await addHighlights(['#clientSmsPhone', '#clientSmsButton', '#legacyClientLogin']);
 await save('my-bookings');
@@ -358,5 +523,7 @@ await page.evaluate(() => {
 await addHighlights(['#manageTelegramConnect']);
 await save('client-telegram');
 
-await browser.close();
-console.log('Готово: 27 снимков реального интерфейса');
+console.log('Готово: 32 снимка интерфейса');
+} finally {
+  await browser.close();
+}
