@@ -2186,6 +2186,8 @@ html.provider-booting .provider-main {
 .provider-body .timeline-booking.status-new { border-color:#e7c98d; background:#fff3dc; color:#624716; }
 .provider-body .timeline-booking.status-needs-result { border-color:#c8d8ed; background:#eef4fb; color:#294760; }
 .provider-body .timeline-booking.status-visited { border-color:#cbd9cf; background:#eef4f0; color:#3d5949; }
+.provider-body :is(.timeline-booking,.provider-booking,.calendar-overview-booking,.calendar-week-booking).is-imported-history { border-style:dashed; }
+.provider-body .imported-history-readonly p { margin:7px 0 0; color:var(--theme-muted,#64756c); font-size:10px; line-height:1.45; }
 .provider-body .timeline-booking.status-no-show { border-color:#e7c5bf; background:#fff0ed; color:#7d3f37; }
 .provider-body .timeline-booking.status-cancelled { border-color:#dce2de; background:#f2f4f2; color:#68736c; }
 .provider-body .timeline-booking.status-block { border-color:#d8dfda; background:repeating-linear-gradient(135deg,#f3f5f3,#f3f5f3 9px,#ecefec 9px,#ecefec 18px); }

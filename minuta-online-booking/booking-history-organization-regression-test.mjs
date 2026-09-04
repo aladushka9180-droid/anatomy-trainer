@@ -10,6 +10,7 @@ const completedItems = provider.match(/function reportCompletedItems\(items\) \{
 const importController = provider.match(/const clientImportController =[\s\S]*?clientImportController\.bind\(\);/)?.[0] || '';
 const organizationSwitch = provider.match(/onActiveOrganizationChange: organization => \{[\s\S]*?\n  \}/)?.[0] || '';
 const buildClients = provider.match(/function buildClients\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+const importedBookingView = provider.match(/function importedHistoryForBookingView\(\) \{[\s\S]*?\n\}/)?.[0] || '';
 
 assert.ok(reportRange, 'Не найдена логика выбора периода статистики');
 assert.match(
@@ -60,6 +61,8 @@ assert.match(
 );
 assert.match(buildClients, /belongsToActiveOrganization/, 'Клиентская картотека должна фильтровать записи по активной организации');
 assert.match(buildClients, /Boolean\(booking\?\.organization_id\)/, 'Записи без organization_id не должны попадать в чужую организацию');
+assert.match(importedBookingView, /activeClientOrganizationId/, 'Журнал записей не ограничивает импортированную историю активной организацией');
+assert.match(importedBookingView, /item\.booking_date <= today/, 'Будущая импортированная история не должна попадать в рабочее расписание');
 assert.match(clientImport, /const organizationId = organization\?\.id \|\| ''/);
 assert.match(clientImport, /const requestIsCurrent = \(\) => currentRevision === revision && organization\?\.id === organizationId/);
 assert.ok((clientImport.match(/if \(!requestIsCurrent\(\)\) return \{ ok:false,optional:true,stale:true \}/g) || []).length >= 3, 'Поздний ответ прежней организации не должен перезаписать клиентов и историю');

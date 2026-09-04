@@ -1802,10 +1802,19 @@ function bookingUsesDemoData() {
   return reportDataSource === 'demo';
 }
 
+function importedHistoryForBookingView() {
+  const organizationId = activeClientOrganizationId;
+  const today = businessTodayIso();
+  return importedBookingHistory.filter(item => item?.is_imported_history
+    && item.booking_date
+    && item.booking_date <= today
+    && (!organizationId || String(item.organization_id || '') === String(organizationId)));
+}
+
 function bookingSourceItems() {
-  return bookingUsesDemoData() && reportScopedBookingsState.status === 'ready'
-    ? reportScopedBookingsState.rows
-    : bookingUsesDemoData() ? [] : allBookings;
+  if (bookingUsesDemoData()) return reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : [];
+  return [...allBookings, ...importedHistoryForBookingView()].sort((left, right) =>
+    `${left.booking_date || ''}${left.booking_time || ''}${left.id || ''}`.localeCompare(`${right.booking_date || ''}${right.booking_time || ''}${right.id || ''}`));
 }
 
 function rememberOwnBookingContext() {
@@ -4934,7 +4943,8 @@ function automaticBookingBreaks(items, dateIso = selectedDate) {
 }
 
 function renderTimeline(sourceItems) {
-  const items = [...sourceItems, ...automaticBookingBreaks(sourceItems)];
+  const operationalItems = sourceItems.filter(item => !item.is_imported_history);
+  const items = [...sourceItems, ...automaticBookingBreaks(operationalItems)];
   const holder = $('#providerBookings');
   const mobileTimeline = window.matchMedia('(max-width: 760px)').matches;
   const fullBounds = timelineBounds(items);
@@ -4995,8 +5005,11 @@ function renderTimeline(sourceItems) {
     const badgeMarkup = block || !displayPreferences.show_client_labels
       ? ''
       : clientBadgeMarkup(item.client_phone, mobileTimeline ? { limit:3, showLabels:true } : { limit:1 });
+    const imported = Boolean(item.is_imported_history);
     const timelineStatus = block
       ? ''
+      : imported
+      ? `<span class="timeline-booking-status">Импортировано</span>`
       : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
@@ -5006,11 +5019,11 @@ function renderTimeline(sourceItems) {
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
       <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${badgeMarkup}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
-    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
+    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     return item.automatic_break
       ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
-      : `<button class="${className}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${ariaLabel}" title="Зажмите и перетащите, чтобы изменить время">${cardContent}</button>`;
+      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : 'Зажмите и перетащите, чтобы изменить время'}">${cardContent}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
@@ -5038,14 +5051,14 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const phone = escapeHtml(String(item.client_phone || ''));
-    const resultSummary = outcomeSummary(item);
+    const resultSummary = item.is_imported_history ? '' : outcomeSummary(item);
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
     const visibleNote = displayPreferences.show_notes ? note : '';
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
     const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
     const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
-    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${block ? '' : clientHighlightClasses(item.client_phone)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
+    return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? '' : clientHighlightClasses(item.client_phone)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
       <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
@@ -5094,6 +5107,17 @@ function openBookingSheet(id) {
   const amount = Number(outcome.amount_rub || calculatedAmount);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   applyClientHighlightClasses($('#bookingSheet'), isScheduleBlock(item) ? '' : item.client_phone, 'booking-sheet-');
+  if (item.is_imported_history) {
+    const sourceName = String(item.source_provider_name || 'Прежний журнал').trim();
+    $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
+      <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
+      <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
+      <div class="booking-sheet-summary"><div class="booking-sheet-client"><small class="booking-sheet-client-label">Клиент</small><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name || 'Клиент')}</strong></div><a href="tel:${phone}">${escapeHtml(item.client_phone || '')}</a></div><div class="booking-sheet-price"><small>Стоимость по журналу</small><strong>${money(bookingSessionTotal(item))}</strong></div></div>
+      <div class="booking-sheet-block imported-history-readonly"><span>${uiIcon('download')}</span><div><small>Источник: ${escapeHtml(sourceName)}</small><strong>Архивная запись доступна только для просмотра.</strong>${item.source_note ? `<p>${escapeHtml(item.source_note)}</p>` : ''}</div></div>`;
+    $('#bookingSheet').hidden = false;
+    document.body.classList.add('booking-sheet-open');
+    return;
+  }
   if (isScheduleBlock(item)) {
     $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${date.toLocaleDateString('ru-RU', { day:'numeric', month:'long', weekday:'long' })}</small>
       <h2 id="bookingSheetTitle">${escapeHtml(item.client_name || 'Перерыв')}</h2>
@@ -6537,14 +6561,15 @@ function calendarOverviewBookingMarkup(item, compact) {
   const note = block || !displayPreferences.show_notes ? '' : bookingDisplayNote(item);
   const badgeText = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
   const badgeMarkup = block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true });
-  const details = [title, client, time, phone, visitText, badgeText, note ? `заметка: ${note}` : ''].filter(Boolean).join(', ');
+  const importedText = item.is_imported_history ? 'Импортировано, только просмотр' : '';
+  const details = [title, client, time, phone, visitText, badgeText, importedText, note ? `заметка: ${note}` : ''].filter(Boolean).join(', ');
   const cardDetails = compact ? '' : `<span class="calendar-overview-booking-details">
-    <span class="calendar-overview-client-row"><b>${escapeHtml(client)}</b>${badgeMarkup}</span>
+    <span class="calendar-overview-client-row"><b>${escapeHtml(client)}${item.is_imported_history ? ' · Импортировано' : ''}</b>${badgeMarkup}</span>
     ${phone ? `<small class="calendar-overview-phone">${escapeHtml(phone)}</small>` : ''}
     ${visitText ? `<small class="calendar-overview-visit">${escapeHtml(visitText)}</small>` : ''}
     ${note ? `<small class="calendar-overview-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}
   </span>`;
-  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span class="calendar-overview-booking-copy"><strong>${escapeHtml(title)}</strong>${cardDetails}</span></button>`;
+  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span class="calendar-overview-booking-copy"><strong>${escapeHtml(title)}</strong>${cardDetails}</span></button>`;
 }
 
 function calendarMonthMobileAgendaMarkup(days, byDate) {
@@ -6621,7 +6646,7 @@ function calendarWeekTimelineMarkup(days, byDate, today) {
       const client = block ? 'Занятое время' : item.client_name;
       const statusClass = bookingStatusClass(item);
       const details = `${title}, ${client}, с ${startTime} до ${endTime}`;
-      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}</small></button>`;
+      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${item.is_imported_history ? ' is-imported-history' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. ${item.is_imported_history ? 'Импортировано, только просмотр' : 'Открыть запись'}"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}${item.is_imported_history ? ' · Импортировано' : ''}</small></button>`;
     }).join('');
     return `<section class="calendar-week-day-stage${iso === today ? ' is-today' : ''}" style="grid-column:${index + 2}" aria-label="${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}">${cards}</section>`;
   }).join('');
@@ -6695,7 +6720,8 @@ function renderBookings() {
   const paginated = currentFilter !== 'day' && items.length > bookingRenderLimit;
   const visibleItems = paginated ? items.slice(0, bookingRenderLimit) : items;
   const clientCount = items.filter(item => !isScheduleBlock(item)).length;
-  const blockCount = items.filter(isScheduleBlock).length + (currentFilter === 'day' ? automaticBookingBreaks(items).length : 0);
+  const operationalItems = items.filter(item => !item.is_imported_history);
+  const blockCount = items.filter(isScheduleBlock).length + (currentFilter === 'day' ? automaticBookingBreaks(operationalItems).length : 0);
   const daySummary = [clientCount ? `${clientCount} ${clientCount === 1 ? 'запись' : clientCount < 5 ? 'записи' : 'записей'}` : '', blockCount ? `${blockCount} ${blockCount === 1 ? 'перерыв' : blockCount < 5 ? 'перерыва' : 'перерывов'}` : ''].filter(Boolean).join(' · ');
   $('#selectedDateSummary').textContent = currentFilter === 'day'
     ? (daySummary || 'Свободный день')
@@ -9021,7 +9047,7 @@ async function loadWaitlist() {
 
 document.addEventListener('pointerdown', event => {
   const bookingCard = event.target.closest('.timeline-booking[data-open-booking]');
-  if (bookingCard && !bookingUsesDemoData()) {
+  if (bookingCard && !bookingUsesDemoData() && !bookingCard.matches('[data-imported-history]')) {
     beginTimelineBookingDrag(event, bookingCard);
     return;
   }
@@ -9746,6 +9772,9 @@ const clientImportController = window.MinutaClientImport?.createController ? win
       services:{ name:item.service_name || 'Услуга',price_rub:Number(item.price_rub || 0),duration_minutes:Number(item.duration_minutes || 0) },
       booking_outcomes:{ visit_status:'completed',payment_method:'imported',amount_rub:Number(item.price_rub || 0),actual_duration_minutes:Number(item.duration_minutes || 0),calculated_amount_rub:Number(item.price_rub || 0),completion_source:'imported' }
     }));
+    providerBookingViewRevisions.delete('bookings');
+    updateBookingStats();
+    if (($('#dashboard')?.dataset.activeView || 'bookings') === 'bookings') renderBookings();
     renderClients();
     renderAnalytics();
     if (selectedClientPhone) renderClientDetail(selectedClientPhone);

@@ -22,6 +22,12 @@ assert.match(clientImport, /import_minuta_booking_history/);
 assert.match(provider, /importedBookingHistory/);
 assert.match(provider, /is_imported_history:true/);
 assert.match(provider, /Стоимость из журнала/);
+assert.match(provider, /function importedHistoryForBookingView\(\)[\s\S]*?item\.booking_date <= today[\s\S]*?String\(item\.organization_id \|\| ''\) === String\(organizationId\)/, 'Импортированная история не защищена периодом и активной организацией');
+assert.match(provider, /function bookingSourceItems\(\)[\s\S]*?\[\.\.\.allBookings, \.\.\.importedHistoryForBookingView\(\)\]/, 'Импортированные посещения не добавлены в журнал записей');
+assert.match(provider, /function renderTimeline\(sourceItems\)[\s\S]*?operationalItems = sourceItems\.filter\(item => !item\.is_imported_history\)[\s\S]*?automaticBookingBreaks\(operationalItems\)/, 'Импортированная история влияет на рабочие перерывы');
+assert.match(provider, /function openBookingSheet\(id\)[\s\S]*?if \(item\.is_imported_history\)[\s\S]*?Архивная запись доступна только для просмотра[\s\S]*?return;/, 'Импортированная запись открывается как редактируемая рабочая запись');
+assert.match(provider, /bookingCard\.matches\('\[data-imported-history\]'\)/, 'Импортированную запись можно перетащить в расписании');
+assert.match(provider, /providerBookingViewRevisions\.delete\('bookings'\);[\s\S]*?updateBookingStats\(\);[\s\S]*?renderBookings\(\)/, 'Журнал не обновляется после загрузки импортированной истории');
 
 const xlsxContext = {};
 vm.runInNewContext(vendor, xlsxContext);
