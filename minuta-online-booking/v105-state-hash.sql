@@ -16,7 +16,7 @@ with state_parts(value) as (
   join pg_namespace namespace on namespace.oid=class.relnamespace
   where namespace.nspname='public' and class.relname in ('booking_page_visits_owner_session_idx','booking_page_visits_owner_presence_idx','bookings_organization_phone_v105_idx')
   union all
-  select 'policy|'||policy.polname||'|'||policy.polcmd||'|'||policy.polroles::text||'|'||coalesce(pg_get_expr(policy.polqual,policy.polrelid),'')
+  select 'policy|'||policy.polname||'|'||policy.polcmd::text||'|'||policy.polroles::text||'|'||coalesce(pg_get_expr(policy.polqual,policy.polrelid),'')
   from pg_policy policy
   where policy.polrelid=to_regclass('public.booking_page_visits') and policy.polname='booking_page_visits_owner_read'
 )
