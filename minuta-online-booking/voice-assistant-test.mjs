@@ -6,11 +6,11 @@ const voice = require('./voice-assistant.js');
 const now = new Date(2026, 8, 2, 12, 0, 0);
 
 const services = [
-  { id:'massage', name:'Массаж', durationMinutes:60 },
-  { id:'sport', name:'Спортивный массаж', durationMinutes:60 },
-  { id:'hair', name:'Укладка волос', durationMinutes:45 },
-  { id:'brows', name:'Укладка бровей', durationMinutes:30 },
-  { id:'cut', name:'Стрижка', durationMinutes:45 }
+  { id:'massage', name:'Массаж', durationMinutes:60, priceRub:2000 },
+  { id:'sport', name:'Спортивный массаж', durationMinutes:60, priceRub:2500 },
+  { id:'hair', name:'Укладка волос', durationMinutes:45, priceRub:1500 },
+  { id:'brows', name:'Укладка бровей', durationMinutes:30, priceRub:1200 },
+  { id:'cut', name:'Стрижка', durationMinutes:45, priceRub:1000 }
 ];
 
 assert.equal(voice.normalizeText('  Ёлка, МАССАЖ!  '), 'елка массаж');
@@ -222,8 +222,9 @@ assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
 assert.equal(voice.interpretCommand('Сколько выручька сиводня?', snapshot, now).kind, 'revenue_summary');
 const priceQuestion = voice.interpretCommand('Какую цену поставить на массаж?', snapshot, now);
-assert.equal(priceQuestion.kind, 'help');
-assert.equal(priceQuestion.title, 'Вопрос о цене понят');
+assert.equal(priceQuestion.kind, 'price_advice');
+assert.match(priceQuestion.message, /автоматически не изменена/i);
+assert.ok(priceQuestion.points.some(item => /\+5%/.test(item)));
 
 const businessSnapshot = {
   today:'2026-09-02',
@@ -309,6 +310,55 @@ const teamSummary = voice.interpretCommand('Кто работает в кома�
 assert.equal(teamSummary.kind, 'team_summary');
 assert.match(teamSummary.points[0], /Владелец/, 'Системная роль владельца должна быть переведена для пользователя');
 
+const assistantSnapshot = {
+  ...businessSnapshot,
+  organizationName:'Студия «Минута»',
+  bookings:[
+    ...businessSnapshot.bookings,
+    { id:'future-anna', clientName:'Анна Петрова', clientKey:'79990000004', date:'2026-09-03', time:'10:30', status:'confirmed', outcome:'scheduled', serviceId:'massage', serviceName:'Массаж' }
+  ],
+  notifications:{ failed:1, pending:2, manualDue:1 }
+};
+const reminderDraft = voice.interpretCommand('Напиши напоминание Анне на завтра', assistantSnapshot, now);
+assert.equal(reminderDraft.kind, 'message_draft');
+assert.match(reminderDraft.draftText, /Анна/);
+assert.match(reminderDraft.draftText, /10:30/);
+assert.equal(reminderDraft.openSection, 'notifications');
+
+const reviewDraft = voice.interpretCommand('Ответь на плохой отзыв', assistantSnapshot, now);
+assert.equal(reviewDraft.kind, 'message_draft');
+assert.match(reviewDraft.draftText, /разобраться/i);
+
+const postDraft = voice.interpretCommand('Придумай пост про массаж', assistantSnapshot, now);
+assert.equal(postDraft.kind, 'content_draft');
+assert.match(postDraft.draftText, /Массаж/);
+assert.match(postDraft.draftText, /2 000|2 000/);
+const incompletePost = voice.interpretCommand('Придумай пост', assistantSnapshot, now);
+assert.equal(voice.needsClarification(incompletePost), true);
+assert.equal(voice.canContinueCommand('Придумай пост', incompletePost, 'про массаж', assistantSnapshot, now), true);
+assert.equal(voice.interpretCommand(voice.continueCommand('Придумай пост', incompletePost, 'про массаж'), assistantSnapshot, now).needsDetail, '');
+
+const promotion = voice.interpretCommand('Дай идеи для продвижения', assistantSnapshot, now);
+assert.equal(promotion.kind, 'promotion_ideas');
+assert.ok(promotion.points.length >= 4);
+assert.ok(promotion.draftText);
+
+const briefing = voice.interpretCommand('Дай короткую сводку и план на день', assistantSnapshot, now);
+assert.equal(briefing.kind, 'operational_briefing');
+assert.ok(briefing.metrics.length >= 3);
+assert.equal(briefing.openSection, 'bookings');
+
+const notificationsHelp = voice.interpretCommand('Как настроить уведомления?', assistantSnapshot, now);
+assert.equal(notificationsHelp.kind, 'workspace_help');
+assert.equal(notificationsHelp.openSection, 'notifications');
+const exportHelp = voice.interpretCommand('Выгрузи записи', assistantSnapshot, now);
+assert.equal(exportHelp.kind, 'workspace_help');
+assert.equal(exportHelp.openSection, 'analytics');
+const incompletePrice = voice.interpretCommand('Какую цену поставить?', assistantSnapshot, now);
+assert.equal(incompletePrice.kind, 'price_advice');
+assert.equal(voice.needsClarification(incompletePrice), true);
+assert.equal(voice.interpretCommand(voice.continueCommand('Какую цену поставить?', incompletePrice, 'массаж'), assistantSnapshot, now).needsDetail, undefined);
+
 function deferred() {
   let resolve;
   let reject;
@@ -379,6 +429,12 @@ const controllerBridge = {
 const controller = voice.createController({ document:controllerDocument, bridge:controllerBridge });
 controller.bind();
 controllerOpen.emit('click');
+
+controllerInput.value = 'Придумай пост про массаж';
+controllerForm.emit('submit');
+assert.match(controllerResultHtml, /Готовый черновик/);
+assert.match(controllerResultHtml, /data-voice-copy/);
+assert.match(controllerResultHtml, /data-voice-open-section="services"/);
 
 controllerInput.value = 'Запиши завтра в 10:30 на массаж';
 controllerForm.emit('submit');

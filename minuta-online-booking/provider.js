@@ -10118,7 +10118,14 @@ window.MinutaProviderAssistant = Object.freeze({
           quantity:providerAssistantNumber(item.quantity)
         }))
       } : null
-    };
+      };
+  },
+  openSection(section = '') {
+    const allowed = new Set(['bookings', 'clients', 'notifications', 'waitlist', 'schedule', 'services', 'organization', 'analytics', 'portfolio', 'settings']);
+    const view = String(section || '');
+    if (!currentUser || !allowed.has(view)) return { ok:false, reason:'invalid_request' };
+    setProviderView(view);
+    return { ok:true };
   },
   async findAvailableSlots(plan = {}) {
     const generation = sessionGeneration;

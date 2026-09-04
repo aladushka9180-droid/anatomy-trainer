@@ -112,6 +112,11 @@ assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList
 assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDialog"[\s\S]*id="voiceListenButton"/, 'В кабинете нет голосового помощника');
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
+assert.match(provider, /openSection\(section = ''\)/, 'Помощник не может безопасно открыть нужный раздел кабинета');
+assert.match(provider, /new Set\(\['bookings', 'clients', 'notifications'.*'settings'\]\)/, 'Навигация помощника не ограничена белым списком разделов');
+assert.match(voiceAssistant, /kind:'message_draft'/, 'Помощник не готовит сообщения клиентам');
+assert.match(voiceAssistant, /kind:'operational_briefing'/, 'Помощник не формирует операционную сводку');
+assert.match(voiceAssistant, /data-voice-copy/, 'Черновики помощника нельзя скопировать');
 assert.match(provider, /offlineDraftAllowed[\s\S]*if \(!synchronized && !offlineDraftAllowed\) return \{ ok:false, reason:'not_synchronized' \}/, 'Черновик голосового помощника не отделяет синхронизированный и безопасный офлайн-режимы');
 assert.match(provider, /const offlineReadable = Boolean\(offline && snapshotCurrent\)[\s\S]*offlineReadable,/, 'Голосовой помощник не проверяет срок локальной копии');
 assert.match(provider, /clientName:offline \? 'Клиент'/, 'Офлайн-снимок голосового помощника раскрывает имя клиента');

@@ -60,7 +60,8 @@
     'сегодня', 'завтра', 'послезавтра', 'запиши', 'записать', 'добавь', 'добавить', 'поставь', 'поставить',
     'забронируй', 'забронировать', 'создай', 'создать', 'найди', 'покажи', 'подбери', 'предложи', 'свободное', 'свободный', 'окно', 'окошко', 'слот',
     'расписание', 'график', 'запись', 'записи', 'визит', 'прием', 'сеанс', 'новую', 'новый', 'клиент', 'клиента', 'клиентку', 'выручка', 'доход', 'оплата', 'материал', 'остаток', 'склад', 'цена', 'стоимость',
-    'уведомление', 'напоминание', 'экспорт', 'настройки', 'напиши', 'придумай', 'составь', 'пожалуйста'
+    'уведомление', 'напоминание', 'подтверждение', 'сообщение', 'отзыв', 'экспорт', 'настройки', 'тариф',
+    'напиши', 'придумай', 'составь', 'описание', 'продвижение', 'реклама', 'цена', 'пожалуйста'
   ])]);
 
   function normalizeText(value) {
@@ -577,6 +578,201 @@
     return { kind:'service_performance', title:`Услуги по выручке ${period.label}`, message:points.length ? 'Сначала показаны услуги с наибольшей полученной оплатой.' : `Завершённых услуг ${period.label} нет.`, points };
   }
 
+  function nearestFutureBooking(command, snapshot, now = new Date()) {
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const requestedDate = parseRussianDate(command, now);
+    const future = (snapshot.bookings || [])
+      .filter(item => item.date >= today && item.status !== 'cancelled')
+      .filter(item => !requestedDate || item.date === requestedDate)
+      .sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
+    const matched = clientBookingMatches(command, future);
+    if (matched.length) return matched[0];
+    return future.length === 1 ? future[0] : null;
+  }
+
+  function messageDraftModel(command, snapshot, now = new Date()) {
+    const text = repairCommand(command).text;
+    const booking = nearestFutureBooking(text, snapshot, now);
+    const client = String(booking?.clientName || '').trim();
+    const firstName = client.split(/\s+/)[0] || '';
+    const greeting = firstName && firstName !== 'Клиент' ? `Здравствуйте, ${firstName}!` : 'Здравствуйте!';
+    let title = 'Черновик сообщения клиенту';
+    let draftText = '';
+    if (/(?:отзыв|рецензи)/.test(text)) {
+      const negative = /(?:плох|ужас|не понрав|недовол|опозд|груб)/.test(text);
+      title = 'Черновик ответа на отзыв';
+      draftText = negative
+        ? 'Спасибо, что рассказали о ситуации. Нам важно разобраться и исправить впечатление. Пожалуйста, напишите нам удобным способом — уточним детали и предложим решение.'
+        : 'Спасибо за ваш отзыв! Очень рады, что вам понравилось. Будем ждать вас снова!';
+    } else if (/(?:подтвержд)/.test(text)) {
+      title = client ? `Подтверждение · ${client}` : 'Черновик подтверждения записи';
+      draftText = booking
+        ? `${greeting} Подтверждаю вашу запись ${formatDate(booking.date)} в ${booking.time} на услугу «${booking.serviceName || 'Услуга'}». До встречи!`
+        : `${greeting} Ваша запись подтверждена. Дата: [дата], время: [время], услуга: [услуга]. До встречи!`;
+    } else if (/(?:вернут|давно|повторн|снова|реактив)/.test(text)) {
+      title = client ? `Сообщение · ${client}` : 'Черновик сообщения постоянному клиенту';
+      draftText = `${greeting} Давно вас не видели. Если захотите повторить любимую процедуру, выбрать удобное время можно через онлайн-запись. Будем рады встрече!`;
+    } else {
+      title = client ? `Напоминание · ${client}` : 'Черновик напоминания';
+      draftText = booking
+        ? `${greeting} Напоминаю о записи ${formatDate(booking.date)} в ${booking.time} на услугу «${booking.serviceName || 'Услуга'}». Если планы изменились, пожалуйста, сообщите заранее.`
+        : `${greeting} Напоминаю о записи [дата] в [время] на услугу «[услуга]». Если планы изменились, пожалуйста, сообщите заранее.`;
+    }
+    return {
+      kind:'message_draft',
+      title,
+      message:booking || /(?:отзыв|рецензи|вернут|давно|повторн|снова|реактив)/.test(text)
+        ? 'Текст подготовлен по доступному контексту. Проверьте его перед отправкой.'
+        : 'Не удалось однозначно выбрать запись, поэтому оставлены поля для проверки.',
+      draftText,
+      copyLabel:'Скопировать текст',
+      openSection:'notifications',
+      openLabel:'Открыть уведомления',
+      needsDetail:!booking && !/(?:отзыв|рецензи|вернут|давно|повторн|снова|реактив)/.test(text) ? 'запись или клиент' : ''
+    };
+  }
+
+  function serviceForCommand(command, snapshot) {
+    const candidates = findServices(command, snapshot.services || []);
+    return candidates.length === 1 ? candidates[0] : null;
+  }
+
+  function contentDraftModel(command, snapshot) {
+    const text = repairCommand(command).text;
+    const service = serviceForCommand(text, snapshot);
+    const organization = String(snapshot.organizationName || '').trim();
+    const brand = organization || 'мастера';
+    const serviceName = service?.name || '[название услуги]';
+    const price = Number(service?.priceRub) > 0 ? ` Стоимость — ${moneyLabel(service.priceRub)}.` : '';
+    const duration = Number(service?.durationMinutes) > 1 ? ` Продолжительность — ${service.durationMinutes} минут.` : '';
+    const isDescription = /(?:описан|карточк|каталог)/.test(text);
+    const draftText = isDescription
+      ? `${serviceName} — процедура с индивидуальным подходом и понятным результатом. Перед началом уточним ваши пожелания, после — дадим рекомендации по уходу.${duration}${price}`
+      : `${organization ? `${organization}: ` : ''}${serviceName}. Позаботьтесь о себе и выберите удобное время онлайн.${duration}${price} Запись открыта — будем рады встрече!`;
+    return {
+      kind:'content_draft',
+      title:isDescription ? `Описание услуги: ${serviceName}` : organization ? `Черновик публикации · ${brand}` : 'Черновик публикации',
+      message:service ? 'Текст составлен по данным услуги без выдуманных обещаний.' : 'Услуга не определена. Замените поля в квадратных скобках или назовите услугу в следующей команде.',
+      draftText,
+      copyLabel:'Скопировать текст',
+      openSection:service ? 'services' : 'portfolio',
+      openLabel:service ? 'Открыть услуги' : 'Открыть портфолио',
+      needsDetail:service ? '' : 'услуга'
+    };
+  }
+
+  function roundPrice(value) {
+    const amount = Math.max(0, Number(value) || 0);
+    if (!amount) return 0;
+    const step = amount < 1000 ? 50 : 100;
+    return Math.max(step, Math.round(amount / step) * step);
+  }
+
+  function priceAdviceModel(command, snapshot) {
+    const service = serviceForCommand(command, snapshot);
+    if (!service) return {
+      kind:'price_advice',
+      title:'Уточните услугу для расчёта цены',
+      message:'Назовите услугу так, как она указана в каталоге. Помощник не будет менять цену автоматически.',
+      points:(snapshot.services || []).slice(0, 8).map(item => `${item.name}: ${moneyLabel(item.priceRub)}`),
+      openSection:'services',
+      openLabel:'Открыть услуги',
+      needsDetail:'услуга'
+    };
+    const currentPrice = Number(service.priceRub) || 0;
+    const completed = (snapshot.bookings || []).filter(item => item.status !== 'cancelled' && item.outcome === 'completed' && (String(item.serviceId || '') === String(service.id) || normalizeText(item.serviceName) === normalizeText(service.name)));
+    if (!currentPrice) return {
+      kind:'price_advice',
+      title:`Цена услуги «${service.name}» не указана`,
+      message:'Сначала задайте базовую цену. Без неё безопасный диапазон изменения рассчитать нельзя.',
+      points:[`Завершённых визитов в доступной истории: ${completed.length}.`, 'Перед изменением сравните себестоимость, длительность и спрос.'],
+      openSection:'services',
+      openLabel:'Настроить услугу'
+    };
+    const careful = roundPrice(currentPrice * 1.05);
+    const balanced = roundPrice(currentPrice * 1.1);
+    return {
+      kind:'price_advice',
+      title:`Варианты цены для «${service.name}»`,
+      message:'Это сценарии для проверки на собственной загрузке, а не рыночная оценка. Цена автоматически не изменена.',
+      metrics:[{ value:moneyLabel(currentPrice), label:'сейчас' }, { value:String(completed.length), label:'завершённых визитов' }],
+      points:[`Осторожный тест: ${moneyLabel(careful)} (+5%).`, `Сбалансированный тест: ${moneyLabel(balanced)} (+10%).`, 'Проверьте изменение числа записей и выручки через 2–4 недели.'],
+      openSection:'services',
+      openLabel:'Открыть цены'
+    };
+  }
+
+  function promotionIdeasModel(snapshot, now = new Date()) {
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const start = shiftIsoDate(today, -30);
+    const counts = new Map((snapshot.services || []).map(item => [String(item.id), { service:item, completed:0 }]));
+    (snapshot.bookings || []).filter(item => item.date >= start && item.date <= today && item.status !== 'cancelled' && item.outcome === 'completed').forEach(item => {
+      const key = String(item.serviceId || '');
+      if (counts.has(key)) counts.get(key).completed += 1;
+    });
+    const ranked = [...counts.values()].sort((left, right) => left.completed - right.completed || left.service.name.localeCompare(right.service.name, 'ru'));
+    const focus = ranked[0]?.service || null;
+    const nextWeek = bookingsInRange(snapshot, today, shiftIsoDate(today, 6)).filter(item => item.status !== 'cancelled').length;
+    const focusName = focus?.name || 'выбранную услугу';
+    return {
+      kind:'promotion_ideas',
+      title:'Идеи для продвижения',
+      message:'Рекомендации основаны только на доступных записях и каталоге, без внешних рыночных данных.',
+      metrics:[{ value:String(nextWeek), label:'записей на 7 дней' }, { value:String(snapshot.services?.length || 0), label:'активных услуг' }],
+      points:[
+        `Подсветить «${focusName}»: у неё меньше всего завершённых визитов за последние 30 дней.`,
+        'Опубликовать ближайшие свободные окна с прямым призывом записаться онлайн.',
+        'После завершённого визита отправить короткую просьбу об отзыве.',
+        'Проверить результат через неделю: новые записи, отмены и выручку.'
+      ],
+      draftText:`На этой неделе открыта запись на «${focusName}». Выберите удобное время онлайн — будем рады встрече!`,
+      copyLabel:'Скопировать публикацию',
+      openSection:'analytics',
+      openLabel:'Открыть статистику'
+    };
+  }
+
+  function operationalBriefingModel(snapshot, now = new Date()) {
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const schedule = activeBookings(snapshot, today);
+    const attention = attentionModel(snapshot, now);
+    const revenue = revenueStats(snapshot, today, today);
+    const next = schedule[0];
+    const points = [];
+    if (next) points.push(`Ближайшая запись: ${next.time} · ${next.clientName || 'Клиент'} · ${next.serviceName || 'Услуга'}.`);
+    points.push(...(attention.points || []).slice(0, 4));
+    if (!points.length) points.push('Срочных задач по доступным данным не найдено.');
+    return {
+      kind:'operational_briefing',
+      title:'Короткая сводка и следующий шаг',
+      message:schedule.length ? `Сегодня ${countLabel(schedule.length, ['активная запись', 'активные записи', 'активных записей'])}. Начните с ближайшей и проверьте пункты ниже.` : 'Активных записей сегодня нет. Можно проверить свободные окна и продвижение.',
+      metrics:[{ value:String(schedule.length), label:'записей сегодня' }, { value:moneyLabel(revenue.revenue), label:'получено сегодня' }, { value:String(attention.points?.length || 0), label:'требует внимания' }],
+      points,
+      openSection:'bookings',
+      openLabel:'Открыть записи'
+    };
+  }
+
+  function workspaceHelpModel(command) {
+    const text = repairCommand(command).text;
+    let section = 'settings';
+    let label = 'настройки кабинета';
+    if (/(?:уведом|напоминан|сообщен)/.test(text)) { section = 'notifications'; label = 'уведомления'; }
+    else if (/(?:экспорт|выгруз|отчет|статист)/.test(text)) { section = 'analytics'; label = 'статистику и экспорт'; }
+    else if (/(?:расписан|рабоч|выходн|перерыв)/.test(text)) { section = 'schedule'; label = 'рабочие часы'; }
+    else if (/(?:цен|стоимост|услуг)/.test(text)) { section = 'services'; label = 'услуги и цены'; }
+    else if (/(?:клиент|баз)/.test(text)) { section = 'clients'; label = 'клиентскую базу'; }
+    else if (/(?:склад|материал|остат)/.test(text)) { section = 'organization'; label = 'склад организации'; }
+    return {
+      kind:'workspace_help',
+      title:`Открыть ${label}`,
+      message:'Помощник переведёт в нужный раздел, но ничего не изменит без вашего действия.',
+      points:section === 'analytics' ? ['В разделе статистики доступна выгрузка записей.'] : section === 'schedule' ? ['Там можно настроить рабочие дни, перерывы и выходные.'] : section === 'notifications' ? ['Там находятся очередь и шаблоны сообщений клиентам.'] : [],
+      openSection:section,
+      openLabel:`Открыть ${label}`
+    };
+  }
+
   function isScheduleRequest(text) {
     if (/(?:^|\s)(?:что|кто)\s+у\s+меня(?=\s|$)/.test(text)) return true;
     if (/(?:^|\s)кто\s+(?:ко\s+мне\s+)?(?:сегодня|завтра|послезавтра)(?=\s|$)/.test(text)) return true;
@@ -635,9 +831,13 @@
     if (!text) return finish({ kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' });
 
     const bookingRequest = bookingSignal(text);
-    if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'поставить'])) return finish({ kind:'help', title:'Вопрос о цене понят', message:'Помощник пока не рекомендует цены и ничего не изменил.' });
-    if (/(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*)(?=\s|$)/.test(text) && fuzzyRoot(text, ['сообщен', 'пост', 'описан', 'отзыв', 'напоминан'])) return finish({ kind:'help', title:'Задача на текст понята', message:'Генерация сообщений и постов пока не подключена. Данные не изменены.' });
-    if (fuzzyRoot(text, ['настройк', 'уведомлен', 'тариф', 'экспорт']) && fuzzyRoot(text, ['как', 'где', 'покажи', 'открой', 'настроить', 'экспортируй'])) return finish({ kind:'help', title:'Вопрос о настройках понят', message:'Помощник пока не меняет настройки и не запускает экспорт. Никаких действий не выполнено.' });
+    const writingAction = /(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*|подготов[а-я]*|ответ[а-я]*)(?=\s|$)/.test(text);
+    if (/(?:что\s+(?:делать|важно)|с\s+чего\s+начать|дай\s+(?:сводку|план)|план\s+на\s+день|коротк[а-я]*\s+сводк)/.test(text)) return finish(operationalBriefingModel(snapshot, now));
+    if ((writingAction || /(?:ответ[а-я]*\s+на\s+отзыв)/.test(text)) && /(?:сообщен|напоминан|подтвержден|отзыв|клиент)/.test(text)) return finish(messageDraftModel(text, snapshot, now));
+    if (writingAction && /(?:пост|публикац|описан|карточк\s+услуг|текст\s+для\s+соц)/.test(text)) return finish(contentDraftModel(text, snapshot));
+    if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'подбери', 'поставить', 'изменить', 'поднять'])) return finish(priceAdviceModel(text, snapshot));
+    if (/(?:иде[а-я]*\s+(?:для\s+)?продвижен|как\s+продвиг|что\s+рекламир|рекламн[а-я]*\s+иде|акци[а-я]*\s+предлож)/.test(text)) return finish(promotionIdeasModel(snapshot, now));
+    if ((/(?:^|\s)(?:как|где|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
 
     if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(revenueModel(text, snapshot, now));
     if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || fuzzyRoot(text, ['материал', 'остаток', 'склад']) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return finish(inventoryModel(text, snapshot, now));
@@ -703,8 +903,8 @@
     return finish({
       kind:'help',
       title:'Я пока не уверен в команде',
-      message:'Попробуйте назвать действие, дату, время и услугу. Никакие данные не были изменены.',
-      examples:['Какие записи завтра?', 'Найди свободное время в пятницу на массаж 60 минут', 'Запиши Анну завтра в 10:30 на массаж']
+      message:'Назовите задачу обычными словами: что узнать, подготовить или открыть. Никакие данные не были изменены.',
+      examples:['Дай короткую сводку и план на день', 'Напиши напоминание Анне на завтра', 'Придумай пост про массаж', 'Какую цену поставить на массаж?', 'Найди свободное время в пятницу на массаж', 'Запиши Анну завтра в 10:30 на массаж']
     });
   }
 
@@ -717,6 +917,7 @@
     if (model.kind === 'find_slots') return 90 + (model.plan?.serviceId ? 12 : 0) + (model.plan?.date ? 4 : 0);
     if (model.kind === 'schedule_summary') return 80;
     if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
+    if (['message_draft','content_draft','price_advice','promotion_ideas','operational_briefing','workspace_help'].includes(model.kind)) return 84;
     if (['revenue_summary','revenue_change','inventory_summary','inventory_forecast','attention','clients_summary','service_performance','team_summary'].includes(model.kind)) return 76;
     return Math.min(10, normalizeText(command).split(' ').filter(Boolean).length);
   }
@@ -813,6 +1014,7 @@
   }
 
   function needsClarification(model) {
+    if (model?.needsDetail) return true;
     if (model?.kind === 'find_slots') return !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
     if (model?.kind !== 'booking_draft') return false;
     return !model.plan?.clientName || !model.plan?.time || !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
@@ -1016,6 +1218,7 @@
     }
 
     function detailsMarkup(model) {
+      const draft = model.draftText ? `<div class="voice-result-draft"><small>Готовый черновик</small><p>${escapeHtml(model.draftText)}</p></div>` : '';
       if (model.kind === 'booking_draft' || model.kind === 'find_slots') {
         const plan = model.plan || {};
         const services = plan.serviceId ? [] : ((model.candidates?.length ? model.candidates : model.availableServices) || []).slice(0, 8);
@@ -1038,19 +1241,19 @@
           plan.serviceName ? ['Услуга', plan.serviceName] : null,
           Number(plan.durationMinutes) ? ['Длительность', `${plan.durationMinutes} минут`] : null
         ].filter(Boolean);
-        return rows.length ? `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '';
+        return `${rows.length ? `<dl>${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : ''}${draft}`;
       }
       if (model.kind === 'schedule_summary' || model.kind === 'client_search') {
         const list = (model.items || []).map(item => `<li><strong>${escapeHtml(item.time || '')}</strong><span>${escapeHtml(item.clientName || 'Клиент')} · ${escapeHtml(item.serviceName || 'Услуга')}</span></li>`).join('');
         return list ? `<ul>${list}</ul>${model.total > model.items.length ? `<small>Показаны первые ${model.items.length} из ${model.total}</small>` : ''}` : '';
       }
-      if (model.examples) return `<ul class="voice-help-list">${model.examples.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+      if (model.examples) return `<ul class="voice-help-list">${model.examples.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>${draft}`;
       if (model.metrics?.length || model.points?.length) {
         const metrics = model.metrics?.length ? `<div class="voice-result-metrics">${model.metrics.map(item => `<div><strong>${escapeHtml(item.value)}</strong><span>${escapeHtml(item.label)}</span></div>`).join('')}</div>` : '';
         const points = model.points?.length ? `<ul class="voice-result-points">${model.points.map(item => `<li><span>${escapeHtml(item)}</span></li>`).join('')}</ul>` : '';
-        return `${metrics}${points}`;
+        return `${metrics}${points}${draft}`;
       }
-      return '';
+      return draft;
     }
 
     async function findSlots(model) {
@@ -1088,8 +1291,10 @@
       if (capabilities) capabilities.open = false;
       const planReady = model.kind === 'booking_draft' && model.canPrepare && model.plan?.serviceId && (model.plan?.time || model.offline) && (!model.plan.perMinute || Number(model.plan.durationMinutes));
       const prepareAction = planReady ? '<button class="primary" type="button" data-voice-prepare>Проверить запись</button>' : '';
+      const copyAction = model.draftText && !model.needsDetail ? `<button class="primary" type="button" data-voice-copy>${escapeHtml(model.copyLabel || 'Скопировать')}</button>` : '';
+      const openAction = model.openSection ? `<button class="secondary-button" type="button" data-voice-open-section="${escapeHtml(model.openSection)}">${escapeHtml(model.openLabel || 'Открыть раздел')}</button>` : '';
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
-      const actions = prepareAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${speakAction}</div>` : '';
+      const actions = prepareAction || copyAction || openAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${copyAction}${openAction}${speakAction}</div>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       const correctionNote = model.corrections?.length
         ? `<p class="voice-correction-note">Понял с исправлением: ${model.corrections.map(item => `«${escapeHtml(item.from)}» → «${escapeHtml(item.to)}»`).join(', ')}</p>`
@@ -1098,6 +1303,23 @@
       result.innerHTML = `${offlineNotice}${correctionNote}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${actions}`;
       result.hidden = false;
       starters?.classList.add('is-secondary');
+      result.querySelector('[data-voice-copy]')?.addEventListener('click', async () => {
+        const draftText = String(lastModel?.draftText || '');
+        if (!draftText) return;
+        try {
+          if (typeof global.navigator?.clipboard?.writeText !== 'function') throw new Error('clipboard_unavailable');
+          await global.navigator.clipboard.writeText(draftText);
+          status.textContent = 'Текст скопирован. Проверьте его перед отправкой или публикацией.';
+        } catch {
+          status.textContent = 'Не удалось скопировать автоматически. Выделите текст в черновике вручную.';
+        }
+      });
+      result.querySelector('[data-voice-open-section]')?.addEventListener('click', event => {
+        const section = event.currentTarget?.dataset?.voiceOpenSection || '';
+        const response = bridge.openSection?.(section);
+        if (response?.ok) { pendingCommand = ''; close(); }
+        else status.textContent = 'Не удалось открыть раздел. Повторите после входа в кабинет.';
+      });
       result.querySelectorAll?.('[data-voice-service]')?.forEach(button => button.addEventListener('click', () => {
         const snapshot = bridge.getReadOnlySnapshot();
         if (!snapshot?.authenticated || !Object.is(snapshot.sessionGeneration, lastSessionGeneration)) {
@@ -1227,7 +1449,7 @@
       if (needsClarification(model)) {
         pendingCommand = command;
         input.value = '';
-        input.placeholder = model.kind === 'find_slots' ? 'Уточните услугу или длительность' : 'Добавьте недостающую деталь';
+        input.placeholder = model.needsDetail ? `Уточните: ${model.needsDetail}` : model.kind === 'find_slots' ? 'Уточните услугу или длительность' : 'Добавьте недостающую деталь';
       } else {
         pendingCommand = '';
         input.placeholder = 'Например: найди окно завтра';
@@ -1462,7 +1684,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, clientBookingMatches, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
