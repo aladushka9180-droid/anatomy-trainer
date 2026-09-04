@@ -187,7 +187,7 @@ assert.match(provider, /const timeRange = `\$\{startTime\}–\$\{endTime\}`/, '�
 assert.match(provider, /class="timeline-booking-time"><b>\$\{startTime\}<\/b><small>–\$\{endTime\}<\/small>/, 'На большом экране не показывается полный интервал записи');
 assert.match(provider, /class="timeline-mobile-time">\$\{timeRange\}/, 'На телефоне не показывается полный интервал записи');
 assert.match(provider, /const minuteOnly = duration <= 1;/, 'Одноминутная запись не определяется отдельно');
-assert.match(provider, /minuteOnly && !mobileTimeline\s*\? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">\$\{timeRange\}<\/span>[\s\S]*?\$\{serviceMarkup\}<\/strong><\/span>`/, 'Одноминутная запись не показывает время и название услуги одной строкой');
+assert.match(provider, /minuteOnly && !mobileTimeline\s*\? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">\$\{timeRange\}<\/span>[\s\S]*?\$\{serviceTitleMarkup\}<\/strong><\/span>`/, 'Одноминутная запись не показывает время, название и длительность услуги одной строкой');
 assert.match(provider, /class="booking-time-column"><strong>\$\{time\}<small>до \$\{endTime\}/, 'В режиме списка не показывается время окончания записи');
 const providerTimeFromMinutesSource = provider.match(/function timeFromMinutes\(value\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(providerTimeFromMinutesSource, 'Не удалось извлечь расчёт времени окончания записи');
@@ -393,7 +393,7 @@ assert.match(styles, /data-provider-theme="luxury"\][\s\S]*?\.badge-vip \{[^}]*b
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty,\.empty-service\) \{[^}]*background-color:rgba\(7,8,9,\.96\)/, 'Пустые состояния Luxury не используют почти непрозрачную тёмную подложку');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.provider-empty-icon,\.empty-service-mark\) \{[^}]*background:linear-gradient/, 'Иконки пустых состояний Luxury не используют золотой акцент');
 assert.match(styles, /data-provider-theme="luxury"\] \.timeline-client-name \{[^}]*color:#d5c9b6/, 'Имя клиента в расписании Luxury недостаточно контрастное');
-assert.match(styles, /data-provider-theme="luxury"\] \.timeline-client-duration \{[^}]*color:#d9aa51/, 'Длительность записи Luxury не выделена приглушённым золотом');
+assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-client-duration,\.timeline-service-duration\) \{[^}]*color:#d9aa51/, 'Длительность записи рядом с услугой Luxury не выделена приглушённым золотом');
 assert.match(styles, /data-provider-theme="luxury"\] \.client-list-main i \{[^}]*color:#d9aa51!important/, 'Дата следующей записи клиента Luxury снова стала зелёной');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.booking-client-visit,\.timeline-client-visit\) \{[^}]*font-size:9px/, 'Метка визита Luxury не стала заметнее');
 assert.match(styles, /data-provider-theme="luxury"\] :is\(\.timeline-booking-status-icon,\.provider-booking-chevron\) \{[^}]*background:linear-gradient/, 'Галочка завершённой записи Luxury не использует золотой акцент');
@@ -580,7 +580,7 @@ assert.match(styles, /timeline-booking-copy \{ align-self:center; \}/, 'Текс
 assert.match(styles, /provider-body \.timeline-booking\.compact \{ grid-template-columns:88px minmax\(0,1fr\); padding:4px 14px; \}/, 'У короткой записи снова слишком большие вертикальные отступы');
 assert.match(styles, /timeline-booking\.minute-only \{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*place-items:center stretch;/, 'Время и название одноминутной записи не собраны в одну строку');
 assert.match(styles, /timeline-booking\.minute-only \.timeline-booking-minute-copy \{[^}]*text-align:left;/, 'Название одноминутной записи не выровнено как у остальных записей');
-assert.match(provider, /timeline-booking-minute-time[^`]*?\$\{timeRange\}[^`]*?\$\{serviceMarkup\}/, 'Время и название одноминутной записи не собраны в одну строку');
+assert.match(provider, /timeline-booking-minute-time[^`]*?\$\{timeRange\}[^`]*?\$\{serviceTitleMarkup\}/, 'Время, название и длительность одноминутной записи не собраны в одну строку');
 assert.match(styles, /Одноминутная запись остаётся одной строкой[\s\S]*?grid-template-columns:minmax\(0,1fr\)!important;[\s\S]*?timeline-booking\.minute-only \.timeline-booking-minute-copy \{[\s\S]*?position:static!important;[\s\S]*?transform:none!important;[\s\S]*?timeline-booking-minute-time \{[\s\S]*?display:inline!important;/, 'Мобильная тема снова накладывает время на название одноминутной записи');
 assert.match(styles, /timeline-booking-time \{[^}]*font-variant-numeric:tabular-nums;/, 'Цифры интервала записи не имеют одинаковую ширину');
 assert.match(provider, /timeline-hour timeline-half-hour[\s\S]*:30/, 'На шкале расписания нет получасовых отметок');

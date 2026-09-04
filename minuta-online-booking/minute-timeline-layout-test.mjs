@@ -22,7 +22,7 @@ const entries = [
 context.stackMinuteTimelineItems(entries);
 assert.deepEqual(entries.map(entry => entry.visualTop), [100, 150, 200], 'Минутные записи продолжают накладываться друг на друга');
 assert.match(provider, /minuteOnly \? \(mobileTimeline \? 44 : 40\)/, 'Высота минутной записи меньше её фактической карточки');
-assert.match(provider, /timeline-booking-minute-time[^`]*?\$\{timeRange\}[^`]*?\$\{serviceMarkup\}/, 'Время и название минутной записи не собраны в одну строку');
+assert.match(provider, /timeline-booking-minute-time[^`]*?\$\{timeRange\}[^`]*?\$\{serviceTitleMarkup\}/, 'Время, название и длительность минутной записи не собраны в одну строку');
 assert.match(styles, /timeline-booking\.minute-only \{[\s\S]*?grid-template-columns:minmax\(0,1fr\)!important;[\s\S]*?min-height:44px!important;/, 'Минутная карточка снова разделена на пересекающиеся колонки');
 assert.match(styles, /timeline-booking-minute-time \{[\s\S]*?display:inline!important;/, 'Интервал минутной записи снова может вытеснить название');
 
