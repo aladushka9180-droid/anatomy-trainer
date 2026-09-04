@@ -173,6 +173,8 @@ for (const id of ['organizationBookingPolicyPanel','organizationBookingPoliciesE
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент правил ${id}`);
 }
 assert.match(provider, /teamCalendarController\?\.isTeamMode[\s\S]*teamCalendarController\.render\(holder\)/, 'Журнал не передаёт существующий контейнер командному календарю');
+assert.match(provider, /teamCalendarController\.load\(\)/, 'Полная синхронизация вызывает отсутствующий метод командного календаря');
+assert.doesNotMatch(provider, /teamCalendarController\.refresh\(\)/, 'Полная синхронизация не должна вызывать отсутствующий метод refresh');
 assert.match(provider, /saveProviderCache\('bookings'/, 'Записи не сохраняются для офлайн-просмотра');
 assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной периодической синхронизации');
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
