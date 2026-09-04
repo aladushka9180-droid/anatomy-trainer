@@ -39,11 +39,11 @@ assert.doesNotMatch(provider, /data-report-heatmap-date=/, 'Агрегирова
 assert.match(styles, /#analyticsView\[data-report-tab="overview"\][\s\S]*data-report-tab="money"[\s\S]*data-report-tab="clients"[\s\S]*data-report-tab="team"/, 'Минималистичные представления не переключаются стилями');
 assert.match(styles, /report-periods[\s\S]*overflow-x:auto[\s\S]*scroll-snap-type/, 'Периоды не помещаются безопасно на телефоне');
 assert.match(styles, /@media \(max-width:640px\)[\s\S]*report-command-metrics[\s\S]*grid-template-columns:1fr 1fr/, 'Ключевые показатели не адаптированы к телефону');
-assert.match(worker, /v295/, 'Кэш приложения не обновлён для новой статистики');
+assert.match(worker, /v296/, 'Кэш приложения не обновлён для новой статистики');
 
 assert.match(migration, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 must be atomic');
 assert.match(rollback, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 rollback must be atomic');
 assert.match(provider, /const importedSource = reportDataSource === 'demo' \? \[\] : importedBookingHistory\.filter/, 'demo analytics must not mix real imported history');
 assert.match(styles, /@media \(max-width:640px\)[\s\S]*\.report-view-tabs \{ position:static;/, 'mobile analytics tabs must not collide with sticky filters');
 
-console.log('analytics experience v295 checks passed');
+console.log('analytics experience v296 checks passed');

@@ -20,6 +20,8 @@ class MockElement {
     this.className = '';
     const classes = new Set();
     this.classList = {
+      add: name => classes.add(name),
+      remove: name => classes.delete(name),
       toggle: (name, force) => force ? classes.add(name) : classes.delete(name),
       contains: name => classes.has(name)
     };
@@ -33,17 +35,24 @@ function makeDom() {
   const elements = Object.fromEntries([
     'teamCalendarToolbar', 'teamCalendarFilters', 'teamCalendarStatus',
     'teamCalendarLocation', 'teamCalendarPerformer', 'teamCalendarResourceField',
-    'teamCalendarResource', 'providerBookings'
+    'teamCalendarResource', 'teamCalendarDensity', 'teamCalendarUndo',
+    'teamCalendarUndoMessage', 'teamCalendarUndoCountdown', 'teamCalendarUndoButton',
+    'providerBookings'
   ].map(id => [id, new MockElement(id)]));
   const personal = new MockElement();
   personal.dataset.calendarMode = 'personal';
   const team = new MockElement();
   team.dataset.calendarMode = 'team';
+  const compact = new MockElement();
+  compact.dataset.teamDensity = 'compact';
+  const detailed = new MockElement();
+  detailed.dataset.teamDensity = 'detailed';
   return {
     elements,
     modes: [personal, team],
+    densities: [compact, detailed],
     $: selector => elements[selector.replace(/^#/, '')] || null,
-    $$: selector => selector === '[data-calendar-mode]' ? [personal, team] : []
+    $$: selector => selector === '[data-calendar-mode]' ? [personal, team] : selector === '[data-team-density]' ? [compact, detailed] : []
   };
 }
 
@@ -110,6 +119,11 @@ const ownerOrganization = { id: 'org-1', current_role: 'owner', can_manage: true
   assert.match(dom.elements.providerBookings.innerHTML, /Кабинет 1/, 'Карточка должна показывать назначенный ресурс');
   assert.match(dom.elements.providerBookings.innerHTML, /team-dispatcher-stage/, 'День команды должен быть общей почасовой сеткой');
   assert.match(dom.elements.providerBookings.innerHTML, /team-dispatcher-break/, 'Перерыв сотрудника должен быть виден прямо в сетке');
+  assert.equal(dom.elements.teamCalendarDensity.hidden, false, 'Плотность должна быть доступна в почасовом календаре');
+  assert.equal(dom.elements.providerBookings.dataset.teamDensity, 'compact', 'Компактный режим должен сохранять текущую высоту календаря');
+  dom.densities[1].dispatch('click');
+  assert.equal(dom.elements.providerBookings.dataset.teamDensity, 'detailed', 'Подробный режим должен переключаться без перезагрузки данных');
+  assert.match(dom.elements.providerBookings.innerHTML, /--team-hour-height:92px/, 'Подробный режим должен увеличить вертикальный масштаб');
   assert.equal(dom.elements.teamCalendarResourceField.hidden, false, 'Фильтр ресурсов должен появиться только для v69-календаря');
   assert.doesNotMatch(dom.elements.providerBookings.innerHTML, /data-open-booking|data-booking-action/, 'Командная запись не должна получать небезопасные действия личного журнала');
   assert.match(dom.elements.providerBookings.innerHTML, /data-team-booking-id="booking-1"/, 'Командную запись можно открыть в защищённой карточке диспетчера');
@@ -197,5 +211,8 @@ const ownerOrganization = { id: 'org-1', current_role: 'owner', can_manage: true
   assert.equal(controller.isTeamMode, false);
   assert.equal(dom.elements.teamCalendarToolbar.hidden, true);
 }
+
+assert.match(source,/UNDO_WINDOW_MS\s*=\s*10000[\s\S]*bookingForUndo[\s\S]*bookingMatchesPoint[\s\S]*offerUndo:false/,'Отмена переноса должна быть ограничена десятью секундами и проверять актуальную точку записи');
+assert.match(source,/staff_absence[\s\S]*shift_break[\s\S]*resource[\s\S]*overlap[\s\S]*buffer/,'Причины недоступного переноса должны различаться');
 
 console.log('team calendar controller tests passed');

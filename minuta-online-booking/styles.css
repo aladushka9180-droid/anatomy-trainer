@@ -5960,3 +5960,53 @@ html.provider-booting .provider-main {
 @media (prefers-reduced-motion:reduce) {
   #analyticsView * { scroll-behavior:auto!important; transition:none!important; animation:none!important; }
 }
+
+/* Team calendar polish: density, precise drop feedback and reversible moves. */
+.team-calendar-toolbar { flex-wrap:wrap; }
+.team-calendar-density { display:flex; flex:0 0 auto; gap:3px; padding:3px; border:1px solid var(--theme-line,#dce6df); border-radius:11px; background:var(--theme-surface,#fff); }
+.team-calendar-density button { min-height:34px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:var(--theme-muted,#6f8076); cursor:pointer; font-size:calc(10px + var(--provider-text-step,0px)); font-weight:850; }
+.team-calendar-density button.active { background:var(--theme-accent-soft,#e7f3eb); color:var(--theme-accent,#17462f); }
+.team-calendar-density button:focus-visible { outline:3px solid var(--theme-accent,#235b40); outline-offset:2px; }
+.provider-body[data-provider-theme][data-provider-layout="linear"] .team-calendar-density,
+.provider-body[data-provider-theme][data-provider-layout="linear"] .team-calendar-density button,
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .team-calendar-density,
+.provider-body[data-provider-theme][data-provider-layout="editorial"] .team-calendar-density button { border-radius:0; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .team-calendar-density,
+.provider-body[data-provider-theme][data-provider-layout="capsule"] .team-calendar-density button { border-radius:999px; }
+.team-calendar-list[data-team-density="compact"] .team-dispatcher-booking small { display:none; }
+.team-calendar-list[data-team-density="detailed"] .team-dispatcher { grid-template-columns:72px minmax(calc(var(--team-columns,1) * 240px),1fr); min-width:calc(72px + var(--team-columns,1) * 240px); }
+.team-calendar-list[data-team-density="detailed"] .team-dispatcher-columns { grid-template-columns:repeat(var(--team-columns,1),minmax(240px,1fr)); }
+.team-calendar-list[data-team-density="detailed"] .team-dispatcher-column { min-width:240px; }
+.team-calendar-status.is-warning { flex:1 1 100%; margin-left:0; color:var(--team-warning-text,#8a5816); font-weight:850; text-align:left; }
+.provider-body:is([data-provider-theme="graphite"],[data-provider-theme="luxury"],[data-provider-theme="loft"]) { --team-warning-text:#f4be70; }
+.team-dispatcher-booking:focus-visible { outline:3px solid color-mix(in srgb,var(--theme-accent,#235b40) 58%,#fff); outline-offset:2px; }
+.team-dispatcher-stage.is-drop-invalid { cursor:not-allowed; box-shadow:inset 0 0 0 3px color-mix(in srgb,#b45e48 58%,transparent); }
+.team-dispatcher-stage.is-drop-invalid .team-dispatcher-drop-time { background:#b45e48; color:#b45e48; }
+.team-dispatcher-stage.is-drop-invalid .team-dispatcher-drop-time::before { background:#b45e48; }
+.team-calendar-undo { position:fixed; z-index:1200; right:24px; bottom:28px; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:6px 14px; width:min(430px,calc(100% - 32px)); padding:13px 14px 10px; overflow:hidden; border:1px solid rgba(255,255,255,.2); border-radius:14px; background:#173b2a; color:#fff; box-shadow:0 16px 44px rgba(9,24,17,.34); }
+.team-calendar-undo>div { display:grid; gap:3px; min-width:0; }
+.team-calendar-undo p { margin:0; font-size:calc(11px + var(--provider-text-step,0px)); font-weight:850; line-height:1.4; }
+.team-calendar-undo small { color:rgba(255,255,255,.78); font-size:calc(9px + var(--provider-text-step,0px)); }
+.team-calendar-undo button { min-height:40px; padding:0 12px; border:1px solid rgba(255,255,255,.5); border-radius:9px; background:transparent; color:inherit; cursor:pointer; font-family:inherit; font-size:calc(10px + var(--provider-text-step,0px)); font-weight:900; line-height:1; }
+.team-calendar-undo button:hover { background:rgba(255,255,255,.1); }
+.team-calendar-undo button:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+.team-calendar-undo button:disabled { cursor:wait; opacity:.65; }
+.team-calendar-undo>i { grid-column:1/-1; height:3px; border-radius:999px; background:currentColor; transform-origin:left; }
+.team-calendar-undo.is-active>i { animation:team-calendar-undo-countdown 10s linear forwards; }
+.team-calendar-undo:is(.is-pending,.is-paused)>i { animation-play-state:paused; }
+@keyframes team-calendar-undo-countdown { to { transform:scaleX(0); } }
+
+@media (max-width:760px) {
+  .team-calendar-density { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100%; margin-left:0; }
+  .team-calendar-density button { min-height:44px; }
+  .team-calendar-list[data-team-density="detailed"] .team-dispatcher { grid-template-columns:58px minmax(calc(var(--team-columns,1) * 208px),1fr); min-width:calc(58px + var(--team-columns,1) * 208px); }
+  .team-calendar-list[data-team-density="detailed"] .team-dispatcher-columns { grid-template-columns:repeat(var(--team-columns,1),minmax(208px,1fr)); }
+  .team-calendar-list[data-team-density="detailed"] .team-dispatcher-column { min-width:208px; }
+  .team-calendar-undo { right:16px; bottom:max(96px,calc(86px + env(safe-area-inset-bottom,0px))); left:16px; width:auto; }
+  .team-calendar-undo button { min-height:44px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .team-dispatcher-booking.is-dragging { transform:none; }
+  .team-calendar-undo>i { animation:none!important; opacity:.35; }
+}
