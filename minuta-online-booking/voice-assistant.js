@@ -63,6 +63,21 @@
     'уведомление', 'напоминание', 'подтверждение', 'сообщение', 'отзыв', 'экспорт', 'настройки', 'тариф',
     'напиши', 'придумай', 'составь', 'описание', 'продвижение', 'реклама', 'цена', 'пожалуйста'
   ])]);
+  const REMOTE_INTENTS = new Set([
+    'schedule_summary', 'find_slots', 'booking_draft', 'client_search', 'revenue_summary', 'revenue_change',
+    'inventory_summary', 'inventory_forecast', 'attention', 'clients_summary', 'service_performance',
+    'team_summary', 'message_draft', 'content_draft', 'price_advice', 'promotion_ideas',
+    'operational_briefing', 'workspace_help', 'operation_preview', 'help'
+  ]);
+  const REMOTE_INTENT_KINDS = Object.freeze({
+    schedule_summary:['schedule_summary'], find_slots:['find_slots'], booking_draft:['booking_draft'],
+    client_search:['client_search'], revenue_summary:['revenue_summary'], revenue_change:['revenue_change'],
+    inventory_summary:['inventory_summary'], inventory_forecast:['inventory_forecast'], attention:['attention'],
+    clients_summary:['clients_summary'], service_performance:['service_performance'], team_summary:['team_summary'],
+    message_draft:['message_draft'], content_draft:['content_draft'], price_advice:['price_advice','permission_notice'],
+    promotion_ideas:['promotion_ideas'], operational_briefing:['operational_briefing'], workspace_help:['workspace_help'],
+    operation_preview:['operation_preview'], help:['help']
+  });
 
   function normalizeText(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^a-zа-я0-9:.\s-]/gi, ' ').replace(/\s+/g, ' ').trim();
@@ -1103,6 +1118,111 @@
     return `${previous} ${addition}`.replace(/\s+/g, ' ').trim().slice(0, 500);
   }
 
+  function assistantContextText(value, maximum = 80) {
+    return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maximum);
+  }
+
+  function buildAssistantContext(snapshot = {}) {
+    const today = /^\d{4}-\d{2}-\d{2}$/.test(String(snapshot.today || '')) ? String(snapshot.today) : '';
+    const earliest = today ? shiftIsoDate(today, -45) : '';
+    const latest = today ? shiftIsoDate(today, 400) : '';
+    const services = (Array.isArray(snapshot.services) ? snapshot.services : []).slice(0, 40).map(item => ({
+      id:assistantContextText(item?.id, 80),
+      name:assistantContextText(item?.name, 100),
+      durationMinutes:Math.max(1, Math.min(480, Math.round(Number(item?.durationMinutes) || 60))),
+      defaultDurationMinutes:Math.max(1, Math.min(480, Math.round(Number(item?.defaultDurationMinutes || item?.durationMinutes) || 60))),
+      priceRub:Math.max(0, Math.min(100000000, Math.round(Number(item?.priceRub) || 0))),
+      perMinute:Boolean(item?.perMinute)
+    }));
+    const scopedBookings = (Array.isArray(snapshot.bookings) ? snapshot.bookings : [])
+      .filter(item => !today || (String(item?.date || '') >= earliest && String(item?.date || '') <= latest));
+    const futureBookings = scopedBookings.filter(item => !today || String(item?.date || '') >= today)
+      .sort((left, right) => `${left?.date || ''}${left?.time || ''}`.localeCompare(`${right?.date || ''}${right?.time || ''}`));
+    const pastBookings = scopedBookings.filter(item => today && String(item?.date || '') < today)
+      .sort((left, right) => `${right?.date || ''}${right?.time || ''}`.localeCompare(`${left?.date || ''}${left?.time || ''}`));
+    const bookings = [...futureBookings, ...pastBookings]
+      .slice(0, 36)
+      .map(item => ({
+        id:assistantContextText(item?.id, 80),
+        clientName:assistantContextText(item?.clientName, 80),
+        date:/^\d{4}-\d{2}-\d{2}$/.test(String(item?.date || '')) ? String(item.date) : '',
+        time:/^([01]\d|2[0-3]):[0-5]\d$/.test(String(item?.time || '')) ? String(item.time) : '',
+        durationMinutes:Math.max(1, Math.min(480, Math.round(Number(item?.durationMinutes) || 60))),
+        serviceId:assistantContextText(item?.serviceId, 80),
+        serviceName:assistantContextText(item?.serviceName, 100),
+        status:assistantContextText(item?.status, 24),
+        outcome:assistantContextText(item?.outcome, 24)
+      }));
+    const team = (Array.isArray(snapshot.team) ? snapshot.team : []).slice(0, 20).map(item => ({
+      name:assistantContextText(item?.name, 80),
+      role:assistantContextText(item?.role, 30)
+    }));
+    const inventory = snapshot.inventory && typeof snapshot.inventory === 'object' ? {
+      enabled:Boolean(snapshot.inventory.enabled),
+      items:(Array.isArray(snapshot.inventory.items) ? snapshot.inventory.items : []).slice(0, 24).map(item => ({
+        id:assistantContextText(item?.id, 80),
+        name:assistantContextText(item?.name, 100),
+        unit:assistantContextText(item?.unit, 20),
+        quantity:Math.max(0, Math.min(100000000, Number(item?.quantity) || 0)),
+        lowStockThreshold:Math.max(0, Math.min(100000000, Number(item?.lowStockThreshold) || 0))
+      }))
+    } : null;
+    const notifications = snapshot.notifications && typeof snapshot.notifications === 'object' ? {
+      available:Boolean(snapshot.notifications.available),
+      failed:Math.max(0, Math.min(100000, Math.round(Number(snapshot.notifications.failed) || 0))),
+      pending:Math.max(0, Math.min(100000, Math.round(Number(snapshot.notifications.pending) || 0))),
+      manualDue:Math.max(0, Math.min(100000, Math.round(Number(snapshot.notifications.manualDue) || 0))),
+      manualDueWithin24Hours:Math.max(0, Math.min(100000, Math.round(Number(snapshot.notifications.manualDueWithin24Hours) || 0)))
+    } : null;
+    const context = {
+      today,
+      selectedDate:/^\d{4}-\d{2}-\d{2}$/.test(String(snapshot.selectedDate || '')) ? String(snapshot.selectedDate) : '',
+      organizationName:assistantContextText(snapshot.organizationName, 100),
+      currentRole:assistantContextText(snapshot.currentRole, 30),
+      services,
+      bookings,
+      team,
+      notifications,
+      inventory
+    };
+    const contextBytes = () => new TextEncoder().encode(JSON.stringify(context)).byteLength;
+    while (contextBytes() > 18 * 1024) {
+      if (context.bookings.length > 12) context.bookings.pop();
+      else if (context.inventory?.items?.length > 8) context.inventory.items.pop();
+      else if (context.services.length > 12) context.services.pop();
+      else if (context.team.length > 6) context.team.pop();
+      else break;
+    }
+    return context;
+  }
+
+  function shouldUseRemoteUnderstanding(command, localModel, snapshot = {}) {
+    const text = normalizeText(command);
+    if (!text || !snapshot.synchronized || snapshot.offline || text.length > 500) return false;
+    if (localModel?.kind === 'help' || localModel?.understandingConfidence === 'low' || needsClarification(localModel)) return true;
+    if (/(?:^|\s)(?:это|эту|тот|ту|того|нее|ней|его|ее|предыдущ[а-я]*|последн[а-я]*|как\s+обычно|туда|потом|пораньше|попозже|на\s+час\s+(?:раньше|позже)|после\s+обеда)(?=\s|$)/.test(text)) return true;
+    return text.split(' ').filter(Boolean).length >= 11;
+  }
+
+  function assistantAnalysisModel(analysis, snapshot = {}, now = new Date()) {
+    if (!analysis || typeof analysis !== 'object' || Array.isArray(analysis)) return null;
+    const intent = String(analysis.intent || '');
+    const confidence = Number(analysis.confidence);
+    const canonicalCommand = String(analysis.canonicalCommand || '').trim().slice(0, 500);
+    const clarification = String(analysis.clarification || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    if (!REMOTE_INTENTS.has(intent) || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) return null;
+    if (clarification || confidence < 0.62) {
+      const question = clarification || 'Уточните, что именно нужно узнать или подготовить.';
+      return { kind:'ai_clarification', title:'Нужно небольшое уточнение', message:question, needsDetail:question, understandingConfidence:'low', aiEnhanced:true };
+    }
+    if (!canonicalCommand) return null;
+    const interpreted = interpretCommand(canonicalCommand, snapshot, now);
+    if (!(REMOTE_INTENT_KINDS[intent] || []).includes(interpreted.kind)) {
+      return { kind:'ai_clarification', title:'Нужно небольшое уточнение', message:'Не удалось безопасно сопоставить смысл с операцией кабинета. Переформулируйте задачу одним предложением.', needsDetail:'задача', understandingConfidence:'low', aiEnhanced:true };
+    }
+    return { ...interpreted, aiEnhanced:true, canonicalCommand };
+  }
+
   function createController(options = {}) {
     const doc = options.document || global.document;
     const bridge = options.bridge || global.MinutaProviderAssistant;
@@ -1142,6 +1262,15 @@
     let compatibilityClickResetTimer = null;
     let activeTouchPointerId = null;
     let requestEpoch = 0;
+    let conversationHistory = [];
+
+    function rememberConversation(command, model) {
+      const userText = String(command || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+      const assistantText = `${model?.title || ''}. ${model?.message || ''}`.replace(/\s+/g, ' ').trim().slice(0, 500);
+      if (userText) conversationHistory.push({ role:'user', text:userText });
+      if (assistantText) conversationHistory.push({ role:'assistant', text:assistantText });
+      conversationHistory = conversationHistory.slice(-6);
+    }
 
     function refreshRussianVoice() {
       try { russianVoice = selectRussianVoice(global.speechSynthesis?.getVoices?.() || []); } catch { russianVoice = null; }
@@ -1275,6 +1404,7 @@
       lastCommand = '';
       lastSessionGeneration = null;
       pendingCommand = '';
+      conversationHistory = [];
       input.placeholder = 'Например: найди окно завтра';
       starters?.classList.remove('is-secondary');
       status.textContent = 'Нажмите «Говорить» или введите команду текстом.';
@@ -1527,8 +1657,8 @@
       });
     }
 
-    function understand() {
-      requestEpoch += 1;
+    async function understand() {
+      const epoch = ++requestEpoch;
       const snapshot = bridge.getReadOnlySnapshot();
       if (!snapshot?.authenticated) {
         renderModel({ kind:'error', title:'Нужно войти в кабинет', message:'После входа помощник сможет прочитать актуальное расписание.' });
@@ -1544,13 +1674,34 @@
       const continued = canContinueCommand(pendingCommand, lastModel, enteredCommand, snapshot, now);
       const command = continued ? continueCommand(pendingCommand, lastModel, enteredCommand) : enteredCommand;
       lastCommand = command;
-      const interpreted = interpretCommand(command, snapshot, now);
+      let interpreted = interpretCommand(command, snapshot, now);
+      let aiUnavailable = false;
+      if (typeof bridge.understandCommand === 'function' && shouldUseRemoteUnderstanding(command, interpreted, snapshot)) {
+        status.textContent = 'Уточняю смысл сложной фразы…';
+        let response;
+        try {
+          response = await bridge.understandCommand({ command, context:buildAssistantContext(snapshot), history:conversationHistory.slice(-6) });
+        } catch {
+          response = { ok:false, reason:'request_failed' };
+        }
+        if (epoch !== requestEpoch || !dialog.open) return;
+        const currentSnapshot = bridge.getReadOnlySnapshot();
+        if (!currentSnapshot?.authenticated || !currentSnapshot.synchronized || !Object.is(currentSnapshot.sessionGeneration, snapshot.sessionGeneration)) {
+          renderModel({ kind:'error', title:'Сессия кабинета изменилась', message:'Повторите команду после завершения синхронизации.' }, currentSnapshot?.sessionGeneration);
+          status.textContent = 'Устаревший ответ ИИ не показан.';
+          return;
+        }
+        const enhanced = response?.ok ? assistantAnalysisModel(response.analysis, snapshot, now) : null;
+        if (enhanced) interpreted = enhanced;
+        else aiUnavailable = true;
+      }
       if (['booking_draft','find_slots'].includes(interpreted.kind)) interpreted.availableServices = snapshot.services || [];
       const contextual = applyOfflineContext(interpreted, snapshot);
       const sourceLabel = snapshot.offlineReadable
         ? `Источник: сохранённая копия · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}`
-        : snapshot.synchronized ? `Источник: актуальные данные кабинета${snapshot.lastUpdatedAt ? ` · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}` : ''}` : '';
+        : snapshot.synchronized ? `Источник: ${interpreted.aiEnhanced ? 'защищённый ИИ-разбор · ' : ''}актуальные данные кабинета${snapshot.lastUpdatedAt ? ` · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}` : ''}` : '';
       const model = { ...contextual, sourceLabel };
+      rememberConversation(command, model);
       if (needsClarification(model)) {
         pendingCommand = command;
         input.value = '';
@@ -1566,7 +1717,7 @@
         return;
       }
       renderModel(model, snapshot.sessionGeneration);
-      status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
+      status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : aiUnavailable && model.kind === 'help' ? 'Защищённый ИИ-разбор сейчас недоступен. Локальный помощник не изменил данные.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
     }
 
     function joinRecognitionText(first, second) {
@@ -1789,7 +1940,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

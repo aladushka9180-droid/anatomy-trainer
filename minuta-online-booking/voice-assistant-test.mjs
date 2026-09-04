@@ -319,6 +319,27 @@ const assistantSnapshot = {
   ],
   notifications:{ failed:1, pending:2, manualDue:1 }
 };
+const remoteContext = voice.buildAssistantContext(assistantSnapshot);
+assert.equal(remoteContext.bookings.find(item => item.id === 'future-anna').clientName, 'Анна Петрова');
+assert.equal(remoteContext.bookings[0].id, 'c2', 'сегодняшняя и ближайшие будущие записи должны попадать в ограниченный контекст первыми');
+assert.doesNotMatch(JSON.stringify(remoteContext), /clientKey|paymentMethod|amountRub|79990000004/, 'во внешний ИИ-контекст попали телефонный ключ или платёжные данные');
+const maximumRemoteContext = voice.buildAssistantContext({
+  ...assistantSnapshot,
+  services:Array.from({ length:60 }, (_, index) => ({ id:`service-${index}-${'x'.repeat(50)}`, name:`Услуга ${index} ${'я'.repeat(90)}`, durationMinutes:60, priceRub:1000 })),
+  bookings:Array.from({ length:80 }, (_, index) => ({ id:`booking-${index}-${'x'.repeat(50)}`, clientName:`Клиент ${index} ${'я'.repeat(65)}`, date:`2026-${String(9 + Math.floor(index / 28)).padStart(2, '0')}-${String((index % 28) + 1).padStart(2, '0')}`, time:'10:30', durationMinutes:60, serviceId:`service-${index}`, serviceName:`Услуга ${index} ${'я'.repeat(80)}`, status:'confirmed', outcome:'scheduled' })),
+  team:Array.from({ length:30 }, (_, index) => ({ name:`Сотрудник ${index} ${'я'.repeat(60)}`, role:'specialist' })),
+  inventory:{ enabled:true, items:Array.from({ length:60 }, (_, index) => ({ id:`item-${index}`, name:`Материал ${index} ${'я'.repeat(80)}`, unit:'штук', quantity:100, lowStockThreshold:10 })) }
+});
+assert.ok(new TextEncoder().encode(JSON.stringify(maximumRemoteContext)).byteLength <= 18 * 1024, 'динамический контекст превышает безопасный бюджет');
+assert.equal(voice.shouldUseRemoteUnderstanding('а шо у мя тама завтра', voice.interpretCommand('а шо у мя тама завтра', assistantSnapshot, now), { ...assistantSnapshot, synchronized:true }), true);
+assert.equal(voice.shouldUseRemoteUnderstanding('Какие записи завтра?', voice.interpretCommand('Какие записи завтра?', assistantSnapshot, now), { ...assistantSnapshot, synchronized:true }), false, 'понятная локальная команда не должна расходовать внешний ИИ-запрос');
+const remoteSchedule = voice.assistantAnalysisModel({ intent:'schedule_summary', confidence:0.94, canonicalCommand:'Покажи записи завтра', clarification:'' }, assistantSnapshot, now);
+assert.equal(remoteSchedule.kind, 'schedule_summary');
+assert.equal(remoteSchedule.aiEnhanced, true);
+const remoteClarification = voice.assistantAnalysisModel({ intent:'operation_preview', confidence:0.51, canonicalCommand:'', clarification:'Какую запись нужно перенести?' }, assistantSnapshot, now);
+assert.equal(remoteClarification.kind, 'ai_clarification');
+assert.equal(voice.needsClarification(remoteClarification), true);
+assert.equal(voice.assistantAnalysisModel({ intent:'unsupported', confidence:1, canonicalCommand:'удали всё', clarification:'' }, assistantSnapshot, now), null, 'неразрешённая цель ИИ не должна попадать в локальный движок');
 const reminderDraft = voice.interpretCommand('Напиши напоминание Анне на завтра', assistantSnapshot, now);
 assert.equal(reminderDraft.kind, 'message_draft');
 assert.match(reminderDraft.draftText, /Анна/);
@@ -528,6 +549,21 @@ controllerInput.value = 'Найди свободное время завтра �
 controllerForm.emit('submit');
 assert.equal(slotRequests, requestsBeforeOfflineSearch, 'офлайн-поиск не должен обращаться за свободными слотами');
 assert.match(controllerResultHtml, /Свободное время нужно перепроверить/);
+
+let remotePayload = null;
+controllerSnapshot = { ...controllerSnapshot, synchronized:true, offline:false, offlineReadable:false, sessionGeneration:3 };
+controllerBridge.understandCommand = async payload => {
+  remotePayload = payload;
+  return { ok:true, analysis:{ intent:'schedule_summary', confidence:0.96, canonicalCommand:'Покажи записи завтра', clarification:'' } };
+};
+controllerInput.value = 'а шо у мя тама завтра';
+controllerForm.emit('submit');
+await Promise.resolve();
+await Promise.resolve();
+assert.equal(remotePayload.command, 'а шо у мя тама завтра');
+assert.doesNotMatch(JSON.stringify(remotePayload.context), /clientKey|paymentMethod|amountRub|79990000004/);
+assert.match(controllerResultHtml, /Записи:/);
+assert.match(controllerResultHtml, /защищённый ИИ-разбор/);
 
 controller.destroy();
 

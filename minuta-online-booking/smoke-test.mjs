@@ -112,6 +112,8 @@ assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList
 assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDialog"[\s\S]*id="voiceListenButton"/, 'В кабинете нет голосового помощника');
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
+assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
+assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');
 assert.match(provider, /openSection\(section = ''\)/, 'Помощник не может безопасно открыть нужный раздел кабинета');
 assert.match(provider, /new Set\(\['bookings', 'clients', 'notifications'.*'settings'\]\)/, 'Навигация помощника не ограничена белым списком разделов');
 assert.match(voiceAssistant, /kind:'message_draft'/, 'Помощник не готовит сообщения клиентам');
@@ -119,7 +121,10 @@ assert.match(voiceAssistant, /kind:'operational_briefing'/, 'Помощник н
 assert.match(voiceAssistant, /data-voice-copy/, 'Черновики помощника нельзя скопировать');
 assert.match(voiceAssistant, /kind:'operation_preview'/, 'Помощник не показывает предпросмотр переноса или отмены');
 assert.match(voiceAssistant, /data-voice-feedback="fix"/, 'Пользователь не может исправить неверно понятую команду');
-assert.match(voiceAssistant, /Источник: актуальные данные кабинета/, 'Помощник не показывает свежесть источника');
+assert.match(voiceAssistant, /актуальные данные кабинета/, 'Помощник не показывает свежесть источника');
+assert.match(voiceAssistant, /защищённый ИИ-разбор/, 'Помощник не маркирует ответы усиленного ИИ-разбора');
+assert.match(voiceAssistant, /function buildAssistantContext/, 'Помощник не формирует ограниченный динамический контекст');
+assert.match(voiceAssistant, /assistantAnalysisModel[\s\S]*interpretCommand\(canonicalCommand/, 'ИИ-ответ не проверяется локальным движком');
 assert.match(provider, /prepareBookingOperation\(plan = \{\}\)/, 'Безопасный переход от предпросмотра к штатной форме записи не подключён');
 assert.match(provider, /openBookingEditor\(item\.id, \{ date, time \}\)/, 'Форма переноса не получает проверенные дату и время');
 assert.match(provider, /currentRole:readable \? String\(organization\?\.current_role/, 'Помощник не получает роль сотрудника для проверки доступа');

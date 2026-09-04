@@ -2,3 +2,6 @@ project_id = "cawexmmrqjvothcbgjxr"
 
 [functions.telegram-client-notify]
 verify_jwt = false
+
+[functions.assistant-understand]
+verify_jwt = true

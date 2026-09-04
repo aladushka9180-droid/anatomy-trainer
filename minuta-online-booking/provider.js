@@ -10124,6 +10124,38 @@ window.MinutaProviderAssistant = Object.freeze({
       } : null
       };
   },
+  async understandCommand(payload = {}) {
+    const generation = sessionGeneration;
+    const userId = currentUser?.id;
+    if (!userId) return { ok:false, reason:'auth_required' };
+    if (!navigator.onLine || !bookingCreationReady || bookingsSnapshotFromCache) return { ok:false, reason:'not_synchronized' };
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { ok:false, reason:'invalid_request' };
+    const command = String(payload.command || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500);
+    const context = payload.context && typeof payload.context === 'object' && !Array.isArray(payload.context) ? payload.context : {};
+    const history = (Array.isArray(payload.history) ? payload.history : []).slice(-6).map(item => ({
+      role:item?.role === 'assistant' ? 'assistant' : 'user',
+      text:String(item?.text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500)
+    })).filter(item => item.text);
+    const body = { command, context, history };
+    if (!command || new TextEncoder().encode(JSON.stringify(body)).byteLength > 24 * 1024) return { ok:false, reason:'invalid_request' };
+    const { data:sessionData, error:sessionError } = await db.auth.getSession();
+    if (sessionError || !sessionIsCurrent(userId, generation) || sessionData?.session?.user?.id !== userId) return { ok:false, reason:'stale_session' };
+    let timeoutId;
+    let result;
+    try {
+      result = await Promise.race([
+        db.functions.invoke('assistant-understand', { body }),
+        new Promise((_, reject) => { timeoutId = setTimeout(() => reject(new Error('assistant_timeout')), 10000); })
+      ]);
+    } catch {
+      return { ok:false, reason:'request_failed' };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (!sessionIsCurrent(userId, generation)) return { ok:false, reason:'stale_session' };
+    if (result?.error || !result?.data?.ok || !result.data.analysis || typeof result.data.analysis !== 'object') return { ok:false, reason:String(result?.data?.reason || 'request_failed') };
+    return { ok:true, analysis:result.data.analysis };
+  },
   openSection(section = '') {
     const allowed = new Set(['bookings', 'clients', 'notifications', 'waitlist', 'schedule', 'services', 'organization', 'analytics', 'portfolio', 'settings']);
     const view = String(section || '');
