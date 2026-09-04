@@ -109,6 +109,7 @@ const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
   organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
   benefitsPanel:['loyaltyPanel', 'retentionPanel'],
+  telegramClientSettingsCard:['visitorAlertSettingsCard'],
   bookingRulesCard:['teamCalendarSettingsCard', 'groupBookingSettingsCard']
 });
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
@@ -286,6 +287,88 @@ const defaultNotificationTemplates = {
   cancellation: 'Здравствуйте, {имя}! Ваша запись на {услуга}, {дата} в {время}, отменена. Если захотите подобрать другое время, напишите мне.'
 };
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
+const DEFAULT_TELEGRAM_CLIENT_SETTINGS = Object.freeze({
+  contact_username:'',
+  confirmation:true,
+  reminder:true,
+  rescheduled:true,
+  cancelled:true
+});
+let telegramClientSettings = { ...DEFAULT_TELEGRAM_CLIENT_SETTINGS };
+
+function normalizeTelegramContactUsername(value) {
+  const username = String(value || '').trim()
+    .replace(/^https?:\/\/(?:www\.)?t\.me\//i, '')
+    .replace(/^@/, '')
+    .split(/[/?#]/, 1)[0];
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : '';
+}
+
+function normalizeTelegramClientSettings(value = {}) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    contact_username:normalizeTelegramContactUsername(source.contact_username ?? source.contactUsername),
+    confirmation:source.confirmation !== false,
+    reminder:source.reminder !== false,
+    rescheduled:source.rescheduled !== false,
+    cancelled:source.cancelled !== false
+  };
+}
+
+function restoreTelegramClientSettings(user = currentUser) {
+  telegramClientSettings = normalizeTelegramClientSettings(user?.user_metadata?.telegram_client_settings);
+}
+
+function renderTelegramClientSettings() {
+  const input = $('#telegramContactUsername');
+  if (!input) return;
+  input.value = telegramClientSettings.contact_username ? `@${telegramClientSettings.contact_username}` : '';
+  $('#telegramNotifyConfirmation').checked = telegramClientSettings.confirmation;
+  $('#telegramNotifyReminder').checked = telegramClientSettings.reminder;
+  $('#telegramNotifyRescheduled').checked = telegramClientSettings.rescheduled;
+  $('#telegramNotifyCancelled').checked = telegramClientSettings.cancelled;
+  const status = $('#telegramClientSettingsStatus');
+  if (status) status.textContent = telegramClientSettings.contact_username
+    ? `Кнопка связи откроет @${telegramClientSettings.contact_username}`
+    : 'Без Telegram мастера клиент получит только управление записью';
+}
+
+async function saveTelegramClientSettings(event) {
+  event.preventDefault();
+  clearFormError('#telegramClientSettingsError');
+  if (!currentUser?.id) return;
+  const rawUsername = $('#telegramContactUsername').value.trim();
+  const contactUsername = normalizeTelegramContactUsername(rawUsername);
+  if (rawUsername && !contactUsername) {
+    showFormError('#telegramClientSettingsError', 'Укажите Telegram в формате @username: от 5 до 32 латинских букв, цифр или символов _.');
+    $('#telegramContactUsername').focus();
+    return;
+  }
+  const next = {
+    contact_username:contactUsername,
+    confirmation:$('#telegramNotifyConfirmation').checked,
+    reminder:$('#telegramNotifyReminder').checked,
+    rescheduled:$('#telegramNotifyRescheduled').checked,
+    cancelled:$('#telegramNotifyCancelled').checked,
+    version:1,
+    updated_at:Date.now()
+  };
+  const button = event.submitter || $('#telegramClientSettingsForm button[type="submit"]');
+  const status = $('#telegramClientSettingsStatus');
+  if (button) button.disabled = true;
+  if (status) status.textContent = 'Сохраняем…';
+  const { data, error } = await db.auth.updateUser({ data:{ telegram_client_settings:next } });
+  if (button) button.disabled = false;
+  if (error) {
+    showFormError('#telegramClientSettingsError', 'Не удалось сохранить настройки Telegram. Повторите позже.');
+    if (status) status.textContent = 'Изменения не сохранены';
+    return;
+  }
+  if (data?.user) currentUser = data.user;
+  telegramClientSettings = normalizeTelegramClientSettings(next);
+  renderTelegramClientSettings();
+  notify('Настройки Telegram сохранены');
+}
 
 function providerCacheKey(name, userId = currentUser?.id) { return `provider:${userId || 'anonymous'}:${name === 'bookings' ? 'bookings-v3' : name}`; }
 function sessionIsCurrent(userId, generation) { return currentUser?.id === userId && sessionGeneration === generation; }
@@ -1673,7 +1756,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=349#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=350#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3363,7 +3446,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=349');
+    worker = new Worker('./report-worker.js?v=350');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7738,6 +7821,8 @@ async function logout() {
 async function handleSession(session) {
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
+    restoreTelegramClientSettings(currentUser);
+    renderTelegramClientSettings();
     renderProviderPhoneState();
     renderProviderSocialState();
     return;
@@ -7807,6 +7892,7 @@ async function handleSession(session) {
     loadLocalClientLabels(currentUser.id);
     restoreServiceDurationDefaults(currentUser);
     displayPreferencesNeedSync = restoreDisplayPreferences(currentUser).pending;
+    restoreTelegramClientSettings(currentUser);
   } else {
     bookingColors = new Map();
     bookingNotes = new Map();
@@ -7817,9 +7903,11 @@ async function handleSession(session) {
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
     displayPreferencesUpdatedAt = 0;
     displayPreferencesPending = false;
+    telegramClientSettings = { ...DEFAULT_TELEGRAM_CLIENT_SETTINGS };
   }
   applyDisplayPreferences();
   renderDisplayPreferencesForm();
+  renderTelegramClientSettings();
   renderProviderSocialState();
   if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
   scheduleDirty = false;
@@ -10277,6 +10365,7 @@ $$('[data-booking-buffer-minutes]').forEach(button => button.addEventListener('c
 $('#visitorNotificationForm').addEventListener('submit', saveVisitorNotificationSettings);
 $('#visitorNotificationsEnabled').addEventListener('change', saveVisitorNotificationSettings);
 $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemNotification);
+$('#telegramClientSettingsForm').addEventListener('submit', saveTelegramClientSettings);
 document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); }, { passive:true });
 document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);

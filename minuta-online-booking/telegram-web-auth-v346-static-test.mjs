@@ -25,23 +25,31 @@ assert.match(worker, /sendBookingEvent\(booking, event\)/, 'Confirmation is not 
 assert.match(auth, /request_access:'write'/, 'Telegram does not request permission to send messages');
 assert.match(auth, /Telegram\.Login\.auth/, 'Telegram web authorization does not use the official login flow');
 assert.match(auth, /manage_token:state\.manageToken, telegram_auth:auth/, 'Telegram login result is not verified by the backend');
-assert.match(auth, /Уведомления подключены/, 'Connected state is not visible to the client');
+assert.match(auth, /Telegram подключён/, 'Connected state is not visible to the client');
+assert.match(auth, /Повторять это для следующих записей не придётся/, 'One-time authorization is not explained');
 assert.doesNotMatch(auth, /window\.open\([^)]*t\.me/, 'Client is still redirected to a bot chat');
 assert.match(app, /notifyTelegramEvent\('confirmation', manageToken\)/, 'Online booking does not trigger a Telegram confirmation for a connected client');
 assert.match(provider, /deliverTelegramClientNotification\(createdBooking\.id, 'confirmation'\)/, 'Booking created by the master does not trigger a Telegram confirmation for a connected client');
+assert.match(provider, /telegram_client_settings/, 'Master Telegram settings are not stored in protected account metadata');
+assert.match(provider, /normalizeTelegramContactUsername/, 'Master Telegram username is not validated');
+assert.match(worker, /performerTelegramSettings\(booking\.performer_id\)/, 'Delivery does not load the master notification settings');
+assert.match(worker, /text: "Написать мастеру"/, 'Telegram message does not contain direct contact with the master');
+assert.match(worker, /reason: "event_disabled"/, 'Disabled notification events are not respected by the worker');
 
 for (const html of [index, booking]) {
   assert.match(html, /script-src 'self' https:\/\/telegram\.org/, 'Telegram login SDK is blocked by CSP');
   assert.match(html, /connect-src[^;]*https:\/\/oauth\.telegram\.org/, 'Telegram authorization is blocked by CSP');
   assert.match(html, /id="(?:telegramConnect|manageTelegramConnect)"[^>]*type="button"/, 'Telegram action is not an in-page button');
-  assert.match(html, /Получать уведомления в Telegram/, 'Telegram action has no clear label');
+  assert.match(html, /Подключить Telegram/, 'Telegram action has no clear label');
   assert.match(html, /запускать бота не нужно/, 'The interface still asks the client to start a bot');
-  assert.match(html, /telegram-auth\.js\?v=349/, 'Telegram authorization controller is not loaded');
+  assert.match(html, /telegram-auth\.js\?v=350/, 'Telegram authorization controller is not loaded');
 }
 
 assert.match(styles, /\.telegram-connect-button strong \{ font-size:14px/, 'Telegram action title is too small');
 assert.match(styles, /\.telegram-connect-button small \{[^}]*font-size:12px/, 'Telegram action explanation is too small');
-assert.match(sw, /'\.\/telegram-auth\.js\?v=349'/, 'Telegram authorization controller is not cached');
+assert.match(index, /Можно пропустить — запись всё равно сохранена/, 'Optional Telegram authorization is not explained');
+assert.match(provider, /telegramClientSettingsForm/, 'Master Telegram notification settings are not wired');
+assert.match(sw, /'\.\/telegram-auth\.js\?v=350'/, 'Telegram authorization controller is not cached');
 assert.match(setup, /\/setdomain/, 'Required BotFather domain setup is not documented');
 
-console.log('Telegram web authorization v349 checks passed');
+console.log('Telegram web authorization v350 checks passed');

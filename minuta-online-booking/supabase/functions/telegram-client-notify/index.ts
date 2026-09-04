@@ -21,6 +21,13 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 type BookingEvent = "confirmation" | "rescheduled" | "cancelled" | "reminder";
+type TelegramClientSettings = {
+  contactUsername: string;
+  confirmation: boolean;
+  reminder: boolean;
+  rescheduled: boolean;
+  cancelled: boolean;
+};
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { ...corsHeaders, "cache-control": "no-store" } });
@@ -94,6 +101,33 @@ function normalizePhone(value: unknown) {
 
 function relation(value: unknown) {
   return Array.isArray(value) ? value[0] || {} : value || {};
+}
+
+function telegramContactUsername(value: unknown) {
+  const username = String(value || "").trim()
+    .replace(/^https?:\/\/(?:www\.)?t\.me\//i, "")
+    .replace(/^@/, "")
+    .split(/[/?#]/, 1)[0];
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : "";
+}
+
+function normalizeTelegramClientSettings(value: unknown): TelegramClientSettings {
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  return {
+    contactUsername: telegramContactUsername(source.contact_username ?? source.contactUsername),
+    confirmation: source.confirmation !== false,
+    reminder: source.reminder !== false,
+    rescheduled: source.rescheduled !== false,
+    cancelled: source.cancelled !== false,
+  };
+}
+
+async function performerTelegramSettings(performerId: string) {
+  const { data, error } = await admin.auth.admin.getUserById(performerId);
+  if (error) console.error("Telegram performer settings lookup failed", performerId, error);
+  return normalizeTelegramClientSettings(data?.user?.user_metadata?.telegram_client_settings);
 }
 
 function encodeStartToken(token: string) {
@@ -227,6 +261,8 @@ function normalizeBookingContext(booking: any) {
 }
 
 async function sendBookingEvent(booking: any, event: BookingEvent) {
+  const settings = await performerTelegramSettings(booking.performer_id);
+  if (!settings[event]) return { delivered: false, reason: "event_disabled" };
   const phone = normalizePhone(booking.client_phone);
   const { data: subscription } = await admin.from("client_telegram_subscriptions")
     .select("id,chat_id")
@@ -246,6 +282,11 @@ async function sendBookingEvent(booking: any, event: BookingEvent) {
   if (duplicate) return { delivered: false, reason: "already_sent" };
 
   const message = bookingMessage(booking, event);
+  const inlineKeyboard = [];
+  if (settings.contactUsername) {
+    inlineKeyboard.push([{ text: "Написать мастеру", url: `https://t.me/${settings.contactUsername}` }]);
+  }
+  inlineKeyboard.push([{ text: event === "cancelled" ? "Выбрать другое время" : "Управлять записью", url: message.managementUrl }]);
   try {
     await telegram("sendMessage", {
       chat_id: subscription.chat_id,
@@ -253,7 +294,7 @@ async function sendBookingEvent(booking: any, event: BookingEvent) {
       parse_mode: "HTML",
       disable_web_page_preview: true,
       reply_markup: {
-        inline_keyboard: [[{ text: event === "cancelled" ? "Выбрать другое время" : "Управлять записью", url: message.managementUrl }]],
+        inline_keyboard: inlineKeyboard,
       },
     });
   } catch (error) {

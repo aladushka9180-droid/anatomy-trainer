@@ -81,7 +81,7 @@
       if (finished) return;
       state.pending = false;
       button.disabled = false;
-      render(button, 'ready', 'Получать уведомления в Telegram', 'Подтвердите доступ — запускать бота не нужно');
+      render(button, 'ready', 'Подключить Telegram', 'Разрешите уведомления один раз — запускать бота не нужно');
     }, 60000);
 
     window.Telegram.Login.auth({ bot_id:state.config.bot_id, request_access:'write', lang:'ru' }, async auth => {
@@ -101,7 +101,7 @@
         state.ready = false;
         state.connected = true;
         button.disabled = true;
-        render(button, 'connected', 'Уведомления подключены', 'Подтверждения и напоминания придут автоматически');
+        render(button, 'connected', 'Telegram подключён', 'Повторять это для следующих записей не придётся');
         state.onConnected?.(result);
       } catch (error) {
         state.pending = false;
@@ -134,12 +134,12 @@
       state.connected = config.connected === true;
       if (state.connected) {
         button.disabled = true;
-        render(button, 'connected', 'Уведомления подключены', 'Подтверждения и напоминания придут автоматически');
+        render(button, 'connected', 'Telegram подключён', 'Повторять это для следующих записей не придётся');
         return true;
       }
       state.ready = true;
       button.disabled = false;
-      render(button, 'ready', 'Получать уведомления в Telegram', 'Подтвердите доступ — запускать бота не нужно');
+      render(button, 'ready', 'Подключить Telegram', 'Разрешите уведомления один раз — запускать бота не нужно');
       return true;
     } catch (error) {
       if (states.get(button) !== state) return false;
