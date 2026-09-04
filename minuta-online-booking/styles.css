@@ -6411,40 +6411,47 @@ html.provider-booting .provider-main {
 .report-visual-grid { grid-template-columns:minmax(280px,.82fr) minmax(420px,1.18fr); gap:12px; }
 .report-visual-grid>.panel,#analyticsView .panel { background-image:none; }
 .report-funnel strong { font-size:11px; }.report-funnel b { font-size:16px; }.report-funnel small { font-size:10px; }
-.report-heatmap { grid-template-columns:minmax(92px,.65fr) repeat(7,minmax(82px,1fr)); gap:8px; }
+.report-heatmap-card { min-width:0; overflow:hidden; }
+.report-heatmap {
+  grid-template-columns:108px repeat(7,minmax(0,1fr));
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  gap:6px;
+  box-sizing:border-box;
+}
 .report-heatmap>b,.report-heatmap>strong {
-  min-height:34px;
+  min-width:0;
+  min-height:32px;
   color:color-mix(in srgb,var(--theme-ink) 84%,var(--theme-muted));
-  font-size:clamp(12px,.92vw,15px);
+  font-size:12px;
   font-weight:850;
   line-height:1.25;
 }
 .report-heatmap-cell {
   appearance:none;
-  min-height:66px;
-  gap:6px;
-  padding:9px 6px;
+  min-width:0;
+  min-height:50px;
+  gap:4px;
+  padding:7px 5px;
+  box-sizing:border-box;
   cursor:pointer;
   font:inherit;
 }
 .report-heatmap-cell i {
-  font-size:clamp(17px,1.25vw,21px);
+  font-size:16px;
   line-height:1;
   font-variant-numeric:tabular-nums;
 }
 .report-heatmap-popular-time {
+  max-width:100%;
   color:color-mix(in srgb,var(--theme-ink) 72%,var(--theme-muted));
-  font-size:clamp(11px,.78vw,13px);
+  font-size:10px;
   line-height:1.2;
+  overflow-wrap:anywhere;
+  text-align:center;
+  white-space:normal;
   font-variant-numeric:tabular-nums;
-}
-.report-heatmap-card .report-section-heading small { font-size:11px; }
-.report-heatmap-card .report-section-heading h3 { font-size:clamp(22px,2vw,28px); line-height:1.12; }
-.report-heatmap-card .report-section-heading>span {
-  max-width:48%;
-  color:color-mix(in srgb,var(--theme-ink) 76%,var(--theme-muted));
-  font-size:12px;
-  line-height:1.35;
 }
 .report-methodology { margin-top:12px; border:1px solid var(--theme-line); border-radius:var(--report-radius); background:var(--theme-surface); }
 .report-methodology.has-warning { border-color:color-mix(in srgb,#d69b37 40%,var(--theme-line)); }
@@ -6515,7 +6522,7 @@ html.provider-booting .provider-main {
   .report-health-factors,.report-methodology-grid,.report-goals-grid { grid-template-columns:1fr; }
   .report-heatmap-card { overflow:hidden; }
   .report-heatmap-card .report-heatmap {
-    grid-template-columns:76px repeat(7,72px);
+    grid-template-columns:74px repeat(7,66px);
     width:100%;
     min-width:0;
     max-width:100%;
@@ -6526,12 +6533,12 @@ html.provider-booting .provider-main {
     -webkit-overflow-scrolling:touch;
   }
   .report-heatmap-card .report-heatmap>b,
-  .report-heatmap-card .report-heatmap>strong { font-size:12px; }
-  .report-heatmap-card .report-heatmap-cell { min-height:60px; padding:8px 5px; }
-  .report-heatmap-card .report-heatmap-cell i { font-size:17px; }
+  .report-heatmap-card .report-heatmap>strong { font-size:11px; }
+  .report-heatmap-card .report-heatmap-cell { min-height:52px; padding:7px 4px; }
+  .report-heatmap-card .report-heatmap-cell i { font-size:15px; }
   .report-heatmap-card .report-heatmap-popular-time { font-size:10px; }
   .report-heatmap-card .report-section-heading { align-items:flex-start; flex-direction:column; }
-  .report-heatmap-card .report-section-heading>span { max-width:none; font-size:11px; text-align:left; }
+  .report-heatmap-card .report-section-heading>span { max-width:none; text-align:left; }
   .report-goal-settings-link>div { align-items:stretch; flex-direction:column; }
   .schedule-settings-layout,.schedule-settings-layout>.panel,.weekly-schedule,.monthly-schedule-panel,.days-off-panel { width:100%; min-width:0; max-width:100%; box-sizing:border-box; }
   .schedule-settings-layout :is(input,select,textarea,.field-with-unit) { min-width:0; max-width:100%; box-sizing:border-box; }
