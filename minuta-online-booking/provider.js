@@ -758,6 +758,7 @@ function requireWrites() {
   return false;
 }
 function requireBookingWrites() {
+  if (bookingUsesDemoData()) { notify('Демо-записи доступны только для просмотра'); return false; }
   if ((writesAllowed || bookingCreationReady) && navigator.onLine && currentUser) return true;
   if (canQueueOfflineBooking()) return true;
   if (!navigator.onLine) notify('Нет интернета и свежей сохранённой копии · запись пока нельзя отложить');
@@ -829,6 +830,11 @@ function renderDayFocus() {
   const label = $('#providerDayFocusLabel');
   const open = $('#providerDayFocusOpen');
   if (!panel || !title || !details || !label || !open) return;
+  if (bookingUsesDemoData()) {
+    panel.hidden = true;
+    open.removeAttribute('data-open-booking');
+    return;
+  }
   const now = new Date();
   const next = allBookings
     .filter(item => item.status !== 'cancelled' && !isScheduleBlock(item) && bookingOutcome(item).visit_status === 'scheduled')
@@ -1788,7 +1794,76 @@ let reportCanViewTeam = false;
 let reportScopedBookingsState = { key:'', status:'idle', rows:[] };
 let reportAvailabilityState = { key:'', status:'idle', availableMinutes:null, configured:0, total:0, complete:false };
 let reportDataSource = 'own';
+let ownBookingContextBeforeDemo = null;
 const REPORT_DEMO_SLUG = 'minuta-demo-statistics';
+
+function bookingUsesDemoData() {
+  return reportDataSource === 'demo';
+}
+
+function bookingSourceItems() {
+  return bookingUsesDemoData() && reportScopedBookingsState.status === 'ready'
+    ? reportScopedBookingsState.rows
+    : bookingUsesDemoData() ? [] : allBookings;
+}
+
+function rememberOwnBookingContext() {
+  if (ownBookingContextBeforeDemo) return;
+  ownBookingContextBeforeDemo = { selectedDate, currentFilter, calendarView, journalMode };
+}
+
+function prepareDemoBookingContext(preferredDate = '') {
+  if (!bookingUsesDemoData()) return;
+  rememberOwnBookingContext();
+  const rows = bookingSourceItems().filter(item => !isScheduleBlock(item));
+  const availableDates = new Set(rows.map(item => item.booking_date).filter(Boolean));
+  const today = businessTodayIso();
+  const recentDate = rows
+    .map(item => item.booking_date)
+    .filter(Boolean)
+    .sort((left, right) => right.localeCompare(left))
+    .find(date => date <= today) || [...availableDates].sort()[0] || today;
+  const orderedDates = [...availableDates].sort();
+  const closestPreferredDate = preferredDate
+    ? orderedDates.find(date => date >= preferredDate) || [...orderedDates].reverse().find(date => date < preferredDate) || ''
+    : '';
+  selectedDate = closestPreferredDate || (availableDates.has(selectedDate) ? selectedDate : recentDate);
+  currentFilter = 'day';
+  calendarView = 'day';
+  journalMode = 'timeline';
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  renderDateStrip();
+}
+
+function restoreOwnBookingContext() {
+  const context = ownBookingContextBeforeDemo;
+  ownBookingContextBeforeDemo = null;
+  if (!context) return;
+  selectedDate = context.selectedDate;
+  currentFilter = context.currentFilter;
+  calendarView = context.calendarView;
+  journalMode = context.journalMode;
+  $$('[data-filter]').forEach(button => {
+    const active = button.dataset.filter === currentFilter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  renderDateStrip();
+}
+
+function renderBookingDataSourceNotice() {
+  const demo = bookingUsesDemoData();
+  const notice = $('#bookingDemoNotice');
+  if (notice) notice.hidden = !demo;
+  document.body.classList.toggle('booking-demo-mode', demo);
+  const mobileCreate = $('#mobileNewBookingButton');
+  if (mobileCreate) mobileCreate.hidden = demo || !['bookings', 'clients'].includes($('#dashboard')?.dataset.activeView || 'bookings');
+  applyWriteAvailability();
+}
 
 function reportOrganizations() {
   return organizationController?.getOrganizations?.() || [];
@@ -2217,8 +2292,18 @@ async function loadReportScopedBookings(range, performerId) {
   document.body.classList.remove('report-scope-loading');
   if (select) select.disabled = false;
   if (exportButton) exportButton.disabled = false;
-  if (error) { renderAnalytics(); notify('Не удалось загрузить статистику сотрудника'); return; }
+  if (error) {
+    renderAnalytics();
+    if (bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') renderBookings();
+    notify('Не удалось загрузить статистику сотрудника');
+    return;
+  }
   renderAnalytics();
+  if (bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') {
+    prepareDemoBookingContext();
+    updateBookingStats();
+    renderBookings();
+  }
 }
 
 function renderReportTeamRows(rows) {
@@ -2360,10 +2445,7 @@ function reportTrendMarkup(completed, range) {
 }
 
 function openReportBookings({ service = '', source = 'all', status = 'all', filter = 'all' } = {}) {
-  if (reportDataSource === 'demo') {
-    notify('Детализация демо-показателя не открывает ваши реальные записи');
-    return;
-  }
+  if (bookingUsesDemoData()) prepareDemoBookingContext();
   bookingSearchQuery = service;
   bookingSourceFilter = source;
   bookingStatusFilter = status;
@@ -4003,6 +4085,10 @@ function showRecoverySent() {
 }
 function setProviderViewImmediate(view, focusHeading = false) {
   $('#dashboard').dataset.activeView = view;
+  if (view === 'bookings' && bookingUsesDemoData()) {
+    prepareDemoBookingContext();
+    providerBookingViewRevisions.delete('bookings');
+  }
   renderProviderBookingView(view);
   $$('[data-provider-view]').forEach(button => {
     const active = button.dataset.providerView === view;
@@ -4022,7 +4108,10 @@ function setProviderViewImmediate(view, focusHeading = false) {
     panel.classList.toggle('active', active);
   });
   const mobileCreate = $('#mobileNewBookingButton');
-  if (mobileCreate) mobileCreate.hidden = !['bookings', 'clients'].includes(view);
+  if (mobileCreate) {
+    mobileCreate.hidden = !['bookings', 'clients'].includes(view);
+    if (bookingUsesDemoData()) mobileCreate.hidden = true;
+  }
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
@@ -4031,6 +4120,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     if (organizationController.availability === null) organizationController.load();
     else organizationController.render();
   }
+  renderBookingDataSourceNotice();
   refreshSectionNavigation();
   window.scrollTo({ top: 0, behavior: 'auto' });
   if (focusHeading) focusProviderViewHeading(view);
@@ -4321,7 +4411,7 @@ function renderDateStrip() {
 
 function updateBookingStats() {
   const today = businessTodayIso();
-  const active = allBookings.filter(item => item.status !== 'cancelled' && !isScheduleBlock(item));
+  const active = bookingSourceItems().filter(item => item.status !== 'cancelled' && !isScheduleBlock(item));
   const todayCount = active.filter(item => item.booking_date === today).length;
   const upcomingCount = active.filter(item => item.booking_date >= today).length;
   $('#todayBookingsCount').textContent = String(todayCount);
@@ -4335,9 +4425,10 @@ function updateBookingStats() {
 
 function filteredBookings() {
   const today = businessTodayIso();
-  if (currentFilter === 'all') return allBookings;
-  if (currentFilter === 'upcoming') return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date >= today);
-  return allBookings.filter(item => item.status !== 'cancelled' && item.booking_date === selectedDate);
+  const items = bookingSourceItems();
+  if (currentFilter === 'all') return items;
+  if (currentFilter === 'upcoming') return items.filter(item => item.status !== 'cancelled' && item.booking_date >= today);
+  return items.filter(item => item.status !== 'cancelled' && item.booking_date === selectedDate);
 }
 
 function bookingQueryIsActive() {
@@ -4534,6 +4625,7 @@ function updateTimelineBookingDrag(state, clientY) {
 }
 
 async function persistTimelineBookingMove(state) {
+  if (bookingUsesDemoData()) { renderBookings(); return; }
   const item = allBookings.find(booking => booking.id === state.bookingId);
   if (!item || timelineMovePending) {
     renderBookings();
@@ -4959,7 +5051,7 @@ function focusCreatedBooking(id) {
 }
 
 function openBookingSheet(id) {
-  const item = allBookings.find(booking => booking.id === id);
+  const item = bookingSourceItems().find(booking => booking.id === id);
   if (!item) return;
   const date = new Date(`${item.booking_date}T12:00:00`);
   const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
@@ -5018,6 +5110,10 @@ function openBookingSheet(id) {
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+  if (bookingUsesDemoData()) {
+    $('#bookingSheetContent').querySelectorAll('.booking-repeat-actions,.booking-sheet-secondary,.booking-sheet-actions,.booking-delete-zone').forEach(element => { element.hidden = true; });
+    return;
+  }
   if (outcome.completion_source === 'auto' && outcome.payment_method === 'cash') $('#outcomePaymentMethod option[value="cash"]').textContent = 'Оплачено';
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
   $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
@@ -6488,7 +6584,7 @@ function renderCalendarOverview(view) {
   const start = parseLocalIsoDate(range.start);
   const end = parseLocalIsoDate(range.end);
   const today = businessTodayIso();
-  const visible = allBookings.filter(item => item.status !== 'cancelled' && item.booking_date >= range.start && item.booking_date <= range.end);
+  const visible = bookingSourceItems().filter(item => item.status !== 'cancelled' && item.booking_date >= range.start && item.booking_date <= range.end);
   const byDate = new Map();
   visible.forEach(item => {
     if (!byDate.has(item.booking_date)) byDate.set(item.booking_date, []);
@@ -6525,9 +6621,17 @@ function renderCalendarOverview(view) {
 
 function renderBookings() {
   const holder = $('#providerBookings');
+  renderBookingDataSourceNotice();
   updateBookingQueryTools();
   $('#selectedDateTitle').textContent = calendarRangeTitle(calendarView);
-  if (teamCalendarController?.isTeamMode) {
+  if (bookingUsesDemoData() && reportScopedBookingsState.status !== 'ready') {
+    const failed = reportScopedBookingsState.status === 'failed';
+    holder.className = 'provider-bookings';
+    holder.innerHTML = `<div class="empty-state"><strong>${failed ? 'Не удалось загрузить демо-записи' : 'Загружаем демо-записи'}</strong><span>${failed ? 'Вернитесь в статистику и повторите загрузку.' : 'Учебные записи появятся по соответствующим дням.'}</span></div>`;
+    $('#selectedDateSummary').textContent = failed ? 'Данные недоступны' : 'Подождите немного';
+    return;
+  }
+  if (!bookingUsesDemoData() && teamCalendarController?.isTeamMode) {
     $('#selectedDateSummary').textContent = 'Записи выбранной команды';
     if (teamCalendarController.render(holder)) return;
   }
@@ -8747,7 +8851,7 @@ async function loadWaitlist() {
 
 document.addEventListener('pointerdown', event => {
   const bookingCard = event.target.closest('.timeline-booking[data-open-booking]');
-  if (bookingCard) {
+  if (bookingCard && !bookingUsesDemoData()) {
     beginTimelineBookingDrag(event, bookingCard);
     return;
   }
@@ -8852,6 +8956,7 @@ document.addEventListener('click', async event => {
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const reportChartDate = event.target.closest('[data-report-date]');
+  const showOwnBookings = event.target.closest('#showOwnBookings');
   const reportServiceMetricButton = event.target.closest('[data-report-service-metric]');
   const reportServiceRow = event.target.closest('[data-report-service]');
   const reportServicesExpandButton = event.target.closest('#reportServicesExpand');
@@ -8925,6 +9030,7 @@ document.addEventListener('click', async event => {
   }
   if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');
   if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
+    if (reportDataSource === 'demo' && reportSourceButton.dataset.reportSource !== 'demo') restoreOwnBookingContext();
     reportDataSource = reportSourceButton.dataset.reportSource === 'demo' ? 'demo' : 'own';
     if (reportDataSource === 'demo' && reportPeriod === 'month') {
       reportPeriod = 'quarter';
@@ -8935,14 +9041,24 @@ document.addEventListener('click', async event => {
     renderReportDataSourceControl();
     loadSelectedReportData();
     renderAnalytics();
+    renderBookingDataSourceNotice();
     setReportFiltersExpanded(false);
   }
   if (reportChartDate) {
-    if (reportDataSource === 'demo') notify('Демо-график не открывает ваши реальные записи');
-    else {
-      selectScheduleDate(reportChartDate.dataset.reportDate);
-      setProviderView('bookings');
-    }
+    if (bookingUsesDemoData()) prepareDemoBookingContext(reportChartDate.dataset.reportDate);
+    else selectScheduleDate(reportChartDate.dataset.reportDate);
+    setProviderView('bookings');
+    if (bookingUsesDemoData()) notify('Показаны демо-записи выбранного дня');
+  }
+  if (showOwnBookings) {
+    reportDataSource = 'own';
+    restoreOwnBookingContext();
+    resetReportSessionState();
+    renderReportDataSourceControl();
+    updateBookingStats();
+    renderBookingDataSourceNotice();
+    renderBookings();
+    notify('Показаны ваши записи');
   }
   if (reportServiceMetricButton) {
     reportServiceMetric = reportServiceMetricButton.dataset.reportServiceMetric === 'visits' ? 'visits' : 'revenue';
@@ -9917,8 +10033,8 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   setReportFiltersExpanded(false);
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
-$('#newBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
-$('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
+$('#newBookingButton').addEventListener('click', () => { if (requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }); });
+$('#mobileNewBookingButton').addEventListener('click', () => { if (requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }); });
 $('#saveSchedule').addEventListener('click', saveSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#monthlyScheduleMonth').min = businessTodayIso().slice(0, 7);

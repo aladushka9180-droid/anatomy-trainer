@@ -4868,7 +4868,10 @@ html.provider-booting .provider-main {
   .booking-query-reset { min-height:44px; }
 }
 
-/* Очередь ручных записей, созданных без интернета. */
+/* Демо-журнал и очередь ручных записей, созданных без интернета. */
+.booking-demo-notice:not([hidden]) { display:flex; align-items:center; justify-content:space-between; gap:14px; margin:0 0 16px; padding:14px 16px; border:1px solid color-mix(in srgb,var(--theme-accent,#235b40) 28%,var(--theme-line,#dce7df)); border-radius:16px; background:var(--theme-accent-soft,#edf6f0); color:var(--theme-ink,#173b2a); }
+.booking-demo-notice>div { display:grid; gap:4px; }.booking-demo-notice strong { font-size:13px; }.booking-demo-notice span { color:var(--theme-muted,#64756c); font-size:10px; line-height:1.45; }.booking-demo-notice button { flex:none; margin:0; }
+.provider-body.booking-demo-mode :is(#newBookingButton,#mobileNewBookingButton,#openFreeSlots,#providerDayFocus,#offlineBookingQueuePanel,#teamCalendarToolbar,#groupEventsPanel) { display:none!important; }
 .offline-booking-queue { margin:0 0 16px; padding:15px; border:1px solid #dfc77d; border-radius:17px; background:#fff9e7; color:#55431e; }
 .offline-booking-queue[hidden] { display:none; }
 .offline-booking-queue-head { display:flex; align-items:center; justify-content:space-between; gap:14px; }
@@ -4899,6 +4902,7 @@ html.provider-booting .provider-main {
 .provider-body .new-booking-recurrence.is-offline-disabled { opacity:.58; }
 
 @media (max-width:600px) {
+  .booking-demo-notice:not([hidden]) { align-items:stretch; flex-direction:column; padding:12px; }.booking-demo-notice button { width:100%; }
   .offline-booking-queue-head,.offline-booking-item { align-items:stretch; flex-direction:column; }
   .offline-booking-queue-head>button,.offline-booking-actions,.offline-booking-actions>button { width:100%; }
   .offline-booking-actions { flex-direction:column; }
