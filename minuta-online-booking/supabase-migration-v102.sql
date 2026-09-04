@@ -1,13 +1,11 @@
 begin;
 
--- The dispatcher works through its own organization-scoped RPC functions.
--- Do not block this additive layer on the legacy public booking RPC: some
--- production installations intentionally expose only the newer booking path.
 do $$
 begin
   if to_regprocedure('public.get_minuta_team_calendar_v2(uuid,date,date,uuid,uuid,uuid)') is null
      or to_regprocedure('public.get_minuta_schedule_role(uuid)') is null
      or to_regprocedure('public.minuta_booking_fits_active_shift(uuid,uuid,uuid,date,time without time zone,integer)') is null
+     or to_regprocedure('public.book_appointment(uuid,uuid,date,time without time zone,text,text)') is null
      or to_regprocedure('public.write_minuta_schedule_audit(uuid,text,uuid,jsonb)') is null
      or to_regprocedure('public.enqueue_minuta_booking_notification(uuid,text)') is null
      or to_regclass('public.staff_location_shifts') is null
@@ -221,6 +219,7 @@ declare
   v_source_duration integer;
   v_target_name text;
   v_target_duration integer;
+  v_effective_duration integer;
 begin
   v_role:=public.get_minuta_schedule_role(p_organization);
   if coalesce(v_role,'') not in ('owner','admin') then
@@ -269,6 +268,9 @@ begin
   if v_target_performer is null then
     raise exception using errcode='42501',message='foreign_team_booking_service';
   end if;
+  v_effective_duration:=greatest(
+    coalesce(nullif(v_booking.duration_minutes,0),v_target_duration,60),5
+  );
   if p_service<>v_booking.service_id
      and (lower(trim(v_target_name))<>lower(trim(v_source_name)) or v_target_duration<>v_source_duration) then
     raise exception using errcode='22023',message='incompatible_team_booking_service';
@@ -282,7 +284,7 @@ begin
 
   perform pg_advisory_xact_lock(hashtextextended(v_target_performer::text||p_date::text,0));
   if not public.minuta_booking_fits_active_shift(
-    p_organization,p_location,v_target_performer,p_date,p_time,v_booking.duration_minutes
+    p_organization,p_location,v_target_performer,p_date,p_time,v_effective_duration
   ) then
     raise exception using errcode='23P01',message='team_booking_outside_shift';
   end if;
@@ -293,7 +295,7 @@ begin
       and other.id<>p_booking
       and other.status<>'cancelled'
       and p_time<other.booking_time+make_interval(mins=>coalesce(other.duration_minutes,60))
-      and p_time+make_interval(mins=>v_booking.duration_minutes)>other.booking_time
+      and p_time+make_interval(mins=>v_effective_duration)>other.booking_time
   ) then
     raise exception using errcode='23P01',message='team_booking_slot_unavailable';
   end if;
@@ -302,7 +304,10 @@ begin
     update public.booking_session_items item
     set performer_id=v_target_performer,
         service_id=case when item.item_kind='primary' then p_service else item.service_id end,
-        title=case when item.item_kind='primary' then v_target_name else item.title end
+        title=case when item.item_kind='primary' then v_target_name else item.title end,
+        duration_minutes=case when item.item_kind='primary' then greatest(
+          coalesce(nullif(item.duration_minutes,0),v_target_duration,60),5
+        ) else item.duration_minutes end
     where item.booking_id=p_booking;
     insert into public.booking_session_revisions(
       booking_id,performer_id,items,total_price_rub,total_duration_minutes
@@ -314,8 +319,8 @@ begin
         'extends_duration',item.extends_duration
       ) order by item.position),
       sum(item.price_rub)::integer,
-      (sum(item.duration_minutes) filter(where item.item_kind='primary')+
-       coalesce(sum(item.duration_minutes) filter(where item.item_kind='addon' and item.extends_duration),0))::integer
+      greatest(5,(sum(item.duration_minutes) filter(where item.item_kind='primary')+
+       coalesce(sum(item.duration_minutes) filter(where item.item_kind='addon' and item.extends_duration),0))::integer)
     from public.booking_session_items item where item.booking_id=p_booking having count(*)>0;
   end if;
 
@@ -328,7 +333,7 @@ begin
 
   update public.bookings
   set location_id=p_location,service_id=p_service,performer_id=v_target_performer,
-      booking_date=p_date,booking_time=p_time
+      booking_date=p_date,booking_time=p_time,duration_minutes=v_effective_duration
   where id=p_booking;
   perform public.enqueue_minuta_booking_notification(p_booking,'booking_rescheduled');
   perform public.write_minuta_schedule_audit(

@@ -4,12 +4,46 @@ alter table public.bookings
   add column if not exists original_price_rub integer,
   add column if not exists total_price_rub integer;
 
-update public.bookings booking
-set original_price_rub = coalesce(booking.original_price_rub, service.price_rub),
-    total_price_rub = coalesce(booking.total_price_rub, service.price_rub)
-from public.services service
-where service.id = booking.service_id
-  and (booking.original_price_rub is null or booking.total_price_rub is null);
+do $$
+begin
+  if exists(
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='booking_outcomes'
+      and column_name='calculated_amount_rub'
+  ) then
+    execute $backfill$
+      update public.bookings booking
+      set original_price_rub = coalesce(
+            booking.original_price_rub,
+            (select outcome.calculated_amount_rub from public.booking_outcomes outcome
+             where outcome.booking_id=booking.id and outcome.visit_status='completed'),
+            case when booking.booking_date>=current_date then service.price_rub end
+          ),
+          total_price_rub = coalesce(
+            booking.total_price_rub,
+            (select outcome.calculated_amount_rub from public.booking_outcomes outcome
+             where outcome.booking_id=booking.id and outcome.visit_status='completed'),
+            case when booking.booking_date>=current_date then service.price_rub end
+          )
+      from public.services service
+      where service.id=booking.service_id
+        and (booking.original_price_rub is null or booking.total_price_rub is null)
+    $backfill$;
+  else
+    update public.bookings booking
+    set original_price_rub=coalesce(
+          booking.original_price_rub,
+          case when booking.booking_date>=current_date then service.price_rub end
+        ),
+        total_price_rub=coalesce(
+          booking.total_price_rub,
+          case when booking.booking_date>=current_date then service.price_rub end
+        )
+    from public.services service
+    where service.id=booking.service_id
+      and (booking.original_price_rub is null or booking.total_price_rub is null);
+  end if;
+end $$;
 
 alter table public.bookings
   drop constraint if exists bookings_original_price_rub_check;
@@ -122,10 +156,11 @@ insert into public.booking_session_items (
   duration_minutes, price_rub, extends_duration
 )
 select booking.id, booking.performer_id, 1, 'primary', booking.service_id,
-       service.name, booking.duration_minutes, coalesce(booking.total_price_rub, service.price_rub), true
+       service.name, booking.duration_minutes, booking.total_price_rub, true
 from public.bookings booking
 join public.services service on service.id = booking.service_id
 where booking.client_phone <> '0000000000'
+  and booking.total_price_rub is not null
 on conflict (booking_id, position) do nothing;
 
 insert into public.booking_session_revisions (

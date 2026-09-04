@@ -674,6 +674,8 @@ jobs:
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select to_regprocedure('public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)') is not null and to_regprocedure('public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)') is not null and to_regprocedure('public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)') is not null and has_function_privilege('authenticated','public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)','EXECUTE') and has_function_privilege('authenticated','public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)','EXECUTE') and has_function_privilege('authenticated','public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)','EXECUTE') and not has_function_privilege('anon','public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)','EXECUTE');" \
               | grep -qx t
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X \
+              -f minuta-online-booking/team-calendar-dispatcher-v102-integration.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v103.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v103.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -1150,9 +1152,12 @@ jobs:
           v53_layer_state="$(psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
             "with state as (select (select count(*) from (values (to_regclass('public.booking_session_items')),(to_regclass('public.booking_session_revisions'))) item(oid) where oid is not null) table_count,(select count(*) from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('original_price_rub','total_price_rub')) column_count,(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('initialize_booking_session_price','initialize_booking_session_item','save_booking_session')) function_count,(select count(*) from pg_trigger where tgrelid='public.bookings'::regclass and tgname in ('bookings_initialize_session_price','bookings_initialize_session_item') and not tgisinternal) trigger_count) select case when table_count=0 and column_count in (0,2) and function_count=0 and trigger_count=0 then 'repairable' when table_count=2 and column_count=2 and function_count=3 and trigger_count=2 and (select count(*)=2 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in ('booking_session_items','booking_session_revisions')) then 'complete' else 'partial' end from state;")"
           case "$v53_layer_state" in
-            repairable|complete)
+            repairable)
               psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 \
                 -f minuta-online-booking/supabase-migration-v53.sql
+              ;;
+            complete)
+              echo "v53 booking session layer already exists; preserving session history without replay"
               ;;
             partial|*)
               echo "Partial v53 booking session layer detected; refusing production migration" >&2

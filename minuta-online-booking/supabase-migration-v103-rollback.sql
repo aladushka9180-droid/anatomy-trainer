@@ -1,4 +1,6 @@
 -- Roll back v103 to the v97 availability completeness rule.
+begin;
+
 create or replace function public.get_minuta_staff_report_availability(p_organization uuid,p_start date,p_end date,p_performer uuid default null)
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
 declare v_user uuid:=auth.uid(); v_role text; v_effective uuid; v_available bigint:=0; v_total integer:=0; v_configured integer:=0;
@@ -36,3 +38,5 @@ end;
 $$;
 revoke all on function public.get_minuta_staff_report_availability(uuid,date,date,uuid) from public,anon,authenticated,service_role;
 grant execute on function public.get_minuta_staff_report_availability(uuid,date,date,uuid) to authenticated;
+
+commit;

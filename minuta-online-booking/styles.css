@@ -5947,7 +5947,7 @@ html.provider-booting .provider-main {
   .report-smart-actions { grid-template-columns:1fr; }
   .report-smart-actions article { grid-template-columns:34px minmax(0,1fr); }
   .report-smart-actions button { grid-column:2; justify-self:start; }
-  .report-view-tabs { width:100%; top:6px; margin:10px 0; }
+  .report-view-tabs { position:static; width:100%; margin:10px 0; }
   .report-view-tabs button { flex:1 0 auto; min-width:78px; }
   .report-summary { grid-template-columns:1fr 1fr; }
   .report-summary article:first-child { grid-column:1/-1; }

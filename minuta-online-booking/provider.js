@@ -1644,7 +1644,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=294#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=295#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -1908,7 +1908,10 @@ function reportClientIdentity(item) {
 function reportClientMetrics(completed, range) {
   const currentClients = new Set(completed.map(reportClientIdentity).filter(Boolean));
   const liveSource = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
-  const source = [...liveSource, ...importedBookingHistory];
+  const organizationId = reportOrganizationId();
+  const importedSource = reportDataSource === 'demo' ? [] : importedBookingHistory.filter(item =>
+    !organizationId || !item.organization_id || String(item.organization_id) === String(organizationId));
+  const source = [...liveSource, ...importedSource];
   const previousClients = new Set(reportCompletedItems(source.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
   completed.forEach(item => { if (item.client_had_previous) { const key = reportClientIdentity(item); if (key) previousClients.add(key); } });
   let newClients = 0;
@@ -3196,7 +3199,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=294');
+    worker = new Worker('./report-worker.js?v=295');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {

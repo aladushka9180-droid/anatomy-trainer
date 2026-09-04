@@ -9,6 +9,7 @@ set original_price_rub = coalesce(booking.original_price_rub, service.price_rub)
     total_price_rub = coalesce(booking.total_price_rub, service.price_rub)
 from public.services service
 where service.id = booking.service_id
+  and booking.booking_date >= current_date
   and (booking.original_price_rub is null or booking.total_price_rub is null);
 
 alter table public.bookings
