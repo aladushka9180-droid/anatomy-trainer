@@ -118,6 +118,13 @@ assert.match(config, /assistantRemoteUnderstanding:\s*false/, 'Платный в
 assert.match(provider, /remoteUnderstandingEnabled:Boolean\(window\.MINUTA_CONFIG\.assistantRemoteUnderstanding\)/, 'Помощник не публикует явный статус внешнего ИИ');
 assert.match(voiceAssistant, /bridge\.remoteUnderstandingEnabled === true/, 'Локальный помощник может обратиться к внешнему ИИ без явного включения');
 assert.match(providerHtml, /не отправляются во внешний ИИ/, 'Пользователю не объяснён локальный режим помощника');
+assert.match(provider, /minuta-assistant-lexicon-v1-\$\{currentUser\.id\}-\$\{organizationId\}/, 'Персональный словарь помощника не изолирован по аккаунту и кабинету');
+assert.match(provider, /rememberAssistantCorrections:rememberProviderAssistantCorrections/, 'Исправления пользователя не подключены к локальному словарю');
+assert.match(voiceAssistant, /function learnedCorrectionRules/, 'Помощник не умеет безопасно учиться на явных исправлениях');
+assert.match(voiceAssistant, /function updateConversationContext/, 'Помощник не запоминает контекст текущего диалога');
+assert.match(voiceAssistant, /kind:'compound_plan'/, 'Помощник не разделяет составные команды на безопасные шаги');
+assert.match(voiceAssistant, /function reviseDraftModel/, 'Черновики нельзя уточнять короткими командами');
+assert.match(providerHtml, /Полный текст команды не сохраняется/i, 'Пользователю не объяснены границы локального обучения');
 assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
 assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');
 assert.match(provider, /openSection\(section = ''\)/, 'Помощник не может безопасно открыть нужный раздел кабинета');

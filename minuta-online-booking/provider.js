@@ -1756,7 +1756,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=353#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=354#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3446,7 +3446,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=353');
+    worker = new Worker('./report-worker.js?v=354');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -10123,8 +10123,47 @@ function providerAssistantCurrentMinute() {
   return (Number(values.hour) * 60) + Number(values.minute);
 }
 
+function providerAssistantLexiconKey() {
+  const organizationId = organizationController.getActiveOrganization()?.id;
+  if (!currentUser?.id || !organizationId) return '';
+  return `minuta-assistant-lexicon-v1-${currentUser.id}-${organizationId}`;
+}
+
+function providerAssistantLexicon() {
+  const key = providerAssistantLexiconKey();
+  if (!key) return [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || '[]');
+    return (Array.isArray(stored) ? stored : []).map(rule => ({
+      from:String(rule?.from || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^а-яa-z\s-]/gi, '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      to:String(rule?.to || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^а-яa-z\s-]/gi, '').replace(/\s+/g, ' ').trim().slice(0, 120)
+    })).filter(rule => rule.from && rule.to && rule.from !== rule.to).slice(-40);
+  } catch {
+    return [];
+  }
+}
+
+function rememberProviderAssistantCorrections(rules = []) {
+  const key = providerAssistantLexiconKey();
+  if (!key || !Array.isArray(rules)) return { ok:false };
+  const merged = new Map(providerAssistantLexicon().map(rule => [rule.from, rule]));
+  rules.slice(0, 3).forEach(rule => {
+    const from = String(rule?.from || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^а-яa-z\s-]/gi, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const to = String(rule?.to || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^а-яa-z\s-]/gi, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (from && to && from !== to) merged.set(from, { from, to });
+  });
+  try {
+    localStorage.setItem(key, JSON.stringify([...merged.values()].slice(-40)));
+    return { ok:true };
+  } catch {
+    return { ok:false };
+  }
+}
+
 window.MinutaProviderAssistant = Object.freeze({
   remoteUnderstandingEnabled:Boolean(window.MINUTA_CONFIG.assistantRemoteUnderstanding),
+  getAssistantLexicon:providerAssistantLexicon,
+  rememberAssistantCorrections:rememberProviderAssistantCorrections,
   getReadOnlySnapshot() {
     const organization = organizationController.getActiveOrganization();
     const inventoryPayload = inventoryController?.payload;

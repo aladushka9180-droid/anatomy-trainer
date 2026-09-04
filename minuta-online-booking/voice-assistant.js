@@ -145,6 +145,47 @@
     return { text:words.join(' '), corrections:corrections.slice(0, 4) };
   }
 
+  function normalizedLexiconRules(rules = []) {
+    return (Array.isArray(rules) ? rules : []).map(rule => ({
+      from:normalizeText(rule?.from).slice(0, 80),
+      to:normalizeText(rule?.to).slice(0, 120)
+    })).filter(rule => rule.from && rule.to && rule.from !== rule.to && /^[а-яa-z\s-]+$/i.test(rule.from) && /^[а-яa-z\s-]+$/i.test(rule.to)).slice(-40);
+  }
+
+  function applyLearnedCorrections(value, rules = []) {
+    let text = normalizeText(value);
+    const corrections = [];
+    normalizedLexiconRules(rules).sort((left, right) => right.from.length - left.from.length).forEach(rule => {
+      const escaped = rule.from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`(?:^|\\s)${escaped}(?=\\s|$)`, 'g');
+      if (!pattern.test(text)) return;
+      text = text.replace(pattern, match => `${match.startsWith(' ') ? ' ' : ''}${rule.to}`);
+      corrections.push(rule);
+    });
+    return { text:text.replace(/\s+/g, ' ').trim(), corrections:corrections.slice(0, 4) };
+  }
+
+  function learnedCorrectionRules(original, corrected, snapshot = {}) {
+    const before = normalizeText(original).split(' ').filter(Boolean);
+    const after = normalizeText(corrected).split(' ').filter(Boolean);
+    if (!before.length || !after.length || before.join(' ') === after.join(' ')) return [];
+    let prefix = 0;
+    while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix]) prefix += 1;
+    let suffix = 0;
+    while (suffix < before.length - prefix && suffix < after.length - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix += 1;
+    const fromWords = before.slice(prefix, before.length - suffix);
+    const toWords = after.slice(prefix, after.length - suffix);
+    if (!fromWords.length || !toWords.length || fromWords.length > 3 || toWords.length > 4) return [];
+    const servicePhrases = (snapshot.services || []).map(item => normalizeText(item?.name)).filter(Boolean);
+    const serviceWords = new Set(servicePhrases.flatMap(item => item.split(' ')));
+    const allowedWord = word => serviceWords.has(word) || COMMAND_VOCABULARY.some(item => serviceStem(item) === serviceStem(word));
+    const to = toWords.join(' ');
+    if (!servicePhrases.includes(to) && !toWords.every(allowedWord)) return [];
+    const from = fromWords.join(' ');
+    if (!/^[а-яa-z-]{2,}(?:\s+[а-яa-z-]{2,}){0,2}$/i.test(from)) return [];
+    return [{ from, to }];
+  }
+
   function fuzzyRoot(text, roots) {
     const words = normalizeText(text).split(' ').filter(Boolean);
     return words.some(word => roots.some(root => word.startsWith(root) || (Math.min(word.length, root.length) >= 5 && levenshteinDistance(phoneticKey(word), phoneticKey(root)) <= (Math.max(word.length, root.length) >= 8 ? 2 : 1))));
@@ -952,6 +993,119 @@
     };
   }
 
+  function updateConversationContext(context = {}, model = null) {
+    const next = { ...context };
+    const plan = model?.plan || {};
+    if (plan.clientName) next.clientName = String(plan.clientName).slice(0, 100);
+    if (plan.serviceId) next.serviceId = String(plan.serviceId).slice(0, 100);
+    if (plan.serviceName) next.serviceName = String(plan.serviceName).slice(0, 120);
+    if (plan.date) next.date = String(plan.date);
+    if (plan.time) next.time = String(plan.time);
+    if (Number(plan.durationMinutes)) next.durationMinutes = Number(plan.durationMinutes);
+    const items = Array.isArray(model?.items) ? model.items : [];
+    if (items.length === 1) {
+      const item = items[0] || {};
+      if (item.clientName && item.clientName !== 'Клиент') next.clientName = String(item.clientName).slice(0, 100);
+      if (item.serviceId) next.serviceId = String(item.serviceId).slice(0, 100);
+      if (item.serviceName) next.serviceName = String(item.serviceName).slice(0, 120);
+      if (item.date) next.date = String(item.date);
+      if (item.time) next.time = String(item.time);
+    }
+    return next;
+  }
+
+  function contextualMemoryCommand(command, context = {}) {
+    const original = repairCommand(command).text;
+    const text = original.replace(/^(?:а|и|ну)\s+/, '').trim();
+    const client = String(context.clientName || '').trim();
+    const service = String(context.serviceName || '').trim();
+    if (client && /(?:когда|где|что).*(?:она|он|клиент)|(?:она|он)\s+(?:записан|приходил)/.test(text)) return `найди клиента ${client}`;
+    if (client && /(?:^|\s)(?:ей|ему|для\s+нее|для\s+него)(?=\s|$)/.test(text)) {
+      if (/(?:напоминан|сообщен|подтвержден|напиш|отправ)/.test(text)) return `напиши сообщение клиенту ${client} ${text}`;
+      if (/(?:перенес|сдвин|перестав|отмен)/.test(text)) return `${text} клиента ${client}`;
+    }
+    if (client && /^(?:перенес[а-я]*|сдвин[а-я]*|перестав[а-я]*|отмен[а-я]*)(?:\s|$)/.test(text) && !parseClientName(text)) return `${text} клиента ${client}`;
+    if (service && freeSlotSignal(text) && !serviceForCommand(text, { services:[{ id:context.serviceId || 'remembered', name:service }] })) return `${text} на ${service}`;
+    return '';
+  }
+
+  function shortenDraft(value, maximum = 240) {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    if (text.length <= maximum) return text;
+    const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    let shortened = '';
+    for (const sentence of sentences) {
+      if (`${shortened} ${sentence}`.trim().length > maximum) break;
+      shortened = `${shortened} ${sentence}`.trim();
+      if (shortened.length >= 120) break;
+    }
+    return shortened || `${text.slice(0, maximum - 1).trim()}…`;
+  }
+
+  function reviseDraftModel(command, previousModel = null, snapshot = {}) {
+    if (!previousModel?.draftText) return null;
+    const text = repairCommand(command).text;
+    const shorter = /(?:^|\s)(?:короче|сократи|покороче|кратче)(?=\s|$)/.test(text);
+    const warmer = /(?:теплее|дружелюбнее|мягче|душевнее)/.test(text);
+    const formal = /(?:официальнее|формальнее|строже|деловее)/.test(text);
+    const addPrice = /(?:добав[а-я]*|укаж[а-я]*|встав[а-я]*).*(?:цен[а-я]*|стоимост[а-я]*)/.test(text);
+    const removeDiscount = /(?:убер[а-я]*|удал[а-я]*|без).*(?:скидк[а-я]*|акци[а-я]*|процент[а-я]*)/.test(text);
+    if (!shorter && !warmer && !formal && !addPrice && !removeDiscount) return null;
+    let draftText = String(previousModel.draftText).replace(/\s+/g, ' ').trim();
+    const changes = [];
+    if (removeDiscount) {
+      draftText = draftText.split(/(?<=[.!?])\s+/).filter(sentence => !/(?:скидк|акци|\d+\s*%)/i.test(sentence)).join(' ').trim();
+      changes.push('убрал упоминание скидки');
+    }
+    if (formal) {
+      draftText = draftText.replace(/!/g, '.').replace(/Очень рады/gi, 'Благодарим').replace(/Будем рады встрече/gi, 'Будем ждать вашего ответа');
+      changes.push('сделал текст официальнее');
+    } else if (warmer) {
+      if (!/будем (?:очень )?рады видеть вас/i.test(draftText)) draftText = `${draftText} Будем очень рады видеть вас!`;
+      changes.push('сделал текст теплее');
+    }
+    if (addPrice && !/(?:стоимость|цена)\s*[—:-]/i.test(draftText)) {
+      const rememberedService = snapshot.services?.find(item => String(item.id) === String(previousModel.plan?.serviceId || ''));
+      const service = rememberedService || serviceForCommand(`${text} ${previousModel.title || ''} ${previousModel.draftText || ''}`, snapshot);
+      if (!service || !(Number(service.priceRub) > 0)) return {
+        ...previousModel,
+        title:`${previousModel.title} · нужна услуга`,
+        message:'Чтобы добавить точную цену, назовите услугу. Предыдущий черновик сохранён.',
+        needsDetail:'услуга'
+      };
+      draftText = `${draftText} Стоимость — ${moneyLabel(service.priceRub)}.`;
+      changes.push('добавил цену из каталога');
+    }
+    if (shorter) {
+      draftText = shortenDraft(draftText, Math.max(80, Math.floor(draftText.length * 0.7)));
+      changes.push('сократил текст');
+    }
+    return {
+      ...previousModel,
+      title:`${String(previousModel.title || 'Черновик').replace(/\s+·\s+(?:обновлён|нужна услуга)$/i, '')} · обновлён`,
+      message:`Готово: ${changes.join(', ')}. Проверьте текст перед использованием.`,
+      draftText,
+      needsDetail:'',
+      revised:true
+    };
+  }
+
+  function compoundCommandModel(command, snapshot = {}, now = new Date(), conversationContext = {}) {
+    const parts = String(command || '').split(/\s+(?:и\s+потом|а\s+потом|затем|потом|и)\s+/i).map(item => item.trim()).filter(Boolean).slice(0, 3);
+    if (parts.length < 2) return null;
+    const steps = parts.map(part => ({ command:part, model:interpretCommand(part, snapshot, now, null, conversationContext, false) }));
+    if (steps.some(step => ['help','error','small_talk','compound_plan'].includes(step.model.kind))) return null;
+    if (new Set(steps.map(step => step.model.kind)).size < 2) return null;
+    return {
+      kind:'compound_plan',
+      title:`План из ${steps.length} шагов`,
+      message:'Я разделил команду на последовательные безопасные шаги. Откройте каждый шаг отдельно и проверьте результат.',
+      steps:steps.map((step, index) => ({ command:step.command, label:`${index + 1}. ${step.model.title}`, kind:step.model.kind })),
+      points:steps.map((step, index) => `${index + 1}. ${step.model.title}: ${step.model.message}`),
+      understandingConfidence:'medium'
+    };
+  }
+
   function smallTalkModel(command, previousModel = null) {
     const text = repairCommand(command).text;
     if (!text) return null;
@@ -1010,7 +1164,7 @@
     return null;
   }
 
-  function interpretCommand(command, snapshot = {}, now = new Date(), previousModel = null) {
+  function interpretCommand(command, snapshot = {}, now = new Date(), previousModel = null, conversationContext = {}, allowCompound = true) {
     const raw = String(command || '').trim().slice(0, 500);
     const repaired = repairCommand(raw);
     const text = repaired.text;
@@ -1019,8 +1173,14 @@
     if (!text) return finish({ kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' });
     const smallTalk = smallTalkModel(text, previousModel);
     if (smallTalk) return finish(smallTalk);
+    const revisedDraft = reviseDraftModel(text, previousModel, snapshot);
+    if (revisedDraft) return finish(revisedDraft);
+    const rememberedCommand = contextualMemoryCommand(text, conversationContext);
+    if (rememberedCommand) return finish({ ...interpretCommand(rememberedCommand, snapshot, now, previousModel, {}, false), continuedFromContext:true });
     const contextualCommand = contextualFollowUpCommand(text, previousModel);
-    if (contextualCommand) return finish({ ...interpretCommand(contextualCommand, snapshot, now), continuedFromContext:true });
+    if (contextualCommand) return finish({ ...interpretCommand(contextualCommand, snapshot, now, null, conversationContext, false), continuedFromContext:true });
+    const compound = allowCompound ? compoundCommandModel(raw, snapshot, now, conversationContext) : null;
+    if (compound) return finish(compound);
 
     const bookingRequest = bookingSignal(text);
     const writingAction = /(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*|подготов[а-я]*|ответ[а-я]*)(?=\s|$)/.test(text);
@@ -1113,6 +1273,7 @@
     if (model.kind === 'schedule_summary') return 80;
     if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
     if (model.kind === 'operation_preview') return 108 + (model.plan?.bookingId ? 14 : 0) + (model.needsDetail ? 0 : 12);
+    if (model.kind === 'compound_plan') return 96;
     if (model.kind === 'small_talk') return 86;
     if (['message_draft','content_draft','price_advice','promotion_ideas','operational_briefing','workspace_help','permission_notice'].includes(model.kind)) return 84;
     if (['revenue_summary','revenue_change','inventory_summary','inventory_forecast','attention','clients_summary','service_performance','team_summary'].includes(model.kind)) return 76;
@@ -1385,6 +1546,8 @@
     let activeTouchPointerId = null;
     let requestEpoch = 0;
     let conversationHistory = [];
+    let conversationContext = {};
+    let correctionOriginal = '';
 
     function rememberConversation(command, model) {
       const userText = String(command || '').replace(/\s+/g, ' ').trim().slice(0, 500);
@@ -1529,6 +1692,9 @@
       lastCommand = '';
       lastSessionGeneration = null;
       pendingCommand = '';
+      conversationHistory = [];
+      conversationContext = {};
+      correctionOriginal = '';
       starters?.classList.remove('is-secondary');
       if (capabilities) capabilities.open = false;
       backButton.hidden = true;
@@ -1546,6 +1712,8 @@
       lastSessionGeneration = null;
       pendingCommand = '';
       conversationHistory = [];
+      conversationContext = {};
+      correctionOriginal = '';
       input.placeholder = 'Например: найди окно завтра';
       starters?.classList.remove('is-secondary');
       backButton.hidden = true;
@@ -1592,6 +1760,11 @@
       if (model.kind === 'schedule_summary' || model.kind === 'client_search') {
         const list = (model.items || []).map(item => `<li><strong>${escapeHtml(item.time || '')}</strong><span>${escapeHtml(item.clientName || 'Клиент')} · ${escapeHtml(item.serviceName || 'Услуга')}</span></li>`).join('');
         return list ? `<ul>${list}</ul>${model.total > model.items.length ? `<small>Показаны первые ${model.items.length} из ${model.total}</small>` : ''}` : '';
+      }
+      if (model.kind === 'compound_plan') {
+        const choices = (model.steps || []).map(step => `<button class="voice-result-choice" type="button" data-voice-step="${escapeHtml(step.command)}">${escapeHtml(step.label)}</button>`).join('');
+        const points = (model.points || []).map(item => `<li><span>${escapeHtml(item)}</span></li>`).join('');
+        return `${choices ? `<div class="voice-result-choices" aria-label="Шаги команды">${choices}</div>` : ''}${points ? `<ul class="voice-result-points">${points}</ul>` : ''}`;
       }
       if (model.examples) return `<ul class="voice-help-list">${model.examples.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>${draft}`;
       if (model.metrics?.length || model.points?.length) {
@@ -1655,12 +1828,18 @@
       backButton.hidden = false;
       result.querySelectorAll?.('[data-voice-feedback]')?.forEach(button => button.addEventListener('click', () => {
         if (button.dataset.voiceFeedback === 'fix') {
+          correctionOriginal = lastCommand;
           input.value = lastCommand;
           input.focus();
-          status.textContent = 'Исправьте команду и отправьте её ещё раз. Предыдущий вариант не сохраняется.';
+          status.textContent = 'Исправьте команду и отправьте её ещё раз. Помощник запомнит только безопасную замену слова или рабочей фразы, но не полный текст команды.';
           return;
         }
+        correctionOriginal = '';
         status.textContent = 'Понял. Оценка учтена только в текущем окне и не сохраняет текст команды.';
+      }));
+      result.querySelectorAll?.('[data-voice-step]')?.forEach(button => button.addEventListener('click', () => {
+        input.value = button.dataset.voiceStep || '';
+        understand();
       }));
       result.querySelectorAll?.('[data-voice-booking-option]')?.forEach(button => button.addEventListener('click', () => {
         input.value = button.dataset.voiceBookingOption || '';
@@ -1814,10 +1993,20 @@
       }
       const enteredCommand = input.value.trim();
       const now = new Date();
+      const learnedRules = correctionOriginal ? learnedCorrectionRules(correctionOriginal, enteredCommand, snapshot) : [];
+      if (learnedRules.length) bridge.rememberAssistantCorrections?.(learnedRules);
+      correctionOriginal = '';
       const continued = canContinueCommand(pendingCommand, lastModel, enteredCommand, snapshot, now);
       const command = continued ? continueCommand(pendingCommand, lastModel, enteredCommand) : enteredCommand;
       lastCommand = command;
-      let interpreted = interpretCommand(command, snapshot, now, lastModel);
+      const personalRules = bridge.getAssistantLexicon?.() || [];
+      const learnedCommand = applyLearnedCorrections(command, personalRules);
+      let interpreted = interpretCommand(learnedCommand.text || command, snapshot, now, lastModel, conversationContext);
+      if (learnedCommand.corrections.length) interpreted = {
+        ...interpreted,
+        corrections:[...learnedCommand.corrections, ...(interpreted.corrections || [])].slice(0, 4),
+        understandingConfidence:'medium'
+      };
       let aiUnavailable = false;
       if (bridge.remoteUnderstandingEnabled === true && typeof bridge.understandCommand === 'function' && shouldUseRemoteUnderstanding(command, interpreted, snapshot)) {
         status.textContent = 'Уточняю смысл сложной фразы…';
@@ -1847,6 +2036,7 @@
         : snapshot.synchronized ? `Источник: ${interpreted.aiEnhanced ? 'защищённый ИИ-разбор · ' : ''}актуальные данные кабинета${snapshot.lastUpdatedAt ? ` · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}` : ''}` : '';
       const model = { ...contextual, sourceLabel };
       rememberConversation(command, model);
+      conversationContext = updateConversationContext(conversationContext, model);
       if (needsClarification(model)) {
         pendingCommand = command;
         input.value = '';
@@ -1862,7 +2052,7 @@
         return;
       }
       renderModel(model, snapshot.sessionGeneration);
-      status.textContent = model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : aiUnavailable && model.kind === 'help' ? 'Защищённый ИИ-разбор сейчас недоступен. Локальный помощник не изменил данные.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
+      status.textContent = learnedRules.length ? 'Исправление запомнено только для этого кабинета.' : model.offline ? 'Показана последняя сохранённая информация. Изменения не выполняются автоматически.' : aiUnavailable && model.kind === 'help' ? 'Защищённый ИИ-разбор сейчас недоступен. Локальный помощник не изменил данные.' : model.kind === 'error' ? 'Команда не распознана.' : model.kind === 'find_slots' && !model.plan?.serviceId ? 'Выберите услугу, чтобы проверить подходящие интервалы.' : 'Ответ готов. Ничего не изменится без вашего подтверждения.';
     }
 
     function joinRecognitionText(first, second) {
@@ -2013,6 +2203,9 @@
         lastModel = null;
         lastSessionGeneration = null;
         pendingCommand = '';
+        conversationHistory = [];
+        conversationContext = {};
+        correctionOriginal = '';
         input.placeholder = 'Например: найди окно завтра';
         result.hidden = true;
         result.replaceChildren();
@@ -2087,7 +2280,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

@@ -388,6 +388,69 @@ const postDraft = voice.interpretCommand('Придумай пост про ма�
 assert.equal(postDraft.kind, 'content_draft');
 assert.match(postDraft.draftText, /Массаж/);
 assert.match(postDraft.draftText, /2 000|2 000/);
+
+const personalizedSnapshot = {
+  ...assistantSnapshot,
+  services:[...assistantSnapshot.services, { id:'lymph', name:'Лимфодренажный массаж', durationMinutes:60, priceRub:2800 }]
+};
+const learnedRules = voice.learnedCorrectionRules(
+  'Найди окно на лимфач',
+  'Найди окно на лимфодренажный массаж',
+  personalizedSnapshot
+);
+assert.deepEqual(learnedRules, [{ from:'лимфач', to:'лимфодренажный массаж' }], 'явное исправление рабочей фразы должно стать персональным правилом');
+const learnedCommand = voice.applyLearnedCorrections('найди окно завтра на лимфач', learnedRules);
+assert.match(learnedCommand.text, /лимфодренажный массаж/);
+assert.equal(voice.interpretCommand(learnedCommand.text, personalizedSnapshot, now).plan.serviceId, 'lymph');
+assert.deepEqual(
+  voice.learnedCorrectionRules('напиши маше', 'напиши марии', personalizedSnapshot),
+  [],
+  'имена клиентов и свободный текст нельзя сохранять в персональный словарь'
+);
+
+const annaSearch = voice.interpretCommand('Найди клиента Анну Петрову', assistantSnapshot, now);
+const annaContext = voice.updateConversationContext({}, annaSearch);
+assert.equal(annaContext.clientName, 'Анна Петрова');
+const pronounSearch = voice.interpretCommand('Когда она записана?', assistantSnapshot, now, annaSearch, annaContext);
+assert.equal(pronounSearch.kind, 'client_search', 'местоимение должно использовать клиента из предыдущего ответа');
+assert.equal(pronounSearch.continuedFromContext, true);
+const rememberedMove = voice.interpretCommand('А перенеси на пятницу в 15:00', assistantSnapshot, now, pronounSearch, annaContext);
+assert.equal(rememberedMove.kind, 'operation_preview');
+assert.equal(rememberedMove.plan.bookingId, 'future-anna');
+assert.equal(rememberedMove.plan.targetDate, '2026-09-04');
+const rememberedMessage = voice.interpretCommand('Напиши ей напоминание', assistantSnapshot, now, pronounSearch, annaContext);
+assert.equal(rememberedMessage.kind, 'message_draft');
+assert.match(rememberedMessage.draftText, /Анна/);
+
+const compoundPlan = voice.interpretCommand(
+  'Найди свободное окно завтра на массаж и подготовь сообщение Анне',
+  assistantSnapshot,
+  now
+);
+assert.equal(compoundPlan.kind, 'compound_plan', 'две задачи в одной фразе должны разделяться на безопасные шаги');
+assert.deepEqual(compoundPlan.steps.map(step => step.kind), ['find_slots', 'message_draft']);
+
+const shorterDraft = voice.interpretCommand('Сделай короче', assistantSnapshot, now, postDraft);
+assert.equal(shorterDraft.revised, true);
+assert.ok(shorterDraft.draftText.length <= postDraft.draftText.length);
+const warmerDraft = voice.interpretCommand('Сделай теплее', assistantSnapshot, now, reminderDraft);
+assert.equal(warmerDraft.revised, true);
+assert.match(warmerDraft.draftText, /очень рады/i);
+const formalDraft = voice.interpretCommand('Сделай официальнее', assistantSnapshot, now, reminderDraft);
+assert.equal(formalDraft.revised, true);
+assert.doesNotMatch(formalDraft.draftText, /!/);
+const pricedDraft = voice.interpretCommand('Добавь цену', assistantSnapshot, now, reminderDraft);
+assert.equal(pricedDraft.revised, true);
+assert.match(pricedDraft.draftText, /Стоимость\s+—\s+2 000|Стоимость\s+—\s+2 000/);
+const noDiscountDraft = voice.reviseDraftModel('Убери скидку', {
+  kind:'content_draft',
+  title:'Пост',
+  draftText:'Запишитесь со скидкой 10%. Будем рады встрече!',
+  copyLabel:'Скопировать'
+}, assistantSnapshot);
+assert.equal(noDiscountDraft.revised, true);
+assert.doesNotMatch(noDiscountDraft.draftText, /скид|10%/i);
+
 const incompletePost = voice.interpretCommand('Придумай пост', assistantSnapshot, now);
 assert.equal(voice.needsClarification(incompletePost), true);
 assert.equal(voice.canContinueCommand('Придумай пост', incompletePost, 'про массаж', assistantSnapshot, now), true);
