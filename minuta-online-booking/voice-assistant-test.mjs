@@ -158,6 +158,14 @@ assert.equal(voice.interpretCommand('Что у меня завтра?', snapshot
 assert.equal(voice.interpretCommand('Покажи расписание на завтра', snapshot, now).kind, 'schedule_summary');
 assert.equal(voice.interpretCommand('Какие запеси завтро?', snapshot, now).kind, 'schedule_summary');
 assert.equal(voice.interpretCommand('Покажи распиасние на завтра', snapshot, now).kind, 'schedule_summary');
+const contextualTomorrow = voice.interpretCommand('А завтра?', snapshot, now, voice.interpretCommand('Какие записи сегодня?', snapshot, now));
+assert.equal(contextualTomorrow.kind, 'schedule_summary', 'короткое продолжение должно использовать предыдущую тему');
+assert.equal(contextualTomorrow.continuedFromContext, true);
+assert.equal(contextualTomorrow.total, 2);
+const contextualSlots = voice.interpretCommand('А завтра?', snapshot, now, voice.interpretCommand('Найди окно на массаж', snapshot, now));
+assert.equal(contextualSlots.kind, 'find_slots');
+assert.equal(contextualSlots.plan.serviceId, 'massage', 'продолжение поиска должно помнить выбранную услугу');
+assert.equal(contextualSlots.plan.date, '2026-09-03');
 
 const offlineSummary = voice.applyOfflineContext(summary, { offlineReadable:true, lastUpdatedAt:'2026-09-02T14:40:00+04:00' });
 assert.equal(offlineSummary.offline, true);
@@ -227,6 +235,7 @@ assert.equal(voice.interpretCommand('Привет', snapshot, now).kind, 'small_
 assert.equal(voice.interpretCommand('Привет, как дела?', snapshot, now).kind, 'small_talk');
 assert.equal(voice.interpretCommand('Большое спасибо', snapshot, now).title, 'Пожалуйста');
 assert.equal(voice.interpretCommand('Кто ты?', snapshot, now).kind, 'small_talk');
+assert.match(voice.interpretCommand('Что ты умеешь?', snapshot, now).message, /сообщениями и отзывами/);
 assert.match(voice.interpretCommand('Нет', snapshot, now).message, /Предыдущий вариант не использую/);
 const conversationalContinue = voice.interpretCommand('Да', snapshot, now, { openSection:'notifications', openLabel:'Открыть уведомления' });
 assert.equal(conversationalContinue.kind, 'small_talk');
@@ -237,6 +246,11 @@ assert.equal(operationContinue.plan.bookingId, 'late');
 assert.equal(voice.shouldUseRemoteUnderstanding('Как дела?', howAreYou, { ...snapshot, synchronized:true }), false, 'обычный разговор должен работать локально без платного запроса');
 assert.equal(voice.interpretCommand('как дила', snapshot, now).kind, 'small_talk', 'разговорная фраза с ошибкой должна пониматься локально');
 assert.equal(voice.interpretCommand('превет', snapshot, now).title, 'Привет!', 'искажённое приветствие должно исправляться локально');
+assert.equal(voice.interpretCommand('напеши клинту напоминание', snapshot, now).kind, 'message_draft', 'разговорная просьба с ошибками должна готовить сообщение локально');
+assert.equal(voice.interpretCommand('придемай пост для сацсетей про масаж', snapshot, now).kind, 'content_draft', 'ошибки в запросе публикации не должны мешать локальному сценарию');
+assert.equal(voice.interpretCommand('описание услиги масаж', snapshot, now).kind, 'content_draft', 'короткая просьба описать услугу должна работать без служебных слов');
+assert.equal(voice.interpretCommand('как паменять рассписание', snapshot, now).kind, 'workspace_help', 'ошибочная фраза о настройке должна открывать локальную помощь');
+assert.equal(voice.interpretCommand('клиенты', snapshot, now).title, 'Что сделать с клиентом?', 'неполная тема должна получать предметное уточнение');
 assert.equal(voice.interpretCommand('Сколько выручька сиводня?', snapshot, now).kind, 'revenue_summary');
 const priceQuestion = voice.interpretCommand('Какую цену поставить на массаж?', snapshot, now);
 assert.equal(priceQuestion.kind, 'price_advice');
@@ -490,6 +504,7 @@ let controllerSnapshot = { ...assistantSnapshot, currentRole:'owner', authentica
 const slotResponses = [];
 let slotRequests = 0;
 const controllerBridge = {
+  remoteUnderstandingEnabled:false,
   getReadOnlySnapshot() { return controllerSnapshot; },
   findAvailableSlots() {
     slotRequests += 1;
@@ -578,6 +593,11 @@ controllerBridge.understandCommand = async payload => {
   remotePayload = payload;
   return { ok:true, analysis:{ intent:'schedule_summary', confidence:0.96, canonicalCommand:'Покажи записи завтра', clarification:'' } };
 };
+controllerInput.value = 'а шо у мя тама завтра';
+controllerForm.emit('submit');
+assert.equal(remotePayload, null, 'при выключенном платном ИИ команда не должна уходить во внешнюю функцию');
+assert.match(controllerResultHtml, /Что проверить на это время/);
+controllerBridge.remoteUnderstandingEnabled = true;
 controllerInput.value = 'а шо у мя тама завтра';
 controllerForm.emit('submit');
 await Promise.resolve();

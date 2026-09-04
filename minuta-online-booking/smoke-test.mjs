@@ -42,6 +42,7 @@ assert.equal(createHash('sha384').update(sdk).digest('base64'), 'yiVMs0R/Jyz7Oho
 
 const app = readFileSync(join(root, 'app.js'), 'utf8');
 const indexHtml = readFileSync(join(root, 'index.html'), 'utf8');
+const config = readFileSync(join(root, 'config.js'), 'utf8');
 const provider = readFileSync(join(root, 'provider.js'), 'utf8');
 const voiceAssistant = readFileSync(join(root, 'voice-assistant.js'), 'utf8');
 const organization = readFileSync(join(root, 'organization.js'), 'utf8');
@@ -113,6 +114,10 @@ assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDial
 assert.match(providerHtml, /data-voice-back[\s\S]*Вернуться к основному меню помощника/, 'В ответе помощника нет доступной кнопки возврата в основное меню');
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
+assert.match(config, /assistantRemoteUnderstanding:\s*false/, 'Платный внешний ИИ не выключен в публичной конфигурации');
+assert.match(provider, /remoteUnderstandingEnabled:Boolean\(window\.MINUTA_CONFIG\.assistantRemoteUnderstanding\)/, 'Помощник не публикует явный статус внешнего ИИ');
+assert.match(voiceAssistant, /bridge\.remoteUnderstandingEnabled === true/, 'Локальный помощник может обратиться к внешнему ИИ без явного включения');
+assert.match(providerHtml, /не отправляются во внешний ИИ/, 'Пользователю не объяснён локальный режим помощника');
 assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
 assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');
 assert.match(provider, /openSection\(section = ''\)/, 'Помощник не может безопасно открыть нужный раздел кабинета');

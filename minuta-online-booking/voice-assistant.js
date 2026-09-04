@@ -49,9 +49,11 @@
   const COMMAND_ALIASES = Object.freeze({
     ана:'анна', ану:'анну', акно:'окно', акошко:'окошко', выручька:'выручка', дабавь:'добавь', дила:'дела', дилла:'дела', завтраа:'завтра', завтро:'завтра', зафтра:'завтра',
     запеси:'записи', запесы:'записи', запесать:'записать', запеши:'запиши', запешы:'запиши', клеент:'клиент', клент:'клиент', клиен:'клиент', клентку:'клиентку', клеентку:'клиентку',
-    матереал:'материал', напаминание:'напоминание', пажалуйста:'пожалуйста', питницу:'пятницу', пятнецу:'пятницу', превет:'привет', привед:'привет', спосибо:'спасибо', спасиба:'спасибо',
+    клинт:'клиент', клинта:'клиента', клинту:'клиенту', матереал:'материал', напаминание:'напоминание', напеши:'напиши', настойки:'настройки', настоить:'настроить',
+    пажалуйста:'пожалуйста', памаги:'помоги', паменять:'поменять', памошник:'помощник', питницу:'пятницу', пятнецу:'пятницу', прадвижение:'продвижение', придемай:'придумай', превет:'привет', привед:'привет',
+    рекламма:'реклама', рассписание:'расписание', сацсети:'соцсети', сацсетей:'соцсетей', спосибо:'спасибо', спасиба:'спасибо',
     позавтра:'послезавтра', позафтра:'послезавтра', свабоднае:'свободное', свабодное:'свободное', свабодный:'свободный', севодня:'сегодня', сиводня:'сегодня',
-    увидамление:'уведомление', увидамления:'уведомления'
+    уведамление:'уведомление', уведамления:'уведомления', увидамление:'уведомление', увидамления:'уведомления', услига:'услуга', услиги:'услуги', усулга:'услуга', усулги:'услуги', атзыв:'отзыв', аписание:'описание'
   });
   const COMMAND_VOCABULARY = Object.freeze([...new Set([
     ...Object.keys(MONTHS), ...Object.keys(WEEKDAYS), ...Object.keys(HOURS),
@@ -60,8 +62,8 @@
     'сегодня', 'завтра', 'послезавтра', 'запиши', 'записать', 'добавь', 'добавить', 'поставь', 'поставить',
     'забронируй', 'забронировать', 'создай', 'создать', 'найди', 'покажи', 'подбери', 'предложи', 'свободное', 'свободный', 'окно', 'окошко', 'слот',
     'расписание', 'график', 'запись', 'записи', 'визит', 'прием', 'сеанс', 'новую', 'новый', 'клиент', 'клиента', 'клиентку', 'выручка', 'доход', 'оплата', 'материал', 'остаток', 'склад', 'цена', 'стоимость',
-    'уведомление', 'напоминание', 'подтверждение', 'сообщение', 'отзыв', 'экспорт', 'настройки', 'тариф',
-    'напиши', 'придумай', 'составь', 'описание', 'продвижение', 'реклама', 'цена', 'пожалуйста'
+    'уведомление', 'уведомления', 'напоминание', 'подтверждение', 'сообщение', 'отзыв', 'экспорт', 'настройки', 'настроить', 'тариф',
+    'напиши', 'придумай', 'составь', 'подготовь', 'описание', 'публикация', 'пост', 'соцсети', 'продвижение', 'реклама', 'акция', 'цена', 'пожалуйста', 'помоги', 'помощник'
   ])]);
   const REMOTE_INTENTS = new Set([
     'schedule_summary', 'find_slots', 'booking_draft', 'client_search', 'revenue_summary', 'revenue_change',
@@ -896,6 +898,60 @@
     return scored.filter(entry => entry.score >= threshold).map(entry => entry.item);
   }
 
+  function contextualFollowUpCommand(command, previousModel = null) {
+    if (!previousModel) return '';
+    const text = repairCommand(command).text.replace(/^(?:а|и|ну)\s+/, '').trim();
+    const period = /^(?:(?:что|как)\s+)?(?:(?:на|за|в)\s+)?(?:сегодня|завтра|послезавтра|этот\s+день|эту\s+неделю|этой\s+неделе|прошлую\s+неделю|прошлой\s+неделе|этот\s+месяц|этом\s+месяце|прошлый\s+месяц|прошлом\s+месяце|следующ(?:ую|ей)\s+недел(?:ю|е)|следующ(?:ий|ем)\s+месяц(?:е)?|следующ(?:ую|ей)\s+(?:понедельник|вторник|среду|четверг|пятницу|субботу|воскресенье)|(?:понедельник|вторник|среду|четверг|пятницу|субботу|воскресенье)|через\s+(?:(?:один|одну|два|две|три|четыре|пять|шесть|семь|\d+)\s+)?(?:день|дня|днеи|неделю|недели|недель)|\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?|\d{1,2}\s+[а-я]+)\??$/.test(text);
+    if (!period) return '';
+    if (previousModel.kind === 'schedule_summary') return `покажи записи ${text}`;
+    if (['revenue_summary','revenue_change'].includes(previousModel.kind)) return `какая выручка ${text}`;
+    if (previousModel.kind === 'clients_summary') return `сколько клиентов ${text}`;
+    if (previousModel.kind === 'service_performance') return `какие услуги принесли больше денег ${text}`;
+    if (previousModel.kind === 'find_slots' && previousModel.plan?.serviceName) return `найди свободное время ${text} на ${previousModel.plan.serviceName}`;
+    return '';
+  }
+
+  function guidedHelpModel(command) {
+    const text = repairCommand(command).text;
+    if (fuzzyRoot(text, ['клиент', 'карточк', 'истори'])) return {
+      kind:'help',
+      title:'Что сделать с клиентом?',
+      message:'Могу найти карточку, показать историю, подготовить сообщение или создать запись. Скажите имя клиента и нужное действие.',
+      examples:['Найди клиента Анну', 'Напиши напоминание Анне', 'Запиши Анну завтра в 10:30']
+    };
+    if (fuzzyRoot(text, ['пост', 'соцсет', 'описан', 'публикац'])) return {
+      kind:'help',
+      title:'Какой текст подготовить?',
+      message:'Могу написать пост для соцсетей или описание услуги. Назовите формат и услугу — готовый текст останется проверить и скопировать.',
+      examples:['Придумай пост про массаж', 'Напиши описание спортивного массажа']
+    };
+    if (fuzzyRoot(text, ['цен', 'стоимост', 'прайс', 'продвижен', 'реклам', 'акци'])) return {
+      kind:'help',
+      title:'Цена или продвижение?',
+      message:'Могу предложить безопасный сценарий цены по вашим данным или идеи продвижения без внешней рыночной информации.',
+      examples:['Какую цену поставить на массаж?', 'Дай идеи для продвижения']
+    };
+    if (fuzzyRoot(text, ['настройк', 'уведомлен', 'тариф', 'экспорт', 'расписан'])) return {
+      kind:'help',
+      title:'Какой раздел открыть?',
+      message:'Могу показать, где находятся расписание, уведомления, услуги, цены, клиентская база и экспорт. Назовите нужную настройку.',
+      examples:['Как настроить уведомления?', 'Где изменить расписание?', 'Выгрузи записи']
+    };
+    const hasDateOrTime = Boolean(parseRussianDate(text) || parseRussianTime(text));
+    if (hasDateOrTime) return {
+      kind:'help',
+      title:'Что проверить на это время?',
+      message:'Могу показать записи или найти свободное окно. Добавьте услугу, если нужен поиск подходящего интервала.',
+      examples:['Покажи записи завтра', 'Найди окно в пятницу на массаж']
+    };
+    return {
+      kind:'help',
+      title:'Уточню задачу',
+      message:'Скажите своими словами, что нужно узнать, подготовить или открыть. Можно писать коротко, разговорно и с небольшими ошибками.',
+      examples:['Что у меня сегодня?', 'Напиши клиенту', 'Придумай пост', 'Как изменить расписание?']
+    };
+  }
+
   function smallTalkModel(command, previousModel = null) {
     const text = repairCommand(command).text;
     if (!text) return null;
@@ -924,8 +980,8 @@
     if (/^(?:кто\s+ты|что\s+ты\s+умеешь|чем\s+ты\s+можешь\s+помочь|чем\s+можешь\s+помочь|помоги|помощь)$/.test(text)) return {
       kind:'small_talk',
       title:'Я помощник «Минута»',
-      message:'Понимаю обычную речь, помогаю разобраться в ситуации и предлагаю безопасный следующий шаг. Изменения всегда остаются под вашим контролем.',
-      examples:['Какие записи сегодня?', 'Найди окно завтра', 'Что требует внимания?', 'Придумай пост про массаж']
+      message:'Помогаю с расписанием и клиентами, сообщениями и отзывами, постами и описаниями услуг, ценами, продвижением и настройками «Минуты». Понимаю обычную речь и частые ошибки, а изменения всегда остаются под вашим контролем.',
+      examples:['Какие записи сегодня?', 'Напиши напоминание клиенту', 'Придумай пост про массаж', 'Как настроить уведомления?']
     };
     if (/^(?:нет|неа|не\s+то|неправильно|отмена|отмени)$/.test(text)) return {
       kind:'small_talk',
@@ -963,16 +1019,25 @@
     if (!text) return finish({ kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' });
     const smallTalk = smallTalkModel(text, previousModel);
     if (smallTalk) return finish(smallTalk);
+    const contextualCommand = contextualFollowUpCommand(text, previousModel);
+    if (contextualCommand) return finish({ ...interpretCommand(contextualCommand, snapshot, now), continuedFromContext:true });
 
     const bookingRequest = bookingSignal(text);
     const writingAction = /(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*|подготов[а-я]*|ответ[а-я]*)(?=\s|$)/.test(text);
+    const messageRequest = writingAction
+      || /(?:^|\s)(?:напомн[а-я]*|подтверд[а-я]*|сообщ[а-я]*)\s+(?:клиент[а-я]*|ей|ему)(?=\s|$)/.test(text)
+      || /(?:что|как)\s+ответить\s+на\s+отзыв/.test(text)
+      || /(?:текст|сообщение)\s+(?:для|к)\s+клиент[а-я]*/.test(text);
+    const contentRequest = writingAction
+      || /(?:иде[а-я]*|текст)\s+(?:для\s+)?(?:пост[а-я]*|соцсет[а-я]*|публикац[а-я]*)/.test(text)
+      || (!/(?:^|\s)(?:как|где|откро[а-я]*|найд[а-я]*)(?=\s|$)/.test(text) && /(?:^|\s)(?:пост(?:\s|$)|описан[а-я]*\s+услуг[а-я]*)/.test(text));
     if (/(?:^|\s)(?:перенес[а-я]*|перенести|перенеси|сдвин[а-я]*|перестав[а-я]*|отмен[а-я]*|удал[а-я]*\s+запис[а-я]*|освобод[а-я]*\s+(?:запис[а-я]*|время))(?=\s|$)/.test(text)) return finish(operationPreviewModel(text, snapshot, now));
     if (/(?:что\s+(?:делать|важно)|с\s+чего\s+начать|дай\s+(?:сводку|план)|план\s+на\s+день|коротк[а-я]*\s+сводк)/.test(text)) return finish(operationalBriefingModel(snapshot, now));
-    if ((writingAction || /(?:ответ[а-я]*\s+на\s+отзыв)/.test(text)) && /(?:сообщен|напоминан|подтвержден|отзыв|клиент)/.test(text)) return finish(messageDraftModel(text, snapshot, now));
-    if (writingAction && /(?:пост|публикац|описан|карточк\s+услуг|текст\s+для\s+соц)/.test(text)) return finish(contentDraftModel(text, snapshot));
+    if (messageRequest && /(?:сообщен|напоминан|подтвержден|отзыв|клиент)/.test(text)) return finish(messageDraftModel(text, snapshot, now));
+    if (contentRequest && /(?:пост|публикац|описан|карточк\s+услуг|текст\s+(?:для\s+)?соц)/.test(text)) return finish(contentDraftModel(text, snapshot));
     if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'подбери', 'поставить', 'изменить', 'поднять'])) return finish(roleAllowsFinancialData(snapshot) ? priceAdviceModel(text, snapshot) : permissionNoticeModel());
-    if (/(?:иде[а-я]*\s+(?:для\s+)?продвижен|как\s+продвиг|что\s+рекламир|рекламн[а-я]*\s+иде|акци[а-я]*\s+предлож)/.test(text)) return finish(promotionIdeasModel(snapshot, now));
-    if ((/(?:^|\s)(?:как|где|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
+    if (/(?:иде[а-я]*\s+(?:для\s+)?продвижен|как\s+продвиг|чем\s+привлеч|что\s+рекламир|рекламн[а-я]*\s+иде|акци[а-я]*\s+предлож)/.test(text)) return finish(promotionIdeasModel(snapshot, now));
+    if ((/(?:^|\s)(?:как|где|куда|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*|поменя[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
 
     if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(roleAllowsFinancialData(snapshot) ? revenueModel(text, snapshot, now) : permissionNoticeModel());
     if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || fuzzyRoot(text, ['материал', 'остаток', 'склад']) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return finish(inventoryModel(text, snapshot, now));
@@ -1035,12 +1100,7 @@
       return finish({ kind:'client_search', title:`Клиент: ${searchedClientName}`, message:matches.length ? `Найдено посещений и записей: ${matches.length}.` : 'Клиент не найден в загруженном журнале.', items:matches.slice(0, 12), total:matches.length });
     }
 
-    return finish({
-      kind:'help',
-      title:'Я пока не уверен в команде',
-      message:'Назовите задачу обычными словами: что узнать, подготовить или открыть. Никакие данные не были изменены.',
-      examples:['Дай короткую сводку и план на день', 'Напиши напоминание Анне на завтра', 'Придумай пост про массаж', 'Какую цену поставить на массаж?', 'Найди свободное время в пятницу на массаж', 'Запиши Анну завтра в 10:30 на массаж']
-    });
+    return finish(guidedHelpModel(text));
   }
 
   function commandUnderstandingScore(command, snapshot = {}, now = new Date()) {
@@ -1160,7 +1220,7 @@
   function canContinueCommand(previousCommand, previousModel, followUp, snapshot = {}, now = new Date()) {
     if (!String(previousCommand || '').trim() || !String(followUp || '').trim() || !needsClarification(previousModel)) return false;
     const standalone = interpretCommand(followUp, snapshot, now);
-    return standalone.kind === 'help' && standalone.title === 'Я пока не уверен в команде';
+    return standalone.kind === 'help';
   }
 
   function continueCommand(previousCommand, previousModel, followUp) {
@@ -1759,7 +1819,7 @@
       lastCommand = command;
       let interpreted = interpretCommand(command, snapshot, now, lastModel);
       let aiUnavailable = false;
-      if (typeof bridge.understandCommand === 'function' && shouldUseRemoteUnderstanding(command, interpreted, snapshot)) {
+      if (bridge.remoteUnderstandingEnabled === true && typeof bridge.understandCommand === 'function' && shouldUseRemoteUnderstanding(command, interpreted, snapshot)) {
         status.textContent = 'Уточняю смысл сложной фразы…';
         let response;
         try {
@@ -2027,7 +2087,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
