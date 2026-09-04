@@ -144,14 +144,23 @@ fi
 
 run_presence() {
   psql "$db_url" -v ON_ERROR_STOP=1 -X -qAt \
-    --set=slug="$slug" --set=session="$concurrency_session" --set=marker="$marker" \
-    -c "select public.upsert_public_booking_presence(:'slug',:'session','services','direct',:'marker',:'marker',null,null);"
+    --set=slug="$slug" --set=session="$concurrency_session" --set=marker="$marker" <<'SQL'
+select public.upsert_public_booking_presence(:'slug', :'session'::uuid, 'services', 'direct', :'marker', :'marker', null, null);
+SQL
 }
 
 run_presence >"$log_one" 2>&1 & pid_one=$!
 run_presence >"$log_two" 2>&1 & pid_two=$!
-wait "$pid_one"
-wait "$pid_two"
+status_one=0
+status_two=0
+wait "$pid_one" || status_one=$?
+wait "$pid_two" || status_two=$?
+if [[ "$status_one" -ne 0 || "$status_two" -ne 0 ]]; then
+  echo "v105 concurrent RPC failed: first=$status_one second=$status_two" >&2
+  sed 's/^/first: /' "$log_one" >&2
+  sed 's/^/second: /' "$log_two" >&2
+  exit 1
+fi
 if [[ "$(grep -cx t "$log_one" || true)" -ne 1 && "$(grep -cx t "$log_two" || true)" -ne 1 ]]; then
   echo "v105 concurrency did not produce a winner" >&2
   exit 1
