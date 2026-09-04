@@ -1661,7 +1661,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=315#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=316#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3245,7 +3245,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=315');
+    worker = new Worker('./report-worker.js?v=316');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6345,6 +6345,67 @@ function calendarOverviewBookingMarkup(item, compact) {
   return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}</small>`}</span></button>`;
 }
 
+function calendarWeekTimelineBounds(days, byDate) {
+  let start = 10 * 60;
+  let end = 20 * 60;
+  days.forEach(date => {
+    const iso = localIsoDate(date);
+    const weekday = ((date.getDay() + 6) % 7) + 1;
+    const schedule = scheduleRows.find(row => Number(row.weekday) === weekday);
+    if (schedule && schedule.enabled !== false) {
+      start = Math.min(start, Math.floor(minutesFromTime(schedule.start_time || '10:00') / 60) * 60);
+      end = Math.max(end, Math.ceil(minutesFromTime(schedule.end_time || '20:00') / 60) * 60);
+    }
+    (byDate.get(iso) || []).forEach(item => {
+      const itemStart = minutesFromTime(item.booking_time);
+      const duration = Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
+      start = Math.min(start, Math.floor(itemStart / 60) * 60);
+      end = Math.max(end, Math.ceil((itemStart + duration) / 60) * 60);
+    });
+  });
+  start = Math.max(0, start);
+  end = Math.min(1440, Math.max(start + 60, end));
+  return { start, end };
+}
+
+function calendarWeekTimelineMarkup(days, byDate, today) {
+  const { start, end } = calendarWeekTimelineBounds(days, byDate);
+  const hourHeight = 66;
+  const height = ((end - start) / 60) * hourHeight;
+  const labels = [];
+  for (let minute = start; minute <= end; minute += 30) {
+    const top = ((minute - start) / 60) * hourHeight;
+    labels.push(`<span class="calendar-week-time${minute % 60 ? ' is-half' : ''}" style="top:${top}px">${timeFromMinutes(minute)}</span>`);
+  }
+  const headers = days.map((date, index) => {
+    const iso = localIsoDate(date);
+    const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    return `<button class="calendar-week-date${iso === today ? ' is-today' : ''}${iso === selectedDate ? ' is-selected' : ''}" type="button" data-calendar-open-date="${iso}" style="grid-column:${index + 2}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. Открыть день"><span>${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', ''))}</span><strong>${date.getDate()}</strong><small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small></button>`;
+  }).join('');
+  const columns = days.map((date, index) => {
+    const iso = localIsoDate(date);
+    const timelineItems = (byDate.get(iso) || []).map((item, itemIndex) => {
+      const duration = Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
+      const top = ((minutesFromTime(item.booking_time) - start) / 60) * hourHeight;
+      const naturalHeight = (duration / 60) * hourHeight;
+      return { item, index:itemIndex, duration, top, visualTop:top, height:duration <= 1 ? 34 : Math.max(30, naturalHeight - 4), minuteOnly:duration <= 1 };
+    });
+    stackMinuteTimelineItems(timelineItems, 4);
+    const cards = timelineItems.map(({ item, duration, visualTop, height:cardHeight }) => {
+      const startTime = String(item.booking_time || '').slice(0, 5);
+      const endTime = timeFromMinutes(minutesFromTime(startTime) + duration);
+      const block = isScheduleBlock(item);
+      const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+      const client = block ? 'Занятое время' : item.client_name;
+      const statusClass = bookingStatusClass(item);
+      const details = `${title}, ${client}, с ${startTime} до ${endTime}`;
+      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}</small></button>`;
+    }).join('');
+    return `<section class="calendar-week-day-stage${iso === today ? ' is-today' : ''}" style="grid-column:${index + 2}" aria-label="${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}">${cards}</section>`;
+  }).join('');
+  return `<div class="calendar-week-timeline" aria-label="Недельное расписание по времени"><div class="calendar-week-timeline-grid" style="--calendar-week-height:${height}px;--calendar-week-hour:${hourHeight}px;--calendar-week-half-hour:${hourHeight / 2}px"><div class="calendar-week-axis-head">Время</div>${headers}<div class="calendar-week-axis" aria-hidden="true">${labels.join('')}</div>${columns}</div></div>`;
+}
+
 function renderCalendarOverview(view) {
   const holder = $('#providerBookings');
   const range = calendarRange(view);
@@ -6376,7 +6437,9 @@ function renderCalendarOverview(view) {
   ];
   const weekdayHeader = view === 'month' ? `<div class="calendar-overview-weekdays" aria-hidden="true">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day => `<span>${day}</span>`).join('')}</div>` : '';
   holder.className = `provider-bookings calendar-overview calendar-overview-${view}`;
-  holder.innerHTML = `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`;
+  holder.innerHTML = view === 'week'
+    ? `${calendarWeekTimelineMarkup(days, byDate, today)}<div class="calendar-overview-grid calendar-week-mobile-list" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`
+    : `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`;
   $('#selectedDateTitle').textContent = calendarRangeTitle(view);
   const clientCount = visible.filter(item => !isScheduleBlock(item)).length;
   const blockCount = visible.length - clientCount;
