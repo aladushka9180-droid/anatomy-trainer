@@ -104,7 +104,7 @@ begin
         'price_rub', coalesce(new.total_price_rub, service.price_rub),
         'extends_duration', true
       )),
-      coalesce(new.total_price_rub, service.price_rub), new.duration_minutes
+      coalesce(new.total_price_rub, service.price_rub), greatest(new.duration_minutes, 5)
     from public.services service
     where service.id = new.service_id;
   end if;
@@ -138,8 +138,9 @@ select booking.id, booking.performer_id,
     'extends_duration', item.extends_duration
   ) order by item.position),
   sum(item.price_rub)::integer,
-  (sum(item.duration_minutes) filter (where item.item_kind = 'primary')
-    + coalesce(sum(item.duration_minutes) filter (where item.item_kind = 'addon' and item.extends_duration), 0))::integer
+  greatest(5,
+    (sum(item.duration_minutes) filter (where item.item_kind = 'primary')
+      + coalesce(sum(item.duration_minutes) filter (where item.item_kind = 'addon' and item.extends_duration), 0))::integer)
 from public.bookings booking
 join public.booking_session_items item on item.booking_id = booking.id
 where not exists (
