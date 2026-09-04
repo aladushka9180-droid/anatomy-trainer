@@ -1255,7 +1255,10 @@
     <div class="voice-assistant-shell">
       <div class="voice-assistant-head">
         <div><small>Помощник «Минута»</small><h2 id="voiceAssistantTitle">Чем помочь?</h2></div>
-        <button type="button" data-close-voice-assistant aria-label="Закрыть помощника"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
+        <div class="voice-assistant-head-actions">
+          <button class="voice-assistant-back" type="button" data-voice-back aria-label="Вернуться к основному меню помощника" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Назад</span></button>
+          <button type="button" data-close-voice-assistant aria-label="Закрыть помощника"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
+        </div>
       </div>
       <div class="voice-assistant-scroll">
         <p class="voice-assistant-lead" id="voiceAssistantLead">Одной голосовой или текстовой командой узнайте ситуацию, получите решение или откройте безопасный следующий шаг. Помощник исправляет частые ошибки, а сложные фразы может уточнить защищённым ИИ-разбором. Ничего не меняется без подтверждения.</p>

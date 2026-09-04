@@ -100,6 +100,7 @@ function createElement(overrides = {}) {
 
 const openButton = createElement();
 const closeButton = createElement();
+const backButton = createElement({ hidden:true });
 const form = createElement();
 const input = createElement();
 const status = createElement();
@@ -138,6 +139,7 @@ const elements = new Map([
   ['#voiceAssistantDialog', dialog],
   ['#openVoiceAssistant', openButton],
   ['[data-close-voice-assistant]', closeButton],
+  ['[data-voice-back]', backButton],
   ['#voiceAssistantForm', form],
   ['#voiceAssistantInput', input],
   ['#voiceListenButton', listenButton],
@@ -198,6 +200,13 @@ assert.equal(speakButton.textContent, 'Остановить голос', 'во �
 speakButton.emit('click');
 assert.equal(speakButton.textContent, 'Озвучить ответ', 'повторное нажатие должно останавливать голос');
 assert.match(status.textContent, /остановлено/i);
+assert.equal(backButton.hidden, false, 'после ответа должна появляться кнопка возврата в основное меню');
+backButton.emit('click');
+assert.equal(dialog.open, true, 'возврат в меню не должен закрывать помощника');
+assert.equal(backButton.hidden, true, 'в основном меню кнопка назад не должна занимать место');
+assert.equal(result.hidden, true, 'возврат в меню должен скрывать предыдущий ответ');
+assert.equal(resultHtml, '', 'возврат в меню должен удалять данные предыдущего ответа из DOM');
+assert.equal(input.value, '', 'возврат в меню должен очищать предыдущую команду');
 
 const originalDateNow = Date.now;
 let fakeNow = 1000;

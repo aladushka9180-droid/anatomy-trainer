@@ -461,6 +461,7 @@ function controllerElement(overrides = {}) {
 
 const controllerOpen = controllerElement();
 const controllerClose = controllerElement();
+const controllerBack = controllerElement({ hidden:true });
 const controllerForm = controllerElement();
 const controllerInput = controllerElement();
 const controllerStatus = controllerElement();
@@ -475,7 +476,7 @@ Object.defineProperty(controllerResult, 'innerHTML', {
 });
 const controllerElements = new Map([
   ['#voiceAssistantDialog', controllerDialog], ['#openVoiceAssistant', controllerOpen],
-  ['[data-close-voice-assistant]', controllerClose], ['#voiceAssistantForm', controllerForm],
+  ['[data-close-voice-assistant]', controllerClose], ['[data-voice-back]', controllerBack], ['#voiceAssistantForm', controllerForm],
   ['#voiceAssistantInput', controllerInput], ['#voiceListenButton', controllerListen],
   ['#voiceAssistantStatus', controllerStatus], ['#voiceAssistantResult', controllerResult]
 ]);
@@ -507,6 +508,7 @@ assert.match(controllerResultHtml, /Станет/);
 assert.match(controllerResultHtml, /data-voice-operation/);
 assert.match(controllerResultHtml, /Источник: актуальные данные кабинета/);
 assert.match(controllerResultHtml, /Я правильно понял/);
+assert.equal(controllerBack.hidden, false, 'после ответа должна быть доступна кнопка возврата к быстрым темам');
 
 controllerInput.value = 'Придумай пост про массаж';
 controllerForm.emit('submit');

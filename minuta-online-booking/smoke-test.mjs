@@ -110,6 +110,7 @@ assert.match(provider, /visitorVisitsInitialized[\s\S]*nextVisitorVisits[\s\S]*f
 assert.match(provider, /visitorNotificationTestButton'\)\.addEventListener\('click', testVisitorSystemNotification\)/, 'Кнопка проверки уведомления не подключена');
 assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList"/, 'Журнал проблем со связью недоступен пользователю');
 assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDialog"[\s\S]*id="voiceListenButton"/, 'В кабинете нет голосового помощника');
+assert.match(providerHtml, /data-voice-back[\s\S]*Вернуться к основному меню помощника/, 'В ответе помощника нет доступной кнопки возврата в основное меню');
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
 assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
@@ -123,6 +124,7 @@ assert.match(voiceAssistant, /kind:'operation_preview'/, 'Помощник не 
 assert.match(voiceAssistant, /kind:'small_talk'/, 'Помощник не поддерживает естественный короткий разговор');
 assert.match(voiceAssistant, /Как дела\?/, 'Помощник не отвечает на обычный разговорный вопрос');
 assert.match(voiceAssistant, /data-voice-feedback="fix"/, 'Пользователь не может исправить неверно понятую команду');
+assert.match(voiceAssistant, /backButton\.addEventListener\('click', returnToMainMenu\)/, 'Кнопка назад не возвращает помощника к быстрым темам');
 assert.match(voiceAssistant, /актуальные данные кабинета/, 'Помощник не показывает свежесть источника');
 assert.match(voiceAssistant, /защищённый ИИ-разбор/, 'Помощник не маркирует ответы усиленного ИИ-разбора');
 assert.match(voiceAssistant, /function buildAssistantContext/, 'Помощник не формирует ограниченный динамический контекст');

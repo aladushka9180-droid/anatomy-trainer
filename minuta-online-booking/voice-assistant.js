@@ -1291,6 +1291,7 @@
     const dialog = doc.querySelector('#voiceAssistantDialog');
     const openButton = doc.querySelector('#openVoiceAssistant');
     const closeButton = doc.querySelector('[data-close-voice-assistant]');
+    const backButton = doc.querySelector('[data-voice-back]');
     const form = doc.querySelector('#voiceAssistantForm');
     const input = doc.querySelector('#voiceAssistantInput');
     const listenButton = doc.querySelector('#voiceListenButton');
@@ -1298,7 +1299,7 @@
     const result = doc.querySelector('#voiceAssistantResult');
     const starters = doc.querySelector('#voiceAssistantStarters');
     const capabilities = doc.querySelector('.voice-assistant-capabilities');
-    if (!dialog || !openButton || !form || !input || !listenButton || !status || !result) return { bind() {}, destroy() {} };
+    if (!dialog || !openButton || !closeButton || !backButton || !form || !input || !listenButton || !status || !result) return { bind() {}, destroy() {} };
 
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
     const standaloneDisplay = Boolean(global.matchMedia?.('(display-mode: standalone)').matches);
@@ -1456,6 +1457,25 @@
       if (dialog.open) dialog.close();
     }
 
+    function returnToMainMenu() {
+      requestEpoch += 1;
+      abortRecognition();
+      stopSpeech();
+      input.value = '';
+      input.placeholder = 'Например: найди окно завтра';
+      result.hidden = true;
+      result.replaceChildren();
+      lastModel = null;
+      lastCommand = '';
+      lastSessionGeneration = null;
+      pendingCommand = '';
+      starters?.classList.remove('is-secondary');
+      if (capabilities) capabilities.open = false;
+      backButton.hidden = true;
+      status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
+      setTimeout(() => (starters?.querySelector?.('button') || input).focus(), 0);
+    }
+
     function reset() {
       close();
       input.value = '';
@@ -1468,6 +1488,7 @@
       conversationHistory = [];
       input.placeholder = 'Например: найди окно завтра';
       starters?.classList.remove('is-secondary');
+      backButton.hidden = true;
       status.textContent = 'Нажмите «Говорить» или введите команду текстом.';
     }
 
@@ -1571,6 +1592,7 @@
       result.innerHTML = `${offlineNotice}${correctionNote}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${sourceNote}${actions}${feedback}`;
       result.hidden = false;
       starters?.classList.add('is-secondary');
+      backButton.hidden = false;
       result.querySelectorAll?.('[data-voice-feedback]')?.forEach(button => button.addEventListener('click', () => {
         if (button.dataset.voiceFeedback === 'fix') {
           input.value = lastCommand;
@@ -1935,12 +1957,14 @@
         result.hidden = true;
         result.replaceChildren();
         starters?.classList.remove('is-secondary');
+        backButton.hidden = true;
         if (capabilities) capabilities.open = false;
         status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
         setTimeout(() => (Recognition ? listenButton : input).focus(), 0);
       });
       closeButton.addEventListener('click', close);
+      backButton.addEventListener('click', returnToMainMenu);
       dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
       form.addEventListener('submit', event => { event.preventDefault(); understand(); });
       listenButton.addEventListener('pointerdown', event => {
