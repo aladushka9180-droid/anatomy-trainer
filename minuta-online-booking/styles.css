@@ -6124,16 +6124,47 @@ html.provider-booting .provider-main {
   .team-calendar-undo>i { animation:none!important; opacity:.35; }
 }
 
-/* На узком экране Bento использует почти всю ширину: временная шкала остаётся
-   читаемой, но больше не отнимает у карточек записей четверть колонки. */
+/* На узком экране все компоновки используют полезную ширину без боковых пустот. */
 @media (max-width:760px) {
   .provider-body[data-provider-theme][data-provider-layout] .provider-workspace { padding-right:8px!important; padding-left:8px!important; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-app { padding-right:4px; padding-left:4px; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-workspace { padding-right:0!important; padding-left:0!important; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-mobile-nav { right:4px; left:4px; }
-  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-view { padding-right:4px; padding-left:4px; }
-  .provider-body[data-provider-theme][data-provider-layout="bento"] .day-timeline { grid-template-columns:44px minmax(0,1fr); }
-  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-hour { right:6px; }
-  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-booking { right:4px; left:5px; }
-  .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-day-expand { width:calc(100% - 44px); }
+  .provider-body[data-provider-theme][data-provider-layout] .timeline-view { padding-right:4px; padding-left:4px; }
+  .provider-body[data-provider-theme][data-provider-layout] .day-timeline { grid-template-columns:44px minmax(0,1fr); }
+  .provider-body[data-provider-theme][data-provider-layout] .timeline-hour { right:6px; }
+  .provider-body[data-provider-theme][data-provider-layout] .timeline-booking { right:4px; left:5px; }
+  .provider-body[data-provider-theme][data-provider-layout] .timeline-day-expand { width:calc(100% - 44px); }
+
+  /* Список клиентов и карточка открываются по очереди во всех темах. */
+  .provider-body[data-provider-theme][data-provider-layout] .clients-layout:not(.is-detail) .client-profile,
+  .provider-body[data-provider-theme][data-provider-layout] .clients-layout.is-detail .clients-directory { display:none; }
+  .provider-body[data-provider-theme][data-provider-layout] .clients-layout.is-detail .client-profile { display:block; }
+  .provider-body[data-provider-theme][data-provider-layout] .client-profile-back { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin:0 0 12px; padding:0 10px; border:1px solid var(--theme-line); border-radius:10px; background:var(--theme-surface-alt); color:var(--theme-accent); font:850 12px/1 inherit; }
+  .provider-body[data-provider-theme][data-provider-layout] .client-profile-back .ui-icon { width:16px; height:16px; }
+
+  /* В «Разделах» не повторяется нижняя навигация, оставшиеся пункты компактнее. */
+  .mobile-more-grid button[hidden] { display:none!important; }
+  .mobile-more-grid button { grid-template-columns:40px minmax(0,1fr); min-height:72px; padding:12px 14px; }
+  .mobile-more-grid button>span { width:40px; height:40px; border-radius:12px; }
+  .mobile-more-grid .mobile-settings-shortcut { min-height:76px; }
+
+  /* Все периоды видны сразу, без неочевидного горизонтального свайпа. */
+  .report-filters .report-periods { display:grid!important; grid-template-columns:repeat(3,minmax(0,1fr)); width:100%; overflow:visible; }
+  .report-filters .report-periods button { min-width:0; padding-inline:6px; white-space:normal; }
+
+  /* На первом экране статистики остаётся главное, подробности раскрываются по желанию. */
+  .report-smart-actions article { min-height:52px; align-items:center; padding:8px 9px; }
+  .report-smart-actions article>div>small,
+  .report-smart-actions article>div>i,
+  .report-smart-actions article>div>b { display:none; }
+  .report-smart-actions strong { line-height:1.25; }
+
+  /* Мобильные уведомления не повторяют одни и те же счётчики дважды. */
+  .provider-view[data-provider-panel="notifications"]>.notification-summary { display:none; }
 }
+
+/* Диалоги и фильтры уведомлений наследуют выбранную тему и её контраст. */
+.provider-body[data-provider-theme] .notification-template-dialog-head button { border:1px solid var(--theme-line); background:var(--theme-accent-soft); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .notification-device-note { border:1px solid color-mix(in srgb,#d69b37 34%,var(--theme-line)); background:color-mix(in srgb,#d69b37 10%,var(--theme-surface)); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .notification-filters button.active { color:var(--theme-accent-contrast,#fff)!important; }

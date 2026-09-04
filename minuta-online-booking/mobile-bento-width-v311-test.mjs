@@ -10,22 +10,22 @@ assert.match(
 );
 assert.match(
   styles,
-  /data-provider-layout="bento"\] \.timeline-view \{ padding-right:4px; padding-left:4px; \}/,
+  /data-provider-layout\] \.timeline-view \{ padding-right:4px; padding-left:4px; \}/,
   'Внутренние поля временной шкалы всё ещё сужают записи',
 );
 assert.match(
   styles,
-  /data-provider-layout="bento"\] \.day-timeline \{ grid-template-columns:44px minmax\(0,1fr\); \}/,
+  /data-provider-layout\] \.day-timeline \{ grid-template-columns:44px minmax\(0,1fr\); \}/,
   'Колонка часов на телефоне должна быть компактной, но читаемой',
 );
 assert.match(
   styles,
-  /data-provider-layout="bento"\] \.timeline-booking \{ right:4px; left:5px; \}/,
+  /data-provider-layout\] \.timeline-booking \{ right:4px; left:5px; \}/,
   'Карточки записей не используют доступную ширину временной шкалы',
 );
 assert.match(
   styles,
-  /data-provider-layout="bento"\] \.timeline-day-expand \{ width:calc\(100% - 44px\); \}/,
+  /data-provider-layout\] \.timeline-day-expand \{ width:calc\(100% - 44px\); \}/,
   'Кнопка продолжения дня не выровнена по расширенной колонке записей',
 );
 
