@@ -8334,15 +8334,24 @@ function updateScheduleSaveState() {
   if (!button || !status) return;
   const busy = button.dataset.operationDisabled === 'true';
   button.disabled = busy || !writesAllowed || !scheduleDirty;
+  button.hidden = !busy && (!writesAllowed || !scheduleDirty);
   const nextText = busy ? 'Сохраняем…' : !writesAllowed ? 'Только просмотр' : scheduleDirty ? 'Есть несохранённые изменения' : 'Сохранено';
   const nextState = scheduleDirty ? 'dirty' : 'saved';
   if (status.textContent !== nextText) status.textContent = nextText;
   if (status.dataset.state !== nextState) status.dataset.state = nextState;
+  status.hidden = !busy && writesAllowed && !scheduleDirty;
 }
 function setScheduleDirty(value = true) {
   scheduleDirty = Boolean(value);
   updateWeeklyScheduleSummary();
   updateScheduleSaveState();
+}
+function setScheduleSaveError(message = 'Не удалось сохранить') {
+  const status = $('#scheduleSaveState');
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.state = 'error';
+  status.hidden = false;
 }
 function scheduleStateForDate(dateIso) {
   const date = parseLocalIsoDate(dateIso);
@@ -8454,8 +8463,9 @@ function renderMonthlyScheduleDetails() {
       ? '<button class="secondary-button" type="button" data-monthly-schedule-action="open">Открыть по обычному графику</button>'
       : '<button class="secondary-button" type="button" data-monthly-schedule-action="close">Сделать выходным</button>';
   const partialAction = state.weekly?.enabled && !state.fullDayOff ? '<button type="button" data-monthly-schedule-action="partial">Закрыть часть дня</button>' : '';
+  const restoreAction = exceptions.length ? '<button type="button" data-monthly-schedule-action="restore">Вернуть обычный график</button>' : '';
   holder.hidden = false;
-  holder.innerHTML = `<div class="monthly-schedule-details-head"><div><small>Выбранная дата</small><strong>${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}</strong></div><span>${escapeHtml(status)}</span></div><dl><div><dt>По неделе</dt><dd>${escapeHtml(weeklyHours)}</dd></div><div><dt>Закрыто частично</dt><dd>${escapeHtml(partialText)}</dd></div><div><dt>Записей</dt><dd>${bookingCount}</dd></div></dl>${bookingCount ? '<p>Записи сохранятся. Изменится только доступность для новых клиентов.</p>' : ''}<div class="monthly-schedule-details-actions">${primaryAction}${partialAction}</div>`;
+  holder.innerHTML = `<div class="monthly-schedule-details-head"><div><small>Выбранная дата</small><strong>${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}</strong></div><span>${escapeHtml(status)}</span></div><dl><div><dt>По неделе</dt><dd>${escapeHtml(weeklyHours)}</dd></div><div><dt>Закрыто частично</dt><dd>${escapeHtml(partialText)}</dd></div><div><dt>Записей</dt><dd>${bookingCount}</dd></div></dl>${bookingCount ? '<p>Записи сохранятся. Изменится только доступность для новых клиентов.</p>' : ''}<div class="monthly-schedule-details-actions">${primaryAction}${partialAction}${restoreAction}</div>`;
 }
 function renderMonthlySchedule() {
   const grid = $('#monthlyScheduleGrid');
@@ -8519,6 +8529,28 @@ async function toggleMonthlyScheduleDay(dateIso, button) {
   if (status) status.textContent = state.fullDayOff ? 'День снова открыт для записи.' : 'День отмечен выходным.';
 }
 
+async function restoreMonthlyScheduleDate(dateIso, button) {
+  if (!requireWrites()) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso || '')) || dateIso < businessTodayIso()) return;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return;
+  const status = $('#monthlyScheduleStatus');
+  button.disabled = true;
+  if (status) status.textContent = 'Возвращаем обычный график…';
+  const { error } = await db.from('provider_days_off').delete().eq('performer_id', userId).eq('off_date', dateIso);
+  if (!sessionIsCurrent(userId, generation)) return;
+  if (error) {
+    button.disabled = false;
+    if (status) status.textContent = 'Не удалось вернуть обычный график. Попробуйте ещё раз.';
+    return;
+  }
+  await loadDaysOff();
+  renderBookings();
+  freeSlotsController.refresh();
+  if (status) status.textContent = 'Обычный график восстановлен.';
+}
+
 function renderSchedule() {
   const holder = $('#weeklySchedule');
   holder.innerHTML = scheduleRows.map(row => {
@@ -8576,7 +8608,7 @@ async function saveSchedule() {
   clearFormError('#scheduleError');
   const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
   const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
-  if (invalid) { $('#weeklyScheduleDetails').open = true; showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
+  if (invalid) { $('#scheduleWeekEditor').open = true; $('#weeklyScheduleDetails').open = true; setScheduleSaveError('Проверьте расписание'); showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
   const button = $('#saveSchedule');
   button.dataset.operationDisabled = 'true';
   button.textContent = 'Проверяем…';
@@ -8587,6 +8619,7 @@ async function saveSchedule() {
     delete button.dataset.operationDisabled;
     button.textContent = 'Сохранить';
     updateScheduleSaveState();
+    setScheduleSaveError();
     showFormError('#scheduleError', 'Не удалось проверить актуальность расписания. Изменения не сохранены.');
     return;
   }
@@ -8595,6 +8628,7 @@ async function saveSchedule() {
     delete button.dataset.operationDisabled;
     button.textContent = 'Сохранить';
     updateScheduleSaveState();
+    setScheduleSaveError('Изменено на другом устройстве');
     showFormError('#scheduleError', 'Расписание изменилось на другом устройстве. Обновите данные и внесите изменения заново.');
     return;
   }
@@ -8603,9 +8637,10 @@ async function saveSchedule() {
   if (!sessionIsCurrent(userId, generation)) return;
   delete button.dataset.operationDisabled;
   button.textContent = 'Сохранить';
-  if (error) { updateScheduleSaveState(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
+  if (error) { updateScheduleSaveState(); setScheduleSaveError(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
   scheduleRows = rows;
   setScheduleDirty(false);
+  $('#scheduleWeekEditor').open = false;
   await saveProviderCache('schedule', scheduleRows, userId);
   const quickStatus = $('#scheduleQuickStatus');
   if (quickStatus) {
@@ -8619,6 +8654,11 @@ async function saveSchedule() {
 
 function renderDaysOff() {
   const holder = $('#daysOffList');
+  const summary = $('#dateExceptionsSummary');
+  if (summary) {
+    const count = daysOff.length;
+    summary.textContent = count ? `${count} ${count % 10 === 1 && count % 100 !== 11 ? 'изменение' : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? 'изменения' : 'изменений'}` : 'Исключений нет';
+  }
   if (!daysOff.length) {
     holder.innerHTML = `<div class="days-off-empty"><span>${uiIcon('check')}</span><div><strong>Исключений нет</strong><small>Онлайн-запись работает по обычному расписанию.</small></div></div>`;
     renderMonthlySchedule();
@@ -8647,6 +8687,8 @@ async function loadDaysOff() {
       return { ok: false, cached: true, savedAt: cached.savedAt };
     }
     $('#daysOffList').innerHTML = '<div class="provider-empty compact-empty">Не удалось загрузить исключения.</div>';
+    const summary = $('#dateExceptionsSummary');
+    if (summary) summary.textContent = 'Не удалось загрузить';
     return { ok: false };
   }
   daysOff = data || [];
@@ -10381,6 +10423,7 @@ $('#monthlyScheduleDetails').addEventListener('click', event => {
   const button = event.target.closest('[data-monthly-schedule-action]');
   if (!button || !selectedMonthlyScheduleDate) return;
   if (button.dataset.monthlyScheduleAction === 'weekly') {
+    $('#scheduleWeekEditor').open = true;
     $('#weeklyScheduleDetails').open = true;
     $('.weekly-schedule-panel')?.scrollIntoView({ behavior:'smooth', block:'start' });
     return;
@@ -10390,8 +10433,12 @@ $('#monthlyScheduleDetails').addEventListener('click', event => {
     $('#dayOffDate').value = selectedMonthlyScheduleDate;
     $('#dayOffAllDay').checked = false;
     $('#dayOffTime').hidden = false;
-    $('.days-off-panel')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    $('#dayOffEditor')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
     setTimeout(() => $('#dayOffStart').focus(), 350);
+    return;
+  }
+  if (button.dataset.monthlyScheduleAction === 'restore') {
+    void restoreMonthlyScheduleDate(selectedMonthlyScheduleDate, button);
     return;
   }
   void toggleMonthlyScheduleDay(selectedMonthlyScheduleDate, button);

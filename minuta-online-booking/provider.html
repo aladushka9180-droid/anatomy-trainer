@@ -324,15 +324,18 @@
         </section>
 
         <section class="provider-view" data-provider-panel="schedule" hidden>
-          <div class="view-title"><div><span>Доступность</span><h2>Рабочее расписание</h2></div><div class="schedule-save-actions"><small id="scheduleSaveState" role="status" aria-live="polite">Сохранено</small><button class="primary compact-button" id="saveSchedule" type="button" disabled>Сохранить</button></div></div>
+          <div class="view-title"><div><span>Доступность</span><h2>Рабочее расписание</h2></div><div class="schedule-save-actions"><small id="scheduleSaveState" role="status" aria-live="polite" hidden>Сохранено</small><button class="primary compact-button" id="saveSchedule" type="button" hidden disabled>Сохранить</button></div></div>
           <p class="view-description">Клиенты увидят только свободные интервалы внутри выбранных рабочих часов.</p>
           <div class="schedule-settings-layout">
             <section class="panel weekly-schedule-panel">
-              <div class="panel-head"><div><small>Обычная неделя</small><h3>Рабочие дни и перерывы</h3></div></div>
+              <div class="schedule-section-summary"><small>Повторяющееся расписание</small><strong id="weeklyScheduleSummary">Загружаем расписание…</strong></div>
+              <details class="schedule-week-editor" id="scheduleWeekEditor">
+                <summary><span>Изменить обычную неделю</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
+                <div class="schedule-week-editor-body">
               <section class="schedule-quick-setup" aria-labelledby="scheduleQuickTitle">
                 <div class="schedule-quick-head">
-                  <div><small>Быстрая настройка</small><strong id="scheduleQuickTitle">Одинаковые часы для нескольких дней</strong></div>
-                  <span>Выберите дни и часы</span>
+                  <strong id="scheduleQuickTitle">Рабочие дни и часы</strong>
+                  <span>Сначала выберите дни, затем время</span>
                 </div>
                 <div class="schedule-quick-presets" role="group" aria-label="Шаблон рабочих дней">
                   <button type="button" data-schedule-quick-preset="weekdays">Будни</button>
@@ -355,7 +358,7 @@
                   <label class="schedule-quick-break-toggle"><input id="scheduleQuickBreak" type="checkbox"><span>Общий перерыв</span></label>
                   <div class="schedule-quick-break-times" id="scheduleQuickBreakTimes" hidden><label>С<input id="scheduleQuickBreakStart" type="time" value="13:00"></label><span>—</span><label>До<input id="scheduleQuickBreakEnd" type="time" value="14:00"></label></div>
                 </div>
-                <div class="schedule-quick-actions"><button class="secondary-button" id="applyQuickSchedule" type="button">Применить</button><small id="scheduleQuickStatus" role="status" aria-live="polite"></small></div>
+                <div class="schedule-quick-actions"><button class="secondary-button" id="applyQuickSchedule" type="button">Применить часы</button><small id="scheduleQuickStatus" role="status" aria-live="polite"></small></div>
               </section>
               <div class="booking-step-setting">
                 <div><strong>Шаг записи</strong><small>Через какой интервал клиенту показывать начало записи</small></div>
@@ -367,40 +370,48 @@
                 </div>
               </div>
               <details class="weekly-schedule-details" id="weeklyScheduleDetails">
-                <summary><span><strong>Настроить дни отдельно</strong><small id="weeklyScheduleSummary">Загружаем расписание…</small></span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
+                <summary><span><strong>Настроить дни отдельно</strong><small>Если часы отличаются в разные дни</small></span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
                 <div class="weekly-schedule" id="weeklySchedule"><div class="loading-state"><i></i><span>Загружаем расписание…</span></div></div>
               </details>
               <p class="form-error" id="scheduleError" hidden></p>
+                </div>
+              </details>
             </section>
             <section class="panel monthly-schedule-panel">
-              <div class="panel-head"><div><small>График по датам</small><h3>Настройка по месяцам</h3></div></div>
-              <p class="monthly-schedule-help">Рабочие часы берутся из обычной недели. Выберите дату, проверьте её состояние и только потом подтвердите изменение.</p>
-              <div class="monthly-schedule-toolbar">
-                <button type="button" data-monthly-schedule-shift="-1" aria-label="Предыдущий месяц"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg></button>
-                <label><span>Месяц</span><input id="monthlyScheduleMonth" type="month" aria-label="Месяц рабочего графика"></label>
-                <button type="button" data-monthly-schedule-shift="1" aria-label="Следующий месяц"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
-              </div>
-              <div class="monthly-schedule-legend" aria-hidden="true"><span><i class="is-working"></i>Рабочий</span><span><i class="is-closed"></i>Выходной</span><span><i class="is-weekly-closed"></i>Закрыт по обычной неделе</span></div>
-              <div class="monthly-schedule-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
-              <div class="monthly-schedule-grid" id="monthlyScheduleGrid" aria-live="polite"></div>
-              <section class="monthly-schedule-details" id="monthlyScheduleDetails" aria-live="polite" hidden></section>
-              <p class="monthly-schedule-status" id="monthlyScheduleStatus" role="status" aria-live="polite"></p>
-            </section>
-            <section class="panel days-off-panel">
-              <div class="panel-head"><div><small>Исключения</small><h3>Выходные и закрытое время</h3></div></div>
-              <div class="schedule-priority-note"><strong>Как формируется доступность</strong><span>Обычная неделя → исключение на дату → смена сотрудника в филиале. Существующие записи не удаляются.</span><button type="button" data-provider-view="organization">График команды и филиалов</button></div>
-              <details class="day-off-editor" id="dayOffEditor">
-                <summary><span>Добавить выходной или закрытое время</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
-                <form id="dayOffForm" class="day-off-form">
-                  <label>Дата<input id="dayOffDate" type="date" required></label>
-                  <label class="all-day-control"><input id="dayOffAllDay" type="checkbox" checked><span>Закрыть весь день</span></label>
-                  <div class="day-off-time" id="dayOffTime" hidden><label>С<input id="dayOffStart" type="time" value="13:00"></label><label>До<input id="dayOffEnd" type="time" value="15:00"></label></div>
-                  <label>Комментарий<input id="dayOffNote" maxlength="120" placeholder="Например, личное время"></label>
-                  <p class="form-error" id="dayOffError" hidden></p>
-                  <button class="secondary-button icon-label-button" type="submit"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Закрыть время</span></button>
-                </form>
+              <details class="schedule-date-editor" id="monthlyScheduleEditor">
+                <summary><span><strong>Изменения по конкретным датам</strong><small id="dateExceptionsSummary">Исключений нет</small></span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
+                <div class="schedule-date-editor-body">
+                  <p class="monthly-schedule-help">Выберите дату, чтобы закрыть весь день, часть времени или вернуть обычный график.</p>
+                  <div class="monthly-schedule-toolbar">
+                    <button type="button" data-monthly-schedule-shift="-1" aria-label="Предыдущий месяц"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg></button>
+                    <label><span>Месяц</span><input id="monthlyScheduleMonth" type="month" aria-label="Месяц рабочего графика"></label>
+                    <button type="button" data-monthly-schedule-shift="1" aria-label="Следующий месяц"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
+                  </div>
+                  <div class="monthly-schedule-legend" aria-hidden="true"><span><i class="is-working"></i>Рабочий</span><span><i class="is-closed"></i>Выходной</span><span><i class="is-weekly-closed"></i>По обычной неделе закрыт</span></div>
+                  <div class="monthly-schedule-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+                  <div class="monthly-schedule-grid" id="monthlyScheduleGrid" aria-live="polite"></div>
+                  <section class="monthly-schedule-details" id="monthlyScheduleDetails" aria-live="polite" hidden></section>
+                  <p class="monthly-schedule-status" id="monthlyScheduleStatus" role="status" aria-live="polite"></p>
+                  <div class="schedule-date-secondary">
+                    <details class="day-off-editor" id="dayOffEditor">
+                      <summary><span>Закрыть день или часть времени</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></summary>
+                      <form id="dayOffForm" class="day-off-form">
+                        <label>Дата<input id="dayOffDate" type="date" required></label>
+                        <label class="all-day-control"><input id="dayOffAllDay" type="checkbox" checked><span>Закрыть весь день</span></label>
+                        <div class="day-off-time" id="dayOffTime" hidden><label>С<input id="dayOffStart" type="time" value="13:00"></label><label>До<input id="dayOffEnd" type="time" value="15:00"></label></div>
+                        <label>Комментарий<input id="dayOffNote" maxlength="120" placeholder="Например, личное время"></label>
+                        <p class="form-error" id="dayOffError" hidden></p>
+                        <button class="secondary-button icon-label-button" type="submit"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Закрыть время</span></button>
+                      </form>
+                    </details>
+                    <div class="days-off-list" id="daysOffList"></div>
+                  </div>
+                  <details class="schedule-help-disclosure">
+                    <summary aria-label="Как формируется доступность">?</summary>
+                    <div><strong>Как формируется доступность</strong><span>Обычная неделя → изменение на дату → смена сотрудника в филиале. Существующие записи не удаляются.</span><button type="button" data-provider-view="organization">График команды и филиалов</button></div>
+                  </details>
+                </div>
               </details>
-              <div class="days-off-list" id="daysOffList"></div>
             </section>
           </div>
         </section>

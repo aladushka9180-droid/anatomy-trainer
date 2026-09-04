@@ -30,7 +30,7 @@ assert.match(provider, /data-monthly-schedule-action="open"/, 'Нет явног
 assert.match(provider, /data-monthly-schedule-action="partial"/, 'Нет перехода к частичному закрытию дня');
 assert.match(provider, /const bookingCount = allBookings\.filter/, 'Карточка даты считает записи не из актуального журнала');
 assert.match(provider, /Записи сохранятся\. Изменится только доступность для новых клиентов\./, 'Не объяснено, что существующие записи сохраняются');
-assert.match(html, /Обычная неделя → исключение на дату → смена сотрудника в филиале\./, 'Не объяснён порядок источников доступности');
+assert.match(html, /Обычная неделя → изменение на дату → смена сотрудника в филиале\./, 'Не объяснён порядок источников доступности');
 assert.match(html, /data-provider-view="organization">График команды и филиалов/, 'График команды дублируется вместо ссылки на существующий раздел');
 
 assert.match(styles, /\.schedule-quick-presets \{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, 'Шаблоны не собраны в компактную группу');
