@@ -81,6 +81,8 @@
     promotion_ideas:['promotion_ideas'], operational_briefing:['operational_briefing'], workspace_help:['workspace_help'],
     operation_preview:['operation_preview'], small_talk:['small_talk'], help:['help']
   });
+  const SPEECH_SETTINGS_KEY = 'minuta-assistant-speech-settings-v1';
+  const DEFAULT_SPEECH_RATE = 1;
 
   function normalizeText(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').replace(/ё/g, 'е').replace(/[^a-zа-я0-9:.\s-]/gi, ' ').replace(/\s+/g, ' ').trim();
@@ -1591,6 +1593,17 @@
     })[0] || null;
   }
 
+  function normalizedSpeechRate(value) {
+    const rate = Number(value);
+    if (!Number.isFinite(rate)) return DEFAULT_SPEECH_RATE;
+    return Math.round(Math.min(1.5, Math.max(0.6, rate)) * 10) / 10;
+  }
+
+  function speechVoiceKey(voice) {
+    if (!voice) return '';
+    return String(voice.voiceURI || `${voice.lang || ''}|${voice.name || ''}`).slice(0, 300);
+  }
+
   function applyOfflineContext(model, snapshot) {
     if (!snapshot?.offlineReadable) return model;
     const updated = snapshotTimeLabel(snapshot.lastUpdatedAt);
@@ -1783,6 +1796,11 @@
     const proactive = doc.querySelector('#voiceAssistantProactive');
     const proactiveTitle = doc.querySelector('#voiceAssistantProactiveTitle');
     const proactiveMessage = doc.querySelector('#voiceAssistantProactiveMessage');
+    const speechSettings = doc.querySelector('#voiceAssistantSpeechSettings');
+    const voiceSelect = doc.querySelector('#voiceAssistantVoice');
+    const rateInput = doc.querySelector('#voiceAssistantRate');
+    const rateValue = doc.querySelector('#voiceAssistantRateValue');
+    const voicePreviewButton = doc.querySelector('#voiceAssistantVoicePreview');
     const memoryText = doc.querySelector('#voiceAssistantMemoryText');
     const clearMemoryButton = doc.querySelector('#voiceAssistantClearMemory');
     if (!dialog || !openButton || !closeButton || !backButton || !form || !input || !listenButton || !status || !result) return { bind() {}, destroy() {} };
@@ -1806,6 +1824,8 @@
     let speechEpoch = 0;
     let speaking = false;
     let russianVoice = null;
+    let speechRate = DEFAULT_SPEECH_RATE;
+    let preferredVoiceKey = '';
     let suppressCompatibilityClick = false;
     let compatibilityClickResetTimer = null;
     let activeTouchPointerId = null;
@@ -1847,8 +1867,58 @@
       conversationHistory = conversationHistory.slice(-6);
     }
 
+    function loadSpeechSettings() {
+      try {
+        const saved = JSON.parse(global.localStorage?.getItem(SPEECH_SETTINGS_KEY) || '{}');
+        speechRate = normalizedSpeechRate(saved.rate);
+        preferredVoiceKey = String(saved.voiceKey || '').slice(0, 300);
+      } catch {
+        speechRate = DEFAULT_SPEECH_RATE;
+        preferredVoiceKey = '';
+      }
+      if (rateInput) rateInput.value = String(speechRate);
+      if (rateValue) rateValue.textContent = `${String(speechRate).replace('.', ',')}×`;
+    }
+
+    function saveSpeechSettings() {
+      try { global.localStorage?.setItem(SPEECH_SETTINGS_KEY, JSON.stringify({ voiceKey:preferredVoiceKey, rate:speechRate })); } catch {}
+    }
+
+    function russianVoices() {
+      try {
+        return Array.from(global.speechSynthesis?.getVoices?.() || []).filter(voice => /^ru(?:[-_]|$)/i.test(String(voice?.lang || '')));
+      } catch { return []; }
+    }
+
+    function refreshVoiceControls(voices) {
+      if (!voiceSelect || typeof doc.createElement !== 'function') return;
+      const currentKey = speechVoiceKey(russianVoice);
+      voiceSelect.replaceChildren();
+      if (!global.speechSynthesis || !global.SpeechSynthesisUtterance || !voices.length) {
+        const option = doc.createElement('option');
+        option.value = '';
+        option.textContent = global.speechSynthesis && global.SpeechSynthesisUtterance ? 'Русский голос не найден' : 'Озвучка не поддерживается';
+        voiceSelect.append(option);
+        voiceSelect.disabled = true;
+        if (voicePreviewButton) voicePreviewButton.disabled = true;
+        return;
+      }
+      voices.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'ru')).forEach(voice => {
+        const option = doc.createElement('option');
+        option.value = speechVoiceKey(voice);
+        option.textContent = `${voice.name || 'Русский голос'}${voice.localService ? ' · на устройстве' : ''}`;
+        voiceSelect.append(option);
+      });
+      voiceSelect.disabled = false;
+      voiceSelect.value = currentKey;
+      if (voicePreviewButton) voicePreviewButton.disabled = false;
+    }
+
     function refreshRussianVoice() {
-      try { russianVoice = selectRussianVoice(global.speechSynthesis?.getVoices?.() || []); } catch { russianVoice = null; }
+      const voices = russianVoices();
+      russianVoice = voices.find(voice => speechVoiceKey(voice) === preferredVoiceKey) || selectRussianVoice(voices);
+      if (!preferredVoiceKey && russianVoice) preferredVoiceKey = speechVoiceKey(russianVoice);
+      refreshVoiceControls(voices);
       return russianVoice;
     }
 
@@ -1951,16 +2021,59 @@
     function setSpeaking(value) {
       speaking = Boolean(value);
       const button = result.querySelector('[data-voice-speak]');
-      if (!button) return;
-      button.classList.toggle('is-speaking', speaking);
-      button.setAttribute('aria-pressed', String(speaking));
-      button.textContent = speaking ? 'Остановить голос' : 'Озвучить ответ';
+      if (button) {
+        button.classList.toggle('is-speaking', speaking);
+        button.setAttribute('aria-pressed', String(speaking));
+        button.textContent = speaking ? 'Остановить голос' : 'Озвучить ответ';
+      }
+      if (voicePreviewButton) {
+        voicePreviewButton.classList.toggle('is-speaking', speaking);
+        voicePreviewButton.setAttribute('aria-pressed', String(speaking));
+        voicePreviewButton.textContent = speaking ? 'Остановить' : 'Проверить голос';
+      }
     }
 
     function stopSpeech() {
       speechEpoch += 1;
       try { global.speechSynthesis?.cancel(); } catch {}
       setSpeaking(false);
+    }
+
+    function speakText(text, completedMessage = '') {
+      if (!global.speechSynthesis || !global.SpeechSynthesisUtterance) {
+        setSpeaking(false);
+        status.textContent = 'Этот браузер не поддерживает озвучивание. Вы можете прочитать ответ на экране.';
+        return false;
+      }
+      const voice = refreshRussianVoice();
+      if (!voice) {
+        setSpeaking(false);
+        status.textContent = 'На устройстве не найден русский голос. Установите русский язык синтеза речи в настройках телефона — помощник не будет включать голос другого языка.';
+        if (speechSettings) speechSettings.open = true;
+        return false;
+      }
+      const utterance = new global.SpeechSynthesisUtterance(String(text || '').slice(0, 1200));
+      const epoch = ++speechEpoch;
+      utterance.voice = voice;
+      utterance.lang = /^ru(?:[-_]|$)/i.test(String(voice.lang || '')) ? String(voice.lang).replace('_', '-') : 'ru-RU';
+      utterance.rate = speechRate;
+      utterance.pitch = 1;
+      utterance.onend = () => {
+        if (epoch !== speechEpoch) return;
+        setSpeaking(false);
+        if (completedMessage) status.textContent = completedMessage;
+      };
+      utterance.onerror = () => { if (epoch === speechEpoch) { setSpeaking(false); status.textContent = 'Не удалось озвучить ответ на этом устройстве.'; } };
+      try {
+        global.speechSynthesis.cancel();
+        setSpeaking(true);
+        global.speechSynthesis.speak(utterance);
+        return true;
+      } catch {
+        setSpeaking(false);
+        status.textContent = 'Не удалось озвучить ответ на этом устройстве.';
+        return false;
+      }
     }
 
     function close() {
@@ -2135,7 +2248,8 @@
       const planStartAction = model.kind === 'compound_plan' && model.steps?.length ? '<button class="primary" type="button" data-voice-plan-start>Начать план</button>' : '';
       const planNextAction = activePlan && model.kind !== 'compound_plan' && activePlan.index + 1 < activePlan.steps.length ? '<button class="primary" type="button" data-voice-plan-next>Следующий шаг</button>' : '';
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
-      const actions = prepareAction || copyAction || openAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${operationAction}${undoAction}${openAction}${speakAction}</div>` : '';
+      const speechSettingsAction = speakAction ? '<button class="secondary-button voice-speech-settings-action" type="button" data-voice-speech-settings>Голос и скорость</button>' : '';
+      const actions = prepareAction || copyAction || openAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${operationAction}${undoAction}${openAction}${speakAction}${speechSettingsAction}</div>` : '';
       const planProgress = activePlan && model.kind !== 'compound_plan' ? `<p class="voice-source-note">План · шаг ${activePlan.index + 1} из ${activePlan.steps.length}</p>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       const sourceNote = model.sourceLabel ? `<p class="voice-source-note">${escapeHtml(model.sourceLabel)}</p>` : '';
@@ -2276,28 +2390,13 @@
           return;
         }
         const spokenItems = (lastModel?.items || []).slice(0, 12).map(item => `${item.time || ''}, ${item.serviceName || 'услуга'}`).join('. ');
-        const voice = refreshRussianVoice();
-        if (!voice) {
-          setSpeaking(false);
-          status.textContent = 'На устройстве не найден русский голос. Установите русский язык синтеза речи в настройках телефона — помощник не будет включать голос другого языка.';
-          return;
-        }
-        const utterance = new global.SpeechSynthesisUtterance([lastModel?.title, lastModel?.message, spokenItems].filter(Boolean).join('. ').slice(0, 1200));
-        const epoch = ++speechEpoch;
-        utterance.voice = voice;
-        utterance.lang = /^ru(?:[-_]|$)/i.test(String(voice.lang || '')) ? String(voice.lang).replace('_', '-') : 'ru-RU';
-        utterance.rate = 0.96;
-        utterance.pitch = 1;
-        utterance.onend = () => { if (epoch === speechEpoch) setSpeaking(false); };
-        utterance.onerror = () => { if (epoch === speechEpoch) { setSpeaking(false); status.textContent = 'Не удалось озвучить ответ на этом устройстве.'; } };
-        try {
-          global.speechSynthesis.cancel();
-          setSpeaking(true);
-          global.speechSynthesis.speak(utterance);
-        } catch {
-          setSpeaking(false);
-          status.textContent = 'Не удалось озвучить ответ на этом устройстве.';
-        }
+        speakText([lastModel?.title, lastModel?.message, spokenItems].filter(Boolean).join('. '));
+      });
+      result.querySelector('[data-voice-speech-settings]')?.addEventListener('click', () => {
+        if (!speechSettings) return;
+        speechSettings.open = true;
+        speechSettings.scrollIntoView?.({ block:'nearest', behavior:'smooth' });
+        setTimeout(() => voiceSelect?.focus?.({ preventScroll:true }), 0);
       });
       result.querySelector('[data-voice-prepare]')?.addEventListener('click', () => {
         const currentSnapshot = bridge.getReadOnlySnapshot();
@@ -2540,6 +2639,32 @@
     }
 
     function bind() {
+      loadSpeechSettings();
+      rateInput?.addEventListener('input', () => {
+        speechRate = normalizedSpeechRate(rateInput.value);
+        if (rateValue) rateValue.textContent = `${String(speechRate).replace('.', ',')}×`;
+      });
+      rateInput?.addEventListener('change', () => {
+        speechRate = normalizedSpeechRate(rateInput.value);
+        saveSpeechSettings();
+        stopSpeech();
+        status.textContent = `Скорость озвучки сохранена: ${String(speechRate).replace('.', ',')}×.`;
+      });
+      voiceSelect?.addEventListener('change', () => {
+        preferredVoiceKey = String(voiceSelect.value || '').slice(0, 300);
+        saveSpeechSettings();
+        stopSpeech();
+        refreshRussianVoice();
+        status.textContent = russianVoice ? `Голос сохранён: ${russianVoice.name || 'русский голос'}.` : 'Выбранный голос сейчас недоступен.';
+      });
+      voicePreviewButton?.addEventListener('click', () => {
+        if (speaking) {
+          stopSpeech();
+          status.textContent = 'Проверка голоса остановлена.';
+          return;
+        }
+        speakText('Здравствуйте! Я помощник Минута. Так будет звучать мой голос.', 'Голос и скорость озвучки сохранены.');
+      });
       proactive?.addEventListener('click', () => {
         input.value = proactive.dataset.voicePrompt || 'Дай короткую сводку и план на день';
         understand();
@@ -2642,7 +2767,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

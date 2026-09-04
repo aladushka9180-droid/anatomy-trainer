@@ -255,6 +255,10 @@ const selectedVoice = voice.selectRussianVoice([
 ]);
 assert.equal(selectedVoice, russianVoice, 'озвучивание не должно выбирать китайский или системный голос вместо русского');
 assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
+assert.equal(voice.normalizedSpeechRate('1.3'), 1.3);
+assert.equal(voice.normalizedSpeechRate('9'), 1.5, 'скорость озвучки должна иметь безопасный верхний предел');
+assert.equal(voice.normalizedSpeechRate('0.1'), 0.6, 'скорость озвучки должна иметь безопасный нижний предел');
+assert.equal(voice.speechVoiceKey({ voiceURI:'ru-local', lang:'ru-RU', name:'Русский' }), 'ru-local');
 
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
 const howAreYou = voice.interpretCommand('Как дела?', snapshot, now);

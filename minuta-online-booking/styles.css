@@ -5215,6 +5215,7 @@ html.provider-booting .provider-main {
 .voice-result-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:13px; }
 .voice-result-actions>button { flex:1 1 180px; min-height:44px; margin:0; }
 .voice-result-actions>.voice-speak-action { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; gap:6px; min-width:108px; }
+.voice-result-actions>.voice-speech-settings-action { flex:0 1 auto; }
 .voice-speak-action .ui-icon { width:16px; height:16px; }
 .voice-result-progress,.voice-result-empty { margin:13px 0 0; padding:12px; border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-muted,#61746a); font-size:11px; font-weight:750; line-height:1.45; }
 .voice-result-choices { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
@@ -5273,11 +5274,19 @@ html.provider-booting .provider-main {
   font:800 10px/1.25 inherit;
 }
 .voice-assistant-examples button:hover { border-color:var(--theme-accent,#235b40); background:var(--theme-accent-soft,#edf6f0); }
-.voice-assistant-privacy,.voice-assistant-memory { margin:12px 0 0; color:var(--theme-muted,#718278); font-size:9px; line-height:1.5; }
-.voice-assistant-privacy>summary,.voice-assistant-memory>summary { display:flex; align-items:center; gap:7px; width:max-content; cursor:pointer; font-weight:750; }
-.voice-assistant-privacy p,.voice-assistant-memory p { margin:8px 0 0; padding:10px 12px; border-radius:10px; background:var(--theme-surface-alt,#f7faf8); }
-.voice-assistant-privacy .ui-icon,.voice-assistant-memory .ui-icon { flex:0 0 auto; width:14px; height:14px; color:var(--theme-accent,#235b40); }
+.voice-assistant-privacy,.voice-assistant-memory,.voice-assistant-speech-settings { margin:12px 0 0; color:var(--theme-muted,#718278); font-size:9px; line-height:1.5; }
+.voice-assistant-privacy>summary,.voice-assistant-memory>summary,.voice-assistant-speech-settings>summary { display:flex; align-items:center; gap:7px; width:max-content; cursor:pointer; font-weight:750; }
+.voice-assistant-privacy p,.voice-assistant-memory p,.voice-assistant-speech-settings>p { margin:8px 0 0; padding:10px 12px; border-radius:10px; background:var(--theme-surface-alt,#f7faf8); }
+.voice-assistant-privacy .ui-icon,.voice-assistant-memory .ui-icon,.voice-assistant-speech-settings .ui-icon { flex:0 0 auto; width:14px; height:14px; color:var(--theme-accent,#235b40); }
 .voice-assistant-memory button { min-height:44px; margin-top:8px; }
+.voice-assistant-speech-controls { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(170px,.8fr) auto; align-items:end; gap:10px; margin-top:10px; padding:12px; border:1px solid var(--theme-line,#dce7df); border-radius:12px; background:var(--theme-surface-alt,#f7faf8); }
+.voice-assistant-speech-controls label { display:grid; min-width:0; gap:6px; color:var(--theme-ink,#173b2c); font-size:9px; font-weight:800; }
+.voice-assistant-speech-controls label>span { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.voice-assistant-speech-controls output { color:var(--theme-accent,#235b40); font-variant-numeric:tabular-nums; }
+.voice-assistant-speech-controls select { min-width:0; width:100%; min-height:44px; padding:8px 34px 8px 11px; border:1px solid var(--theme-line,#dce7df); border-radius:10px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173b2c); font:750 10px/1.3 inherit; }
+.voice-assistant-speech-controls input[type="range"] { width:100%; min-height:44px; accent-color:var(--theme-accent,#235b40); cursor:pointer; }
+.voice-assistant-speech-controls button { min-height:44px; margin:0; white-space:nowrap; }
+.voice-assistant-speech-controls button.is-speaking { border-color:#a83f3f; background:#a83f3f; color:#fff; }
 
 .provider-body[data-provider-theme][data-provider-layout="linear"] :is(.voice-assistant-open,.voice-assistant-dialog,.voice-assistant-head button,.voice-assistant-starters>button,.voice-listen-button,.voice-transcript-field textarea,.voice-understand-button,.voice-assistant-result,.voice-assistant-result dl>div,.voice-assistant-result li,.voice-result-choice,.voice-result-progress,.voice-result-empty,.voice-result-draft,.voice-offline-notice,.voice-correction-note,.voice-feedback button,.voice-assistant-examples button),
 .provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.voice-assistant-open,.voice-assistant-dialog,.voice-assistant-head button,.voice-assistant-starters>button,.voice-listen-button,.voice-transcript-field textarea,.voice-understand-button,.voice-assistant-result,.voice-assistant-result dl>div,.voice-assistant-result li,.voice-result-choice,.voice-result-progress,.voice-result-empty,.voice-result-draft,.voice-offline-notice,.voice-correction-note,.voice-feedback button,.voice-assistant-examples button) { border-radius:0; box-shadow:none; }
@@ -5334,6 +5343,8 @@ html.provider-booting .provider-main {
   .voice-understand-button span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
   .voice-assistant-examples { display:grid; grid-template-columns:1fr; }
   .voice-assistant-examples button { min-height:44px; text-align:left; }
+  .voice-assistant-speech-controls { grid-template-columns:1fr; align-items:stretch; }
+  .voice-assistant-speech-controls button { width:100%; }
   .voice-result-metrics { grid-template-columns:1fr; }
 }
 
