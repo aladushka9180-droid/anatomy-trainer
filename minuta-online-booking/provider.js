@@ -1662,7 +1662,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=318#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=319#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3246,7 +3246,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=318');
+    worker = new Worker('./report-worker.js?v=319');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6435,7 +6435,7 @@ function calendarWeekTimelineMarkup(days, byDate, today) {
       const client = block ? 'Занятое время' : item.client_name;
       const statusClass = bookingStatusClass(item);
       const details = `${title}, ${client}, с ${startTime} до ${endTime}`;
-      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}</small></button>`;
+      return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}</small></button>`;
     }).join('');
     return `<section class="calendar-week-day-stage${iso === today ? ' is-today' : ''}" style="grid-column:${index + 2}" aria-label="${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}">${cards}</section>`;
   }).join('');
@@ -6462,11 +6462,12 @@ function renderCalendarOverview(view) {
     ...days.map(date => {
       const iso = localIsoDate(date);
       const items = byDate.get(iso) || [];
-      const limit = view === 'month' ? 3 : items.length;
+      const limit = view === 'month' ? 2 : items.length;
       const hiddenCount = Math.max(0, items.length - limit);
       const fullDate = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+      const monthCount = items.length ? `${items.length} ${items.length === 1 ? 'запись' : items.length < 5 ? 'записи' : 'записей'}` : 'Свободно';
       return `<article class="calendar-overview-day${iso === today ? ' is-today' : ''}${iso === selectedDate ? ' is-selected' : ''}" data-calendar-date="${iso}">
-        <button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : ''}</button>
+        <button class="calendar-overview-date" type="button" data-calendar-open-date="${iso}" ${iso === today ? 'aria-current="date"' : ''} aria-label="${escapeHtml(fullDate)}. ${view === 'month' ? `${escapeHtml(monthCount)}. ` : ''}Открыть день"><span>${view === 'week' ? escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '')) : ''}</span><strong>${date.getDate()}</strong>${view === 'week' ? `<small>${escapeHtml(date.toLocaleDateString('ru-RU', { month:'short' }).replace('.', ''))}</small>` : `<small class="calendar-overview-count">${escapeHtml(monthCount)}</small>`}</button>
         <div class="calendar-overview-items">${items.slice(0, limit).map(item => calendarOverviewBookingMarkup(item, view === 'month')).join('')}${hiddenCount ? `<button class="calendar-overview-more" type="button" data-calendar-open-date="${iso}">Ещё ${hiddenCount}</button>` : ''}</div>
       </article>`;
     })
