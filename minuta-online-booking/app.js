@@ -11,6 +11,9 @@ const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
 const CLIENT_SESSION_KEY = 'minuta-client-session-v1';
 const CLIENT_CONTACT_KEY = 'minuta-client-contact-v1';
 const CLIENT_CONTACT_TTL = 90 * 24 * 60 * 60 * 1000;
+const VISITOR_PRESENCE_KEY = 'minuta-visitor-presence-v1';
+const VISITOR_SOURCE_KEY = 'minuta-visitor-source-v1';
+const VISITOR_FIRST_SOURCE_KEY = 'minuta-visitor-first-source-v1';
 const bookingQuery = new URLSearchParams(location.search);
 const requestedServiceId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '';
 const organizationSlugFromQuery = bookingQuery.get('org') || '';
@@ -21,6 +24,8 @@ const requestedOrganizationSlug = /^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationS
 const isRepeatBooking = bookingQuery.get('repeat') === '1' && Boolean(requestedServiceId);
 let bookingAttempt = loadBookingAttempt();
 let visitorRegistrationPromise = null;
+let visitorHeartbeatTimer = null;
+let visitorLastHeartbeatAt = 0;
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -33,17 +38,98 @@ function createRequestId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-function registerBookingPageVisit() {
-  if (!requestedOrganizationSlug || visitorRegistrationPromise) return visitorRegistrationPromise;
-  visitorRegistrationPromise = db.rpc('register_public_booking_visit', { p_slug: requestedOrganizationSlug })
-    .then(result => {
-      if (result.error) visitorRegistrationPromise = null;
-      return !result.error && result.data === true;
-    })
-    .catch(() => {
-      visitorRegistrationPromise = null;
-      return false;
-    });
+function cleanVisitorSource(value, limit = 80) {
+  return String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
+}
+
+function visitorSessionId() {
+  try {
+    const saved = sessionStorage.getItem(VISITOR_PRESENCE_KEY);
+    if (/^[0-9a-f-]{36}$/i.test(saved || '')) return saved;
+    const created = createRequestId();
+    sessionStorage.setItem(VISITOR_PRESENCE_KEY, created);
+    return created;
+  } catch { return createRequestId(); }
+}
+
+function sourceTitle(value) {
+  const key = cleanVisitorSource(value, 32).toLowerCase();
+  return ({ telegram:'Telegram', whatsapp:'WhatsApp', vk:'ВКонтакте', yandex:'Яндекс', google:'Google', qr:'QR-код', master:'Ссылка мастера', direct:'Прямой переход' })[key] || cleanVisitorSource(value) || 'Источник скрыт';
+}
+
+function detectVisitorSource() {
+  const storageKey = `${VISITOR_SOURCE_KEY}:${requestedOrganizationSlug || 'default'}`;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+    if (saved?.label && saved?.kind) return saved;
+  } catch {}
+  const source = cleanVisitorSource(bookingQuery.get('utm_source'), 40).toLowerCase();
+  const medium = cleanVisitorSource(bookingQuery.get('utm_medium'), 40).toLowerCase();
+  const campaign = cleanVisitorSource(bookingQuery.get('utm_campaign'), 60);
+  let result;
+  if (source) {
+    const kind = source === 'qr' || medium === 'offline' ? 'qr' : ['telegram','whatsapp'].includes(source) || medium === 'messenger' ? 'social' : source === 'vk' || medium === 'social' ? 'social' : ['yandex','google'].includes(source) || medium === 'search' ? 'search' : 'campaign';
+    result = { kind, label:`${sourceTitle(source)}${campaign ? ` · ${campaign}` : ''}` };
+  } else {
+    let referrer = null;
+    try { referrer = document.referrer ? new URL(document.referrer) : null; } catch {}
+    if (referrer && referrer.hostname !== location.hostname) {
+      const host = referrer.hostname.replace(/^www\./, '').slice(0, 80);
+      const search = /(^|\.)(yandex\.|google\.)/i.test(host);
+      const social = /(^|\.)(t\.me|telegram\.|vk\.|wa\.me|whatsapp\.)/i.test(host);
+      result = { kind:search ? 'search' : social ? 'social' : 'referral', label:sourceTitle(search ? (/yandex/i.test(host) ? 'yandex' : 'google') : social ? (/vk/i.test(host) ? 'vk' : /whatsapp|wa\.me/i.test(host) ? 'whatsapp' : 'telegram') : host) };
+    } else result = { kind:'direct', label:'Прямой переход или источник скрыт' };
+  }
+  try { sessionStorage.setItem(storageKey, JSON.stringify(result)); } catch {}
+  return result;
+}
+
+function firstVisitorSource(current) {
+  const storageKey = `${VISITOR_FIRST_SOURCE_KEY}:${requestedOrganizationSlug || 'default'}`;
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+    if (saved?.label) return cleanVisitorSource(saved.label);
+    localStorage.setItem(storageKey, JSON.stringify({ label:current.label, savedAt:Date.now() }));
+  } catch {}
+  return current.label;
+}
+
+function visitorPageName() {
+  if ($('#success') && !$('#success').hidden) return 'success';
+  return ({ 1:'services', 2:'date', 3:'details' })[state.step] || 'services';
+}
+
+function ensureVisitorHeartbeat() {
+  if (visitorHeartbeatTimer) return;
+  visitorHeartbeatTimer = setInterval(() => {
+    if (!document.hidden && navigator.onLine) void registerBookingPageVisit();
+  }, 30000);
+}
+
+function registerBookingPageVisit({ force = false } = {}) {
+  if (!requestedOrganizationSlug || document.hidden || !navigator.onLine) return Promise.resolve(false);
+  ensureVisitorHeartbeat();
+  if (visitorRegistrationPromise) return visitorRegistrationPromise;
+  if (!force && Date.now() - visitorLastHeartbeatAt < 20000) return Promise.resolve(false);
+  const source = detectVisitorSource();
+  const contact = loadClientContact();
+  visitorLastHeartbeatAt = Date.now();
+  visitorRegistrationPromise = db.rpc('upsert_public_booking_presence', {
+    p_slug: requestedOrganizationSlug,
+    p_session: visitorSessionId(),
+    p_page: visitorPageName(),
+    p_source_kind: source.kind,
+    p_source_label: source.label,
+    p_first_source_label: firstVisitorSource(source),
+    p_client_name: contact?.name || null,
+    p_client_phone: contact?.phone || null
+  }).then(async result => {
+    if (isMissingRpc(result.error, 'upsert_public_booking_presence')) {
+      const fallback = await db.rpc('register_public_booking_visit', { p_slug:requestedOrganizationSlug });
+      return !fallback.error && fallback.data === true;
+    }
+    return !result.error && result.data === true;
+  }).catch(() => false).finally(() => { visitorRegistrationPromise = null; });
   return visitorRegistrationPromise;
 }
 
@@ -85,6 +171,7 @@ function saveClientContact(name, phone) {
   const contact = { name: name.trim().slice(0, 80), phone: formatPhone(phone), savedAt: Date.now() };
   if (contact.name.length < 2 || contact.phone.replace(/\D/g, '').length !== 11) return;
   try { localStorage.setItem(CLIENT_CONTACT_KEY, JSON.stringify(contact)); } catch {}
+  void registerBookingPageVisit({ force:true });
 }
 
 function loadClientContact() {
@@ -1119,6 +1206,7 @@ $('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').c
 $('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));
 window.addEventListener('online', loadServices);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) void registerBookingPageVisit({ force:true }); });
 const publicGroupBookingsController = window.MinutaGroupBookings?.createPublicController ? window.MinutaGroupBookings.createPublicController({
   db, $, escapeHtml, getSlug:() => requestedOrganizationSlug
 }) : { bind() {}, load() {} };

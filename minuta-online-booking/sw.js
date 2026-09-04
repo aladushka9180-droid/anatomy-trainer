@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v316`;
+const CACHE = `${CACHE_PREFIX}v317`;
 const ASSETS = [
   './',
   './index.html',
@@ -15,12 +15,13 @@ const ASSETS = [
   './provider-luxury-marble-v4.webp',
   './styles.css?v=316',
   './onboarding.css?v=316',
+  './visitor-presence.css?v=317',
   './config.js?v=316',
   './site-update.js?v=316',
   './reliability.js?v=316',
   './phone-auth.js?v=316',
   './social-auth.js?v=316',
-  './app.js?v=316',
+  './app.js?v=317',
   './resource-management.js?v=316',
   './shift-management.js?v=316',
   './organization.js?v=316',
@@ -36,10 +37,10 @@ const ASSETS = [
   './batch-bookings.js?v=316',
   './booking-policy-management.js?v=316',
   './team-calendar.js?v=316',
-  './free-slots-share.js?v=316',
+  './free-slots-share.js?v=317',
   './group-bookings.js?v=316',
   './pwa-install.js?v=316',
-  './provider.js?v=316',
+  './provider.js?v=317',
   './onboarding.js?v=316',
   './report-worker.js?v=316',
   './voice-assistant.js?v=316',

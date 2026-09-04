@@ -197,6 +197,7 @@ let visitorVisitsInitialized = false;
 let announcedVisitorVisitIds = new Set();
 let visitorNotificationSaving = false;
 let visitorNotificationAudioContext = null;
+let visitorPresenceTimer = null;
 let ownServices = [];
 let serviceDurationDefaults = {};
 let portfolioItems = [];
@@ -3455,18 +3456,43 @@ function visitorVisitTimeLabel(value) {
   if (minutes < 1440) return createdAt.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
   return createdAt.toLocaleDateString('ru-RU', { day:'numeric', month:'short' });
 }
+function visitorPresenceOnline(visit) {
+  const lastSeen = new Date(visit.last_seen_at || '').getTime();
+  return Boolean(visit.session_id) && Number.isFinite(lastSeen) && Date.now() - lastSeen < 90000;
+}
+function visitorPresencePage(value) {
+  return ({ services:'выбирает услугу', date:'выбирает дату и время', details:'заполняет контакты', success:'завершил запись' })[value] || 'смотрит страницу записи';
+}
+function visitorPresenceSource(visit) {
+  const fallback = ({ direct:'Прямой переход или источник скрыт', search:'Поиск', social:'Социальная сеть', referral:'Другой сайт', campaign:'Рекламная ссылка', qr:'QR-код' })[visit.source_kind] || 'Источник не определён';
+  return visit.source_label || fallback;
+}
+function visitorPresencePhone(value) {
+  if (!value) return '';
+  return window.MinutaPhoneAuth?.formatPhone(value) || String(value);
+}
 function renderVisitorVisits() {
   const panel = $('#visitorNotificationPanel');
   const holder = $('#visitorNotificationList');
   if (!panel || !holder) return;
   panel.hidden = !visitorVisitsRemoteAvailable || !bookingPolicy.visitor_notifications_enabled;
   if (panel.hidden) return;
-  $('#visitorNotificationCount').textContent = visitorVisits.length ? `${visitorVisits.length} за 24 часа` : 'Пока никого';
+  const ordered = [...visitorVisits].sort((left, right) => new Date(right.last_seen_at || right.created_at) - new Date(left.last_seen_at || left.created_at));
+  const online = ordered.filter(visitorPresenceOnline);
+  $('#visitorNotificationCount').textContent = `${online.length} онлайн`;
   if (!visitorVisits.length) {
-    holder.innerHTML = `<div class="provider-empty notification-empty"><span class="provider-empty-icon">${uiIcon('users')}</span><strong>Посетителей пока нет</strong><small>Здесь появится уведомление, когда кто-то откроет страницу онлайн-записи.</small></div>`;
+    holder.innerHTML = `<div class="provider-empty notification-empty"><span class="provider-empty-icon">${uiIcon('users')}</span><strong>Сейчас никого нет</strong><small>Здесь появятся посетители страницы онлайн-записи, их источник и текущий шаг.</small></div>`;
     return;
   }
-  holder.innerHTML = visitorVisits.map(visit => `<article class="notification-card visitor-notification-card"><span class="notification-card-icon">${uiIcon('users')}</span><div class="notification-card-main"><div class="notification-card-head"><span>Страница онлайн-записи</span><b>${escapeHtml(visitorVisitTimeLabel(visit.created_at))}</b></div><h3>Новый посетитель</h3><p>Смотрит услуги и свободное время · без имени и телефона</p></div></article>`).join('');
+  holder.innerHTML = ordered.slice(0, 20).map(visit => {
+    const isOnline = visitorPresenceOnline(visit);
+    const phone = visitorPresencePhone(visit.client_phone);
+    const digits = String(visit.client_phone || '').replace(/\D/g, '');
+    const name = visit.client_name || 'Анонимный посетитель';
+    const source = visitorPresenceSource(visit);
+    const firstSource = visit.first_source_label && visit.first_source_label !== source ? `<small>Первый источник: ${escapeHtml(visit.first_source_label)}</small>` : '';
+    return `<article class="notification-card visitor-notification-card ${isOnline ? 'is-online' : 'is-recent'}"><span class="notification-card-icon">${uiIcon('users')}</span><div class="notification-card-main"><div class="notification-card-head"><span><i></i>${isOnline ? 'Сейчас на сайте' : 'Недавно заходил'}</span><b>${escapeHtml(isOnline ? 'Сейчас' : visitorVisitTimeLabel(visit.last_seen_at || visit.created_at))}</b></div><h3>${escapeHtml(name)}</h3><div class="visitor-presence-contact">${phone ? `<a href="tel:+${escapeHtml(digits)}">${escapeHtml(phone)}</a>` : '<span>Телефон пока не указан</span>'}</div><p>${escapeHtml(visitorPresencePage(visit.page_name))} · ${escapeHtml(source)}</p>${firstSource}</div></article>`;
+  }).join('');
 }
 async function unlockVisitorNotificationSound() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -3580,12 +3606,13 @@ function handleVisitorVisit(payload) {
   const visit = payload?.new;
   if (!visit || visit.performer_id !== currentUser?.id || !bookingPolicy.visitor_notifications_enabled) return;
   const visitId = String(visit.id);
-  if (visitorVisits.some(item => String(item.id) === visitId)) return;
-  visitorVisits.unshift(visit);
+  const existingIndex = visitorVisits.findIndex(item => String(item.id) === visitId);
+  if (existingIndex >= 0) visitorVisits.splice(existingIndex, 1, visit);
+  else visitorVisits.unshift(visit);
   visitorVisits = visitorVisits.slice(0, 20);
   visitorVisitsRemoteAvailable = true;
   renderVisitorVisits();
-  announceVisitorVisit(visit);
+  if (payload?.eventType === 'INSERT') announceVisitorVisit(visit);
 }
 async function testVisitorSystemNotification() {
   const button = $('#visitorNotificationTestButton');
@@ -7013,7 +7040,11 @@ async function loadBookingSettings() {
     db.from('notification_templates').select('confirmation,reminder,cancellation').eq('performer_id', userId).maybeSingle(),
     db.from('notification_marks').select('task_key,status').eq('performer_id', userId),
     db.from('notification_outbox').select('id,event_key,booking_id,kind,channel,status,attempts,last_error_code,last_error,next_attempt_at,sent_at,created_at,updated_at').eq('performer_id', userId).order('created_at', { ascending: false }).limit(50),
-    db.from('booking_page_visits').select('id,performer_id,created_at').eq('performer_id', userId).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending:false }).limit(20)
+    (async () => {
+      let result = await db.from('booking_page_visits').select('id,performer_id,session_id,client_name,client_phone,page_name,source_kind,source_label,first_source_label,last_seen_at,created_at').eq('performer_id', userId).gte('last_seen_at', new Date(Date.now() - 86400000).toISOString()).order('last_seen_at', { ascending:false }).limit(20);
+      if (result.error) result = await db.from('booking_page_visits').select('id,performer_id,created_at').eq('performer_id', userId).gte('created_at', new Date(Date.now() - 86400000).toISOString()).order('created_at', { ascending:false }).limit(20);
+      return result;
+    })()
   ]);
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true, optional: true };
   if (!policyResult.error && policyResult.data) bookingPolicy = { ...bookingPolicy, ...policyResult.data, auto_complete_visits:policyResult.data.auto_complete_visits ?? localStorage.getItem(autoCompleteStorageKey(userId)) === 'true' };
@@ -7208,6 +7239,8 @@ function stopLiveUpdates() {
   bookingsChannel = null;
   clearInterval(syncTimer);
   syncTimer = null;
+  clearInterval(visitorPresenceTimer);
+  visitorPresenceTimer = null;
   clearTimeout(bookingReloadTimer);
 }
 
@@ -7236,7 +7269,9 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload);
-  if (visitorVisitsRemoteAvailable) channel = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit);
+  if (visitorVisitsRemoteAvailable) channel = channel
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit);
   channel = channel.subscribe(status => {
       if (bookingsChannel !== channel) return;
       if (status === 'SUBSCRIBED') {
@@ -7254,6 +7289,7 @@ function startLiveUpdates() {
       }
     });
   bookingsChannel = channel;
+  visitorPresenceTimer = setInterval(renderVisitorVisits, 15000);
   syncTimer = setInterval(() => {
     refreshBusinessDay();
     if (!document.hidden && navigator.onLine) synchronizeProvider();

@@ -24,6 +24,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="styles.css?v=316">
   <link rel="stylesheet" href="onboarding.css?v=316">
+  <link rel="stylesheet" href="visitor-presence.css?v=317">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -310,7 +311,7 @@
             <div class="notification-list" id="automaticNotificationList" aria-live="polite"></div>
           </section>
           <section class="panel notification-queue-panel visitor-notification-panel" id="visitorNotificationPanel" hidden>
-            <div class="notification-toolbar"><div><small>Интерес к записи</small><h3>Посетители сайта</h3></div><span class="notification-total" id="visitorNotificationCount">Пока никого</span></div>
+            <div class="notification-toolbar"><div><small>В реальном времени</small><h3>Сейчас на сайте</h3></div><span class="notification-total" id="visitorNotificationCount">0 онлайн</span></div>
             <div class="notification-list" id="visitorNotificationList" aria-live="polite"></div>
           </section>
         </section>
@@ -944,9 +945,9 @@
             </section>
             <section class="panel settings-card visitor-alert-settings-card provider-section-anchor" id="visitorAlertSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></div>
-              <div class="settings-heading"><small>Посетители страницы записи</small><h3>Сообщать, когда кто-то смотрит сайт</h3><p>Кабинет покажет обезличенное уведомление. Имя, телефон и данные устройства для этого не собираются.</p></div>
+              <div class="settings-heading"><small>Посетители страницы записи</small><h3>Показывать, кто сейчас на сайте</h3><p>Владелец увидит источник перехода и текущий шаг. Имя и телефон появятся только у клиента, который уже оставлял эти данные при записи.</p></div>
               <form id="visitorNotificationForm" class="visitor-notification-form">
-                <label class="settings-check visitor-notification-toggle"><input id="visitorNotificationsEnabled" type="checkbox"><span><strong>Уведомлять о новых посетителях</strong><small>Не чаще одного уведомления за две минуты</small></span></label>
+                <label class="settings-check visitor-notification-toggle"><input id="visitorNotificationsEnabled" type="checkbox"><span><strong>Посетители онлайн и уведомления</strong><small>Присутствие исчезает примерно через полторы минуты после ухода</small></span></label>
                 <button class="secondary-button visitor-notification-test" id="visitorNotificationTestButton" type="button">Проверить уведомление и звук</button>
                 <div class="visitor-notification-state"><p class="visitor-notification-permission" id="visitorNotificationPermission">Проверяем системные уведомления…</p><small class="visitor-notification-save-status" id="visitorNotificationSaveStatus" role="status" aria-live="polite">Изменения сохраняются автоматически</small></div>
                 <p class="provider-display-hint">Кабинет воспроизводит короткий сигнал, пока он открыт. Звук системного уведомления отдельно регулируется в Windows и настройках браузера.</p>
@@ -1105,6 +1106,7 @@
     <p class="free-slots-help">Выберите день или период. Текст составится из текущего рабочего расписания, перерывов, исключений и записей.</p>
     <fieldset class="free-slots-mode"><legend class="sr-only">Период свободных окон</legend><label><input name="freeSlotsPeriod" type="radio" value="day" checked><span>Один день</span></label><label><input name="freeSlotsPeriod" type="radio" value="range"><span>Диапазон</span></label></fieldset>
     <div class="free-slots-dates"><label>С даты<input id="freeSlotsFrom" type="date" required></label><label id="freeSlotsToField" hidden>По дату<input id="freeSlotsTo" type="date" required></label></div>
+    <fieldset class="free-slots-source"><legend>Где разместите ссылку</legend><div><label><input name="freeSlotsSource" type="radio" value="master" checked><span>Обычная ссылка</span></label><label><input name="freeSlotsSource" type="radio" value="telegram"><span>Telegram</span></label><label><input name="freeSlotsSource" type="radio" value="whatsapp"><span>WhatsApp</span></label><label><input name="freeSlotsSource" type="radio" value="vk"><span>ВКонтакте</span></label><label><input name="freeSlotsSource" type="radio" value="qr"><span>QR-код</span></label></div><small>Метка добавится к ссылке автоматически и покажет владельцу источник перехода.</small></fieldset>
     <label class="free-slots-text-label">Готовый текст<textarea id="freeSlotsText" rows="8" readonly aria-describedby="freeSlotsShareStatus"></textarea></label>
     <div class="free-slots-preview">
       <div class="free-slots-link"><small>Ссылка на онлайн-запись</small><a id="freeSlotsBookingLink" href="index.html" target="_blank" rel="noopener noreferrer"></a></div>
@@ -1243,10 +1245,10 @@
   <script src="batch-bookings.js?v=316" defer></script>
   <script src="booking-policy-management.js?v=316" defer></script>
   <script src="team-calendar.js?v=316" defer></script>
-  <script src="free-slots-share.js?v=316" defer></script>
+  <script src="free-slots-share.js?v=317" defer></script>
   <script src="group-bookings.js?v=316" defer></script>
   <script src="onboarding.js?v=316" defer></script>
-  <script src="provider.js?v=316" defer></script>
+  <script src="provider.js?v=317" defer></script>
   <script src="voice-assistant.js?v=316" defer></script>
 </body>
 </html>

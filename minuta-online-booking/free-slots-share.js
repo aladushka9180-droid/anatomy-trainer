@@ -2,6 +2,10 @@
   'use strict';
 
   const MAX_RANGE_DAYS = 31;
+  const TRACKING_PRESETS = Object.freeze({
+    master:{ source:'master', medium:'link' }, telegram:{ source:'telegram', medium:'messenger' },
+    whatsapp:{ source:'whatsapp', medium:'messenger' }, vk:{ source:'vk', medium:'social' }, qr:{ source:'qr', medium:'offline' }
+  });
   const QR_BLOCKS_L = Object.freeze({
     1:[[1, 26, 19]], 2:[[1, 44, 34]], 3:[[1, 70, 55]], 4:[[1, 100, 80]], 5:[[1, 134, 108]],
     6:[[2, 86, 68]], 7:[[2, 98, 78]], 8:[[2, 121, 97]], 9:[[2, 146, 116]], 10:[[2, 86, 68], [2, 87, 69]]
@@ -114,6 +118,15 @@
       : 'На выбранный период свободных окон пока нет.';
     const invitation = rows.length ? 'Выберите удобное время и запишитесь онлайн:' : 'Посмотрите другие даты онлайн:';
     return `${heading}\n${body}\n\n${invitation}\n${data.bookingUrl}`;
+  }
+
+  function trackedBookingUrl(value, sourceKey) {
+    const preset = TRACKING_PRESETS[sourceKey] || TRACKING_PRESETS.master;
+    const url = new URL(value, window.location.href);
+    url.searchParams.set('utm_source', preset.source);
+    url.searchParams.set('utm_medium', preset.medium);
+    url.searchParams.set('utm_campaign', 'free_slots');
+    return url.href;
   }
 
   function appendBits(target, value, length) {
@@ -312,22 +325,26 @@
     const qrCanvas = dialog.querySelector('#freeSlotsQr');
     const bookingLink = dialog.querySelector('#freeSlotsBookingLink');
     const status = dialog.querySelector('#freeSlotsShareStatus');
+    const sourceControls = [...dialog.querySelectorAll('[name="freeSlotsSource"]')];
 
     function rangeMode() { return modeControls.find(control => control.checked)?.value === 'range'; }
     function render() {
       const data = getData();
       const from = fromInput.value || data.today;
       const to = rangeMode() ? (toInput.value || from) : from;
+      const sourceKey = sourceControls.find(control => control.checked)?.value || 'master';
+      const trackingUrl = trackedBookingUrl(data.bookingUrl, sourceKey);
+      const publicationData = { ...data, bookingUrl:trackingUrl };
       toField.hidden = !rangeMode();
       toInput.min = from;
       toInput.max = addDays(from, MAX_RANGE_DAYS - 1);
       if (!parseDate(toInput.value) || toInput.value < from) toInput.value = from;
       if (toInput.value > toInput.max) toInput.value = toInput.max;
-      textArea.value = buildPublication(from, rangeMode() ? toInput.value : from, data);
-      bookingLink.href = data.bookingUrl;
-      bookingLink.textContent = data.bookingUrl;
+      textArea.value = buildPublication(from, rangeMode() ? toInput.value : from, publicationData);
+      bookingLink.href = trackingUrl;
+      bookingLink.textContent = trackingUrl;
       try {
-        drawQr(qrCanvas, data.bookingUrl);
+        drawQr(qrCanvas, trackingUrl);
         qrCanvas.hidden = false;
         dialog.querySelector('#freeSlotsQrError').hidden = true;
       } catch {
@@ -351,6 +368,7 @@
     dialog.querySelectorAll('[data-close-free-slots]').forEach(button => button.addEventListener('click', close));
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
     modeControls.forEach(control => control.addEventListener('change', render));
+    sourceControls.forEach(control => control.addEventListener('change', render));
     fromInput.addEventListener('change', render);
     toInput.addEventListener('change', render);
     dialog.querySelector('#copyFreeSlots').addEventListener('click', async () => {
