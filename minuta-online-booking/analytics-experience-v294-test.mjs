@@ -44,6 +44,6 @@ assert.match(worker, /v314/, 'Кэш приложения не обновлён 
 assert.match(migration, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 must be atomic');
 assert.match(rollback, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 rollback must be atomic');
 assert.match(provider, /const importedSource = reportDataSource === 'demo' \? \[\] : importedBookingHistory\.filter/, 'demo analytics must not mix real imported history');
-assert.match(styles, /@media \(max-width:640px\)[\s\S]*\.report-view-tabs \{ position:static;/, 'mobile analytics tabs must not collide with sticky filters');
+assert.match(styles, /@media \(max-width:640px\)[\s\S]*\.report-view-tabs \{ position:sticky;[\s\S]*safe-area-inset-top/, 'mobile analytics tabs must remain reachable without covering the safe area');
 
 console.log('analytics experience v314 checks passed');
