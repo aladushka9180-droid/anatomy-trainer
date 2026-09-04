@@ -37,7 +37,7 @@ assert.equal(preferredProviderSectionTarget([button('first'), button('second')])
 for (const target of [
   'organizationOverviewSection', 'organizationPeopleSection', 'resourcesPanel', 'shiftsPanel',
   'payrollPanel', 'paymentProviderPanel', 'benefitsPanel', 'inventoryPanel',
-  'appearanceSettingsCard', 'visitorAlertSettingsCard', 'installAppCard', 'bookingRulesCard', 'accountSettingsCard'
+  'appearanceSettingsCard', 'telegramClientSettingsCard', 'installAppCard', 'bookingRulesCard', 'accountSettingsCard'
 ]) {
   assert.match(html, new RegExp(`data-section-target="${target}"`), `в интерфейсе должна оставаться кнопка возврата к ${target}`);
 }
@@ -47,6 +47,7 @@ assert.match(source, /rememberProviderSection[\s\S]*localStorage\.setItem\(provi
 assert.match(source, /providerSectionMobileQuery = window\.matchMedia\('\(max-width: 760px\)'\)/, 'скрытие должно включаться только на мобильной ширине');
 assert.match(source, /organizationPeopleSection:\['invitationsPanel', 'organizationAuditPanel'\]/, 'приглашения и журнал должны оставаться в подразделе команды');
 assert.match(source, /benefitsPanel:\['loyaltyPanel', 'retentionPanel'\]/, 'лояльность и возврат клиентов должны оставаться в клиентском подразделе');
+assert.match(source, /telegramClientSettingsCard:\['visitorAlertSettingsCard'\]/, 'Telegram и системные уведомления должны оставаться в одном подразделе');
 assert.match(source, /bookingRulesCard:\['teamCalendarSettingsCard', 'groupBookingSettingsCard'\]/, 'настройки команды и групповые записи должны оставаться рядом с правилами записи');
 assert.match(source, /element\.style\.display = 'none';[\s\S]*element\.setAttribute\('aria-hidden', 'true'\);[\s\S]*element\.setAttribute\('inert', ''\)/, 'неактивный мобильный подраздел должен быть скрыт и исключён из фокуса');
 assert.match(source, /if \(!providerSectionMobileQuery\.matches\) \{[\s\S]*restoreProviderSectionDisclosure\(nav\)/, 'на компьютере исходная длинная раскладка должна полностью восстанавливаться');
