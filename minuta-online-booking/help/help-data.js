@@ -249,10 +249,10 @@
 
     makeArticle('telegram', 'specialist', 'notifications', 'Как настроить Telegram-уведомления клиентам', 'Выберите события и добавьте кнопку связи.', [
       'Откройте настройку|Перейдите в «Настройки» → «Уведомления».',
-      'Укажите Telegram|Введите публичный @username.',
+      'Добавьте кнопку связи|При желании укажите публичный @username. Для самих уведомлений он не нужен.',
       'Выберите события|Отметьте запись, напоминание, перенос и/или отмену.',
       'Сохраните|Нажмите «Сохранить».'
-    ], 'Username: 5–32 латинские буквы, цифры или `_`. Клиент подключает Telegram отдельно.', true),
+    ], 'Клиент подключает Telegram отдельно. Необязательный username нужен только для кнопки «Написать мастеру».', true),
     makeArticle('notification-queue', 'specialist', 'notifications', 'Как отправить сообщение из очереди уведомлений', 'Отправьте подготовленный текст через WhatsApp.', [
       'Найдите сообщение|Откройте «Уведомления» и фильтр «К отправке».',
       'Проверьте текст|Раскройте «Посмотреть текст».',
@@ -344,7 +344,7 @@
       'Следите за местами|Каждый участник занимает одно место, а в календаре остаётся одно общее событие.'
     ], 'Используйте групповой сеанс для занятия с общим временем. Для разных времён создавайте обычные или пакетные записи.'),
     makeArticle('account-security', 'specialist', 'settings', 'Как защитить вход в кабинет', 'Сохраните основной и резервный способы входа.', [
-      'Проверьте пароль|Используйте отдельный пароль длиной не менее 8 символов и не передавайте его сотрудникам.',
+      'Проверьте пароль|При регистрации допустимо не менее 6 символов. Для нового или восстановленного пароля используйте не менее 8 и не передавайте его сотрудникам.',
       'Привяжите телефон|Введите номер, получите SMS и подтвердите шестизначный код. После этого телефон станет резервным способом входа.',
       'Проверьте статусы|Недоступная кнопка внешнего аккаунта означает, что этот способ ещё не подключён администратором Minuta.',
       'Восстановите доступ|Если пароль забыт, выйдите из кабинета, нажмите «Забыли пароль?» и откройте письмо восстановления.'
@@ -418,7 +418,7 @@
 
   const visuals = {
     'create-manual-booking': { src: 'images/manual-booking.webp', alt: 'Интерфейс Minuta для создания записи вручную: форма, данные клиента, свободное время и сохранение.', caption: 'Сначала заполните клиента и услугу, затем выберите свободное окно и сохраните запись.' },
-    'create-recurring-booking-series': { src: 'images/recurring-series.webp', alt: 'Интерфейс Minuta для создания курса или серии повторяющихся записей.', caption: 'Периодичность настраивается после первой записи, а перед сохранением Minuta проверяет все окна серии.' },
+    'create-recurring-booking-series': { src: 'images/recurring-series.webp', alt: 'Интерфейс Minuta для создания курса или серии повторяющихся записей.', caption: 'Количество и периодичность задаются до создания серии, а перед сохранением Minuta проверяет все окна.' },
     'reschedule-provider-booking': { src: 'images/reschedule-booking.webp', alt: 'Интерфейс Minuta для переноса записи на новую дату и свободное время.', caption: 'Для серии дополнительно выберите, какие будущие визиты нужно перенести.' },
     'schedule-date-exceptions': { src: 'images/date-exceptions.webp', alt: 'Интерфейс Minuta для настройки выходного или особых рабочих часов на выбранную дату.', caption: 'Исключение действует только для выбранной даты и не меняет обычную рабочую неделю.' },
     'share-free-slots': { src: 'images/share-free-slots.webp', alt: 'Интерфейс Minuta для публикации свободного времени через ссылку, мессенджер или QR-код.', caption: 'Выберите даты и удобный канал: ссылку, Telegram, WhatsApp, ВКонтакте или QR-код.' },
@@ -441,7 +441,7 @@
     'inventory-setup': { src: 'images/inventory.webp', alt: 'Интерфейс Minuta для складского учёта с каталогом материалов, складом филиала и остатками.', caption: 'Сначала создайте позицию и склад, затем проводите операции с остатком.' },
     'inventory-movement': { src: 'images/inventory-operations.webp', alt: 'Интерфейс Minuta для прихода, списания, инвентаризации и проверки складского остатка.', caption: 'Каждое изменение остатка сохраняется отдельной операцией в журнале движений.' },
     'inventory-auto-deduct': { src: 'images/inventory-auto-deduct.webp', alt: 'Интерфейс Minuta для настройки нормы материала на услугу и автоматического списания после визита.', caption: 'Свяжите материал с услугой и задайте норму расхода, затем проверьте движение после визита.' },
-    'telegram': { src: 'images/telegram-settings.webp', alt: 'Интерфейс Minuta для настроек Telegram с username и переключателями событий.', caption: 'Выберите только нужные события и сохраните публичный username без ссылки.' },
+    'telegram': { src: 'images/telegram-settings.webp', alt: 'Интерфейс Minuta для выбора событий Telegram-уведомлений клиентам.', caption: 'Выберите нужные события. Публичный username можно добавить отдельно только для кнопки связи с мастером.' },
     'statistics-filters': { src: 'images/statistics-report.webp', alt: 'Интерфейс Minuta для выбора периода и сотрудника для статистики и отчётов.', caption: 'Все показатели и экспорт используют текущую выборку периода и сотрудника.' },
     'statistics-overview': { src: 'images/statistics-report.webp', alt: 'Интерфейс Minuta для чтения обзора статистики по деньгам, клиентам, команде и загрузке.', caption: 'Начните с общей картины, затем переходите к тематическим вкладкам и деталям.' },
     'statistics-sections': { src: 'images/statistics-report.webp', alt: 'Интерфейс Minuta для разделов статистики: деньги, клиенты и команда.', caption: 'Период и сотрудник сохраняются при переходе между тематическими вкладками.' },
@@ -454,5 +454,23 @@
     'join-booking-waitlist': { src: 'images/waitlist.webp', alt: 'Интерфейс Minuta для подачи заявки в лист ожидания при отсутствии подходящего времени.', caption: 'Заявка сохраняет контакты и пожелания, но не создаёт запись автоматически.' },
     'connect-telegram': { src: 'images/client-telegram.webp', alt: 'Интерфейс Minuta для подключения клиентских уведомлений в Telegram после записи.', caption: 'Разрешите сообщения в Telegram и дождитесь подтверждения подключения в Minuta.' }
   };
-  window.MINUTA_HELP_ARTICLES.forEach(item => { if (visuals[item.slug]) item.visual = visuals[item.slug]; });
+  const individualGuideVisuals = new Set([
+    'first-booking', 'block-time-in-schedule', 'confirm-or-delete-booking', 'record-visit-result-and-payment',
+    'find-and-filter-bookings', 'set-regular-workweek', 'customize-workdays-and-booking-step', 'add-service',
+    'organization-name', 'add-branch', 'add-staff-shift', 'payroll-plan', 'yookassa-refund',
+    'adjust-redeem-loyalty', 'notification-queue', 'notification-templates', 'business-goals',
+    'publish-reviews', 'settings-quick-start', 'booking-rules', 'visitor-alerts', 'settings-batch-bookings',
+    'settings-group-sessions', 'account-security', 'cabinet-layout-theme', 'booking-card-appearance',
+    'mobile-navigation', 'voice-assistant', 'voice-assistant-actions', 'reschedule',
+    'repeat-client-booking', 'employee-rights', 'statistics-filters', 'statistics-sections'
+  ]);
+  window.MINUTA_HELP_ARTICLES.forEach(item => {
+    if (individualGuideVisuals.has(item.slug)) {
+      item.visual = {
+        src: `images/${item.slug}.webp`,
+        alt: `Наглядная схема Minuta по теме «${item.title}».`,
+        caption: item.excerpt
+      };
+    } else if (visuals[item.slug]) item.visual = visuals[item.slug];
+  });
 }());

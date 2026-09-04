@@ -1,16 +1,32 @@
-import { mkdirSync, unlinkSync } from 'node:fs';
+import { mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const sharp = require('sharp');
 
 const outputDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', 'images');
+const helpDataPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'help-data.js');
 const baseUrl = process.env.MINUTA_SCREENSHOT_BASE_URL || 'http://127.0.0.1:4174/minuta-online-booking';
 const edgePath = process.env.MINUTA_EDGE_PATH || 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 mkdirSync(outputDirectory, { recursive: true });
+
+const individualGuideSlugs = new Set([
+  'first-booking', 'block-time-in-schedule', 'confirm-or-delete-booking', 'record-visit-result-and-payment',
+  'find-and-filter-bookings', 'set-regular-workweek', 'customize-workdays-and-booking-step', 'add-service',
+  'organization-name', 'add-branch', 'add-staff-shift', 'payroll-plan', 'yookassa-refund',
+  'adjust-redeem-loyalty', 'notification-queue', 'notification-templates', 'business-goals',
+  'publish-reviews', 'settings-quick-start', 'booking-rules', 'visitor-alerts', 'settings-batch-bookings',
+  'settings-group-sessions', 'account-security', 'cabinet-layout-theme', 'booking-card-appearance',
+  'mobile-navigation', 'voice-assistant', 'voice-assistant-actions', 'reschedule',
+  'repeat-client-booking', 'employee-rights', 'statistics-filters', 'statistics-sections'
+]);
+const helpContext = { window: {} };
+vm.runInNewContext(readFileSync(helpDataPath, 'utf8'), helpContext);
+const individualGuideArticles = helpContext.window.MINUTA_HELP_ARTICLES.filter(article => individualGuideSlugs.has(article.slug));
 
 const browser = await chromium.launch({ executablePath: edgePath, headless: true });
 const page = await browser.newPage({ viewport: { width: 1365, height: 768 }, deviceScaleFactor: 1 });
@@ -26,6 +42,20 @@ const screenshotCss = `
   .kb-step { position: absolute; z-index: 60; top: -13px; left: -13px; display: grid; place-items: center; width: 28px; height: 28px; border: 3px solid #fff; border-radius: 50%; color: #fff; background: #168454; box-shadow: 0 5px 14px rgb(9 70 42 / 30%); font: 800 13px/1 Inter, "Segoe UI", sans-serif; }
   .report-export-button { color: #fff !important; background: #176d4d !important; }
   dialog.kb-static-dialog { display: block !important; position: fixed !important; inset: 50% auto auto 50% !important; transform: translate(-50%, -50%) !important; max-height: 86vh !important; overflow: auto !important; }
+  .kb-guide-backdrop { position: fixed; z-index: 2147483600; inset: 0; background: rgb(240 246 242 / 76%); backdrop-filter: blur(3px); }
+  .kb-guide-card { position: fixed; z-index: 2147483601; inset: 86px 54px 46px; display: grid; grid-template-rows: auto 1fr; overflow: hidden; border: 1px solid #c8d9cf; border-radius: 26px; color: #14251c; background: #fbfdfb; font-family: Inter, "Segoe UI", sans-serif; }
+  .kb-guide-head { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; padding: 28px 32px 24px; border-bottom: 1px solid #dce7e0; background: linear-gradient(135deg, #f6faf7, #eef6f1); }
+  .kb-guide-head small { display: block; margin-bottom: 8px; color: #547064; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .kb-guide-head h1 { max-width: 880px; margin: 0; font-size: 34px; line-height: 1.08; letter-spacing: -.035em; }
+  .kb-guide-path { align-self: start; padding: 10px 14px; border: 1px solid #bfd3c7; border-radius: 999px; color: #176d4d; background: #fff; font-size: 13px; font-weight: 800; white-space: nowrap; }
+  .kb-guide-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: 0; }
+  .kb-guide-step { position: relative; display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 32px 26px; border-right: 1px solid #dce7e0; }
+  .kb-guide-step:last-child { border-right: 0; }
+  .kb-guide-step b { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 15px; color: #fff; background: #176d4d; font-size: 18px; }
+  .kb-guide-step strong { font-size: 21px; line-height: 1.18; }
+  .kb-guide-step p { margin: 0; color: #5d7167; font-size: 15px; line-height: 1.45; }
+  .kb-guide-step em { margin-top: auto; padding-top: 14px; color: #a75c39; font-size: 13px; font-style: normal; font-weight: 800; }
+  .kb-guide-step.is-empty { background: #f5f9f6; }
 `;
 
 async function load(relativePath) {
@@ -132,6 +162,42 @@ async function providerShot(name, view, targetSelector, mutate, highlights) {
   if (mutate) await page.evaluate(mutate);
   if (highlights?.length) await addHighlights(highlights);
   await save(name);
+}
+
+async function individualGuideShot(article) {
+  const categoryViews = {
+    'getting-started': 'bookings', bookings: 'bookings', schedule: 'schedule', services: 'services',
+    clients: 'clients', team: 'organization', finance: 'organization', loyalty: 'organization',
+    inventory: 'organization', notifications: 'settings', analytics: 'analytics', portfolio: 'portfolio',
+    settings: 'settings', assistant: 'bookings'
+  };
+  if (article.audience === 'client') {
+    await load('booking.html');
+    await page.evaluate(() => {
+      document.querySelector('#manageLoading')?.setAttribute('hidden', '');
+      document.querySelector('#manageContent')?.removeAttribute('hidden');
+    });
+  } else {
+    await prepareProvider(categoryViews[article.categorySlug] || 'bookings');
+  }
+  await page.evaluate(articleData => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'kb-guide-backdrop';
+    const card = document.createElement('section');
+    card.className = 'kb-guide-card';
+    const steps = articleData.steps.slice(0, 4);
+    while (steps.length < 4) steps.push({ title: 'Готово', text: articleData.note || articleData.excerpt });
+    card.innerHTML = `
+      <header class="kb-guide-head">
+        <div><small>${articleData.category}</small><h1>${articleData.title}</h1></div>
+        <span class="kb-guide-path">Minuta · наглядно по шагам</span>
+      </header>
+      <div class="kb-guide-steps">
+        ${steps.map((step, index) => `<article class="kb-guide-step${index >= articleData.steps.length ? ' is-empty' : ''}"><b>${index + 1}</b><strong>${step.title}</strong><p>${step.text}</p>${step.action ? `<em>${step.action}</em>` : ''}</article>`).join('')}
+      </div>`;
+    document.body.append(backdrop, card);
+  }, article);
+  await save(article.slug);
 }
 
 async function injectBookingEditor(kind) {
@@ -458,10 +524,10 @@ await providerShot('portfolio-manage', 'portfolio', '#portfolioManageList', () =
 await providerShot('telegram-settings', 'settings', '#telegramClientSettingsCard', () => {
   document.querySelector('.provider-topbar').hidden = true;
   document.querySelector('[data-provider-panel="settings"] > .view-title').hidden = true;
-  document.querySelector('#telegramContactUsername').value = '@minuta_demo';
+  document.querySelector('#telegramContactUsername').value = '';
   document.querySelector('#telegramNotifyConfirmation').checked = true;
   document.querySelector('#telegramNotifyReminder').checked = true;
-}, ['#telegramContactUsername', '.telegram-event-settings', '.telegram-client-settings-actions .primary']);
+}, ['.telegram-event-settings', '.telegram-client-settings-actions .primary']);
 
 await providerShot('install-app', 'settings', '#installAppCard', () => {
   document.querySelector('.provider-topbar').hidden = true;
@@ -533,7 +599,9 @@ await page.evaluate(() => {
 await addHighlights(['#manageTelegramConnect']);
 await save('client-telegram');
 
-console.log('Готово: 32 снимка интерфейса');
+for (const article of individualGuideArticles) await individualGuideShot(article);
+
+console.log(`Готово: ${32 + individualGuideArticles.length} снимков интерфейса`);
 } finally {
   await browser.close();
 }
