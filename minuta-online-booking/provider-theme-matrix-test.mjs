@@ -65,11 +65,11 @@ function finalThemeVariables(theme) {
   assert.ok(blocks.length, `missing CSS theme: ${theme}`);
   const variables = {};
   for (const block of blocks) {
-    for (const declaration of block[1].matchAll(/--(theme-(?:bg|surface|surface-alt|ink|muted|line|accent|accent-soft))\s*:\s*([^;]+);/g)) {
+    for (const declaration of block[1].matchAll(/--(theme-(?:bg|surface|surface-alt|ink|muted|line|accent|accent-soft|accent-contrast))\s*:\s*([^;]+);/g)) {
       variables[declaration[1]] = declaration[2].trim();
     }
   }
-  for (const name of ['theme-bg', 'theme-surface', 'theme-surface-alt', 'theme-ink', 'theme-muted', 'theme-line', 'theme-accent', 'theme-accent-soft']) {
+  for (const name of ['theme-bg', 'theme-surface', 'theme-surface-alt', 'theme-ink', 'theme-muted', 'theme-line', 'theme-accent', 'theme-accent-soft', 'theme-accent-contrast']) {
     assert.ok(variables[name], `${theme} is missing --${name}`);
   }
   return variables;
@@ -82,10 +82,13 @@ for (const theme of themes) {
   const surfaceAlt = blend(parseColor(vars['theme-surface-alt']), background);
   const ink = parseColor(vars['theme-ink']);
   const muted = parseColor(vars['theme-muted']);
+  const accent = parseColor(vars['theme-accent']);
+  const accentContrast = parseColor(vars['theme-accent-contrast']);
   const secondaryText = mix(muted, 0.78, ink);
 
   assert.ok(contrast(secondaryText, surface) >= 4.5, `${theme} mobile navigation contrast is below 4.5:1`);
   assert.ok(contrast(secondaryText, surfaceAlt) >= 4.5, `${theme} notification secondary text contrast is below 4.5:1`);
+  assert.ok(contrast(accentContrast, accent) >= 4.5, `${theme} active report control contrast is below 4.5:1`);
 
   if (!['luxury', 'loft', 'eco', 'hitech'].includes(theme)) {
     const activeText = mix(parseColor(vars['theme-accent']), 0.72, ink);

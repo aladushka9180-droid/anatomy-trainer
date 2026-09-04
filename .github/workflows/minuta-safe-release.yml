@@ -123,6 +123,7 @@ jobs:
           node --check minuta-online-booking/team-calendar-concurrency-v104-static-test.mjs
           bash -n minuta-online-booking/team-calendar-concurrency-v104-integration-test.sh
           node --check minuta-online-booking/analytics-experience-v294-test.mjs
+          node --check minuta-online-booking/mobile-minimalism-v310-test.mjs
           node --check minuta-online-booking/booking-history-organization-regression-test.mjs
           node --check minuta-online-booking/report-decision-analytics-test.mjs
           node --check minuta-online-booking/report-demo-mode-test.mjs
@@ -193,6 +194,7 @@ jobs:
           node minuta-online-booking/team-calendar-dispatcher-v102-static-test.mjs
           node minuta-online-booking/team-calendar-concurrency-v104-static-test.mjs
           node minuta-online-booking/analytics-experience-v294-test.mjs
+          node minuta-online-booking/mobile-minimalism-v310-test.mjs
           node minuta-online-booking/booking-history-organization-regression-test.mjs
           node minuta-online-booking/report-decision-analytics-test.mjs
           node minuta-online-booking/report-demo-mode-test.mjs

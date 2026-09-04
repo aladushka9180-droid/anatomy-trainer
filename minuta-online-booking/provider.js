@@ -1658,7 +1658,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=309#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=310#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2107,6 +2107,24 @@ let reportServicesExpanded = false;
 function reportPerformerName() {
   if (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all') return reportCanViewTeam ? 'Вся команда' : 'Личная статистика';
   return reportTeamAnalyticsState.rows.find(row => String(row.performer_id || '') === reportPerformerFilter)?.performer_name || 'Сотрудник';
+}
+
+function reportPeriodName(period = reportPeriod) {
+  return ({ week:'7 дней', month:'Месяц', quarter:'90 дней', year:'Год', all:'Всё время', custom:'Свои даты' })[period] || 'Период';
+}
+
+function setReportFiltersExpanded(expanded) {
+  const filters = $('.report-filters');
+  const toggle = $('#reportFilterToggle');
+  if (!filters || !toggle) return;
+  filters.classList.toggle('is-open', Boolean(expanded));
+  toggle.setAttribute('aria-expanded', String(Boolean(expanded)));
+}
+
+function updateReportFilterSummary() {
+  const summary = $('#reportFilterSummary');
+  if (!summary) return;
+  summary.textContent = `${reportPeriodName()} · ${reportPerformerName()}${reportDataSource === 'demo' ? ' · Демо' : ''}`;
 }
 
 function renderReportPerformerFilter(range) {
@@ -2746,7 +2764,11 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   if (!smartActions.length && items.length) smartActions.push({ priority:0, tone:'success', icon:'check', title:'Главное под контролем', text:'Критичных отклонений не найдено', evidence:'Цели и заполненность данных проверены', impact:'Продолжайте следить за динамикой', action:'', label:'' });
   smartActions.sort((left, right) => right.priority - left.priority);
   const smartHolder = $('#reportSmartActions');
-  if (smartHolder) smartHolder.innerHTML = smartActions.slice(0, 3).map(item => `<article class="is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small><i>${escapeHtml(item.evidence)}</i><b>${escapeHtml(item.impact)}</b></div>${item.action ? `<button type="button" data-report-action="${item.action}">${escapeHtml(item.label)} →</button>` : ''}</article>`).join('');
+  if (smartHolder) {
+    const visibleActions = smartActions.slice(0, 3);
+    smartHolder.classList.remove('is-expanded');
+    smartHolder.innerHTML = visibleActions.map(item => `<article class="report-smart-action is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small><i>${escapeHtml(item.evidence)}</i><b>${escapeHtml(item.impact)}</b></div>${item.action ? `<button type="button" data-report-action="${item.action}">${escapeHtml(item.label)} →</button>` : ''}</article>`).join('') + (visibleActions.length > 1 ? `<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="false">Ещё ${visibleActions.length - 1} ${visibleActions.length === 2 ? 'рекомендация' : 'рекомендации'}</button>` : '');
+  }
   const command = $('#reportCommandCenter');
   if (command) command.classList.toggle('is-empty', !items.length);
   const onlineShare = sources.online + sources.manual + sources.unknown ? Math.round(sources.online / (sources.online + sources.manual + sources.unknown) * 100) : 0;
@@ -2787,20 +2809,12 @@ function renderAnalytics() {
   setReportSubview(reportSubview);
   setReportText('#reportDecisionHint', reportDataSource === 'demo' ? 'Учебные данные без перехода в журнал' : 'Нажмите показатель, чтобы открыть записи');
   const importedInPeriod = completed.filter(item => item.is_imported_history).length;
-  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · ${reportPerformerName()} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}${importedInPeriod ? ` · ${importedInPeriod} из прежнего журнала; сумма — стоимость записей` : ''}`;
+  $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
+  setReportText('#reportImportMethod', importedInPeriod ? `${importedInPeriod} ${reportVisitWord(importedInPeriod)} из прежнего журнала. Сумма отражает стоимость записей.` : 'В выбранном периоде импортированных визитов нет.');
+  updateReportFilterSummary();
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
   setReportText('#reportTrendPeriod', visualPeriod);
   setReportText('#reportTeamPeriod', visualPeriod);
-  const showTeam = $('#reportShowTeam');
-  if (showTeam) {
-    showTeam.hidden = !reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all';
-    showTeam.onclick = () => {
-      const control = $('#reportPerformerFilter');
-      if (!control) return;
-      control.value = 'all';
-      control.dispatchEvent(new Event('change', { bubbles:true }));
-    };
-  }
   $('#reportRevenue').textContent = money(revenue);
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
@@ -3228,7 +3242,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=309');
+    worker = new Worker('./report-worker.js?v=310');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8674,6 +8688,7 @@ document.addEventListener('click', async event => {
   const view = event.target.closest('[data-provider-view]');
   const sectionTarget = event.target.closest('[data-section-target]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
+  const reportFilterToggle = event.target.closest('#reportFilterToggle');
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const reportChartDate = event.target.closest('[data-report-date]');
@@ -8685,6 +8700,7 @@ document.addEventListener('click', async event => {
   const openPendingBookings = event.target.closest('[data-open-pending-bookings]');
   const reportViewButton = event.target.closest('[data-report-view]');
   const reportActionButton = event.target.closest('[data-report-action]');
+  const reportActionsToggle = event.target.closest('[data-report-actions-toggle]');
   const openReportGoalsButton = event.target.closest('#reportGoalsOpen,#settingsReportGoalsOpen');
   const closeReportGoalsButton = event.target.closest('[data-close-report-goals]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
@@ -8747,6 +8763,7 @@ document.addEventListener('click', async event => {
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
     renderNotifications();
   }
+  if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');
   if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
     reportDataSource = reportSourceButton.dataset.reportSource === 'demo' ? 'demo' : 'own';
     if (reportDataSource === 'demo' && reportPeriod === 'month') {
@@ -8758,6 +8775,7 @@ document.addEventListener('click', async event => {
     renderReportDataSourceControl();
     loadSelectedReportData();
     renderAnalytics();
+    setReportFiltersExpanded(false);
   }
   if (reportChartDate) {
     if (reportDataSource === 'demo') notify('Демо-график не открывает ваши реальные записи');
@@ -8779,6 +8797,14 @@ document.addEventListener('click', async event => {
   if (reportOutcomeButton) openReportBookings({ status:reportOutcomeButton.dataset.reportStatus || 'all', filter:reportOutcomeButton.dataset.reportFilter || 'all' });
   if (reportViewButton) setReportSubview(reportViewButton.dataset.reportView);
   if (reportActionButton) handleReportAction(reportActionButton.dataset.reportAction || '');
+  if (reportActionsToggle) {
+    const holder = $('#reportSmartActions');
+    const expanded = !holder?.classList.contains('is-expanded');
+    holder?.classList.toggle('is-expanded', expanded);
+    reportActionsToggle.setAttribute('aria-expanded', String(expanded));
+    const hiddenCount = Math.max(0, holder?.querySelectorAll('.report-smart-action').length - 1);
+    reportActionsToggle.textContent = expanded ? 'Скрыть рекомендации' : `Ещё ${hiddenCount} ${hiddenCount === 1 ? 'рекомендация' : 'рекомендации'}`;
+  }
   if (openReportGoalsButton) openReportGoals();
   if (closeReportGoalsButton) $('#reportGoalsDialog')?.close();
   if (openPendingBookings) {
@@ -8803,6 +8829,7 @@ document.addEventListener('click', async event => {
     }
     loadSelectedReportData();
     renderAnalytics();
+    if (reportPeriod !== 'custom') setReportFiltersExpanded(false);
   }
   if (openNotificationTemplates) {
     renderNotificationTemplates();
@@ -9704,6 +9731,8 @@ $('#reportPerformerFilter')?.addEventListener('change', event => {
   const previous = previousReportRange(range);
   loadReportScopedBookings({ start:previous?.start || range.start, end:reportForecastEnd(range) }, reportPerformerFilter);
   loadReportAvailability(range, reportPerformerFilter);
+  updateReportFilterSummary();
+  setReportFiltersExpanded(false);
 });
 $('#exportBookings').addEventListener('click', () => $('#reportExportDialog').showModal());
 $$('[data-close-report-export]').forEach(button => button.addEventListener('click', () => $('#reportExportDialog').close()));
@@ -9724,6 +9753,7 @@ $('#reportCustomPeriod').addEventListener('submit', event => {
   reportCustomEnd = end;
   loadSelectedReportData();
   renderAnalytics();
+  setReportFiltersExpanded(false);
 });
 $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet());
