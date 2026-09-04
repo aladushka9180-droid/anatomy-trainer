@@ -18,6 +18,9 @@ assert.ok(mobileTimeline.includes('.timeline-booking:not(.compact) :is(.timeline
 assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:none!important/, 'Итоговая мобильная раскладка снова показывает дублирующую длительность записи');
 assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status\s*\{[^}]*display:inline-flex!important/, 'Итоговая мобильная раскладка не показывает статус записи');
 assert.match(css, /timeline-booking:not\(:has\(\.client-badges\)\) \.timeline-booking-copy \{[^}]*padding-right:12px!important;/, 'Карточка без метки клиента теряет полезную ширину под пустой отступ');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-visit \{[^}]*overflow:hidden;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/, 'Подпись «Новый клиент» снова переносится на лишнюю строку');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.client-badges,[\s\S]*?position:absolute!important;[\s\S]*?top:9px;[\s\S]*?right:9px;/, 'VIP и другие метки снова уходят под текст записи');
+assert.match(css, /timeline-booking \.timeline-booking-status-icon \{ display:none!important; \}/, 'Галочка завершённого визита снова занимает пустое место в карточке');
 
 assert.match(css, /data-provider-theme="luxury"\]\[data-provider-layout="linear"\] \.timeline-booking\.compact:not\(\.minute-only\) \.timeline-booking-copy>strong \{[^}]*white-space:normal;[^}]*-webkit-line-clamp:2;/, 'В теме «Люкс / Премиум» короткие названия по-прежнему обрезаются в одну строку');
 assert.match(css, /data-provider-theme="luxury"\]\[data-provider-layout="linear"\] \.timeline-service-core,[\s\S]*?timeline-service-variant \{ position:static; display:inline; transform:none; \}/, 'Части названия услуги могут смещаться относительно карточки');

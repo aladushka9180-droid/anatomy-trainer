@@ -6742,21 +6742,24 @@ html.provider-booting .provider-main {
     display:inline-flex;
     max-width:100%;
     padding:3px 6px;
-    overflow:visible;
+    overflow:hidden;
     line-height:1.25;
-    text-overflow:clip;
-    white-space:normal;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-booking-payment { margin-top:1px; }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .client-badges,
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking[data-mobile-timeline-top]:not(.compact) .client-badges,
   .provider-body[data-provider-theme="luxury"][data-provider-layout="linear"] .timeline-booking[data-mobile-timeline-top].compact .client-badges {
-    position:static!important;
+    position:absolute!important;
+    top:9px;
+    right:9px;
     display:flex!important;
-    max-width:100%;
-    margin-top:2px;
+    max-width:104px;
+    margin:0;
     transform:none!important;
   }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:has(.client-badges) .timeline-booking-copy>strong { padding-right:112px!important; }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .client-badges.with-labels .client-badge {
     width:auto!important;
     min-height:23px;
@@ -6766,9 +6769,10 @@ html.provider-booting .provider-main {
   }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .client-badges.with-labels .client-badge>span {
     display:block;
-    overflow:visible;
+    overflow:hidden;
     font-size:9px;
-    white-space:normal;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-booking-note,
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top].compact .timeline-booking-note,
@@ -6794,6 +6798,7 @@ html.provider-booting .provider-main {
     padding:3px 6px;
     transform:none!important;
   }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .timeline-booking-status-icon { display:none!important; }
 
   .provider-body .schedule-list .booking-client-visit {
     max-width:100%;
@@ -6883,3 +6888,6 @@ html.provider-booting .provider-main {
     color:#e5dac7;
   }
 }
+
+/* Завершение остаётся доступно скринридеру и в подробностях, но не занимает отдельный кружок в ленте. */
+.provider-body[data-provider-theme] .timeline-booking .timeline-booking-status-icon { display:none!important; }
