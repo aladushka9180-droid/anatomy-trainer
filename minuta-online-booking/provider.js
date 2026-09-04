@@ -1317,6 +1317,15 @@ function renderMobileNavigation() {
     button.hidden = selected.includes(button.dataset.providerView);
   });
 }
+function renderMobileNavigationPreview(selectedKeys = displayPreferences.mobile_nav) {
+  const preview = $('#mobileNavigationPreview');
+  if (!preview) return;
+  const selected = normalizeMobileNavigation(selectedKeys);
+  preview.innerHTML = `${selected.map(key => {
+    const item = PROVIDER_MOBILE_NAV_ITEMS.find(entry => entry.key === key);
+    return `<span>${uiIcon(item.icon)}<small>${item.label}</small></span>`;
+  }).join('')}<span>${uiIcon('more')}<small>Разделы</small></span>`;
+}
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
@@ -1360,6 +1369,7 @@ function renderDisplayPreferencesForm() {
     const current = select.value;
     select.querySelectorAll('option').forEach(option => { option.disabled = option.value !== current && selected.includes(option.value); });
   });
+  renderMobileNavigationPreview(selected);
   renderReportGoalsSummary();
 }
 function providerAppIsInstalled() {
@@ -1756,7 +1766,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=368#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=369#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3446,7 +3456,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=368');
+    worker = new Worker('./report-worker.js?v=369');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4051,10 +4061,12 @@ function refreshSectionNavigation() {
 function scrollToProviderSection(button) {
   const target = document.getElementById(button?.dataset.sectionTarget || '');
   if (!target || target.hidden) return;
-  const nav = button.closest('.provider-section-nav');
-  rememberProviderSection(button);
+  const nav = button.closest('.provider-section-nav') || $('.provider-section-nav');
+  const navigationButton = [...(nav?.querySelectorAll('[data-section-target]') || [])]
+    .find(item => item.dataset.sectionTarget === button.dataset.sectionTarget) || button;
+  rememberProviderSection(navigationButton);
   nav?.querySelectorAll('[data-section-target]').forEach(item => {
-    const active = item === button;
+    const active = item === navigationButton;
     item.classList.toggle('active', active);
     if (active) item.setAttribute('aria-current', 'location');
     else item.removeAttribute('aria-current');
