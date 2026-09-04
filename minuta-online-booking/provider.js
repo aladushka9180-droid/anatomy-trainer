@@ -1672,7 +1672,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=329#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=330#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3328,7 +3328,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=329');
+    worker = new Worker('./report-worker.js?v=330');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4513,8 +4513,9 @@ function timelineTimeFromClick(stage, event) {
   const end = Number(stage.dataset.timelineEnd);
   const rect = stage.getBoundingClientRect();
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || rect.height <= 0) return '';
-  const position = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-  const rawMinute = start + ((position / rect.height) * (end - start));
+  const scaleHeight = Number(stage.dataset.timelineNaturalHeight) || rect.height;
+  const position = Math.max(0, Math.min(scaleHeight, event.clientY - rect.top));
+  const rawMinute = start + ((position / scaleHeight) * (end - start));
   const step = 30;
   const snappedMinute = Math.round(rawMinute / step) * step;
   const firstSlot = Math.ceil(start / step) * step;
@@ -4531,7 +4532,8 @@ function timelineMinuteFromPointer(stage, clientY, pointerOffsetY, duration, dat
   const rect = stage?.getBoundingClientRect();
   if (!rect || !Number.isFinite(start) || !Number.isFinite(end) || end <= start || rect.height <= 0) return null;
   const step = scheduleStepForDate(dateIso);
-  const rawMinute = start + (((clientY - rect.top - pointerOffsetY) / rect.height) * (end - start));
+  const scaleHeight = Number(stage.dataset.timelineNaturalHeight) || rect.height;
+  const rawMinute = start + (((clientY - rect.top - pointerOffsetY) / scaleHeight) * (end - start));
   const snapped = Math.round(rawMinute / step) * step;
   return Math.max(start, Math.min(end - duration, snapped));
 }
@@ -4614,7 +4616,8 @@ function updateTimelineBookingDrag(state, clientY) {
   const start = Number(state.stage.dataset.timelineStart);
   const end = Number(state.stage.dataset.timelineEnd);
   const rect = state.stage.getBoundingClientRect();
-  const top = ((minute - start) / (end - start)) * rect.height + 2;
+  const scaleHeight = Number(state.stage.dataset.timelineNaturalHeight) || rect.height;
+  const top = ((minute - start) / (end - start)) * scaleHeight + 2;
   const endTime = timeFromMinutes(minute + state.duration);
   state.card.style.top = `${top}px`;
   state.label.textContent = `${timeFromMinutes(minute)}–${endTime}`;
@@ -4685,6 +4688,8 @@ function beginTimelineBookingDrag(event, card) {
   const item = allBookings.find(booking => booking.id === card.dataset.openBooking);
   if (!stage || !item) return;
   const rect = card.getBoundingClientRect();
+  const visualTop = Number.parseFloat(card.style.top) || 0;
+  const timelineTop = Number(card.dataset.mobileTimelineTop) || visualTop;
   const state = {
     pointerId:event.pointerId,
     pointerType:event.pointerType,
@@ -4695,7 +4700,7 @@ function beginTimelineBookingDrag(event, card) {
     duration:Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60)),
     startX:event.clientX,
     startY:event.clientY,
-    pointerOffsetY:event.clientY - rect.top,
+    pointerOffsetY:event.clientY - rect.top + Math.max(0, visualTop - timelineTop),
     originalTop:card.style.top,
     targetMinute:minutesFromTime(item.booking_time),
     active:false,
@@ -4861,6 +4866,26 @@ function stackMinuteTimelineItems(timelineItems, gap = 6) {
   });
 }
 
+function fitMobileTimelineCards(holder, naturalTimelineHeight) {
+  const timeline = holder.querySelector('.day-timeline');
+  const stage = holder.querySelector('.timeline-stage');
+  if (!timeline || !stage || !window.matchMedia('(max-width: 760px)').matches) return;
+  const cards = [...stage.querySelectorAll('[data-mobile-timeline-top]')]
+    .sort((left, right) => Number(left.dataset.mobileTimelineTop) - Number(right.dataset.mobileTimelineTop));
+  let previousBottom = -Infinity;
+  cards.forEach(card => {
+    const originalTop = Number(card.dataset.mobileTimelineTop) || 0;
+    const top = Math.max(originalTop, previousBottom + 6);
+    card.style.top = `${top}px`;
+    card.style.height = 'auto';
+    const height = Math.max(44, Math.ceil(card.scrollHeight));
+    card.style.height = `${height}px`;
+    previousBottom = top + height;
+  });
+  const fittedHeight = Math.max(naturalTimelineHeight, Number.isFinite(previousBottom) ? previousBottom + 6 : 0);
+  timeline.style.setProperty('--timeline-height', `${fittedHeight}px`);
+}
+
 function automaticBookingBreaks(items, dateIso = selectedDate) {
   if (!bookingPolicy.booking_buffer_enabled) return [];
   const buffer = Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60));
@@ -4946,7 +4971,7 @@ function renderTimeline(sourceItems) {
     if (minute + 30 < end) labels.push(`<span class="timeline-hour timeline-half-hour" style="top:${top + hourHeight / 2}px">${String(Math.floor(minute / 60)).padStart(2, '0')}:30</span>`);
     lines.push(`<i class="timeline-grid-line" style="top:${top}px" aria-hidden="true"></i>`);
   }
-  const cards = timelineItems.map(({ item, duration, visualTop, height, minuteOnly }) => {
+  const cards = timelineItems.map(({ item, duration, top, visualTop, height, minuteOnly }) => {
     const startTime = String(item.booking_time).slice(0, 5);
     const endTime = timeFromMinutes(minutesFromTime(item.booking_time) + duration);
     const timeRange = `${startTime}–${endTime}`;
@@ -4967,32 +4992,37 @@ function renderTimeline(sourceItems) {
     const ariaDetails = visibleNote ? `${clientDetails}, заметка: ${visibleNote}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
+    const badgeMarkup = block || !displayPreferences.show_client_labels
+      ? ''
+      : clientBadgeMarkup(item.client_phone, mobileTimeline ? { limit:3, showLabels:true } : { limit:1 });
     const timelineStatus = block
       ? ''
       : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
-    const cardContent = minuteOnly
+    const cardContent = minuteOnly && !mobileTimeline
       ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1 })}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
+      <span class="timeline-booking-copy"><strong>${serviceMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${badgeMarkup}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
       ${timelineStatus}`;
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     return item.automatic_break
-      ? `<div class="${className}" data-booking-duration="${duration}" style="top:${visualTop + 2}px;height:${height}px" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
-      : `<button class="${className}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${ariaLabel}" title="Зажмите и перетащите, чтобы изменить время">${cardContent}</button>`;
+      ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
+      : `<button class="${className}" type="button" data-open-booking="${item.id}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${ariaLabel}" title="Зажмите и перетащите, чтобы изменить время">${cardContent}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
     : '';
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  if (mobileTimeline && cards) requestAnimationFrame(() => fitMobileTimelineCards(holder, naturalTimelineHeight));
 }
 
 function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {
   const holder = $('#providerBookings');
+  const mobileList = window.matchMedia('(max-width: 760px)').matches;
   holder.className = 'provider-bookings schedule-list';
   if (!items.length) {
     holder.innerHTML = bookingEmptyMarkup(emptyMessage);
@@ -5019,7 +5049,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
       <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
-        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1 }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
+        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, mobileList ? { limit:3, showLabels:true } : { limit:1 }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
         <span class="provider-booking-signals">${bookingSeriesMarkup(item)}${visibleNote ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(visibleNote)}</span>` : ''}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
         <span class="provider-booking-chevron" aria-hidden="true">›</span>
       </button>
@@ -6502,8 +6532,30 @@ function calendarOverviewBookingMarkup(item, compact) {
   const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
   const client = block ? 'Занятое время' : item.client_name;
   const statusClass = bookingStatusClass(item);
-  const details = `${title}, ${client}, ${time}`;
-  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span><strong>${escapeHtml(title)}</strong>${compact ? '' : `<small>${escapeHtml(client)}</small>`}</span></button>`;
+  const phone = block || !displayPreferences.show_phone ? '' : String(item.client_phone || '');
+  const visitText = block ? '' : bookingVisitSummaryText(item);
+  const note = block || !displayPreferences.show_notes ? '' : bookingDisplayNote(item);
+  const badgeText = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
+  const badgeMarkup = block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true });
+  const details = [title, client, time, phone, visitText, badgeText, note ? `заметка: ${note}` : ''].filter(Boolean).join(', ');
+  const cardDetails = compact ? '' : `<span class="calendar-overview-booking-details">
+    <span class="calendar-overview-client-row"><b>${escapeHtml(client)}</b>${badgeMarkup}</span>
+    ${phone ? `<small class="calendar-overview-phone">${escapeHtml(phone)}</small>` : ''}
+    ${visitText ? `<small class="calendar-overview-visit">${escapeHtml(visitText)}</small>` : ''}
+    ${note ? `<small class="calendar-overview-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}
+  </span>`;
+  return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span class="calendar-overview-booking-copy"><strong>${escapeHtml(title)}</strong>${cardDetails}</span></button>`;
+}
+
+function calendarMonthMobileAgendaMarkup(days, byDate) {
+  const groups = days.map(date => {
+    const iso = localIsoDate(date);
+    const items = byDate.get(iso) || [];
+    if (!items.length) return '';
+    const label = date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' });
+    return `<section class="calendar-month-agenda-day"><button class="calendar-month-agenda-date" type="button" data-calendar-open-date="${iso}">${escapeHtml(label)}</button><div>${items.map(item => calendarOverviewBookingMarkup(item, false)).join('')}</div></section>`;
+  }).filter(Boolean).join('');
+  return groups ? `<div class="calendar-month-mobile-agenda" aria-label="Записи месяца">${groups}</div>` : '';
 }
 
 function calendarWeekTimelineBounds(days, byDate) {
@@ -6607,10 +6659,11 @@ function renderCalendarOverview(view) {
     })
   ];
   const weekdayHeader = view === 'month' ? `<div class="calendar-overview-weekdays" aria-hidden="true">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(day => `<span>${day}</span>`).join('')}</div>` : '';
+  const mobileMonthAgenda = view === 'month' ? calendarMonthMobileAgendaMarkup(days, byDate) : '';
   holder.className = `provider-bookings calendar-overview calendar-overview-${view}`;
   holder.innerHTML = view === 'week'
     ? `${calendarWeekTimelineMarkup(days, byDate, today)}<div class="calendar-overview-grid calendar-week-mobile-list" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`
-    : `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`;
+    : `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>${mobileMonthAgenda}`;
   $('#selectedDateTitle').textContent = calendarRangeTitle(view);
   const clientCount = visible.filter(item => !isScheduleBlock(item)).length;
   const blockCount = visible.length - clientCount;
