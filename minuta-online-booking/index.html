@@ -18,7 +18,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=371">
+  <link rel="stylesheet" href="styles.css?v=372">
 </head>
 <body class="booking-client-page">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -105,6 +105,39 @@
     <div class="public-reviews-heading"><div><small>Отзывы клиентов</small><h2 id="reviewsTitle">После реальных визитов</h2></div><div class="reviews-summary"><strong id="reviewsAverage">0,0</strong><span aria-hidden="true">★</span><small id="reviewsCount">0 отзывов</small></div></div>
     <div class="public-reviews-list" id="publicReviewsList"></div>
   </section>
+  <section class="booking-faq" aria-labelledby="bookingFaqTitle">
+    <div class="booking-faq-heading">
+      <small><span aria-hidden="true"></span> Полезно знать</small>
+      <h2 id="bookingFaqTitle">Вопросы перед записью</h2>
+      <p>Коротко о том, как проходит запись и что важно учесть перед визитом.</p>
+    </div>
+    <div class="booking-faq-list">
+      <details name="booking-faq" open>
+        <summary><span>Нужно ли устанавливать приложение?</span><i aria-hidden="true"></i></summary>
+        <p>Нет. Выберите услугу, дату и время прямо на этой странице. После записи вы получите личную ссылку для управления визитом.</p>
+      </details>
+      <details name="booking-faq">
+        <summary><span>Как подготовиться к массажу?</span><i aria-hidden="true"></i></summary>
+        <p>Перед сеансом достаточно принять душ, не переедать и выбрать удобную одежду. Если есть пожелания по интенсивности, сообщите о них мастеру в начале встречи.</p>
+      </details>
+      <details name="booking-faq">
+        <summary><span>Когда массаж лучше отложить?</span><i aria-hidden="true"></i></summary>
+        <p>При температуре, остром воспалении, плохом самочувствии или обострении хронического заболевания сначала проконсультируйтесь с врачом и предупредите мастера.</p>
+      </details>
+      <details name="booking-faq">
+        <summary><span>Можно ли перенести или удалить запись?</span><i aria-hidden="true"></i></summary>
+        <p>Да. Откройте личную ссылку из подтверждения и выберите доступное действие. Чем раньше вы сообщите об изменении планов, тем проще подобрать другое время.</p>
+      </details>
+      <details name="booking-faq">
+        <summary><span>Как я получу напоминание?</span><i aria-hidden="true"></i></summary>
+        <p>После записи можно подключить уведомления в Telegram. В напоминании будут дата, время, услуга и адрес визита.</p>
+      </details>
+      <details name="booking-faq">
+        <summary><span>Как уточнить детали или способ оплаты?</span><i aria-hidden="true"></i></summary>
+        <p>Свяжитесь с мастером по контактам в подтверждении записи. Так можно заранее обсудить оплату, противопоказания и любые индивидуальные пожелания.</p>
+      </details>
+    </div>
+  </section>
   <footer class="booking-footer"><a href="help/index.html">Помощь</a><a href="provider.html">Вход для исполнителя</a></footer>
   <dialog class="service-details-dialog" id="serviceDetailsDialog" aria-labelledby="serviceDetailsTitle">
     <button class="dialog-close" type="button" data-close-service-details aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"/></svg></button>
@@ -145,6 +178,6 @@
     <div class="waitlist-success" id="waitlistSuccess" hidden aria-live="polite"><span class="success-mark"><svg class="ui-icon"><use href="ui-icons.svg#icon-check"/></svg></span><small>Заявка принята</small><h2>Вы в листе ожидания</h2><p id="waitlistSuccessText"></p><a class="primary" id="waitlistManageLink" href="waitlist.html">Управлять заявкой</a></div>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=371"></script><script src="site-update.js?v=371" defer></script><script src="reliability.js?v=371"></script><script src="group-bookings.js?v=371" defer></script><script src="telegram-auth.js?v=371" defer></script><script src="app.js?v=371" defer></script>
+  <script src="config.js?v=372"></script><script src="site-update.js?v=372" defer></script><script src="reliability.js?v=372"></script><script src="group-bookings.js?v=372" defer></script><script src="telegram-auth.js?v=372" defer></script><script src="app.js?v=372" defer></script>
 </body>
 </html>
