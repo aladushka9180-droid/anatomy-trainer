@@ -5889,6 +5889,219 @@ html.provider-booting .provider-main {
   }
 }
 
+/* Компактная шапка расписания: больше полезной области на телефоне и ПК. */
+@media (min-width:761px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+    min-height:76px;
+  }
+  .provider-body .provider-view[data-provider-panel="bookings"] {
+    padding-top:20px;
+  }
+  .provider-body .schedule-view-title {
+    padding:10px 14px;
+  }
+  .provider-body .schedule-view-title h2 {
+    font-size:27px;
+  }
+  .provider-body .schedule-card {
+    margin-top:10px;
+  }
+  .provider-body .date-navigation {
+    padding:7px 10px;
+  }
+  .provider-body .date-nav-button,
+  .provider-body .date-today-button,
+  .provider-body .schedule-date-picker {
+    min-height:36px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip {
+    padding:5px 8px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip button,
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip button.active {
+    min-height:54px;
+    margin:0;
+    padding-top:5px;
+    padding-bottom:5px;
+  }
+  .provider-body .schedule-toolbar {
+    padding:9px 14px;
+  }
+  .provider-body .timeline-view {
+    padding-top:13px;
+  }
+}
+
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+    padding:9px 8px!important;
+    gap:6px!important;
+  }
+  .provider-body .provider-topbar h1 {
+    margin-top:2px;
+    font-size:clamp(20px,6vw,24px)!important;
+    line-height:1.02;
+  }
+  .provider-body .provider-view[data-provider-panel="bookings"] {
+    padding-top:9px;
+  }
+  .provider-body .schedule-view-title {
+    display:block;
+    margin-bottom:7px;
+  }
+  .provider-body .schedule-view-title>div:first-child>span:not(.panel-count) {
+    display:none;
+  }
+  .provider-body .schedule-title-line {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-direction:row;
+    flex-wrap:nowrap;
+    gap:8px;
+  }
+  .provider-body .schedule-view-title h2 {
+    flex:0 1 auto;
+    margin:0;
+    font-size:26px;
+    line-height:1;
+  }
+  .provider-body .schedule-title-line .dashboard-summary {
+    flex:0 0 auto;
+    width:auto;
+    min-height:32px;
+    margin:0;
+    padding:4px 7px;
+    gap:7px;
+  }
+  .provider-body .schedule-title-line .dashboard-summary div {
+    gap:2px;
+  }
+  .provider-body .schedule-title-line .dashboard-summary strong {
+    font-size:13px;
+  }
+  .provider-body .schedule-title-line .dashboard-summary span {
+    font-size:7px;
+  }
+  .provider-body .schedule-title-line .dashboard-summary i {
+    height:14px;
+  }
+  .provider-body .schedule-view-title .view-title-actions {
+    display:none;
+  }
+  .provider-body .schedule-card {
+    margin-top:0;
+  }
+  .provider-body .date-navigation {
+    grid-template-columns:44px minmax(68px,1fr) 44px minmax(112px,1.2fr);
+    gap:5px;
+    padding:6px;
+  }
+  .provider-body .calendar-view-toggle {
+    grid-column:1/-1;
+    grid-row:1;
+  }
+  .provider-body .calendar-view-toggle button {
+    min-height:44px;
+  }
+  .provider-body .date-navigation>.date-nav-button:first-of-type {
+    grid-column:1;
+    grid-row:2;
+  }
+  .provider-body .date-navigation>.date-today-button {
+    grid-column:2;
+    grid-row:2;
+    padding:0 6px;
+  }
+  .provider-body .date-navigation>.date-nav-button:last-of-type {
+    grid-column:3;
+    grid-row:2;
+  }
+  .provider-body .date-navigation>.schedule-date-picker {
+    grid-column:4;
+    grid-row:2;
+    min-width:0;
+    min-height:44px;
+    padding:4px 6px;
+  }
+  .provider-body .schedule-date-picker>span {
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+  }
+  .provider-body .schedule-date-picker input {
+    width:100%;
+    min-width:0;
+    min-height:34px;
+    padding:0;
+    font-size:12px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip {
+    gap:3px;
+    padding:5px 6px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip button,
+  .provider-body[data-provider-theme][data-provider-layout] .date-strip button.active {
+    flex-basis:56px;
+    min-height:54px;
+    margin:0;
+    padding:4px 3px;
+  }
+  .provider-body .schedule-toolbar {
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    gap:7px;
+    padding:8px;
+  }
+  .provider-body .schedule-toolbar>div:first-child>strong {
+    font-size:14px;
+  }
+  .provider-body .schedule-toolbar>div:first-child>span {
+    margin-top:2px;
+    font-size:9px;
+  }
+  .provider-body .schedule-controls {
+    display:contents;
+  }
+  .provider-body .journal-mode-toggle {
+    grid-column:2;
+    grid-row:1;
+    width:auto;
+  }
+  .provider-body .journal-mode-toggle button {
+    min-height:44px;
+    padding:0 10px;
+  }
+  .provider-body .schedule-toolbar .booking-filters:not([hidden]) {
+    grid-column:1/-1;
+    grid-row:2;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+  }
+  .provider-body .timeline-view {
+    padding-top:10px;
+  }
+}
+
+@media (max-width:370px) {
+  .provider-body .schedule-view-title h2 {
+    font-size:23px;
+  }
+  .provider-body .schedule-title-line .dashboard-summary {
+    gap:5px;
+    padding-right:5px;
+    padding-left:5px;
+  }
+  .provider-body .date-navigation {
+    grid-template-columns:44px minmax(60px,1fr) 44px minmax(104px,1.1fr);
+  }
+}
+
 /* Заголовок статистики не делится внутри слова и не сжимается кнопкой отчёта. */
 @media (min-width:761px) {
   #analyticsView .view-title {

@@ -21,4 +21,4 @@ assert.match(styles, /data-provider-theme="eco"[^}]*\.calendar-overview-month \.
 assert.match(styles, /data-provider-theme="eco"[^}]*\.calendar-overview-month \.calendar-overview-date \{[^}]*min-height:28px;[^}]*border-bottom:0;/, 'Дата в месяце Эко сохраняет лишнюю разделительную линию');
 assert.match(styles, /data-provider-theme="eco"[^}]*\.calendar-overview-month \.calendar-overview-booking \{[^}]*min-height:27px;[^}]*background:rgba\(114,129,93,\.075\);/, 'Записи месяца Эко не получили спокойное компактное оформление');
 
-console.log('Calendar minimalism v325 checks passed.');
+console.log('Calendar minimalism v326 checks passed.');
