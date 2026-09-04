@@ -123,5 +123,19 @@ begin
 end; $$;
 revoke all on function public.get_minuta_utm_funnel_v107(uuid,date,date) from public,anon,authenticated,service_role;
 grant execute on function public.get_minuta_utm_funnel_v107(uuid,date,date) to authenticated,service_role;
+
+do $$ begin
+  if to_regclass('public.booking_funnel_events') is null
+     or not coalesce((select relrowsecurity from pg_class where oid='public.booking_funnel_events'::regclass),false)
+     or to_regprocedure('public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)') is null
+     or to_regprocedure('public.get_minuta_utm_funnel_v107(uuid,date,date)') is null
+     or not has_function_privilege('anon','public.track_public_booking_funnel_event(text,uuid,text,uuid,uuid,text,text,text,text,text,text,text)','EXECUTE')
+     or has_table_privilege('anon','public.booking_funnel_events','SELECT,INSERT,UPDATE,DELETE')
+     or has_table_privilege('authenticated','public.booking_funnel_events','INSERT,UPDATE,DELETE')
+     or not has_function_privilege('authenticated','public.get_minuta_utm_funnel_v107(uuid,date,date)','EXECUTE')
+     or has_function_privilege('anon','public.get_minuta_utm_funnel_v107(uuid,date,date)','EXECUTE') then
+    raise exception using errcode='P0001',message='v107_postcondition_failed';
+  end if;
+end $$;
 notify pgrst,'reload schema';
 commit;

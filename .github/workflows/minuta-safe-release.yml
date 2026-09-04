@@ -707,7 +707,9 @@ jobs:
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v106.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v106.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.save_minuta_booking_outcome_v106(uuid,text,text,integer,integer,text)') is not null and has_function_privilege('authenticated','public.save_minuta_booking_outcome_v106(uuid,text,text,integer,integer,text)','EXECUTE') and not has_function_privilege('anon','public.save_minuta_booking_outcome_v106(uuid,text,text,integer,integer,text)','EXECUTE') and to_regprocedure('public.process_minuta_auto_completed_visits_v106(integer)') is not null and not has_function_privilege('authenticated','public.process_minuta_auto_completed_visits_v106(integer)','EXECUTE');" | grep -qx t
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select (select count(*)=8 from information_schema.columns where table_schema='public' and table_name='booking_page_visits' and column_name in ('session_id','client_name','client_phone','page_name','source_kind','source_label','first_source_label','last_seen_at')) and to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null and has_function_privilege('anon','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('authenticated','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('service_role','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and exists(select 1 from pg_policy where polrelid='public.booking_page_visits'::regclass and polname='booking_page_visits_owner_read' and polroles @> array['authenticated'::regrole::oid] and cardinality(polroles)=1) and exists(select 1 from pg_index where indexrelid='public.booking_page_visits_owner_session_idx'::regclass and indisunique and indisvalid and indisready) and exists(select 1 from pg_index where indexrelid='public.bookings_organization_phone_v105_idx'::regclass and indisvalid and indisready) and position('booking.organization_id=v_organization' in replace(pg_get_functiondef('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure),' ',''))>0 and position('v_recent_new_count>=60orv_retained_count>=2500' in replace(pg_get_functiondef('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure),' ',''))>0;" \
@@ -735,6 +737,7 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v106-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
@@ -1033,6 +1036,7 @@ jobs:
             echo "set local statement_timeout='2min';"
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v105.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v106.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v107.sql
             cat <<'SQL'
           do $v105_validation$
           declare v_function oid;
@@ -1056,6 +1060,7 @@ jobs:
           end
           $v105_validation$;
           SQL
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v107-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v106-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v105-rollback.sql
             cat <<'SQL'
@@ -1488,6 +1493,7 @@ jobs:
               | grep -qx t
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v105.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v106.sql
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null and has_function_privilege('anon','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('authenticated','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and has_function_privilege('service_role','public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)','EXECUTE') and not exists(select 1 from pg_proc p cross join lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) privilege where p.oid='public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)'::regprocedure and privilege.grantee=0 and privilege.privilege_type='EXECUTE') and exists(select 1 from pg_index where indexrelid='public.booking_page_visits_owner_session_idx'::regclass and indisunique and indisvalid and indisready) and exists(select 1 from pg_index where indexrelid='public.bookings_organization_phone_v105_idx'::regclass and indisvalid and indisready);" \
               | grep -qx t
