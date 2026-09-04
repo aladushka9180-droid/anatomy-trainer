@@ -1661,7 +1661,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=313#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=314#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2770,7 +2770,7 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   if (smartHolder) {
     const visibleActions = smartActions.slice(0, 3);
     smartHolder.classList.remove('is-expanded');
-    smartHolder.innerHTML = visibleActions.map(item => `<article class="report-smart-action is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small><i>${escapeHtml(item.evidence)}</i><b>${escapeHtml(item.impact)}</b></div>${item.action ? `<button type="button" data-report-action="${item.action}">${escapeHtml(item.label)} →</button>` : ''}</article>`).join('') + (visibleActions.length > 1 ? `<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="false">Ещё ${visibleActions.length - 1} ${visibleActions.length === 2 ? 'рекомендация' : 'рекомендации'}</button>` : '');
+    smartHolder.innerHTML = visibleActions.map(item => `<article class="report-smart-action is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small><i>${escapeHtml(item.evidence)}</i><b>${escapeHtml(item.impact)}</b></div>${item.action ? `<button type="button" data-report-action="${item.action}">${escapeHtml(item.label)} →</button>` : ''}</article>`).join('') + (visibleActions.length > 1 ? `<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="false">Рекомендации · ${visibleActions.length}</button>` : '');
   }
   const command = $('#reportCommandCenter');
   if (command) command.classList.toggle('is-empty', !items.length);
@@ -3245,7 +3245,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=313');
+    worker = new Worker('./report-worker.js?v=314');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8805,8 +8805,8 @@ document.addEventListener('click', async event => {
     const expanded = !holder?.classList.contains('is-expanded');
     holder?.classList.toggle('is-expanded', expanded);
     reportActionsToggle.setAttribute('aria-expanded', String(expanded));
-    const hiddenCount = Math.max(0, holder?.querySelectorAll('.report-smart-action').length - 1);
-    reportActionsToggle.textContent = expanded ? 'Скрыть рекомендации' : `Ещё ${hiddenCount} ${hiddenCount === 1 ? 'рекомендация' : 'рекомендации'}`;
+    const actionCount = holder?.querySelectorAll('.report-smart-action').length || 0;
+    reportActionsToggle.textContent = expanded ? 'Скрыть рекомендации' : `Рекомендации · ${actionCount}`;
   }
   if (openReportGoalsButton) openReportGoals();
   if (closeReportGoalsButton) $('#reportGoalsDialog')?.close();

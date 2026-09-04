@@ -15,12 +15,13 @@ assert.match(provider, /function setReportFiltersExpanded[\s\S]*aria-expanded/, 
 assert.match(provider, /function updateReportFilterSummary[\s\S]*reportPeriodName\(\)[\s\S]*reportPerformerName\(\)/, 'На закрытом фильтре не видны выбранные параметры');
 assert.match(provider, /reportPeriodLabel'\)\.textContent = `\$\{reportDateText[\s\S]*обновлено/, 'Краткая подпись периода не обновляется');
 assert.doesNotMatch(provider, /reportPeriodLabel'\)\.textContent =[^\n]*прежнего журнала/, 'Техническая информация импорта снова перегружает фильтры');
-assert.match(provider, /data-report-actions-toggle[\s\S]*Ещё \$\{visibleActions\.length - 1\}/, 'Дополнительные рекомендации не сворачиваются');
+assert.match(provider, /data-report-actions-toggle[\s\S]*Рекомендации · \$\{visibleActions\.length\}/, 'Дополнительные рекомендации не сворачиваются');
 
 assert.match(styles, /\.report-filter-toggle \{ display:none; \}/, 'Десктоп не должен показывать лишнюю кнопку фильтров');
 assert.match(styles, /@media \(max-width:640px\)[\s\S]*\.report-filter-toggle \{ display:flex;[\s\S]*\.report-filter-content \{ display:none;[\s\S]*\.report-filters\.is-open \.report-filter-content \{ display:grid;/, 'На телефоне фильтры не стали компактными');
 assert.match(styles, /\.report-command-metrics article:nth-child\(2\),\.report-command-metrics article:nth-child\(3\) \{ display:none; \}/, 'Вторичные KPI всё ещё занимают первый экран телефона');
 assert.match(styles, /\.report-smart-actions \.report-smart-action:nth-of-type\(n\+2\) \{ display:none; \}/, 'Дополнительные рекомендации не скрыты на телефоне');
+assert.match(styles, /\.report-smart-actions \.report-smart-action \{ display:none;/, 'Рекомендации должны открываться по запросу на телефоне');
 assert.match(styles, /\.report-summary article:first-child \{ display:none; \}/, 'Выручка дублируется в мобильном обзоре');
 assert.match(styles, /\.report-insight \{ display:none!important; \}/, 'Главная рекомендация дублируется в мобильном обзоре');
 assert.match(styles, /\.report-view-tabs button\.active,\.report-data-source button\.active,\.report-mini-toggle button\.active,\.report-team-controls button\.active \{[^}]*var\(--theme-accent-contrast/, 'Активные элементы статистики не используют контраст темы');

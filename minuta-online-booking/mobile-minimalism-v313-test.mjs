@@ -10,8 +10,10 @@ const checks = [
   [css.includes('.clients-layout:not(.is-detail) .client-profile'), 'общий mobile master-detail клиентов'],
   [css.includes('.mobile-more-grid button[hidden] { display:none!important; }'), 'скрытие дублей в разделе «Все разделы»'],
   [css.includes('grid-template-columns:repeat(3,minmax(0,1fr))'), 'сетка периодов 3×2'],
+  [css.includes('.report-smart-actions .report-smart-action { display:none;'), 'свёрнутые мобильные рекомендации'],
   [css.includes('.notification-filters button.active { color:var(--theme-accent-contrast,#fff)!important; }'), 'контраст фильтров уведомлений'],
   [js.includes("button.hidden = selected.includes(button.dataset.providerView);"), 'синхронизация меню с нижней навигацией'],
+  [js.includes('Рекомендации · ${visibleActions.length}'), 'понятный счётчик рекомендаций'],
   [html.includes('Откроются контакты, история и заметки.'), 'нейтральная мобильная подсказка клиента']
 ];
 
