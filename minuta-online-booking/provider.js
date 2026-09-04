@@ -3564,6 +3564,19 @@ function notify(message) {
   clearTimeout(notify.timer);
   notify.timer = setTimeout(() => { toast.hidden = true; }, 2800);
 }
+function requestProviderConfirmation({ title = 'Подтвердите действие', message = '', confirmLabel = 'Подтвердить' } = {}) {
+  const dialog = $('#providerConfirmDialog');
+  if (!dialog || typeof dialog.showModal !== 'function') return Promise.resolve(window.confirm(message));
+  $('#providerConfirmTitle').textContent = title;
+  $('#providerConfirmMessage').textContent = message;
+  $('#providerConfirmSubmit').textContent = confirmLabel;
+  dialog.returnValue = 'cancel';
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once:true });
+    dialog.showModal();
+    requestAnimationFrame(() => $('#providerConfirmSubmit')?.focus());
+  });
+}
 function visitorVisitTimeLabel(value) {
   const createdAt = new Date(value);
   const seconds = Math.max(0, Math.round((Date.now() - createdAt.getTime()) / 1000));
@@ -9599,7 +9612,12 @@ document.addEventListener('click', async event => {
     const item = allBookings.find(entry => entry.id === id);
     if (!item) return;
     const label = isScheduleBlock(item) ? 'занятое время' : 'запись';
-    if (!confirm(`Удалить ${label} на ${String(item.booking_time).slice(0, 5)}? Запись исчезнет из расписания и статистики.`)) return;
+    const confirmed = await requestProviderConfirmation({
+      title:`Удалить ${label}?`,
+      message:`${label === 'запись' ? 'Запись' : 'Занятое время'} на ${String(item.booking_time).slice(0, 5)} исчезнет из расписания и статистики.`,
+      confirmLabel:'Удалить'
+    });
+    if (!confirmed) return;
     deleteBookingButton.disabled = true;
     const { data, error } = await db.rpc('provider_delete_booking', { p_booking:id });
     deleteBookingButton.disabled = false;

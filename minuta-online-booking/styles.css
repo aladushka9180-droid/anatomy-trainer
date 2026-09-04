@@ -534,6 +534,16 @@ input:focus,select:focus { border-color:var(--green); box-shadow:0 0 0 4px rgba(
 
 dialog { width:min(530px,calc(100% - 30px)); max-height:min(720px,calc(100vh - 30px)); padding:26px; border:1px solid rgba(255,255,255,.9); border-radius:27px; color:var(--ink); background:rgba(255,255,255,.96); box-shadow:0 35px 100px rgba(17,42,29,.27); }
 dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
+.provider-confirm-dialog { position:fixed; inset:0; width:min(430px,calc(100% - 32px)); max-height:calc(100dvh - 32px); margin:auto; padding:0; overflow:hidden; border:1px solid var(--theme-line,var(--line)); border-radius:22px; background:var(--theme-surface,#fff); color:var(--theme-ink,var(--ink)); box-shadow:0 28px 90px rgba(12,28,20,.28); }
+.provider-confirm-dialog::backdrop { background:rgba(8,15,11,.58); backdrop-filter:blur(6px); }
+.provider-confirm-form { display:grid; gap:0; padding:26px; }
+.provider-confirm-form>small { color:var(--theme-accent,var(--green)); font-size:9px; font-weight:900; letter-spacing:.13em; text-transform:uppercase; }
+.provider-confirm-form h2 { margin:7px 0 0; font-size:25px; line-height:1.15; letter-spacing:-.035em; }
+.provider-confirm-form p { margin:13px 0 0; color:var(--theme-muted,var(--muted)); font-size:13px; line-height:1.55; }
+.provider-confirm-actions { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:23px; }
+.provider-confirm-actions button { min-height:46px; margin:0; border-radius:12px; cursor:pointer; font:850 12px/1 inherit; }
+.provider-confirm-submit { border:1px solid #a94842; background:#a94842; color:#fff; }
+.provider-confirm-submit:hover { border-color:#913a35; background:#913a35; }
 .dialog-head { display:flex; justify-content:space-between; align-items:flex-start; }.dialog-head button { width:40px; height:40px; border:1px solid var(--line); border-radius:50%; background:white; cursor:pointer; font-size:24px; }
 .bookings-list { display:grid; gap:11px; margin-top:22px; overflow:auto; }
 .saved-booking { padding:16px; border:1px solid var(--line); border-radius:17px; background:#f8fbf9; }.saved-booking-head { display:flex; justify-content:space-between; gap:12px; }.saved-booking strong { font-size:15px; }.saved-booking .saved-code { color:var(--green); font-size:11px; font-weight:900; letter-spacing:.07em; }.saved-booking p { margin:7px 0 0; color:#687a71; font-size:13px; line-height:1.5; }.saved-booking button { margin-top:12px; padding:6px 10px; border:0; border-radius:999px; background:#fff0ef; color:#9a3936; cursor:pointer; font-size:11px; font-weight:800; }
@@ -3727,6 +3737,10 @@ html.provider-booting .provider-main {
 
 /* Окно ручной записи продолжает полноценную палитру Luxury и на широком экране. */
 .provider-body[data-provider-theme="luxury"] .booking-sheet-backdrop { background:rgba(0,0,0,.8); backdrop-filter:blur(6px); }
+.provider-body[data-provider-theme="luxury"] .provider-confirm-dialog { border-color:#745a2b; background:#090a0b; color:#f5efe3; box-shadow:0 28px 90px rgba(0,0,0,.7),inset 0 0 0 1px rgba(214,166,77,.05); }
+.provider-body[data-provider-theme="luxury"] .provider-confirm-dialog::backdrop { background:rgba(0,0,0,.76); }
+.provider-body[data-provider-theme="luxury"] .provider-confirm-form>small { color:#d6a64d; }
+.provider-body[data-provider-theme="luxury"] .provider-confirm-submit { border-color:#9f3e36; background:#7f2f2a; color:#fff4e8; }
 .provider-body[data-provider-theme="luxury"] .booking-sheet-panel {
   border:1px solid #80612d;
   background-color:#070809;

@@ -1214,6 +1214,17 @@
       <button class="primary" type="submit" data-group-booking-write>Сохранить событие</button>
     </form>
   </dialog>
+  <dialog class="provider-confirm-dialog" id="providerConfirmDialog" aria-labelledby="providerConfirmTitle" aria-describedby="providerConfirmMessage">
+    <form method="dialog" class="provider-confirm-form">
+      <small>Подтверждение</small>
+      <h2 id="providerConfirmTitle">Подтвердите действие</h2>
+      <p id="providerConfirmMessage"></p>
+      <div class="provider-confirm-actions">
+        <button class="secondary-button" type="submit" value="cancel">Отмена</button>
+        <button class="provider-confirm-submit" id="providerConfirmSubmit" type="submit" value="confirm">Подтвердить</button>
+      </div>
+    </form>
+  </dialog>
   <div class="booking-sheet" id="bookingSheet" hidden>
     <button class="booking-sheet-backdrop" type="button" data-close-booking-sheet aria-label="Закрыть карточку записи"></button>
     <section class="booking-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="bookingSheetTitle">

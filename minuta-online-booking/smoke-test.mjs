@@ -590,6 +590,10 @@ assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:10px;/, 
 assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая линия не синхронизирована с масштабом расписания');
 assert.match(provider, /compactBookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
 assert.match(providerHtml, /id="mobileNewBookingButton"[^>]*aria-label="Создать запись"/, 'На телефоне нет постоянной быстрой кнопки создания записи');
+assert.match(providerHtml, /<dialog class="provider-confirm-dialog" id="providerConfirmDialog"[^>]*aria-labelledby="providerConfirmTitle"[^>]*aria-describedby="providerConfirmMessage"/, 'Удаление записи не использует собственное доступное окно подтверждения');
+assert.match(provider, /function requestProviderConfirmation[\s\S]*returnValue === 'confirm'[\s\S]*dialog\.showModal\(\)/, 'Собственное подтверждение удаления не возвращает результат диалога');
+assert.match(provider, /const confirmed = await requestProviderConfirmation\([\s\S]*confirmLabel:'Удалить'[\s\S]*if \(!confirmed\) return;/, 'Удаление записи по-прежнему использует верхнее системное подтверждение браузера');
+assert.match(styles, /\.provider-confirm-dialog \{[^}]*position:fixed;[^}]*inset:0;[^}]*margin:auto;/, 'Окно подтверждения удаления не закреплено по центру экрана');
 assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)/, 'Мобильная быстрая кнопка не открывает форму для выбранной даты');
 assert.match(provider, /mobileCreate\.hidden = !\['bookings', 'clients'\]\.includes\(view\)/, 'Кнопка создания записи перекрывает разделы, где она не нужна');
 assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[\s\S]*Записать снова/, 'В карточке клиента нет быстрого повторения записи');
