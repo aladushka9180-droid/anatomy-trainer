@@ -5091,7 +5091,9 @@ function renderTimeline(sourceItems) {
     const statusClass = bookingStatusClass(item);
     // Карточкам до 45 минут нужен компактный двухстрочный макет: обычные
     // внутренние отступы и крупная метка клиента не помещаются в их высоту.
+    const compactMobile = mobileTimeline && height < 54;
     const compact = height < 54 ? ' compact' : '';
+    const tightMobile = mobileTimeline && !minuteOnly && duration <= 60;
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
     const visibleNote = displayPreferences.show_notes ? note : '';
@@ -5101,12 +5103,17 @@ function renderTimeline(sourceItems) {
     const clientDetailsMarkup = block
       ? ''
       : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${displayPreferences.show_phone ? `<span class="timeline-client-phone"><span class="timeline-client-phone-separator" aria-hidden="true"> · </span>${escapeHtml(item.client_phone)}</span>` : ''}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}`;
+    const timelineClientRow = compactMobile
+      ? ''
+      : tightMobile && !block
+      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${visibleNote ? '<span> · есть заметка</span>' : ''}</small></span>`
+      : `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>`;
     const ariaDetails = visibleNote ? `${clientDetails}, заметка: ${visibleNote}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
     const badgeMarkup = block || !displayPreferences.show_client_labels
       ? ''
-      : clientBadgeMarkup(item.client_phone, mobileTimeline ? { limit:3, showLabels:true } : { limit:1 });
+      : clientBadgeMarkup(item.client_phone, tightMobile ? { limit:1, showLabels:false } : mobileTimeline ? { limit:3, showLabels:true } : { limit:1 });
     const imported = Boolean(item.is_imported_history);
     const timelineStatus = block
       ? ''
@@ -5117,17 +5124,20 @@ function renderTimeline(sourceItems) {
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
     const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup}<span class="timeline-service-duration"> · ${duration} мин</span>`;
+    const renderedNote = !mobileTimeline && visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : '';
+    const renderedStatus = tightMobile ? '' : timelineStatus;
     const cardContent = minuteOnly && !mobileTimeline
       ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceTitleMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy"><strong>${serviceTitleMarkup}</strong><span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>${badgeMarkup}${visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : ''}</span>
-      ${timelineStatus}`;
-    const tight = mobileTimeline && !minuteOnly && duration <= 60 ? ' timeline-tight' : '';
+      <span class="timeline-booking-copy"><strong>${serviceTitleMarkup}</strong>${timelineClientRow}${badgeMarkup}${renderedNote}</span>
+      ${renderedStatus}`;
+    const tight = tightMobile ? ' timeline-tight' : '';
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
+    const timelineStyle = `top:${visualTop + 2}px;height:${height}px${tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
-      ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
-      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="top:${visualTop + 2}px;height:${height}px" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : 'Зажмите и перетащите, чтобы изменить время'}">${cardContent}</button>`;
+      ? `<div class="${className}" data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" role="note" aria-label="${ariaLabel}">${cardContent}</div>`
+      : `<button class="${className}" type="button" data-open-booking="${item.id}" ${imported ? 'data-imported-history' : ''} data-booking-duration="${duration}" data-mobile-timeline-top="${top + 2}" style="${timelineStyle}" aria-label="${ariaLabel}" title="${imported ? 'Импортированная запись · только просмотр' : 'Зажмите и перетащите, чтобы изменить время'}">${cardContent}</button>`;
   }).join('');
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`

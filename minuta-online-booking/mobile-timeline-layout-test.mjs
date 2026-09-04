@@ -30,8 +30,12 @@ assert.match(css, /data-provider-theme="luxury"\]\[data-provider-layout="linear"
 assert.match(css, /data-provider-theme="luxury"\]\[data-provider-layout="linear"\] \.timeline-service-core,[\s\S]*?timeline-service-variant \{ position:static; display:inline; transform:none; \}/, 'Части названия услуги могут смещаться относительно карточки');
 
 assert.doesNotMatch(provider, /fitMobileTimelineCards|card\.style\.height = 'auto'|card\.scrollHeight/, 'Мобильная карточка не должна увеличиваться под текст и занимать чужое время');
-assert.match(provider, /const tight = mobileTimeline && !minuteOnly && duration <= 60 \? ' timeline-tight' : '';/, 'Короткие мобильные записи не получают компактный режим содержимого');
+assert.match(provider, /const tightMobile = mobileTimeline && !minuteOnly && duration <= 60;/, 'Короткие мобильные записи не получают компактный режим содержимого');
 assert.match(css, /В мобильной ленте высота записи всегда равна её реальной длительности[\s\S]*?timeline-booking\[data-mobile-timeline-top\] \.timeline-booking-note \{\s*display:none!important;/, 'Полная заметка снова может растянуть карточку по высоте');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]\.timeline-tight\.compact:not\(\.minute-only\) \.timeline-booking-client-row \{\s*display:none!important;/, 'В записи до часа вторичный текст снова вытесняет временную шкалу');
+assert.match(provider, /const renderedNote = !mobileTimeline && visibleNote/, 'Текст заметки всё ещё попадает в мобильную карточку и обрезает название');
+assert.match(provider, /const timelineClientRow = compactMobile\s*\? ''/, 'В короткой мобильной записи остаётся лишняя строка под названием');
+assert.match(provider, /const renderedStatus = tightMobile \? '' : timelineStatus;/, 'Статус короткой записи всё ещё может вытеснить название');
+assert.match(provider, /padding:5px 9px!important;overflow:hidden!important/, 'Критические размеры короткой карточки зависят от старого CSS в кэше');
 
 console.log('mobile timeline layout test: ok');
