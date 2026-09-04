@@ -213,7 +213,12 @@
       const toolbar = $('#teamCalendarToolbar');
       const filters = $('#teamCalendarFilters');
       const status = $('#teamCalendarStatus');
-      const supported = canUseTeamCalendar() && (availability === 'ready' || availability === 'error');
+      const hasTeam = members.length > 1;
+      if (!hasTeam && mode === 'team') {
+        mode = 'personal';
+        onModeChange(false);
+      }
+      const supported = hasTeam && canUseTeamCalendar() && (availability === 'ready' || availability === 'error');
       if (toolbar) toolbar.hidden = !supported;
       if (filters) filters.hidden = mode !== 'team' || availability !== 'ready';
       $$('[data-calendar-mode]').forEach(button => {

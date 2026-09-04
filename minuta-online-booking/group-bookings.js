@@ -92,10 +92,10 @@
       const settings = $('#groupBookingSettingsCard');
       if (!panel || !settings) return;
       const supported = Boolean(organization && ['ready','loading','error'].includes(available));
-      panel.hidden = !supported;
       settings.hidden = !supported;
       if (!supported) return;
       const enabled = payload?.enabled === true;
+      panel.hidden = !enabled;
       const toggle = $('#groupBookingsEnabled');
       if (toggle) {
         toggle.checked = enabled;
@@ -106,7 +106,7 @@
         ? 'Проверяем доступность…'
         : available === 'error'
           ? 'Не удалось загрузить групповые события. Повторите обновление.'
-          : enabled ? 'События опубликованы и видны клиентам.' : 'Функция выключена — черновики видны только вам.';
+          : enabled ? 'Функция включена. События можно создавать и публиковать для клиентов.' : 'Функция выключена. Блок групповых сеансов скрыт из расписания, сохранённые события не удалены.';
       const add = $('#newGroupEvent');
       if (add) add.disabled = available !== 'ready' || !payload?.performers?.length || !payload?.locations?.length;
       const list = $('#groupEventsList');
@@ -198,13 +198,18 @@
 
     async function setEnabled(enabled) {
       if (!requireWrites()) return render();
+      const existingEvents = Array.isArray(payload?.events) ? payload.events.filter(item => item.status !== 'cancelled') : [];
+      if (!enabled && existingEvents.length && !window.confirm('В кабинете есть групповые сеансы. Они сохранятся, но блок будет скрыт из расписания, а новые клиенты не смогут записываться. Отключить функцию?')) {
+        render();
+        return;
+      }
       const { error } = await db.rpc('set_minuta_group_bookings_enabled', { p_organization:organization.id, p_enabled:enabled });
       if (error) {
         notify('Не удалось изменить настройку групповых событий');
         render();
         return;
       }
-      notify(enabled ? 'Групповые события включены' : 'Групповые события скрыты от клиентов');
+      notify(enabled ? 'Групповые сеансы включены' : 'Групповые сеансы скрыты');
       await load();
     }
 

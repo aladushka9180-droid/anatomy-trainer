@@ -5680,6 +5680,101 @@ html.provider-booting .provider-main {
 .provider-workspace { overflow-anchor:none; }
 #clientsList,.schedule-list,#reportServicesList { overflow-anchor:auto; }
 
+/* Мобильное расписание: ежедневные записи получают приоритет над редкими инструментами. */
+@media (max-width:760px) {
+  .provider-body .provider-day-focus,
+  .provider-body .schedule-view-title .free-slots-open-button {
+    display:none!important;
+  }
+
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+    min-height:0!important;
+    margin-bottom:0;
+    padding:12px 10px!important;
+    gap:8px!important;
+    border-radius:16px!important;
+  }
+  .provider-body .provider-topbar h1 {
+    margin-top:3px;
+    font-size:clamp(22px,7vw,28px)!important;
+    line-height:1.05;
+  }
+  .provider-body .provider-current-moment {
+    font-size:10px!important;
+  }
+  .provider-body .provider-topbar-actions {
+    gap:6px;
+  }
+  .provider-body .provider-topbar .voice-assistant-open,
+  .provider-body .provider-topbar .topbar-client-link,
+  .provider-body .provider-topbar .sync-tool-button {
+    width:48px;
+    min-height:44px;
+  }
+  .provider-body .provider-topbar .sync-state {
+    min-height:36px;
+    padding:7px 10px;
+    box-shadow:none;
+  }
+
+  .provider-body .provider-view[data-provider-panel="bookings"] {
+    padding-top:14px;
+  }
+  .provider-body .schedule-view-title {
+    align-items:end;
+    margin-bottom:10px;
+  }
+  .provider-body .schedule-view-title h2 {
+    font-size:32px;
+    line-height:1;
+  }
+  .provider-body .schedule-view-title .view-title-actions {
+    width:auto;
+  }
+  .provider-body .schedule-title-line {
+    align-items:end;
+    gap:10px;
+  }
+  .provider-body .dashboard-summary {
+    min-height:34px;
+    padding:5px 8px;
+    box-shadow:none;
+  }
+  .provider-body .dashboard-summary div {
+    gap:3px;
+  }
+  .provider-body .dashboard-summary strong {
+    font-size:14px;
+  }
+
+  .provider-body[data-provider-theme][data-provider-layout] .schedule-card {
+    overflow:visible;
+    border-radius:18px!important;
+    box-shadow:none!important;
+  }
+  .provider-body .date-navigation,
+  .provider-body .date-strip,
+  .provider-body .schedule-toolbar,
+  .provider-body .team-calendar-toolbar {
+    box-shadow:none!important;
+  }
+  .provider-body .group-events-panel[hidden] {
+    display:none!important;
+  }
+
+  .provider-body .provider-mobile-create {
+    right:16px;
+    bottom:max(88px,calc(78px + env(safe-area-inset-bottom,0px)));
+    min-width:116px;
+    min-height:52px;
+    padding:0 18px;
+    box-shadow:0 10px 24px color-mix(in srgb,var(--theme-shadow) 70%,transparent);
+  }
+  .provider-body .provider-workspace {
+    padding-bottom:max(112px,calc(100px + env(safe-area-inset-bottom,0px)))!important;
+  }
+}
+
 /* Заголовок статистики не делится внутри слова и не сжимается кнопкой отчёта. */
 @media (min-width:761px) {
   #analyticsView .view-title {
