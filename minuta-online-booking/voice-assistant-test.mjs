@@ -429,6 +429,49 @@ const compoundPlan = voice.interpretCommand(
 );
 assert.equal(compoundPlan.kind, 'compound_plan', 'две задачи в одной фразе должны разделяться на безопасные шаги');
 assert.deepEqual(compoundPlan.steps.map(step => step.kind), ['find_slots', 'message_draft']);
+assert.equal(
+  voice.interpretCommand('Покажи записи завтра и потом напиши Анне и затем найди окно на массаж и потом открой уведомления', assistantSnapshot, now).kind,
+  'smart_clarification',
+  'помощник не должен молча отбрасывать четвёртый шаг длинного плана'
+);
+
+const screenSnapshot = {
+  ...assistantSnapshot,
+  undoAvailable:true,
+  screen:{
+    view:'bookings',
+    viewLabel:'Записи',
+    selectedDate:'2026-09-03',
+    surface:'booking',
+    booking:{ id:'future-anna', clientName:'Анна Петрова', date:'2026-09-03', time:'10:30', durationMinutes:60, serviceId:'massage', serviceName:'Массаж', status:'confirmed' }
+  }
+};
+assert.equal(voice.conversationContextFromSnapshot(screenSnapshot).bookingId, 'future-anna');
+const screenMove = voice.interpretCommand('Перенеси её на пятницу в 15:00', screenSnapshot, now);
+assert.equal(screenMove.kind, 'operation_preview');
+assert.equal(screenMove.plan.bookingId, 'future-anna', 'открытая карточка должна однозначно определять запись');
+assert.equal(screenMove.continuedFromScreen, true);
+const screenMessage = voice.interpretCommand('Напиши ей напоминание', screenSnapshot, now);
+assert.equal(screenMessage.kind, 'message_draft');
+assert.match(screenMessage.draftText, /Анна/);
+const currentScreenHelp = voice.interpretCommand('Что можно сделать на текущем экране?', screenSnapshot, now);
+assert.equal(currentScreenHelp.kind, 'screen_context');
+assert.match(currentScreenHelp.title, /Анна Петрова/);
+const undoPreview = voice.interpretCommand('Верни назад как было', screenSnapshot, now);
+assert.equal(undoPreview.kind, 'undo_preview');
+assert.equal(undoPreview.canUndo, true);
+assert.equal(voice.interpretCommand('Верни назад как было', { ...screenSnapshot, undoAvailable:false }, now).canUndo, undefined);
+
+const ambiguousAnna = voice.interpretCommand('Перенеси Анну на пятницу в 15:00', {
+  ...assistantSnapshot,
+  bookings:[
+    ...assistantSnapshot.bookings,
+    { id:'future-anna-2', clientName:'Анна Петрова', clientKey:'79990000004', date:'2026-09-04', time:'12:00', status:'confirmed', outcome:'scheduled', serviceId:'massage', serviceName:'Массаж' }
+  ]
+}, now);
+assert.equal(ambiguousAnna.kind, 'operation_preview');
+assert.equal(ambiguousAnna.plan.bookingId, '');
+assert.equal(ambiguousAnna.candidates.length, 2, 'при двух записях одного клиента помощник должен спросить, а не угадывать');
 
 const shorterDraft = voice.interpretCommand('Сделай короче', assistantSnapshot, now, postDraft);
 assert.equal(shorterDraft.revised, true);

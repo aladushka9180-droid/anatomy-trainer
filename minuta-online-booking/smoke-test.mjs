@@ -124,6 +124,12 @@ assert.match(voiceAssistant, /function learnedCorrectionRules/, 'Помощни�
 assert.match(voiceAssistant, /function updateConversationContext/, 'Помощник не запоминает контекст текущего диалога');
 assert.match(voiceAssistant, /kind:'compound_plan'/, 'Помощник не разделяет составные команды на безопасные шаги');
 assert.match(voiceAssistant, /function reviseDraftModel/, 'Черновики нельзя уточнять короткими командами');
+assert.match(provider, /function providerAssistantScreenContext/, 'Помощник не получает безопасный контекст текущего экрана');
+assert.match(voiceAssistant, /function screenAwareCommand/, 'Команда не учитывает открытую карточку записи');
+assert.match(voiceAssistant, /data-voice-plan-start/, 'Составной план нельзя пройти последовательно');
+assert.match(provider, /undoLastAssistantStep\(\)/, 'Нет безопасного возврата после перехода помощника');
+assert.match(voiceAssistant, /data-voice-undo/, 'Возврат предыдущего экрана не подключён к интерфейсу помощника');
+assert.match(voiceAssistant, /помощник не будет угадывать/, 'Неоднозначная запись выбирается без уточнения');
 assert.match(providerHtml, /Полный текст команды не сохраняется/i, 'Пользователю не объяснены границы локального обучения');
 assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
 assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');

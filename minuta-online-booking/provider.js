@@ -5206,6 +5206,8 @@ function focusCreatedBooking(id) {
 function openBookingSheet(id) {
   const item = bookingSourceItems().find(booking => booking.id === id);
   if (!item) return;
+  $('#bookingSheet').dataset.bookingId = String(item.id || '');
+  $('#bookingSheet').dataset.assistantContext = 'booking';
   const date = new Date(`${item.booking_date}T12:00:00`);
   const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
   const statusText = bookingStatus(item, true);
@@ -5292,6 +5294,8 @@ function openBookingSheet(id) {
 function openBookingSeriesCancellation(id) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item?.series_id || item.status === 'cancelled' || bookingOutcome(item).visit_status !== 'scheduled') return;
+  $('#bookingSheet').dataset.bookingId = String(item.id || '');
+  $('#bookingSheet').dataset.assistantContext = 'series-cancellation';
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">Серия записей</small></div><h2 id="bookingSheetTitle">Какие записи отменить?</h2>
@@ -5689,6 +5693,8 @@ async function saveBookingSession(event) {
 function openBookingEditor(id, preset = {}) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item) return;
+  $('#bookingSheet').dataset.bookingId = String(item.id || '');
+  $('#bookingSheet').dataset.assistantContext = 'booking-editor';
   const block = isScheduleBlock(item);
   const presetDate = providerAssistantIsoDate(preset.date) || item.booking_date;
   bookingEditTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(preset.time || '')) ? String(preset.time) : String(item.booking_time).slice(0, 5);
@@ -6132,6 +6138,8 @@ function setNewBookingMode(mode) {
 
 function openNewBookingSheet(preferredTime = '', preset = {}) {
   if (bookingUsesDemoData()) { notify('Демо-записи доступны только для просмотра'); return; }
+  delete $('#bookingSheet').dataset.bookingId;
+  $('#bookingSheet').dataset.assistantContext = 'new-booking';
   const services = ownServices.filter(item => item.active);
   const draft = preset.clientName ? null : readNewBookingDraft();
   const selectedService = services.find(item => item.id === (preset.serviceId || draft?.serviceId)) || services[0];
@@ -6652,6 +6660,8 @@ function closeBookingSheet() {
   newBookingHistoricalMode = false;
   $('#bookingSheet').hidden = true;
   $('#bookingSheet').classList.remove('booking-sheet-wide', 'new-booking-sheet');
+  delete $('#bookingSheet').dataset.bookingId;
+  delete $('#bookingSheet').dataset.assistantContext;
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   document.body.classList.remove('booking-sheet-open');
 }
@@ -10160,6 +10170,73 @@ function rememberProviderAssistantCorrections(rules = []) {
   }
 }
 
+const PROVIDER_ASSISTANT_UNDO_TTL_MS = 10 * 60 * 1000;
+let providerAssistantUndoState = null;
+
+function providerAssistantOpenBookingId() {
+  const sheet = $('#bookingSheet');
+  return sheet && !sheet.hidden ? String(sheet.dataset.bookingId || '') : '';
+}
+
+function providerAssistantScreenContext(readable = false, offline = false) {
+  const view = String($('#dashboard')?.dataset.activeView || providerViewFromLocation() || 'bookings');
+  const viewLabel = ({
+    bookings:'Записи', clients:'Клиенты', notifications:'Уведомления', waitlist:'Лист ожидания', analytics:'Статистика',
+    schedule:'График', services:'Услуги', organization:'Организация', portfolio:'Портфолио', settings:'Настройки'
+  })[view] || 'Кабинет';
+  const bookingId = providerAssistantOpenBookingId();
+  const item = readable && bookingId ? allBookings.find(entry => String(entry.id || '') === bookingId && !isScheduleBlock(entry)) : null;
+  return {
+    view,
+    viewLabel,
+    selectedDate:String(selectedDate || ''),
+    surface:String($('#bookingSheet')?.dataset.assistantContext || ''),
+    booking:item ? {
+      id:String(item.id || ''),
+      clientName:offline ? 'Клиент' : String(item.client_name || 'Клиент'),
+      date:String(item.booking_date || ''),
+      time:String(item.booking_time || '').slice(0, 5),
+      durationMinutes:providerAssistantNumber(item.duration_minutes || item.services?.duration_minutes, 60, 1, 480),
+      serviceId:String(item.service_id || ''),
+      serviceName:serviceName(item.services?.name || 'Услуга'),
+      status:String(item.status || 'confirmed')
+    } : null
+  };
+}
+
+function providerAssistantUndoAvailable() {
+  return Boolean(providerAssistantUndoState
+    && currentUser?.id === providerAssistantUndoState.userId
+    && sessionGeneration === providerAssistantUndoState.sessionGeneration
+    && Date.now() <= providerAssistantUndoState.expiresAt);
+}
+
+function captureProviderAssistantNavigation() {
+  if (!currentUser?.id) return;
+  providerAssistantUndoState = {
+    userId:currentUser.id,
+    sessionGeneration,
+    view:String($('#dashboard')?.dataset.activeView || providerViewFromLocation() || 'bookings'),
+    selectedDate:String(selectedDate || ''),
+    bookingId:providerAssistantOpenBookingId(),
+    expiresAt:Date.now() + PROVIDER_ASSISTANT_UNDO_TTL_MS
+  };
+}
+
+function restoreProviderAssistantNavigation() {
+  if (!providerAssistantUndoAvailable()) {
+    providerAssistantUndoState = null;
+    return { ok:false, reason:'nothing_to_undo' };
+  }
+  const previous = providerAssistantUndoState;
+  providerAssistantUndoState = null;
+  closeBookingSheet();
+  setProviderView(PROVIDER_VIEW_ORDER.includes(previous.view) ? previous.view : 'bookings');
+  if (providerAssistantIsoDate(previous.selectedDate)) selectScheduleDate(previous.selectedDate);
+  if (previous.bookingId && allBookings.some(item => String(item.id || '') === previous.bookingId)) openBookingSheet(previous.bookingId);
+  return { ok:true };
+}
+
 window.MinutaProviderAssistant = Object.freeze({
   remoteUnderstandingEnabled:Boolean(window.MINUTA_CONFIG.assistantRemoteUnderstanding),
   getAssistantLexicon:providerAssistantLexicon,
@@ -10191,6 +10268,7 @@ window.MinutaProviderAssistant = Object.freeze({
     const now = new Date();
     const nextDay = new Date(now.getTime() + 86400000);
     const notificationTasks = readable ? buildNotificationTasks().map(task => ({ ...task, mark:marks[task.key] || '' })) : [];
+    const screen = providerAssistantScreenContext(readable, offline);
     return {
       authenticated:Boolean(currentUser),
       synchronized,
@@ -10205,6 +10283,8 @@ window.MinutaProviderAssistant = Object.freeze({
       organizationName:readable ? String(organization?.name || '') : '',
       currentRole:readable ? String(organization?.current_role || '') : '',
       canManage:Boolean(readable && organization?.can_manage),
+      screen,
+      undoAvailable:providerAssistantUndoAvailable(),
       dataQuality:{
         bookings:readable ? (bookingsSnapshotFromCache ? 'anonymized_cache' : 'server') : 'unavailable',
         outcomes:outcomesRemoteAvailable ? 'server' : bookingOutcomes.size ? 'local_fallback' : 'unavailable',
@@ -10299,8 +10379,12 @@ window.MinutaProviderAssistant = Object.freeze({
     const allowed = new Set(['bookings', 'clients', 'notifications', 'waitlist', 'schedule', 'services', 'organization', 'analytics', 'portfolio', 'settings']);
     const view = String(section || '');
     if (!currentUser || !allowed.has(view)) return { ok:false, reason:'invalid_request' };
+    captureProviderAssistantNavigation();
     setProviderView(view);
     return { ok:true };
+  },
+  undoLastAssistantStep() {
+    return restoreProviderAssistantNavigation();
   },
   prepareBookingOperation(plan = {}) {
     const synchronized = Boolean(currentUser && navigator.onLine && bookingCreationReady && !bookingsSnapshotFromCache);
@@ -10308,15 +10392,19 @@ window.MinutaProviderAssistant = Object.freeze({
     if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok:false, reason:'invalid_request' };
     const item = allBookings.find(booking => String(booking.id) === String(plan.bookingId || ''));
     if (!item || isScheduleBlock(item) || item.status === 'cancelled' || bookingOutcome(item).visit_status === 'completed') return { ok:false, reason:'invalid_request' };
-    setProviderView('bookings');
-    selectScheduleDate(item.booking_date);
     if (plan.operation === 'cancel') {
+      captureProviderAssistantNavigation();
+      setProviderView('bookings');
+      selectScheduleDate(item.booking_date);
       openBookingSheet(item.id);
       return { ok:true, confirmationRequired:true };
     }
     const date = providerAssistantIsoDate(plan.targetDate);
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(plan.targetTime || '')) ? String(plan.targetTime) : '';
     if (plan.operation !== 'reschedule' || !date || date < businessTodayIso() || !time) return { ok:false, reason:'invalid_request' };
+    captureProviderAssistantNavigation();
+    setProviderView('bookings');
+    selectScheduleDate(item.booking_date);
     openBookingEditor(item.id, { date, time });
     return { ok:true, confirmationRequired:true };
   },
@@ -10363,6 +10451,7 @@ window.MinutaProviderAssistant = Object.freeze({
     const durationMinutes = service && Number(service.duration_minutes) === 1
       ? providerAssistantNumber(plan.durationMinutes || serviceDefaultDuration(service.id), serviceDefaultDuration(service.id), 1, 480)
       : undefined;
+    captureProviderAssistantNavigation();
     setProviderView('bookings');
     selectScheduleDate(date);
     openNewBookingSheet(time, {

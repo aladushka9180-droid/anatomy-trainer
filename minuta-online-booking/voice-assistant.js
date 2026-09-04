@@ -643,6 +643,8 @@
       .filter(item => item.date >= today && item.status !== 'cancelled')
       .filter(item => !requestedDate || item.date === requestedDate)
       .sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
+    const explicitId = normalizeText(command).match(/(?:^|\s)запись-id-([a-z0-9-]+)(?=\s|$)/)?.[1] || '';
+    if (explicitId) return future.find(item => String(item.id || '') === explicitId) || null;
     const matched = clientBookingMatches(command, future);
     if (matched.length) return matched.sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`))[0];
     return future.length === 1 ? future[0] : null;
@@ -837,9 +839,19 @@
       .sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
     const explicitId = text.match(/(?:^|\s)запись-id-([a-z0-9-]+)(?=\s|$)/)?.[1] || '';
     const matches = clientBookingMatches(text, future).sort((left, right) => `${left.date}${left.time || ''}`.localeCompare(`${right.date}${right.time || ''}`));
-    const booking = future.find(item => String(item.id) === explicitId) || matches[0] || (future.length === 1 ? future[0] : null);
+    const explicitBooking = future.find(item => String(item.id) === explicitId) || null;
+    const booking = explicitBooking || (matches.length === 1 ? matches[0] : null) || (!matches.length && future.length === 1 ? future[0] : null);
     const targetDate = operation === 'reschedule' ? parseRussianDate(text, now) : '';
     const targetTime = operation === 'reschedule' ? parseRussianTime(text) : '';
+    if (!explicitBooking && matches.length > 1) return {
+      kind:'operation_preview',
+      operation,
+      title:`Уточните запись · ${matches[0].clientName || 'Клиент'}`,
+      message:`Нашёл ${matches.length} будущие записи этого клиента. Выберите нужную — помощник не будет угадывать.`,
+      needsDetail:'конкретная запись',
+      candidates:matches.slice(0, 6),
+      plan:{ operation, bookingId:'', targetDate, targetTime }
+    };
     if (!booking) return {
       kind:'operation_preview',
       operation,
@@ -1001,6 +1013,7 @@
     if (plan.serviceName) next.serviceName = String(plan.serviceName).slice(0, 120);
     if (plan.date) next.date = String(plan.date);
     if (plan.time) next.time = String(plan.time);
+    if (plan.bookingId) next.bookingId = String(plan.bookingId).slice(0, 100);
     if (Number(plan.durationMinutes)) next.durationMinutes = Number(plan.durationMinutes);
     const items = Array.isArray(model?.items) ? model.items : [];
     if (items.length === 1) {
@@ -1010,8 +1023,79 @@
       if (item.serviceName) next.serviceName = String(item.serviceName).slice(0, 120);
       if (item.date) next.date = String(item.date);
       if (item.time) next.time = String(item.time);
+      if (item.id) next.bookingId = String(item.id).slice(0, 100);
     }
     return next;
+  }
+
+  function conversationContextFromSnapshot(snapshot = {}) {
+    const booking = snapshot.screen?.booking;
+    if (!booking?.id) return {};
+    return {
+      bookingId:String(booking.id).slice(0, 100),
+      clientName:String(booking.clientName || '').slice(0, 100),
+      serviceId:String(booking.serviceId || '').slice(0, 100),
+      serviceName:String(booking.serviceName || '').slice(0, 120),
+      date:String(booking.date || ''),
+      time:String(booking.time || ''),
+      durationMinutes:Number(booking.durationMinutes) || 0
+    };
+  }
+
+  function screenAwareCommand(command, snapshot = {}) {
+    const text = repairCommand(command).text;
+    const booking = snapshot.screen?.booking;
+    if (!text || !booking?.id) return '';
+    if (/запись-id-[a-z0-9-]+/.test(text)) return '';
+    const operation = /(?:^|\s)(?:перенес[а-я]*|сдвин[а-я]*|перестав[а-я]*|отмен[а-я]*|удал[а-я]*\s+запис[а-я]*)(?=\s|$)/.test(text);
+    if (operation && (/(?:эту|ее|её|ее|ней|неё|запис[а-я]*)/.test(text) || !parseClientName(text))) return `${text} запись-id-${booking.id}`;
+    const message = /(?:напиш[а-я]*|сообщен[а-я]*|напоминан[а-я]*|подтвержден[а-я]*)/.test(text);
+    if (message && /(?:^|\s)(?:ей|ему|клиент[а-я]*|по\s+ней|по\s+нему)(?=\s|$)/.test(text)) return `${text} запись-id-${booking.id}`;
+    return '';
+  }
+
+  function screenContextModel(command, snapshot = {}) {
+    const text = repairCommand(command).text;
+    if (!/(?:что\s+(?:здесь|открыто|за\s+запись|можно\s+сделать)|помоги\s+(?:здесь|с\s+этой\s+записью)|про\s+эту\s+запись|текущ[а-я]*\s+экран)/.test(text)) return null;
+    const screen = snapshot.screen || {};
+    const booking = screen.booking;
+    if (booking?.id) return {
+      kind:'screen_context',
+      title:`Открыта запись · ${booking.clientName || 'Клиент'}`,
+      message:`${formatDate(booking.date)} в ${booking.time || '—'} · ${booking.serviceName || 'Услуга'}. Можно продолжить без повторения имени клиента.`,
+      points:['Перенести эту запись', 'Подготовить клиенту напоминание', 'Показать историю клиента'],
+      examples:['Перенеси её на пятницу в 15:00', 'Напиши ей напоминание', 'Когда она была раньше?']
+    };
+    const view = String(screen.viewLabel || 'Кабинет');
+    const viewExamples = {
+      'Записи':['Что у меня сегодня?', 'Найди окно завтра на массаж'],
+      'Клиенты':['Найди клиента Анну', 'Сколько новых клиентов сегодня?'],
+      'Уведомления':['Напиши напоминание клиенту', 'Что требует внимания?'],
+      'Статистика':['Какая выручка сегодня?', 'Какие услуги принесли больше денег?'],
+      'Услуги':['Какую цену поставить на массаж?', 'Напиши описание услуги']
+    };
+    return {
+      kind:'screen_context',
+      title:`Сейчас открыт раздел «${view}»`,
+      message:'Я учитываю текущий раздел и предложу действие по его данным. Выберите пример или скажите задачу своими словами.',
+      examples:viewExamples[view] || ['Что у меня сегодня?', 'Что требует внимания?', 'С чего начать?']
+    };
+  }
+
+  function undoPreviewModel(command, snapshot = {}) {
+    const text = repairCommand(command).text;
+    if (!/(?:верн[а-я]*\s+(?:назад|как\s+было)|отмен[а-я]*\s+(?:последн[а-я]*\s+)?(?:шаг|переход)|назад\s+как\s+было)/.test(text)) return null;
+    if (!snapshot.undoAvailable) return {
+      kind:'undo_preview',
+      title:'Нечего возвращать',
+      message:'Помощник не выполнял обратимого перехода в последние 10 минут. Данные кабинета не изменены.'
+    };
+    return {
+      kind:'undo_preview',
+      title:'Вернуть предыдущий экран?',
+      message:'Верну раздел, дату и открытую карточку, которые были до последнего перехода помощника. Записи и другие данные не изменятся.',
+      canUndo:true
+    };
   }
 
   function contextualMemoryCommand(command, context = {}) {
@@ -1024,7 +1108,7 @@
       if (/(?:напоминан|сообщен|подтвержден|напиш|отправ)/.test(text)) return `напиши сообщение клиенту ${client} ${text}`;
       if (/(?:перенес|сдвин|перестав|отмен)/.test(text)) return `${text} клиента ${client}`;
     }
-    if (client && /^(?:перенес[а-я]*|сдвин[а-я]*|перестав[а-я]*|отмен[а-я]*)(?:\s|$)/.test(text) && !parseClientName(text)) return `${text} клиента ${client}`;
+    if (client && /^(?:перенес[а-я]*|сдвин[а-я]*|перестав[а-я]*|отмен[а-я]*)(?:\s|$)/.test(text) && !parseClientName(text)) return context.bookingId ? `${text} запись-id-${context.bookingId}` : `${text} клиента ${client}`;
     if (service && freeSlotSignal(text) && !serviceForCommand(text, { services:[{ id:context.serviceId || 'remembered', name:service }] })) return `${text} на ${service}`;
     return '';
   }
@@ -1091,15 +1175,21 @@
   }
 
   function compoundCommandModel(command, snapshot = {}, now = new Date(), conversationContext = {}) {
-    const parts = String(command || '').split(/\s+(?:и\s+потом|а\s+потом|затем|потом|и)\s+/i).map(item => item.trim()).filter(Boolean).slice(0, 3);
+    const parts = String(command || '').split(/\s+(?:и\s+потом|а\s+потом|затем|потом|и)\s+/i).map(item => item.trim()).filter(Boolean);
     if (parts.length < 2) return null;
+    if (parts.length > 3) return {
+      kind:'smart_clarification',
+      title:'Разделим задачу на два плана',
+      message:'В одной команде получилось больше трёх самостоятельных шагов. Сначала назовите первые два или три — так каждый результат можно безопасно проверить.',
+      examples:[parts.slice(0, 3).join(' и потом ')]
+    };
     const steps = parts.map(part => ({ command:part, model:interpretCommand(part, snapshot, now, null, conversationContext, false) }));
     if (steps.some(step => ['help','error','small_talk','compound_plan'].includes(step.model.kind))) return null;
     if (new Set(steps.map(step => step.model.kind)).size < 2) return null;
     return {
       kind:'compound_plan',
       title:`План из ${steps.length} шагов`,
-      message:'Я разделил команду на последовательные безопасные шаги. Откройте каждый шаг отдельно и проверьте результат.',
+      message:'Я разделил команду на последовательные безопасные шаги. Нажмите «Начать план» и проверяйте результат каждого шага.',
       steps:steps.map((step, index) => ({ command:step.command, label:`${index + 1}. ${step.model.title}`, kind:step.model.kind })),
       points:steps.map((step, index) => `${index + 1}. ${step.model.title}: ${step.model.message}`),
       understandingConfidence:'medium'
@@ -1171,6 +1261,12 @@
     const finish = model => understanding(model, repaired);
     const today = snapshot.today || localIsoDate(dateAtNoon(now));
     if (!text) return finish({ kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' });
+    const undo = undoPreviewModel(text, snapshot);
+    if (undo) return finish(undo);
+    const screenContext = screenContextModel(text, snapshot);
+    if (screenContext) return finish(screenContext);
+    const screenCommand = screenAwareCommand(text, snapshot);
+    if (screenCommand) return finish({ ...interpretCommand(screenCommand, snapshot, now, previousModel, conversationContext, false), continuedFromScreen:true });
     const smallTalk = smallTalkModel(text, previousModel);
     if (smallTalk) return finish(smallTalk);
     const revisedDraft = reviseDraftModel(text, previousModel, snapshot);
@@ -1274,6 +1370,8 @@
     if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
     if (model.kind === 'operation_preview') return 108 + (model.plan?.bookingId ? 14 : 0) + (model.needsDetail ? 0 : 12);
     if (model.kind === 'compound_plan') return 96;
+    if (model.kind === 'screen_context') return 88;
+    if (model.kind === 'undo_preview') return model.canUndo ? 94 : 78;
     if (model.kind === 'small_talk') return 86;
     if (['message_draft','content_draft','price_advice','promotion_ideas','operational_briefing','workspace_help','permission_notice'].includes(model.kind)) return 84;
     if (['revenue_summary','revenue_change','inventory_summary','inventory_forecast','attention','clients_summary','service_performance','team_summary'].includes(model.kind)) return 76;
@@ -1548,6 +1646,7 @@
     let conversationHistory = [];
     let conversationContext = {};
     let correctionOriginal = '';
+    let activePlan = null;
 
     function rememberConversation(command, model) {
       const userText = String(command || '').replace(/\s+/g, ' ').trim().slice(0, 500);
@@ -1695,6 +1794,7 @@
       conversationHistory = [];
       conversationContext = {};
       correctionOriginal = '';
+      activePlan = null;
       starters?.classList.remove('is-secondary');
       if (capabilities) capabilities.open = false;
       backButton.hidden = true;
@@ -1714,6 +1814,7 @@
       conversationHistory = [];
       conversationContext = {};
       correctionOriginal = '';
+      activePlan = null;
       input.placeholder = 'Например: найди окно завтра';
       starters?.classList.remove('is-secondary');
       backButton.hidden = true;
@@ -1762,7 +1863,7 @@
         return list ? `<ul>${list}</ul>${model.total > model.items.length ? `<small>Показаны первые ${model.items.length} из ${model.total}</small>` : ''}` : '';
       }
       if (model.kind === 'compound_plan') {
-        const choices = (model.steps || []).map(step => `<button class="voice-result-choice" type="button" data-voice-step="${escapeHtml(step.command)}">${escapeHtml(step.label)}</button>`).join('');
+        const choices = (model.steps || []).map((step, index) => `<button class="voice-result-choice" type="button" data-voice-step="${escapeHtml(step.command)}" data-voice-step-index="${index}">${escapeHtml(step.label)}</button>`).join('');
         const points = (model.points || []).map(item => `<li><span>${escapeHtml(item)}</span></li>`).join('');
         return `${choices ? `<div class="voice-result-choices" aria-label="Шаги команды">${choices}</div>` : ''}${points ? `<ul class="voice-result-points">${points}</ul>` : ''}`;
       }
@@ -1773,6 +1874,16 @@
         return `${metrics}${points}${draft}`;
       }
       return draft;
+    }
+
+    function runActivePlanStep(index) {
+      if (!activePlan || !Array.isArray(activePlan.steps)) return;
+      const nextIndex = Number(index);
+      const step = activePlan.steps[nextIndex];
+      if (!step?.command) return;
+      activePlan.index = nextIndex;
+      input.value = step.command;
+      understand();
     }
 
     async function findSlots(model) {
@@ -1813,8 +1924,12 @@
       const copyAction = model.draftText && !model.needsDetail ? `<button class="primary" type="button" data-voice-copy>${escapeHtml(model.copyLabel || 'Скопировать')}</button>` : '';
       const openAction = model.openSection ? `<button class="secondary-button" type="button" data-voice-open-section="${escapeHtml(model.openSection)}">${escapeHtml(model.openLabel || 'Открыть раздел')}</button>` : '';
       const operationAction = model.kind === 'operation_preview' && model.plan?.bookingId && !model.needsDetail ? `<button class="primary" type="button" data-voice-operation>${model.operation === 'cancel' ? 'Открыть отмену' : 'Открыть перенос'}</button>` : '';
+      const undoAction = model.kind === 'undo_preview' && model.canUndo ? '<button class="primary" type="button" data-voice-undo>Вернуть предыдущий экран</button>' : '';
+      const planStartAction = model.kind === 'compound_plan' && model.steps?.length ? '<button class="primary" type="button" data-voice-plan-start>Начать план</button>' : '';
+      const planNextAction = activePlan && model.kind !== 'compound_plan' && activePlan.index + 1 < activePlan.steps.length ? '<button class="primary" type="button" data-voice-plan-next>Следующий шаг</button>' : '';
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
-      const actions = prepareAction || copyAction || openAction || operationAction || speakAction ? `<div class="voice-result-actions">${prepareAction}${copyAction}${operationAction}${openAction}${speakAction}</div>` : '';
+      const actions = prepareAction || copyAction || openAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${operationAction}${undoAction}${openAction}${speakAction}</div>` : '';
+      const planProgress = activePlan && model.kind !== 'compound_plan' ? `<p class="voice-source-note">План · шаг ${activePlan.index + 1} из ${activePlan.steps.length}</p>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       const sourceNote = model.sourceLabel ? `<p class="voice-source-note">${escapeHtml(model.sourceLabel)}</p>` : '';
       const correctionNote = model.corrections?.length
@@ -1822,7 +1937,7 @@
         : '';
       const feedback = lastCommand && model.kind !== 'error' ? '<div class="voice-feedback" aria-label="Оценить понимание команды"><span>Я правильно понял?</span><button type="button" data-voice-feedback="yes">Да</button><button type="button" data-voice-feedback="fix">Исправить</button></div>' : '';
       result.className = `voice-assistant-result is-${model.kind}`;
-      result.innerHTML = `${offlineNotice}${correctionNote}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${sourceNote}${actions}${feedback}`;
+      result.innerHTML = `${offlineNotice}${correctionNote}${planProgress}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${sourceNote}${actions}${feedback}`;
       result.hidden = false;
       starters?.classList.add('is-secondary');
       backButton.hidden = false;
@@ -1838,9 +1953,19 @@
         status.textContent = 'Понял. Оценка учтена только в текущем окне и не сохраняет текст команды.';
       }));
       result.querySelectorAll?.('[data-voice-step]')?.forEach(button => button.addEventListener('click', () => {
-        input.value = button.dataset.voiceStep || '';
-        understand();
+        activePlan = { steps:(model.steps || []).map(step => ({ ...step })), index:Number(button.dataset.voiceStepIndex || 0) };
+        runActivePlanStep(activePlan.index);
       }));
+      result.querySelector('[data-voice-plan-start]')?.addEventListener('click', () => {
+        activePlan = { steps:(model.steps || []).map(step => ({ ...step })), index:0 };
+        runActivePlanStep(0);
+      });
+      result.querySelector('[data-voice-plan-next]')?.addEventListener('click', () => runActivePlanStep(activePlan.index + 1));
+      result.querySelector('[data-voice-undo]')?.addEventListener('click', () => {
+        const response = bridge.undoLastAssistantStep?.();
+        if (response?.ok) close();
+        else status.textContent = 'Предыдущий переход уже недоступен. Данные кабинета не изменены.';
+      });
       result.querySelectorAll?.('[data-voice-booking-option]')?.forEach(button => button.addEventListener('click', () => {
         input.value = button.dataset.voiceBookingOption || '';
         understand();
@@ -1993,6 +2118,7 @@
       }
       const enteredCommand = input.value.trim();
       const now = new Date();
+      conversationContext = { ...conversationContext, ...conversationContextFromSnapshot(snapshot) };
       const learnedRules = correctionOriginal ? learnedCorrectionRules(correctionOriginal, enteredCommand, snapshot) : [];
       if (learnedRules.length) bridge.rememberAssistantCorrections?.(learnedRules);
       correctionOriginal = '';
@@ -2204,15 +2330,19 @@
         lastSessionGeneration = null;
         pendingCommand = '';
         conversationHistory = [];
-        conversationContext = {};
+        const openingSnapshot = bridge.getReadOnlySnapshot?.() || {};
+        conversationContext = conversationContextFromSnapshot(openingSnapshot);
         correctionOriginal = '';
+        activePlan = null;
         input.placeholder = 'Например: найди окно завтра';
         result.hidden = true;
         result.replaceChildren();
         starters?.classList.remove('is-secondary');
         backButton.hidden = true;
         if (capabilities) capabilities.open = false;
-        status.textContent = directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
+        status.textContent = openingSnapshot.screen?.booking
+          ? `Вижу открытую запись: ${openingSnapshot.screen.booking.clientName || 'клиент'} · ${openingSnapshot.screen.booking.time || ''}. Можно сказать «перенеси её» или «напиши ей».`
+          : directRecognitionAvailable ? (touchDevice ? 'Коснитесь микрофона и говорите. Повторное касание завершит запись.' : 'Ничего не изменится без вашего подтверждения.') : touchDevice ? 'Нажмите микрофон, затем значок диктовки на клавиатуре.' : 'Голосовой ввод недоступен в этом браузере. Текстовые команды работают.';
         dialog.showModal();
         setTimeout(() => (Recognition ? listenButton : input).focus(), 0);
       });
@@ -2280,7 +2410,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
