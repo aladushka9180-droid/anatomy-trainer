@@ -1756,7 +1756,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=358#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=359#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3446,7 +3446,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=358');
+    worker = new Worker('./report-worker.js?v=359');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -10170,6 +10170,84 @@ function rememberProviderAssistantCorrections(rules = []) {
   }
 }
 
+function providerAssistantPreferencesKey() {
+  const organizationId = organizationController.getActiveOrganization()?.id;
+  if (!currentUser?.id || !organizationId) return '';
+  return `minuta-assistant-preferences-v1-${currentUser.id}-${organizationId}`;
+}
+
+function providerAssistantPreferences() {
+  const key = providerAssistantPreferencesKey();
+  if (!key) return { observationCount:0, preferredTime:'', preferredTimeWindow:'', preferredServiceId:'', usualDurations:{} };
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || '{}');
+    const timeCount = providerAssistantNumber(stored?.timeCount, 0, 0, 100);
+    const totalMinutes = providerAssistantNumber(stored?.totalMinutes, 0, 0, 1439 * 100);
+    const serviceCounts = stored?.serviceCounts && typeof stored.serviceCounts === 'object' && !Array.isArray(stored.serviceCounts) ? stored.serviceCounts : {};
+    const durationStats = stored?.durationStats && typeof stored.durationStats === 'object' && !Array.isArray(stored.durationStats) ? stored.durationStats : {};
+    const knownServiceIds = new Set(ownServices.filter(item => item.active).map(item => String(item.id)));
+    const preferredServiceId = Object.entries(serviceCounts)
+      .filter(([id]) => knownServiceIds.has(String(id)))
+      .map(([id, count]) => ({ id:String(id), count:providerAssistantNumber(count, 0, 0, 100) }))
+      .sort((left, right) => right.count - left.count)[0]?.id || '';
+    const average = timeCount ? Math.round((totalMinutes / timeCount) / 30) * 30 : 0;
+    const preferredTime = timeCount >= 2 ? `${String(Math.floor(Math.min(1439, average) / 60)).padStart(2, '0')}:${String(Math.min(1439, average) % 60).padStart(2, '0')}` : '';
+    const preferredTimeWindow = !preferredTime ? '' : average < 12 * 60 ? 'morning' : average < 17 * 60 ? 'day' : 'evening';
+    const usualDurations = {};
+    Object.entries(durationStats).forEach(([id, value]) => {
+      if (!knownServiceIds.has(String(id)) || !value || typeof value !== 'object') return;
+      const count = providerAssistantNumber(value.count, 0, 0, 100);
+      const total = providerAssistantNumber(value.total, 0, 0, 480 * 100);
+      if (count >= 2) usualDurations[String(id)] = Math.max(1, Math.min(480, Math.round(total / count)));
+    });
+    return { observationCount:timeCount, preferredTime, preferredTimeWindow, preferredServiceId, usualDurations };
+  } catch {
+    return { observationCount:0, preferredTime:'', preferredTimeWindow:'', preferredServiceId:'', usualDurations:{} };
+  }
+}
+
+function rememberProviderAssistantPreference(plan = {}) {
+  const key = providerAssistantPreferencesKey();
+  if (!key || !plan || typeof plan !== 'object' || Array.isArray(plan)) return { ok:false };
+  const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(plan.time || '')) ? String(plan.time) : '';
+  const serviceId = ownServices.some(item => item.active && String(item.id) === String(plan.serviceId || '')) ? String(plan.serviceId) : '';
+  const duration = Math.max(0, Math.min(480, Math.round(Number(plan.durationMinutes) || 0)));
+  if (!time && !serviceId) return { ok:false };
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem(key) || '{}'); } catch { stored = {}; }
+  let timeCount = providerAssistantNumber(stored?.timeCount, 0, 0, 100);
+  let totalMinutes = providerAssistantNumber(stored?.totalMinutes, 0, 0, 1439 * 100);
+  const serviceCounts = stored?.serviceCounts && typeof stored.serviceCounts === 'object' && !Array.isArray(stored.serviceCounts) ? { ...stored.serviceCounts } : {};
+  const durationStats = stored?.durationStats && typeof stored.durationStats === 'object' && !Array.isArray(stored.durationStats) ? { ...stored.durationStats } : {};
+  if (timeCount >= 100) { timeCount = Math.floor(timeCount / 2); totalMinutes = Math.round(totalMinutes / 2); }
+  if (time) {
+    const [hour, minute] = time.split(':').map(Number);
+    timeCount += 1;
+    totalMinutes += hour * 60 + minute;
+  }
+  if (serviceId) serviceCounts[serviceId] = Math.min(100, providerAssistantNumber(serviceCounts[serviceId], 0, 0, 100) + 1);
+  if (serviceId && duration) {
+    const previous = durationStats[serviceId] && typeof durationStats[serviceId] === 'object' ? durationStats[serviceId] : {};
+    let count = providerAssistantNumber(previous.count, 0, 0, 100);
+    let total = providerAssistantNumber(previous.total, 0, 0, 480 * 100);
+    if (count >= 100) { count = Math.floor(count / 2); total = Math.round(total / 2); }
+    durationStats[serviceId] = { count:count + 1, total:total + duration };
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify({ timeCount, totalMinutes, serviceCounts, durationStats }));
+    return { ok:true, preferences:providerAssistantPreferences() };
+  } catch {
+    return { ok:false };
+  }
+}
+
+function clearProviderAssistantPreferences() {
+  const key = providerAssistantPreferencesKey();
+  if (!key) return { ok:false };
+  try { localStorage.removeItem(key); return { ok:true }; }
+  catch { return { ok:false }; }
+}
+
 const PROVIDER_ASSISTANT_UNDO_TTL_MS = 10 * 60 * 1000;
 let providerAssistantUndoState = null;
 
@@ -10241,6 +10319,9 @@ window.MinutaProviderAssistant = Object.freeze({
   remoteUnderstandingEnabled:Boolean(window.MINUTA_CONFIG.assistantRemoteUnderstanding),
   getAssistantLexicon:providerAssistantLexicon,
   rememberAssistantCorrections:rememberProviderAssistantCorrections,
+  getAssistantPreferences:providerAssistantPreferences,
+  rememberAssistantPreference:rememberProviderAssistantPreference,
+  clearAssistantPreferences:clearProviderAssistantPreferences,
   getReadOnlySnapshot() {
     const organization = organizationController.getActiveOrganization();
     const inventoryPayload = inventoryController?.payload;
@@ -10285,6 +10366,7 @@ window.MinutaProviderAssistant = Object.freeze({
       canManage:Boolean(readable && organization?.can_manage),
       screen,
       undoAvailable:providerAssistantUndoAvailable(),
+      assistantPreferences:providerAssistantPreferences(),
       dataQuality:{
         bookings:readable ? (bookingsSnapshotFromCache ? 'anonymized_cache' : 'server') : 'unavailable',
         outcomes:outcomesRemoteAvailable ? 'server' : bookingOutcomes.size ? 'local_fallback' : 'unavailable',

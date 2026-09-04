@@ -130,6 +130,13 @@ assert.match(voiceAssistant, /data-voice-plan-start/, 'Составной пла
 assert.match(provider, /undoLastAssistantStep\(\)/, 'Нет безопасного возврата после перехода помощника');
 assert.match(voiceAssistant, /data-voice-undo/, 'Возврат предыдущего экрана не подключён к интерфейсу помощника');
 assert.match(voiceAssistant, /помощник не будет угадывать/, 'Неоднозначная запись выбирается без уточнения');
+assert.match(voiceAssistant, /function parseTimePreference/, 'Помощник не понимает сложные ограничения времени');
+assert.match(voiceAssistant, /function applySlotPreferences/, 'Свободные окна не ранжируются по условиям и привычкам');
+assert.match(voiceAssistant, /function proactiveBriefingModel/, 'Помощник не формирует проактивную подсказку при открытии');
+assert.match(voiceAssistant, /function understoodAs/, 'Помощник не показывает пользователю распознанный смысл команды');
+assert.match(provider, /minuta-assistant-preferences-v1-\$\{currentUser\.id\}-\$\{organizationId\}/, 'Рабочие привычки помощника не изолированы по аккаунту и кабинету');
+assert.match(provider, /clearAssistantPreferences:clearProviderAssistantPreferences/, 'Пользователь не может удалить рабочие привычки помощника');
+assert.match(providerHtml, /id="voiceAssistantProactive"[\s\S]*id="voiceAssistantMemoryText"[\s\S]*id="voiceAssistantClearMemory"/, 'В интерфейсе нет проактивной сводки или центра памяти помощника');
 assert.match(providerHtml, /Полный текст команды не сохраняется/i, 'Пользователю не объяснены границы локального обучения');
 assert.match(provider, /db\.functions\.invoke\('assistant-understand'/, 'Защищённый серверный ИИ-разбор не подключён');
 assert.match(provider, /new TextEncoder\(\)\.encode\(JSON\.stringify\(body\)\)\.byteLength > 24 \* 1024/, 'ИИ-запрос из кабинета не ограничен по размеру');

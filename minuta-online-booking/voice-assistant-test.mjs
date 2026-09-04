@@ -50,6 +50,27 @@ assert.equal(voice.parseRussianTime('завтра в половине треть
 assert.equal(voice.parseRussianTime('на 5 сентября'), '');
 assert.equal(voice.parseRussianTime('на 05.09'), '');
 
+assert.deepEqual(voice.parseTimePreference('Найди окно завтра после обеда'), {
+  minTime:'14:00', maxTime:'', targetTime:'15:00', order:'nearest', avoidFirst:false, betweenBookings:false, label:'после обеда', source:'explicit'
+});
+assert.deepEqual(voice.parseTimePreference('Найди окно между 15 и 18'), {
+  minTime:'15:00', maxTime:'18:00', targetTime:'16:30', order:'nearest', avoidFirst:false, betweenBookings:false, label:'между 15:00 и 18:00', source:'explicit'
+});
+assert.equal(voice.parseTimePreference('Найди окно до шести').maxTime, '18:00');
+const preferredSlots = voice.applySlotPreferences(['10:00', '14:00', '15:00', '17:00'], voice.parseTimePreference('После обеда, но не самое раннее'));
+assert.deepEqual(preferredSlots.slots, ['15:00', '17:00']);
+assert.equal(preferredSlots.options[0].recommended, true);
+assert.match(preferredSlots.options[0].reason, /после обеда/i);
+const betweenBookingsPreference = voice.parseTimePreference('Найди окно между клиентами');
+const betweenBookingsSlots = voice.applySlotPreferences(['09:00', '11:00', '16:00'], betweenBookingsPreference, {
+  date:'2026-09-03', durationMinutes:60, bookings:[
+    { date:'2026-09-03', time:'10:00', durationMinutes:60, status:'confirmed' },
+    { date:'2026-09-03', time:'13:00', durationMinutes:60, status:'confirmed' }
+  ]
+});
+assert.equal(betweenBookingsSlots.slots[0], '11:00');
+assert.match(betweenBookingsSlots.options[0].reason, /между существующими записями/i);
+
 assert.equal(voice.parseDuration('массаж 90 минут'), 90);
 assert.equal(voice.parseDuration('массаж полтора часа'), 90);
 assert.equal(voice.parseDuration('процедура один час'), 60);
@@ -130,6 +151,14 @@ assert.equal(slots.kind, 'find_slots');
 assert.equal(slots.plan.date, '2026-09-09');
 assert.equal(slots.plan.serviceId, 'cut');
 assert.equal(slots.plan.durationMinutes, 45);
+
+const constrainedSlots = voice.interpretCommand('Найди окно завтра после обеда, но не самое раннее, на массаж', { today:'2026-09-02', services }, now);
+assert.equal(constrainedSlots.kind, 'find_slots');
+assert.equal(constrainedSlots.plan.timePreference.minTime, '14:00');
+assert.equal(constrainedSlots.plan.timePreference.avoidFirst, true);
+const habitualSlots = voice.interpretCommand('Найди окно завтра на массаж', { today:'2026-09-02', services, assistantPreferences:{ observationCount:3, preferredTime:'17:30' } }, now);
+assert.equal(habitualSlots.plan.timePreference.source, 'habit');
+assert.equal(habitualSlots.plan.timePreference.targetTime, '17:30');
 
 const naturalSlots = voice.interpretCommand('Есть ли свободное окошко завтра на массаж', { today:'2026-09-02', services }, now);
 assert.equal(naturalSlots.kind, 'find_slots');
@@ -350,6 +379,11 @@ const assistantSnapshot = {
   ],
   notifications:{ failed:1, pending:2, manualDue:1 }
 };
+const proactive = voice.proactiveBriefingModel({ ...assistantSnapshot, authenticated:true, synchronized:true }, now);
+assert.match(proactive.title, /Нужно проверить/);
+assert.equal(proactive.prompt, 'Что требует внимания?');
+const explainedBriefing = voice.operationalBriefingModel(assistantSnapshot, now);
+assert.match(explainedBriefing.explanation, /потому что/i);
 const remoteContext = voice.buildAssistantContext(assistantSnapshot);
 assert.equal(remoteContext.bookings.find(item => item.id === 'future-anna').clientName, 'Анна Петрова');
 assert.equal(remoteContext.bookings[0].id, 'c2', 'сегодняшняя и ближайшие будущие записи должны попадать в ограниченный контекст первыми');

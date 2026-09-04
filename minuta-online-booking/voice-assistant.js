@@ -209,8 +209,12 @@
   }
 
   function understanding(model, repaired) {
-    if (!repaired?.corrections?.length) return { ...model, understandingConfidence:model.kind === 'help' ? 'low' : 'high' };
-    return { ...model, understandingConfidence:'medium', corrections:repaired.corrections };
+    const ambiguous = Boolean(needsClarification(model) || (model?.candidates?.length || 0) > 1 || ['help','error','smart_clarification','ai_clarification'].includes(model?.kind));
+    const contextual = Boolean(model?.continuedFromContext || model?.continuedFromScreen || model?.kind === 'compound_plan');
+    const understandingConfidence = ambiguous ? 'low' : (repaired?.corrections?.length || contextual ? 'medium' : 'high');
+    return repaired?.corrections?.length
+      ? { ...model, understandingConfidence, corrections:repaired.corrections }
+      : { ...model, understandingConfidence };
   }
 
   function localIsoDate(date) {
@@ -332,6 +336,122 @@
       return `${String(hour).padStart(2, '0')}:${String(adjustedMinute).padStart(2, '0')}`;
     }
     return '';
+  }
+
+  const FLEXIBLE_HOUR_PATTERN = '(?:[0-2]?\\d(?::[0-5]\\d)?|ноль|час|один|одну|два|две|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать|тринадцать|четырнадцать|пятнадцать|шестнадцать|семнадцать|восемнадцать|девятнадцать|двадцать(?:\\s+(?:один|два|три))?)(?:\\s+(?:утра|дня|вечера|ночи))?';
+
+  function timeMinutes(value) {
+    const match = String(value || '').match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
+  }
+
+  function timeFromMinutes(value) {
+    const minutes = Math.max(0, Math.min(1439, Math.round(Number(value) || 0)));
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  }
+
+  function businessBoundaryTime(value) {
+    const source = normalizeText(value);
+    const parsed = parseRussianTime(`в ${source}`);
+    if (!parsed) return '';
+    const minutes = timeMinutes(parsed);
+    if (!/(?:утра|дня|вечера|ночи)/.test(source) && minutes >= 60 && minutes <= 7 * 60) return timeFromMinutes(minutes + 12 * 60);
+    return parsed;
+  }
+
+  function parseTimePreference(command, preferences = {}) {
+    const text = repairCommand(command).text;
+    const preference = { minTime:'', maxTime:'', targetTime:'', order:'earliest', avoidFirst:false, betweenBookings:false, label:'', source:'' };
+    const between = text.match(new RegExp(`(?:между|с)\\s+(${FLEXIBLE_HOUR_PATTERN})\\s+(?:и|до)\\s+(${FLEXIBLE_HOUR_PATTERN})(?=\\s|$)`));
+    if (between) {
+      preference.minTime = businessBoundaryTime(between[1]);
+      preference.maxTime = businessBoundaryTime(between[2]);
+      if (timeMinutes(preference.minTime) > timeMinutes(preference.maxTime)) [preference.minTime, preference.maxTime] = [preference.maxTime, preference.minTime];
+      preference.targetTime = timeFromMinutes((timeMinutes(preference.minTime) + timeMinutes(preference.maxTime)) / 2);
+      preference.order = 'nearest';
+      preference.label = `между ${preference.minTime} и ${preference.maxTime}`;
+      preference.source = 'explicit';
+    } else if (/(?:после\s+обеда|во\s+второй\s+половине\s+дня)/.test(text)) {
+      Object.assign(preference, { minTime:'14:00', targetTime:'15:00', order:'nearest', label:'после обеда', source:'explicit' });
+    } else if (/(?:до\s+обеда|в\s+первой\s+половине\s+дня)/.test(text)) {
+      Object.assign(preference, { maxTime:'13:00', targetTime:'11:00', order:'nearest', label:'до обеда', source:'explicit' });
+    } else if (/(?:ближе\s+к\s+вечеру|вечером|на\s+вечер)/.test(text)) {
+      Object.assign(preference, { minTime:'17:00', targetTime:'18:00', order:'nearest', label:'ближе к вечеру', source:'explicit' });
+    } else if (/(?:утром|на\s+утро)/.test(text)) {
+      Object.assign(preference, { minTime:'08:00', maxTime:'12:00', targetTime:'10:00', order:'nearest', label:'утром', source:'explicit' });
+    } else {
+      const after = text.match(new RegExp(`(?:после|не\\s+раньше)\\s+(${FLEXIBLE_HOUR_PATTERN})(?=\\s|$)`));
+      const before = text.match(new RegExp(`(?:до|не\\s+позже)\\s+(${FLEXIBLE_HOUR_PATTERN})(?=\\s|$)`));
+      if (after) preference.minTime = businessBoundaryTime(after[1]);
+      if (before) preference.maxTime = businessBoundaryTime(before[1]);
+      if (preference.minTime || preference.maxTime) {
+        preference.targetTime = preference.minTime || preference.maxTime;
+        preference.order = preference.minTime ? 'earliest' : 'latest';
+        preference.label = preference.minTime && preference.maxTime ? `с ${preference.minTime} до ${preference.maxTime}` : preference.minTime ? `после ${preference.minTime}` : `до ${preference.maxTime}`;
+        preference.source = 'explicit';
+      }
+    }
+    if (/(?:не\s+(?:самое\s+)?раннее|не\s+первое\s+окн|не\s+с\s+утра)/.test(text)) {
+      preference.avoidFirst = true;
+      preference.label = preference.label ? `${preference.label}, не первое окно` : 'не первое свободное окно';
+      preference.source = 'explicit';
+    }
+    if (/(?:между\s+(?:клиентами|записями|визитами)|в\s+промежутке\s+между\s+(?:клиентами|записями))/.test(text)) {
+      preference.betweenBookings = true;
+      preference.label = preference.label ? `${preference.label}, между записями` : 'между существующими записями';
+      preference.source = 'explicit';
+    }
+    if (/(?:самое\s+позднее|попозже|как\s+можно\s+позже)/.test(text)) {
+      preference.order = 'latest';
+      preference.label = preference.label || 'как можно позже';
+      preference.source = 'explicit';
+    } else if (/(?:самое\s+раннее|пораньше|как\s+можно\s+раньше|первое\s+окн)/.test(text) && !preference.avoidFirst) {
+      preference.order = 'earliest';
+      preference.label = preference.label || 'как можно раньше';
+      preference.source = 'explicit';
+    }
+    if (!preference.source && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(preferences.preferredTime || '')) && Number(preferences.observationCount || 0) >= 2) {
+      preference.targetTime = String(preferences.preferredTime);
+      preference.order = 'nearest';
+      preference.label = `ближе к привычному времени ${preference.targetTime}`;
+      preference.source = 'habit';
+    }
+    return preference.source ? preference : null;
+  }
+
+  function applySlotPreferences(slots = [], preference = null, context = {}) {
+    const unique = [...new Set((Array.isArray(slots) ? slots : []).map(String).filter(item => timeMinutes(item) >= 0))].sort();
+    if (!preference) return { slots:unique, options:unique.map((time, index) => ({ time, recommended:index === 0, reason:index === 0 ? 'Ближайшее свободное окно' : 'Свободно по актуальному расписанию' })) };
+    const minimum = timeMinutes(preference.minTime);
+    const maximum = timeMinutes(preference.maxTime);
+    let filtered = unique.filter(time => (minimum < 0 || timeMinutes(time) >= minimum) && (maximum < 0 || timeMinutes(time) <= maximum));
+    if (preference.avoidFirst && filtered.length > 1) filtered = filtered.slice(1);
+    const target = timeMinutes(preference.targetTime);
+    const date = String(context.date || '');
+    const duration = Math.max(1, Number(context.durationMinutes) || 1);
+    const dayBookings = (context.bookings || []).filter(item => item.date === date && item.status !== 'cancelled').map(item => ({
+      start:timeMinutes(item.time),
+      end:timeMinutes(item.time) + Math.max(1, Number(item.durationMinutes) || 1)
+    })).filter(item => item.start >= 0);
+    const betweenExistingBookings = time => {
+      const start = timeMinutes(time);
+      const end = start + duration;
+      return dayBookings.some(item => item.end <= start) && dayBookings.some(item => item.start >= end);
+    };
+    filtered.sort((left, right) => {
+      if (preference.betweenBookings && betweenExistingBookings(left) !== betweenExistingBookings(right)) return betweenExistingBookings(left) ? -1 : 1;
+      if (preference.order === 'latest') return timeMinutes(right) - timeMinutes(left);
+      if (preference.order === 'nearest' && target >= 0) return Math.abs(timeMinutes(left) - target) - Math.abs(timeMinutes(right) - target) || timeMinutes(left) - timeMinutes(right);
+      return timeMinutes(left) - timeMinutes(right);
+    });
+    return {
+      slots:filtered,
+      options:filtered.map((time, index) => ({
+        time,
+        recommended:index === 0,
+        reason:preference.betweenBookings && betweenExistingBookings(time) ? 'Заполняет промежуток между существующими записями' : index === 0 ? `Лучше соответствует условию «${preference.label}»` : `Подходит под условие «${preference.label}»`
+      }))
+    };
   }
 
   function parseDuration(command) {
@@ -810,9 +930,46 @@
       message:schedule.length ? `Сегодня ${countLabel(schedule.length, ['активная запись', 'активные записи', 'активных записей'])}. Начните с ближайшей и проверьте пункты ниже.` : 'Активных записей сегодня нет. Можно проверить свободные окна и продвижение.',
       metrics,
       points,
+      explanation:next
+        ? `Этот шаг выбран первым, потому что ближайший визит начнётся в ${next.time}, а остальные задачи можно выполнить после его проверки.`
+        : attention.points?.length ? 'Этот шаг выбран первым, потому что в доступных данных есть задачи, требующие внимания.' : 'Срочных задач нет, поэтому полезнее сначала проверить загрузку ближайших дней.',
       openSection:'bookings',
       openLabel:'Открыть записи'
     };
+  }
+
+  function proactiveBriefingModel(snapshot, now = new Date()) {
+    if (!snapshot?.authenticated || (!snapshot.synchronized && !snapshot.offlineReadable)) return null;
+    const today = snapshot.today || localIsoDate(dateAtNoon(now));
+    const schedule = activeBookings(snapshot, today);
+    const attention = attentionModel(snapshot, now);
+    const next = schedule[0];
+    if (attention.points?.length) return {
+      title:`Нужно проверить: ${attention.points.length}`,
+      message:attention.points[0],
+      prompt:'Что требует внимания?'
+    };
+    if (next) return {
+      title:`Ближайшая запись в ${next.time}`,
+      message:`${next.clientName || 'Клиент'} · ${next.serviceName || 'Услуга'}. Нажмите, чтобы получить план следующего шага.`,
+      prompt:'Дай короткую сводку и план на день'
+    };
+    return {
+      title:'Сегодня активных записей нет',
+      message:'Можно проверить свободные окна и выбрать действие для загрузки дня.',
+      prompt:'Дай короткую сводку и план на день'
+    };
+  }
+
+  function understoodAs(model) {
+    const plan = model?.plan || {};
+    if (model?.kind === 'find_slots') return `найти окно${plan.serviceName ? ` на «${plan.serviceName}»` : ''}${plan.date ? `, ${formatDate(plan.date)}` : ''}${plan.timePreference?.label ? `, ${plan.timePreference.label}` : ''}`;
+    if (model?.kind === 'booking_draft') return `подготовить запись${plan.clientName ? ` для ${plan.clientName}` : ''}${plan.serviceName ? ` на «${plan.serviceName}»` : ''}${plan.date ? `, ${formatDate(plan.date)}` : ''}${plan.time ? ` в ${plan.time}` : plan.timePreference?.label ? `, ${plan.timePreference.label}` : ''}`;
+    if (model?.kind === 'operation_preview') return `${model.operation === 'cancel' ? 'проверить отмену' : 'подготовить перенос'}${plan.clientName ? ` записи ${plan.clientName}` : ''}`;
+    if (model?.kind === 'schedule_summary') return `показать расписание ${String(model.title || '').replace(/^Записи:\s*/i, '').toLocaleLowerCase('ru-RU')}`;
+    if (model?.kind === 'compound_plan') return `выполнить безопасный план из ${(model.steps || []).length} шагов`;
+    if (model?.kind === 'help' || model?.kind === 'error' || model?.kind === 'small_talk') return '';
+    return String(model?.title || '').toLocaleLowerCase('ru-RU');
   }
 
   function roleAllowsFinancialData(snapshot) {
@@ -1307,21 +1464,25 @@
 
     const duration = parseDuration(text);
     const date = parseRussianDate(text, now) || today;
-    const time = parseRussianTime(text);
+    const timePreference = parseTimePreference(text, snapshot.assistantPreferences || {});
+    const time = timePreference?.source === 'explicit' ? '' : parseRussianTime(text);
     const candidates = findServices(text, snapshot.services || [], duration);
-    const service = candidates.length === 1 ? candidates[0] : null;
+    const preferredService = (snapshot.services || []).find(item => String(item.id) === String(snapshot.assistantPreferences?.preferredServiceId || '')) || null;
+    const service = candidates.length === 1 ? candidates[0] : (/(?:^|\s)как\s+обычно(?=\s|$)/.test(text) ? preferredService : null);
+    const habitualDuration = service ? Number(snapshot.assistantPreferences?.usualDurations?.[String(service.id)] || 0) : 0;
+    const selectedDuration = duration || (service?.perMinute ? habitualDuration : Number(service?.durationMinutes || 0));
 
     const clientName = parseClientName(text);
     if (bookingRequest && !freeSlotSignal(text)) {
       const missing = [];
       if (!clientName) missing.push('имя клиента');
-      if (!time) missing.push('время');
+      if (!time && !timePreference) missing.push('время');
       if (!service && candidates.length !== 1) missing.push(candidates.length > 1 ? 'точная услуга' : 'услуга');
       return finish({
         kind:'booking_draft',
         title:'Черновик новой записи',
-        message:missing.length ? `Нужно уточнить: ${missing.join(', ')}.` : 'Команда распознана. Перед созданием проверьте данные в защищённой форме.',
-        plan:{ clientName, date, time, serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || (service?.perMinute ? 0 : Number(service?.durationMinutes || 0)), ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
+        message:missing.length ? `Нужно уточнить: ${missing.join(', ')}.${timePreference ? ` Подберу время по условию «${timePreference.label}».` : ''}` : 'Команда распознана. Перед созданием проверьте данные в защищённой форме.',
+        plan:{ clientName, date, time, ...(timePreference ? { timePreference } : {}), serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:selectedDuration, ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
         candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:Boolean(clientName || service || time)
       });
@@ -1331,8 +1492,8 @@
       return finish({
         kind:'find_slots',
         title:'Поиск свободного времени',
-        message:service ? 'Проверю расписание и покажу действительно свободные интервалы.' : 'Сначала выберите услугу — от неё зависит длительность свободного окна.',
-        plan:{ clientName:'', date, time:'', serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:duration || (service?.perMinute ? 0 : Number(service?.durationMinutes || 0)), ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
+        message:service ? `Проверю расписание и покажу действительно свободные интервалы${timePreference ? ` с учётом условия «${timePreference.label}»` : ''}.` : 'Сначала выберите услугу — от неё зависит длительность свободного окна.',
+        plan:{ clientName:'', date, time:'', ...(timePreference ? { timePreference } : {}), serviceId:service?.id || '', serviceName:service?.name || '', durationMinutes:selectedDuration, ...(service?.perMinute ? { perMinute:true, defaultDurationMinutes:Number(service.defaultDurationMinutes || 60) } : {}) },
         candidates:candidates.map(item => ({ id:item.id, name:item.name, durationMinutes:item.durationMinutes, defaultDurationMinutes:item.defaultDurationMinutes, perMinute:Boolean(item.perMinute) })),
         canPrepare:true
       });
@@ -1473,7 +1634,7 @@
     if (model?.needsDetail) return true;
     if (model?.kind === 'find_slots') return !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
     if (model?.kind !== 'booking_draft') return false;
-    return !model.plan?.clientName || !model.plan?.time || !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
+    return !model.plan?.clientName || (!model.plan?.time && !model.plan?.timePreference) || !model.plan?.serviceId || (model.plan?.perMinute && !Number(model.plan?.durationMinutes));
   }
 
   function canContinueCommand(previousCommand, previousModel, followUp, snapshot = {}, now = new Date()) {
@@ -1618,6 +1779,11 @@
     const result = doc.querySelector('#voiceAssistantResult');
     const starters = doc.querySelector('#voiceAssistantStarters');
     const capabilities = doc.querySelector('.voice-assistant-capabilities');
+    const proactive = doc.querySelector('#voiceAssistantProactive');
+    const proactiveTitle = doc.querySelector('#voiceAssistantProactiveTitle');
+    const proactiveMessage = doc.querySelector('#voiceAssistantProactiveMessage');
+    const memoryText = doc.querySelector('#voiceAssistantMemoryText');
+    const clearMemoryButton = doc.querySelector('#voiceAssistantClearMemory');
     if (!dialog || !openButton || !closeButton || !backButton || !form || !input || !listenButton || !status || !result) return { bind() {}, destroy() {} };
 
     const Recognition = global.SpeechRecognition || global.webkitSpeechRecognition;
@@ -1647,6 +1813,30 @@
     let conversationContext = {};
     let correctionOriginal = '';
     let activePlan = null;
+
+    function refreshAssistantMemory(snapshot = bridge.getReadOnlySnapshot?.() || {}) {
+      if (!memoryText) return;
+      const preferences = bridge.getAssistantPreferences?.() || snapshot.assistantPreferences || {};
+      const service = (snapshot.services || []).find(item => String(item.id) === String(preferences.preferredServiceId || ''));
+      const parts = [];
+      if (preferences.preferredTime) parts.push(`обычное время — около ${preferences.preferredTime}`);
+      if (service) parts.push(`часто выбираемая услуга — «${service.name}»`);
+      const duration = service ? Number(preferences.usualDurations?.[String(service.id)] || 0) : 0;
+      if (duration) parts.push(`обычная длительность — ${duration} минут`);
+      memoryText.textContent = parts.length
+        ? `Запомнено для этого кабинета на этом устройстве: ${parts.join('; ')}. Имена клиентов и тексты команд не сохраняются.`
+        : 'Пока привычки не определены. После двух подтверждённых выборов помощник сможет учитывать обычное время и длительность. Имена клиентов и тексты команд не сохраняются.';
+      if (clearMemoryButton) clearMemoryButton.hidden = !Number(preferences.observationCount || 0);
+    }
+
+    function refreshProactive(snapshot = {}) {
+      if (!proactive || !proactiveTitle || !proactiveMessage) return;
+      const model = proactiveBriefingModel(snapshot, new Date());
+      proactive.hidden = !model;
+      proactive.dataset.voicePrompt = model?.prompt || '';
+      proactiveTitle.textContent = model?.title || '';
+      proactiveMessage.textContent = model?.message || '';
+    }
 
     function rememberConversation(command, model) {
       const userText = String(command || '').replace(/\s+/g, ' ').trim().slice(0, 500);
@@ -1815,6 +2005,11 @@
       conversationContext = {};
       correctionOriginal = '';
       activePlan = null;
+      if (proactive) { proactive.hidden = true; proactive.dataset.voicePrompt = ''; }
+      if (proactiveTitle) proactiveTitle.textContent = '';
+      if (proactiveMessage) proactiveMessage.textContent = '';
+      if (memoryText) memoryText.textContent = 'Пока привычки не определены.';
+      if (clearMemoryButton) clearMemoryButton.hidden = true;
       input.placeholder = 'Например: найди окно завтра';
       starters?.classList.remove('is-secondary');
       backButton.hidden = true;
@@ -1836,7 +2031,7 @@
         if (model.loading) return '<p class="voice-result-progress">Проверяем расписание…</p>';
         if (model.slotError) return '<p class="voice-result-empty">Свободное время не загружено. Повторите поиск после синхронизации.</p>';
         if (Array.isArray(model.slots)) return model.slots.length
-          ? `<div class="voice-result-choices" aria-label="Свободное время">${model.slots.map(time => `<button class="voice-result-choice voice-slot-choice" type="button" data-voice-slot="${escapeHtml(time)}">${escapeHtml(time)}</button>`).join('')}</div>`
+          ? `<div class="voice-result-choices voice-slot-options" aria-label="Свободное время">${(model.slotOptions || model.slots.map(time => ({ time, reason:'Свободно по актуальному расписанию' }))).map(option => `<button class="voice-result-choice voice-slot-choice${option.recommended ? ' is-recommended' : ''}" type="button" data-voice-slot="${escapeHtml(option.time)}"><strong>${escapeHtml(option.time)}</strong><small>${escapeHtml(option.reason || 'Свободно по актуальному расписанию')}</small></button>`).join('')}</div>`
           : '<p class="voice-result-empty">На эту дату нет окна нужной длительности.</p>';
         const rows = [
           plan.clientName ? ['Клиент', plan.clientName] : null,
@@ -1908,8 +2103,19 @@
         return;
       }
       if (!currentSnapshot.synchronized && response?.ok) response = { ok:false, reason:'not_synchronized', slots:[] };
-      const slots = response?.ok && Array.isArray(response.slots) ? response.slots.filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time))).slice(0, 24) : [];
-      const resolved = { ...model, loading:false, slots:response?.ok ? slots : null, slotError:!response?.ok, message:response?.ok ? (slots.length ? `Нашёл свободных вариантов: ${slots.length}. Выберите время.` : 'На эту дату свободного окна нужной длительности нет.') : response?.reason === 'not_synchronized' ? 'Кабинет сейчас не синхронизирован. Дождитесь обновления данных и повторите поиск.' : 'Не удалось проверить свободное время. Обновите данные и попробуйте ещё раз.' };
+      const available = response?.ok && Array.isArray(response.slots) ? response.slots.filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time))).slice(0, 24) : [];
+      const ranked = applySlotPreferences(available, model.plan?.timePreference || null, { bookings:currentSnapshot.bookings || [], date:model.plan?.date || '', durationMinutes:model.plan?.durationMinutes || response?.durationMinutes || 0 });
+      const slots = ranked.slots;
+      const preferenceLabel = model.plan?.timePreference?.label || '';
+      const resolved = {
+        ...model,
+        loading:false,
+        slots:response?.ok ? slots : null,
+        slotOptions:response?.ok ? ranked.options : null,
+        slotError:!response?.ok,
+        explanation:response?.ok && slots.length ? (preferenceLabel ? `Первым показан вариант, который лучше всего соответствует условию «${preferenceLabel}». Все интервалы проверены по актуальному расписанию.` : 'Варианты отсортированы от ближайшего свободного времени. Все интервалы проверены по актуальному расписанию.') : '',
+        message:response?.ok ? (slots.length ? `Нашёл подходящих вариантов: ${slots.length}. Лучший вариант показан первым.` : preferenceLabel && available.length ? `Свободные окна есть, но ни одно не соответствует условию «${preferenceLabel}». Измените ограничение времени.` : 'На эту дату свободного окна нужной длительности нет.') : response?.reason === 'not_synchronized' ? 'Кабинет сейчас не синхронизирован. Дождитесь обновления данных и повторите поиск.' : 'Не удалось проверить свободное время. Обновите данные и попробуйте ещё раз.'
+      };
       renderModel(resolved, expectedSessionGeneration);
       status.textContent = response?.ok ? 'Свободные интервалы проверены по актуальному расписанию.' : 'Свободное время не загружено.';
     }
@@ -1935,9 +2141,13 @@
       const correctionNote = model.corrections?.length
         ? `<p class="voice-correction-note">Понял с исправлением: ${model.corrections.map(item => `«${escapeHtml(item.from)}» → «${escapeHtml(item.to)}»`).join(', ')}</p>`
         : '';
+      const understood = lastCommand ? understoodAs(model) : '';
+      const confidenceLabel = model.understandingConfidence === 'low' ? 'Нужно уточнить' : model.understandingConfidence === 'medium' ? 'Понял с проверкой' : 'Понял';
+      const understandingNote = understood ? `<p class="voice-understanding-note is-${escapeHtml(model.understandingConfidence || 'high')}"><strong>${confidenceLabel}:</strong> ${escapeHtml(understood)}.</p>` : '';
+      const explanationNote = model.explanation ? `<p class="voice-decision-note"><strong>Почему:</strong> ${escapeHtml(model.explanation)}</p>` : '';
       const feedback = lastCommand && model.kind !== 'error' ? '<div class="voice-feedback" aria-label="Оценить понимание команды"><span>Я правильно понял?</span><button type="button" data-voice-feedback="yes">Да</button><button type="button" data-voice-feedback="fix">Исправить</button></div>' : '';
       result.className = `voice-assistant-result is-${model.kind}`;
-      result.innerHTML = `${offlineNotice}${correctionNote}${planProgress}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${sourceNote}${actions}${feedback}`;
+      result.innerHTML = `${offlineNotice}${correctionNote}${understandingNote}${planProgress}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${explanationNote}${sourceNote}${actions}${feedback}`;
       result.hidden = false;
       starters?.classList.add('is-secondary');
       backButton.hidden = false;
@@ -2049,8 +2259,13 @@
           status.textContent = 'Расписание изменилось или недоступно. Повторите поиск свободного времени.';
           return;
         }
-        const response = bridge.prepareBookingDraft({ ...lastModel.plan, time:button.dataset.voiceSlot || '' });
-        if (response?.ok) close();
+        const selectedPlan = { ...lastModel.plan, time:button.dataset.voiceSlot || '' };
+        const response = bridge.prepareBookingDraft(selectedPlan);
+        if (response?.ok) {
+          bridge.rememberAssistantPreference?.(selectedPlan);
+          refreshAssistantMemory(snapshot);
+          close();
+        }
         else status.textContent = 'Не удалось открыть запись. Обновите данные и повторите поиск.';
       }));
       result.querySelector('[data-voice-speak]')?.addEventListener('click', () => {
@@ -2100,6 +2315,8 @@
           status.textContent = 'Сначала дождитесь полной синхронизации кабинета. Черновик не открыт.';
           return;
         }
+        bridge.rememberAssistantPreference?.(lastModel?.plan || {});
+        refreshAssistantMemory(currentSnapshot);
         close();
       });
     }
@@ -2322,6 +2539,18 @@
     }
 
     function bind() {
+      proactive?.addEventListener('click', () => {
+        input.value = proactive.dataset.voicePrompt || 'Дай короткую сводку и план на день';
+        understand();
+      });
+      clearMemoryButton?.addEventListener('click', event => {
+        event.preventDefault();
+        const response = bridge.clearAssistantPreferences?.();
+        if (response?.ok) {
+          refreshAssistantMemory(bridge.getReadOnlySnapshot?.() || {});
+          status.textContent = 'Рабочие привычки помощника удалены с этого устройства. Словарь явных исправлений не изменён.';
+        } else status.textContent = 'Не удалось очистить привычки на этом устройстве.';
+      });
       openButton.addEventListener('click', () => {
         requestEpoch += 1;
         abortRecognition();
@@ -2332,6 +2561,8 @@
         conversationHistory = [];
         const openingSnapshot = bridge.getReadOnlySnapshot?.() || {};
         conversationContext = conversationContextFromSnapshot(openingSnapshot);
+        refreshProactive(openingSnapshot);
+        refreshAssistantMemory(openingSnapshot);
         correctionOriginal = '';
         activePlan = null;
         input.placeholder = 'Например: найди окно завтра';
@@ -2410,7 +2641,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
