@@ -750,3 +750,29 @@
     display: none;
   }
 }
+
+/* Bonus-only offer strip v390 */
+.subscription-trial-note {
+  grid-template-columns: 1fr !important;
+}
+
+.subscription-trial-note .subscription-start-bonus {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 64px !important;
+  padding: 14px 18px !important;
+  border: 0 !important;
+  text-align: center !important;
+}
+
+@media (max-width: 760px) {
+  .subscription-trial-note .subscription-start-bonus {
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+    min-height: 0 !important;
+    padding: 13px 14px !important;
+  }
+}
