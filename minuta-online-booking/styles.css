@@ -6127,7 +6127,9 @@ html.provider-booting .provider-main {
 /* На узком экране Bento использует почти всю ширину: временная шкала остаётся
    читаемой, но больше не отнимает у карточек записей четверть колонки. */
 @media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-workspace { padding-right:8px!important; padding-left:8px!important; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-app { padding-right:4px; padding-left:4px; }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-workspace { padding-right:0!important; padding-left:0!important; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .provider-mobile-nav { right:4px; left:4px; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .timeline-view { padding-right:4px; padding-left:4px; }
   .provider-body[data-provider-theme][data-provider-layout="bento"] .day-timeline { grid-template-columns:44px minmax(0,1fr); }
