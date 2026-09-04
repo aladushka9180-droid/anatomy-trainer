@@ -326,3 +326,30 @@
     padding-top: 18px !important;
   }
 }
+
+/* Shadowless pricing v381 */
+.subscription-settings-card,
+.subscription-settings-card *,
+.subscription-settings-card *::before,
+.subscription-settings-card *::after {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.subscription-settings-card::before,
+.subscription-plan-card::before {
+  display: none !important;
+}
+
+.subscription-plan-card,
+.subscription-plan-card:hover {
+  transform: none !important;
+}
+
+.subscription-plan-top > span {
+  display: none !important;
+}
+
+.subscription-plan-top {
+  min-height: 0 !important;
+}
