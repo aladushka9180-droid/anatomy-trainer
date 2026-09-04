@@ -329,6 +329,34 @@
           <div class="schedule-settings-layout">
             <section class="panel weekly-schedule-panel">
               <div class="panel-head"><div><small>Обычная неделя</small><h3>Рабочие дни и перерывы</h3></div></div>
+              <section class="schedule-quick-setup" aria-labelledby="scheduleQuickTitle">
+                <div class="schedule-quick-head">
+                  <div><small>Быстрая настройка</small><strong id="scheduleQuickTitle">Одинаковые часы для нескольких дней</strong></div>
+                  <span>Сначала пример, затем «Сохранить»</span>
+                </div>
+                <div class="schedule-quick-presets" role="group" aria-label="Шаблон рабочих дней">
+                  <button type="button" data-schedule-quick-preset="weekdays">Будни</button>
+                  <button type="button" data-schedule-quick-preset="six-days">Пн–Сб</button>
+                  <button type="button" data-schedule-quick-preset="daily">Все дни</button>
+                  <button type="button" data-schedule-quick-preset="custom">Свои дни</button>
+                </div>
+                <div class="schedule-quick-days" role="group" aria-label="Рабочие дни">
+                  <label><input type="checkbox" data-schedule-quick-day="1"><span>Пн</span></label>
+                  <label><input type="checkbox" data-schedule-quick-day="2"><span>Вт</span></label>
+                  <label><input type="checkbox" data-schedule-quick-day="3"><span>Ср</span></label>
+                  <label><input type="checkbox" data-schedule-quick-day="4"><span>Чт</span></label>
+                  <label><input type="checkbox" data-schedule-quick-day="5"><span>Пт</span></label>
+                  <label><input type="checkbox" data-schedule-quick-day="6"><span>Сб</span></label>
+                  <label><input type="checkbox" data-schedule-quick-day="7"><span>Вс</span></label>
+                </div>
+                <div class="schedule-quick-times">
+                  <label>Начало<input id="scheduleQuickStart" type="time" value="10:00"></label>
+                  <label>Конец<input id="scheduleQuickEnd" type="time" value="20:00"></label>
+                  <label class="schedule-quick-break-toggle"><input id="scheduleQuickBreak" type="checkbox"><span>Общий перерыв</span></label>
+                  <div class="schedule-quick-break-times" id="scheduleQuickBreakTimes" hidden><label>С<input id="scheduleQuickBreakStart" type="time" value="13:00"></label><span>—</span><label>До<input id="scheduleQuickBreakEnd" type="time" value="14:00"></label></div>
+                </div>
+                <div class="schedule-quick-actions"><button class="secondary-button" id="applyQuickSchedule" type="button">Применить к неделе</button><small id="scheduleQuickStatus" role="status" aria-live="polite"></small></div>
+              </section>
               <div class="booking-step-setting">
                 <div><strong>Шаг записи</strong><small>Через какой интервал клиенту показывать начало записи</small></div>
                 <div class="slot-step-control">
@@ -343,7 +371,7 @@
             </section>
             <section class="panel monthly-schedule-panel">
               <div class="panel-head"><div><small>График по датам</small><h3>Настройка по месяцам</h3></div></div>
-              <p class="monthly-schedule-help">Рабочие часы берутся из обычной недели. Нажмите на конкретный рабочий день, чтобы сделать его выходным или снова открыть.</p>
+              <p class="monthly-schedule-help">Рабочие часы берутся из обычной недели. Выберите дату, проверьте её состояние и только потом подтвердите изменение.</p>
               <div class="monthly-schedule-toolbar">
                 <button type="button" data-monthly-schedule-shift="-1" aria-label="Предыдущий месяц"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg></button>
                 <label><span>Месяц</span><input id="monthlyScheduleMonth" type="month" aria-label="Месяц рабочего графика"></label>
@@ -352,10 +380,12 @@
               <div class="monthly-schedule-legend" aria-hidden="true"><span><i class="is-working"></i>Рабочий</span><span><i class="is-closed"></i>Выходной</span><span><i class="is-weekly-closed"></i>Закрыт по обычной неделе</span></div>
               <div class="monthly-schedule-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
               <div class="monthly-schedule-grid" id="monthlyScheduleGrid" aria-live="polite"></div>
+              <section class="monthly-schedule-details" id="monthlyScheduleDetails" aria-live="polite" hidden></section>
               <p class="monthly-schedule-status" id="monthlyScheduleStatus" role="status" aria-live="polite"></p>
             </section>
             <section class="panel days-off-panel">
               <div class="panel-head"><div><small>Исключения</small><h3>Выходные и закрытое время</h3></div></div>
+              <div class="schedule-priority-note"><strong>Как формируется доступность</strong><span>Обычная неделя → исключение на дату → смена сотрудника в филиале. Существующие записи не удаляются.</span><button type="button" data-provider-view="organization">График команды и филиалов</button></div>
               <form id="dayOffForm" class="day-off-form">
                 <label>Дата<input id="dayOffDate" type="date" required></label>
                 <label class="all-day-control"><input id="dayOffAllDay" type="checkbox" checked><span>Закрыть весь день</span></label>

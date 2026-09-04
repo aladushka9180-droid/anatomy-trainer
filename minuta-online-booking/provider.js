@@ -231,6 +231,7 @@ let recentlyCreatedBookingTimer = null;
 let scheduleRows = [];
 let daysOff = [];
 let monthlyScheduleMonth = businessTodayIso().slice(0, 7);
+let selectedMonthlyScheduleDate = '';
 let scheduleDirty = false;
 let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let bookingsChannel = null;
@@ -8141,13 +8142,137 @@ function shiftScheduleMonth(value, direction) {
   const shifted = new Date(year, month - 1 + Number(direction || 0), 1, 12);
   return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
 }
+function scheduleRowsFromForm() {
+  const cards = $$('[data-schedule-day]');
+  if (cards.length !== 7) return scheduleRows;
+  const interval = Number($('#slotInterval')?.value || scheduleRows[0]?.slot_interval_minutes || 5);
+  return cards.map(card => {
+    const enabled = card.querySelector('[data-schedule-enabled]').checked;
+    const hasBreak = enabled && card.querySelector('[data-schedule-break]').checked;
+    return {
+      performer_id: currentUser?.id || card.dataset.performerId || '',
+      weekday: Number(card.dataset.scheduleDay),
+      enabled,
+      start_time: card.querySelector('[data-schedule-start]').value,
+      end_time: card.querySelector('[data-schedule-end]').value,
+      break_start: hasBreak ? card.querySelector('[data-break-start]').value : null,
+      break_end: hasBreak ? card.querySelector('[data-break-end]').value : null,
+      slot_interval_minutes: interval
+    };
+  });
+}
 function scheduleStateForDate(dateIso) {
   const date = parseLocalIsoDate(dateIso);
   const weekday = date ? ((date.getDay() + 6) % 7) + 1 : 0;
-  const weekly = scheduleRows.find(row => Number(row.weekday) === weekday);
+  const weekly = (scheduleDirty ? scheduleRowsFromForm() : scheduleRows).find(row => Number(row.weekday) === weekday);
   const fullDayOff = daysOff.find(item => item.off_date === dateIso && item.all_day);
   const partialDayOff = daysOff.some(item => item.off_date === dateIso && !item.all_day);
   return { weekly, fullDayOff, partialDayOff, working:Boolean(weekly?.enabled) && !fullDayOff };
+}
+function schedulePresetDays(preset) {
+  if (preset === 'weekdays') return [1, 2, 3, 4, 5];
+  if (preset === 'six-days') return [1, 2, 3, 4, 5, 6];
+  if (preset === 'daily') return [1, 2, 3, 4, 5, 6, 7];
+  return $$('[data-schedule-quick-day]:checked').map(input => Number(input.dataset.scheduleQuickDay));
+}
+function schedulePresetForDays(days) {
+  const value = [...days].sort((a, b) => a - b).join(',');
+  if (value === '1,2,3,4,5') return 'weekdays';
+  if (value === '1,2,3,4,5,6') return 'six-days';
+  if (value === '1,2,3,4,5,6,7') return 'daily';
+  return 'custom';
+}
+function setScheduleQuickDays(days, preset = schedulePresetForDays(days)) {
+  const selected = new Set(days.map(Number));
+  $$('[data-schedule-quick-day]').forEach(input => { input.checked = selected.has(Number(input.dataset.scheduleQuickDay)); });
+  $$('[data-schedule-quick-preset]').forEach(button => {
+    const active = button.dataset.scheduleQuickPreset === preset;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+function syncScheduleQuickControls(rows = scheduleRows) {
+  if (!rows.length || !$('#scheduleQuickStart')) return;
+  const enabledRows = rows.filter(row => row.enabled);
+  const sample = enabledRows[0] || rows[0];
+  setScheduleQuickDays(enabledRows.map(row => Number(row.weekday)));
+  $('#scheduleQuickStart').value = shortTime(sample?.start_time, '10:00');
+  $('#scheduleQuickEnd').value = shortTime(sample?.end_time, '20:00');
+  const commonBreak = Boolean(enabledRows.length && enabledRows.every(row => row.break_start && row.break_end && shortTime(row.break_start, '') === shortTime(sample.break_start, '') && shortTime(row.break_end, '') === shortTime(sample.break_end, '')));
+  $('#scheduleQuickBreak').checked = commonBreak;
+  $('#scheduleQuickBreakStart').value = shortTime(sample?.break_start, '13:00');
+  $('#scheduleQuickBreakEnd').value = shortTime(sample?.break_end, '14:00');
+  $('#scheduleQuickBreakTimes').hidden = !commonBreak;
+}
+function syncScheduleDayCard(card, enabled) {
+  card.classList.toggle('disabled', !enabled);
+  card.querySelectorAll('input[type="time"], [data-schedule-break]').forEach(input => { input.disabled = !enabled; });
+  card.querySelector('.day-off-label').hidden = enabled;
+  card.querySelector('.break-hours').hidden = !enabled || !card.querySelector('[data-schedule-break]').checked;
+}
+function applyQuickSchedule() {
+  clearFormError('#scheduleError');
+  const status = $('#scheduleQuickStatus');
+  const selectedDays = schedulePresetDays('custom');
+  const start = $('#scheduleQuickStart').value;
+  const end = $('#scheduleQuickEnd').value;
+  const hasBreak = $('#scheduleQuickBreak').checked;
+  const breakStart = $('#scheduleQuickBreakStart').value;
+  const breakEnd = $('#scheduleQuickBreakEnd').value;
+  if (!selectedDays.length) {
+    status.textContent = 'Выберите хотя бы один рабочий день.';
+    status.dataset.state = 'error';
+    return;
+  }
+  if (!start || !end || end <= start || (hasBreak && (!breakStart || !breakEnd || breakEnd <= breakStart || breakStart < start || breakEnd > end))) {
+    status.textContent = 'Проверьте рабочие часы и перерыв.';
+    status.dataset.state = 'error';
+    return;
+  }
+  const selected = new Set(selectedDays);
+  $$('[data-schedule-day]').forEach(card => {
+    const enabled = selected.has(Number(card.dataset.scheduleDay));
+    card.querySelector('[data-schedule-enabled]').checked = enabled;
+    if (enabled) {
+      card.querySelector('[data-schedule-start]').value = start;
+      card.querySelector('[data-schedule-end]').value = end;
+      card.querySelector('[data-schedule-break]').checked = hasBreak;
+      if (hasBreak) {
+        card.querySelector('[data-break-start]').value = breakStart;
+        card.querySelector('[data-break-end]').value = breakEnd;
+      }
+    }
+    syncScheduleDayCard(card, enabled);
+  });
+  scheduleDirty = true;
+  status.textContent = 'Шаблон применён. Проверьте дни ниже и нажмите «Сохранить».';
+  status.dataset.state = 'ready';
+  renderMonthlySchedule();
+}
+function renderMonthlyScheduleDetails() {
+  const holder = $('#monthlyScheduleDetails');
+  if (!holder) return;
+  const dateIso = selectedMonthlyScheduleDate;
+  if (!dateIso || !dateIso.startsWith(`${monthlyScheduleMonth}-`) || dateIso < businessTodayIso()) {
+    holder.hidden = true;
+    holder.innerHTML = '';
+    return;
+  }
+  const state = scheduleStateForDate(dateIso);
+  const date = parseLocalIsoDate(dateIso);
+  const exceptions = daysOff.filter(item => item.off_date === dateIso && !item.all_day);
+  const bookingCount = allBookings.filter(item => item.booking_date === dateIso && item.status !== 'cancelled').length;
+  const weeklyHours = state.weekly?.enabled ? `${shortTime(state.weekly.start_time, '10:00')}–${shortTime(state.weekly.end_time, '20:00')}` : 'выходной';
+  const partialText = exceptions.length ? exceptions.map(item => `${shortTime(item.start_time, '')}–${shortTime(item.end_time, '')}`).join(', ') : 'нет';
+  const status = !state.weekly?.enabled ? 'Закрыт обычной неделей' : state.fullDayOff ? 'Выходной на эту дату' : exceptions.length ? 'Рабочий с закрытым временем' : 'Рабочий день';
+  const primaryAction = !state.weekly?.enabled
+    ? '<button class="secondary-button" type="button" data-monthly-schedule-action="weekly">Изменить обычную неделю</button>'
+    : state.fullDayOff
+      ? '<button class="secondary-button" type="button" data-monthly-schedule-action="open">Открыть по обычному графику</button>'
+      : '<button class="secondary-button" type="button" data-monthly-schedule-action="close">Сделать выходным</button>';
+  const partialAction = state.weekly?.enabled && !state.fullDayOff ? '<button type="button" data-monthly-schedule-action="partial">Закрыть часть дня</button>' : '';
+  holder.hidden = false;
+  holder.innerHTML = `<div class="monthly-schedule-details-head"><div><small>Выбранная дата</small><strong>${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}</strong></div><span>${escapeHtml(status)}</span></div><dl><div><dt>По неделе</dt><dd>${escapeHtml(weeklyHours)}</dd></div><div><dt>Закрыто частично</dt><dd>${escapeHtml(partialText)}</dd></div><div><dt>Записей</dt><dd>${bookingCount}</dd></div></dl>${bookingCount ? '<p>Записи сохранятся. Изменится только доступность для новых клиентов.</p>' : ''}<div class="monthly-schedule-details-actions">${primaryAction}${partialAction}</div>`;
 }
 function renderMonthlySchedule() {
   const grid = $('#monthlyScheduleGrid');
@@ -8157,6 +8282,7 @@ function renderMonthlySchedule() {
   input.value = monthlyScheduleMonth;
   if (!scheduleRows.length) {
     grid.innerHTML = '<div class="provider-empty compact-empty"><strong>Загружаем график…</strong></div>';
+    $('#monthlyScheduleDetails').hidden = true;
     return;
   }
   const [year, month] = monthlyScheduleMonth.split('-').map(Number);
@@ -8175,8 +8301,10 @@ function renderMonthlySchedule() {
     const className = weeklyClosed ? 'is-weekly-closed' : state.fullDayOff ? 'is-closed' : 'is-working';
     const action = weeklyClosed ? 'Сначала включите этот день недели в обычном графике' : state.fullDayOff ? 'Открыть день' : 'Сделать выходным';
     const label = `${date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}. ${status}. ${action}`;
-    return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${state.working}" ${past ? 'disabled' : ''}><strong>${day}</strong><small>${status}</small></button>`;
+    const selected = selectedMonthlyScheduleDate === dateIso;
+    return `<button class="monthly-schedule-day ${className}${past ? ' is-past' : ''}${selected ? ' is-selected' : ''}" type="button" data-monthly-schedule-date="${dateIso}" aria-label="${escapeHtml(label)}" aria-pressed="${selected}" ${past ? 'disabled' : ''}><strong>${day}</strong><small>${status}</small></button>`;
   }).join('');
+  renderMonthlyScheduleDetails();
 }
 async function toggleMonthlyScheduleDay(dateIso, button) {
   if (!requireWrites()) return;
@@ -8221,6 +8349,7 @@ function renderSchedule() {
       <small class="day-off-label" ${enabled ? 'hidden' : ''}>Выходной</small>
     </article>`;
   }).join('');
+  syncScheduleQuickControls();
   renderMonthlySchedule();
 }
 
@@ -8260,21 +8389,7 @@ async function saveSchedule() {
   const userId = currentUser.id;
   const generation = sessionGeneration;
   clearFormError('#scheduleError');
-  const interval = Number($('#slotInterval').value);
-  const rows = $$('[data-schedule-day]').map(card => {
-    const enabled = card.querySelector('[data-schedule-enabled]').checked;
-    const hasBreak = enabled && card.querySelector('[data-schedule-break]').checked;
-    return {
-      performer_id: userId,
-      weekday: Number(card.dataset.scheduleDay),
-      enabled,
-      start_time: card.querySelector('[data-schedule-start]').value,
-      end_time: card.querySelector('[data-schedule-end]').value,
-      break_start: hasBreak ? card.querySelector('[data-break-start]').value : null,
-      break_end: hasBreak ? card.querySelector('[data-break-end]').value : null,
-      slot_interval_minutes: interval
-    };
-  });
+  const rows = scheduleRowsFromForm().map(row => ({ ...row, performer_id:userId }));
   const invalid = rows.find(row => row.enabled && (row.end_time <= row.start_time || (row.break_start && (row.break_end <= row.break_start || row.break_start < row.start_time || row.break_end > row.end_time))));
   if (invalid) { showFormError('#scheduleError', 'Проверьте рабочие часы и время перерыва.'); return; }
   const button = $('#saveSchedule');
@@ -8308,6 +8423,11 @@ async function saveSchedule() {
   scheduleRows = rows;
   scheduleDirty = false;
   await saveProviderCache('schedule', scheduleRows, userId);
+  const quickStatus = $('#scheduleQuickStatus');
+  if (quickStatus) {
+    quickStatus.textContent = 'Расписание сохранено.';
+    quickStatus.dataset.state = 'saved';
+  }
   renderMonthlySchedule();
   if (!sessionIsCurrent(userId, generation)) return;
   notify('Расписание сохранено');
@@ -10033,21 +10153,58 @@ $('#openFreeSlots').addEventListener('click', freeSlotsController.open);
 $('#newBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
 $('#mobileNewBookingButton').addEventListener('click', () => openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() }));
 $('#saveSchedule').addEventListener('click', saveSchedule);
+$$('[data-schedule-quick-preset]').forEach(button => button.addEventListener('click', () => {
+  const preset = button.dataset.scheduleQuickPreset;
+  if (preset !== 'custom') setScheduleQuickDays(schedulePresetDays(preset), preset);
+  else setScheduleQuickDays(schedulePresetDays('custom'), 'custom');
+  $('#scheduleQuickStatus').textContent = '';
+  delete $('#scheduleQuickStatus').dataset.state;
+}));
+$$('[data-schedule-quick-day]').forEach(input => input.addEventListener('change', () => {
+  setScheduleQuickDays(schedulePresetDays('custom'));
+  $('#scheduleQuickStatus').textContent = '';
+  delete $('#scheduleQuickStatus').dataset.state;
+}));
+$('#scheduleQuickBreak').addEventListener('change', event => { $('#scheduleQuickBreakTimes').hidden = !event.target.checked; });
+$('#applyQuickSchedule').addEventListener('click', applyQuickSchedule);
 $('#dayOffAllDay').addEventListener('change', event => { $('#dayOffTime').hidden = event.target.checked; });
 $('#monthlyScheduleMonth').min = businessTodayIso().slice(0, 7);
 $('#monthlyScheduleMonth').addEventListener('change', event => {
   monthlyScheduleMonth = normalizeScheduleMonth(event.target.value);
+  selectedMonthlyScheduleDate = '';
   $('#monthlyScheduleStatus').textContent = '';
   renderMonthlySchedule();
 });
 $$('[data-monthly-schedule-shift]').forEach(button => button.addEventListener('click', () => {
   monthlyScheduleMonth = shiftScheduleMonth(monthlyScheduleMonth, button.dataset.monthlyScheduleShift);
+  selectedMonthlyScheduleDate = '';
   $('#monthlyScheduleStatus').textContent = '';
   renderMonthlySchedule();
 }));
 $('#monthlyScheduleGrid').addEventListener('click', event => {
   const button = event.target.closest('[data-monthly-schedule-date]');
-  if (button) void toggleMonthlyScheduleDay(button.dataset.monthlyScheduleDate, button);
+  if (!button) return;
+  selectedMonthlyScheduleDate = button.dataset.monthlyScheduleDate;
+  $('#monthlyScheduleStatus').textContent = '';
+  renderMonthlySchedule();
+  $('#monthlyScheduleDetails').focus?.({ preventScroll:true });
+});
+$('#monthlyScheduleDetails').addEventListener('click', event => {
+  const button = event.target.closest('[data-monthly-schedule-action]');
+  if (!button || !selectedMonthlyScheduleDate) return;
+  if (button.dataset.monthlyScheduleAction === 'weekly') {
+    $('.weekly-schedule-panel')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
+  if (button.dataset.monthlyScheduleAction === 'partial') {
+    $('#dayOffDate').value = selectedMonthlyScheduleDate;
+    $('#dayOffAllDay').checked = false;
+    $('#dayOffTime').hidden = false;
+    $('.days-off-panel')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    setTimeout(() => $('#dayOffStart').focus(), 350);
+    return;
+  }
+  void toggleMonthlyScheduleDay(selectedMonthlyScheduleDate, button);
 });
 $('#slotInterval').addEventListener('change', event => { scheduleDirty = true; syncSlotIntervalOptions(event.target.value); });
 $('#dayOffDate').min = businessTodayIso();
@@ -10057,12 +10214,10 @@ $('#weeklySchedule').addEventListener('change', event => {
   scheduleDirty = true;
   if (event.target.matches('[data-schedule-enabled]')) {
     const enabled = event.target.checked;
-    card.classList.toggle('disabled', !enabled);
-    card.querySelectorAll('input[type="time"], [data-schedule-break]').forEach(input => { input.disabled = !enabled; });
-    card.querySelector('.day-off-label').hidden = enabled;
-    card.querySelector('.break-hours').hidden = !enabled || !card.querySelector('[data-schedule-break]').checked;
+    syncScheduleDayCard(card, enabled);
   }
   if (event.target.matches('[data-schedule-break]')) card.querySelector('.break-hours').hidden = !event.target.checked;
+  renderMonthlySchedule();
 });
 $('#portfolioManageList').addEventListener('dragstart', event => {
   const card = event.target.closest('[data-portfolio-card]');
