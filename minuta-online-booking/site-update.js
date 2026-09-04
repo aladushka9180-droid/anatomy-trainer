@@ -3,7 +3,7 @@
 
   if (!('serviceWorker' in navigator)) return;
 
-const workerUrl = './sw.js?v=330';
+const workerUrl = './sw.js?v=331';
   let registration = null;
   let currentController = navigator.serviceWorker.controller;
   let lastCheck = 0;
