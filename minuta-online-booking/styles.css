@@ -948,6 +948,10 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .schedule-week-editor>summary span,.schedule-date-editor>summary strong { font-size:12px; font-weight:850; }
 .schedule-date-editor>summary span { display:grid; gap:4px; }
 .schedule-date-editor>summary small { color:var(--theme-muted,#718178); font-size:9px; font-weight:700; }
+.schedule-disclosure-control { display:inline-flex!important; align-items:center; flex:0 0 auto; gap:7px!important; color:var(--theme-muted,#718178); }
+.schedule-disclosure-control b { font-size:10px; font-weight:800; line-height:1; }
+.schedule-disclosure-control b::before { content:"Развернуть"; }
+details[open]>summary .schedule-disclosure-control b::before { content:"Свернуть"; }
 .schedule-week-editor>summary .ui-icon,.schedule-date-editor>summary .ui-icon { flex:0 0 auto; width:16px; height:16px; transition:transform .2s ease; }
 .schedule-week-editor[open]>summary .ui-icon,.schedule-date-editor[open]>summary .ui-icon { transform:rotate(90deg); }
 .schedule-week-editor-body { padding-top:4px; }
@@ -1010,6 +1014,11 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .break-toggle input,.all-day-control input { width:16px; height:16px; margin:0; accent-color:#2f7654; }
 .break-hours span { color:#91a097; }.day-off-label { color:#88978f; font-size:9px; font-weight:800; }
 .day-off-form { margin:0; padding:12px; }
+.day-off-editor-inline[hidden] { display:none; }
+.day-off-form-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.day-off-form-head strong { color:var(--theme-ink,#173b2a); font-size:11px; }
+.day-off-form-head button { min-height:34px; padding:0 9px; border:0; border-radius:9px; background:transparent; color:var(--theme-accent,#2f7654); cursor:pointer; font:800 10px/1 inherit; }
+.day-off-form-head button:hover { background:var(--theme-accent-soft,#e8f3ec); }
 .all-day-control { display:flex; align-items:center; gap:8px; margin-top:13px; color:#40594c; font-size:11px; font-weight:800; }
 .day-off-time { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .day-off-time label { margin-top:13px; }

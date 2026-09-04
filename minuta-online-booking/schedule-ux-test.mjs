@@ -7,13 +7,15 @@ const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 
 assert.match(html, /id="saveSchedule"[^>]*hidden disabled/, 'Кнопка сохранения должна быть скрыта без изменений');
 assert.match(html, /id="scheduleSaveState"[^>]*hidden>Сохранено</, 'Статус сохранения должен быть скрыт в спокойном состоянии');
-assert.match(html, /<details class="schedule-week-editor" id="scheduleWeekEditor">/, 'Обычная неделя не свёрнута по умолчанию');
+assert.match(html, /<details class="schedule-week-editor" id="scheduleWeekEditor" open>/, 'Обычная неделя должна быть раскрыта по умолчанию');
 assert.match(html, /<details class="weekly-schedule-details" id="weeklyScheduleDetails">/, 'Подробные дни недели не свёрнуты');
 assert.match(html, /id="weeklyScheduleSummary"/, 'Нет краткой сводки недельного графика');
 assert.match(html, /Применить часы/, 'Основное действие быстрой настройки названо неоднозначно');
 assert.match(html, /<details class="schedule-date-editor" id="monthlyScheduleEditor">/, 'Изменения по датам не свёрнуты по умолчанию');
 assert.match(html, /id="dateExceptionsSummary">Исключений нет</, 'Нет краткого количества изменений по датам');
-assert.match(html, /<details class="day-off-editor" id="dayOffEditor">/, 'Форма исключения не свёрнута');
+assert.match(html, /<div class="day-off-editor day-off-editor-inline" id="dayOffEditor" hidden>/, 'Форма частичного закрытия не должна дублировать основное действие');
+assert.doesNotMatch(html, /Закрыть день или часть времени/, 'Дублирующее действие частичного закрытия осталось в интерфейсе');
+assert.match(html, /class="schedule-disclosure-control"[^>]*><b><\/b>/, 'У сворачиваемых блоков нет понятной подписи состояния');
 assert.match(html, /<details class="schedule-help-disclosure">[\s\S]*aria-label="Как формируется доступность">\?/, 'Техническое объяснение не спрятано под справкой');
 assert.doesNotMatch(html, /class="panel days-off-panel"/, 'Исключения дублируются отдельной панелью');
 
@@ -27,8 +29,8 @@ assert.match(provider, /function setScheduleSaveError\(/, 'Ошибки сохр
 assert.match(provider, /Изменено на другом устройстве/, 'Нет понятного сообщения о конфликте параллельных изменений');
 assert.match(provider, /<strong>\$\{day\}<\/strong><i aria-hidden="true"><\/i><span class="sr-only">\$\{status\}<\/span>/, 'Ячейки месяца должны показывать статус точкой, сохраняя доступность для скринридера');
 assert.doesNotMatch(provider, /<strong>\$\{day\}<\/strong><small>\$\{status\}<\/small>/, 'В каждой дате повторяется лишняя подпись статуса');
-assert.match(provider, /\$\('#dayOffEditor'\)\.open = true/, 'Переход к частичному закрытию не раскрывает форму');
-assert.match(provider, /\$\('#dayOffEditor'\)\.open = false/, 'Успешно добавленная форма исключения не сворачивается');
+assert.match(provider, /\$\('#dayOffEditor'\)\.hidden = false/, 'Переход к частичному закрытию не показывает форму');
+assert.match(provider, /\$\('#dayOffEditor'\)\.hidden = true/, 'Форма исключения не скрывается после завершения действия');
 assert.match(provider, /data-monthly-schedule-action="restore"/, 'Нет действия возврата к обычному графику');
 assert.match(provider, /function restoreMonthlyScheduleDate\(/, 'Возврат к обычному графику не реализован');
 assert.match(provider, /summary\.textContent = count \?/, 'Количество изменений по датам не обновляется');

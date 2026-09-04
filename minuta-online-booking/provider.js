@@ -1673,7 +1673,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=343#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=344#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3363,7 +3363,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=343');
+    worker = new Worker('./report-worker.js?v=344');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -8640,7 +8640,6 @@ async function saveSchedule() {
   if (error) { updateScheduleSaveState(); setScheduleSaveError(); showFormError('#scheduleError', 'Не удалось сохранить расписание.'); return; }
   scheduleRows = rows;
   setScheduleDirty(false);
-  $('#scheduleWeekEditor').open = false;
   await saveProviderCache('schedule', scheduleRows, userId);
   const quickStatus = $('#scheduleQuickStatus');
   if (quickStatus) {
@@ -8716,7 +8715,7 @@ async function addDayOff(event) {
   $('#dayOffAllDay').checked = true;
   $('#dayOffTime').hidden = true;
   $('#dayOffDate').min = businessTodayIso();
-  $('#dayOffEditor').open = false;
+  $('#dayOffEditor').hidden = true;
   notify('Исключение добавлено');
   await refreshAfterWrite();
 }
@@ -10402,12 +10401,14 @@ $('#monthlyScheduleMonth').min = businessTodayIso().slice(0, 7);
 $('#monthlyScheduleMonth').addEventListener('change', event => {
   monthlyScheduleMonth = normalizeScheduleMonth(event.target.value);
   selectedMonthlyScheduleDate = '';
+  $('#dayOffEditor').hidden = true;
   $('#monthlyScheduleStatus').textContent = '';
   renderMonthlySchedule();
 });
 $$('[data-monthly-schedule-shift]').forEach(button => button.addEventListener('click', () => {
   monthlyScheduleMonth = shiftScheduleMonth(monthlyScheduleMonth, button.dataset.monthlyScheduleShift);
   selectedMonthlyScheduleDate = '';
+  $('#dayOffEditor').hidden = true;
   $('#monthlyScheduleStatus').textContent = '';
   renderMonthlySchedule();
 }));
@@ -10415,6 +10416,7 @@ $('#monthlyScheduleGrid').addEventListener('click', event => {
   const button = event.target.closest('[data-monthly-schedule-date]');
   if (!button) return;
   selectedMonthlyScheduleDate = button.dataset.monthlyScheduleDate;
+  $('#dayOffEditor').hidden = true;
   $('#monthlyScheduleStatus').textContent = '';
   renderMonthlySchedule();
   $('#monthlyScheduleDetails').focus?.({ preventScroll:true });
@@ -10429,7 +10431,7 @@ $('#monthlyScheduleDetails').addEventListener('click', event => {
     return;
   }
   if (button.dataset.monthlyScheduleAction === 'partial') {
-    $('#dayOffEditor').open = true;
+    $('#dayOffEditor').hidden = false;
     $('#dayOffDate').value = selectedMonthlyScheduleDate;
     $('#dayOffAllDay').checked = false;
     $('#dayOffTime').hidden = false;
@@ -10442,6 +10444,13 @@ $('#monthlyScheduleDetails').addEventListener('click', event => {
     return;
   }
   void toggleMonthlyScheduleDay(selectedMonthlyScheduleDate, button);
+});
+$('#closeDayOffEditor').addEventListener('click', () => {
+  $('#dayOffEditor').hidden = true;
+  clearFormError('#dayOffError');
+});
+$('#monthlyScheduleEditor').addEventListener('toggle', event => {
+  if (!event.currentTarget.open) $('#dayOffEditor').hidden = true;
 });
 $('#slotInterval').addEventListener('change', event => { syncSlotIntervalOptions(event.target.value); setScheduleDirty(true); renderMonthlySchedule(); });
 $('#dayOffDate').min = businessTodayIso();
