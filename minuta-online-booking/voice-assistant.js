@@ -47,9 +47,9 @@
   const SCHEDULE_WORDS = /(?:^|\s)(расписан[а-я]*|график|план[а-я]*|запис[а-я]*|визит[а-я]*|прием[а-я]*|сеанс[а-я]*|клиент[а-я]*)(?=\s|$)/i;
   const COMMAND_FILLERS = new Set(['пожалуйста', 'пожалуйсто', 'мне', 'новую', 'новый', 'запись', 'визит', 'прием', 'сеанс', 'клиента', 'клиентку', 'для']);
   const COMMAND_ALIASES = Object.freeze({
-    ана:'анна', ану:'анну', акно:'окно', акошко:'окошко', выручька:'выручка', дабавь:'добавь', завтраа:'завтра', завтро:'завтра', зафтра:'завтра',
+    ана:'анна', ану:'анну', акно:'окно', акошко:'окошко', выручька:'выручка', дабавь:'добавь', дила:'дела', дилла:'дела', завтраа:'завтра', завтро:'завтра', зафтра:'завтра',
     запеси:'записи', запесы:'записи', запесать:'записать', запеши:'запиши', запешы:'запиши', клеент:'клиент', клент:'клиент', клиен:'клиент', клентку:'клиентку', клеентку:'клиентку',
-    матереал:'материал', напаминание:'напоминание', пажалуйста:'пожалуйста', питницу:'пятницу', пятнецу:'пятницу',
+    матереал:'материал', напаминание:'напоминание', пажалуйста:'пожалуйста', питницу:'пятницу', пятнецу:'пятницу', превет:'привет', привед:'привет', спосибо:'спасибо', спасиба:'спасибо',
     позавтра:'послезавтра', позафтра:'послезавтра', свабоднае:'свободное', свабодное:'свободное', свабодный:'свободный', севодня:'сегодня', сиводня:'сегодня',
     увидамление:'уведомление', увидамления:'уведомления'
   });
@@ -67,7 +67,7 @@
     'schedule_summary', 'find_slots', 'booking_draft', 'client_search', 'revenue_summary', 'revenue_change',
     'inventory_summary', 'inventory_forecast', 'attention', 'clients_summary', 'service_performance',
     'team_summary', 'message_draft', 'content_draft', 'price_advice', 'promotion_ideas',
-    'operational_briefing', 'workspace_help', 'operation_preview', 'help'
+    'operational_briefing', 'workspace_help', 'operation_preview', 'small_talk', 'help'
   ]);
   const REMOTE_INTENT_KINDS = Object.freeze({
     schedule_summary:['schedule_summary'], find_slots:['find_slots'], booking_draft:['booking_draft'],
@@ -76,7 +76,7 @@
     clients_summary:['clients_summary'], service_performance:['service_performance'], team_summary:['team_summary'],
     message_draft:['message_draft'], content_draft:['content_draft'], price_advice:['price_advice','permission_notice'],
     promotion_ideas:['promotion_ideas'], operational_briefing:['operational_briefing'], workspace_help:['workspace_help'],
-    operation_preview:['operation_preview'], help:['help']
+    operation_preview:['operation_preview'], small_talk:['small_talk'], help:['help']
   });
 
   function normalizeText(value) {
@@ -896,13 +896,73 @@
     return scored.filter(entry => entry.score >= threshold).map(entry => entry.item);
   }
 
-  function interpretCommand(command, snapshot = {}, now = new Date()) {
+  function smallTalkModel(command, previousModel = null) {
+    const text = repairCommand(command).text;
+    if (!text) return null;
+    if (/^(?:привет|приветик|здравствуй|здравствуйте|доброе\s+утро|добрый\s+день|добрый\s+вечер|здорово|салют)(?:\s+минута)?$/.test(text)) return {
+      kind:'small_talk',
+      title:'Привет!',
+      message:'Я на связи. Можем просто поговорить или сразу посмотреть расписание, клиентов и дела на сегодня.',
+      examples:['Как дела?', 'Что у меня сегодня?', 'Что требует внимания?']
+    };
+    if (/^(?:(?:привет|приветик|здравствуй|здравствуйте|добрый\s+день)\s+)?(?:ну\s+)?(?:как\s+(?:у\s+тебя\s+)?дела|у\s+тебя\s+как\s+дела|как\s+ты|как\s+настроение|что\s+нового|че\s+как|чо\s+как|как\s+жизнь)(?:\s+минута)?$/.test(text)) return {
+      kind:'small_talk',
+      title:'Всё хорошо',
+      message:'Спасибо, что спросили. Я готов помочь: посмотреть расписание, проверить важные дела или подготовить сообщение клиенту.',
+      examples:['Покажи записи сегодня', 'Что требует внимания?', 'Напиши напоминание клиенту']
+    };
+    if (/^(?:спасибо|благодарю|большое\s+спасибо|спс|понятно|ясно|супер|отлично|класс)$/.test(text)) return {
+      kind:'small_talk',
+      title:'Пожалуйста',
+      message:'Рад помочь. Если нужно, можем продолжить с расписанием, клиентами или текущими задачами.'
+    };
+    if (/^(?:пока|до\s+свидания|до\s+встречи|увидимся|всего\s+доброго)$/.test(text)) return {
+      kind:'small_talk',
+      title:'До встречи!',
+      message:'Буду здесь, когда снова понадоблюсь.'
+    };
+    if (/^(?:кто\s+ты|что\s+ты\s+умеешь|чем\s+ты\s+можешь\s+помочь|чем\s+можешь\s+помочь|помоги|помощь)$/.test(text)) return {
+      kind:'small_talk',
+      title:'Я помощник «Минута»',
+      message:'Понимаю обычную речь, помогаю разобраться в ситуации и предлагаю безопасный следующий шаг. Изменения всегда остаются под вашим контролем.',
+      examples:['Какие записи сегодня?', 'Найди окно завтра', 'Что требует внимания?', 'Придумай пост про массаж']
+    };
+    if (/^(?:нет|неа|не\s+то|неправильно|отмена|отмени)$/.test(text)) return {
+      kind:'small_talk',
+      title:'Понял, это не то',
+      message:'Предыдущий вариант не использую. Скажите задачу ещё раз своими словами — можно коротко и с ошибками.'
+    };
+    if (/^(?:да|ага|угу|ок|окей|хорошо|давай|продолжай|что\s+дальше)$/.test(text)) {
+      if (previousModel?.kind === 'operation_preview') return {
+        ...previousModel,
+        title:'Готов продолжить безопасно',
+        message:'Проверьте данные и используйте кнопку операции. Изменение произойдёт только в штатной форме после отдельного подтверждения.'
+      };
+      if (previousModel?.openSection) return {
+        kind:'small_talk',
+        title:'Продолжим',
+        message:'Открою нужный раздел только после нажатия кнопки.',
+        openSection:previousModel.openSection,
+        openLabel:previousModel.openLabel || 'Открыть раздел'
+      };
+      return {
+        kind:'small_talk',
+        title:'Хорошо',
+        message:'Я готов продолжить. Скажите, что нужно узнать, подготовить или открыть.'
+      };
+    }
+    return null;
+  }
+
+  function interpretCommand(command, snapshot = {}, now = new Date(), previousModel = null) {
     const raw = String(command || '').trim().slice(0, 500);
     const repaired = repairCommand(raw);
     const text = repaired.text;
     const finish = model => understanding(model, repaired);
     const today = snapshot.today || localIsoDate(dateAtNoon(now));
     if (!text) return finish({ kind:'error', title:'Команда не указана', message:'Скажите команду или введите её текстом.' });
+    const smallTalk = smallTalkModel(text, previousModel);
+    if (smallTalk) return finish(smallTalk);
 
     const bookingRequest = bookingSignal(text);
     const writingAction = /(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*|подготов[а-я]*|ответ[а-я]*)(?=\s|$)/.test(text);
@@ -993,6 +1053,7 @@
     if (model.kind === 'schedule_summary') return 80;
     if (model.kind === 'client_search') return 70 + (model.total ? 8 : 0);
     if (model.kind === 'operation_preview') return 108 + (model.plan?.bookingId ? 14 : 0) + (model.needsDetail ? 0 : 12);
+    if (model.kind === 'small_talk') return 86;
     if (['message_draft','content_draft','price_advice','promotion_ideas','operational_briefing','workspace_help','permission_notice'].includes(model.kind)) return 84;
     if (['revenue_summary','revenue_change','inventory_summary','inventory_forecast','attention','clients_summary','service_performance','team_summary'].includes(model.kind)) return 76;
     return Math.min(10, normalizeText(command).split(' ').filter(Boolean).length);
@@ -1674,7 +1735,7 @@
       const continued = canContinueCommand(pendingCommand, lastModel, enteredCommand, snapshot, now);
       const command = continued ? continueCommand(pendingCommand, lastModel, enteredCommand) : enteredCommand;
       lastCommand = command;
-      let interpreted = interpretCommand(command, snapshot, now);
+      let interpreted = interpretCommand(command, snapshot, now, lastModel);
       let aiUnavailable = false;
       if (typeof bridge.understandCommand === 'function' && shouldUseRemoteUnderstanding(command, interpreted, snapshot)) {
         status.textContent = 'Уточняю смысл сложной фразы…';
@@ -1697,7 +1758,9 @@
       }
       if (['booking_draft','find_slots'].includes(interpreted.kind)) interpreted.availableServices = snapshot.services || [];
       const contextual = applyOfflineContext(interpreted, snapshot);
-      const sourceLabel = snapshot.offlineReadable
+      const sourceLabel = interpreted.kind === 'small_talk'
+        ? 'Разговорный ответ · без чтения данных кабинета'
+        : snapshot.offlineReadable
         ? `Источник: сохранённая копия · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}`
         : snapshot.synchronized ? `Источник: ${interpreted.aiEnhanced ? 'защищённый ИИ-разбор · ' : ''}актуальные данные кабинета${snapshot.lastUpdatedAt ? ` · ${snapshotTimeLabel(snapshot.lastUpdatedAt)}` : ''}` : '';
       const model = { ...contextual, sourceLabel };
@@ -1940,7 +2003,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ normalizeText, repairCommand, parseRussianDate, parseRussianTime, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, workspaceHelpModel, clientBookingMatches, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

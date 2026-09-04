@@ -120,6 +120,8 @@ assert.match(voiceAssistant, /kind:'message_draft'/, 'Помощник не го
 assert.match(voiceAssistant, /kind:'operational_briefing'/, 'Помощник не формирует операционную сводку');
 assert.match(voiceAssistant, /data-voice-copy/, 'Черновики помощника нельзя скопировать');
 assert.match(voiceAssistant, /kind:'operation_preview'/, 'Помощник не показывает предпросмотр переноса или отмены');
+assert.match(voiceAssistant, /kind:'small_talk'/, 'Помощник не поддерживает естественный короткий разговор');
+assert.match(voiceAssistant, /Как дела\?/, 'Помощник не отвечает на обычный разговорный вопрос');
 assert.match(voiceAssistant, /data-voice-feedback="fix"/, 'Пользователь не может исправить неверно понятую команду');
 assert.match(voiceAssistant, /актуальные данные кабинета/, 'Помощник не показывает свежесть источника');
 assert.match(voiceAssistant, /защищённый ИИ-разбор/, 'Помощник не маркирует ответы усиленного ИИ-разбора');

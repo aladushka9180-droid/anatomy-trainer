@@ -220,6 +220,23 @@ assert.equal(selectedVoice, russianVoice, 'озвучивание не долж�
 assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
 
 assert.equal(voice.interpretCommand('расскажи анекдот', snapshot, now).kind, 'help');
+const howAreYou = voice.interpretCommand('Как дела?', snapshot, now);
+assert.equal(howAreYou.kind, 'small_talk');
+assert.match(howAreYou.message, /Спасибо, что спросили/);
+assert.equal(voice.interpretCommand('Привет', snapshot, now).kind, 'small_talk');
+assert.equal(voice.interpretCommand('Привет, как дела?', snapshot, now).kind, 'small_talk');
+assert.equal(voice.interpretCommand('Большое спасибо', snapshot, now).title, 'Пожалуйста');
+assert.equal(voice.interpretCommand('Кто ты?', snapshot, now).kind, 'small_talk');
+assert.match(voice.interpretCommand('Нет', snapshot, now).message, /Предыдущий вариант не использую/);
+const conversationalContinue = voice.interpretCommand('Да', snapshot, now, { openSection:'notifications', openLabel:'Открыть уведомления' });
+assert.equal(conversationalContinue.kind, 'small_talk');
+assert.equal(conversationalContinue.openSection, 'notifications');
+const operationContinue = voice.interpretCommand('Да', snapshot, now, { ...voice.interpretCommand('Перенеси Анну на 5 сентября в 15:00', snapshot, now) });
+assert.equal(operationContinue.kind, 'operation_preview');
+assert.equal(operationContinue.plan.bookingId, 'late');
+assert.equal(voice.shouldUseRemoteUnderstanding('Как дела?', howAreYou, { ...snapshot, synchronized:true }), false, 'обычный разговор должен работать локально без платного запроса');
+assert.equal(voice.interpretCommand('как дила', snapshot, now).kind, 'small_talk', 'разговорная фраза с ошибкой должна пониматься локально');
+assert.equal(voice.interpretCommand('превет', snapshot, now).title, 'Привет!', 'искажённое приветствие должно исправляться локально');
 assert.equal(voice.interpretCommand('Сколько выручька сиводня?', snapshot, now).kind, 'revenue_summary');
 const priceQuestion = voice.interpretCommand('Какую цену поставить на массаж?', snapshot, now);
 assert.equal(priceQuestion.kind, 'price_advice');
@@ -336,6 +353,9 @@ assert.equal(voice.shouldUseRemoteUnderstanding('Какие записи зав�
 const remoteSchedule = voice.assistantAnalysisModel({ intent:'schedule_summary', confidence:0.94, canonicalCommand:'Покажи записи завтра', clarification:'' }, assistantSnapshot, now);
 assert.equal(remoteSchedule.kind, 'schedule_summary');
 assert.equal(remoteSchedule.aiEnhanced, true);
+const remoteSmallTalk = voice.assistantAnalysisModel({ intent:'small_talk', confidence:0.92, canonicalCommand:'Как дела?', clarification:'' }, assistantSnapshot, now);
+assert.equal(remoteSmallTalk.kind, 'small_talk');
+assert.equal(remoteSmallTalk.aiEnhanced, true);
 const remoteClarification = voice.assistantAnalysisModel({ intent:'operation_preview', confidence:0.51, canonicalCommand:'', clarification:'Какую запись нужно перенести?' }, assistantSnapshot, now);
 assert.equal(remoteClarification.kind, 'ai_clarification');
 assert.equal(voice.needsClarification(remoteClarification), true);
@@ -564,6 +584,12 @@ assert.equal(remotePayload.command, 'а шо у мя тама завтра');
 assert.doesNotMatch(JSON.stringify(remotePayload.context), /clientKey|paymentMethod|amountRub|79990000004/);
 assert.match(controllerResultHtml, /Записи:/);
 assert.match(controllerResultHtml, /защищённый ИИ-разбор/);
+remotePayload = null;
+controllerInput.value = 'Как дела?';
+controllerForm.emit('submit');
+assert.equal(remotePayload, null, 'обычный разговор не должен обращаться к серверному ИИ');
+assert.match(controllerResultHtml, /Всё хорошо/);
+assert.match(controllerResultHtml, /без чтения данных кабинета/);
 
 controller.destroy();
 
