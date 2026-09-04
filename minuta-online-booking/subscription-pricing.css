@@ -473,3 +473,41 @@
     padding: 0 8px !important;
   }
 }
+
+/* Equal minimal billing switch v385 */
+.subscription-cycle-switch {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  width: min(100%, 380px) !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding: 3px !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  background: var(--theme-surface-alt, var(--soft)) !important;
+}
+
+.subscription-cycle-switch label {
+  width: 100% !important;
+  height: 42px !important;
+  min-height: 42px !important;
+  padding: 0 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+}
+
+.subscription-cycle-switch label span {
+  display: none !important;
+}
+
+#subscriptionMonthly:checked ~ .subscription-cycle-switch label[for=subscriptionMonthly],
+#subscriptionAnnual:checked ~ .subscription-cycle-switch label[for=subscriptionAnnual] {
+  border-color: var(--theme-line, var(--line)) !important;
+  background: var(--theme-surface, #fff) !important;
+}
+
+@media (max-width: 760px) {
+  .subscription-cycle-switch {
+    width: 100% !important;
+  }
+}
