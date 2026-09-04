@@ -1662,7 +1662,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=317#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=318#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3246,7 +3246,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=317');
+    worker = new Worker('./report-worker.js?v=318');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6373,8 +6373,8 @@ function calendarOverviewBookingMarkup(item, compact) {
 }
 
 function calendarWeekTimelineBounds(days, byDate) {
-  let start = 10 * 60;
-  let end = 20 * 60;
+  let start = Infinity;
+  let end = -Infinity;
   days.forEach(date => {
     const iso = localIsoDate(date);
     const weekday = ((date.getDay() + 6) % 7) + 1;
@@ -6390,9 +6390,18 @@ function calendarWeekTimelineBounds(days, byDate) {
       end = Math.max(end, Math.ceil((itemStart + duration) / 60) * 60);
     });
   });
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return { start:10 * 60, end:20 * 60 };
   start = Math.max(0, start);
   end = Math.min(1440, Math.max(start + 60, end));
   return { start, end };
+}
+
+function stackWeekTimelineItems(items, gap = 3) {
+  let previousBottom = -Infinity;
+  items.sort((left, right) => left.top - right.top || left.index - right.index).forEach(entry => {
+    entry.visualTop = Math.max(entry.top, previousBottom + gap);
+    previousBottom = entry.visualTop + entry.height;
+  });
 }
 
 function calendarWeekTimelineMarkup(days, byDate, today) {
@@ -6417,7 +6426,7 @@ function calendarWeekTimelineMarkup(days, byDate, today) {
       const naturalHeight = (duration / 60) * hourHeight;
       return { item, index:itemIndex, duration, top, visualTop:top, height:duration <= 1 ? 34 : Math.max(30, naturalHeight - 4), minuteOnly:duration <= 1 };
     });
-    stackMinuteTimelineItems(timelineItems, 4);
+    stackWeekTimelineItems(timelineItems);
     const cards = timelineItems.map(({ item, duration, visualTop, height:cardHeight }) => {
       const startTime = String(item.booking_time || '').slice(0, 5);
       const endTime = timeFromMinutes(minutesFromTime(startTime) + duration);
