@@ -120,6 +120,7 @@ jobs:
           node --check minuta-online-booking/authorization-repair-v100-static-test.mjs
           node --check minuta-online-booking/booking-buffer-v101-static-test.mjs
           node --check minuta-online-booking/team-calendar-dispatcher-v102-static-test.mjs
+          node --check minuta-online-booking/analytics-experience-v294-test.mjs
           node --check minuta-online-booking/client-import.js
           node --check minuta-online-booking/multi-tenant-v65-static-test.mjs
           node --check minuta-online-booking/multi-tenant-v66-static-test.mjs
@@ -185,6 +186,7 @@ jobs:
           node minuta-online-booking/authorization-repair-v100-static-test.mjs
           node minuta-online-booking/booking-buffer-v101-static-test.mjs
           node minuta-online-booking/team-calendar-dispatcher-v102-static-test.mjs
+          node minuta-online-booking/analytics-experience-v294-test.mjs
           node minuta-online-booking/multi-tenant-v65-static-test.mjs
           node minuta-online-booking/multi-tenant-v66-static-test.mjs
           node minuta-online-booking/multi-tenant-v67-static-test.mjs
@@ -672,6 +674,11 @@ jobs:
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select to_regprocedure('public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)') is not null and to_regprocedure('public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)') is not null and to_regprocedure('public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)') is not null and has_function_privilege('authenticated','public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)','EXECUTE') and has_function_privilege('authenticated','public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)','EXECUTE') and has_function_privilege('authenticated','public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)','EXECUTE') and not has_function_privilege('anon','public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)','EXECUTE');" \
               | grep -qx t
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v103.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v103.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select position('completeness_version' in lower(pg_get_functiondef('public.get_minuta_staff_report_availability(uuid,date,date,uuid)'::regprocedure)))>0 and position('count(distinctschedule.weekday)=7' in regexp_replace(lower(pg_get_functiondef('public.get_minuta_staff_report_availability(uuid,date,date,uuid)'::regprocedure)),'\\s','','g'))>0;" \
+              | grep -qx t
           else
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select not exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name in ('booking_buffer_enabled','booking_buffer_minutes')) and to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is null and to_regprocedure('public.get_public_minuta_available_slots_v101(text,uuid,uuid,date,date)') is null and to_regprocedure('public.get_reschedule_slots_v101(uuid,date,date)') is null;" \
@@ -691,6 +698,7 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v103-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-team-calendar-dispatcher-v102.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v101-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/recovery/rollback-booking-history-import-v99.sql
@@ -930,6 +938,7 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v98.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v101.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v102.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v103.sql
             cat <<'SQL'
           do $v98_validation$
           begin
@@ -1336,6 +1345,10 @@ jobs:
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v102.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select to_regprocedure('public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)') is not null and to_regprocedure('public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)') is not null and to_regprocedure('public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)') is not null and has_function_privilege('authenticated','public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)','EXECUTE') and has_function_privilege('authenticated','public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)','EXECUTE') and has_function_privilege('authenticated','public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)','EXECUTE') and not has_function_privilege('anon','public.create_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone,text,text)','EXECUTE') and not has_function_privilege('anon','public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)','EXECUTE');" \
+              | grep -qx t
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v103.sql
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
+              "select position('completeness_version' in lower(pg_get_functiondef('public.get_minuta_staff_report_availability(uuid,date,date,uuid)'::regprocedure)))>0 and position('count(distinctschedule.weekday)=7' in regexp_replace(lower(pg_get_functiondef('public.get_minuta_staff_report_availability(uuid,date,date,uuid)'::regprocedure)),'\\s','','g'))>0;" \
               | grep -qx t
           else
             test "$MINUTA_MIGRATION_TARGET" = "employee-analytics-v97"

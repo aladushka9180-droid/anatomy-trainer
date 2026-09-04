@@ -15,14 +15,14 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=293" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=294" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
-  <script src="pwa-install.js?v=293"></script>
+  <script src="pwa-install.js?v=294"></script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=293">
+  <link rel="stylesheet" href="styles.css?v=294">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -229,7 +229,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=293#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                        <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=294#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -363,7 +363,7 @@
         </section>
 
         <section class="provider-view" id="analyticsView" data-provider-panel="analytics" hidden>
-          <div class="view-title"><div><span>Результаты</span><h2>Статистика</h2></div><button class="secondary-button compact-button report-export-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Скачать отчёт</span></button></div>
+          <div class="view-title report-head"><div><span>Результаты</span><h2 tabindex="-1">Статистика</h2><p class="view-description">Доход, клиенты и загрузка за выбранный период.</p></div><button class="secondary-button compact-button report-export-button" id="exportBookings" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Экспорт</span></button></div>
           <dialog class="report-export-dialog" id="reportExportDialog" aria-labelledby="reportExportTitle">
             <div class="report-export-head"><div><small>Готовый документ</small><h3 id="reportExportTitle">Скачать отчёт</h3><p>Выберите формат и уровень видимости телефонов клиентов.</p></div><button type="button" data-close-report-export aria-label="Закрыть">×</button></div>
             <label class="report-export-privacy">Телефоны в отчёте<select id="reportExportPrivacy"><option value="masked" selected>Показывать частично</option><option value="full">Показывать полностью</option><option value="none">Не добавлять телефоны</option></select></label>
@@ -374,49 +374,71 @@
             </div>
             <p class="report-export-note">Excel может открыть скачанный файл в защищённом режиме — это стандартная защита Windows.</p>
           </dialog>
-          <p class="view-description">Стоимость состоявшихся визитов и фактически полученная оплата учитываются отдельно.</p>
-          <div class="report-data-source" id="reportDataSource" hidden aria-label="Источник статистики">
-            <span>Показывать</span>
-            <div role="group" aria-label="Выберите данные для статистики">
-              <button class="active" type="button" data-report-source="own" aria-pressed="true">Мои данные</button>
-              <button type="button" data-report-source="demo" aria-pressed="false">Демо-режим</button>
+          <dialog class="report-goals-dialog" id="reportGoalsDialog" aria-labelledby="reportGoalsTitle">
+            <form id="reportGoalsForm" method="dialog">
+              <div class="report-export-head"><div><small>Ваш ориентир</small><h3 id="reportGoalsTitle">Цели бизнеса</h3><p>План помогает оценивать результат относительно ваших задач, а не чужих норм.</p></div><button type="button" data-close-report-goals aria-label="Закрыть">×</button></div>
+              <div class="report-goals-grid">
+                <label>Выручка в месяц, ₽<input id="reportGoalRevenue" type="number" min="0" max="1000000000" step="1000" inputmode="numeric"><small>0 — не показывать выполнение плана</small></label>
+                <label>Целевая загрузка, %<input id="reportGoalUtilization" type="number" min="10" max="100" step="1"></label>
+                <label>Возвращаемость клиентов, %<input id="reportGoalRepeat" type="number" min="0" max="100" step="1"></label>
+                <label>Допустимые отмены и неявки, %<input id="reportGoalCancellation" type="number" min="0" max="100" step="1"></label>
+              </div>
+              <div class="report-goals-actions"><button class="secondary-button" id="reportGoalsReset" type="button">Сбросить</button><button class="primary" type="submit">Сохранить цели</button></div>
+              <p class="provider-display-status" id="reportGoalsStatus" role="status" aria-live="polite"></p>
+            </form>
+          </dialog>
+          <section class="report-filters" aria-label="Фильтры статистики">
+            <div class="report-data-source" id="reportDataSource" hidden aria-label="Источник статистики">
+              <span>Данные</span>
+              <div role="group" aria-label="Выберите данные для статистики">
+                <button class="active" type="button" data-report-source="own" aria-pressed="true">Мои данные</button>
+                <button type="button" data-report-source="demo" aria-pressed="false">Демо-режим</button>
+              </div>
+              <small id="reportDataSourceStatus">Ваши реальные записи и оплаты</small>
             </div>
-            <small id="reportDataSourceStatus">Ваши реальные записи и оплаты</small>
-          </div>
-          <div class="report-toolbar"><div class="report-periods" aria-label="Период отчёта"><button type="button" data-report-period="week">7 дней</button><button class="active" type="button" data-report-period="month">Месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="year">Год</button><button type="button" data-report-period="all">Всё время</button><button type="button" data-report-period="custom">Свои даты</button></div><label class="report-performer-filter" id="reportPerformerFilterWrap" hidden><span>Сотрудник</span><select id="reportPerformerFilter" aria-label="Выберите сотрудника"></select></label></div>
-          <button class="report-team-filter-hint" id="reportShowTeam" type="button" hidden>Для сравнения сотрудников показать всю команду</button>
-          <form class="report-custom-period" id="reportCustomPeriod" hidden><label>С<input id="reportDateFrom" type="date" required></label><label>По<input id="reportDateTo" type="date" required></label><button class="secondary-button" type="submit">Показать</button></form>
-          <p class="report-period-label" id="reportPeriodLabel"></p>
+            <div class="report-toolbar"><div class="report-periods" aria-label="Период отчёта"><button type="button" data-report-period="week">7 дней</button><button class="active" type="button" data-report-period="month">Месяц</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="year">Год</button><button type="button" data-report-period="all">Всё время</button><button type="button" data-report-period="custom">Свои даты</button></div><label class="report-performer-filter" id="reportPerformerFilterWrap" hidden><span>Сотрудник</span><select id="reportPerformerFilter" aria-label="Выберите сотрудника"></select></label></div>
+            <button class="report-team-filter-hint" id="reportShowTeam" type="button" hidden>Для сравнения сотрудников показать всю команду</button>
+            <form class="report-custom-period" id="reportCustomPeriod" hidden><label>С<input id="reportDateFrom" type="date" required></label><label>По<input id="reportDateTo" type="date" required></label><button class="secondary-button" type="submit">Показать</button></form>
+            <p class="report-period-label" id="reportPeriodLabel" role="status" aria-live="polite"></p>
+          </section>
+          <div class="report-load-state" id="reportLoadState" role="status" aria-live="polite" hidden></div>
           <section class="report-command-center" id="reportCommandCenter" aria-labelledby="reportCommandTitle">
             <div class="report-command-copy">
-              <span class="report-command-kicker"><i></i> Аналитика в реальном времени</span>
-              <h3 id="reportCommandTitle">Пульс бизнеса</h3>
+              <div class="report-command-heading"><div><span class="report-command-kicker"><i></i> Ключевое за период</span><h3 id="reportCommandTitle">Пульс бизнеса</h3></div><button class="report-goals-open" id="reportGoalsOpen" type="button">Настроить цели</button></div>
               <p id="reportCommandNarrative">Собираем показатели и ищем точки роста.</p>
               <div class="report-command-metrics">
+                <article><small>Получено</small><strong id="reportHeroRevenue">0 ₽</strong><span id="reportHeroRevenueTrend">Фактическая оплата</span></article>
+                <article><small id="reportPlanCaption">План месяца</small><strong id="reportPlanProgress">Не задан</strong><span id="reportPlanProgressNote">Добавьте цель</span></article>
                 <article><small id="reportForecastCaption">Прогноз к концу месяца</small><strong id="reportForecast">0 ₽</strong><span id="reportForecastTrend">По текущему темпу</span></article>
-                <article><small>Конверсия в визит</small><strong id="reportVisitConversion">0%</strong><span id="reportVisitConversionNote">Состоявшиеся записи</span></article>
-                <article><small>Возвращаются</small><strong id="reportRepeatRate">0%</strong><span id="reportRepeatRateNote">Постоянные клиенты</span></article>
+                <article><small>Загрузка</small><strong id="reportHeroUtilization">—</strong><span id="reportHeroUtilizationNote">По рабочему времени</span></article>
               </div>
             </div>
             <div class="report-health" id="reportHealthRing" role="img" aria-label="Пульс бизнеса: недостаточно данных">
               <div><strong id="reportHealthScore">—</strong><small>из 100</small></div>
               <span id="reportHealthLabel">Нужны данные</span>
             </div>
+            <details class="report-health-details" id="reportHealthDetails"><summary>Почему такая оценка</summary><div class="report-health-factors"><span><small>Посещения</small><strong id="reportVisitConversion">—</strong><i id="reportVisitConversionNote">Нет данных</i></span><span><small>Оплаты</small><strong id="reportPaymentRate">—</strong><i id="reportPaymentRateNote">Нет данных</i></span><span><small>Клиенты</small><strong id="reportRepeatRate">—</strong><i id="reportRepeatRateNote">Нет данных</i></span><span><small>Загрузка</small><strong id="reportHealthUtilization">—</strong><i id="reportHealthUtilizationNote">Нет данных</i></span></div><p>Итог — среднее четырёх доступных показателей относительно заданных целей. Недоступные данные не снижают оценку.</p></details>
             <div class="report-smart-actions" id="reportSmartActions" aria-live="polite"></div>
           </section>
-          <section class="report-insight" id="reportInsight" aria-live="polite"><small>Главное за период</small><p>Статистика появится после первых завершённых визитов.</p></section>
-          <section class="report-last-change" id="reportLastChange" hidden aria-live="polite"><div class="report-last-change-label"><small>Последнее изменение</small><time id="reportLastChangeTime"></time></div><div class="report-last-change-main"><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><small id="reportLastChangeActor"></small></div><details class="report-event-history"><summary>Последние 100 изменений</summary><div class="report-event-list" id="reportEventList"></div></details></section>
-          <div class="report-summary">
+          <nav class="report-view-tabs" aria-label="Разделы статистики">
+            <button class="active" id="reportTabOverview" type="button" aria-current="page" data-report-view="overview">Обзор</button>
+            <button id="reportTabMoney" type="button" data-report-view="money">Деньги</button>
+            <button id="reportTabClients" type="button" data-report-view="clients">Клиенты</button>
+            <button id="reportTabTeam" type="button" data-report-view="team">Команда</button>
+          </nav>
+          <section class="report-insight" id="reportInsight" data-report-section="overview" aria-live="polite"><small>Главное за период</small><p>Статистика появится после первых завершённых визитов.</p></section>
+          <section class="report-last-change" id="reportLastChange" data-report-section="money" hidden aria-live="polite"><div class="report-last-change-label"><small>Последнее изменение</small><time id="reportLastChangeTime"></time></div><div class="report-last-change-main"><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><small id="reportLastChangeActor"></small></div><details class="report-event-history"><summary>Последние 100 изменений</summary><div class="report-event-list" id="reportEventList"></div></details></section>
+          <div class="report-summary" data-report-section="overview">
             <article><small>Получено от клиентов</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
             <article><small>Стоимость оказанных услуг</small><strong id="reportCompletedValue">0 ₽</strong><span>По состоявшимся визитам</span></article>
             <article><small>Долг клиентов</small><strong id="reportDebt">0 ₽</strong><span id="reportUnpaid">Нет визитов с долгом</span></article>
             <article><small>Состоялось</small><strong id="reportCompleted">0</strong><span id="reportWorkload">0 минут работы</span></article>
           </div>
-          <div class="report-secondary" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article></div>
-          <section class="report-reconciliation" id="reportReconciliation" aria-live="polite"></section>
-          <div class="report-visual-grid">
+          <div class="report-secondary" data-report-section="overview" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article></div>
+          <section class="report-reconciliation" id="reportReconciliation" data-report-section="overview" aria-live="polite"></section>
+          <div class="report-visual-grid" data-report-section="overview">
             <section class="panel report-funnel-card" aria-labelledby="reportFunnelTitle">
-              <div class="report-section-heading"><div><small>Путь клиента</small><h3 id="reportFunnelTitle">Воронка записей</h3></div><span id="reportFunnelCaption">От записи до оплаты</span></div>
+              <div class="report-section-heading"><div><small>Статусы периода</small><h3 id="reportFunnelTitle">Путь записей</h3></div><span id="reportFunnelCaption">Без имитации маркетинговой воронки</span></div>
               <div class="report-funnel" id="reportFunnel"></div>
             </section>
             <section class="panel report-heatmap-card" aria-labelledby="reportHeatmapTitle">
@@ -424,7 +446,7 @@
               <div class="report-heatmap" id="reportHeatmap" role="img" aria-label="Загрузка по дням недели и времени"></div>
             </section>
           </div>
-          <section class="report-comparison" id="reportComparison" aria-label="Сравнение с предыдущим периодом">
+          <section class="report-comparison" id="reportComparison" data-report-section="overview" aria-label="Сравнение с предыдущим периодом">
             <div class="report-section-heading"><div><small>Изменения</small><h3>Сравнение периода</h3></div><span>К предыдущему периоду</span></div>
             <div class="report-comparison-list">
               <article><span>Получено</span><strong id="reportComparisonRevenue">Без сравнения</strong></article>
@@ -433,7 +455,7 @@
               <article><span>Записи онлайн</span><strong id="reportComparisonOnline">Без сравнения</strong></article>
             </div>
           </section>
-          <section class="report-decision-section" aria-labelledby="reportDecisionTitle">
+          <section class="report-decision-section" data-report-section="money" aria-labelledby="reportDecisionTitle">
             <div class="report-section-heading report-decision-heading"><div><small>Структура результата</small><h3 id="reportDecisionTitle">Что влияет на результат</h3></div><span id="reportDecisionHint">Нажмите показатель, чтобы открыть записи</span></div>
             <div class="report-decision-grid">
               <section class="panel report-decision-card report-services" aria-labelledby="reportServicesTitle">
@@ -462,7 +484,7 @@
             <p class="report-decision-insight" id="reportDecisionInsight"></p>
           </section>
           <div class="report-business-grid">
-            <section class="panel report-business-card report-clients" aria-labelledby="reportClientsTitle">
+            <section class="panel report-business-card report-clients" data-report-section="clients" aria-labelledby="reportClientsTitle">
               <div class="report-section-heading"><div><small>Клиентская база</small><h3 id="reportClientsTitle">Клиенты за период</h3></div></div>
               <div class="report-metric-row">
                 <article><small>Посетило</small><strong id="reportUniqueClients">0</strong><span>Уникальных клиентов</span></article>
@@ -470,7 +492,7 @@
                 <article><small>Постоянные</small><strong id="reportReturningClients">0</strong><span id="reportReturningClientsShare">0%</span></article>
               </div>
             </section>
-            <section class="panel report-business-card report-utilization" aria-labelledby="reportUtilizationTitle">
+            <section class="panel report-business-card report-utilization" data-report-section="team" aria-labelledby="reportUtilizationTitle">
               <div class="report-section-heading"><div><small>Рабочее время</small><h3 id="reportUtilizationTitle">Загрузка расписания</h3></div><strong id="reportUtilizationPercent">0%</strong></div>
               <div class="report-progress" aria-hidden="true"><i id="reportUtilizationBar" style="width:0%"></i></div>
               <div class="report-utilization-values">
@@ -480,7 +502,7 @@
               </div>
               <p id="reportUtilizationNote">Учитываются рабочие часы без перерывов и закрытого времени.</p>
             </section>
-            <section class="panel report-business-card report-retention" aria-labelledby="reportRetentionTitle">
+            <section class="panel report-business-card report-retention" data-report-section="clients" aria-labelledby="reportRetentionTitle">
               <div class="report-section-heading"><div><small>Возврат клиентов</small><h3 id="reportRetentionTitle">Клиенты после перерыва</h3></div></div>
               <div class="report-retention-list">
                 <article><span>Можно связаться</span><strong id="reportRetentionEligible">0</strong></article>
@@ -491,7 +513,7 @@
               </div>
             </section>
           </div>
-          <section class="panel report-performers" id="reportPerformers" aria-labelledby="reportPerformersTitle">
+          <section class="panel report-performers" id="reportPerformers" data-report-section="team" aria-labelledby="reportPerformersTitle">
             <div class="report-section-heading"><div><small>Команда</small><h3 id="reportPerformersTitle">Рейтинг сотрудников</h3></div><span id="reportTeamPeriod">Выбранный период</span></div>
             <div class="report-team-controls" role="group" aria-label="Показатель рейтинга сотрудников">
               <button class="active" type="button" data-report-team-metric="revenue" aria-pressed="true">Выручка</button>
@@ -503,10 +525,21 @@
             <p class="report-team-note" id="reportTeamMetricNote">Фактически полученная оплата за состоявшиеся визиты.</p>
             <div class="report-performer-list" id="reportPerformersList"><p class="report-empty-inline">Данные по мастерам появятся после завершённых визитов.</p></div>
           </section>
-          <div class="report-insights-grid">
+          <div class="report-insights-grid" data-report-section="money">
             <section class="panel report-trend"><div class="panel-head"><div><small>Динамика</small><h3 id="reportTrendTitle">Получено по дням</h3><p id="reportTrendPeriod">Выбранный период</p></div><div class="report-chart-context"><strong id="reportTrendTotal">0 ₽</strong><small>Нажмите столбец, чтобы открыть расписание</small></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
             <section class="panel report-payments"><div class="panel-head"><div><small>Оплата</small><h3>Способы оплаты</h3></div></div><div id="reportPaymentsList"></div></section>
           </div>
+          <details class="report-methodology" id="reportMethodology">
+            <summary>Как считаются показатели и насколько полны данные</summary>
+            <div class="report-methodology-grid">
+              <article><strong id="reportDataQuality">—</strong><span>Качество данных</span><small id="reportDataQualityNote">Проверяем заполненность результатов и источников.</small></article>
+              <article><strong>Получено</strong><span>Фактическая оплата</span><small>Сумма оплат только по состоявшимся визитам.</small></article>
+              <article><strong>Посещаемость</strong><span>Состоявшиеся из завершённых</span><small>Будущие записи не входят в расчёт.</small></article>
+              <article><strong>Возвращаемость</strong><span>Повторные среди уникальных</span><small>Определяется по аккаунту клиента или нормализованному телефону.</small></article>
+              <article><strong>Загрузка</strong><span>Занятое время из доступного</span><small>Учитываются график, перерывы, выходные и закрытое время.</small></article>
+              <article><strong>Прогноз</strong><span>Оценка, а не гарантия</span><small id="reportForecastMethod">Учитывает темп по дням недели и устойчивость данных.</small></article>
+            </div>
+          </details>
         </section>
 
         <section class="provider-view" data-provider-panel="services" hidden>
@@ -890,6 +923,10 @@
                     <label><span>Четвёртая вкладка</span><select id="mobileNavSlot4" data-mobile-nav-slot></select></label>
                   </div>
                 </fieldset>
+                <fieldset class="booking-card-settings report-goal-settings-link">
+                  <legend>Статистика</legend>
+                  <div><span><strong>Цели бизнеса</strong><small id="settingsReportGoalsSummary">План выручки и целевые показатели</small></span><button class="secondary-button" id="settingsReportGoalsOpen" type="button">Настроить</button></div>
+                </fieldset>
                 <p class="provider-display-hint">«Постоянный клиент» — после 10 завершённых сеансов за последние 30 дней. Отмены и неявки не учитываются.</p>
                 <span class="provider-display-status" id="providerDisplayStatus" role="status" aria-live="polite">Сохраняется автоматически</span>
               </form>
@@ -1165,29 +1202,29 @@
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="vendor/xlsx-0.20.3.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" defer></script>
-  <script src="config.js?v=293"></script>
-  <script src="site-update.js?v=293" defer></script>
-  <script src="reliability.js?v=293"></script>
-  <script src="phone-auth.js?v=293"></script>
-  <script src="social-auth.js?v=293"></script>
-  <script src="resource-management.js?v=293" defer></script>
-  <script src="shift-management.js?v=293" defer></script>
-  <script src="organization.js?v=293" defer></script>
-  <script src="payroll-management.js?v=293" defer></script>
-  <script src="benefit-management.js?v=293" defer></script>
-  <script src="loyalty-management.js?v=293" defer></script>
-  <script src="inventory-management.js?v=293" defer></script>
-  <script src="retention-management.js?v=293" defer></script>
-  <script src="payment-management.js?v=293" defer></script>
-  <script src="notification-center.js?v=293" defer></script>
-  <script src="client-fields.js?v=293" defer></script>
-  <script src="client-import.js?v=293" defer></script>
-  <script src="batch-bookings.js?v=293" defer></script>
-  <script src="booking-policy-management.js?v=293" defer></script>
-  <script src="team-calendar.js?v=293" defer></script>
-  <script src="free-slots-share.js?v=293" defer></script>
-  <script src="group-bookings.js?v=293" defer></script>
-  <script src="provider.js?v=293" defer></script>
-  <script src="voice-assistant.js?v=293" defer></script>
+  <script src="config.js?v=294"></script>
+  <script src="site-update.js?v=294" defer></script>
+  <script src="reliability.js?v=294"></script>
+  <script src="phone-auth.js?v=294"></script>
+  <script src="social-auth.js?v=294"></script>
+  <script src="resource-management.js?v=294" defer></script>
+  <script src="shift-management.js?v=294" defer></script>
+  <script src="organization.js?v=294" defer></script>
+  <script src="payroll-management.js?v=294" defer></script>
+  <script src="benefit-management.js?v=294" defer></script>
+  <script src="loyalty-management.js?v=294" defer></script>
+  <script src="inventory-management.js?v=294" defer></script>
+  <script src="retention-management.js?v=294" defer></script>
+  <script src="payment-management.js?v=294" defer></script>
+  <script src="notification-center.js?v=294" defer></script>
+  <script src="client-fields.js?v=294" defer></script>
+  <script src="client-import.js?v=294" defer></script>
+  <script src="batch-bookings.js?v=294" defer></script>
+  <script src="booking-policy-management.js?v=294" defer></script>
+  <script src="team-calendar.js?v=294" defer></script>
+  <script src="free-slots-share.js?v=294" defer></script>
+  <script src="group-bookings.js?v=294" defer></script>
+  <script src="provider.js?v=294" defer></script>
+  <script src="voice-assistant.js?v=294" defer></script>
 </body>
 </html>

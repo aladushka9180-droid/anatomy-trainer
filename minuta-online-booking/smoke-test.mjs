@@ -440,16 +440,18 @@ assert.ok(!appearanceSources.includes(undefined), 'Не удалось извл�
 assert.match(appearanceSources[6], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
 const defaultMobileNav = ['bookings', 'notifications', 'analytics', 'schedule'];
+const defaultAnalyticsGoals = { revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 };
+const defaultAnalyticsGoalsByScope = {};
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
   for (const theme of ['luxury', 'loft', 'eco', 'hitech']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).layout, layout, `Структура ${layout} потерялась с темой ${theme}`);
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav };
-const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav };
+const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, mobile_nav:defaultMobileNav, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
@@ -489,9 +491,15 @@ assert.match(providerHtml, /id="autoCompleteVisits"/, 'В настройках �
 assert.match(providerHtml, /id="reportUnpaid"/, 'Статистика не показывает неоплаченные визиты отдельно');
 assert.match(providerHtml, /data-report-period="week"[\s\S]*data-report-period="year"/, 'В статистике нет быстрых периодов за неделю и год');
 assert.match(providerHtml, /id="reportCommandCenter"[\s\S]*id="reportHealthRing"[\s\S]*id="reportSmartActions"/, 'В статистике отсутствует центр управления бизнесом');
+assert.match(providerHtml, /id="reportGoalsDialog"[\s\S]*id="reportGoalRevenue"[\s\S]*id="reportGoalCancellation"/, 'В статистике нельзя настроить цели бизнеса');
+assert.match(providerHtml, /data-report-view="overview"[\s\S]*data-report-view="money"[\s\S]*data-report-view="clients"[\s\S]*data-report-view="team"/, 'Подробная статистика не разделена на минималистичные представления');
+assert.match(providerHtml, /id="reportDataQuality"[\s\S]*id="reportForecastMethod"/, 'Нет объяснения качества данных и метода прогноза');
 assert.match(providerHtml, /id="reportFunnel"[\s\S]*id="reportHeatmap"/, 'В статистике отсутствуют воронка и тепловая карта загрузки');
 assert.match(provider, /function renderReportCommandCenter[\s\S]*function renderAnalytics/, 'Пульс бизнеса не рассчитывается из данных отчёта');
-assert.match(provider, /renderReportFunnel\(items, completed\)[\s\S]*renderReportHeatmap\(items\)/, 'Воронка и карта спроса не обновляются вместе со статистикой');
+assert.match(provider, /renderReportFunnel\(items, completed\)[\s\S]*renderReportHeatmap\(items, range\)/, 'Путь записей и нормализованная карта загрузки не обновляются вместе со статистикой');
+assert.match(provider, /availableComponents\.reduce[\s\S]*\/ totalWeight/, 'Пульс бизнеса не перенормирует веса доступных показателей');
+assert.doesNotMatch(provider, /utilizationPercent === null \? 60/, 'Отсутствующая загрузка снова подменяется выдуманным нейтральным значением');
+assert.match(provider, /data-report-action/, 'Рекомендации не используют безопасные типизированные действия');
 assert.match(styles, /\.report-command-center[\s\S]*\.report-health>div[\s\S]*conic-gradient/, 'Визуальный центр статистики потерял оформление пульса бизнеса');
 assert.match(provider, /function applyAutomaticVisitOutcomes/, 'Прошедшие визиты не отмечаются автоматически после рабочего дня');
 assert.match(provider, /completion_source:'auto'/, 'Автоматическое завершение нельзя отличить от ручного');
