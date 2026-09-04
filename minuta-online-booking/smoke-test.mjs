@@ -198,7 +198,7 @@ assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, '�
 assert.match(provider, /\$\{visual\}<small aria-hidden="true">\$\{uiIcon\('image'\)\}<\/small>/, 'Кнопка фотографии в карточке записи снова смещает содержимое аватара');
 assert.match(providerHtml, new RegExp(`rel="manifest" href="provider\\.webmanifest\\?v=${version}"`), 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(provider, /data-create-empty-booking/, 'В пустом расписании нет кнопки создания записи');
-assert.match(provider, /if \(createEmptyBooking && requireBookingWrites\(\)\) openNewBookingSheet\(\)/, 'Кнопка пустого расписания не открывает форму новой записи');
+assert.match(provider, /if \(createEmptyBooking && requireBookingWrites\(\)\) openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)/, 'Кнопка пустого расписания не открывает форму для выбранной даты');
 assert.match(providerHtml, /id="installAppButton"[\s\S]*Установить приложение/, 'В настройках нет кнопки установки приложения');
 assert.match(providerHtml, /id="iosInstallGuide"[\s\S]*На экран Домой/, 'Нет инструкции установки кабинета на iPhone');
 assert.match(providerHtml, /id="androidInstallGuide"[\s\S]*Открыть в Chrome/, 'Нет инструкции установки кабинета на Android');
@@ -578,7 +578,7 @@ assert.match(styles, /timeline-hour\.timeline-half-hour[\s\S]*font-size:10px;/, 
 assert.match(styles, /top:var\(--half-hour-offset\)/, 'Получасовая линия не синхронизирована с масштабом расписания');
 assert.match(provider, /compactBookingColorPicker\('newBookingColor'/, 'В новой записи нельзя выбрать цвет');
 assert.match(providerHtml, /id="mobileNewBookingButton"[^>]*aria-label="Создать запись"/, 'На телефоне нет постоянной быстрой кнопки создания записи');
-assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\(\)/, 'Мобильная быстрая кнопка не открывает форму записи');
+assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)/, 'Мобильная быстрая кнопка не открывает форму для выбранной даты');
 assert.match(provider, /mobileCreate\.hidden = !\['bookings', 'clients'\]\.includes\(view\)/, 'Кнопка создания записи перекрывает разделы, где она не нужна');
 assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[\s\S]*Записать снова/, 'В карточке клиента нет быстрого повторения записи');
 assert.match(provider, /function openQuickRepeatForClient[\s\S]*serviceId:previousBooking\.service_id/, 'Быстрое повторение не подставляет последнюю доступную услугу клиента');
