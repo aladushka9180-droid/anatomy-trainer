@@ -9,9 +9,10 @@
   <meta name="description" content="Инструкция Minuta.">
   <title>Инструкция — Minuta</title>
   <link rel="icon" href="../icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="help.css?v=356">
+  <link rel="stylesheet" href="help.css?v=357">
 </head>
 <body class="article-page">
+  <a class="skip-link" href="#articleRoot">Перейти к статье</a>
   <header class="help-header">
     <a class="help-brand" href="index.html" aria-label="Помощь Minuta — на главную">
       <span class="help-brand-mark">М</span>
@@ -19,7 +20,7 @@
     </a>
     <nav class="help-header-nav" aria-label="Основная навигация">
       <a href="index.html#sections">Все разделы</a>
-      <a class="help-product-link" href="../provider.html">Открыть Minuta <svg aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg></a>
+      <a class="help-product-link" id="productLink" href="../provider.html"><span>Открыть Minuta</span><svg aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg></a>
     </nav>
   </header>
 
@@ -40,7 +41,7 @@
       <div class="article-steps" id="articleSteps"></div>
       <aside class="article-note" id="articleNote"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-info"></use></svg><div><strong>Важно</strong><p></p></div></aside>
       <section class="article-feedback" aria-labelledby="feedbackTitle">
-        <div><strong id="feedbackTitle">Статья была полезна?</strong><small>Ответ поможет улучшить инструкции.</small></div>
+        <div><strong id="feedbackTitle">Всё получилось?</strong></div>
         <div class="feedback-actions"><button type="button" data-feedback="yes">Да</button><button type="button" data-feedback="no">Нет</button></div>
         <p id="feedbackThanks" role="status" hidden>Спасибо за ответ.</p>
       </section>
@@ -48,13 +49,14 @@
         <p>Продолжить</p><h2 id="relatedTitle">Похожие инструкции</h2><div id="relatedList"></div>
       </section>
     </article>
+    <noscript><p class="article-script-note">Для просмотра пошаговой инструкции включите JavaScript.</p></noscript>
   </main>
 
   <footer class="help-footer">
     <span>© Minuta</span>
-    <div><a href="../privacy.html">Конфиденциальность</a><a href="../provider.html">Вернуться в кабинет</a></div>
+    <div><a href="../privacy.html">Конфиденциальность</a><a id="footerProductLink" href="../provider.html">Вернуться в кабинет</a></div>
   </footer>
-  <script src="help-data.js?v=356"></script>
-  <script src="article.js?v=356" defer></script>
+  <script src="help-data.js?v=357"></script>
+  <script src="article.js?v=357" defer></script>
 </body>
 </html>

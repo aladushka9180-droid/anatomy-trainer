@@ -1,8 +1,7 @@
 (function () {
   const articles = Array.isArray(window.MINUTA_HELP_ARTICLES) ? window.MINUTA_HELP_ARTICLES : [];
   const slug = new URLSearchParams(location.search).get('slug') || 'first-booking';
-  const article = articles.find(item => item.slug === slug) || articles[0];
-  if (!article) return;
+  const article = articles.find(item => item.slug === slug);
 
   const setText = (selector, value) => {
     const element = document.querySelector(selector);
@@ -10,12 +9,36 @@
   };
   const articleUrl = item => `article.html?slug=${encodeURIComponent(item.slug)}`;
 
+  if (!article) {
+    document.title = 'Инструкция не найдена — Minuta';
+    setText('#articleMeta', 'База знаний');
+    setText('#articleTitle', 'Инструкция не найдена');
+    setText('#articleIntro', 'Возможно, ссылка устарела. Вернитесь к разделам или воспользуйтесь поиском.');
+    document.querySelector('#articleSteps').hidden = true;
+    document.querySelector('#articleNote').hidden = true;
+    document.querySelector('.article-feedback').hidden = true;
+    document.querySelector('.related-articles').hidden = true;
+    return;
+  }
+
   document.title = `${article.title} — Minuta`;
   document.querySelector('meta[name="description"]')?.setAttribute('content', article.excerpt);
   setText('#articleCategory', article.category);
   setText('#articleMeta', `${article.category} · ${article.time} на чтение · Обновлено ${article.updated}`);
   setText('#articleTitle', article.title);
   setText('#articleIntro', article.intro);
+  const productLink = document.querySelector('#productLink');
+  const footerProductLink = document.querySelector('#footerProductLink');
+  if (productLink) {
+    productLink.href = article.audience === 'client' ? '../index.html' : '../provider.html';
+    const label = productLink.querySelector('span');
+    if (label) label.textContent = article.audience === 'client' ? 'К онлайн-записи' : 'Открыть Minuta';
+  }
+  if (footerProductLink) {
+    footerProductLink.href = article.audience === 'client' ? '../index.html' : '../provider.html';
+    footerProductLink.textContent = article.audience === 'client' ? 'К онлайн-записи' : 'Вернуться в кабинет';
+  }
+  try { sessionStorage.setItem('minuta-help-audience', article.audience); } catch { /* Navigation still works. */ }
 
   const steps = document.querySelector('#articleSteps');
   article.steps.forEach((step, index) => {
