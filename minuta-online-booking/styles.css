@@ -112,7 +112,7 @@
 .calendar-overview-more { width:100%; min-height:38px; border:0; border-radius:8px; background:var(--theme-surface-alt,#f4f7f5); color:var(--theme-accent,#235b40); cursor:pointer; font-size:9px; font-weight:900; }
 .calendar-overview-month .calendar-overview-day { min-height:132px; }
 .calendar-week-mobile-list { display:none; }
-.calendar-week-timeline { width:100%; overflow:auto; overscroll-behavior-x:contain; scrollbar-gutter:stable; }
+.calendar-week-timeline { width:100%; overflow-x:auto; overflow-y:clip; overscroll-behavior-x:contain; scrollbar-gutter:stable; content-visibility:visible!important; contain:none!important; }
 .calendar-week-timeline-grid { display:grid; grid-template-columns:64px repeat(7,minmax(150px,1fr)); grid-template-rows:58px var(--calendar-week-height); min-width:1114px; }
 .calendar-week-axis-head,.calendar-week-date { position:sticky; z-index:4; top:0; border:0; border-bottom:1px solid var(--theme-line,#dce7df); background:var(--theme-surface,#fff); color:var(--theme-ink,#173b2a); }
 .calendar-week-axis-head { left:0; display:grid; grid-column:1; grid-row:1; place-items:center; border-right:1px solid var(--theme-line,#dce7df); color:var(--theme-muted,#64756c); font-size:9px; font-weight:900; text-transform:uppercase; }
@@ -5698,7 +5698,7 @@ html.provider-booting .provider-main {
   #reportServicesList > *,
   .schedule-list > *,
   .service-manage-list > *,
-  .provider-bookings:not(.timeline-view) > *,
+  .provider-bookings:not(.timeline-view) > *:not(.calendar-week-timeline),
   .notification-list > *,
   .days-off-list > * {
     content-visibility:auto;
