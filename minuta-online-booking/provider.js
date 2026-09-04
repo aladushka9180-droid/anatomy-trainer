@@ -1370,7 +1370,6 @@ function renderDisplayPreferencesForm() {
     select.querySelectorAll('option').forEach(option => { option.disabled = option.value !== current && selected.includes(option.value); });
   });
   renderMobileNavigationPreview(selected);
-  renderReportGoalsSummary();
 }
 function providerAppIsInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -1766,7 +1765,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=369#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=370#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2647,14 +2646,6 @@ function reportGoals() {
   return normalizeAnalyticsGoals(scoped || displayPreferences.analytics_goals);
 }
 
-function renderReportGoalsSummary() {
-  const goals = reportGoals();
-  const summary = $('#settingsReportGoalsSummary');
-  if (summary) summary.textContent = goals.revenue_rub
-    ? `${money(goals.revenue_rub)} в месяц · загрузка ${goals.utilization_percent}%`
-    : `План выручки не задан · загрузка ${goals.utilization_percent}%`;
-}
-
 function renderReportGoalsForm() {
   const goals = reportGoals();
   const fields = {
@@ -2664,7 +2655,6 @@ function renderReportGoalsForm() {
     reportGoalCancellation:goals.cancellation_percent
   };
   Object.entries(fields).forEach(([id, value]) => { const input = $(`#${id}`); if (input) input.value = String(value); });
-  renderReportGoalsSummary();
 }
 
 function openReportGoals() {
@@ -2690,7 +2680,6 @@ function saveReportGoals() {
   displayPreferencesPending = true;
   persistLocalDisplayPreferences();
   queueDisplayPreferencesSync();
-  renderReportGoalsSummary();
   renderAnalytics();
   const status = $('#reportGoalsStatus');
   if (status) status.textContent = reportDataSource === 'demo'
@@ -3456,7 +3445,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=369');
+    worker = new Worker('./report-worker.js?v=370');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -9430,7 +9419,7 @@ document.addEventListener('click', async event => {
   const reportViewButton = event.target.closest('[data-report-view]');
   const reportActionButton = event.target.closest('[data-report-action]');
   const reportActionsToggle = event.target.closest('[data-report-actions-toggle]');
-  const openReportGoalsButton = event.target.closest('#reportGoalsOpen,#settingsReportGoalsOpen');
+  const openReportGoalsButton = event.target.closest('#reportGoalsOpen');
   const closeReportGoalsButton = event.target.closest('[data-close-report-goals]');
   const openNotificationTemplates = event.target.closest('[data-open-notification-templates]');
   const closeNotificationTemplates = event.target.closest('[data-close-notification-templates]');
