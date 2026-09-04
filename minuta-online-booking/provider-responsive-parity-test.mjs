@@ -41,7 +41,7 @@ assert.match(provider, /#newBookingButton, #mobileNewBookingButton/, 'Созда
 assert.match(provider, /client-badge-label/, 'В мобильной карточке нельзя показать расшифровку важной метки клиента');
 assert.match(html, /id="providerDayFocus"[\s\S]*id="providerDayFocusOpen"/, 'На телефоне отсутствует компактная карточка ближайшей записи');
 assert.match(provider, /mobileCreate\.hidden = !\['bookings', 'clients'\]\.includes\(view\)/, 'Кнопка создания записи перекрывает посторонние разделы');
-assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:inline!important/, 'Длительность обычной записи скрыта на телефоне');
+assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:none!important/, 'Длительность обычной записи дублируется на телефоне');
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status\s*\{[^}]*display:inline-flex!important/, 'Статус обычной записи скрыт на телефоне');
 assert.match(css, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.client-badge-label\s*\{[^}]*display:block/, 'Название важной метки клиента скрыто на телефоне');
 assert.match(css, /\.service-visibility-toggle span\s*\{[^}]*display:inline/, 'Состояние услуги на телефоне обозначено только непонятным значком');
