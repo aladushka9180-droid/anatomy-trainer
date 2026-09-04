@@ -6453,6 +6453,13 @@ html.provider-booting .provider-main {
   white-space:normal;
   font-variant-numeric:tabular-nums;
 }
+.report-heatmap-card .report-section-heading>span {
+  max-width:62%;
+  color:color-mix(in srgb,var(--theme-ink) 88%,var(--theme-muted));
+  font-size:14px;
+  font-weight:850;
+  line-height:1.4;
+}
 .report-methodology { margin-top:12px; border:1px solid var(--theme-line); border-radius:var(--report-radius); background:var(--theme-surface); }
 .report-methodology.has-warning { border-color:color-mix(in srgb,#d69b37 40%,var(--theme-line)); }
 .report-methodology>summary { min-height:48px; display:flex; align-items:center; padding:0 15px; color:var(--theme-muted); cursor:pointer; font-size:11px; font-weight:850; }
@@ -6538,7 +6545,7 @@ html.provider-booting .provider-main {
   .report-heatmap-card .report-heatmap-cell i { font-size:15px; }
   .report-heatmap-card .report-heatmap-popular-time { font-size:10px; }
   .report-heatmap-card .report-section-heading { align-items:flex-start; flex-direction:column; }
-  .report-heatmap-card .report-section-heading>span { max-width:none; text-align:left; }
+  .report-heatmap-card .report-section-heading>span { max-width:none; font-size:12px; text-align:left; }
   .report-goal-settings-link>div { align-items:stretch; flex-direction:column; }
   .schedule-settings-layout,.schedule-settings-layout>.panel,.weekly-schedule,.monthly-schedule-panel,.days-off-panel { width:100%; min-width:0; max-width:100%; box-sizing:border-box; }
   .schedule-settings-layout :is(input,select,textarea,.field-with-unit) { min-width:0; max-width:100%; box-sizing:border-box; }
