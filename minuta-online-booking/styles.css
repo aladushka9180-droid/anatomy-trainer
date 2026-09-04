@@ -5302,6 +5302,21 @@ html.provider-booting .provider-main {
   .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) :is(.timeline-booking-client-row,.timeline-booking-note) {
     padding-right:76px!important;
   }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-booking-client {
+    overflow:visible;
+    text-overflow:clip;
+    white-space:normal;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-client-phone {
+    display:block;
+    margin-top:2px;
+    overflow:visible;
+    text-overflow:clip;
+    white-space:nowrap;
+  }
+  .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .timeline-client-phone-separator {
+    display:none;
+  }
   .provider-body[data-provider-theme] .timeline-booking:not(.compact):not(.minute-only) .client-badges:not(.with-labels) {
     max-width:108px;
   }

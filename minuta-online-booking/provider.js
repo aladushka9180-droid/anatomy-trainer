@@ -1662,7 +1662,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=321#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=322#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3246,7 +3246,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=321');
+    worker = new Worker('./report-worker.js?v=322');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4424,9 +4424,13 @@ function timelineTimeFromClick(stage, event) {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || rect.height <= 0) return '';
   const position = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
   const rawMinute = start + ((position / rect.height) * (end - start));
-  const step = scheduleStepForDate(selectedDate);
+  const step = 30;
   const snappedMinute = Math.round(rawMinute / step) * step;
-  const snapped = Math.max(start, Math.min(end - step, snappedMinute));
+  const firstSlot = Math.ceil(start / step) * step;
+  const lastSlot = Math.floor((end - 1) / step) * step;
+  const snapped = firstSlot <= lastSlot
+    ? Math.max(firstSlot, Math.min(lastSlot, snappedMinute))
+    : Math.max(start, Math.min(end - 1, Math.round(rawMinute)));
   return `${String(Math.floor(snapped / 60)).padStart(2, '0')}:${String(snapped % 60).padStart(2, '0')}`;
 }
 
@@ -4867,7 +4871,7 @@ function renderTimeline(sourceItems) {
     const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', visitText, `${duration} мин`].filter(Boolean).join(' · ');
     const clientDetailsMarkup = block
       ? (item.automatic_break ? 'Автоматически' : 'Занятое время')
-      : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${displayPreferences.show_phone ? `<span class="timeline-client-phone"> · ${escapeHtml(item.client_phone)}</span>` : ''}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}<span class="timeline-client-duration"> · ${duration} мин</span>`;
+      : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${displayPreferences.show_phone ? `<span class="timeline-client-phone"><span class="timeline-client-phone-separator" aria-hidden="true"> · </span>${escapeHtml(item.client_phone)}</span>` : ''}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}<span class="timeline-client-duration"> · ${duration} мин</span>`;
     const ariaDetails = visibleNote ? `${clientDetails}, заметка: ${visibleNote}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
@@ -5827,7 +5831,9 @@ function selectNewBookingClient(phone) {
 }
 
 function setNewBookingMode(mode) {
-  newBookingMode = mode === 'block' ? 'block' : 'client';
+  const nextMode = mode === 'block' ? 'block' : 'client';
+  const enteringBlock = nextMode === 'block' && newBookingMode !== 'block';
+  newBookingMode = nextMode;
   $$('[data-new-booking-mode]').forEach(button => {
     const active = button.dataset.newBookingMode === newBookingMode;
     button.classList.toggle('active', active);
@@ -5850,7 +5856,10 @@ function setNewBookingMode(mode) {
   $('#newBookingServiceCaption').textContent = block ? 'Длительность' : 'Услуга';
   const serviceSelect = $('#newBookingService');
   const selectedService = serviceSelect.value;
-  serviceSelect.innerHTML = block ? blockDurationOptions(selectedService, true) : serviceOptions(selectedService, true);
+  const defaultBlockService = enteringBlock
+    ? ownServices.find(item => item.active && Number(item.duration_minutes) === 60)?.id || selectedService
+    : selectedService;
+  serviceSelect.innerHTML = block ? blockDurationOptions(defaultBlockService, true) : serviceOptions(selectedService, true);
   updateNewBookingDurationControl();
   updateNewBookingSubmitCaption();
   clearFormError('#newBookingError');
