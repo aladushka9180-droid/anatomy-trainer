@@ -985,7 +985,14 @@ async function validateCurrentSelection() {
 }
 function formatPhone(value) { let digits = value.replace(/\D/g, '').slice(0, 11); if (!digits) return ''; if (digits[0] === '8') digits = `7${digits.slice(1)}`; if (digits[0] !== '7') digits = `7${digits}`.slice(0, 11); const p = digits.slice(1); return `+7${p.length ? ` (${p.slice(0, 3)}` : ''}${p.length >= 3 ? ')' : ''}${p.length > 3 ? ` ${p.slice(3, 6)}` : ''}${p.length > 6 ? `-${p.slice(6, 8)}` : ''}${p.length > 8 ? `-${p.slice(8, 10)}` : ''}`; }
 function showError(message) { $('#formError').textContent = message; $('#formError').hidden = false; }
-function telegramConnectUrl(manageToken) { return `${telegramClientEndpoint}/connect?token=${encodeURIComponent(manageToken)}`; }
+function prepareTelegramAuthorization(manageToken) {
+  return window.MinutaTelegramAuth?.prepare({
+    button: $('#telegramConnect'),
+    manageToken,
+    endpoint: telegramClientEndpoint,
+    apikey: window.MINUTA_CONFIG.supabaseKey
+  });
+}
 function notifyTelegramEvent(event, manageToken) {
   if (!manageToken) return;
   fetch(`${telegramClientEndpoint}/event`, {
@@ -1092,8 +1099,8 @@ async function submitBooking(event) {
     manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
-    $('#telegramConnect').href = telegramConnectUrl(manageToken);
     $('#telegramConnect').hidden = false;
+    void prepareTelegramAuthorization(manageToken);
     await bootstrapClientAccess(manageToken, phone);
     const [{ data: management }, paymentCapability] = await Promise.all([
       db.rpc('get_booking_management', { p_token: manageToken }),

@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const MAX_JSON_BYTES = 32 * 1024;
+const TELEGRAM_AUTH_MAX_AGE_SECONDS = 15 * 60;
 const REMINDER_SECRET_HASH_TTL = 5 * 60 * 1000;
 let cachedReminderSecretHash = "";
 let cachedReminderSecretHashExpiresAt = 0;
@@ -22,12 +23,22 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 type BookingEvent = "confirmation" | "rescheduled" | "cancelled" | "reminder";
 
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status, headers: corsHeaders });
+  return Response.json(body, { status, headers: { ...corsHeaders, "cache-control": "no-store" } });
 }
 
 async function sha256Hex(value: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Buffer(value: string) {
+  return await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+}
+
+async function hmacSha256Hex(key: ArrayBuffer, value: string) {
+  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(value));
+  return [...new Uint8Array(signature)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function sameHash(actual: string, expected: string) {
@@ -93,6 +104,38 @@ function decodeStartToken(value: string) {
   const compact = value.startsWith("b") ? value.slice(1) : value;
   if (!/^[0-9a-f]{32}$/i.test(compact)) return "";
   return [compact.slice(0, 8), compact.slice(8, 12), compact.slice(12, 16), compact.slice(16, 20), compact.slice(20)].join("-");
+}
+
+function telegramAuthData(auth: unknown) {
+  if (!auth || typeof auth !== "object" || Array.isArray(auth)) return null;
+  const input = auth as Record<string, unknown>;
+  const hash = String(input.hash || "").toLowerCase();
+  const id = String(input.id || "");
+  const authDate = Number(input.auth_date);
+  if (!/^[0-9a-f]{64}$/.test(hash) || !/^\d{1,20}$/.test(id) || !Number.isSafeInteger(authDate)) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (authDate > now + 60 || now - authDate > TELEGRAM_AUTH_MAX_AGE_SECONDS) return null;
+
+  const entries: Array<[string, string]> = [];
+  for (const [key, value] of Object.entries(input)) {
+    if (key === "hash") continue;
+    if (!/^[a-z][a-z0-9_]{0,63}$/.test(key) || !["string", "number", "boolean"].includes(typeof value)) return null;
+    entries.push([key, String(value)]);
+  }
+  entries.sort(([left], [right]) => left.localeCompare(right));
+  return {
+    hash,
+    id,
+    username: typeof input.username === "string" ? input.username.slice(0, 64) : null,
+    dataCheckString: entries.map(([key, value]) => `${key}=${value}`).join("\n"),
+  };
+}
+
+async function verifyTelegramAuth(auth: unknown) {
+  const parsed = telegramAuthData(auth);
+  if (!parsed) return null;
+  const expected = await hmacSha256Hex(await sha256Buffer(botToken), parsed.dataCheckString);
+  return sameHash(parsed.hash, expected) ? parsed : null;
 }
 
 async function telegramWebhookSecret() {
@@ -229,6 +272,63 @@ async function sendBookingEvent(booking: any, event: BookingEvent) {
   return { delivered: true };
 }
 
+async function telegramAuthConfig(req: Request) {
+  const token = new URL(req.url).searchParams.get("token") || "";
+  const booking = await bookingByToken(token);
+  if (!booking) return json({ ok: false, error: "booking_not_found" }, 404);
+  const bot = await telegram("getMe", {});
+  if (!bot?.id || !bot?.username) return json({ ok: false, error: "bot_not_configured" }, 503);
+  const phone = normalizePhone(booking.client_phone);
+  const { data: subscription } = await admin.from("client_telegram_subscriptions")
+    .select("id")
+    .eq("performer_id", booking.performer_id)
+    .eq("client_phone", phone)
+    .eq("active", true)
+    .maybeSingle();
+  return json({
+    ok: true,
+    bot_id: String(bot.id),
+    bot_username: String(bot.username),
+    connected: Boolean(subscription),
+  });
+}
+
+async function authorizeTelegram(req: Request) {
+  const body = await readJson(req);
+  const token = String(body.manage_token || "");
+  const booking = await bookingByToken(token);
+  if (!booking) return json({ ok: false, error: "booking_not_found" }, 404);
+  const auth = await verifyTelegramAuth(body.telegram_auth);
+  if (!auth) return json({ ok: false, error: "invalid_telegram_auth" }, 401);
+
+  const phone = normalizePhone(booking.client_phone);
+  const { error } = await admin.from("client_telegram_subscriptions").upsert({
+    performer_id: booking.performer_id,
+    client_phone: phone,
+    chat_id: auth.id,
+    telegram_user_id: auth.id,
+    telegram_username: auth.username,
+    active: true,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "performer_id,client_phone" });
+  if (error) {
+    console.error("Telegram web authorization save failed", error);
+    return json({ ok: false, error: "subscription_save_failed" }, 500);
+  }
+
+  const event: BookingEvent = booking.status === "cancelled" ? "cancelled" : "confirmation";
+  try {
+    const delivery = await sendBookingEvent(booking, event);
+    return json({ ok: true, connected: true, ...delivery });
+  } catch (error) {
+    console.error("Telegram message after web authorization failed", error);
+    if ((error as any).telegram?.error_code === 403) {
+      return json({ ok: false, connected: false, error: "telegram_write_access_required" }, 403);
+    }
+    return json({ ok: true, connected: true, delivered: false, reason: "delivery_failed" });
+  }
+}
+
 async function connectRedirect(req: Request) {
   const token = new URL(req.url).searchParams.get("token") || "";
   const booking = await bookingByToken(token);
@@ -336,6 +436,8 @@ Deno.serve(async (req: Request) => {
     const path = new URL(req.url).pathname.replace(/\/+$/, "");
     try {
       if (req.method === "GET" && path.endsWith("/connect")) return await connectRedirect(req);
+      if (req.method === "GET" && path.endsWith("/auth-config")) return await telegramAuthConfig(req);
+      if (req.method === "POST" && path.endsWith("/authorize")) return await authorizeTelegram(req);
       if (req.method === "POST" && path.endsWith("/event")) return await eventRequest(req);
       if (req.method === "POST" && path.endsWith("/reminders")) return await remindersRequest(req);
       if (req.method === "POST") return await telegramWebhook(req);

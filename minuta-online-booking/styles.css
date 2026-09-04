@@ -607,13 +607,15 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .manage-secondary { border:1px solid var(--line); background:white; color:var(--ink); }
 .manage-danger { border:0; background:#fff0ef; color:#9a3936; }
 .success .manage-secondary { margin-top:10px; }
-.telegram-connect-button { width:min(100%,430px); display:flex; align-items:center; gap:12px; margin-top:18px; padding:13px 16px; border:1px solid #cfe3d7; border-radius:16px; background:#f3faf6; color:var(--ink); text-align:left; text-decoration:none; transition:border-color .18s ease,transform .18s ease,background .18s ease; }
-.telegram-connect-button:hover { border-color:#9fc9b0; background:#edf8f1; transform:translateY(-1px); }
+.telegram-connect-button { width:min(100%,430px); display:flex; align-items:center; gap:12px; margin-top:18px; padding:13px 16px; border:1px solid #cfe3d7; border-radius:16px; background:#f3faf6; color:var(--ink); font:inherit; text-align:left; text-decoration:none; cursor:pointer; appearance:none; transition:border-color .18s ease,transform .18s ease,background .18s ease,opacity .18s ease; }
+.telegram-connect-button:not(:disabled):hover { border-color:#9fc9b0; background:#edf8f1; transform:translateY(-1px); }
 .telegram-connect-button[hidden] { display:none; }
+.telegram-connect-button:disabled { cursor:default; opacity:.74; transform:none; }
+.telegram-connect-button.is-connected { border-color:#acd2bc; background:#edf8f1; opacity:1; }
 .telegram-connect-mark { display:grid; flex:none; place-items:center; width:38px; height:38px; border-radius:50%; background:var(--green); color:white; font-size:17px; }
 .telegram-connect-button strong,.telegram-connect-button small { display:block; }
-.telegram-connect-button strong { font-size:13px; line-height:1.25; }
-.telegram-connect-button small { margin-top:3px; color:var(--muted); font-size:10px; line-height:1.35; }
+.telegram-connect-button strong { font-size:14px; line-height:1.3; }
+.telegram-connect-button small { margin-top:3px; color:var(--muted); font-size:12px; line-height:1.4; }
 .manage-telegram-connect { width:100%; max-width:none; margin:14px 0 0; }
 .manage-body { min-height:100vh; background:radial-gradient(circle at 12% 8%,#dff8e9 0,transparent 28%),radial-gradient(circle at 92% 7%,#fff0ce 0,transparent 30%),#f5f8f6; }
 .manage-header { position:relative; }
@@ -2160,10 +2162,10 @@ html.provider-booting .provider-main {
 .booking-client-page .success-appointment .local-note { max-width:none; margin:10px 0 0; color:#87938d; font-size:9px; }
 .booking-client-page .success-payment { width:min(100%,540px); }
 .booking-client-page .telegram-connect-button { width:min(100%,540px); margin-top:16px; padding:11px 12px; border-color:#dbe5de; border-radius:13px; background:#fff; }
-.booking-client-page .telegram-connect-button:hover { border-color:#bdcec3; background:#f8faf8; }
+.booking-client-page .telegram-connect-button:not(:disabled):hover { border-color:#bdcec3; background:#f8faf8; }
 .booking-client-page .telegram-connect-mark { width:34px; height:34px; background:#e5f1e9; color:#2e7150; }
-.booking-client-page .telegram-connect-button strong { font-size:12px; }
-.booking-client-page .telegram-connect-button small { margin-top:2px; font-size:9px; }
+.booking-client-page .telegram-connect-button strong { font-size:14px; }
+.booking-client-page .telegram-connect-button small { margin-top:2px; font-size:12px; }
 .booking-client-page .telegram-connect-arrow { width:16px; height:16px; margin-left:auto; color:#71837a; }
 .booking-client-page .success-actions { display:grid; grid-template-columns:1fr; gap:8px; width:min(100%,540px); margin-top:18px; }
 .booking-client-page .success-actions .primary { width:100%; min-height:48px; margin:0; }

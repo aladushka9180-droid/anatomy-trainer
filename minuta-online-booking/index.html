@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#183427">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://telegram.org; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co https://oauth.telegram.org; frame-src https://oauth.telegram.org; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; manifest-src 'self'; upgrade-insecure-requests">
   <meta name="description" content="Онлайн-запись на массаж в Ижевске.">
   <meta property="og:title" content="Массаж в Ижевске — онлайн-запись">
   <meta property="og:description" content="Выберите массаж и свободное время онлайн.">
@@ -77,7 +77,7 @@
           <a class="primary" id="successPaymentLink" href="#" target="_blank" rel="noopener noreferrer">Внести предоплату</a>
           <p>После оплаты сохраните чек. Исполнитель отметит поступление в кабинете.</p>
         </div>
-        <a class="telegram-connect-button" id="telegramConnect" href="#" target="_blank" rel="noopener noreferrer" hidden><span class="telegram-connect-mark" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"/></svg></span><span><strong>Подключить Telegram-уведомления</strong><small>Нажмите один раз — следующие подтверждения и напоминания придут автоматически</small></span><svg class="ui-icon telegram-connect-arrow" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></a>
+        <button class="telegram-connect-button" id="telegramConnect" type="button" aria-pressed="false" hidden disabled><span class="telegram-connect-mark" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"/></svg></span><span><strong data-telegram-auth-title>Получать уведомления в Telegram</strong><small data-telegram-auth-note>Подтвердите доступ — запускать бота не нужно</small></span><svg class="ui-icon telegram-connect-arrow" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button>
         <section class="client-access-result" id="clientAccessResult" hidden><small>Доступ к записям</small><strong id="clientAccessCode"></strong><p id="clientAccessNote"></p><div class="client-access-share" id="clientAccessShare" hidden><button id="clientAccessDownload" type="button">Сохранить код в файл</button><a id="clientAccessWhatsapp" href="#" target="_blank" rel="noopener noreferrer">Отправить в WhatsApp</a><a id="clientAccessTelegram" href="#" target="_blank" rel="noopener noreferrer">Отправить в Telegram</a></div></section>
         <div class="success-actions"><button class="primary manage-booking-link" id="saveSuccessCalendar" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"/></svg><span>Сохранить в календарь</span></button><a class="primary manage-booking-link" id="myBookingsSuccess" href="my-bookings.html" hidden>Все мои записи</a><a class="success-manage-link manage-booking-link" id="manageBooking" href="booking.html" hidden><span>Управлять записью</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></a><button class="manage-secondary" type="button" id="newBooking">Создать ещё запись</button></div>
       </div>
@@ -144,6 +144,6 @@
     <div class="waitlist-success" id="waitlistSuccess" hidden aria-live="polite"><span class="success-mark"><svg class="ui-icon"><use href="ui-icons.svg#icon-check"/></svg></span><small>Заявка принята</small><h2>Вы в листе ожидания</h2><p id="waitlistSuccessText"></p><a class="primary" id="waitlistManageLink" href="waitlist.html">Управлять заявкой</a></div>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=346"></script><script src="site-update.js?v=346" defer></script><script src="reliability.js?v=346"></script><script src="group-bookings.js?v=346" defer></script><script src="app.js?v=346" defer></script>
+  <script src="config.js?v=346"></script><script src="site-update.js?v=346" defer></script><script src="reliability.js?v=346"></script><script src="group-bookings.js?v=346" defer></script><script src="telegram-auth.js?v=346" defer></script><script src="app.js?v=346" defer></script>
 </body>
 </html>

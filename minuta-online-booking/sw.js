@@ -39,6 +39,7 @@ const ASSETS = [
   './team-calendar.js?v=346',
   './free-slots-share.js?v=346',
   './group-bookings.js?v=346',
+  './telegram-auth.js?v=346',
   './pwa-install.js?v=346',
   './provider.js?v=346',
   './onboarding.js?v=346',

@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+const root = new URL('./', import.meta.url);
+const [worker, auth, index, booking, app, provider, styles, setup, sw] = await Promise.all([
+  readFile(new URL('supabase/functions/telegram-client-notify/index.ts', root), 'utf8'),
+  readFile(new URL('telegram-auth.js', root), 'utf8'),
+  readFile(new URL('index.html', root), 'utf8'),
+  readFile(new URL('booking.html', root), 'utf8'),
+  readFile(new URL('app.js', root), 'utf8'),
+  readFile(new URL('provider.js', root), 'utf8'),
+  readFile(new URL('styles.css', root), 'utf8'),
+  readFile(new URL('supabase/TELEGRAM_CLIENT_SETUP.md', root), 'utf8'),
+  readFile(new URL('sw.js', root), 'utf8')
+]);
+
+assert.match(worker, /TELEGRAM_AUTH_MAX_AGE_SECONDS = 15 \* 60/, 'Telegram authorization is not time-bounded');
+assert.match(worker, /hmacSha256Hex\(await sha256Buffer\(botToken\), parsed\.dataCheckString\)/, 'Telegram authorization signature is not verified with the bot token');
+assert.match(worker, /sameHash\(parsed\.hash, expected\)/, 'Telegram authorization signature comparison is not constant-time');
+assert.match(worker, /path\.endsWith\("\/auth-config"\)/, 'Telegram login configuration route is missing');
+assert.match(worker, /path\.endsWith\("\/authorize"\)/, 'Telegram web authorization route is missing');
+assert.match(worker, /client_telegram_subscriptions[\s\S]*?telegram_user_id: auth\.id/, 'Verified Telegram identity is not linked to the client');
+assert.match(worker, /sendBookingEvent\(booking, event\)/, 'Confirmation is not sent after Telegram authorization');
+
+assert.match(auth, /request_access:'write'/, 'Telegram does not request permission to send messages');
+assert.match(auth, /Telegram\.Login\.auth/, 'Telegram web authorization does not use the official login flow');
+assert.match(auth, /manage_token:state\.manageToken, telegram_auth:auth/, 'Telegram login result is not verified by the backend');
+assert.match(auth, /Уведомления подключены/, 'Connected state is not visible to the client');
+assert.doesNotMatch(auth, /window\.open\([^)]*t\.me/, 'Client is still redirected to a bot chat');
+assert.match(app, /notifyTelegramEvent\('confirmation', manageToken\)/, 'Online booking does not trigger a Telegram confirmation for a connected client');
+assert.match(provider, /deliverTelegramClientNotification\(createdBooking\.id, 'confirmation'\)/, 'Booking created by the master does not trigger a Telegram confirmation for a connected client');
+
+for (const html of [index, booking]) {
+  assert.match(html, /script-src 'self' https:\/\/telegram\.org/, 'Telegram login SDK is blocked by CSP');
+  assert.match(html, /connect-src[^;]*https:\/\/oauth\.telegram\.org/, 'Telegram authorization is blocked by CSP');
+  assert.match(html, /id="(?:telegramConnect|manageTelegramConnect)"[^>]*type="button"/, 'Telegram action is not an in-page button');
+  assert.match(html, /Получать уведомления в Telegram/, 'Telegram action has no clear label');
+  assert.match(html, /запускать бота не нужно/, 'The interface still asks the client to start a bot');
+  assert.match(html, /telegram-auth\.js\?v=346/, 'Telegram authorization controller is not loaded');
+}
+
+assert.match(styles, /\.telegram-connect-button strong \{ font-size:14px/, 'Telegram action title is too small');
+assert.match(styles, /\.telegram-connect-button small \{[^}]*font-size:12px/, 'Telegram action explanation is too small');
+assert.match(sw, /'\.\/telegram-auth\.js\?v=346'/, 'Telegram authorization controller is not cached');
+assert.match(setup, /\/setdomain/, 'Required BotFather domain setup is not documented');
+
+console.log('Telegram web authorization v346 checks passed');

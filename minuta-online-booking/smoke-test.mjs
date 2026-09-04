@@ -693,7 +693,10 @@ assert.match(app, /function androidCalendarIntent\(event\)/, 'Экран усп�
 assert.match(app, /function openCalendarFile\(file = successCalendarFile\(\)\)/, 'Экран успешной записи не открывает календарный файл на iPhone');
 assert.match(clientHtml, />Управлять записью</, 'Ссылка на управление записью названа непонятно');
 assert.doesNotMatch(clientHtml, /copyManageBooking|Скопировать ссылку/, 'На экране успеха осталось лишнее действие копирования ссылки');
-assert.match(clientHtml, /class="ui-icon telegram-connect-arrow"/, 'В Telegram-действии нет понятного направления перехода');
+assert.match(clientHtml, /id="telegramConnect"[^>]*type="button"/, 'Telegram-подключение должно оставаться действием внутри сайта');
+assert.match(clientHtml, /Получать уведомления в Telegram/, 'Telegram-действие названо непонятно');
+assert.match(clientHtml, /запускать бота не нужно/, 'Клиента всё ещё просят запускать Telegram-бота');
+assert.match(app, /MinutaTelegramAuth\?\.prepare/, 'Экран успеха не запускает Telegram-авторизацию на сайте');
 
 const timeRangeFunctionSource = app.match(/function timeRange\(time, duration\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(timeRangeFunctionSource, 'Не удалось извлечь расчёт интервала услуги');

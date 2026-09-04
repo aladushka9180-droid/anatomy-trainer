@@ -46,7 +46,15 @@ function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} 
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
 function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
-function telegramConnectUrl() { return `${telegramClientEndpoint}/connect?token=${encodeURIComponent(token)}`; }
+function prepareTelegramAuthorization() {
+  return window.MinutaTelegramAuth?.prepare({
+    button: $('#manageTelegramConnect'),
+    manageToken: token,
+    endpoint: telegramClientEndpoint,
+    apikey: window.MINUTA_CONFIG.supabaseKey,
+    onConnected: () => notify('Telegram-уведомления подключены')
+  });
+}
 function notifyTelegramEvent(event) {
   return fetch(`${telegramClientEndpoint}/event`, {
     method: 'POST',
@@ -217,7 +225,7 @@ async function loadBooking(options = {}) {
   state.paymentCapability = paymentCapability;
   $('#manageLoading').hidden = true;
   $('#manageContent').hidden = false;
-  $('#manageTelegramConnect').href = telegramConnectUrl();
+  void prepareTelegramAuthorization();
   renderBooking();
   return true;
 }
