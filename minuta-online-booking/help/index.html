@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f8f7">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+  <meta name="description" content="Понятные инструкции по работе с онлайн-записью Minuta.">
+  <title>Помощь Minuta</title>
+  <link rel="icon" href="../icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="help.css?v=355">
+</head>
+<body>
+  <header class="help-header">
+    <a class="help-brand" href="index.html" aria-label="Помощь Minuta — на главную">
+      <span class="help-brand-mark">М</span>
+      <span><strong>Minuta</strong><small>Помощь</small></span>
+    </a>
+    <nav class="help-header-nav" aria-label="Основная навигация">
+      <a href="#sections">Все разделы</a>
+      <a class="help-product-link" href="../provider.html">Открыть Minuta <svg aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg></a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="help-intro" aria-labelledby="helpTitle">
+      <p class="help-eyebrow">База знаний</p>
+      <h1 id="helpTitle">Как мы можем помочь?</h1>
+      <form class="help-search" id="helpSearch" role="search">
+        <svg aria-hidden="true"><use href="../ui-icons.svg#icon-search"></use></svg>
+        <label class="sr-only" for="helpSearchInput">Поиск по базе знаний</label>
+        <input id="helpSearchInput" type="search" autocomplete="off" placeholder="Например, настроить расписание" aria-controls="searchResults" aria-expanded="false">
+        <kbd aria-hidden="true">Ctrl K</kbd>
+      </form>
+      <div class="search-results" id="searchResults" aria-live="polite" hidden></div>
+      <div class="audience-switch" role="group" aria-label="Выберите тип инструкций">
+        <button class="active" type="button" data-audience="specialist" aria-pressed="true">Для специалиста</button>
+        <button type="button" data-audience="client" aria-pressed="false">Для клиента</button>
+      </div>
+    </section>
+
+    <section class="help-sections" id="sections" aria-labelledby="sectionsTitle">
+      <div class="section-heading">
+        <div><p>Всё по темам</p><h2 id="sectionsTitle">Выберите раздел</h2></div>
+        <span id="sectionCount">6 разделов</span>
+      </div>
+      <div class="section-grid" id="sectionGrid">
+        <a class="section-card" href="article.html?slug=first-booking" data-audience="specialist">
+          <span class="section-icon"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-spark"></use></svg></span>
+          <span class="section-copy"><strong>Быстрый старт</strong><small>Подготовьте страницу и примите первую запись</small><em>3 инструкции</em></span>
+          <svg class="section-arrow" aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg>
+        </a>
+        <a class="section-card" href="article.html?slug=work-hours" data-audience="specialist">
+          <span class="section-icon"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-calendar"></use></svg></span>
+          <span class="section-copy"><strong>Расписание</strong><small>Рабочие часы, перерывы и свободное время</small><em>4 инструкции</em></span>
+          <svg class="section-arrow" aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg>
+        </a>
+        <a class="section-card" href="article.html?slug=add-service" data-audience="specialist">
+          <span class="section-icon"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-list"></use></svg></span>
+          <span class="section-copy"><strong>Услуги и запись</strong><small>Услуги, цены и страница онлайн-записи</small><em>4 инструкции</em></span>
+          <svg class="section-arrow" aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg>
+        </a>
+        <a class="section-card" href="article.html?slug=telegram" data-audience="specialist">
+          <span class="section-icon"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-bell"></use></svg></span>
+          <span class="section-copy"><strong>Уведомления</strong><small>Telegram и важные события по записям</small><em>2 инструкции</em></span>
+          <svg class="section-arrow" aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg>
+        </a>
+        <a class="section-card" href="article.html?slug=find-booking" data-audience="client">
+          <span class="section-icon"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-user"></use></svg></span>
+          <span class="section-copy"><strong>Мои записи</strong><small>Найдите, перенесите или отмените запись</small><em>3 инструкции</em></span>
+          <svg class="section-arrow" aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg>
+        </a>
+        <a class="section-card" href="article.html?slug=book-online" data-audience="client">
+          <span class="section-icon"><svg aria-hidden="true"><use href="../ui-icons.svg#icon-clock"></use></svg></span>
+          <span class="section-copy"><strong>Онлайн-запись</strong><small>Выбор услуги, времени и подтверждение</small><em>3 инструкции</em></span>
+          <svg class="section-arrow" aria-hidden="true"><use href="../ui-icons.svg#icon-arrow-right"></use></svg>
+        </a>
+      </div>
+    </section>
+
+    <section class="popular-guides" aria-labelledby="popularTitle">
+      <div class="section-heading"><div><p>Часто открывают</p><h2 id="popularTitle">Популярные инструкции</h2></div></div>
+      <div class="guide-list" id="popularGuides"></div>
+    </section>
+  </main>
+
+  <footer class="help-footer">
+    <span>© Minuta</span>
+    <div><a href="../privacy.html">Конфиденциальность</a><a href="../provider.html">Вернуться в кабинет</a></div>
+  </footer>
+  <script src="help-data.js?v=355"></script>
+  <script src="help.js?v=355" defer></script>
+</body>
+</html>
