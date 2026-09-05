@@ -18,6 +18,7 @@ insert into crm_snapshot_guard_manifest(setting_name,setting_value) values
   ('unknown_sensitive_column_policy','fail-closed'),
   ('unknown_fk_dependency_policy','fail-closed'),
   ('outbound_function_policy','drop-one-pinned-function-otherwise-fail'),
+  ('trigger_policy','snapshot-disable-restore-exact'),
   ('acl_policy','revoke-public');
 
 create temporary table crm_snapshot_allowed_table (
@@ -53,7 +54,7 @@ create temporary table crm_snapshot_column_policy (
   column_name text not null,
   action text not null check (action in (
     'keep_category','pseudonym','phone','clear','redact_json_object',
-    'redact_json_array','random_uuid','random_hash','nullify'
+    'redact_json_array','random_uuid','random_hash','nullify','safe_constant','safe_false'
   )),
   required boolean not null default false,
   primary key(table_name,column_name)
@@ -65,8 +66,9 @@ insert into crm_snapshot_column_policy(table_name,column_name,action,required) v
   ('organizations','name','pseudonym',true),
   ('organizations','public_slug','pseudonym',true),
   ('organizations','status','keep_category',true),
+  ('organizations','public_booking_enabled','safe_false',true),
   ('locations','name','pseudonym',true),
-  ('locations','timezone','keep_category',true),
+  ('locations','timezone','safe_constant',true),
   ('locations','address','clear',true),
   ('organization_memberships','role','keep_category',true),
   ('performer_profiles','display_name','pseudonym',true),
@@ -87,7 +89,7 @@ insert into crm_snapshot_column_policy(table_name,column_name,action,required) v
   ('bookings','provider_note','clear',false),
   ('bookings','booking_scope_source','keep_category',false),
   ('bookings','booking_policy_snapshot','redact_json_object',false),
-  ('bookings','cancellation_reason','keep_category',false),
+  ('bookings','cancellation_reason','nullify',false),
   ('bookings','refund_status','keep_category',false),
   ('bookings','booking_source','keep_category',false),
   ('bookings','created_by_role','keep_category',false),
@@ -99,6 +101,7 @@ insert into crm_snapshot_column_policy(table_name,column_name,action,required) v
   ('booking_series','manage_token','random_uuid',false),
   ('booking_series','access_token','random_uuid',false),
   ('booking_series','series_token','random_uuid',false),
+  ('organization_inventory_settings','enabled','safe_false',true),
   ('inventory_warehouses','name','pseudonym',true),
   ('inventory_items','name','pseudonym',true),
   ('inventory_items','sku','pseudonym',true),
@@ -106,6 +109,7 @@ insert into crm_snapshot_column_policy(table_name,column_name,action,required) v
   ('inventory_movements','movement_type','keep_category',true),
   ('inventory_movements','request_id','random_uuid',true),
   ('inventory_movements','reason','clear',true),
+  ('organization_payroll_settings','enabled','safe_false',true),
   ('payroll_plans','name','pseudonym',true),
   ('payroll_periods','name','pseudonym',true),
   ('payroll_periods','status','keep_category',true),
@@ -116,9 +120,36 @@ insert into crm_snapshot_column_policy(table_name,column_name,action,required) v
   ('payroll_items','source_snapshot','redact_json_object',true),
   ('payroll_adjustments','reason','pseudonym',true);
 
+create temporary table crm_snapshot_category_policy (
+  table_name text not null,
+  column_name text not null,
+  allowed_values text[] not null,
+  allow_null boolean not null default false,
+  primary key(table_name,column_name)
+) on commit drop;
+
+insert into crm_snapshot_category_policy(table_name,column_name,allowed_values,allow_null) values
+  ('organizations','status',array['active','suspended'],false),
+  ('organization_memberships','role',array['owner','admin','specialist'],false),
+  ('bookings','status',array['confirmed','cancelled'],false),
+  ('bookings','payment_status',array['not_required','pending','paid','refunded'],false),
+  ('bookings','color_key',array['auto','mint','sky','lavender','peach','rose','vanilla','sage','teal','amber','cocoa','graphite'],false),
+  ('bookings','booking_scope_source',array['legacy','team'],false),
+  ('bookings','refund_status',array['not_required','pending','refunded','denied'],false),
+  ('bookings','booking_source',array['client_online','provider_manual','admin_manual'],true),
+  ('bookings','created_by_role',array['owner','admin','specialist'],true),
+  ('booking_outcomes','visit_status',array['scheduled','completed','no_show'],false),
+  ('booking_outcomes','payment_method',array['unpaid','cash','card','transfer'],false),
+  ('booking_outcomes','completion_source',array['manual','auto'],false),
+  ('inventory_items','unit',array['piece','ml','g','kg','l','pack'],false),
+  ('inventory_movements','movement_type',array['receipt','write_off','inventory','service_use'],false),
+  ('payroll_periods','status',array['draft','approved','paid'],false);
+
 do $preflight$
 declare
   v_problem text;
+  v_category record;
+  v_invalid boolean;
 begin
   if current_setting('server_version_num')::integer < 170000 then
     raise exception using
@@ -144,6 +175,49 @@ begin
       message='crm_snapshot_guard_failed',
       detail=jsonb_build_object('code','unsupported_data_relation','objects',string_to_array(v_problem,','))::text;
   end if;
+
+  select string_agg(policy.table_name||'.'||policy.column_name,',' order by policy.table_name,policy.column_name)
+  into v_problem
+  from crm_snapshot_column_policy policy
+  where policy.action='keep_category'
+    and exists (
+      select 1 from information_schema.columns column_row
+      where column_row.table_schema='public' and column_row.table_name=policy.table_name
+        and column_row.column_name=policy.column_name
+    )
+    and not exists (
+      select 1 from crm_snapshot_category_policy category
+      where category.table_name=policy.table_name and category.column_name=policy.column_name
+    );
+  if v_problem is not null then
+    raise exception using
+      message='crm_snapshot_guard_failed',
+      detail=jsonb_build_object('code','category_policy_missing','objects',string_to_array(v_problem,','))::text;
+  end if;
+
+  for v_category in
+    select category.*
+    from crm_snapshot_category_policy category
+    where exists (
+      select 1 from information_schema.columns column_row
+      where column_row.table_schema='public' and column_row.table_name=category.table_name
+        and column_row.column_name=category.column_name
+    )
+    order by category.table_name,category.column_name
+  loop
+    execute format(
+      'select exists(select 1 from public.%1$I where (%2$I is null and not $2) or (%2$I is not null and not (%2$I=any($1))))',
+      v_category.table_name,v_category.column_name
+    ) into v_invalid using v_category.allowed_values,v_category.allow_null;
+    if v_invalid then
+      raise exception using
+        message='crm_snapshot_guard_failed',
+        detail=jsonb_build_object(
+          'code','unexpected_category_value',
+          'objects',jsonb_build_array(v_category.table_name||'.'||v_category.column_name)
+        )::text;
+    end if;
+  end loop;
 
   if to_regclass('auth.users') is null then
     raise exception using
@@ -260,6 +334,10 @@ begin
     and (
       procedure_row.prosrc ~* '(vault|dblink|(^|[^a-z])net[.]|http_(get|post|request)|extensions[.]http)'
       or procedure_row.probin ~* '(dblink|http)'
+      or procedure_row.prosrc ~ $inline_secret$[0-9]{6,12}:[A-Za-z0-9_-]{30,}$inline_secret$
+      or procedure_row.prosrc ~ $inline_secret$(sk|rk|pk)_(live|test)_[A-Za-z0-9]{16,}$inline_secret$
+      or procedure_row.prosrc ~ $inline_secret$eyJ[A-Za-z0-9_-]{20,}[.][A-Za-z0-9_-]{10,}[.]$inline_secret$
+      or procedure_row.prosrc ~* $inline_secret$(api[_-]?key|access[_-]?token|bot[_-]?token)[[:space:]]*[:=][[:space:]]*['"][^'"]{12,}['"]$inline_secret$
     )
     and not (
       procedure_row.proname='get_telegram_reminder_secret_hash'
@@ -280,6 +358,21 @@ drop function if exists public.get_telegram_reminder_secret_hash() restrict;
 -- Business updates must not dispatch notification/audit trigger side effects.
 -- Constraint safety is established by the immutable identifiers and the FK
 -- closure preflight; all trigger states are restored before export.
+create temporary table crm_snapshot_trigger_state (
+  table_name text not null,
+  trigger_name text not null,
+  enabled_state text not null check(enabled_state in ('O','D','R','A')),
+  primary key(table_name,trigger_name)
+) on commit drop;
+
+insert into crm_snapshot_trigger_state(table_name,trigger_name,enabled_state)
+select relation_row.relname,trigger_row.tgname,trigger_row.tgenabled::text
+from pg_trigger trigger_row
+join pg_class relation_row on relation_row.oid=trigger_row.tgrelid
+join pg_namespace namespace_row on namespace_row.oid=relation_row.relnamespace
+join crm_snapshot_allowed_table allowed on allowed.table_name=relation_row.relname
+where namespace_row.nspname='public';
+
 do $disable_business_triggers$
 declare
   v_table record;
@@ -376,6 +469,64 @@ begin
 end
 $apply_uuid_map$;
 
+do $verify_foreign_keys_after_uuid_map$
+declare
+  v_fk record;
+  v_orphan boolean;
+begin
+  for v_fk in
+    select
+      child_namespace.nspname child_schema,
+      child.relname child_table,
+      parent_namespace.nspname parent_schema,
+      parent.relname parent_table,
+      constraint_row.conname constraint_name,
+      clauses.present_clause,
+      clauses.join_clause
+    from pg_constraint constraint_row
+    join pg_class child on child.oid=constraint_row.conrelid
+    join pg_namespace child_namespace on child_namespace.oid=child.relnamespace
+    join pg_class parent on parent.oid=constraint_row.confrelid
+    join pg_namespace parent_namespace on parent_namespace.oid=parent.relnamespace
+    join crm_snapshot_allowed_table allowed on allowed.table_name=child.relname
+    join lateral (
+      select
+        string_agg(format('child.%I is not null',child_attribute.attname),' and ' order by key_row.ordinality) present_clause,
+        string_agg(format('parent.%I=child.%I',parent_attribute.attname,child_attribute.attname),' and ' order by key_row.ordinality) join_clause
+      from unnest(constraint_row.conkey,constraint_row.confkey) with ordinality
+        key_row(child_attnum,parent_attnum,ordinality)
+      join pg_attribute child_attribute
+        on child_attribute.attrelid=constraint_row.conrelid and child_attribute.attnum=key_row.child_attnum
+      join pg_attribute parent_attribute
+        on parent_attribute.attrelid=constraint_row.confrelid and parent_attribute.attnum=key_row.parent_attnum
+    ) clauses on true
+    where constraint_row.contype='f'
+      and child_namespace.nspname='public'
+      and (
+        (parent_namespace.nspname='public' and exists (
+          select 1 from crm_snapshot_allowed_table parent_allowed where parent_allowed.table_name=parent.relname
+        ))
+        or (parent_namespace.nspname='auth' and parent.relname='users')
+      )
+    order by child.relname,constraint_row.conname
+  loop
+    execute format(
+      'select exists(select 1 from %I.%I child where %s and not exists(select 1 from %I.%I parent where %s))',
+      v_fk.child_schema,v_fk.child_table,v_fk.present_clause,
+      v_fk.parent_schema,v_fk.parent_table,v_fk.join_clause
+    ) into v_orphan;
+    if v_orphan then
+      raise exception using
+        message='crm_snapshot_guard_failed',
+        detail=jsonb_build_object(
+          'code','foreign_key_orphan_after_uuid_map',
+          'objects',jsonb_build_array(v_fk.child_schema||'.'||v_fk.child_table||'.'||v_fk.constraint_name)
+        )::text;
+    end if;
+  end loop;
+end
+$verify_foreign_keys_after_uuid_map$;
+
 create temporary table crm_snapshot_phone_map (
   canonical_phone text primary key,
   pseudo_phone text not null unique
@@ -426,9 +577,11 @@ where phone.canonical_phone=regexp_replace(series.client_phone,'[^0-9]','','g');
 
 update public.organizations
 set name='Организация '||left(replace(id::text,'-',''),12),
-    public_slug='snapshot-'||left(md5(id::text),24);
+    public_slug='snapshot-'||left(md5(id::text),24),
+    public_booking_enabled=false;
 update public.locations
-set name='Филиал '||left(replace(id::text,'-',''),12),address='';
+set name='Филиал '||left(replace(id::text,'-',''),12),
+    timezone='Europe/Samara',address='';
 update public.performer_profiles
 set display_name='Специалист '||left(replace(id::text,'-',''),12);
 update public.services
@@ -436,11 +589,13 @@ set name='Услуга '||left(replace(id::text,'-',''),12);
 update public.bookings
 set booking_code='SNAP-'||upper(left(md5(id::text),12)),
     manage_token=gen_random_uuid(),
-    client_name='Клиент '||right(client_phone,10);
+    client_name='Клиент '||right(client_phone,10),
+    cancellation_reason=null;
 update public.booking_series
 set client_name='Клиент '||right(client_phone,10);
 update public.inventory_warehouses
 set name='Склад '||left(replace(id::text,'-',''),12);
+update public.organization_inventory_settings set enabled=false;
 update public.inventory_items
 set name='Материал '||left(replace(id::text,'-',''),12),
     sku='SKU-'||upper(left(md5(id::text),16));
@@ -448,6 +603,7 @@ update public.inventory_movements
 set request_id=gen_random_uuid(),reason='';
 update public.payroll_plans
 set name='План '||left(replace(id::text,'-',''),12);
+update public.organization_payroll_settings set enabled=false;
 update public.payroll_periods
 set name='Период '||left(replace(id::text,'-',''),12),
     source_fingerprint=md5(gen_random_uuid()::text)||md5(random()::text);
@@ -529,6 +685,19 @@ begin
       message='crm_snapshot_guard_failed',
       detail=jsonb_build_object('code','booking_free_text_not_cleared')::text;
   end if;
+  if exists(select 1 from public.organizations where public_booking_enabled)
+     or exists(select 1 from public.organization_inventory_settings where enabled)
+     or exists(select 1 from public.organization_payroll_settings where enabled) then
+    raise exception using
+      message='crm_snapshot_guard_failed',
+      detail=jsonb_build_object('code','external_business_capability_not_disabled')::text;
+  end if;
+  if exists(select 1 from public.locations where timezone<>'Europe/Samara')
+     or exists(select 1 from public.bookings where cancellation_reason is not null) then
+    raise exception using
+      message='crm_snapshot_guard_failed',
+      detail=jsonb_build_object('code','safe_constant_application_failed')::text;
+  end if;
 
   select string_agg(table_name||'.'||column_name,',' order by table_name,column_name) into v_problem
   from crm_snapshot_column_policy policy
@@ -548,11 +717,35 @@ $postconditions$;
 
 do $enable_business_triggers$
 declare
-  v_table record;
+  v_trigger record;
+  v_problem text;
 begin
-  for v_table in select table_name from crm_snapshot_allowed_table order by table_name loop
-    execute format('alter table public.%I enable trigger all',v_table.table_name);
+  for v_trigger in select * from crm_snapshot_trigger_state order by table_name,trigger_name loop
+    execute format(
+      'alter table public.%I %s trigger %I',
+      v_trigger.table_name,
+      case v_trigger.enabled_state
+        when 'O' then 'enable'
+        when 'D' then 'disable'
+        when 'R' then 'enable replica'
+        when 'A' then 'enable always'
+      end,
+      v_trigger.trigger_name
+    );
   end loop;
+
+  select string_agg(saved.table_name||'.'||saved.trigger_name,',' order by saved.table_name,saved.trigger_name)
+  into v_problem
+  from crm_snapshot_trigger_state saved
+  left join pg_class relation_row on relation_row.relname=saved.table_name
+    and relation_row.relnamespace=(select oid from pg_namespace where nspname='public')
+  left join pg_trigger current_row on current_row.tgrelid=relation_row.oid and current_row.tgname=saved.trigger_name
+  where current_row.oid is null or current_row.tgenabled::text<>saved.enabled_state;
+  if v_problem is not null then
+    raise exception using
+      message='crm_snapshot_guard_failed',
+      detail=jsonb_build_object('code','trigger_state_restore_failed','objects',string_to_array(v_problem,','))::text;
+  end if;
 end
 $enable_business_triggers$;
 

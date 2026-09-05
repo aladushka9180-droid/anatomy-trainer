@@ -19,14 +19,14 @@ const ids={
 
 const schema=String.raw`
 create schema auth; create table auth.users(id uuid primary key);
-create table organizations(id uuid primary key,name text,public_slug text unique,status text);
+create table organizations(id uuid primary key,name text,public_slug text unique,status text,public_booking_enabled boolean);
 create table performer_profiles(id uuid primary key references auth.users(id),display_name text);
 create table locations(id uuid primary key,organization_id uuid references organizations(id),name text,timezone text,address text,unique(id,organization_id));
 create table organization_memberships(organization_id uuid references organizations(id),user_id uuid references auth.users(id),role text,primary key(organization_id,user_id));
 create table services(id uuid primary key,performer_id uuid references performer_profiles(id),name text);
 create table client_accounts(id uuid primary key,normalized_phone text unique,access_code_hash text,auth_user_id uuid references auth.users(id));
 create table booking_series(id uuid primary key,performer_id uuid references performer_profiles(id),service_id uuid references services(id),client_name text,client_phone text);
-create table bookings(id uuid primary key,organization_id uuid references organizations(id),location_id uuid references locations(id),performer_id uuid references performer_profiles(id),service_id uuid references services(id),client_account_id uuid references client_accounts(id),series_id uuid references booking_series(id),booking_code text unique,manage_token uuid unique,request_id uuid unique,request_fingerprint text,client_name text,client_phone text,status text,payment_status text,payment_url text,color_key text,provider_note text,booking_scope_source text,booking_policy_snapshot jsonb,cancellation_reason text,refund_status text,booking_source text,created_by_role text);
+create table bookings(id uuid primary key,organization_id uuid references organizations(id),location_id uuid,performer_id uuid references performer_profiles(id),service_id uuid references services(id),client_account_id uuid references client_accounts(id),series_id uuid references booking_series(id),booking_code text unique,manage_token uuid unique,request_id uuid unique,request_fingerprint text,client_name text,client_phone text,status text,payment_status text,payment_url text,color_key text,provider_note text,booking_scope_source text,booking_policy_snapshot jsonb,cancellation_reason text,refund_status text,booking_source text,created_by_role text,foreign key(location_id,organization_id) references locations(id,organization_id));
 create table booking_outcomes(booking_id uuid primary key references bookings(id),visit_status text,payment_method text,completion_source text);
 create table organization_inventory_settings(organization_id uuid primary key references organizations(id),enabled boolean);
 create table inventory_warehouses(id uuid primary key,organization_id uuid references organizations(id),location_id uuid references locations(id),name text);
@@ -52,11 +52,16 @@ begin
   return new;
 end $$;
 create trigger synthetic_booking_audit after update on bookings for each row execute function synthetic_booking_audit();
+create function synthetic_noop_trigger() returns trigger language plpgsql as $$ begin return new; end $$;
+create trigger synthetic_disabled_trigger before update on services for each row execute function synthetic_noop_trigger();
+alter table services disable trigger synthetic_disabled_trigger;
+create trigger synthetic_always_trigger before update on locations for each row execute function synthetic_noop_trigger();
+alter table locations enable always trigger synthetic_always_trigger;
 `;
 
 const fixtures=String.raw`
 insert into auth.users values('${ids.user}');
-insert into organizations values('${ids.org}','Салон Анны','salon-anna','active');
+insert into organizations values('${ids.org}','Салон Анны','salon-anna','active',true);
 insert into performer_profiles values('${ids.performer}','Анна Иванова');
 insert into locations values('${ids.location}','${ids.org}','Центр','Europe/Samara','ул. Личная, 7');
 insert into organization_memberships values('${ids.org}','${ids.user}','owner');
@@ -128,6 +133,13 @@ async function assertGuardRejects(db,code,object) {
   assert.equal(await scalar(db,`select bookings.organization_id=organizations.id value from bookings cross join organizations`),true);
   assert.equal(await scalar(db,`select organization_memberships.user_id=auth.users.id value from organization_memberships cross join auth.users`),true);
   assert.equal(await scalar(db,`select auth_user_id is null value from client_accounts`),true);
+  assert.equal(await scalar(db,`select not public_booking_enabled value from organizations`),true);
+  assert.equal(await scalar(db,`select not enabled value from organization_inventory_settings`),true);
+  assert.equal(await scalar(db,`select not enabled value from organization_payroll_settings`),true);
+  assert.equal(await scalar(db,`select timezone='Europe/Samara' value from locations`),true);
+  assert.equal(await scalar(db,`select cancellation_reason is null value from bookings`),true);
+  assert.equal(await scalar(db,`select tgenabled='D' value from pg_trigger where tgname='synthetic_disabled_trigger'`),true);
+  assert.equal(await scalar(db,`select tgenabled='A' value from pg_trigger where tgname='synthetic_always_trigger'`),true);
   assert.equal(await scalar(db,`select to_regprocedure('public.get_telegram_reminder_secret_hash()') is null value`),true);
   assert.equal(await scalar(db,`select not exists(select 1 from pg_namespace n cross join lateral aclexplode(n.nspacl) acl where n.nspname='public' and acl.grantee=0) value`),true);
   await db.close();
@@ -137,6 +149,14 @@ async function assertGuardRejects(db,code,object) {
   const db=await database('alter table bookings add column private_comment text;');
   await assertGuardRejects(db,'unknown_sensitive_columns','bookings.private_comment');
   assert.equal(await scalar(db,`select client_name value from bookings`),'Иван Петров','failed preflight must not mutate');
+  await db.close();
+}
+
+{
+  const db=await database();
+  await db.exec(`update organizations set status='Анна Иванова'`);
+  await assertGuardRejects(db,'unexpected_category_value','organizations.status');
+  assert.equal(await scalar(db,`select name value from organizations`),'Салон Анны','category preflight must not mutate');
   await db.close();
 }
 
@@ -152,6 +172,15 @@ async function assertGuardRejects(db,code,object) {
   `);
   await assertGuardRejects(db,'unexpected_outbound_or_secret_function','public.unexpected_webhook()');
   assert.equal(await scalar(db,`select to_regprocedure('public.get_telegram_reminder_secret_hash()') is not null value`),true,'failed preflight must roll back the pinned drop');
+  await db.close();
+}
+
+
+{
+  const db=await database(`
+    create function leaked_inline_secret() returns text language sql as 'select ''123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi''::text';
+  `);
+  await assertGuardRejects(db,'unexpected_outbound_or_secret_function','public.leaked_inline_secret()');
   await db.close();
 }
 
