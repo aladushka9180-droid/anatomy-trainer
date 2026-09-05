@@ -258,15 +258,15 @@ function helperHarness() {
 for (const kind of ['Color', 'Note']) {
   test(`real saveBooking${kind} checks ownership before any side effects`, async () => {
     const h = helperHarness();
-    const result = await h.context[`saveBooking${kind}`](ids.A, 'blue', { rerender:false, isCurrent:() => false });
+    const result = await h.context[`saveBooking${kind}`](ids.A, 'sky', { rerender:false, isCurrent:() => false });
     assert.equal(result, false); assert.deepEqual(h.effects, []);
     assert.equal(h.state.bookingColors.size, 0); assert.equal(h.state.bookingNotes.size, 0);
   });
 
-  for (const reply of [{ data:'blue',error:null }, { data:null,error:{ message:'failed' } }]) {
+  for (const reply of [{ data:'sky',error:null }, { data:null,error:{ message:'failed' } }]) {
     test(`real saveBooking${kind} does not persist or mutate replacement account after ${reply.error ? 'error' : 'success'}`, async () => {
       const h = helperHarness();
-      const pending = h.context[`saveBooking${kind}`](ids.A, 'blue', { rerender:false, isCurrent:() => h.state.currentUser.id === userId });
+      const pending = h.context[`saveBooking${kind}`](ids.A, 'sky', { rerender:false, isCurrent:() => h.state.currentUser.id === userId });
       assert.equal(h.effects.filter(e => e[0] === 'rpc').length, 1);
       h.replaceAccount(); const before = h.effects.length;
       h.gate.resolve(reply); assert.equal(await pending, false);
@@ -279,8 +279,8 @@ for (const kind of ['Color', 'Note']) {
   }
 
   test(`real saveBooking${kind} keeps default current-caller contract`, async () => {
-    const h = helperHarness(); const pending = h.context[`saveBooking${kind}`](ids.A, 'blue', { rerender:false });
-    h.gate.resolve({ data:'blue',error:null }); assert.equal(await pending, true);
+    const h = helperHarness(); const pending = h.context[`saveBooking${kind}`](ids.A, 'sky', { rerender:false });
+    h.gate.resolve({ data:'sky',error:null }); assert.equal(await pending, true);
     assert.equal(h.effects.filter(e => e[0].startsWith('persist')).length, 2);
   });
 }
