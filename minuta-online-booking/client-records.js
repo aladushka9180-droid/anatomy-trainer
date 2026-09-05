@@ -204,7 +204,10 @@
     }
     function reset(){generation++;client=null;rows=[];remote=null;pending=null;loading=false;busy=false;more=false;offset=0;historyLimit=8;errorText='';if(host){host.replaceChildren();host.hidden=true;}}
     return {bind,reset,
-      setOrganization(value){reset();organization=value;},
+      setOrganization(value){
+        if(organization?.id===value?.id){organization=value;return;}
+        reset();organization=value;
+      },
       setClient(value){
         if(!host)return;
         if(client?.phone===value.phone){client=value;render();return;}

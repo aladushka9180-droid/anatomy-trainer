@@ -50,7 +50,7 @@ const root = path.resolve(__dirname,'..');
     assert.equal(await page.evaluate(()=>window.leak),undefined,'notes must be escaped');
     await page.locator('[data-cr-panel="files"]>summary').click();
     await page.locator('[name="file"]').setInputFiles({name:'Памятка.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\ntest')});
-    await page.evaluate(()=>controller.setClient(client));
+    await page.evaluate(()=>{controller.setOrganization({id:'org1'});controller.setClient(client);});
     assert.equal(await page.locator('[name="file"]').evaluate(el=>el.files.length),1,'refresh preserves selected file');
     await page.locator('[data-cr-upload] button').click();
     await page.waitForFunction(()=>document.querySelector('.cr-files').textContent.includes('Памятка.pdf'));
