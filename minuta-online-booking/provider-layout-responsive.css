@@ -53,6 +53,10 @@
     column-gap:6px;
     padding-inline:4px;
   }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-nav .nav-icon {
+    width:18px;
+    min-width:0;
+  }
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
     display:flex;
     flex-wrap:wrap;
