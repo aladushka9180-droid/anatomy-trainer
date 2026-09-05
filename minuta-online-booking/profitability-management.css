@@ -1,0 +1,54 @@
+.provider-body .organization-inventory .organization-row-main strong,.provider-body .organization-inventory .organization-row-main small { overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
+.provider-body #inventoryPurchaseCostField small { display:block; margin-top:5px; color:var(--theme-muted,#718078); font-size:8px; font-weight:650; line-height:1.45; }
+.provider-body .profitability-panel { display:grid; gap:12px; min-width:0; padding:15px; border:1px solid var(--theme-line,#dfe7e1); border-radius:14px; background:var(--theme-surface-alt,#fafcfb); }
+.provider-body .profitability-panel[hidden],.provider-body #profitabilityWorkspace[hidden] { display:none; }
+.provider-body .profitability-heading { align-items:center; }
+.provider-body .profitability-heading button { min-height:36px; margin:0; }
+.provider-body .profitability-note { margin:0; color:var(--theme-muted,#65786d); font-size:9px; line-height:1.55; }
+.provider-body .profitability-toolbar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.provider-body .profitability-toolbar label { margin:0; color:var(--theme-muted,#65786d); font-size:8px; }
+.provider-body .profitability-toolbar input,.provider-body .profitability-toolbar select { min-height:40px; margin-top:5px; }
+.provider-body #profitabilityWorkspace { display:grid; gap:12px; }
+.provider-body .profitability-summary,.provider-body .profitability-cost-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; }
+.provider-body .profitability-summary article,.provider-body .profitability-cost-grid article { min-width:0; padding:10px; border:1px solid var(--theme-line,#dfe7e1); border-radius:11px; background:var(--theme-surface,#fff); }
+.provider-body .profitability-summary article.is-primary,.provider-body .profitability-cost-grid article.is-primary { border-color:color-mix(in srgb,var(--theme-accent,#377754) 34%,transparent); background:color-mix(in srgb,var(--theme-accent-soft,#e6f1ea) 72%,#fff); }
+.provider-body .profitability-summary small,.provider-body .profitability-cost-grid small { display:block; min-height:20px; color:var(--theme-muted,#718078); font-size:7px; font-weight:800; line-height:1.25; text-transform:uppercase; }
+.provider-body .profitability-summary strong,.provider-body .profitability-cost-grid strong { display:block; margin-top:5px; overflow-wrap:anywhere; color:var(--theme-ink,#294d3a); font-size:12px; line-height:1.2; }
+.provider-body .profitability-summary strong.is-missing,.provider-body .profitability-cost-grid strong.is-missing { color:#9a633f; font-size:9px; }
+.provider-body .profitability-services,.provider-body .profitability-visit-list { display:grid; gap:9px; }
+.provider-body .profitability-service-card,.provider-body .profitability-visit-card { min-width:0; padding:12px; border:1px solid var(--theme-line,#dfe7e1); border-radius:12px; background:var(--theme-surface,#fff); }
+.provider-body .profitability-service-card>header,.provider-body .profitability-visit-card>header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+.provider-body .profitability-service-card header strong,.provider-body .profitability-service-card header small,.provider-body .profitability-visit-card header strong,.provider-body .profitability-visit-card header small { display:block; }
+.provider-body .profitability-service-card header strong,.provider-body .profitability-visit-card header strong { color:var(--theme-ink,#294d3a); font-size:11px; }
+.provider-body .profitability-service-card header small,.provider-body .profitability-visit-card header small { margin-top:4px; color:var(--theme-muted,#718078); font-size:8px; line-height:1.45; }
+.provider-body .profitability-service-card .profitability-cost-grid,.provider-body .profitability-visit-card .profitability-cost-grid { margin-top:10px; }
+.provider-body .profitability-cost-grid.compact article { padding:8px; }
+.provider-body .profitability-completeness { flex:0 0 auto; padding:5px 7px; border-radius:999px; background:#e7f3eb; color:#2c6a48; font-size:7px; font-weight:850; white-space:nowrap; }
+.provider-body .profitability-completeness.is-missing { background:#fff0e5; color:#985d33; }
+.provider-body .profitability-service-card>.text-button { margin-top:9px; padding:0; }
+.provider-body .profitability-visits { border-top:1px solid var(--theme-line,#dfe7e1); }
+.provider-body .profitability-visits>summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; cursor:pointer; list-style:none; }
+.provider-body .profitability-visits>summary::-webkit-details-marker { display:none; }
+.provider-body .profitability-visits>summary strong,.provider-body .profitability-visits>summary small { display:block; }
+.provider-body .profitability-visits>summary strong { margin-top:3px; font-size:11px; }
+.provider-body .profitability-visits>summary small { color:var(--theme-muted,#718078); font-size:7px; }
+.provider-body .profitability-visits>summary>span:last-child { font-size:9px; font-weight:850; }
+.provider-body .profitability-visit-card>header>b { color:var(--theme-accent,#377754); font-size:13px; white-space:nowrap; }
+.provider-body .profitability-visit-card>header>b.is-missing { color:#9a633f; font-size:9px; }
+.provider-body .profitability-missing-reason { margin:9px 0 0; color:#9a633f; font-size:8px; line-height:1.45; }
+.provider-body .profitability-commission-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--theme-line,#e3e9e5); }
+.provider-body .profitability-commission-form label { margin:0; color:var(--theme-muted,#65786d); font-size:8px; }
+.provider-body .profitability-commission-form input { min-height:38px; margin-top:5px; }
+.provider-body .profitability-commission-form button { min-height:38px; margin:0; }
+.provider-body .profitability-commission-form>small { grid-column:1/-1; color:var(--theme-muted,#718078); font-size:7px; line-height:1.4; }
+@media (max-width:760px) {
+  .provider-body .profitability-panel { padding:12px; }
+  .provider-body .profitability-toolbar { grid-template-columns:1fr 1fr; }
+  .provider-body .profitability-toolbar label:last-child { grid-column:1/-1; }
+  .provider-body .profitability-summary,.provider-body .profitability-cost-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .provider-body .profitability-summary article.is-primary,.provider-body .profitability-cost-grid article.is-primary { grid-column:1/-1; }
+  .provider-body .profitability-service-card>header,.provider-body .profitability-visit-card>header { align-items:flex-start; flex-direction:column; gap:7px; }
+  .provider-body .profitability-completeness { white-space:normal; }
+  .provider-body .profitability-commission-form { grid-template-columns:1fr; }
+  .provider-body .profitability-commission-form button { width:100%; }
+}

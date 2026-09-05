@@ -3,6 +3,28 @@
 
   const unitLabels = { piece:'шт.', ml:'мл', g:'г', kg:'кг', l:'л', pack:'упак.' };
   const movementLabels = { receipt:'Приход', write_off:'Списание', inventory:'Инвентаризация', service_use:'Завершённый визит' };
+  const assetQuery = (() => { try { const source = document.currentScript?.src; return source ? new URL(source).search : ''; } catch { return ''; } })();
+  let profitabilityAssetsPromise = null;
+
+  function loadProfitabilityAssets() {
+    if (window.MinutaProfitability?.createController) return Promise.resolve(true);
+    if (profitabilityAssetsPromise) return profitabilityAssetsPromise;
+    if (!document.querySelector('link[data-minuta-profitability]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet'; link.href = `profitability-management.css${assetQuery}`; link.dataset.minutaProfitability = 'true';
+      document.head.appendChild(link);
+    }
+    profitabilityAssetsPromise = new Promise(resolve => {
+      const existing = document.querySelector('script[data-minuta-profitability]');
+      if (existing) { existing.addEventListener('load', () => resolve(Boolean(window.MinutaProfitability?.createController)), { once:true }); existing.addEventListener('error', () => resolve(false), { once:true }); return; }
+      const script = document.createElement('script');
+      script.src = `profitability-management.js${assetQuery}`; script.dataset.minutaProfitability = 'true';
+      script.addEventListener('load', () => resolve(Boolean(window.MinutaProfitability?.createController)), { once:true });
+      script.addEventListener('error', () => resolve(false), { once:true });
+      document.head.appendChild(script);
+    });
+    return profitabilityAssetsPromise;
+  }
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
@@ -15,11 +37,15 @@
     let writing = false;
     let pendingOrganization;
     let movementRequestId = null;
+    let profitabilityController = null;
 
     function unsupported(error) { return /PGRST202|42883|get_minuta_inventory_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
+    function v113Unsupported(error) { return /PGRST202|42883|get_minuta_inventory_workspace_v113|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
     function scopeMatches(data, id) { return Boolean(data && String(data.organization_id || '') === String(id)); }
     function empty(title, text) { return `<div class="provider-empty compact-empty"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(text)}</small></div>`; }
     function quantity(value) { return new Intl.NumberFormat('ru-RU', { maximumFractionDigits:3 }).format(Number(value || 0)); }
+    function moneyKopecks(value) { return value == null ? 'не указана' : new Intl.NumberFormat('ru-RU', { style:'currency', currency:'RUB', maximumFractionDigits:2 }).format(Number(value) / 100); }
+    function rublesToKopecks(value) { const text = String(value ?? '').trim(); if (!text) return null; const amount = Number(text.replace(',', '.')); return Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) : null; }
     function item(id) { return payload?.items?.find(row => row.id === id); }
     function warehouse(id) { return payload?.warehouses?.find(row => row.id === id); }
     function location(id) { return payload?.locations?.find(row => row.id === id); }
@@ -43,6 +69,17 @@
     function reset() {
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementRequestId = null;
       $('#inventoryPanel').hidden = true; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
+      profitabilityController?.reset();
+    }
+
+    async function syncProfitability() {
+      if (!profitabilityController) {
+        const ready = await loadProfitabilityAssets();
+        if (!ready || !window.MinutaProfitability?.createController) return;
+        profitabilityController = window.MinutaProfitability.createController({ db, $, escapeHtml, notify, requireWrites, applyWriteAvailability });
+        profitabilityController.bind();
+      }
+      profitabilityController.setOrganization(organization, payload);
     }
 
     async function setOrganization(next) {
@@ -58,7 +95,8 @@
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
       availability = 'loading'; payload = null; $('#inventoryPanel').hidden = false; $('#inventoryLoading').hidden = false; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId });
+      let { data, error } = await db.rpc('get_minuta_inventory_workspace_v113', { p_organization:organizationId });
+      if (error && v113Unsupported(error)) ({ data, error } = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId }));
       if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) return { ok:false, optional:true, stale:true };
       $('#inventoryLoading').hidden = true;
       if (error) {
@@ -69,8 +107,8 @@
       }
       if (!scopeMatches(data, organizationId)) { availability = 'error'; $('#inventoryUnavailable').hidden = false; $('#inventoryUnavailableText').textContent = 'Сервер вернул данные другой организации. Изменения заблокированы.'; return { ok:false, optional:true }; }
       payload = data;
-      for (const key of ['locations', 'services', 'items', 'warehouses', 'balances', 'usage', 'movements', 'audit']) if (!Array.isArray(payload[key])) payload[key] = [];
-      availability = 'ready'; render(); return { ok:true, optional:true };
+      for (const key of ['locations', 'services', 'items', 'warehouses', 'balances', 'usage', 'movements', 'audit', 'service_cost_settings']) if (!Array.isArray(payload[key])) payload[key] = [];
+      availability = 'ready'; render(); void syncProfitability(); return { ok:true, optional:true };
     }
 
     function balanceFor(warehouseId, itemId) { return Number(payload.balances.find(row => row.warehouse_id === warehouseId && row.inventory_item_id === itemId)?.quantity || 0); }
@@ -78,7 +116,11 @@
 
     function itemCard(row) {
       const total = totalFor(row.id), low = row.active && total <= Number(row.low_stock_threshold || 0);
-      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Мало' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
+      const purchase = Number(payload?.costing_version) === 113
+        ? row.last_purchase_total_cost_kopecks == null ? 'закупочная стоимость не указана' : `последняя закупка ${escapeHtml(moneyKopecks(row.last_purchase_total_cost_kopecks))} за ${escapeHtml(quantity(row.last_purchase_quantity))} ${escapeHtml(unitLabels[row.unit] || row.unit)}`
+        : '';
+      const stockValue = Number(payload?.costing_version) === 113 ? ` · ${row.stock_cost_complete ? `остаток по себестоимости ${escapeHtml(moneyKopecks(row.stock_value_kopecks))}` : 'стоимость остатка не указана'}` : '';
+      return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}${purchase ? ` · ${purchase}` : ''}${stockValue}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Мало' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
     }
 
     function warehouseCard(row) {
@@ -99,7 +141,10 @@
     function movementCard(row) {
       const inventoryItem = item(row.inventory_item_id), delta = Number(row.quantity_delta || 0);
       const date = new Date(row.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-      return `<article class="organization-audit-row"><span></span><div><strong>${escapeHtml(movementLabels[row.movement_type] || row.movement_type)} · ${escapeHtml(inventoryItem?.name || 'Материал')}</strong><small>${escapeHtml(warehouse(row.warehouse_id)?.name || 'Склад')} · ${delta > 0 ? '+' : ''}${escapeHtml(quantity(delta))} ${escapeHtml(unitLabels[inventoryItem?.unit] || '')} · остаток ${escapeHtml(quantity(row.quantity_after))}${row.reason ? ` · ${escapeHtml(row.reason)}` : ''}</small></div><time>${escapeHtml(date)}</time></article>`;
+      const cost = Number(payload?.costing_version) !== 113 ? '' : row.movement_type === 'receipt'
+        ? ` · закупка ${escapeHtml(moneyKopecks(row.purchase_total_cost_kopecks))}`
+        : delta < 0 ? ` · себестоимость ${escapeHtml(row.material_cost_complete ? moneyKopecks(row.material_cost_kopecks) : 'не указана')}` : '';
+      return `<article class="organization-audit-row"><span></span><div><strong>${escapeHtml(movementLabels[row.movement_type] || row.movement_type)} · ${escapeHtml(inventoryItem?.name || 'Материал')}</strong><small>${escapeHtml(warehouse(row.warehouse_id)?.name || 'Склад')} · ${delta > 0 ? '+' : ''}${escapeHtml(quantity(delta))} ${escapeHtml(unitLabels[inventoryItem?.unit] || '')} · остаток ${escapeHtml(quantity(row.quantity_after))}${cost}${row.reason ? ` · ${escapeHtml(row.reason)}` : ''}</small></div><time>${escapeHtml(date)}</time></article>`;
     }
 
     function render() {
@@ -127,7 +172,7 @@
 
     function messageFor(error) {
       const text = `${error?.message || ''} ${error?.details || ''}`;
-      const rows = [['inventory_disabled','Сначала включите складской учёт.'],['inventory_owner_required','Изменить режим склада может только владелец.'],['insufficient_inventory_stock','Недостаточно остатка для списания.'],['inventory_reason_required','Для списания или инвентаризации укажите причину.'],['inventory_target_inactive','Выберите активный склад и материал.'],['inventory_request_conflict','Операция была изменена после отправки. Обновите данные.'],['inventory_unit_locked_by_ledger','Нельзя менять единицу позиции после первого движения. Создайте новую позицию.'],['inventory_warehouse_location_locked_by_ledger','Нельзя переносить склад с историей в другой филиал. Создайте новый склад.'],['inventory_warehouse_missing_for_location','Для филиала записи не создан активный склад.'],['insufficient_inventory_stock_for_completed_visit','На складе недостаточно материалов для завершения визита.'],['duplicate key','Для филиала уже создан склад или артикул занят.']];
+      const rows = [['inventory_disabled','Сначала включите складской учёт.'],['inventory_owner_required','Изменить режим склада может только владелец.'],['insufficient_inventory_stock','Недостаточно остатка для списания.'],['inventory_reason_required','Для списания или инвентаризации укажите причину.'],['invalid_inventory_purchase_cost','Стоимость партии можно указать только для прихода.'],['inventory_cost_ledger_out_of_sync','Остаток и история себестоимости расходятся. Операция отменена.'],['inventory_target_inactive','Выберите активный склад и материал.'],['inventory_request_conflict','Операция была изменена после отправки. Обновите данные.'],['inventory_unit_locked_by_ledger','Нельзя менять единицу позиции после первого движения. Создайте новую позицию.'],['inventory_warehouse_location_locked_by_ledger','Нельзя переносить склад с историей в другой филиал. Создайте новый склад.'],['inventory_warehouse_missing_for_location','Для филиала записи не создан активный склад.'],['insufficient_inventory_stock_for_completed_visit','На складе недостаточно материалов для завершения визита.'],['duplicate key','Для филиала уже создан склад или артикул занят.']];
       return rows.find(([key]) => text.includes(key))?.[1] || 'Изменение не сохранено. Записи и остатки не изменены.';
     }
 
@@ -147,8 +192,10 @@
 
     function updateMovementKind() {
       const inventory = $('#inventoryMovementKind')?.value === 'inventory';
+      const receipt = $('#inventoryMovementKind')?.value === 'receipt';
       if ($('#inventoryMovementQuantityField')) $('#inventoryMovementQuantityField').hidden = inventory;
       if ($('#inventoryCountedQuantityField')) $('#inventoryCountedQuantityField').hidden = !inventory;
+      if ($('#inventoryPurchaseCostField')) $('#inventoryPurchaseCostField').hidden = !receipt;
       if ($('#inventoryMovementReason')) $('#inventoryMovementReason').required = inventory || $('#inventoryMovementKind').value === 'write_off';
     }
 
@@ -165,7 +212,10 @@
       }
       if (event.target.id === 'inventoryMovementForm') {
         event.preventDefault(); movementRequestId = movementRequestId || requestId(); const kind = $('#inventoryMovementKind').value;
-        const ok = await mutate('apply_minuta_stock_movement', { p_organization:organization.id,p_warehouse:$('#inventoryMovementWarehouse').value,p_item:$('#inventoryMovementItem').value,p_kind:kind,p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,p_reason:$('#inventoryMovementReason').value.trim(),p_request_id:movementRequestId }, event.submitter, movementLabels[kind] + ' сохранён', '#inventoryMovementError');
+        const costing = Number(payload?.costing_version) === 113;
+        const parameters = { p_organization:organization.id,p_warehouse:$('#inventoryMovementWarehouse').value,p_item:$('#inventoryMovementItem').value,p_kind:kind,p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,p_reason:$('#inventoryMovementReason').value.trim(),p_request_id:movementRequestId };
+        if (costing) parameters.p_purchase_total_cost_kopecks = kind === 'receipt' ? rublesToKopecks($('#inventoryPurchaseCost')?.value) : null;
+        const ok = await mutate(costing ? 'apply_minuta_stock_movement_v113' : 'apply_minuta_stock_movement', parameters, event.submitter, movementLabels[kind] + ' сохранён', '#inventoryMovementError');
         if (ok) { movementRequestId = null; event.target.reset(); updateMovementKind(); } return;
       }
       if (event.target.id === 'inventoryUsageForm') {
