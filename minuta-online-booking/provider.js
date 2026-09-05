@@ -2047,19 +2047,19 @@ async function flushPendingMetadata() {
     const bookings = new Set(allBookings.filter(item => !activeClientOrganizationId || item.organization_id === activeClientOrganizationId).map(item => item.id));
     for (const id of [...pendingBookingColors]) {
       if (!canSend()) return false;
-      if (bookings.has(id) && bookingColors.has(id)) await saveBookingColor(id, bookingColors.get(id), { rerender:false, isCurrent:canSend, replay:true });
+      if (pendingBookingColors.has(id) && bookings.has(id) && bookingColors.has(id)) await saveBookingColor(id, bookingColors.get(id), { rerender:false, isCurrent:canSend, replay:true });
     }
     for (const id of [...pendingBookingNotes]) {
       if (!canSend()) return false;
-      if (bookings.has(id) && bookingNotes.has(id)) await saveBookingNote(id, bookingNotes.get(id), { rerender:false, isCurrent:canSend, replay:true });
+      if (pendingBookingNotes.has(id) && bookings.has(id) && bookingNotes.has(id)) await saveBookingNote(id, bookingNotes.get(id), { rerender:false, isCurrent:canSend, replay:true });
     }
     for (const phone of [...pendingClientLabels]) {
       if (!canSend()) return false;
-      if (clientLabels.has(phone)) await persistClientLabelValue(phone, clientLabels.get(phone), null, { replay:true, isCurrent:canSend });
+      if (pendingClientLabels.has(phone) && clientLabels.has(phone)) await persistClientLabelValue(phone, clientLabels.get(phone), null, { replay:true, isCurrent:canSend });
     }
-    for (const [phone, note] of [...pendingClientNotes]) {
+    for (const phone of [...pendingClientNotes.keys()]) {
       if (!canSend()) return false;
-      await saveClientNoteValue(phone, note, { replay:true, isCurrent:canSend });
+      if (pendingClientNotes.has(phone)) await saveClientNoteValue(phone, pendingClientNotes.get(phone), { replay:true, isCurrent:canSend });
     }
     if (canSend()) renderBookingData();
     return canSend() && !pendingBookingColors.size && !pendingBookingNotes.size && !pendingClientLabels.size && !pendingClientNotes.size;

@@ -43,6 +43,49 @@ function fixture(storage = new Map()) {
 }
 const ack = call => call.resolve({data:call.params.p_note ?? call.params.p_color ?? null,error:null});
 
+test('multi-client replay never resurrects an old snapshot value after newer ACK', async () => {
+  const h=fixture(); h.state.navigator.onLine=false;
+  await h.context.saveClientNoteValue('79990000001','old A');
+  await h.context.saveClientNoteValue('79990000002','old B');
+  h.state.navigator.onLine=true;
+  const replay=h.context.flushPendingMetadata(); await tick();
+  assert.equal(h.calls[0].params.note,'old A');
+  const newer=h.context.saveClientNoteValue('79990000002','LATEST B'); await tick();
+  assert.equal(h.calls[1].params.note,'LATEST B'); ack(h.calls[1]); assert.equal(await newer,true);
+  ack(h.calls[0]); await tick();
+  // Resolve an unexpected third request too, so a regression fails without hanging.
+  if(h.calls[2]) ack(h.calls[2]); await replay;
+  assert.deepEqual(h.calls.map(call=>call.params.note),['old A','LATEST B']);
+  assert.equal(h.state.clientNotes.get('79990000002'),'LATEST B');
+  assert.equal(h.state.pendingClientNotes.size,0);
+});
+
+for (const kind of ['color','booking-note','label']) {
+  test(`${kind} replay skips a second key already acknowledged by foreground save`, async () => {
+    const h=fixture(); h.state.allBookings.push({id:'booking-B',organization_id:'org-A'});
+    const save=(which,newer=false)=>kind==='color'
+      ? h.context.saveBookingColor(`booking-${which}`,newer?'mint':'sky')
+      : kind==='booking-note' ? h.context.saveBookingNote(`booking-${which}`,newer?'new':'old')
+      : h.context.persistClientLabelValue(which==='A'?'79990000001':'79990000002',{vip:newer},null);
+    h.state.navigator.onLine=false; await save('A'); await save('B'); h.state.navigator.onLine=true;
+    const replay=h.context.flushPendingMetadata(); await tick();
+    const newer=save('B',true); await tick(); ack(h.calls[1]); await newer;
+    ack(h.calls[0]); await tick(); if(h.calls[2]) ack(h.calls[2]); await replay;
+    assert.equal(h.calls.length,2);
+  });
+}
+
+test('multi-client replay reads the latest still-pending value after a failed foreground save', async () => {
+  const h=fixture(); h.state.navigator.onLine=false;
+  await h.context.saveClientNoteValue('79990000001','old A');
+  await h.context.saveClientNoteValue('79990000002','old B'); h.state.navigator.onLine=true;
+  const replay=h.context.flushPendingMetadata(); await tick();
+  const newer=h.context.saveClientNoteValue('79990000002','LATEST B'); await tick();
+  h.calls[1].resolve({data:null,error:{message:'network'}}); assert.equal(await newer,false);
+  ack(h.calls[0]); await tick(); assert.equal(h.calls[2].params.note,'LATEST B'); ack(h.calls[2]);
+  assert.equal(await replay,true); assert.equal(h.state.clientNotes.get('79990000002'),'LATEST B');
+});
+
 test('foreground metadata rechecks write permission after replay barrier', async () => {
   const h = fixture(); h.state.navigator.onLine = false;
   await h.context.saveBookingNote('booking-A', 'old'); h.state.navigator.onLine = true;

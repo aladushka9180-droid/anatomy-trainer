@@ -18,12 +18,14 @@
 ## Проверки
 
 - Три узкие RED-регрессии на прежнем runtime: pending до ACK, rejected/null ответ, старый ACK поверх нового failed note.
-- `tests/metadata-offline-recovery-test.mjs`: 19 VM-сценариев, транспорт/DOM синтетические; подключён через provider-ux-audit-test.
+- `tests/metadata-offline-recovery-test.mjs`: 24 VM-сценария, транспорт/DOM синтетические; подключён через provider-ux-audit-test.
 - `tests/metadata-offline-browser-test.mjs`: 6 native сценариев на 390/1280px: настоящие input/button/localStorage, повторное открытие, пустой текст, смена аккаунта. RPC синтетический.
 - Существующие color revision VM 15, metadata context VM 28; native color 5, metadata 35, historical context 23, series editor 35.
 - Общие provider UX, connection recovery, smoke и синтаксис provider.js.
 
 ## Границы
+
+Второй ревьюер воспроизвёл отдельный multi-client stale snapshot на e3ad028: после подтверждения нового текста B цикл восстановления снова отправлял old B. Исправление снимает только ключи очереди и читает текущее pending-значение непосредственно перед повтором; уже подтверждённые ключи пропускаются во всех четырёх очередях. Собственный тест сначала RED на e3ad028, затем PASS; добавлены контроль последнего ещё не подтверждённого текста и отсутствие повторной отправки подтверждённых цветов/заметок записей/меток.
 
 После независимого ревью 078294 подготовлено узкое исправление: все client_notes upsert идут через одну очередь (включая historical/create/edit/offline finalize); историческая форма обновляет отображаемый кэш только после ACK, сохраняя существующие context guards. После ожидания очереди повторно проверяется writesAllowed. RPC цвета/заметки требуют точного возвращённого TEXT, а client_notes upsert по-прежнему допускает законный PostgREST data:null/error:null. Новый ключ очереди удаляется существующей очисткой устройства при выходе/смене аккаунта. Три дополнительных VM-проверки сначала дали RED на 078294, затем PASS; независимая adversarial приёмка ещё требуется. Старые test fixtures возвращают реальные TEXT ACK вместо вымышленных true/null, утверждения сценариев не удалены.
 
