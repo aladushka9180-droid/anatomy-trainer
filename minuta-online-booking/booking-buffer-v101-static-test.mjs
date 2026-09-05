@@ -32,7 +32,7 @@ for (const value of ['15', '30', '60', '120', '1440']) {
 }
 assert.match(providerHtml, /от 1 минуты до 24 часов/i, 'the exact supported range must be explained');
 assert.match(provider, /getProviderAvailableSlots[\s\S]*get_available_slots_v101/, 'provider slot pickers must prefer buffered availability');
-assert.equal((provider.match(/getProviderAvailableSlots\s*\(/g) || []).length, 6, 'all five provider slot consumers plus the helper must use one path');
+assert.equal((provider.match(/getProviderAvailableSlots\s*\(/g) || []).length, 7, 'all six provider slot consumers plus the helper must use one path');
 assert.match(provider, /function automaticBookingBreaks[\s\S]*automatic_break:true/i, 'timeline must derive visible automatic breaks');
 assert.match(provider, /Math\.max\(workStart, start - buffer\)[\s\S]*Math\.min\(workEnd, end \+ buffer\)/i, 'visual breaks must be clipped at workday edges');
 assert.match(provider, /booking_buffer_minutes[\s\S]*1440/i, 'provider validation must support a full day');
