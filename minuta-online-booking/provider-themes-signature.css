@@ -857,8 +857,8 @@
   --snow-print-veil:rgba(255,255,255,.86);
   --snow-print-size:480px;
   background-color:#fff!important;
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-natural-v2.webp?v=439")!important;
-  background-size:auto,var(--snow-print-size) var(--snow-print-size)!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),linear-gradient(90deg,#fff,rgba(255,255,255,0) 4% 96%,#fff),linear-gradient(#fff,rgba(255,255,255,0) 4% 96%,#fff),url("provider-snow-leopard-natural-v2.webp?v=439")!important;
+  background-size:auto,var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size)!important;
   background-repeat:repeat!important;
   background-position:0 0!important;
   background-attachment:scroll!important;
