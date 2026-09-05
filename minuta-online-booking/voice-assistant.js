@@ -1778,6 +1778,12 @@
     return String(voice.voiceURI || `${voice.lang || ''}|${voice.name || ''}`).slice(0, 300);
   }
 
+  function normalizedSpeechVolume(value) {
+    if (value == null || value === '' || !['number', 'string'].includes(typeof value)) return 1;
+    const volume = Number(value);
+    return Number.isFinite(volume) ? Math.round(Math.min(1, Math.max(0, volume)) * 100) / 100 : 1;
+  }
+
   function applyOfflineContext(model, snapshot) {
     if (!snapshot?.offlineReadable) return model;
     const updated = snapshotTimeLabel(snapshot.lastUpdatedAt);
@@ -1976,6 +1982,8 @@
     const voiceSelect = doc.querySelector('#voiceAssistantVoice');
     const rateInput = doc.querySelector('#voiceAssistantRate');
     const rateValue = doc.querySelector('#voiceAssistantRateValue');
+    const volumeInput = doc.querySelector('#voiceAssistantVolume');
+    const volumeValue = doc.querySelector('#voiceAssistantVolumeValue');
     const voicePreviewButton = doc.querySelector('#voiceAssistantVoicePreview');
     const memoryText = doc.querySelector('#voiceAssistantMemoryText');
     const clearMemoryButton = doc.querySelector('#voiceAssistantClearMemory');
@@ -2001,6 +2009,7 @@
     let speaking = false;
     let russianVoice = null;
     let speechRate = DEFAULT_SPEECH_RATE;
+    let speechVolume = 1;
     let preferredVoiceKey = '';
     let suppressCompatibilityClick = false;
     let compatibilityClickResetTimer = null;
@@ -2047,18 +2056,31 @@
       try {
         const saved = JSON.parse(global.localStorage?.getItem(SPEECH_SETTINGS_KEY) || '{}');
         speechRate = normalizedSpeechRate(saved.rate);
+        speechVolume = normalizedSpeechVolume(saved.volume);
         if (![1, 1.25, 1.5, 1.75, 2].includes(speechRate)) speechRate = DEFAULT_SPEECH_RATE;
         preferredVoiceKey = String(saved.voiceKey || '').slice(0, 300);
       } catch {
         speechRate = DEFAULT_SPEECH_RATE;
+        speechVolume = 1;
         preferredVoiceKey = '';
       }
       if (rateInput) rateInput.value = String(speechRate);
       if (rateValue) rateValue.textContent = `${String(speechRate).replace('.', ',')}×`;
+      refreshVolumeControls();
+    }
+
+    function refreshVolumeControls() {
+      const percent = Math.round(speechVolume * 100);
+      const label = percent ? `${percent}%` : 'Без звука';
+      if (volumeInput) {
+        volumeInput.value = String(percent);
+        volumeInput.setAttribute('aria-valuetext', label);
+      }
+      if (volumeValue) volumeValue.textContent = label;
     }
 
     function saveSpeechSettings() {
-      try { global.localStorage?.setItem(SPEECH_SETTINGS_KEY, JSON.stringify({ voiceKey:preferredVoiceKey, rate:speechRate })); } catch {}
+      try { global.localStorage?.setItem(SPEECH_SETTINGS_KEY, JSON.stringify({ voiceKey:preferredVoiceKey, rate:speechRate, volume:speechVolume })); } catch {}
     }
 
     function russianVoices() {
@@ -2221,6 +2243,11 @@
     }
 
     function speakText(text, completedMessage = '') {
+      if (speechVolume === 0) {
+        stopSpeech();
+        status.textContent = 'Озвучка выключена. Увеличьте громкость в настройках помощника.';
+        return false;
+      }
       if (!global.speechSynthesis || !global.SpeechSynthesisUtterance) {
         setSpeaking(false);
         status.textContent = 'Этот браузер не поддерживает озвучивание. Вы можете прочитать ответ на экране.';
@@ -2238,6 +2265,7 @@
       if (!chunks.length) return false;
       const epoch = ++speechEpoch;
       const rate = speechRate;
+      const volume = speechVolume;
       const fail = () => {
         if (epoch !== speechEpoch) return;
         speechEpoch += 1;
@@ -2257,6 +2285,7 @@
           utterance.voice = voice;
           utterance.lang = String(voice.lang || 'ru-RU').replace('_', '-');
           utterance.rate = rate;
+          utterance.volume = volume;
           utterance.pitch = 1;
           let settled = false;
           utterance.onend = () => { if (!settled) { settled = true; next(index + 1); } };
@@ -2858,6 +2887,19 @@
 
     function bind() {
       loadSpeechSettings();
+      volumeInput?.addEventListener('input', () => {
+        speechVolume = normalizedSpeechVolume(Number(volumeInput.value) / 100);
+        refreshVolumeControls();
+        saveSpeechSettings();
+        stopSpeech();
+      });
+      volumeInput?.addEventListener('change', () => {
+        speechVolume = normalizedSpeechVolume(Number(volumeInput.value) / 100);
+        refreshVolumeControls();
+        saveSpeechSettings();
+        stopSpeech();
+        status.textContent = speechVolume === 0 ? 'Озвучка выключена.' : `Громкость сохранена: ${Math.round(speechVolume * 100)}%. Нажмите «Проверить голос».`;
+      });
       rateInput?.addEventListener('input', () => {
         speechRate = normalizedSpeechRate(rateInput.value);
         if (rateValue) rateValue.textContent = `${String(speechRate).replace('.', ',')}×`;
@@ -2881,7 +2923,7 @@
           status.textContent = 'Проверка голоса остановлена.';
           return;
         }
-        speakText('Здравствуйте! Я помощник Минута. Так будет звучать мой голос.', 'Голос и скорость озвучки сохранены.');
+        speakText('Здравствуйте! Я помощник Минута. Так будет звучать мой голос.', 'Настройки озвучки сохранены.');
       });
       proactive?.addEventListener('click', () => {
         input.value = proactive.dataset.voicePrompt || 'Дай короткую сводку и план на день';

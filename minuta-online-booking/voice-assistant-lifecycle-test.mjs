@@ -128,6 +128,8 @@ const voiceSelect = createElement({
 const voicePreviewButton = createElement();
 const rateInput = createElement();
 const rateValue = createElement();
+const volumeInput = createElement();
+const volumeValue = createElement();
 const dialog = createElement({
   showModal() { this.open = true; },
   close() { this.open = false; }
@@ -172,6 +174,8 @@ elements.set('#voiceAssistantVoice', voiceSelect);
 elements.set('#voiceAssistantVoicePreview', voicePreviewButton);
 elements.set('#voiceAssistantRate', rateInput);
 elements.set('#voiceAssistantRateValue', rateValue);
+elements.set('#voiceAssistantVolume', volumeInput);
+elements.set('#voiceAssistantVolumeValue', volumeValue);
 const documentListeners = new Map();
 const documentStub = {
   createElement:() => createElement(),
@@ -510,6 +514,32 @@ for (const rate of [1.25, 1.75]) {
   assert.equal(speechSynthesis.lastUtterance.rate, rate, 'озвучка должна получать выбранную дробную скорость');
   controller.stopSpeech();
 }
+assert.equal(volumeInput.value, '100', 'старые настройки без громкости должны давать 100%');
+for (const percent of [0, 1, 50, 100, 35]) {
+  volumeInput.value = String(percent);
+  volumeInput.emit('input');
+  volumeInput.emit('change');
+  assert.equal(JSON.parse(savedSpeech).volume, percent / 100);
+  assert.equal(JSON.parse(savedSpeech).rate, 1.75, 'громкость не сбрасывает скорость');
+  assert.equal(JSON.parse(savedSpeech).voiceKey, 'google-ru', 'громкость не сбрасывает голос');
+  assert.equal(volumeValue.textContent, percent ? `${percent}%` : 'Без звука');
+  const before = speechSynthesis.speakCount;
+  voicePreviewButton.emit('click');
+  if (percent === 0) {
+    assert.equal(speechSynthesis.speakCount, before, '0% не запускает синтез');
+    assert.match(status.textContent, /Озвучка выключена/);
+  } else {
+    assert.equal(speechSynthesis.lastUtterance.volume, percent / 100);
+  }
+  controller.stopSpeech();
+}
+voicePreviewButton.emit('click');
+const interruptedByVolume = speechSynthesis.lastUtterance;
+volumeInput.value = '35';
+volumeInput.emit('input');
+const afterVolumeChange = speechSynthesis.speakCount;
+interruptedByVolume.onend();
+assert.equal(speechSynthesis.speakCount, afterVolumeChange, 'изменение громкости отменяет старую очередь');
 // Read a long rendered answer completely, then exercise cancellation between chunks.
 currentSnapshot = { ...currentSnapshot, synchronized:true, offline:false, offlineReadable:false,
   bookings:Array.from({length:12}, (_, i) => ({date:currentSnapshot.today,time:`${String(10 + i).padStart(2, '0')}:00`,status:'confirmed',clientName:`Клиент ${i + 1} ${'длинное имя '.repeat(12)}`,serviceName:`Услуга ${i + 1}`})) };
@@ -521,6 +551,7 @@ for (let i = 0; i < 100 && speakButton.textContent === 'Остановить г�
   const current = speechSynthesis.lastUtterance;
   spokenParts.push(current.text);
   assert.equal(current.rate, 1.75);
+  assert.equal(current.volume, 0.35, 'каждый фрагмент ответа получает громкость');
   assert.equal(current.voice, googleRussian);
   current.onend();
   const afterEndCount = speechSynthesis.speakCount;
@@ -566,11 +597,25 @@ restoredController.bind();
 assert.equal(voiceSelect.value, 'google-ru', 'новый контроллер должен восстановить сохранённый выбор Google, даже если доступна Светлана');
 assert.equal(rateInput.value, '1.75', 'сохранённая скорость 1,75× должна восстанавливаться после повторного открытия');
 assert.equal(rateValue.textContent, '1,75×');
+assert.equal(volumeInput.value, '35', 'громкость восстанавливается после перезагрузки');
 restoredController.destroy();
 savedSpeech = JSON.stringify({ voiceKey:'google-ru', rate:1.25 });
 const quarterSpeedController = voice.createController({ document:documentStub, bridge });
 quarterSpeedController.bind();
 assert.equal(rateInput.value, '1.25', 'сохранённая скорость 1,25× должна восстанавливаться');
 quarterSpeedController.destroy();
+
+for (const [volume, expected] of [[0, 0], [2, 100], [-1, 0], ['bad', 100], [null, 100], [false, 100], ['', 100], [0.456, 46]]) {
+  savedSpeech = JSON.stringify({ volume });
+  const restored = voice.createController({ document:documentStub, bridge });
+  restored.bind();
+  assert.equal(volumeInput.value, String(expected), 'сохранённая громкость проверяется и ограничивается');
+  restored.destroy();
+}
+savedSpeech = '{broken';
+const corrupted = voice.createController({ document:documentStub, bridge });
+corrupted.bind();
+assert.equal(volumeInput.value, '100');
+corrupted.destroy();
 
 console.log('Voice assistant lifecycle security tests passed');
