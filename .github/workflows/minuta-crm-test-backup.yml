@@ -1,0 +1,145 @@
+name: Minuta CRM test backup and read-only preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  backup-test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      PGSSLMODE: require
+    steps:
+      - name: Install PostgreSQL 17 and OpenPGP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+
+      - name: Reject any database other than the authorized test project
+        shell: bash
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          let u;
+          try { u = new URL(process.env.MINUTA_TEST_DATABASE_URL); }
+          catch { throw new Error('Invalid test database configuration'); }
+          const ref = 'umazhvvxutnsyuphbhda';
+          assert(['postgres:', 'postgresql:'].includes(u.protocol), 'Invalid protocol');
+          assert(u.pathname === '/postgres', 'Unexpected database name');
+          assert(['', '5432', '6543'].includes(u.port), 'Unexpected database port');
+          const user = decodeURIComponent(u.username);
+          assert((u.hostname === `db.${ref}.supabase.co` && user === 'postgres') ||
+            (u.hostname.endsWith('.pooler.supabase.com') && user === `postgres.${ref}`),
+            'Target is not the authorized test database');
+          assert(u.password && process.env.BACKUP_ENCRYPTION_PASSWORD, 'Missing backup credentials');
+          assert([...u.searchParams.keys()].every(key => ['sslmode','pgbouncer'].includes(key)),
+            'Unexpected connection options');
+          console.log('Exact test project guard: OK');
+          JS
+
+      - name: Back up testDB and verify encryption round trip
+        id: backup
+        shell: bash
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          plain="$RUNNER_TEMP/test-before.dump"
+          verified="$RUNNER_TEMP/test-before.verified.dump"
+          encrypted="$RUNNER_TEMP/test-before.dump.gpg"
+          trap 'rm -f "$plain" "$verified"' EXIT
+          /usr/lib/postgresql/17/bin/pg_dump --dbname="$test_db" --format=custom \
+            --no-owner --no-privileges --file="$plain"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$plain" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes \
+            --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            --s2k-digest-algo SHA512 --output "$encrypted" "$plain"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes \
+            --pinentry-mode loopback --passphrase-fd 0 --output "$verified" --decrypt "$encrypted"
+          cmp --silent "$plain" "$verified"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$verified" >/dev/null
+          sha256sum "$encrypted" | awk '{print $1}' > "$encrypted.sha256"
+          jq -n --arg sha "$GITHUB_SHA" --arg created "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --arg digest "$(cat "$encrypted.sha256")" \
+            '{schemaVersion:1,status:"success",scope:"test-db-backup-only",testProjectRef:"umazhvvxutnsyuphbhda",sourceSha:$sha,createdAtUtc:$created,encryptedSha256:$digest,databaseWritten:false,storageBytesIncluded:false}' \
+            > "$RUNNER_TEMP/test-before.json"
+
+      - name: Persist verified test backup before any future restore
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-testdb-before-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/test-before.dump.gpg
+            ${{ runner.temp }}/test-before.dump.gpg.sha256
+            ${{ runner.temp }}/test-before.json
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Read structural metadata only - no rows, secrets or function bodies
+        shell: bash
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -At > "$RUNNER_TEMP/test-preflight.json" <<'SQL'
+          begin read only;
+          select jsonb_build_object(
+            'projectRef','umazhvvxutnsyuphbhda',
+            'migrationGuardPresent',to_regclass('minuta_migration_guard.target') is not null,
+            'restoreGuardPresent',to_regclass('minuta_restore_guard.target') is not null,
+            'extensions',(select jsonb_agg(extname order by extname) from pg_extension),
+            'publicTables',(select jsonb_agg(tablename order by tablename) from pg_tables where schemaname='public'),
+            'externalForeignKeys',(select jsonb_agg(jsonb_build_object('source',c.conrelid::regclass::text,'target',c.confrelid::regclass::text))
+              from pg_constraint c join pg_class source on source.oid=c.conrelid
+              join pg_namespace sn on sn.oid=source.relnamespace
+              join pg_class target on target.oid=c.confrelid
+              join pg_namespace tn on tn.oid=target.relnamespace
+              where c.contype='f' and sn.nspname='public' and tn.nspname<>'public'),
+            'httpTriggerCount',(select count(*) from pg_trigger t join pg_proc p on p.oid=t.tgfoid
+              where not t.tgisinternal and (lower(p.prosrc) like '%net.http_%' or lower(p.prosrc) like '%http_request%'))
+          );
+          rollback;
+          SQL
+          # Quiet psql transaction tags are stripped; only the JSON object is retained.
+          sed -i '/^BEGIN$/d; /^ROLLBACK$/d' "$RUNNER_TEMP/test-preflight.json"
+          jq -e '.projectRef=="umazhvvxutnsyuphbhda"' "$RUNNER_TEMP/test-preflight.json" >/dev/null
+
+      - name: Persist non-personal preflight
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-testdb-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/test-preflight.json
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Remove plaintext dumps
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/test-before.dump" "$RUNNER_TEMP/test-before.verified.dump"
