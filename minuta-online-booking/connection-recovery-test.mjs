@@ -1,0 +1,175 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+const source = readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
+const section = source.slice(source.indexOf('function stopLiveUpdates()'), source.indexOf('async function refreshAfterWrite()'));
+const eventsStart = source.indexOf('function resumeProviderConnection(');
+const eventsSource = source.slice(eventsStart, source.indexOf("$('#retryOfflineBookings')", eventsStart));
+function harness() {
+  let nextTimer = 0;
+  const timers = new Map();
+  const channels = [];
+  const states = [];
+  const events = new Map();
+  const context = {
+    currentUser:{id:'first'}, sessionGeneration:1, bookingsChannel:null,
+    syncTimer:null, visitorPresenceTimer:null, bookingReloadTimer:null,
+    liveReconnectTimer:null, liveReconnectAttempt:0, lastLiveRecoveryAt:0,
+    synchronizationPromise:null, synchronizationGeneration:-1, synchronizationQueued:false,
+    synchronizationRetryTimer:null, writesAllowed:true, offlineBookingInputsReady:false,
+    visitorVisitsRemoteAvailable:false, SERVICE_SYNC_INTERVAL_MS:300000,
+    navigator:{onLine:true}, document:{hidden:false,addEventListener:(name,callback)=>events.set(name,callback)}, Math,
+    window:{addEventListener:(name,callback)=>events.set(name,callback)},
+    performance:{now:()=>1}, Date:class extends Date { static now(){return context.now;} }, offlineBookingQueue:[],
+    now:100000, providerHiddenAt:0, connectionWasOffline:false, bookingCreationReady:false,
+    setTimeout(fn, delay) { const id = ++nextTimer; timers.set(id,{fn,delay}); return id; },
+    clearTimeout(id) { timers.delete(id); },
+    setInterval() { return ++nextTimer; }, clearInterval() {},
+    db:{
+      channel(name) { const channel = {name,on(){return this;},subscribe(fn){this.notify=fn;return this;}}; channels.push(channel); return channel; },
+      removeChannel(channel) { channel.notify?.('CLOSED'); return Promise.resolve('ok'); }
+    },
+    sessionIsCurrent:(id,generation)=>context.currentUser?.id===id && context.sessionGeneration===generation,
+    setSyncState:(...state)=>states.push(state),
+    setWritesAllowed:value=>{context.writesAllowed=value;}, setBookingCreationReady:value=>{context.bookingCreationReady=value;},
+    renderVisitorVisits() {}, refreshBusinessDay() {}, handleVisitorVisit() {},
+    freeSlotsController:{refresh(){}}, providerPerformance:{measure(){}},
+    applyAutomaticVisitOutcomes:async()=>{}, flushOfflineBookings:async()=>{},
+    canQueueOfflineBooking:()=>false, reliability:{savedAtLabel:()=>''},
+    organizationController:{load:async()=>({ok:true})}, teamCalendarController:{load:async()=>({ok:true})},
+    loads:0,
+    renderTopbarDateTime(){},renderNotifications(){},queueDisplayPreferencesSync(){},
+    renderOfflineBookingQueue(){},updateNewBookingConnectivity(){},notify(){},$:()=>null,
+  };
+  for (const name of ['loadBookings','loadOwnServices','loadSchedule','loadDaysOff','loadBookingSettings','loadClientNotes','loadClientLabels','loadClientAvatars','loadBookingSessionItems','loadBookingOutcomes','loadPortfolio','loadWaitlist','loadProviderReviews']) context[name] = async()=>{context.loads++;return {ok:true};};
+  vm.createContext(context);
+  vm.runInContext(section + eventsSource,context);
+  const fire = id => {const entry=timers.get(id);assert.ok(entry);timers.delete(id);entry.fn();};
+  const drain = async()=>{await Promise.resolve();if(context.synchronizationPromise) await context.synchronizationPromise;await Promise.resolve();};
+  return {c:context,channels,timers,states,events,fire,drain};
+}
+
+{
+  const h=harness();h.c.startLiveUpdates();h.channels[0].notify('SUBSCRIBED');
+  assert.ok(h.c.bookingReloadTimer,'reconnect must fetch missed changes even when writes were already allowed');
+  h.fire(h.c.bookingReloadTimer);await h.drain();assert.ok(h.c.loads>0);
+}
+{
+  const h=harness();h.c.startLiveUpdates();h.c.stopLiveUpdates();
+  assert.equal(h.c.bookingsChannel,null);
+  assert.equal(h.timers.size,0,'intentional close must not schedule a reconnect');
+  assert.equal(h.c.writesAllowed,true,'intentional close callback must not disable writes');
+}
+{
+  const h=harness();h.c.startLiveUpdates();const first=h.channels[0];first.notify('CHANNEL_ERROR');
+  assert.equal(h.c.writesAllowed,false);
+  const timer=h.c.liveReconnectTimer;assert.ok(timer);
+  assert.ok(h.timers.get(timer).delay>=1500 && h.timers.get(timer).delay<=1750);
+  first.notify('TIMED_OUT');assert.equal(h.c.liveReconnectTimer,timer,'stale channel cannot create duplicate retries');
+  h.fire(timer);assert.equal(h.channels.length,2);
+  h.channels[1].notify('TIMED_OUT');const second=h.c.liveReconnectTimer;
+  assert.ok(h.timers.get(second).delay>=3000);
+  h.c.currentUser={id:'second'};h.c.sessionGeneration++;
+  h.fire(second);assert.equal(h.channels.length,2,'old-account retry cannot create a channel for a new session');
+}
+{
+  const h=harness();h.c.startLiveUpdates();h.channels[0].notify('CHANNEL_ERROR');
+  h.c.document.hidden=true;h.fire(h.c.liveReconnectTimer);
+  assert.equal(h.channels.length,1,'no reconnect churn in a hidden app');
+  h.c.document.hidden=false;h.c.recoverLiveUpdates(true);
+  assert.equal(h.channels.length,2,'foreground recovery must replace the lost channel');
+  h.c.recoverLiveUpdates(true);assert.equal(h.channels.length,2,'duplicate resume signals must be coalesced');
+}
+{
+  const h=harness();h.c.navigator.onLine=false;h.c.startLiveUpdates();
+  assert.equal(h.channels.length,0,'offline should not create a channel');
+}
+{
+  const h=harness();h.c.loadOwnServices=async()=>{throw new Error('temporary_failure');};
+  assert.equal(await h.c.synchronizeProvider(),false,'rejected request must become a recoverable incomplete sync');
+  await h.drain();assert.equal(h.c.synchronizationPromise,null);
+  assert.ok(h.c.synchronizationRetryTimer,'failed sync must retry automatically');
+}
+{
+  const h=harness();h.c.startLiveUpdates();
+  h.c.document.hidden=true;h.events.get('visibilitychange')();
+  h.c.now+=31000;h.c.document.hidden=false;h.events.get('visibilitychange')();
+  await h.drain();assert.equal(h.channels.length,2,'long background sleep must refresh the live channel');
+  h.c.document.hidden=true;h.events.get('visibilitychange')();
+  h.c.now+=1000;h.c.document.hidden=false;h.events.get('visibilitychange')();
+  await h.drain();assert.equal(h.channels.length,2,'short tab switch must not churn a live channel');
+  h.c.now+=3000;h.events.get('pageshow')({persisted:true});
+  await h.drain();assert.equal(h.channels.length,3,'restoration from browser back-forward cache must recover connection');
+}
+{
+  const h=harness();h.c.startLiveUpdates();h.channels[0].notify('CHANNEL_ERROR');
+  h.c.navigator.onLine=false;h.events.get('offline')();
+  assert.equal(h.timers.size,0,'offline must clear pending reconnects and reloads');
+  h.c.navigator.onLine=true;await h.events.get('online')();
+  assert.equal(h.channels.length,2,'network restoration must open a live channel independently of reload results');
+  assert.ok(h.c.loads>0);assert.equal(h.c.connectionWasOffline,false);
+}
+{
+  const h=harness();h.c.freeSlotsController.refresh=()=>{throw new Error('unexpected_refresh_error');};
+  const run=h.c.synchronizeProvider();
+  assert.equal(h.c.synchronizeProvider(),run,'simultaneous callers must share the same sync');
+  assert.equal(await run,false);await h.drain();
+  assert.equal(h.c.writesAllowed,false);assert.equal(h.c.synchronizationPromise,null);
+  const timer=h.c.synchronizationRetryTimer;assert.ok(timer);
+  const loads=h.c.loads;h.c.currentUser={id:'new'};h.c.sessionGeneration++;
+  h.fire(timer);assert.equal(h.c.loads,loads,'old sync retry cannot run for a new session');
+}
+{
+  const h=harness();h.c.startLiveUpdates();
+  for(let i=0;i<8;i++) {
+    h.channels.at(-1).notify('CHANNEL_ERROR');
+    assert.ok(h.timers.get(h.c.liveReconnectTimer).delay<=30000,'reconnect delay must be capped');
+    h.fire(h.c.liveReconnectTimer);
+  }
+  h.channels.at(-1).notify('SUBSCRIBED');
+  assert.equal(h.c.liveReconnectAttempt,0,'successful connection resets backoff');
+}
+{
+  const h = harness();
+  h.c.scheduleBookingsReload();
+  const timer = h.c.bookingReloadTimer;
+  h.c.currentUser = { id:'new' };
+  h.c.sessionGeneration++;
+  h.fire(timer);
+  assert.equal(h.c.loads, 0, 'old account reload cannot run for a new session');
+}
+{
+  const h = harness();
+  let finishOutcomes;
+  let outcomesStarted;
+  const started = new Promise(resolve => { outcomesStarted = resolve; });
+  h.c.applyAutomaticVisitOutcomes = () => {
+    outcomesStarted();
+    return new Promise(resolve => { finishOutcomes = resolve; });
+  };
+  const run = h.c.synchronizeProvider();
+  await started;
+  h.c.navigator.onLine = false;
+  h.events.get('offline')();
+  finishOutcomes();
+  assert.equal(await run, false);
+  await h.drain();
+  assert.equal(h.states.at(-1)[0], 'offline', 'late completion cannot restore an online status while offline');
+  assert.equal(h.c.writesAllowed, false);
+}
+{
+  const h = harness();
+  const run = h.c.synchronizeProvider();
+  h.c.synchronizationQueued = true;
+  await run;
+  await h.drain();
+  const timer = h.c.bookingReloadTimer;
+  assert.ok(timer, 'events received during a sync need one follow-up reload');
+  h.c.currentUser = { id:'new' };
+  h.c.sessionGeneration++;
+  const loads = h.c.loads;
+  h.fire(timer);
+  assert.equal(h.c.loads, loads, 'queued follow-up remains owned by its original session');
+}
+console.log('Connection recovery checks passed: catch-up, teardown, bounded retries, offline/online, background resume, bfcache, failures and session ownership');

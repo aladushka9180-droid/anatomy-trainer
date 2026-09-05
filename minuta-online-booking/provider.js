@@ -284,6 +284,10 @@ let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === '
 let bookingsChannel = null;
 let syncTimer = null;
 let bookingReloadTimer = null;
+let liveReconnectTimer = null;
+let liveReconnectAttempt = 0;
+let lastLiveRecoveryAt = 0;
+let providerHiddenAt = 0;
 let sessionGeneration = 0;
 let bookingsRequestRevision = 0;
 let synchronizationPromise = null;
@@ -7825,18 +7829,43 @@ async function createRepeatBooking(event) {
 }
 
 function stopLiveUpdates() {
-  if (bookingsChannel) db.removeChannel(bookingsChannel);
+  const previousChannel = bookingsChannel;
   bookingsChannel = null;
+  // Invalidate first: removeChannel may synchronously emit CLOSED.
+  if (previousChannel) Promise.resolve(db.removeChannel(previousChannel)).catch(() => {});
+  clearTimeout(liveReconnectTimer);
+  liveReconnectTimer = null;
   clearInterval(syncTimer);
   syncTimer = null;
   clearInterval(visitorPresenceTimer);
   visitorPresenceTimer = null;
   clearTimeout(bookingReloadTimer);
+  bookingReloadTimer = null;
+}
+
+function scheduleLiveReconnect(userId, generation) {
+  if (liveReconnectTimer || !sessionIsCurrent(userId, generation) || !navigator.onLine || document.hidden) return;
+  const delay = Math.min(30000, 1500 * (2 ** Math.min(liveReconnectAttempt++, 5)) + Math.floor(Math.random() * 250));
+  liveReconnectTimer = setTimeout(() => {
+    liveReconnectTimer = null;
+    if (sessionIsCurrent(userId, generation) && navigator.onLine && !document.hidden && !bookingsChannel) startLiveUpdates();
+  }, delay);
+}
+
+function recoverLiveUpdates(force = false) {
+  if (!currentUser || !navigator.onLine || document.hidden) return;
+  if (bookingsChannel && (!force || Date.now() - lastLiveRecoveryAt < 2000)) return;
+  lastLiveRecoveryAt = Date.now();
+  startLiveUpdates();
 }
 
 function scheduleBookingsReload() {
   clearTimeout(bookingReloadTimer);
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
   bookingReloadTimer = setTimeout(() => {
+    bookingReloadTimer = null;
+    if (!sessionIsCurrent(userId, generation) || !navigator.onLine || document.hidden) return;
     if (synchronizationPromise) { synchronizationQueued = true; return; }
     synchronizeProvider();
   }, 250);
@@ -7844,7 +7873,9 @@ function scheduleBookingsReload() {
 
 function startLiveUpdates() {
   stopLiveUpdates();
-  if (!currentUser) return;
+  if (!currentUser || !navigator.onLine || document.hidden) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   let channel = db
     .channel(`provider-bookings-${currentUser.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
@@ -7863,18 +7894,22 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit);
   channel = channel.subscribe(status => {
-      if (bookingsChannel !== channel) return;
+      if (bookingsChannel !== channel || !sessionIsCurrent(userId, generation)) return;
       if (status === 'SUBSCRIBED') {
+        liveReconnectAttempt = 0;
+        clearTimeout(liveReconnectTimer);
+        liveReconnectTimer = null;
         setSyncState(writesAllowed ? 'online' : 'warning', writesAllowed ? 'Онлайн · данные обновляются' : 'Подключено · проверяем данные · только чтение');
-        if (!writesAllowed) synchronizeProvider();
+        // Realtime does not replay the events missed while disconnected.
+        scheduleBookingsReload();
       }
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         bookingsChannel = null;
-        db.removeChannel(channel);
+        Promise.resolve(db.removeChannel(channel)).catch(() => {});
         setWritesAllowed(false);
         if (navigator.onLine) {
           setSyncState('warning', 'Связь нестабильна · только чтение');
-          setTimeout(() => { if (currentUser && navigator.onLine && !bookingsChannel) startLiveUpdates(); }, 5000);
+          scheduleLiveReconnect(userId, generation);
         }
       }
     });
@@ -7888,6 +7923,7 @@ function startLiveUpdates() {
 
 function synchronizeProvider() {
   const requestedGeneration = sessionGeneration;
+  const requestedUserId = currentUser?.id;
   if (synchronizationPromise && synchronizationGeneration === requestedGeneration) return synchronizationPromise;
   const synchronizationStartedAt = performance.now();
   const run = (async () => {
@@ -7895,15 +7931,15 @@ function synchronizeProvider() {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const primaryResults = await Promise.all([
+    const primaryResults = (await Promise.allSettled([
       loadBookings({ silent:true }),
       loadOwnServices({ silent:true }),
       loadSchedule(),
       loadDaysOff(),
       loadBookingSettings()
-    ]);
-    if (!sessionIsCurrent(userId, generation)) return false;
-    const secondaryResults = await Promise.all([
+    ])).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
+    if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
+    const secondaryResults = (await Promise.allSettled([
       loadClientNotes(),
       loadClientLabels(),
       loadClientAvatars(),
@@ -7914,9 +7950,9 @@ function synchronizeProvider() {
       loadProviderReviews(),
       organizationController.load(),
       teamCalendarController.load()
-    ]);
+    ])).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
     const results = [...primaryResults, ...secondaryResults];
-    if (!sessionIsCurrent(userId, generation)) return false;
+    if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
     freeSlotsController.refresh();
     const requiredResults = results.filter(result => !result?.optional);
     const complete = requiredResults.every(result => result?.ok);
@@ -7930,6 +7966,7 @@ function synchronizeProvider() {
       clearTimeout(synchronizationRetryTimer);
       synchronizationRetryTimer = null;
       await applyAutomaticVisitOutcomes();
+      if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
       setSyncState(skipped || degraded ? 'warning' : 'online', skipped ? 'Есть несохранённое расписание · серверная сверка приостановлена' : degraded ? 'Основные данные синхронизированы · дополнительные данные сохранены на этом устройстве' : `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
       if (!bookingsChannel) startLiveUpdates();
     } else if (bookingReady) {
@@ -7944,7 +7981,14 @@ function synchronizeProvider() {
     }
     if (bookingReady && offlineBookingQueue.some(item => item.status === 'pending' || item.status === 'server_check_pending' || item.status === 'notification_pending')) setTimeout(() => flushOfflineBookings(), 0);
     return complete;
-  })();
+  })().catch(() => {
+    if (!sessionIsCurrent(requestedUserId, requestedGeneration)) return false;
+    setWritesAllowed(false);
+    setBookingCreationReady(false);
+    setSyncState(navigator.onLine ? 'warning' : 'offline', navigator.onLine ? 'Обновление прервано · повторяем подключение' : 'Нет интернета · только чтение');
+    scheduleSynchronizationRetry();
+    return false;
+  });
   synchronizationGeneration = requestedGeneration;
   synchronizationPromise = run;
   run.then(
@@ -7955,9 +7999,9 @@ function synchronizeProvider() {
     if (synchronizationPromise === run) {
       synchronizationPromise = null;
       synchronizationGeneration = -1;
-      if (synchronizationQueued && currentUser && navigator.onLine) {
+      if (synchronizationQueued) {
         synchronizationQueued = false;
-        setTimeout(() => synchronizeProvider(), 0);
+        if (sessionIsCurrent(requestedUserId, requestedGeneration) && navigator.onLine && !document.hidden) scheduleBookingsReload();
       }
     }
   });
@@ -7965,10 +8009,12 @@ function synchronizeProvider() {
 }
 
 function scheduleSynchronizationRetry() {
-  if (synchronizationRetryTimer || !currentUser || !navigator.onLine) return;
+  if (synchronizationRetryTimer || !currentUser || !navigator.onLine || document.hidden) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
   synchronizationRetryTimer = setTimeout(() => {
     synchronizationRetryTimer = null;
-    if (currentUser && navigator.onLine) synchronizeProvider();
+    if (sessionIsCurrent(userId, generation) && navigator.onLine && !document.hidden) synchronizeProvider();
   }, 8000);
 }
 
@@ -9993,18 +10039,27 @@ document.addEventListener('keydown', event => {
   if ($('#portfolioEditorDialog').open) closePortfolioEditor();
   else if (!$('#bookingSheet').hidden) closeBookingSheet();
 });
-document.addEventListener('visibilitychange', () => {
+function resumeProviderConnection(force = false) {
   if (document.hidden) return;
+  const sleptLongEnough = providerHiddenAt > 0 && Date.now() - providerHiddenAt >= 30000;
+  providerHiddenAt = 0;
   refreshBusinessDay();
   renderTopbarDateTime();
   renderNotifications();
   if (navigator.onLine) {
+    recoverLiveUpdates(force || sleptLongEnough);
     queueDisplayPreferencesSync(0);
     synchronizeProvider().then(() => { if (bookingCreationReady) flushOfflineBookings(); });
   }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { providerHiddenAt = Date.now(); return; }
+  resumeProviderConnection();
 });
+window.addEventListener('pageshow', event => { if (event.persisted) resumeProviderConnection(true); });
 window.addEventListener('offline', () => {
   connectionWasOffline = true;
+  stopLiveUpdates();
   clearTimeout(synchronizationRetryTimer);
   synchronizationRetryTimer = null;
   setBookingCreationReady(false);
@@ -10015,6 +10070,7 @@ window.addEventListener('offline', () => {
   if ($('#newBookingForm')) loadNewBookingSlots();
 });
 window.addEventListener('online', async () => {
+  recoverLiveUpdates(true);
   queueDisplayPreferencesSync(0);
   renderOfflineBookingQueue();
   updateNewBookingConnectivity();
