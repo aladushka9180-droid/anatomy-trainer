@@ -152,7 +152,8 @@ test('diagnostics expose only static codes and statement numbers',()=>{
     const diagnostic=targetSqlDiagnostic(error);
     assert.equal(diagnostic.code,'TARGET_ALTER_TABLE');
     assert.equal(typeof diagnostic.statementIndex,'number');
-    assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE_NAME|PRIVATE_TOKEN|ALTER TABLE/);
+    assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE_NAME|PRIVATE_TOKEN/);
+    assert.equal(diagnostic.shape,'ALTER TABLE ENABLE ALWAYS TRIGGER');
   }
   assert.deepEqual(targetSqlDiagnostic(new Error('secret-path-secret-key')),{code:'TARGET_INPUT_REJECTED'});
 });

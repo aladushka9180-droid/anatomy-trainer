@@ -10,6 +10,11 @@ on:
         options: [validate, restore]
         default: validate
         required: true
+      validation_run_id:
+        description: Successful validate run on the same code SHA and the same archives (restore only)
+        type: string
+        default: ''
+        required: false
       snapshot_run_id:
         description: Successful offline anonymized snapshot run ID
         type: string
@@ -81,7 +86,16 @@ jobs:
           BACKUP_SHA: ${{ inputs.backup_sha }}
           RESTORE_CONFIRM: ${{ inputs.restore_confirm }}
           RESTORE_MODE: ${{ inputs.mode }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
         run: bash minuta-online-booking/scripts/crm-test-restore.sh
+      - name: Persist read-only validation certificate
+        if: inputs.mode == 'validate'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-test-validate-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-test-validate.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Persist commit-confirmed non-personal restore journal
         if: inputs.mode == 'restore'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

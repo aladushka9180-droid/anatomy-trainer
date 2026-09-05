@@ -16,7 +16,7 @@ cleanup() {
       printf 'Test restore stopped in phase: %s\n' "$phase" >&2
     fi
     if [[ -n "$private_dir" && -f "$private_dir/transform.log" ]]; then
-      sed -nE 's/^Target snapshot SQL preparation refused input; no database accessed (\{"code":"[A-Z_]+"(,"statementIndex":[0-9]+)?\})$/\1/p' "$private_dir/transform.log" >&2
+      sed -nE 's/^Target snapshot SQL preparation refused input; no database accessed (\{"code":"[A-Z_]+"(,"statementIndex":[0-9]+)?(,"shape":"[A-Z ]*")?\})$/\1/p' "$private_dir/transform.log" >&2
     fi
     # SQLSTATE only. Never print SQL text, server DETAIL, row values, or raw logs.
     if [[ -n "$private_dir" && -f "$private_dir/database.log" ]]; then
@@ -86,7 +86,7 @@ verify_run() {
   test "$age" -ge 0 && test "$age" -le 21600
 }
 download_artifact() {
-  local id="$1" name="$2" destination="$3"
+  local id="$1" name="$2" destination="$3" count="${4:-3}"
   gh api "repos/$GITHUB_REPOSITORY/actions/runs/$id/artifacts?per_page=100" \
     >"$private_dir/artifacts.json" 2>"$private_dir/gh.log"
   jq -e --arg name "$name" '[.artifacts[] | select(.name==$name and .expired==false)] | length==1' \
@@ -94,7 +94,7 @@ download_artifact() {
   mkdir -m 700 "$destination"
   gh run download "$id" --repo "$GITHUB_REPOSITORY" --name "$name" --dir "$destination" \
     >"$private_dir/download.log" 2>&1
-  test "$(find "$destination" -type f | wc -l)" = 3
+  test "$(find "$destination" -type f | wc -l)" = "$count"
   test -z "$(find "$destination" -type l -print -quit)"
 }
 verify_digest() {
@@ -168,9 +168,33 @@ node "$script_dir/crm-snapshot-target-sql.mjs" "$private_dir/raw-restore.sql" \
   "$private_dir/target-fragment.sql" "$private_dir/protected-functions.json" \
   >"$private_dir/transform.log" 2>&1
 if [[ "$RESTORE_MODE" == validate ]]; then
+  jq -n --arg sha "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" \
+    --arg snapshotRun "$SNAPSHOT_RUN_ID" --arg snapshotSha "$SNAPSHOT_SHA" \
+    --arg snapshotDigest "$snapshot_digest" --arg backupRun "$TEST_BACKUP_RUN_ID" \
+    --arg backupSha "$BACKUP_SHA" --arg backupDigest "$backup_digest" \
+    '{schemaVersion:1,status:"validated",mode:"validate",codeSha:$sha,runId:$run,
+      snapshotRunId:$snapshotRun,snapshotSha:$snapshotSha,snapshotDigest:$snapshotDigest,
+      testBackupRunId:$backupRun,testBackupSha:$backupSha,testBackupDigest:$backupDigest,
+      testProjectRef:"umazhvvxutnsyuphbhda",databaseWritten:false}' \
+    >"$RUNNER_TEMP/crm-test-validate.json"
   printf 'Encrypted artifacts, protected handlers, target SQL and read-only preflight validated. No database writes.\n'
   exit 0
 fi
+
+phase=prior-read-only-validation-certificate
+[[ "${VALIDATION_RUN_ID:-}" =~ ^[0-9]+$ ]]
+verify_run "$VALIDATION_RUN_ID" "$GITHUB_SHA" .github/workflows/minuta-crm-test-restore.yml \
+  '["main","codex/client-record-files"]' "$private_dir/validation-run.json"
+download_artifact "$VALIDATION_RUN_ID" "crm-test-validate-$VALIDATION_RUN_ID" "$private_dir/validation" 1
+jq -e --arg sha "$GITHUB_SHA" --arg run "$VALIDATION_RUN_ID" \
+  --arg snapshotRun "$SNAPSHOT_RUN_ID" --arg snapshotSha "$SNAPSHOT_SHA" \
+  --arg snapshotDigest "$snapshot_digest" --arg backupRun "$TEST_BACKUP_RUN_ID" \
+  --arg backupSha "$BACKUP_SHA" --arg backupDigest "$backup_digest" '
+  .schemaVersion==1 and .status=="validated" and .mode=="validate" and .codeSha==$sha and .runId==$run
+  and .snapshotRunId==$snapshotRun and .snapshotSha==$snapshotSha and .snapshotDigest==$snapshotDigest
+  and .testBackupRunId==$backupRun and .testBackupSha==$backupSha and .testBackupDigest==$backupDigest
+  and .testProjectRef=="umazhvvxutnsyuphbhda" and .databaseWritten==false
+' "$private_dir/validation/crm-test-validate.json" >/dev/null
 
 phase=test-only-quiesce
 # Recheck freshness immediately before the first mutation, not only at job start.
