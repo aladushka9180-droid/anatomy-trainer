@@ -2118,6 +2118,7 @@
     }
 
     function returnToMainMenu() {
+      dialog.classList.remove('has-answer');
       requestEpoch += 1;
       abortRecognition();
       stopSpeech();
@@ -2141,6 +2142,7 @@
     }
 
     function reset() {
+      dialog.classList.remove('has-answer');
       close();
       input.value = '';
       result.hidden = true;
@@ -2178,9 +2180,12 @@
         }
         if (model.loading) return '<p class="voice-result-progress">Проверяем расписание…</p>';
         if (model.slotError) return '<p class="voice-result-empty">Свободное время не загружено. Повторите поиск после синхронизации.</p>';
-        if (Array.isArray(model.slots)) return model.slots.length
-          ? `<div class="voice-result-choices voice-slot-options" aria-label="Свободное время">${(model.slotOptions || model.slots.map(time => ({ time, reason:'Свободно по актуальному расписанию' }))).map(option => `<button class="voice-result-choice voice-slot-choice${option.recommended ? ' is-recommended' : ''}" type="button" data-voice-slot="${escapeHtml(option.time)}"><strong>${escapeHtml(option.time)}</strong><small>${escapeHtml(option.reason || 'Свободно по актуальному расписанию')}</small></button>`).join('')}</div>`
-          : '<p class="voice-result-empty">На эту дату нет окна нужной длительности.</p>';
+        if (Array.isArray(model.slots)) {
+          if (!model.slots.length) return '<p class="voice-result-empty">На эту дату нет окна нужной длительности.</p>';
+          const options = model.slotOptions || model.slots.map(time => ({ time, reason:'Свободно по актуальному расписанию' }));
+          const slotButton = option => `<button class="voice-result-choice voice-slot-choice${option.recommended ? ' is-recommended' : ''}" type="button" data-voice-slot="${escapeHtml(option.time)}"><strong>${escapeHtml(option.time)}</strong><small>${escapeHtml(option.recommended ? option.reason : 'Выбрать время')}</small></button>`;
+          return `<p class="voice-slot-context">${escapeHtml(plan.serviceName || 'Услуга')} · ${escapeHtml(formatDate(plan.date))}${Number(plan.durationMinutes) ? ` · ${Number(plan.durationMinutes)} мин` : ''}</p><div class="voice-result-choices voice-slot-options" aria-label="Ближайшее свободное время">${options.slice(0, 4).map(slotButton).join('')}</div>${options.length > 4 ? `<details class="ux-disclosure voice-more-slots"><summary>Показать ещё время · ${options.length - 4}</summary><div class="voice-result-choices voice-slot-options">${options.slice(4).map(slotButton).join('')}</div></details>` : ''}`;
+        }
         const rows = [
           plan.clientName ? ['Клиент', plan.clientName] : null,
           ['Дата', formatDate(plan.date)],
@@ -2251,7 +2256,7 @@
         return;
       }
       if (!currentSnapshot.synchronized && response?.ok) response = { ok:false, reason:'not_synchronized', slots:[] };
-      const available = response?.ok && Array.isArray(response.slots) ? response.slots.filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time))).slice(0, 24) : [];
+      const available = response?.ok && Array.isArray(response.slots) ? response.slots.filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time))) : [];
       const ranked = applySlotPreferences(available, model.plan?.timePreference || null, { bookings:currentSnapshot.bookings || [], date:model.plan?.date || '', durationMinutes:model.plan?.durationMinutes || response?.durationMinutes || 0 });
       const slots = ranked.slots;
       const preferenceLabel = model.plan?.timePreference?.label || '';
@@ -2299,6 +2304,7 @@
       result.className = `voice-assistant-result is-${model.kind}`;
       result.innerHTML = `${offlineNotice}${correctionNote}${understandingNote}${planProgress}<div class="voice-result-heading"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#${model.kind === 'error' ? 'icon-alert' : 'icon-spark'}"></use></svg><div><strong>${escapeHtml(model.title)}</strong><p>${escapeHtml(model.message)}</p></div></div>${detailsMarkup(model)}${explanationNote}${sourceNote}${actions}${feedback}`;
       result.hidden = false;
+      dialog.classList.add('has-answer');
       starters?.classList.add('is-secondary');
       backButton.hidden = false;
       result.querySelectorAll?.('[data-voice-feedback]')?.forEach(button => button.addEventListener('click', () => {
@@ -2723,6 +2729,7 @@
         } else status.textContent = 'Не удалось очистить привычки на этом устройстве.';
       });
       openButton.addEventListener('click', () => {
+        dialog.classList.remove('has-answer');
         requestEpoch += 1;
         abortRecognition();
         input.value = '';

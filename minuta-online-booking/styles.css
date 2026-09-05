@@ -998,8 +998,8 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .schedule-quick-presets button { min-height:44px; padding:0 8px; border:1px solid transparent; border-radius:9px; background:transparent; color:var(--theme-muted,#66776e); cursor:pointer; font:850 9px/1 inherit; }
 .schedule-quick-presets button.active { border-color:var(--theme-accent,#2f7654); background:var(--theme-accent-soft,#e8f3ec); color:var(--theme-accent,#2f7654); box-shadow:none; }
 .schedule-quick-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; margin-top:11px; }
-.schedule-quick-days label { margin:0; cursor:pointer; }
-.schedule-quick-days input { position:absolute; opacity:0; pointer-events:none; }
+.schedule-quick-days label { position:relative; min-width:0; margin:0; cursor:pointer; }
+.schedule-quick-days input { position:absolute; width:1px!important; min-width:0!important; height:1px!important; min-height:0!important; inset:0 auto auto 0; margin:0!important; padding:0!important; opacity:0; pointer-events:none; }
 .schedule-quick-days span { display:grid; place-items:center; min-height:44px; border:1px solid transparent; border-radius:9px; background:var(--theme-surface-alt,#f7faf8); color:var(--theme-muted,#66776e); font-size:9px; font-weight:850; }
 .schedule-quick-days input:checked+span { border-color:var(--theme-accent,#2f7654); background:var(--theme-accent-soft,#e8f3ec); color:var(--theme-accent,#2f7654); }
 .schedule-quick-days input:focus-visible+span { outline:3px solid color-mix(in srgb,var(--theme-accent,#2f7654) 24%,transparent); outline-offset:2px; }

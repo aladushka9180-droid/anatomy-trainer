@@ -79,6 +79,8 @@ function createElement(overrides = {}) {
     dataset:{},
     classList:{
       add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); },
       toggle(name, enabled) { enabled ? classes.add(name) : classes.delete(name); }
     },
     addEventListener(type, listener) {

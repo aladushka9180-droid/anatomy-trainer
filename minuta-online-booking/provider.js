@@ -1797,7 +1797,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=408#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=409#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2584,9 +2584,15 @@ function renderReportUtmFunnel() {
   const totals = state.data?.totals || {};
   const rows = Array.isArray(state.data?.rows) ? state.data.rows : [];
   const visitors = Math.max(0, Number(totals.visitors) || 0);
-  const percent = value => visitors ? `${Math.round((Number(value) || 0) / visitors * 100)}%` : '0%';
+  if (!visitors && !Number(totals.bookings) && !rows.length) {
+    status.hidden = false;
+    status.textContent = 'За этот период пока нет данных о переходах. Они появятся после посещений страницы записи.';
+    stages.hidden = outcomes.hidden = sources.hidden = true;
+    return;
+  }
+  const percent = value => visitors ? `${Math.round((Number(value) || 0) / visitors * 100)}%` : '—';
   const stageRows = [
-    ['Открыли страницу', totals.visitors, '100%'],
+    ['Открыли страницу', totals.visitors, visitors ? '100%' : '—'],
     ['Выбрали услугу', totals.service_selected, percent(totals.service_selected)],
     ['Посмотрели время', totals.slots_viewed, percent(totals.slots_viewed)],
     ['Начали оформление', totals.details_started, percent(totals.details_started)],
@@ -2599,7 +2605,7 @@ function renderReportUtmFunnel() {
   outcomes.innerHTML = `<article><small>Пришли</small><strong>${Number(totals.completed) || 0}</strong></article><article><small>Отменили</small><strong>${Number(totals.cancelled) || 0}</strong></article><article><small>Не пришли</small><strong>${Number(totals.no_show) || 0}</strong></article><article><small>Оплатили</small><strong>${Number(totals.paid) || 0}</strong></article><article><small>Получено</small><strong>${money(Number(totals.revenue_rub) || 0)}</strong></article>`;
   sources.hidden = false;
   if (!rows.length) {
-    sources.innerHTML = '<p class="report-empty-inline">Новые переходы появятся здесь после применения серверного обновления и посещения страницы записи.</p>';
+    sources.innerHTML = '<p class="report-empty-inline">Источники пока не определены. Здесь появятся новые переходы на страницу записи.</p>';
     return;
   }
   sources.innerHTML = `<div class="report-utm-source-head"><span>Источник</span><span>Посетители</span><span>Записи</span><span>Конверсия</span><span>Получено</span></div>${rows.map(row => {
@@ -3021,6 +3027,9 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   const healthLabel = !items.length ? 'Нужны данные' : !hasHealthData ? 'Мало данных' : healthScore >= 80 ? 'Стабильное состояние' : healthScore >= 60 ? 'Хорошее состояние' : healthScore >= 40 ? 'Есть точки роста' : 'Нужно внимание';
   setReportText('#reportForecastCaption', forecast.caption);
   setReportText('#reportForecast', money(forecast.forecast));
+  // A completed period has no forecast: repeating the received total adds no information.
+  const forecastCard = $('#reportForecast')?.closest('article');
+  if (forecastCard) forecastCard.hidden = forecast.caption === 'Получено за период';
   setReportText('#reportForecastTrend', forecast.note);
   setReportText('#reportForecastMethod', forecast.method);
   setReportText('#reportHeroRevenue', money(revenue));
@@ -3231,6 +3240,17 @@ function renderAnalytics() {
   });
   const paymentNames = { cash:'Наличные',card:'Карта',transfer:'Перевод',imported:'Стоимость из журнала',unpaid:'Без оплаты' };
   const visiblePayments = [...payments.entries()].filter(([, amount]) => amount > 0);
+  const importedValue = payments.get('imported') || 0;
+  const paymentEvidence = $('#reportPaymentEvidence');
+  if (paymentEvidence) {
+    paymentEvidence.hidden = importedValue <= 0;
+    paymentEvidence.textContent = importedValue > 0 ? `В сумме ${money(revenue)} учтено ${money(importedValue)} из прежнего журнала. Эта часть отражает стоимость визитов, а не подтверждённое получение оплаты.` : '';
+  }
+  const receivedLabel = importedValue > 0 ? 'Оплаты и стоимость импорта' : 'Получено от клиентов';
+  const heroCaption = $('#reportHeroRevenue')?.closest('article')?.querySelector('small');
+  if (heroCaption) heroCaption.textContent = receivedLabel;
+  const revenueCaption = $('#reportRevenue')?.closest('article')?.querySelector('small');
+  if (revenueCaption) revenueCaption.textContent = receivedLabel;
   $('#reportPaymentsList').innerHTML = visiblePayments.length ? visiblePayments.map(([method, amount]) => `<article><span>${paymentNames[method]}</span><strong>${money(amount)} · ${revenue ? Math.round(amount / revenue * 100) : 0}%</strong></article>`).join('') : '<div class="report-empty-inline">Оплаты за период ещё не отмечены.</div>';
   const grouped = new Map();
   completed.forEach(item => {
@@ -3560,7 +3580,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=408');
+    worker = new Worker('./report-worker.js?v=409');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4131,6 +4151,14 @@ function refreshProviderSectionDisclosure(nav) {
     if (active) button.setAttribute('aria-current', 'location');
     else button.removeAttribute('aria-current');
     providerSectionElements(button).forEach(element => setProviderSectionElementVisible(element, active));
+  });
+  requestAnimationFrame(() => {
+    if (!selected || !nav.clientWidth) return;
+    const itemRect = selected.getBoundingClientRect();
+    const navRect = nav.getBoundingClientRect();
+    if (itemRect.left < navRect.left || itemRect.right > navRect.right) {
+      nav.scrollLeft += itemRect.left - navRect.left - (nav.clientWidth - itemRect.width) / 2;
+    }
   });
 }
 
@@ -5266,7 +5294,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const statusText = bookingStatus(item);
     const statusClass = bookingStatusClass(item);
     const phone = escapeHtml(String(item.client_phone || ''));
-    const resultSummary = item.is_imported_history ? '' : outcomeSummary(item);
+    const resultSummary = item.is_imported_history || bookingOutcome(item).visit_status === 'no_show' ? '' : outcomeSummary(item);
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
     const visibleNote = displayPreferences.show_notes ? note : '';
@@ -6223,7 +6251,7 @@ function setNewBookingMode(mode) {
   $('#newBookingAdvancedSummary').textContent = block ? 'Заметка и цвет' : 'Заметка, цвет и серия';
   const recurrence = $('#newBookingRecurrence');
   if (recurrence) recurrence.hidden = block;
-  $('#newBookingSheetTitle').textContent = block ? 'Занять время' : 'Новый клиент';
+  $('#newBookingSheetTitle').textContent = block ? 'Занять время' : 'Новая запись';
   $('#newBookingSectionTitle').textContent = block ? 'Перерыв' : 'Клиент и услуга';
   $('#newBookingSectionSubtitle').textContent = block ? 'Название и длительность' : 'Только необходимое для записи';
   $('#newBookingServiceCaption').textContent = block ? 'Длительность' : 'Услуга';
@@ -6260,7 +6288,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingMode = draft?.mode === 'block' ? 'block' : 'client';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
-  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Ручное расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : 'Новый клиент'}</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
+  $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Ручное расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : 'Новая запись'}</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
     ${services.length ? `<form class="booking-editor-form new-booking-form" id="newBookingForm">
       <div class="new-booking-mode-toggle" role="group" aria-label="Тип записи"><button class="active" type="button" data-new-booking-mode="client" aria-pressed="true">Клиент</button><button type="button" data-new-booking-mode="block" aria-pressed="false">Занять время</button></div>
       <div class="new-booking-layout">
@@ -7628,7 +7656,7 @@ async function saveBookingPolicy(event) {
   }
   const managedCheckoutEnabled = paymentController?.isCheckoutEnabled?.() === true;
   if (depositEnabled && (record.deposit_amount_rub <= 0 || (!/^https:\/\//i.test(record.payment_url_template) && !managedCheckoutEnabled))) {
-    showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и HTTPS-ссылку либо сначала включите ЮKassa в разделе «Платежи».');
+    showFormError('#bookingPolicyError', 'Для предоплаты укажите сумму и HTTPS-ссылку либо сначала включите ЮKassa в разделе «Приём оплаты».');
     return;
   }
   const button = event.submitter;
@@ -8976,9 +9004,9 @@ function renderPortfolio() {
   list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
     <div class="portfolio-card-photos">${portfolioPhotoMarkup(item, 'before')}${portfolioPhotoMarkup(item, 'after')}</div>
     <div class="portfolio-card-body"><h3>${escapeHtml(item.procedure_name)}</h3><small>${escapeHtml(item.body_area || 'Зона не указана')}${item.session_count ? ` · ${item.session_count} ${portfolioSessionWord(item.session_count)}` : ''}</small>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}<span class="portfolio-card-status ${item.published ? 'published' : ''}">${item.published ? 'Опубликовано' : 'Черновик'}</span></div>
-    <div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" data-portfolio-id="${item.id}" ${index === 0 ? 'disabled' : ''} aria-label="Переместить работу выше">↑ Выше</button><button type="button" data-portfolio-move="down" data-portfolio-id="${item.id}" ${index === portfolioItems.length - 1 ? 'disabled' : ''} aria-label="Переместить работу ниже">↓ Ниже</button><button class="portfolio-edit" type="button" data-edit-portfolio="${item.id}">Изменить</button><button class="danger" type="button" data-delete-portfolio="${item.id}">Удалить</button></div>
+    <div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" data-portfolio-id="${item.id}" ${index === 0 ? 'hidden disabled' : ''} aria-label="Переместить работу выше">↑ Выше</button><button type="button" data-portfolio-move="down" data-portfolio-id="${item.id}" ${index === portfolioItems.length - 1 ? 'hidden disabled' : ''} aria-label="Переместить работу ниже">↓ Ниже</button><button class="portfolio-edit" type="button" data-edit-portfolio="${item.id}">Изменить</button><button class="danger" type="button" data-delete-portfolio="${item.id}">Удалить</button></div>
   </article>`).join('');
-  $('#portfolioOrderStatus').textContent = `${portfolioItems.length} работ, опубликовано ${publishedCount}`;
+  $('#portfolioOrderStatus').textContent = `${portfolioItems.length} ${portfolioCountLabel(portfolioItems.length, 'работа', 'работы', 'работ')}, опубликовано ${publishedCount}`;
   applyWriteAvailability();
 }
 
@@ -9387,7 +9415,8 @@ function renderWaitlist() {
     return;
   }
   if (!active.length) {
-    holder.innerHTML = '<div class="provider-empty"><strong>Заявок пока нет</strong><small>Когда клиент не найдёт время, он сможет оставить здесь удобную дату.</small></div>';
+    const clientPageUrl = $('.provider-client-link')?.href || new URL('index.html', location.href).href;
+    holder.innerHTML = `<div class="provider-empty"><strong>Заявок пока нет</strong><small>Когда клиент не найдёт время, он сможет оставить здесь удобную дату.</small><a class="secondary-button provider-client-link" href="${escapeHtml(clientPageUrl)}" target="_blank" rel="noopener noreferrer">Открыть страницу записи</a></div>`;
     return;
   }
   const statusLabels = { waiting: 'Ожидает', contacted: 'Связались' };
@@ -11081,6 +11110,40 @@ window.addEventListener('popstate', () => {
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', event => {
   if (event.data?.type === 'open-provider-view' && PROVIDER_VIEW_ORDER.includes(event.data.view) && currentUser) setProviderView(event.data.view);
 });
+function initializeProviderUx() {
+  const layout = $('#clientsLayout');
+  const search = $('#clientSearch')?.closest('label');
+  if (layout && search) {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'clients-search-tools';
+    const tools = document.createElement('details');
+    tools.id = 'clientDirectoryTools';
+    tools.className = 'clients-tools ux-disclosure';
+    tools.innerHTML = '<summary>Импорт и поля клиента</summary><div></div>';
+    const panels = [$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
+    panels.forEach(panel => tools.lastElementChild.append(panel));
+    toolbar.append(search, tools);
+    layout.before(toolbar);
+    const syncTools = () => {
+      const hidden = panels.every(panel => panel.hidden);
+      if (tools.hidden !== hidden) tools.hidden = hidden;
+      if (panels.some(panel => !panel.hidden && panel.open)) tools.open = true;
+    };
+    panels.forEach(panel => new MutationObserver(syncTools).observe(panel, { attributes:true, attributeFilter:['hidden','open'] }));
+    syncTools();
+  }
+  const textScale = $('.provider-text-scale-picker');
+  if (textScale) $('.provider-layout-picker')?.before(textScale);
+  const evidence = document.createElement('p');
+  evidence.id = 'reportPaymentEvidence';
+  evidence.className = 'report-payment-evidence';
+  evidence.hidden = true;
+  $('#reportCommandCenter')?.before(evidence);
+  // Secondary starter commands stay reachable without filling the first screen.
+  const examples = $('.voice-assistant-examples');
+  $$('#voiceAssistantStarters>button:nth-child(n+5)').forEach(button => examples?.append(button));
+}
+initializeProviderUx();
 new MutationObserver(refreshSectionNavigation).observe($('#dashboard'), { attributes:true, subtree:true, attributeFilter:['hidden'] });
 updateProviderClientLinks();
 refreshSectionNavigation();
