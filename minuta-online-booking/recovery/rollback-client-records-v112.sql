@@ -4,6 +4,8 @@ set local statement_timeout='2min';
 -- Non-destructive rollback: revoke application access; retain all private files
 -- and metadata for recovery. Reapplying v112 restores permissions, not activation.
 update public.client_record_settings set enabled=false,updated_at=now();
+revoke execute on function public.claim_expired_minuta_client_records(integer,boolean),
+  public.finish_expired_minuta_client_record(uuid) from service_role;
 revoke execute on function public.set_minuta_client_records_enabled(uuid,boolean),public.get_minuta_client_records(uuid,text,integer),
   public.create_minuta_client_record(uuid,text,uuid,uuid,text,text,text,text,integer),
   public.complete_minuta_client_file(uuid),public.archive_minuta_client_record(uuid),

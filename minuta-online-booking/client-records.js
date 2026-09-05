@@ -52,6 +52,7 @@
     }
     function message(error) {
       const code = String(error?.message || '');
+      if (/client_record_upload_expired/.test(code)) return 'Срок незавершённой загрузки истёк. Нажмите «Загрузить», чтобы начать заново.';
       if (/file_size/.test(code)) return 'Выберите непустой файл размером до 10 МБ.';
       if (/image_dimensions/.test(code)) return 'Слишком большое разрешение фотографии. Уменьшите её и повторите.';
       if (/file_format/.test(code)) return 'Поддерживаются PDF, JPG, PNG и WebP. Попробуйте другой файл.';
@@ -128,7 +129,7 @@
       if(busy || loading || !requireWrites() || !client || !organization?.id) return;
       const t=token(); setBusy(true); errorText='';
       try { await action(t); if(current(t)){pending=null;await load();} }
-      catch(error) { if(current(t)){errorText=message(error); const status=$('.cr-status'); if(status)status.textContent=errorText;} }
+      catch(error) { if(current(t)){if(/client_record_upload_expired/.test(String(error?.message)))pending=null;errorText=message(error); const status=$('.cr-status'); if(status)status.textContent=errorText;} }
       finally { if(current(t))setBusy(false); }
     }
     async function saveNote(form) {
