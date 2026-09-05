@@ -5639,7 +5639,7 @@ async function cancelBookingSeries(event) {
       && Number.isSafeInteger(data.affected_count) && data.affected_count > 0 && data.affected_count <= 24
       && Array.isArray(affected) && affected.length === data.affected_count
       && affected.every(entry => entry && typeof entry.booking_id === 'string'
-        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.booking_id)
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(entry.booking_id)
         && Number.isSafeInteger(entry.occurrence) && entry.occurrence > 0 && entry.occurrence <= 24)
       && new Set(affected.map(entry => entry.booking_id)).size === affected.length
       && new Set(affected.map(entry => entry.occurrence)).size === affected.length

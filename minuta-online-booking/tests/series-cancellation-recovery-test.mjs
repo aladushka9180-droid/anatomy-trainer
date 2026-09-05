@@ -202,7 +202,10 @@ for (const [name, data] of [
   ['duplicate id', { ...success.data, affected_count:2,
     affected:[{ booking_id:ids.A, occurrence:1 }, { booking_id:ids.A, occurrence:2 }] }],
   ['duplicate occurrence', { ...success.data, affected_count:2,
-    affected:[{ booking_id:ids.A, occurrence:1 }, { booking_id:ids.B, occurrence:1 }] }]
+    affected:[{ booking_id:ids.A, occurrence:1 }, { booking_id:ids.B, occurrence:1 }] }],
+  ['same UUID in different letter case', { ...success.data, affected_count:2,
+    affected:[{ booking_id:'abcdefab-abcd-4abc-8abc-abcdefabcdef', occurrence:1 },
+      { booking_id:'ABCDEFAB-ABCD-4ABC-8ABC-ABCDEFABCDEF', occurrence:2 }] }]
 ]) {
   test(`malformed ${name} cannot close, refresh or announce cancellation`, async () => {
     const h = harness(); const form = h.open();
