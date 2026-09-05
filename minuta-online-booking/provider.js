@@ -1892,12 +1892,26 @@ function captureBookingMetadataContext() {
   return () => Boolean(userId) && sessionIsCurrent(userId, generation)
     && activeClientOrganizationId === organizationId && bookingMetadataRevision === revision;
 }
-async function saveBookingColor(id, color, { rerender = true, isCurrent = () => true } = {}) {
+// Local completion ownership only: this does not order concurrent server writes.
+// Replacing the account's color map also releases its operation registry.
+const bookingColorOperations = new WeakMap();
+function beginBookingColorOperation(id) {
+  const colors = bookingColors;
+  let operations = bookingColorOperations.get(colors);
+  if (!operations) { operations = new Map(); bookingColorOperations.set(colors, operations); }
+  const token = {};
+  operations.set(id, token);
+  return () => bookingColors === colors && operations.get(id) === token;
+}
+async function saveBookingColor(id, color, { rerender = true, isCurrent = () => true, onOperation = null } = {}) {
   const contextIsCurrent = captureBookingMetadataContext();
   const userId = currentUser?.id;
   const colors = bookingColors, pending = pendingBookingColors;
   const canApply = () => contextIsCurrent() && bookingColors === colors && pendingBookingColors === pending && isCurrent();
   if (!canApply()) return false;
+  const isLatest = beginBookingColorOperation(id);
+  if (typeof onOperation === 'function') onOperation(isLatest);
+  if (!canApply() || !isLatest()) return false;
   const selected = validBookingColor(color);
   bookingColors.set(id, selected);
   pendingBookingColors.add(id);
@@ -1906,7 +1920,7 @@ async function saveBookingColor(id, color, { rerender = true, isCurrent = () => 
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
   const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
-  if (!canApply()) return false;
+  if (!canApply() || !isLatest()) return false;
   if (!error) pendingBookingColors.delete(id);
   persistBookingColors(userId);
   return !error;
@@ -10405,11 +10419,14 @@ document.addEventListener('change', async event => {
   if (!requireWrites()) return;
   const contextIsCurrent = captureBookingMetadataContext();
   const sheet = colorInput.closest('#bookingSheet');
+  let operationIsCurrent = () => true;
   // Journal controls are replaced by our own scheduled render after choosing a
   // color. Only sheet controls need DOM ownership in addition to account scope.
-  const isCurrent = () => contextIsCurrent() && (!sheet || (!sheet.hidden && colorInput.isConnected));
+  const isCurrent = () => contextIsCurrent() && operationIsCurrent() && (!sheet || (!sheet.hidden && colorInput.isConnected));
   try {
-    const remoteSaved = await saveBookingColor(colorInput.dataset.bookingColorId, colorInput.value, { isCurrent });
+    const remoteSaved = await saveBookingColor(colorInput.dataset.bookingColorId, colorInput.value, {
+      isCurrent, onOperation:guard => { operationIsCurrent = guard; }
+    });
     if (!isCurrent()) return;
     notify(remoteSaved ? 'Цвет записи сохранён' : 'Не удалось подтвердить сохранение цвета на сервере. Проверьте запись перед повтором.');
   } catch {
