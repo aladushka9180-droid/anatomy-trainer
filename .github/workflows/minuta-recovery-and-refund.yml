@@ -6,6 +6,8 @@ on:
       - 'minuta-online-booking/app.js'
       - 'minuta-online-booking/payment-management.js'
       - 'minuta-online-booking/payroll-management.js'
+      - 'minuta-online-booking/inventory-management.js'
+      - 'minuta-online-booking/loyalty-management.js'
       - 'minuta-online-booking/free-slots-share.js'
       - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/index.html'
@@ -23,12 +25,16 @@ on:
       - 'minuta-online-booking/tests/booking-color-revision*.mjs'
       - 'minuta-online-booking/tests/historical-booking-context*.mjs'
       - 'minuta-online-booking/tests/payroll-adjustment-recovery*.mjs'
+      - 'minuta-online-booking/tests/inventory-movement-retry*.mjs'
+      - 'minuta-online-booking/tests/loyalty-adjustment-retry*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   pull_request:
     paths:
       - 'minuta-online-booking/app.js'
       - 'minuta-online-booking/payment-management.js'
       - 'minuta-online-booking/payroll-management.js'
+      - 'minuta-online-booking/inventory-management.js'
+      - 'minuta-online-booking/loyalty-management.js'
       - 'minuta-online-booking/free-slots-share.js'
       - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/index.html'
@@ -46,6 +52,8 @@ on:
       - 'minuta-online-booking/tests/booking-color-revision*.mjs'
       - 'minuta-online-booking/tests/historical-booking-context*.mjs'
       - 'minuta-online-booking/tests/payroll-adjustment-recovery*.mjs'
+      - 'minuta-online-booking/tests/inventory-movement-retry*.mjs'
+      - 'minuta-online-booking/tests/loyalty-adjustment-retry*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   workflow_dispatch:
 
@@ -72,6 +80,10 @@ jobs:
       - run: node minuta-online-booking/tests/booking-color-revision-test.mjs
       - run: node minuta-online-booking/tests/historical-booking-context-test.mjs
       - run: node minuta-online-booking/tests/payroll-adjustment-recovery-test.mjs
+      - run: node --check minuta-online-booking/inventory-management.js
+      - run: node --check minuta-online-booking/loyalty-management.js
+      - run: node minuta-online-booking/tests/inventory-movement-retry-test.mjs
+      - run: node minuta-online-booking/tests/loyalty-adjustment-retry-test.mjs
       - run: node minuta-online-booking/payroll-management-controller-test.mjs
       - run: node minuta-online-booking/payroll-v72-static-test.mjs
       - run: node minuta-online-booking/yookassa-v87-static-test.mjs
@@ -96,6 +108,8 @@ jobs:
       - run: node minuta-online-booking/tests/booking-color-revision-browser-test.mjs
       - run: node minuta-online-booking/tests/historical-booking-context-browser-test.mjs
       - run: node minuta-online-booking/tests/payroll-adjustment-recovery-browser-test.mjs
+      - run: node minuta-online-booking/tests/inventory-movement-retry-browser-test.mjs
+      - run: node minuta-online-booking/tests/loyalty-adjustment-retry-browser-test.mjs
       - run: node minuta-online-booking/tests/public-booking-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/series-cancellation-recovery-browser-test.mjs

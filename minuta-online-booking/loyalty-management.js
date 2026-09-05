@@ -11,9 +11,51 @@
     let revision = 0;
     let writing = false;
     let pendingOrganization;
-    let adjustmentRequestId = '';
+    // Controller-memory only: reset/org switches keep each actor's unresolved
+    // snapshot/key. A full page reload/new controller does not restore these;
+    // matching ledger rows or amounts are never used to infer resolution.
+    const adjustmentIntents = new Map(), adjustmentDrafts = new Map();
+    const adjustmentUnknownMessage = 'Не удалось подтвердить результат. Проверьте обновлённый журнал; повторить можно только исходную корректировку.';
+    let activeAdjustment = null, renderedAdjustmentKey = '';
     let redemptionRequestId = '';
     let promoRequestId = '';
+
+    function adjustmentKey() { return JSON.stringify([getCurrentUser()?.id || '', organization?.id || '']); }
+    function adjustmentFields() {
+      return { client:$('#loyaltyAdjustmentClient').value, points:$('#loyaltyAdjustmentPoints').value, reason:$('#loyaltyAdjustmentReason').value };
+    }
+    function rememberAdjustmentFields() {
+      if (renderedAdjustmentKey) adjustmentDrafts.set(renderedAdjustmentKey, adjustmentFields());
+    }
+    function restoreAdjustmentFields(fields) {
+      $('#loyaltyAdjustmentClient').value = fields.client;
+      $('#loyaltyAdjustmentPoints').value = fields.points;
+      $('#loyaltyAdjustmentReason').value = fields.reason;
+    }
+    function recoverableAdjustment() {
+      const key = adjustmentKey(), intent = adjustmentIntents.get(key);
+      return !writing && availability === 'ready' && renderedAdjustmentKey === key
+        && scopeMatches(payload, organization?.id) && intent?.state === 'unknown' ? intent : null;
+    }
+    function showAdjustmentRecovery(message = adjustmentUnknownMessage) {
+      const holder = $('#loyaltyAdjustmentError');
+      holder.hidden = false;
+      holder.innerHTML = `${escapeHtml(message)} <button type="button" data-loyalty-restore-adjustment>Вернуть исходные поля</button>`;
+    }
+    function syncAdjustment() {
+      const intent = adjustmentIntents.get(adjustmentKey());
+      const form = $('#loyaltyAdjustmentForm'), button = form?.querySelector('button[type="submit"]');
+      if (!button) return;
+      if (!button.dataset.adjustmentLabel) button.dataset.adjustmentLabel = button.textContent;
+      form.dataset.adjustmentState = intent?.state || '';
+      if (intent?.state === 'pending') {
+        if (!button.disabled) { button.disabled = true; button.dataset.adjustmentBusy = 'true'; }
+        button.textContent = 'Сохраняем…';
+      } else {
+        if (button.dataset.adjustmentBusy === 'true') { button.disabled = false; delete button.dataset.adjustmentBusy; }
+        button.textContent = intent ? 'Повторить исходную корректировку' : button.dataset.adjustmentLabel;
+      }
+    }
 
     function uuid() {
       if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -57,8 +99,9 @@
       });
     }
     function reset() {
+      rememberAdjustmentFields(); renderedAdjustmentKey = ''; activeAdjustment = null;
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined;
-      adjustmentRequestId = ''; redemptionRequestId = ''; promoRequestId = '';
+      redemptionRequestId = ''; promoRequestId = '';
       $('#loyaltyPanel').hidden = true; $('#loyaltyLoading').hidden = true; $('#loyaltyUnavailable').hidden = true; $('#loyaltyWorkspace').hidden = true;
     }
     async function setOrganization(next) {
@@ -70,10 +113,14 @@
     }
     async function load() {
       if (writing) return { ok:false, optional:true, pending:true };
+      rememberAdjustmentFields();
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
       availability = 'loading'; payload = null; $('#loyaltyPanel').hidden = false; $('#loyaltyLoading').hidden = false; $('#loyaltyUnavailable').hidden = true; $('#loyaltyWorkspace').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_loyalty_workspace', { p_organization:organizationId });
+      let result;
+      try { result = await db.rpc('get_minuta_loyalty_workspace', { p_organization:organizationId }); }
+      catch { result = { data:null, error:{ message:'workspace_transport_error' } }; }
+      const { data, error } = result || { data:null, error:{ message:'workspace_response_invalid' } };
       if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) return { ok:false, optional:true, stale:true };
       $('#loyaltyLoading').hidden = true;
       if (error) {
@@ -115,6 +162,14 @@
       $('#loyaltyLedgerList').innerHTML = payload.ledger.length ? payload.ledger.map(ledgerCard).join('') : empty('Журнал пуст', 'Все начисления и списания будут записаны неизменяемо.');
       const clientOptions = optionsList(payload.clients, item => `${item.client_name} · ${item.client_phone}`);
       $('#loyaltyAdjustmentClient').innerHTML = clientOptions;
+      const key = adjustmentKey(), draft = adjustmentDrafts.get(key);
+      if (draft) restoreAdjustmentFields(draft);
+      else { $('#loyaltyAdjustmentPoints').value = ''; $('#loyaltyAdjustmentReason').value = ''; }
+      if (renderedAdjustmentKey !== key) {
+        $('#loyaltyAdjustmentError').hidden = true; $('#loyaltyAdjustmentError').textContent = '';
+        if (adjustmentIntents.get(key)?.unknown) showAdjustmentRecovery();
+      }
+      renderedAdjustmentKey = key;
       $('#loyaltyRedeemClient').innerHTML = clientOptions;
       $('#loyaltyPromoClient').innerHTML = clientOptions;
       renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking');
@@ -133,7 +188,7 @@
       const redeemPoints = Math.floor(exampleAmount * redeemRateBps / 10000);
       $('#loyaltyBonusExampleText').textContent = `При начислении ${number(earnRateBps / 100)}% клиент получает ${number(earnedPoints)} бонусов после оплаченного визита за ${money(exampleAmount)}.`;
       $('#loyaltyRedeemExampleText').textContent = `При лимите ${number(redeemRateBps / 100)}% клиент сможет списать до ${number(redeemPoints)} бонусов со следующего визита за ${money(exampleAmount)}.`;
-      setBusy(false); applyWriteAvailability();
+      setBusy(false); syncAdjustment(); applyWriteAvailability(); syncAdjustment();
     }
     function renderBookingOptions(clientId, bookingId) {
       const client = $(`#${clientId}`).value;
@@ -170,6 +225,62 @@
       if (!scopeMatches(data, organizationId)) { notify('Ответ другой организации заблокирован.'); await load(); return false; }
       notify(success); await load(); return true;
     }
+
+    async function adjustBalance(form) {
+      if (!requireWrites() || writing || availability !== 'ready' || !organization?.id
+        || !scopeMatches(payload, organization.id) || !getCurrentUser()?.id) return;
+      const key = adjustmentKey(), fields = adjustmentFields();
+      const tuple = { p_organization:organization.id, p_client_account:fields.client,
+        p_points_delta:Math.round(Number(fields.points)), p_reason:fields.reason.trim() };
+      let intent = adjustmentIntents.get(key);
+      if (intent?.state === 'pending') return;
+      if (intent && Object.keys(tuple).some(name => tuple[name] !== intent.parameters[name])) {
+        // Do not silently submit edited data, nor silently replay old data. Put
+        // the original fields back for review; a separate submit retries them.
+        restoreAdjustmentFields(intent.fields); rememberAdjustmentFields();
+        showAdjustmentRecovery('Результат прежней корректировки не подтверждён. Возвращены исходные поля: проверьте их и повторите исходную корректировку.');
+        return;
+      }
+      if (!intent) {
+        intent = { parameters:Object.freeze({ ...tuple, p_request_id:uuid() }), fields:Object.freeze({ ...fields }), unknown:false };
+        adjustmentIntents.set(key, intent);
+      }
+      const wasUnknown = intent.unknown;
+      const userId = getCurrentUser().id, generation = getSessionGeneration(), organizationId = organization.id, current = ++revision;
+      const operation = {}; activeAdjustment = operation; intent.state = 'pending';
+      writing = true; rememberAdjustmentFields(); syncAdjustment(); setBusy(true);
+      $('#loyaltyAdjustmentError').hidden = true; $('#loyaltyAdjustmentError').textContent = '';
+      let result, thrown = false;
+      try { result = await db.rpc('adjust_minuta_loyalty_balance', intent.parameters); }
+      catch (error) { thrown = true; result = { error }; }
+      const data = result?.data, error = result?.error;
+      const confirmed = error === null && data?.organization_id === organizationId
+        && typeof data.account_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(data.account_id)
+        && Number.isInteger(data.balance_points) && data.balance_points >= 0 && data.balance_points <= 10000000;
+      const refusals = {
+        '42501':['authentication_required','loyalty_management_denied','loyalty_client_not_in_organization'],
+        '22023':['invalid_loyalty_adjustment'], '55000':['loyalty_disabled','insufficient_loyalty_balance']
+      };
+      const refused = !wasUnknown && !thrown && result?.data === null && refusals[error?.code]?.includes(error?.message);
+      if (confirmed || refused) adjustmentIntents.delete(key);
+      else { intent.state = 'unknown'; intent.unknown = true; }
+      if (activeAdjustment !== operation) return;
+      activeAdjustment = null; writing = false;
+      if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) {
+        const next = pendingOrganization; pendingOrganization = undefined;
+        if (next !== undefined) await setOrganization(next);
+        return;
+      }
+      setBusy(false); syncAdjustment(); applyWriteAvailability(); syncAdjustment();
+      if (confirmed) { form.reset(); rememberAdjustmentFields(); notify('Баланс скорректирован'); }
+      else if (refused) showFormError('#loyaltyAdjustmentError',
+        error.message === 'authentication_required' || error.message === 'loyalty_management_denied'
+          ? 'Недостаточно прав для корректировки бонусов.' : messageFor(error));
+      else showAdjustmentRecovery();
+      // A workspace read is useful for reconciliation, but cannot acknowledge an
+      // intent. Keep the key and form draft even if this read fails.
+      await load();
+    }
     async function submit(event) {
       if (!event.target.closest('#loyaltyPanel')) return;
       if (event.target.id === 'loyaltyRuleForm') {
@@ -177,9 +288,7 @@
         await mutate('upsert_minuta_loyalty_rule', { p_organization:organization.id, p_name:$('#loyaltyRuleName').value.trim(), p_earn_rate_bps:Math.round(Number($('#loyaltyEarnPercent').value) * 100), p_min_paid_amount_rub:Math.round(Number($('#loyaltyMinPaid').value)), p_max_redeem_percent_bps:Math.round(Number($('#loyaltyMaxRedeemPercent').value) * 100) }, event.submitter, 'Правила лояльности сохранены', '#loyaltyRuleError'); return;
       }
       if (event.target.id === 'loyaltyAdjustmentForm') {
-        event.preventDefault(); adjustmentRequestId = adjustmentRequestId || uuid();
-        const ok = await mutate('adjust_minuta_loyalty_balance', { p_organization:organization.id, p_client_account:$('#loyaltyAdjustmentClient').value, p_points_delta:Math.round(Number($('#loyaltyAdjustmentPoints').value)), p_reason:$('#loyaltyAdjustmentReason').value.trim(), p_request_id:adjustmentRequestId }, event.submitter, 'Баланс скорректирован', '#loyaltyAdjustmentError');
-        if (ok) { adjustmentRequestId = ''; event.target.reset(); } return;
+        event.preventDefault(); await adjustBalance(event.target); return;
       }
       if (event.target.id === 'loyaltyRedeemForm') {
         event.preventDefault(); redemptionRequestId = redemptionRequestId || uuid();
@@ -198,6 +307,16 @@
       }
     }
     async function click(event) {
+      const restore = event.target.closest('[data-loyalty-restore-adjustment]');
+      if (restore) {
+        const intent = recoverableAdjustment();
+        if (!intent || restore.closest('#loyaltyAdjustmentForm') !== $('#loyaltyAdjustmentForm')) return;
+        restoreAdjustmentFields(intent.fields); rememberAdjustmentFields();
+        showAdjustmentRecovery($('#loyaltyAdjustmentClient').value === intent.fields.client
+          ? 'Исходные поля восстановлены. Проверьте их и отдельно повторите исходную корректировку.'
+          : 'Исходный клиент недоступен в списке. Проверьте журнал; новые данные не отправлены.');
+        return;
+      }
       if (event.target.closest('#reloadLoyalty')) { await load(); return; }
       const toggle = event.target.closest('[data-loyalty-promo-active]');
       if (toggle) await mutate('set_minuta_promotion_active', { p_organization:organization.id, p_promotion:toggle.dataset.loyaltyPromo, p_active:toggle.dataset.loyaltyPromoActive === 'true' }, toggle, 'Статус промокода обновлён');
@@ -206,7 +325,7 @@
       if (event.target.id === 'loyaltyEnabled') { const desired = event.target.checked; const ok = await mutate('set_minuta_loyalty_enabled', { p_organization:organization.id, p_enabled:desired }, event.target, desired ? 'Бонусная программа включена' : 'Бонусная программа выключена'); if (!ok && payload) event.target.checked = Boolean(payload.enabled); }
       if (event.target.id === 'loyaltyRedeemClient') { redemptionRequestId = ''; renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking'); }
       if (event.target.id === 'loyaltyPromoClient') { promoRequestId = ''; renderBookingOptions('loyaltyPromoClient', 'loyaltyPromoBooking'); }
-      if (event.target.closest('#loyaltyAdjustmentForm')) adjustmentRequestId = '';
+      if (event.target.closest('#loyaltyAdjustmentForm')) rememberAdjustmentFields();
       if (event.target.closest('#loyaltyRedeemForm')) redemptionRequestId = '';
       if (event.target.closest('#loyaltyPromoApplyForm')) promoRequestId = '';
       if (event.target.id === 'loyaltyPromoKind') {
@@ -220,6 +339,7 @@
     function invalid(event) {
       if (!event.target.closest('#loyaltyPanel')) return;
       const form = event.target.form;
+      if (form?.id === 'loyaltyAdjustmentForm' && recoverableAdjustment()) { showAdjustmentRecovery(); return; }
       const holders = { loyaltyRuleForm:'#loyaltyRuleError', loyaltyAdjustmentForm:'#loyaltyAdjustmentError', loyaltyRedeemForm:'#loyaltyRedeemError', loyaltyPromoForm:'#loyaltyPromoError', loyaltyPromoApplyForm:'#loyaltyPromoApplyError' };
       const holder = holders[form?.id];
       if (!holder) return;
@@ -233,6 +353,9 @@
       showFormError(holder, messages[event.target.id] || 'Заполните обязательное поле и проверьте введённое значение.');
     }
     function input(event) {
+      if (event.target.form?.id === 'loyaltyAdjustmentForm' && recoverableAdjustment()) {
+        rememberAdjustmentFields(); showAdjustmentRecovery(); return;
+      }
       if (['loyaltyPromoCode','loyaltyPromoApplyCode'].includes(event.target.id)) event.target.value = event.target.value.toUpperCase().replace(/[^A-ZА-ЯЁ0-9_-]/g, '');
       const holder = event.target.form?.querySelector('.form-error');
       if (holder && !holder.hidden) { holder.hidden = true; holder.textContent = ''; }
