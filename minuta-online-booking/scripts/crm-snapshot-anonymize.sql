@@ -18,6 +18,7 @@ insert into crm_snapshot_guard_manifest(setting_name,setting_value) values
   ('unknown_sensitive_column_policy','fail-closed'),
   ('unknown_fk_dependency_policy','fail-closed'),
   ('outbound_function_policy','drop-one-pinned-function-otherwise-fail'),
+  ('event_trigger_function_policy','drop-all-public-restrict'),
   ('trigger_policy','snapshot-disable-restore-exact'),
   ('acl_policy','revoke-public');
 
@@ -354,6 +355,27 @@ $preflight$;
 -- This is the only pinned production helper allowed to mention Vault. It is
 -- not needed in the isolated snapshot, and RESTRICT prevents a hidden cascade.
 drop function if exists public.get_telegram_reminder_secret_hash() restrict;
+
+do $drop_public_event_trigger_functions$
+declare
+  v_function record;
+begin
+  for v_function in
+    select procedure_row.proname,
+      pg_get_function_identity_arguments(procedure_row.oid) identity_arguments
+    from pg_proc procedure_row
+    join pg_namespace namespace_row on namespace_row.oid=procedure_row.pronamespace
+    join pg_type return_type on return_type.oid=procedure_row.prorettype
+    where namespace_row.nspname='public' and return_type.typname='event_trigger'
+    order by procedure_row.proname,procedure_row.oid
+  loop
+    execute format(
+      'drop function public.%I(%s) restrict',
+      v_function.proname,v_function.identity_arguments
+    );
+  end loop;
+end
+$drop_public_event_trigger_functions$;
 
 -- Business updates must not dispatch notification/audit trigger side effects.
 -- Constraint safety is established by the immutable identifiers and the FK

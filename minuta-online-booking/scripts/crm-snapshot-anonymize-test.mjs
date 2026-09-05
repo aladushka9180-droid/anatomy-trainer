@@ -53,6 +53,7 @@ begin
 end $$;
 create trigger synthetic_booking_audit after update on bookings for each row execute function synthetic_booking_audit();
 create function synthetic_noop_trigger() returns trigger language plpgsql as $$ begin return new; end $$;
+create function rls_auto_enable() returns event_trigger language plpgsql as $$ begin end $$;
 create trigger synthetic_disabled_trigger before update on services for each row execute function synthetic_noop_trigger();
 alter table services disable trigger synthetic_disabled_trigger;
 create trigger synthetic_always_trigger before update on locations for each row execute function synthetic_noop_trigger();
@@ -141,6 +142,7 @@ async function assertGuardRejects(db,code,object) {
   assert.equal(await scalar(db,`select tgenabled='D' value from pg_trigger where tgname='synthetic_disabled_trigger'`),true);
   assert.equal(await scalar(db,`select tgenabled='A' value from pg_trigger where tgname='synthetic_always_trigger'`),true);
   assert.equal(await scalar(db,`select to_regprocedure('public.get_telegram_reminder_secret_hash()') is null value`),true);
+  assert.equal(await scalar(db,`select to_regprocedure('public.rls_auto_enable()') is null value`),true);
   assert.equal(await scalar(db,`select not exists(select 1 from pg_namespace n cross join lateral aclexplode(n.nspacl) acl where n.nspname='public' and acl.grantee=0) value`),true);
   await db.close();
 }
