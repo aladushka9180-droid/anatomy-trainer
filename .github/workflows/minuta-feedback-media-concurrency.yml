@@ -1,0 +1,53 @@
+name: Minuta synthetic feedback media PostgreSQL concurrency
+run-name: Synthetic v116 concurrency — ${{ inputs.release_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact reviewed commit containing this gate and frozen v116 SQL
+        required: true
+        type: string
+      reviewed_sql_sha256:
+        description: SHA256 of the reviewed git blob supabase-migration-v116.sql
+        required: true
+        type: string
+      confirm:
+        description: Enter SYNTHETIC_PG_V116_ONLY; no remote database or release
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: minuta-synthetic-media-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  synthetic-postgresql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.release_sha }}
+          persist-credentials: false
+      - name: Validate exact checkout and synthetic-only consent
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REVIEWED_SQL_SHA256: ${{ inputs.reviewed_sql_sha256 }}
+          SYNTHETIC_CONFIRM: ${{ inputs.confirm }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$REVIEWED_SQL_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          test "$RELEASE_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          test "$SYNTHETIC_CONFIRM" = SYNTHETIC_PG_V116_ONLY
+          test -z "$(git status --porcelain)"
+          git show HEAD:minuta-online-booking/supabase-migration-v116.sql | sha256sum | cut -d' ' -f1 | grep -Fx "$REVIEWED_SQL_SHA256"
+          bash -n minuta-online-booking/tests/feedback-media-v116-concurrency.sh
+      - name: Test actual v109 and v116 in a network-isolated ephemeral PostgreSQL
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          REVIEWED_SQL_SHA256: ${{ inputs.reviewed_sql_sha256 }}
+          SYNTHETIC_CONFIRM: ${{ inputs.confirm }}
+        run: bash minuta-online-booking/tests/feedback-media-v116-concurrency.sh
