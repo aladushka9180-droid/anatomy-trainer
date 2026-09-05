@@ -43,6 +43,8 @@ async function createHarness(browser) {
   await page.setContent(shell);
   await page.addStyleTag({ content:`
     html,body{margin:0;min-width:0}.crm-test-shell{display:grid;gap:24px;max-width:980px;margin:auto;padding:12px;min-width:0}
+    /* This fixture checks settled layout/colors, not transition frames. */
+    *,*::before,*::after{transition:none!important;animation:none!important}
     .crm-test-shell>section{min-width:0}.crm-test-shell #inventoryMovementForm{display:none}
   ` });
   for (const name of [...new Set([...providerStylesheets,'profitability-management.css'])]) {
