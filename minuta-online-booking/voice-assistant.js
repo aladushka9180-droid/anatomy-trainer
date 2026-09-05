@@ -1677,6 +1677,96 @@
     })[0] || null;
   }
 
+  // Speak the same substantive fields shown by detailsMarkup; never read IDs,
+  // hidden snapshots, action buttons or feedback controls.
+  function assistantSpeechText(model = {}) {
+    const parts = [];
+    const add = value => { if (value !== undefined && value !== null && String(value).trim()) parts.push(String(value).trim()); };
+    const field = (label, value) => { if (value !== undefined && value !== null && String(value).trim()) add(`${label}: ${value}`); };
+    const booking = item => add([item.date ? formatDate(item.date) : '', item.time, item.clientName || 'Клиент', item.serviceName || 'Услуга'].filter(Boolean).join(', '));
+    if (model.offline) add('Офлайн. Сведения могут быть устаревшими');
+    add(model.title);
+    add(model.message);
+    const plan = model.plan || {};
+    if (model.kind === 'booking_draft' || model.kind === 'find_slots') {
+      const services = plan.serviceId ? [] : ((model.candidates?.length ? model.candidates : model.availableServices) || []).slice(0, 8);
+      if (services.length) {
+        add('Выберите услугу');
+        services.forEach(item => add(item.name));
+      } else if (!plan.serviceId) add('Активных услуг для выбора сейчас нет');
+      else if (plan.perMinute && !Number(plan.durationMinutes)) {
+        add('Выберите длительность');
+        [...new Set([Number(plan.defaultDurationMinutes || 60), 15, 30, 45, 60])].filter(value => value >= 1 && value <= 480).slice(0, 5).forEach(value => add(`${value} минут`));
+        add('Или укажите точную длительность в минутах');
+      } else if (model.loading) add('Проверяем расписание');
+      else if (model.slotError) add('Свободное время не загружено. Повторите поиск после синхронизации');
+      else if (Array.isArray(model.slots)) {
+        field('Услуга', plan.serviceName);
+        field('Дата', formatDate(plan.date));
+        if (Number(plan.durationMinutes)) field('Длительность', `${plan.durationMinutes} минут`);
+        if (!model.slots.length) add('На эту дату нет окна нужной длительности');
+        else {
+          add('Свободное время');
+          (model.slotOptions || model.slots.map(time => ({ time }))).forEach(option => add([option.time, option.recommended ? option.reason : ''].filter(Boolean).join('. ')));
+        }
+      } else {
+        field('Клиент', plan.clientName);
+        field('Дата', formatDate(plan.date));
+        field('Время', plan.time);
+        field('Услуга', plan.serviceName);
+        if (Number(plan.durationMinutes)) field('Длительность', `${plan.durationMinutes} минут`);
+        add(model.draftText);
+      }
+    } else if (model.kind === 'operation_preview') {
+      if (model.candidates?.length) {
+        add('Выберите запись');
+        model.candidates.forEach(booking);
+      } else {
+        field('Клиент', plan.clientName || 'Клиент');
+        field('Услуга', plan.serviceName || 'Услуга');
+        field('Было', [formatDate(plan.fromDate), plan.fromTime].filter(Boolean).join(', '));
+        if (plan.operation === 'reschedule' && plan.targetDate) field('Станет', [formatDate(plan.targetDate), plan.targetTime].filter(Boolean).join(', '));
+      }
+    } else if (model.kind === 'schedule_summary' || model.kind === 'client_search') {
+      (model.items || []).forEach(booking);
+      if (model.total > (model.items || []).length) add(`Показаны первые ${(model.items || []).length} из ${model.total}`);
+    } else if (model.kind === 'compound_plan') {
+      (model.steps || []).forEach(step => add(step.label));
+      (model.points || []).forEach(add);
+    } else {
+      if (model.examples) model.examples.forEach(add);
+      else {
+        (model.metrics || []).forEach(item => field(item.label, item.value));
+        (model.points || []).forEach(add);
+      }
+      if (model.draftText) { add('Готовый черновик'); add(model.draftText); }
+    }
+    if (model.explanation) field('Почему', model.explanation);
+    add(model.sourceLabel);
+    return parts.map(part => /[.!?…]$/.test(part) ? part : `${part}.`).join(' ');
+  }
+
+  function splitSpeechText(value) {
+    const chars = Array.from(String(value || '').replace(/\s+/g, ' ').trim());
+    const chunks = [];
+    for (let start = 0; start < chars.length;) {
+      let end = Math.min(start + 600, chars.length);
+      if (end < chars.length) {
+        let space = -1;
+        for (let index = end - 1; index > start + 300; index -= 1) {
+          if (chars[index] !== ' ') continue;
+          if (space < 0) space = index;
+          if (/[.!?…]/.test(chars[index - 1])) { space = index; break; }
+        }
+        if (space > start) end = space;
+      }
+      chunks.push(chars.slice(start, end).join('').trim());
+      start = end;
+      while (chars[start] === ' ') start += 1;
+    }
+    return chunks;
+  }
+
   function normalizedSpeechRate(value) {
     const rate = Number(value);
     if (!Number.isFinite(rate)) return DEFAULT_SPEECH_RATE;
@@ -2144,28 +2234,40 @@
         if (settings) settings.open = true;
         return false;
       }
-      const utterance = new global.SpeechSynthesisUtterance(String(text || '').slice(0, 1200));
+      const chunks = splitSpeechText(text);
+      if (!chunks.length) return false;
       const epoch = ++speechEpoch;
-      utterance.voice = voice;
-      utterance.lang = /^ru(?:[-_]|$)/i.test(String(voice.lang || '')) ? String(voice.lang).replace('_', '-') : 'ru-RU';
-      utterance.rate = speechRate;
-      utterance.pitch = 1;
-      utterance.onend = () => {
+      const rate = speechRate;
+      const fail = () => {
         if (epoch !== speechEpoch) return;
-        setSpeaking(false);
-        if (completedMessage) status.textContent = completedMessage;
-      };
-      utterance.onerror = () => { if (epoch === speechEpoch) { setSpeaking(false); status.textContent = 'Не удалось озвучить ответ на этом устройстве.'; } };
-      try {
-        global.speechSynthesis.cancel();
-        setSpeaking(true);
-        global.speechSynthesis.speak(utterance);
-        return true;
-      } catch {
+        speechEpoch += 1;
+        try { global.speechSynthesis.cancel(); } catch {}
         setSpeaking(false);
         status.textContent = 'Не удалось озвучить ответ на этом устройстве.';
-        return false;
-      }
+      };
+      const next = index => {
+        if (epoch !== speechEpoch) return;
+        if (index >= chunks.length) {
+          setSpeaking(false);
+          if (completedMessage) status.textContent = completedMessage;
+          return;
+        }
+        try {
+          const utterance = new global.SpeechSynthesisUtterance(chunks[index]);
+          utterance.voice = voice;
+          utterance.lang = String(voice.lang || 'ru-RU').replace('_', '-');
+          utterance.rate = rate;
+          utterance.pitch = 1;
+          let settled = false;
+          utterance.onend = () => { if (!settled) { settled = true; next(index + 1); } };
+          utterance.onerror = () => { if (!settled) { settled = true; fail(); } };
+          global.speechSynthesis.speak(utterance);
+        } catch { fail(); }
+      };
+      try { global.speechSynthesis.cancel(); } catch { fail(); return false; }
+      setSpeaking(true);
+      next(0);
+      return epoch === speechEpoch;
     }
 
     function close() {
@@ -2499,8 +2601,7 @@
           status.textContent = 'Озвучивание остановлено.';
           return;
         }
-        const spokenItems = (lastModel?.items || []).slice(0, 12).map(item => `${item.time || ''}, ${item.serviceName || 'услуга'}`).join('. ');
-        speakText([lastModel?.title, lastModel?.message, spokenItems].filter(Boolean).join('. '));
+        speakText(assistantSpeechText(lastModel), 'Ответ озвучен.');
       });
       result.querySelector('[data-voice-speech-settings]')?.addEventListener('click', () => {
         if (!speechSettings) return;
@@ -2892,7 +2993,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, workspaceNavigationModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ assistantSpeechText, splitSpeechText, normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, workspaceNavigationModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 

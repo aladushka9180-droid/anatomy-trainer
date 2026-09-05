@@ -510,6 +510,53 @@ for (const rate of [1.25, 1.75]) {
   assert.equal(speechSynthesis.lastUtterance.rate, rate, 'озвучка должна получать выбранную дробную скорость');
   controller.stopSpeech();
 }
+// Read a long rendered answer completely, then exercise cancellation between chunks.
+currentSnapshot = { ...currentSnapshot, synchronized:true, offline:false, offlineReadable:false,
+  bookings:Array.from({length:12}, (_, i) => ({date:currentSnapshot.today,time:`${String(10 + i).padStart(2, '0')}:00`,status:'confirmed',clientName:`Клиент ${i + 1} ${'длинное имя '.repeat(12)}`,serviceName:`Услуга ${i + 1}`})) };
+input.value = 'какие записи';
+form.emit('submit');
+speakButton.emit('click');
+const spokenParts = [];
+for (let i = 0; i < 100 && speakButton.textContent === 'Остановить голос'; i += 1) {
+  const current = speechSynthesis.lastUtterance;
+  spokenParts.push(current.text);
+  assert.equal(current.rate, 1.75);
+  assert.equal(current.voice, googleRussian);
+  current.onend();
+  const afterEndCount = speechSynthesis.speakCount;
+  current.onend();
+  assert.equal(speechSynthesis.speakCount, afterEndCount, 'повторный onend не должен дублировать следующую часть');
+}
+assert.ok(spokenParts.length > 2, 'длинный ответ должен состоять из нескольких фрагментов');
+assert.match(spokenParts.join(' '), /Услуга 12/, 'последний пункт длинного ответа не должен обрезаться');
+assert.match(status.textContent, /Ответ озвучен/);
+speakButton.emit('click');
+const cancelledPart = speechSynthesis.lastUtterance;
+speakButton.emit('click');
+const afterCancelCount = speechSynthesis.speakCount;
+cancelledPart.onend();
+assert.equal(speechSynthesis.speakCount, afterCancelCount, 'остановка должна отменять остаток ответа');
+speakButton.emit('click');
+const replacedPart = speechSynthesis.lastUtterance;
+input.value = 'Привет';
+form.emit('submit');
+const afterReplaceCount = speechSynthesis.speakCount;
+replacedPart.onend();
+assert.equal(speechSynthesis.speakCount, afterReplaceCount, 'новый ответ должен отменять остаток старой озвучки');
+input.value = 'какие записи';
+form.emit('submit');
+speakButton.emit('click');
+const failedPart = speechSynthesis.lastUtterance;
+failedPart.onerror({ error:'synthesis-failed' });
+const afterErrorCount = speechSynthesis.speakCount;
+failedPart.onend();
+assert.equal(speechSynthesis.speakCount, afterErrorCount, 'ошибка должна останавливать очередь');
+speakButton.emit('click');
+const closedPart = speechSynthesis.lastUtterance;
+closeButton.emit('click');
+const afterCloseCount = speechSynthesis.speakCount;
+closedPart.onend();
+assert.equal(speechSynthesis.speakCount, afterCloseCount, 'закрытие диалога должно останавливать очередь');
 controller.destroy();
 assert.equal(speechSynthesis.listeners.has('voiceschanged'), false);
 assert.equal(globalListeners.get('minuta:provider-session-reset')?.size || 0, 0, 'destroy должен снять глобальный обработчик');

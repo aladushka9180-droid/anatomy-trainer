@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import './voice-assistant-clarity-test.mjs';
+import './voice-assistant-speech-test.mjs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
