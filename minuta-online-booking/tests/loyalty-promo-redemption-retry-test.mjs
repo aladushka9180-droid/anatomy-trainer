@@ -64,15 +64,18 @@ async function harness() {
   let lost=false,nextResponse,writeReply,readReply,actor=ACTOR,generation=1;
   const fields=['loyaltyPromoClient','loyaltyPromoBooking','loyaltyPromoApplyCode'];
   for(const [,nodeId] of html.matchAll(/id="((?:loyalty|reloadLoyalty)[^"]*)"/g)) {
-    let options=[],value='',markup='',text='';
+    let options=[],value='',markup='',text='',recoveryText=null,recoveryButton=null;
     const isSelect=/Client$|Booking$/.test(nodeId);
     const node={id:nodeId,dataset:{},hidden:false,disabled:false,checked:false,
-      get textContent(){return text;},set textContent(next){text=String(next);markup='';},
+      get textContent(){return text;},set textContent(next){text=String(next);markup='';recoveryText=null;recoveryButton=null;},
       get value(){return value;},set value(next){value=isSelect&&!options.includes(String(next))?'':String(next);},
-      get innerHTML(){return markup;},set innerHTML(next){markup=String(next);text=markup.replace(/<[^>]*>/g,'');if(isSelect){options=[...markup.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);value=options[0]||'';}},
+      get innerHTML(){return markup;},set innerHTML(next){markup=String(next);text=markup.replace(/<[^>]*>/g,'');
+        recoveryText=markup.includes('data-loyalty-promo-recovery-message')?{set textContent(value){markup=markup.replace(/(<span data-loyalty-promo-recovery-message>)[\s\S]*?(<\/span>)/,(_,start,end)=>start+String(value)+end);text=markup.replace(/<[^>]*>/g,'');}}:null;
+        recoveryButton=markup.includes('data-loyalty-restore-promo')?{}:null;
+        if(isSelect){options=[...markup.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);value=options[0]||'';}},
       closest:selector=>selector==='#loyaltyPanel'?nodes.get('loyaltyPanel'):
         selector==='#loyaltyPromoApplyForm'&&(nodeId==='loyaltyPromoApplyForm'||fields.includes(nodeId))?nodes.get('loyaltyPromoApplyForm'):null,
-      querySelectorAll:()=>[],querySelector:()=>null};
+      querySelectorAll:()=>[],querySelector:selector=>selector==='[data-loyalty-promo-recovery-message]'?recoveryText:selector==='[data-loyalty-restore-promo]'?recoveryButton:null};
     nodes.set(nodeId,node);
   }
   const get=nodeId=>{assert.ok(nodes.has(nodeId),`Unexpected fixture DOM id ${nodeId}`);return nodes.get(nodeId);};
@@ -203,6 +206,12 @@ test('RECOVERY blank required code has repeatable restore action with zero RPC a
     await h.restore();assert.equal(h.calls.length,1);assert.equal(h.get('loyaltyPromoApplyCode').value,CODE);assert.deepEqual(h.notices,[]);
   }
   await h.submit();assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);assert.doesNotMatch(h.get('loyaltyPromoApplyError').innerHTML,/data-loyalty-restore-promo/);
+});
+test('RECOVERY change on blur preserves the already pressed restore button node',async()=>{
+  const h=await unknown();h.get('loyaltyPromoApplyCode').value='';await h.input('loyaltyPromoApplyCode');await h.invalid('loyaltyPromoApplyCode');
+  const holder=h.get('loyaltyPromoApplyError'),pressed=holder.querySelector('[data-loyalty-restore-promo]');assert.ok(pressed);
+  await h.change('loyaltyPromoApplyCode');assert.equal(holder.querySelector('[data-loyalty-restore-promo]'),pressed,'Blur/change must not detach the pressed restore target');
+  await h.restore();assert.equal(h.get('loyaltyPromoApplyCode').value,CODE);assert.equal(h.calls.length,1);
 });
 test('RECOVERY changed code visibly restores without applying anything until separate submit',async()=>{
   const h=await unknown();h.get('loyaltyPromoApplyCode').value='OTHER';await h.submit();

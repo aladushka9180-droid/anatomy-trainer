@@ -414,7 +414,11 @@
     }
     function showPromoRecovery(message = promoUnknownMessage) {
       const holder = $('#loyaltyPromoApplyError'); holder.hidden = false;
-      holder.innerHTML = `${escapeHtml(message)} <button type="button" data-loyalty-restore-promo>Вернуть исходные поля</button>`;
+      const text = holder.querySelector('[data-loyalty-promo-recovery-message]');
+      // Blur/change can run between mousedown and click on the restore button.
+      // Keep that button attached; replacing it here would swallow the click.
+      if (text && holder.querySelector('[data-loyalty-restore-promo]')) text.textContent = message;
+      else holder.innerHTML = `<span data-loyalty-promo-recovery-message>${escapeHtml(message)}</span> <button type="button" data-loyalty-restore-promo>Вернуть исходные поля</button>`;
     }
     function syncPromo() {
       const intent = promoIntents.get(adjustmentKey());
