@@ -9,6 +9,8 @@ on:
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
       - 'minuta-online-booking/benefit-management-controller-test.mjs'
       - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
+      - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
+      - 'minuta-online-booking/sw.js'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/index.html'
       - '.github/workflows/minuta-booking-recovery.yml'
@@ -20,6 +22,8 @@ on:
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
       - 'minuta-online-booking/benefit-management-controller-test.mjs'
       - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
+      - 'minuta-online-booking/tests/pwa-resource-update-browser-test.mjs'
+      - 'minuta-online-booking/sw.js'
       - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/index.html'
       - '.github/workflows/minuta-booking-recovery.yml'
@@ -58,3 +62,9 @@ jobs:
           node "$RUNNER_TEMP/group-browser/node_modules/playwright/cli.js" install --with-deps chromium
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/group-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs
+      - name: Load pinned previous release for resource update verification
+        run: git fetch --depth=1 origin 1043106590243b7129b4aa51c2fec0c9fa031119
+      - name: Verify real service worker update and failed-install recovery
+        env:
+          MINUTA_BASELINE_REF: 1043106590243b7129b4aa51c2fec0c9fa031119
+        run: node minuta-online-booking/tests/pwa-resource-update-browser-test.mjs
