@@ -8,6 +8,7 @@
     let payload = null;
     let available = null;
     let busy = false;
+    let refundSelectionInitialized = false;
 
     function isMissing(error) {
       return /PGRST202|42883|get_minuta_payment_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -16,6 +17,29 @@
     function manager() { return ['owner', 'admin'].includes(currentRole()); }
     function owner() { return currentRole() === 'owner'; }
     function moneyMinor(value) { return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(Number(value || 0) / 100)} ₽`; }
+    function parseRefundAmount(value) {
+      const match = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(String(value ?? '').trim());
+      if (!match) return null;
+      // Convert decimal integer digits, never a floating-point RUB amount.
+      const amount = Number(`${match[1]}${(match[2] || '').padEnd(2, '0')}`);
+      return Number.isSafeInteger(amount) ? amount : null;
+    }
+    function minorInteger(value) {
+      if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return null;
+      const amount = Number(value);
+      return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
+    }
+    function refundRemaining() {
+      const attempts = Array.isArray(payload?.recent_attempts) ? payload.recent_attempts : [];
+      const attempt = attempts.find((item) => item.id === $('#paymentRefundAttempt').value);
+      const captured = minorInteger(attempt?.captured_amount_minor);
+      const refunded = minorInteger(attempt?.refunded_amount_minor);
+      return captured !== null && refunded !== null && refunded <= captured ? captured - refunded : null;
+    }
+    function minorInputValue(amount) {
+      const digits = String(amount).padStart(3, '0');
+      return `${digits.slice(0, -2)}.${digits.slice(-2)}`;
+    }
     function requestId() {
       if (!global.crypto?.randomUUID) throw new Error('secure_request_id_unavailable');
       return global.crypto.randomUUID();
@@ -26,6 +50,7 @@
     }
     function reset() {
       organization = null; payload = null; available = null; busy = false;
+      refundSelectionInitialized = false;
       if ($('#paymentProviderPanel')) $('#paymentProviderPanel').hidden = true;
       refreshNavigation();
     }
@@ -84,10 +109,21 @@
         return `<article class="organization-row payment-attempt-row"><div><strong>${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
       }).join('') : '<div class="provider-empty compact-empty"><strong>Платежей пока нет</strong><small>Операции появятся после включения ЮKassa и первой предоплаты.</small></div>';
       const refundable = attempts.filter((item) => Number(item.captured_amount_minor || 0) > Number(item.refunded_amount_minor || 0));
+      const previousAttempt = $('#paymentRefundAttempt').value;
+      const maySelectInitial = !refundSelectionInitialized
+        && !$('#paymentRefundAmount').value && !$('#paymentRefundReason').value;
       $('#paymentRefundAttempt').innerHTML = refundable.map((item) => {
         const remaining = Number(item.captured_amount_minor || 0) - Number(item.refunded_amount_minor || 0);
         return `<option value="${escapeHtml(item.id)}" data-remaining="${remaining}">${escapeHtml(moneyMinor(remaining))} · ${escapeHtml(String(item.id).slice(0, 8))}</option>`;
       }).join('');
+      if (!maySelectInitial) {
+        const stillRefundable = refundable.some((item) => item.id === previousAttempt);
+        $('#paymentRefundAttempt').value = stillRefundable ? previousAttempt : '';
+        if (previousAttempt && !stillRefundable) {
+          notify('Выбранный платёж больше не доступен для возврата. Выберите платёж заново. Сумма и причина сохранены.');
+        }
+      }
+      refundSelectionInitialized = true;
       $('#paymentRefundForm').hidden = !manager() || !refundable.length;
       updateRefundAmount();
       setBusy(busy);
@@ -98,11 +134,10 @@
       $('#paymentFiscalizationFields').hidden = !enabled;
     }
     function updateRefundAmount() {
-      const option = $('#paymentRefundAttempt')?.selectedOptions?.[0];
-      const remaining = Number(option?.dataset.remaining || 0);
+      const remaining = refundRemaining();
       if ($('#paymentRefundAmount')) {
-        $('#paymentRefundAmount').max = String(remaining / 100);
-        if (!$('#paymentRefundAmount').value || Number($('#paymentRefundAmount').value) > remaining / 100) $('#paymentRefundAmount').value = String(remaining / 100);
+        $('#paymentRefundAmount').max = remaining === null ? '' : minorInputValue(remaining);
+        if (!$('#paymentRefundAmount').value && remaining !== null) $('#paymentRefundAmount').value = minorInputValue(remaining);
       }
       updateFiscalization();
     }
@@ -130,10 +165,40 @@
       if (event.target.id !== 'paymentRefundForm') return;
       event.preventDefault();
       if (!organization || busy || !manager() || !requireWrites()) return;
-      const amountMinor = Math.round(Number($('#paymentRefundAmount').value) * 100);
+      if (!$('#paymentRefundAttempt').value) {
+        notify('Выберите платёж для возврата. Сумма и причина не изменены.');
+        return;
+      }
+      const amountMinor = parseRefundAmount($('#paymentRefundAmount').value);
       const reason = $('#paymentRefundReason').value.trim();
-      if (!Number.isSafeInteger(amountMinor) || amountMinor < 100 || reason.length < 8) {
-        notify('Укажите сумму и причину возврата не короче 8 символов');
+      if (amountMinor === null) {
+        notify('Укажите точную сумму в рублях: не больше двух знаков после запятой, без округления. Сумма должна быть в допустимом диапазоне.');
+        return;
+      }
+      if (amountMinor < 100) {
+        notify('Минимальная сумма возврата через ЮKassa — 1 ₽. Сумма не изменена.');
+        return;
+      }
+      const remaining = refundRemaining();
+      if (remaining === null) {
+        notify('Не удалось проверить доступную сумму возврата. Обновите журнал операций.');
+        return;
+      }
+      if (amountMinor > remaining) {
+        notify(`Сумма возврата превышает доступные ${minorInputValue(remaining).replace('.', ',')} ₽. Проверьте журнал операций. Сумма не изменена.`);
+        return;
+      }
+      const remainder = remaining - amountMinor;
+      if (remainder > 0 && remainder < 100) {
+        const full = `${minorInputValue(remaining).replace('.', ',')} ₽`;
+        const alternative = remaining >= 200
+          ? `Выберите сумму не больше ${minorInputValue(remaining - 100).replace('.', ',')} ₽ или верните весь остаток — ${full}.`
+          : `Можно вернуть весь остаток — ${full}.`;
+        notify(`После возврата через ЮKassa должно остаться 0 ₽ или не меньше 1 ₽. ${alternative} Сумма не изменена.`);
+        return;
+      }
+      if (reason.length < 8) {
+        notify('Укажите причину возврата не короче 8 символов');
         return;
       }
       setBusy(true);
