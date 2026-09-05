@@ -5,12 +5,13 @@ import vm from 'node:vm';
 const read = file => readFileSync(new URL(file, import.meta.url), 'utf8');
 const source = read('provider-read-fetch.js');
 const baseUrl = 'https://read-test.supabase.co';
-function harness(fetcher, options = {}) {
+function harness(fetcher, options = {}, timerHooks = {}) {
   const window = { navigator:{ onLine:true } };
   const document = { hidden:false };
   const math = Object.create(Math);
   math.random = () => 0;
-  vm.runInNewContext(source, { window, document, URL, Response, AbortController, DOMException, Math:math, setTimeout, clearTimeout });
+  vm.runInNewContext(source, { window, document, URL, Response, AbortController, DOMException, Math:math,
+    setTimeout:(fn, delay) => { timerHooks.onTimer?.(delay); return setTimeout(fn, delay); }, clearTimeout });
   return { window, document, api:window.MinutaProviderReadFetch,
     fetch:window.MinutaProviderReadFetch.create({ baseUrl, fetcher, timeoutMs:20, retryDelayMs:0, ...options }) };
 }
@@ -134,6 +135,25 @@ console.log('Read transport checks passed: headers/body deadlines, one retry, ca
   calls = 0;
   await client.from('bookings').insert({ service_id:'test' });
   assert.equal(calls, 1, 'actual SDK must send mutations just once');
+  for (const cancel of ['caller', 'session']) {
+    let pauseStarted;
+    const pausing = new Promise(resolve => { pauseStarted = resolve; });
+    let attempts = 0;
+    const retry = harness(async () => { attempts++; return json({}, 503); },
+      { timeoutMs:1000, retryDelayMs:500 }, { onTimer:delay => { if (delay === 500) pauseStarted(); } });
+    const retryClient = sdk.supabase.createClient(baseUrl, 'test-key', {
+      auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false },
+      db:{ retry:false }, global:{ fetch:retry.fetch }
+    });
+    const controller = new AbortController();
+    const run = Promise.resolve(retryClient.from('bookings').select('id').abortSignal(controller.signal));
+    await pausing;
+    if (cancel === 'caller') controller.abort();
+    else retry.fetch.cancelPendingReads();
+    const cancelled = await run;
+    assert.ok(retry.api.isConnectionError(cancelled.error));
+    assert.equal(attempts, 1, 'cancel during backoff must prevent the second SDK request');
+  }
 }
 
 const loadSource = provider.slice(provider.indexOf('function shouldTryCompatibleProviderRead('), provider.indexOf('function waitlistPeriodLabel('));
@@ -151,3 +171,59 @@ for (const [code, expectedCalls] of [['MINUTA_READ_TIMEOUT', 1], ['42703', 4]]) 
   assert.equal(calls, expectedCalls, 'network failures must not trigger legacy schema fallbacks');
 }
 console.log('Bundled SDK and journal checks passed: bounded attempts, single writes and preserved legacy schema fallback');
+
+{
+  const h = harness(async () => json([]));
+  const booking = { id:'test-booking', client_name:'Тестовый клиент', client_phone:'+70000000000' };
+  let presentationReads = 0;
+  let renders = 0;
+  const context = { currentUser:{ id:'test' }, sessionGeneration:1, bookingsRequestRevision:0,
+    navigator:{ onLine:true }, window:h.window, $:() => ({ innerHTML:'' }),
+    readProviderCache:async () => null, sessionIsCurrent:() => true,
+    queryAllProviderBookings:async () => ({ data:[booking], error:null }),
+    loadRemoteBookingColors:async () => { presentationReads++; return true; },
+    allBookings:[], bookingDataSignature:() => '', providerBookingRenderRevision:0,
+    saveProviderCache:async () => ({ savedAt:'2026-09-05T10:00:00Z' }),
+    renderBookingData:() => { renders++; }
+  };
+  vm.createContext(context);
+  vm.runInContext(loadSource, context);
+  assert.equal((await context.loadBookings({ silent:true, deferPresentation:true })).ok, true);
+  assert.equal(presentationReads, 0, 'journal rendering cannot wait for its colour/note query');
+  assert.equal(renders, 1);
+  assert.equal(context.allBookings[0].client_name, booking.client_name);
+  assert.equal(context.allBookings[0].client_phone, booking.client_phone);
+  assert.equal((await context.loadBookings({ silent:true })).ok, true);
+  assert.equal(presentationReads, 1, 'non-priority callers preserve their existing complete load');
+}
+console.log('Journal presentation checks passed: early render retains complete client data');
+
+{
+  const h = harness(async () => json([]));
+  let finishCache;
+  let finishQuery;
+  let enterFallback;
+  const fallbackEntered = new Promise(resolve => { enterFallback = resolve; });
+  const cache = new Promise(resolve => { finishCache = resolve; });
+  const query = new Promise(resolve => { finishQuery = resolve; });
+  let painted = false;
+  const context = { currentUser:{ id:'first' }, sessionGeneration:1, bookingsRequestRevision:0,
+    navigator:{ onLine:true }, window:h.window, $:() => ({ innerHTML:'' }),
+    readProviderCache:() => cache,
+    sessionIsCurrent:(id, generation) => context.currentUser.id === id && context.sessionGeneration === generation,
+    queryAllProviderBookings:() => query,
+    applyCachedBookings:() => { painted = true; }, cacheFallbackStarted:() => enterFallback()
+  };
+  vm.createContext(context);
+  vm.runInContext(loadSource.replace('cached ||= await cachePromise;', 'cacheFallbackStarted(); cached ||= await cachePromise;'), context);
+  const run = context.loadBookings({ silent:true });
+  finishQuery({ data:null, error:{ code:'MINUTA_READ_TIMEOUT' } });
+  // Instrument only entry into the actual fallback; do not change its guard or result.
+  await fallbackEntered;
+  context.currentUser = { id:'second' };
+  context.sessionGeneration++;
+  finishCache({ data:[{ id:'first-user-booking' }], savedAt:'2026-09-05T10:00:00Z' });
+  assert.equal((await run).stale, true);
+  assert.equal(painted, false, 'a delayed cache from the old account must never be displayed');
+}
+console.log('Cache fallback isolation passed: no stale-account paint after a network timeout');
