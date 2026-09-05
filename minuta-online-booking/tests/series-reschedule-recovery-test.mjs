@@ -17,6 +17,7 @@ function between(start, end) {
 const realController = between('function openBookingEditor(', 'function offlineCandidateSlots(')
   + between('function seriesRpcErrorMessage(', 'function stackMinuteTimelineItems(')
   + source.match(/^function sessionIsCurrent[^\n]+/m)[0];
+const metadataDependencies = between('function captureBookingMetadataContext(', '// Local completion ownership');
 const lifecycleDeclarations = ['bookingEditorRevision', 'bookingSeriesCancellationRevision', 'bookingMetadataRevision']
   .map(name => {
     const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
@@ -70,7 +71,8 @@ function harness(pendingStage = null) {
   };
   const context = vm.createContext({
     $:selector => nodes[selector], $$:() => [],
-    currentUser:{ id:userId }, sessionGeneration:7, activeClientOrganizationId:'org-A',
+    currentUser:{ id:userId }, sessionGeneration:7, activeClientOrganizationId:'org-A', writesAllowed:true,pendingClientNotes:new Map(),
+    localStorage:{setItem(){},getItem:()=>null},
     editingOfflineBookingId:'', newBookingHistoricalMode:false,
     window:{ addEventListener:(name, callback) => { if (name === 'minuta:provider-session-reset') resetListeners.push(callback); } },
     freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
@@ -108,7 +110,7 @@ function harness(pendingStage = null) {
       delete nodes['#bookingEditForm'];
     }
   });
-  vm.runInContext(lifecycleDeclarations + '\n' + resetHooks + '\n' + orgHook + '\n' + realController
+  vm.runInContext(lifecycleDeclarations + '\n' + resetHooks + '\n' + orgHook + '\n' + metadataDependencies + '\n' + realController
     + between('function closeBookingSheet()', 'function calendarRangeTitle('), context);
   const open = (label = 'A') => {
     context.openBookingEditor(ids[label], { date:'2026-09-20', time:'12:00' });
@@ -233,7 +235,7 @@ test('fulfilled unsuccessful refresh does not reopen a stale booking summary', a
 function helperHarness() {
   const gate = deferred(), effects = [];
   const state = {
-    currentUser:{ id:userId }, sessionGeneration:1, activeClientOrganizationId:'org-A', allBookings:[{ id:ids.A }],
+    currentUser:{ id:userId }, sessionGeneration:1, activeClientOrganizationId:'org-A', allBookings:[{ id:ids.A }], writesAllowed:true,
     bookingColors:new Map(), pendingBookingColors:new Set(),
     bookingNotes:new Map(), pendingBookingNotes:new Set(),
     validBookingColor:value => value,
@@ -261,7 +263,7 @@ for (const kind of ['Color', 'Note']) {
     assert.equal(h.state.bookingColors.size, 0); assert.equal(h.state.bookingNotes.size, 0);
   });
 
-  for (const reply of [{ error:null }, { error:{ message:'failed' } }]) {
+  for (const reply of [{ data:'blue',error:null }, { data:null,error:{ message:'failed' } }]) {
     test(`real saveBooking${kind} does not persist or mutate replacement account after ${reply.error ? 'error' : 'success'}`, async () => {
       const h = helperHarness();
       const pending = h.context[`saveBooking${kind}`](ids.A, 'blue', { rerender:false, isCurrent:() => h.state.currentUser.id === userId });
@@ -278,7 +280,7 @@ for (const kind of ['Color', 'Note']) {
 
   test(`real saveBooking${kind} keeps default current-caller contract`, async () => {
     const h = helperHarness(); const pending = h.context[`saveBooking${kind}`](ids.A, 'blue', { rerender:false });
-    h.gate.resolve({ error:null }); assert.equal(await pending, true);
+    h.gate.resolve({ data:'blue',error:null }); assert.equal(await pending, true);
     assert.equal(h.effects.filter(e => e[0].startsWith('persist')).length, 2);
   });
 }

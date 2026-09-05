@@ -6,7 +6,7 @@ const functions=source.slice(source.indexOf('function compactSyncLabel('),source
 const label={}, attributes={}, events=[];
 const element={querySelector:()=>label,setAttribute:(key,value)=>attributes[key]=value};
 let availability=0;
-const context=vm.createContext({$:()=>element,renderProviderVerification(){},recordConnectionEvent:(...args)=>events.push(args),applyWriteAvailability:()=>availability++});
+const context=vm.createContext({$:()=>element,pendingBookingColors:new Set(),pendingBookingNotes:new Set(),pendingClientLabels:new Set(),pendingClientNotes:new Map(),renderProviderVerification(){},recordConnectionEvent:(...args)=>events.push(args),applyWriteAvailability:()=>availability++});
 vm.runInContext(functions,context);
 const examples=[
   ['online','Синхронизировано · 14:58','Синхронизировано'],
