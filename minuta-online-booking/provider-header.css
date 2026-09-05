@@ -54,10 +54,10 @@
   }
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar h1 { font-size:calc(18px + var(--provider-heading-step,0px))!important; }
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions {
-    display:grid!important; grid-template-columns:repeat(3,48px)!important; grid-template-rows:auto auto!important;
+    display:grid!important; grid-template-columns:repeat(3,56px)!important; grid-template-rows:auto auto!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar :is(.voice-assistant-open,.topbar-client-link,.sync-tool-button) {
-    width:48px!important; min-height:48px!important; padding:4px 2px!important;
+    width:56px!important; min-height:48px!important; padding:4px 2px!important;
   }
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar [data-mobile-label]::after {
     font-size:9px!important; line-height:1.2!important; overflow:visible; text-overflow:clip;
