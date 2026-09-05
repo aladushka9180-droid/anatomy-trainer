@@ -32,55 +32,12 @@
   background-repeat:no-repeat;
 }
 
-/* Crop the print into reserved header space, with no decoration behind copy. */
+/* Legacy ornament stays hidden; Snow Leopard now covers the page background. */
 .provider-theme-ornament { display:none; }
-.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .provider-topbar>div:first-child {
-  position:relative;
-  padding-right:132px;
-}
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-topbar h1,.schedule-title-line h2) {
   font-family:Georgia,"Times New Roman",serif!important;
   font-weight:500!important;
   letter-spacing:-.025em!important;
-}
-.provider-body[data-provider-theme="snow-leopard"] .provider-theme-ornament {
-  display:block;
-  position:absolute;
-  top:-18px;
-  right:-12px;
-  width:144px;
-  height:80px;
-  margin:0;
-  background:url("provider-snow-leopard-natural-v2.webp?v=439") 32% 27% / 250px auto no-repeat;
-  mask-image:radial-gradient(ellipse at 95% 0,#000 10%,rgba(0,0,0,.8) 38%,transparent 78%);
-  opacity:.82;
-  pointer-events:none;
-  user-select:none;
-}
-.provider-body[data-provider-theme="snow-leopard"] .sidebar-bottom::after {
-  content:"";
-  display:block;
-  width:calc(100% + 24px);
-  height:168px;
-  margin:2px -12px -12px;
-  background:url("provider-snow-leopard-natural-v2.webp?v=439") left bottom / 310px auto no-repeat;
-  mask-image:linear-gradient(32deg,#000 12%,rgba(0,0,0,.9) 36%,transparent 80%);
-  opacity:.9;
-  pointer-events:none;
-}
-@media (max-width:760px) {
-  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .provider-topbar>div:first-child { padding-right:0; }
-  .provider-body[data-provider-theme="snow-leopard"] .provider-theme-ornament {
-    position:static;
-    display:inline-block;
-    flex-basis:92px;
-    width:92px;
-    height:18px;
-    margin:0;
-    background-size:180px auto;
-    mask-image:linear-gradient(90deg,transparent,#000 20%,#000 80%,transparent);
-  }
-  .provider-body[data-provider-theme="snow-leopard"] .sidebar-bottom::after { display:none; }
 }
 
 .provider-body[data-provider-theme="pearl"] {
@@ -893,4 +850,34 @@
     [data-provider-theme="desert"],
     [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
   ) * { transition-duration:.01ms!important; animation-duration:.01ms!important; }
+}
+
+/* Muted, full-page textile: scale is independent of wide screens or page length. */
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
+  --snow-print-veil:rgba(255,255,255,.86);
+  --snow-print-size:480px;
+  background-color:#fff!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-natural-v2.webp?v=439")!important;
+  background-size:auto,var(--snow-print-size) var(--snow-print-size)!important;
+  background-repeat:repeat!important;
+  background-position:0 0!important;
+  background-attachment:scroll!important;
+}
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace) {
+  background:transparent!important;
+}
+/* Opaque reading surfaces keep the print out of forms, labels and navigation. */
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-sidebar,.provider-view) {
+  background:#fff!important;
+  background-image:none!important;
+}
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .provider-topbar>div {
+  background:#fff;
+  border-radius:8px;
+}
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
+    --snow-print-veil:rgba(255,255,255,.90);
+    --snow-print-size:360px;
+  }
 }
