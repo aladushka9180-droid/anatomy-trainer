@@ -8449,3 +8449,42 @@ html.provider-booting .provider-main {
   }
 }
 
+
+/* Mobile top bar: keep connection status on its own row, away from Refresh. */
+@media (max-width:760px) {
+  .provider-body .provider-topbar-actions {
+    grid-template-columns:repeat(3,48px)!important;
+    grid-template-rows:48px 38px!important;
+    align-items:center!important;
+  }
+  .provider-body .provider-topbar-actions>#openVoiceAssistant {
+    grid-column:1!important;
+    grid-row:1!important;
+  }
+  .provider-body .provider-topbar-actions>.topbar-client-link {
+    grid-column:2!important;
+    grid-row:1!important;
+  }
+  .provider-body .provider-topbar-actions>#manualSyncButton {
+    grid-column:3!important;
+    grid-row:1!important;
+  }
+  .provider-body .provider-topbar-actions>#syncState {
+    grid-column:1/-1!important;
+    grid-row:2!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin:0!important;
+    box-sizing:border-box!important;
+    overflow:hidden!important;
+  }
+  .provider-body .provider-topbar-actions>#syncState span {
+    display:block;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
+
