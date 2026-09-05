@@ -98,7 +98,7 @@
     function ledgerCard(item) {
       const labels = { visit_earned:'Начисление за визит', visit_reversed:'Отмена начисления', manual_adjustment:'Ручная корректировка', redemption:'Списание бонусов' };
       const sign = Number(item.points_delta) > 0 ? '+' : '';
-      return `<article><div><strong>${escapeHtml(labels[item.event_type] || item.event_type)}</strong><small>${escapeHtml(clientLabel(item.client_account_id))}${item.reason ? ` · ${escapeHtml(item.reason)}` : ''}</small></div><span>${escapeHtml(`${sign}${number(item.points_delta)} Б · остаток ${number(item.balance_after)}`)}</span></article>`;
+      return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(labels[item.event_type] || item.event_type)}</strong><small>${escapeHtml(clientLabel(item.client_account_id))}${item.reason ? ` · ${escapeHtml(item.reason)}` : ''}</small></div><span>${escapeHtml(`${sign}${number(item.points_delta)} Б · остаток ${number(item.balance_after)}`)}</span></article>`;
     }
     function render() {
       if (availability !== 'ready' || !payload) return;

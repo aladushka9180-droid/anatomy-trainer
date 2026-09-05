@@ -81,7 +81,7 @@
       const attempts = Array.isArray(payload.recent_attempts) ? payload.recent_attempts : [];
       $('#paymentAttemptsList').innerHTML = attempts.length ? attempts.map((item) => {
         const remaining = Math.max(0, Number(item.captured_amount_minor || 0) - Number(item.refunded_amount_minor || 0));
-        return `<article><div><strong>${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
+        return `<article class="organization-row payment-attempt-row"><div><strong>${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
       }).join('') : '<div class="provider-empty compact-empty"><strong>Платежей пока нет</strong><small>Операции появятся после включения ЮKassa и первой предоплаты.</small></div>';
       const refundable = attempts.filter((item) => Number(item.captured_amount_minor || 0) > Number(item.refunded_amount_minor || 0));
       $('#paymentRefundAttempt').innerHTML = refundable.map((item) => {
