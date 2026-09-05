@@ -1876,6 +1876,7 @@
     const listenButton = doc.querySelector('#voiceListenButton');
     const status = doc.querySelector('#voiceAssistantStatus');
     const result = doc.querySelector('#voiceAssistantResult');
+    const scrollArea = doc.querySelector('.voice-assistant-scroll');
     const starters = doc.querySelector('#voiceAssistantStarters');
     const capabilities = doc.querySelector('.voice-assistant-capabilities');
     const proactive = doc.querySelector('#voiceAssistantProactive');
@@ -2367,6 +2368,7 @@
       result.hidden = false;
       dialog.classList.add('has-answer');
       starters?.classList.add('is-secondary');
+      if (scrollArea) scrollArea.scrollTop = 0;
       backButton.hidden = false;
       result.querySelectorAll?.('[data-voice-feedback]')?.forEach(button => button.addEventListener('click', () => {
         if (button.dataset.voiceFeedback === 'fix') {
