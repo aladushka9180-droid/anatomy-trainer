@@ -9,6 +9,7 @@
 }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar::before,
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar::after { content:none!important; }
+.provider-body[data-provider-theme][data-provider-layout] header.provider-topbar { box-shadow:none!important; }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar>div:first-child { flex:1 1 220px; min-width:0; }
 .provider-body[data-provider-theme][data-provider-layout] .provider-topbar h1 {
   margin:4px 0 0!important; font-size:calc(21px + var(--provider-heading-step,0px))!important;
