@@ -19,7 +19,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 
 async function harness() {
   const elements = new Map(), handlers = new Map(), mutations = [], ledger = [], audit = [], reads = [], notices = [];
-  let currentActor = actor, generation = 1, activeOrg = organization, nextRefusal = null, failNextRead = false, writesAllowed = true;
+  let currentActor = actor, generation = 1, activeOrg = organization, nextRefusal = null, failNextRead = false, deferredRead = null, writesAllowed = true;
   const periodFor = org => org === organization ? period : id(8);
   const writeControls = ['#payrollEnabled', '#adjustmentSubmit'];
   function $(selector) {
@@ -63,6 +63,10 @@ async function harness() {
     if (name === 'get_minuta_payroll_workspace') {
       reads.push(clone(params));
       if (failNextRead) { failNextRead = false; return Promise.reject(Error('workspace transport failed')); }
+      if (deferredRead) {
+        const operation = deferredRead; deferredRead = null;
+        return new Promise((resolve, reject) => { operation.resolve = resolve; operation.reject = reject; });
+      }
       return Promise.resolve({ data:workspace(params.p_organization), error:null });
     }
     assert.equal(name, 'add_minuta_payroll_adjustment', 'No other mutating RPC belongs to this fixture');
@@ -116,6 +120,7 @@ async function harness() {
     switchOrg:async org => { activeOrg = org; return controller.setOrganization({ id:org }); },
     resetActor:async next => { currentActor = next; generation += 1; controller.reset(); await controller.setOrganization({ id:activeOrg }); },
     refuseNext:error => { nextRefusal = error; }, failRead:() => { failNextRead = true; },
+    deferRead:() => { deferredRead = {}; return deferredRead; },
     disableWrites:() => { writesAllowed = false; writeControls.forEach(selector => { $(selector).disabled = true; }); } };
 }
 
@@ -263,4 +268,34 @@ for (const outcome of ['success', 'lost', 'throw']) {
 test('settled intent cannot override an independent write-availability restriction', async () => {
   const h = await harness(), pending = h.submit(); h.disableWrites(); await h.deliver(0, 'success', pending);
   assert.equal(h.$('#adjustmentSubmit').disabled, true); await h.submit(); assert.equal(h.mutations.length, 1);
+});
+
+test('queued B workspace rejection is recoverable and does not release unresolved A', async () => {
+  const h = await harness(), pending = h.submit(); await h.switchOrg(id(9)); h.failRead();
+  await assert.doesNotReject(h.deliver(0, 'lost', pending));
+  assert.equal(h.controller.availability, 'error'); assert.equal(h.$('#payrollLoading').hidden, true);
+  assert.equal(h.$('#payrollWorkspace').hidden, true); assert.equal(h.$('#payrollUnavailable').hidden, false);
+  assert.match(h.$('#payrollUnavailableText').textContent, /обновить|загрузить/i);
+  assert.equal(h.notices.length, 0);
+  await h.controller.load(); assert.equal(h.controller.payload.organization_id, id(9));
+  h.fill(); const b = h.submit(); await h.deliver(1, 'success', b);
+  await h.switchOrg(organization); h.fill(); await h.submit();
+  assert.equal(h.mutations.length, 2); assert.equal(h.$('#adjustmentSubmit').disabled, true);
+});
+
+test('late queued B workspace rejection cannot hide or change ready C', async () => {
+  const h = await harness(), pending = h.submit(); await h.switchOrg(id(9));
+  const readB = h.deferRead(); h.mutations[0].resolve(h.mutations[0].response);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(typeof readB.reject, 'function', 'actual queued B read started');
+  await h.switchOrg(id(10));
+  const before = clone({ payload:h.controller.payload, availability:h.controller.availability,
+    loading:h.$('#payrollLoading').hidden, workspace:h.$('#payrollWorkspace').hidden,
+    unavailable:h.$('#payrollUnavailable').hidden, text:h.$('#payrollUnavailableText').textContent, notices:h.notices });
+  readB.reject(Error('late B workspace transport failure')); await assert.doesNotReject(pending);
+  assert.deepEqual(clone({ payload:h.controller.payload, availability:h.controller.availability,
+    loading:h.$('#payrollLoading').hidden, workspace:h.$('#payrollWorkspace').hidden,
+    unavailable:h.$('#payrollUnavailable').hidden, text:h.$('#payrollUnavailableText').textContent, notices:h.notices }), before);
+  h.fill(); const c = h.submit(); await h.deliver(1, 'success', c);
+  assert.equal(h.ledger[1].organization_id, id(10));
 });

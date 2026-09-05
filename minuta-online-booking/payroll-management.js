@@ -337,7 +337,21 @@
       if (!contextIsCurrent() || revision !== requestRevision) {
         const next = pendingOrganization;
         pendingOrganization = undefined;
-        if (next !== undefined) await setOrganization(next);
+        if (next !== undefined) {
+          const nextUserId = getCurrentUser()?.id, nextGeneration = getSessionGeneration();
+          const nextRevision = requestRevision + 1;
+          try { await setOrganization(next); }
+          catch {
+            if (next?.id && sessionIsCurrent(nextUserId, nextGeneration)
+              && organization?.id === next.id && requestRevision === nextRevision && !writePending) {
+              availability = 'error';
+              $('#payrollLoading').hidden = true;
+              $('#payrollWorkspace').hidden = true;
+              $('#payrollUnavailable').hidden = false;
+              $('#payrollUnavailableText').textContent = 'Не удалось загрузить расчёт. Повторите обновление данных перед новой корректировкой.';
+            }
+          }
+        }
         return false;
       }
       setBusy(false);
