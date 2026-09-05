@@ -46,6 +46,7 @@ create table if not exists public.client_record_entries (
 create index if not exists client_record_entries_client_v112_idx
   on public.client_record_entries(organization_id,client_phone,created_at desc,id desc);
 alter table public.client_record_entries add column if not exists expired_at timestamptz;
+alter table public.client_record_entries add column if not exists cleanup_attempted_at timestamptz;
 create index if not exists client_record_entries_pending_v112_idx
   on public.client_record_entries(created_at,id) where kind='file' and not ready;
 alter table public.client_record_settings enable row level security;
@@ -257,11 +258,12 @@ declare v_row public.client_record_entries%rowtype; v_result jsonb:='[]'::jsonb;
 begin
   for v_row in select * from public.client_record_entries
     where kind='file' and not ready and created_at < now()-interval '7 days'
-    order by created_at,id limit least(100,greatest(1,coalesce(p_limit,100)))
+      and (p_execute is not true or expired_at is null or expired_at < now()-interval '1 hour')
+    order by cleanup_attempted_at nulls first,created_at,id limit least(100,greatest(1,coalesce(p_limit,100)))
     for update skip locked
   loop
     if p_execute is true then
-      update public.client_record_entries set expired_at=coalesce(expired_at,now()) where id=v_row.id;
+      update public.client_record_entries set expired_at=coalesce(expired_at,now()),cleanup_attempted_at=now() where id=v_row.id;
     end if;
     -- First mark the row, then let old Storage requests drain for one hour.
     -- Already expired rows remain eligible after a failed Storage API call.
