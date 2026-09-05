@@ -31,7 +31,9 @@ concurrency:
 
 jobs:
   preprod:
-    if: github.ref == 'refs/heads/main'
+    # Fail closed until the selective restore plan has independent review and a
+    # real isolated restore test. The read-only backup/preflight is separate.
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 90
     environment: minuta-test
@@ -88,14 +90,15 @@ jobs:
         run: |
           set -euo pipefail
           node --check control/minuta-online-booking/scripts/crm-server-release-guard.mjs
-          node release/minuta-online-booking/notification-v114-static-test.mjs
-          node release/minuta-online-booking/profitability-v113-static-test.mjs
+          node control/minuta-online-booking/scripts/crm-server-release-guard-test.mjs
           npm install --prefix "$RUNNER_TEMP/crm-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
-          echo "MINUTA_PGLITE_MODULE=$RUNNER_TEMP/crm-deps/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+          export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/crm-deps/node_modules/@electric-sql/pglite/dist/index.js"
           node release/minuta-online-booking/tests/client-records-pglite-runtime-test.mjs
+          node release/minuta-online-booking/tests/crm-integration-client-record-lifecycle-pglite-test.mjs
           node release/minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
           deno test --allow-read release/minuta-online-booking/notification-v114-integration-test.ts
           deno test release/supabase/functions/notification-dispatcher/adapters_test.ts
+          deno test release/minuta-online-booking/supabase/functions/client-record-cleanup/handler_test.ts
 
       - name: Установить PostgreSQL 17 и OpenPGP
         shell: bash

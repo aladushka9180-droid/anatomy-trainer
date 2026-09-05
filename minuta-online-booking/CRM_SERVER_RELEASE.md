@@ -1,5 +1,29 @@
 # Изолированный server-only выпуск CRM v112–v114
 
+## Текущее состояние: запуск восстановления заблокирован
+
+`minuta-crm-server-release.yml` — НЕ готовый исполняемый выпуск. Job отключён
+через `if: false`: прежний полный restore непригоден для безопасного теста.
+Ниже описан целевой порядок, а не факт его выполнения. Не включать job простой
+заменой условия: сначала заменить полный restore на проверенный manifest,
+исключить исходящие данные, восстановить ограниченные ACL и проверить зависимости
+вне public. `session_replication_role=replica` не блокирует ALWAYS/event triggers.
+
+Проверено 2026-09-05:
+
+- Production backup: Actions run `33976747499`, success, SHA `9452128916ef1e4b265401578893749782b2e84a`.
+- Test backup + read-only preflight: `33977568656`, success, SHA `964b326be78d63cdbb79b7dcbd285dd007aa264a`.
+- Зашифрованная копия testDB, checksum и журнал: artifact `crm-testdb-before-33977568656`, хранение 35 дней.
+- Тестовая схема неполная (в частности, нет inventory tables); migration marker есть,
+  restore marker отсутствует. Никакие данные в testDB ещё не перезаписаны.
+- Через dashboard подтверждено отсутствие Edge Functions в тестовом проекте.
+- Изолированные CRM-проверки и настоящая PostgreSQL concurrency-проверка: `33976959385`, success.
+
+Разрешение пользователя относится к перезаписи названной testDB после backup.
+Перенос и обезличивание рабочих клиентских/складских данных следует согласовать
+отдельно до выборочного восстановления. Production migration всё ещё требует
+нового `BACKUP_VERIFIED` после теста миграции и отката.
+
 Этот выпуск предназначен только для серверных миграций карточки клиента v112,
 себестоимости v113 и доставки уведомлений v114. Он не публикует HTML, CSS,
 браузерный JavaScript, service worker, Edge Functions и не активирует функции
@@ -7,7 +31,7 @@
 
 ## Граница текущего этапа
 
-Workflow `Minuta CRM server preprod v112-v114` выполняет только preproduction:
+Целевой workflow `Minuta CRM server preprod v112-v114` должен выполнять только preproduction:
 
 1. Берёт управляющий workflow из `main`, отдельно извлекает точный server-only
    SHA и проверяет его diff относительно SHA production snapshot. Код тестируемой
