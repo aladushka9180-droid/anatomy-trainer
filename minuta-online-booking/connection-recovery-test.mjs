@@ -35,6 +35,7 @@ function harness() {
     setWritesAllowed:value=>{context.writesAllowed=value;}, setBookingCreationReady:value=>{context.bookingCreationReady=value;},
     renderVisitorVisits() {}, refreshBusinessDay() {}, handleVisitorVisit() {},
     freeSlotsController:{refresh(){}}, providerPerformance:{measure(){}},
+    loadRemoteBookingColors:async()=>true, renderBookingData(){},
     applyAutomaticVisitOutcomes:async()=>{}, flushOfflineBookings:async()=>{},
     canQueueOfflineBooking:()=>false, reliability:{savedAtLabel:()=>''},
     organizationController:{load:async()=>({ok:true})}, teamCalendarController:{load:async()=>({ok:true})},
@@ -173,3 +174,37 @@ function harness() {
   assert.equal(h.c.loads, loads, 'queued follow-up remains owned by its original session');
 }
 console.log('Connection recovery checks passed: catch-up, teardown, bounded retries, offline/online, background resume, bfcache, failures and session ownership');
+
+{
+  const h = harness();
+  let finishDetails;
+  let detailsStarted;
+  const started = new Promise(resolve => { detailsStarted = resolve; });
+  h.c.loadBookingSettings = () => {
+    detailsStarted();
+    return new Promise(resolve => { finishDetails = resolve; });
+  };
+  h.c.writesAllowed = false;
+  let settled = false;
+  const run = h.c.synchronizeProvider().then(value => { settled = true; return value; });
+  await started;
+  assert.equal(h.c.bookingCreationReady, true, 'core readiness must not wait for notification/settings details');
+  assert.equal(h.c.writesAllowed, false, 'early readiness must not enable unrelated writes');
+  assert.equal(settled, false, 'full-sync callers still await all required sections');
+  finishDetails({ ok:true, optional:true });
+  assert.equal(await run, true);
+}
+assert.match(source, /loadBookings\(\{ silent:true, deferPresentation:true \}\)/);
+assert.match(source, /if \(!options\.deferPresentation\) await loadRemoteBookingColors/);
+{
+  const h = harness();
+  let detailsLoaded = false;
+  h.c.loadBookings = async () => ({ ok:false, cached:true, savedAt:'2026-09-05T10:00:00Z' });
+  h.c.loadBookingSettings = async () => { detailsLoaded = true; return { ok:true }; };
+  assert.equal(await h.c.synchronizeProvider(), false);
+  assert.equal(detailsLoaded, false, 'failed core reads must not fan out into secondary requests');
+  assert.equal(h.c.bookingCreationReady, false);
+  assert.equal(h.c.writesAllowed, false);
+  assert.ok(h.c.synchronizationRetryTimer);
+}
+console.log('Priority sync checks passed: journal readiness before details, write gates and deferred presentation');

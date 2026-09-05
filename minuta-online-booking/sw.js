@@ -124,6 +124,7 @@ const ASSETS = [
   './telegram-auth.js?v=421',
   './pwa-install.js?v=421',
   './client-messaging.js?v=421',
+  './provider-read-fetch.js?v=421',
   './provider.js?v=421',
   './onboarding.js?v=421',
   './report-worker.js?v=421',
