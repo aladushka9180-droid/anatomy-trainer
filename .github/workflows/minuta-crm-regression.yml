@@ -1,0 +1,58 @@
+name: Minuta CRM isolated regression
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/**'
+      - 'supabase/functions/notification-dispatcher/**'
+      - '.github/workflows/minuta-crm-regression.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/**'
+      - 'supabase/functions/notification-dispatcher/**'
+      - '.github/workflows/minuta-crm-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  isolated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.x
+      - name: Install isolated test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/crm-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8 playwright@1.62.1
+          node "$RUNNER_TEMP/crm-deps/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/crm-deps/node_modules" >> "$GITHUB_ENV"
+          echo "MINUTA_PGLITE_MODULE=$RUNNER_TEMP/crm-deps/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+      - name: Static contracts and syntax
+        run: |
+          node --check minuta-online-booking/client-records.js
+          node minuta-online-booking/profitability-v113-static-test.mjs
+          node minuta-online-booking/notification-v114-static-test.mjs
+          node minuta-online-booking/smoke-test.mjs
+      - name: Isolated PostgreSQL models — no production credentials
+        run: |
+          node minuta-online-booking/tests/client-records-pglite-runtime-test.mjs
+          node minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
+          deno test --allow-read minuta-online-booking/notification-v114-integration-test.ts
+          deno test supabase/functions/notification-dispatcher/adapters_test.ts
+      - name: Browser mocks — no real client notifications
+        run: |
+          node minuta-online-booking/tests/client-records-browser-test.cjs
+          node minuta-online-booking/tests/crm-integration-browser-test.cjs

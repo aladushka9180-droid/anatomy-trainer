@@ -50,3 +50,13 @@
 сброс сессии и мобильные размеры в светлой, тёмной и Luxury темах.
 SQL regression находится в `client-records-v112-integration.sql`.
 PGlite-проверка на минимальной схеме не равна полному replay production-схемы.
+
+Воспроизводимый локальный SQL runner:
+`node tests/client-records-pglite-runtime-test.mjs` из каталога приложения.
+Зависимость — `@electric-sql/pglite@0.5.8`. Если пакет установлен вне проекта,
+`MINUTA_PGLITE_MODULE` может указывать на его `dist/index.js`.
+Runner создаёт только БД в памяти и не читает строки подключения или секреты.
+
+Workflow `Minuta CRM isolated regression` проверяет этот runner, v113/v114 и
+браузерные сценарии с подставными ответами. Он не имеет production environment
+или секретов и не заменяет защищённую тестовую миграцию перед выпуском.
