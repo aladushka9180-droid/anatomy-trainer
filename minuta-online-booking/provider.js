@@ -678,7 +678,7 @@ function offlineBookingServiceName(item) {
 function offlineBookingConflictText(reason) {
   return ({ slot_unavailable:'Выбранное время уже занято', booking_buffer_conflict:'Время попадает в перерыв рядом с другой записью', service_unavailable:'Услуга больше недоступна', date_expired:'Дата записи уже прошла', queue_expired:'Прошло 7 дней — подтвердите отправку вручную', invalid_client_data:'Нужно проверить имя или телефон клиента', unexpected_error:'Сервер отклонил запись — проверьте данные' })[reason] || 'Нужно проверить запись вручную';
 }
-function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false } = {}) {
+function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = false, notification = null } = {}) {
   const reason = item.reason || '';
   const noticeKey = `${outcome}:${reason}`;
   if (item.providerNoticeKey === noticeKey) return null;
@@ -686,8 +686,11 @@ function stageOfflineBookingProviderNotice(item, outcome, { clientNotified = fal
   const client = item.clientName && item.clientName !== 'Клиент' ? item.clientName : 'Клиент';
   const appointment = `${client} · ${item.date} ${item.time}`;
   if (outcome === 'created') {
-    const detail = clientNotified ? 'Клиент получил подтверждение.' : 'Клиент пока не подключил Telegram.';
-    return { key:`offline-${item.id}-created-${clientNotified ? 'notified' : 'without-client-telegram'}`, title:'Отложенная запись создана', body:`${appointment}. ${detail}`, toast:`Запись ${client} создана · ${clientNotified ? 'уведомление клиенту отправлено' : 'клиент ещё не подключил Telegram'}`, kind:'online' };
+    const detail = clientNotified ? 'Клиент получил подтверждение.'
+      : notification?.sent ? 'Подтверждение отправлено в Telegram.'
+        : notification?.queued ? 'Подтверждение в очереди отправки.'
+          : notification?.reason === 'connected_disabled' ? 'Автоуведомления клиентам выключены.' : 'Клиент пока не подключил Telegram.';
+    return { key:`offline-${item.id}-created-${clientNotified ? 'notified' : 'without-client-telegram'}`, title:'Отложенная запись создана', body:`${appointment}. ${detail}`, toast:`Запись ${client} создана · ${detail}`, kind:'online' };
   }
   if (outcome === 'client_notification_pending') {
     return { key:`offline-${item.id}-client-notification-pending`, title:'Запись создана', body:`${appointment}. Отправку подтверждения клиенту повторим автоматически.`, toast:`Запись ${client} создана · уведомление клиенту повторим автоматически`, kind:'warning' };
@@ -794,7 +797,7 @@ async function finalizeQueuedBooking(item, booking, userId, generation) {
     deliverOfflineBookingProviderNotice(providerNotice);
     return false;
   }
-  const providerNotice = stageOfflineBookingProviderNotice(item, 'created', { clientNotified:notification.delivered });
+  const providerNotice = stageOfflineBookingProviderNotice(item, 'created', { clientNotified:notification.delivered, notification });
   offlineBookingQueue = offlineBookingQueue.filter(entry => entry.id !== item.id);
   await saveOfflineBookingQueue(userId, { generation });
   if (!sessionIsCurrent(userId, generation)) return false;
@@ -981,7 +984,10 @@ async function deliverTelegramClientNotification(bookingId, event) {
       body: JSON.stringify({ event, booking_id: bookingId })
     });
     const result = await response.json().catch(() => ({}));
-    if (response.ok && (result.delivered || result.reason === 'already_sent')) return { delivered:true, retryable:false, reason:String(result.reason || 'delivered') };
+    if (response.ok && result.delivered) return { delivered:true, sent:true, queued:false, retryable:false, reason:'delivered' };
+    if (response.ok && (result.sent || result.reason === 'already_sent')) return { delivered:false, sent:true, queued:false, retryable:false, reason:'sent' };
+    if (response.ok && result.queued) return { delivered:false, sent:false, queued:true, retryable:false, reason:String(result.reason || 'queued') };
+    if (response.ok && result.reason === 'connected_disabled') return { delivered:false, sent:false, queued:false, retryable:false, reason:'connected_disabled' };
     if (response.ok && result.reason === 'not_connected') return { delivered:false, retryable:false, reason:'not_connected' };
     return { delivered:false, retryable:true, reason:String(result.reason || `http_${response.status}`) };
   } catch { return { delivered:false, retryable:true, reason:'network_error' }; }
@@ -3755,7 +3761,7 @@ function renderAutomaticNotifications() {
   const statusLabels = {
     pending: 'Ожидает отправки',
     sending: 'Отправляется',
-    sent: 'Доставлено',
+    sent: 'Отправлено',
     failed: 'Ошибка'
   };
   const activeCount = notificationOutbox.filter(item => item.status === 'pending' || item.status === 'sending').length;
@@ -6909,6 +6915,12 @@ async function createNewBooking(event) {
     ? (blockNoteLocalOnly ? 'Перерыв создан. Заметка сохранена на этом устройстве' : 'Время занято')
     : clientTelegramResult?.delivered
       ? 'Новая запись создана · клиент получил подтверждение в Telegram'
+      : clientTelegramResult?.sent
+        ? 'Новая запись создана · подтверждение отправлено в Telegram'
+      : clientTelegramResult?.queued
+        ? 'Новая запись создана · подтверждение в очереди'
+      : clientTelegramResult?.reason === 'connected_disabled'
+        ? 'Новая запись создана · автоуведомления клиентам выключены'
       : clientTelegramResult?.reason === 'not_connected'
         ? 'Новая запись создана · клиент ещё не подключил Telegram'
         : 'Новая запись создана · подтверждение в Telegram не отправлено');
