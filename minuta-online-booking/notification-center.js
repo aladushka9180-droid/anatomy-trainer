@@ -79,10 +79,22 @@
       if (!organization) return;
       const organizationId = organization.id;
       const requestRevision = ++revision;
-      const [result, health] = await Promise.all([
-        db.rpc('get_minuta_notification_workspace', { p_organization:organizationId }),
-        loadDeliveryHealth()
-      ]);
+      let result;
+      let health;
+      try {
+        [result, health] = await Promise.all([
+          db.rpc('get_minuta_notification_workspace', { p_organization:organizationId }),
+          loadDeliveryHealth()
+        ]);
+      } catch (error) {
+        if (!current(requestRevision, organizationId)) return;
+        payload = null;
+        available = null;
+        deliveryHealth = { unavailable:true, configured_channels:[] };
+        currentUserId = '';
+        render(error);
+        return;
+      }
       if (!current(requestRevision, organizationId)) return;
       currentUserId = health.userId;
       deliveryHealth = health.health || { unavailable:true, configured_channels:[] };
@@ -132,11 +144,18 @@
       }).join('');
       const outbox = Array.isArray(payload.outbox) ? payload.outbox : [];
       $('#unifiedNotificationDeliveries').innerHTML = outbox.length ? outbox.map((item) => {
-        const status = item.delivered_at ? 'доставлено' : (STATUS_LABELS[item.status] || item.status);
+        const deliveryUnknown = item.status === 'failed' && item.last_error_code === 'telegram_delivery_unknown';
+        const status = deliveryUnknown ? 'Нужна проверка' : (item.delivered_at ? 'доставлено' : (STATUS_LABELS[item.status] || item.status));
         const context = item.context || {};
         const appointment = [context.client_name, context.service_name, context.booking_date, String(context.booking_time || '').slice(0,5)].filter(Boolean).join(' · ');
-        const error = item.status === 'failed' && item.last_error ? ` · ${item.last_error}` : '';
-        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(appointment || new Date(item.created_at).toLocaleString('ru-RU'))}${escapeHtml(error)}</small></div><span><em>${escapeHtml(status)}</em>${item.status === 'failed' ? `<button class="secondary-button" style="min-height:44px" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>` : ''}</span></article>`;
+        const failureText = deliveryUnknown
+          ? 'Telegram мог принять сообщение. Проверьте чат; автоматический повтор отключён'
+          : item.last_error;
+        const error = item.status === 'failed' && failureText ? ` · ${failureText}` : '';
+        const retry = item.status === 'failed' && !deliveryUnknown
+          ? `<button class="secondary-button" style="min-height:44px" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>`
+          : '';
+        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(appointment || new Date(item.created_at).toLocaleString('ru-RU'))}${escapeHtml(error)}</small></div><span><em>${escapeHtml(status)}</em>${retry}</span></article>`;
       }).join('')
         : '<div class="provider-empty compact-empty"><strong>Единая очередь пока пуста</strong><small>Сообщения появятся после подключения хотя бы одного канала.</small></div>';
       setBusy(busy);
@@ -149,10 +168,17 @@
       if (event.target.id === 'unifiedNotificationsEnabled') {
         setBusy(true);
         const enabled = event.target.checked;
-        const result = await db.rpc('set_minuta_notification_master', { p_organization:organizationId, p_enabled:enabled });
+        let result = null;
+        let rejected = false;
+        try {
+          result = await db.rpc('set_minuta_notification_master', { p_organization:organizationId, p_enabled:enabled });
+        } catch {
+          rejected = true;
+        } finally {
+          if (current(operationRevision, organizationId)) setBusy(false);
+        }
         if (!current(operationRevision, organizationId)) return;
-        setBusy(false);
-        if (result.error) { notify('Не удалось изменить центр уведомлений'); await load(); return; }
+        if (rejected || result?.error) { notify('Не удалось изменить центр уведомлений'); await load(); return; }
         payload = result.data || payload;
         render();
         notify(enabled ? 'Единый центр уведомлений включён' : 'Единый центр уведомлений выключен');
@@ -163,15 +189,22 @@
       const audience = event.target.dataset.unifiedAudience;
       const channel = event.target.dataset.unifiedChannel;
       const enabled = event.target.checked;
-      const result = await db.rpc('set_minuta_notification_channel', {
-        p_organization:organizationId,
-        p_audience:audience,
-        p_channel:channel,
-        p_enabled:enabled
-      });
+      let result = null;
+      let rejected = false;
+      try {
+        result = await db.rpc('set_minuta_notification_channel', {
+          p_organization:organizationId,
+          p_audience:audience,
+          p_channel:channel,
+          p_enabled:enabled
+        });
+      } catch {
+        rejected = true;
+      } finally {
+        if (current(operationRevision, organizationId)) setBusy(false);
+      }
       if (!current(operationRevision, organizationId)) return;
-      setBusy(false);
-      if (result.error) { notify('Не удалось изменить канал'); await load(); return; }
+      if (rejected || result?.error) { notify('Не удалось изменить канал'); await load(); return; }
       payload = result.data || payload;
       render();
       notify('Настройка канала сохранена');
@@ -182,10 +215,17 @@
       const organizationId = organization.id;
       const operationRevision = revision;
       setBusy(true);
-      const result = await db.rpc('retry_notification_outbox', { p_outbox:retry.dataset.unifiedRetry });
+      let result = null;
+      let rejected = false;
+      try {
+        result = await db.rpc('retry_notification_outbox', { p_outbox:retry.dataset.unifiedRetry });
+      } catch {
+        rejected = true;
+      } finally {
+        if (current(operationRevision, organizationId)) setBusy(false);
+      }
       if (!current(operationRevision, organizationId)) return;
-      setBusy(false);
-      if (result.error) notify('Не удалось повторить уведомление');
+      if (rejected || result?.error) notify('Не удалось повторить уведомление');
       else notify('Уведомление возвращено в очередь');
       await load();
     }

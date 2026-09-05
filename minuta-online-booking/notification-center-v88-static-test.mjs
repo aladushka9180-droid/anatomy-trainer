@@ -57,6 +57,13 @@ assert.match(center, /requestRevision === revision && organization\?\.id === org
 assert.match(center, /if \(!current\(requestRevision, organizationId\)\) return/);
 assert.match(center, /if \(!current\(operationRevision, organizationId\)\) return/g);
 assert.match(center, /min-height:44px/);
+assert.match(center, /deliveryUnknown = item\.status === 'failed' && item\.last_error_code === 'telegram_delivery_unknown'/);
+assert.match(center, /Нужна проверка/);
+assert.match(center, /Telegram мог принять сообщение\. Проверьте чат; автоматический повтор отключён/);
+assert.match(center, /item\.status === 'failed' && !deliveryUnknown/);
+assert.match(center, /try \{[\s\S]*db\.rpc\('get_minuta_notification_workspace'[\s\S]*\} catch \(error\) \{/);
+assert.equal((center.match(/rejected = true;/g) || []).length, 3, 'master, channel and retry must handle rejected RPC promises');
+assert.equal((center.match(/finally \{/g) || []).length, 3, 'writes must clear busy state in finally');
 
 assert.match(rollback, /v88_rollback_requires_empty_unified_outbox/i);
 assert.match(rollback, /drop table if exists public\.notification_recipient_endpoints/i);
