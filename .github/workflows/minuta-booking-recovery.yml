@@ -63,8 +63,8 @@ jobs:
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/group-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs
       - name: Load pinned previous release for resource update verification
-        run: git fetch --depth=1 origin 1043106590243b7129b4aa51c2fec0c9fa031119
+        run: git fetch --depth=1 origin a245f216aaf06966190ddafe93c0b860eea38f45
       - name: Verify real service worker update and failed-install recovery
         env:
-          MINUTA_BASELINE_REF: 1043106590243b7129b4aa51c2fec0c9fa031119
+          MINUTA_BASELINE_REF: a245f216aaf06966190ddafe93c0b860eea38f45
         run: node minuta-online-booking/tests/pwa-resource-update-browser-test.mjs

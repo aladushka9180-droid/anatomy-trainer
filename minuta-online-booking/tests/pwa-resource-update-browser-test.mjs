@@ -19,7 +19,7 @@ const oldFile = path => execFileSync('git', ['show', `${baseline}:minuta-online-
 const newFile = path => readFileSync(resolve(appRoot, path));
 const prefix = '/minuta-online-booking/';
 const cachePrefix = 'massage-izhevsk-';
-const modules = ['group-bookings.js', 'benefit-management.js'];
+const modules = ['group-bookings.js', 'benefit-management.js', 'retention-management.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshot(read) {
@@ -46,8 +46,7 @@ assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have
 function shell(version) {
   return `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Isolated PWA update</title>
     <body data-release="${version}"><h1>Isolated resource update</h1>
-    <script src="./group-bookings.js?v=${version}"></script>
-    <script src="./benefit-management.js?v=${version}"></script></body></html>`;
+    ${modules.map(module => `<script src="./${module}?v=${version}"></script>`).join('\n')}</body></html>`;
 }
 const mime = { '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webmanifest':'application/manifest+json',
   '.html':'text/html', '.png':'image/png', '.webp':'image/webp', '.jpg':'image/jpeg' };
@@ -166,7 +165,7 @@ try {
   assert.deepEqual(await cacheHashes(newRelease), expectedHashes(newRelease));
   await page.reload();
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
-  assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits)), true);
+  assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits && window.MinutaRetention)), true);
   console.log(`PASS: v${newRelease.version} activates, removes old caches, and reloads the new module scripts`);
 
   await context.setOffline(true);
