@@ -32,23 +32,37 @@ function renderRequest(item) {
 
 async function loadRequest() {
   if (!/^[0-9a-f-]{36}$/i.test(token)) return showError();
-  const { data, error } = await db.rpc(organizationScope ? 'get_minuta_waitlist_request_v111' : 'get_waitlist_request', { p_token: token });
-  if (error || !data?.length) return showError();
-  $('#waitlistManageLoading').hidden = true;
-  $('#waitlistManageContent').hidden = false;
-  renderRequest(data[0]);
+  try {
+    const { data, error } = await db.rpc(organizationScope ? 'get_minuta_waitlist_request_v111' : 'get_waitlist_request', { p_token: token });
+    if (error) return showError(true);
+    if (!data?.length) return showError();
+    $('#waitlistManageLoading').hidden = true;
+    $('#waitlistManageError').hidden = true;
+    $('#waitlistManageContent').hidden = false;
+    renderRequest(data[0]);
+  } catch { showError(true); }
 }
 
-function showError() { $('#waitlistManageLoading').hidden = true; $('#waitlistManageError').hidden = false; }
+function showError(networkError = false) {
+  $('#waitlistManageLoading').hidden = true;
+  $('#waitlistManageContent').hidden = true;
+  $('#waitlistManageError').hidden = false;
+  $('#waitlistManageError h1').textContent = networkError ? 'Не удалось загрузить заявку' : 'Заявка не найдена';
+  $('#waitlistManageError p').textContent = networkError
+    ? 'Проверьте соединение и обновите страницу. Заявка не удалена из-за этой ошибки.'
+    : 'Ссылка могла быть повреждена или заявка больше недоступна.';
+}
 
 $('#cancelWaitlist').addEventListener('click', async () => {
   if (!confirm('Отменить заявку в листе ожидания?')) return;
   const button = $('#cancelWaitlist'); button.disabled = true;
-  const { error } = await db.rpc(organizationScope ? 'cancel_minuta_waitlist_request_v111' : 'cancel_waitlist_request', { p_token: token });
-  button.disabled = false;
-  if (error) { notify('Не удалось отменить заявку'); return; }
-  notify('Заявка отменена');
-  await loadRequest();
+  try {
+    const { error } = await db.rpc(organizationScope ? 'cancel_minuta_waitlist_request_v111' : 'cancel_waitlist_request', { p_token: token });
+    if (error) throw error;
+    notify('Заявка отменена');
+    await loadRequest();
+  } catch { notify('Не удалось отменить заявку. Проверьте соединение и попробуйте ещё раз.'); }
+  finally { button.disabled = false; }
 });
 
 loadRequest();
