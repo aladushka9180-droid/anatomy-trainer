@@ -20,7 +20,7 @@ docker exec "$box" pg_isready -U postgres >/dev/null
 docker cp "$CRM_SOURCE_DUMP" "$box:/tmp/source.dump" >/dev/null
 docker cp "$script_dir/crm-snapshot-offline-bootstrap.sql" "$box:/tmp/bootstrap.sql" >/dev/null
 docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/bootstrap.sql >"$private_log" 2>&1
-docker exec "$box" pg_restore --list /tmp/source.dump > "$RUNNER_TEMP/source.toc"
+docker exec "$box" pg_restore --list /tmp/source.dump > "$RUNNER_TEMP/source.toc" 2>>"$private_log"
 node "$script_dir/crm-snapshot-toc.mjs" toc "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc"
 docker cp "$RUNNER_TEMP/public.toc" "$box:/tmp/public.toc" >/dev/null
 for section in pre-data data post-data; do
@@ -42,7 +42,10 @@ if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/anonym
   echo 'Offline anonymization refused the snapshot; no testDB changes' >&2
   exit 1
 fi
-docker exec "$box" pg_dump -U postgres --schema=public --format=custom --no-owner --no-privileges \
-  --file=/tmp/anonymized.dump
+if ! docker exec "$box" pg_dump -U postgres --schema=public --format=custom --no-owner --no-privileges \
+  --file=/tmp/anonymized.dump >>"$private_log" 2>&1; then
+  echo 'Anonymized snapshot export failed; private output not published' >&2
+  exit 1
+fi
 docker cp "$box:/tmp/anonymized.dump" "$RUNNER_TEMP/crm-anonymized.dump" >/dev/null
 echo 'Offline snapshot prepared; target restore remains a separate guarded stage'

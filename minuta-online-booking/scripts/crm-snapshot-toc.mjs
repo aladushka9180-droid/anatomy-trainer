@@ -28,9 +28,11 @@ export function filterToc(input) {
 // from the archive-generated post-data SQL. Anything besides auth.users(id) fails.
 export function authPlaceholders(sql) {
   const inserts=[];
-  for(const statement of sql.split(';')) {
-    if(!/FOREIGN KEY[\s\S]*REFERENCES (?!public\.)/.test(statement)) continue;
-    const match=statement.match(/ALTER TABLE ONLY public\.([a-z_][a-z0-9_]*)\s+ADD CONSTRAINT [a-z_][a-z0-9_]* FOREIGN KEY \(([a-z_][a-z0-9_]*)\) REFERENCES auth\.users\(id\)/);
+  const withoutComments=sql.replace(/\/\*[\s\S]*?\*\//g,' ').replace(/^\s*--.*$/mg,'');
+  for(const statement of withoutComments.split(';')) {
+    if(!/\bFOREIGN\s+KEY\b/i.test(statement)) continue;
+    if(/\bREFERENCES\s+public\.[a-z_][a-z0-9_]*\s*\(/i.test(statement)) continue;
+    const match=statement.match(/ALTER\s+TABLE\s+ONLY\s+public\.([a-z_][a-z0-9_]*)\s+ADD\s+CONSTRAINT\s+[a-z_][a-z0-9_]*\s+FOREIGN\s+KEY\s*\(([a-z_][a-z0-9_]*)\)\s+REFERENCES\s+auth\.users\s*\(id\)/i);
     assert(match,'Unsupported external foreign key in snapshot');
     const [,table,column]=match;
     inserts.push(`insert into auth.users(id) select distinct ${column} from public.${table} where ${column} is not null on conflict do nothing;`);

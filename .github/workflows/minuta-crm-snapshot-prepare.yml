@@ -75,7 +75,9 @@ jobs:
           printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
             --passphrase-fd 0 --output "$RUNNER_TEMP/crm-source.dump" --decrypt "${dumps[0]}"
       - name: Validate offline filters
-        run: node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
+        run: |
+          node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-toc-review-test.mjs
       - name: Restore and anonymize without any network connection
         env:
           CRM_SOURCE_DUMP: ${{ runner.temp }}/crm-source.dump
