@@ -159,6 +159,44 @@ cases.push(['SAFETY pending input/change and duplicate native submit cannot star
   await fill(page);await page.evaluate(()=>{deferReply=true;});await submit(page);await edit(page,'#loyaltyAdjustmentPoints','100','input');await edit(page,'#loyaltyAdjustmentReason',reason);await submit(page);
   assert.equal(writes(await state(page)).length,1);await release(page,0,'success');assert.equal((await state(page)).rows.length,1);
 }]);
+for(const field of ['Reason','Points'])for(const transition of ['current','organization','account'])cases.push([
+  `SAFETY empty required ${field} after ${transition} has native restore without submitting or new RPC`,async page=>{
+    const original=await uncertain(page);const selector='#loyaltyAdjustment'+field;
+    await page.locator(selector).fill('');
+    // Ordinary browser validation prevents the submit handler from running.
+    // Do not synthesize SubmitEvent or call controller internals to bypass it.
+    await page.locator(button).click();await settle(page);
+    assert.equal(await page.locator('#loyaltyAdjustmentForm').evaluate(form=>form.checkValidity()),false);
+    assert.equal(writes(await state(page)).length,1,'Invalid native form must not submit');
+    if(transition!=='current'){
+      await page.evaluate(async({transition,orgB,actorB})=>{
+        if(transition==='account'){session.user=actorB;session.generation++;controller.reset();}
+        await controller.setOrganization({id:orgB,current_role:'owner'});
+      },{transition,orgB,actorB});
+      assert.equal(await page.locator('[data-loyalty-restore-adjustment]:visible').count(),0,'A recovery control must not appear for B without an intent');
+      await fill(page);await submit(page);
+      await page.evaluate(async({transition,org,actor})=>{
+        if(transition==='account'){session.user=actor;session.generation++;controller.reset();}
+        await controller.setOrganization({id:org,current_role:'owner'});
+      },{transition,org,actor});
+      assert.equal(await page.locator(selector).inputValue(),'','The actual empty A draft returns, not a silently fabricated valid one');
+      assert.equal(await page.locator('#loyaltyAdjustmentForm').evaluate(form=>form.checkValidity()),false);
+    }
+    const before=await state(page);const restore=page.locator('[data-loyalty-restore-adjustment]');
+    assert.equal(await restore.count(),1,'Unknown intent needs a recovery action outside native submit validation');
+    assert.equal(await restore.getAttribute('type'),'button');assert.equal(await restore.isVisible(),true);
+    assert.match(await restore.innerText(),/исходн/i);await restore.click();await settle(page);
+    const restored=await state(page);
+    assert.equal(restored.calls.length,before.calls.length,'Restore is local only: no mutation or read RPC');
+    assert.deepEqual(restored.notices,before.notices,'Restoring fields is not confirmation of a saved operation');
+    assert.equal(restored.client,client);assert.equal(restored.points,'100');assert.equal(restored.reason,reason);
+    assert.equal(await page.locator('#loyaltyAdjustmentForm').evaluate(form=>form.checkValidity()),true);
+    await submit(page);const resolved=await state(page);
+    assert.equal(resolved.rows.length,before.rows.length,'Separate explicit submit replays, not re-applies');
+    assert.deepEqual(writes(resolved).at(-1).args,writes(original)[0].args);
+    assert.equal(await page.locator('[data-loyalty-restore-adjustment]:visible').count(),0,'Confirmed intent no longer offers stale restoration');
+  }
+]);
 let failed=0;
 try{browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   for(const [name,run] of cases){const f=await fixture();try{await run(f.page);assert.deepEqual(f.errors,[]);assert.deepEqual(f.traffic,[]);console.log('PASS '+name);}catch(error){failed++;console.error('FAIL '+name+' — '+error.message);}finally{await f.context.close();}}
