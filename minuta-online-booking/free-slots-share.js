@@ -63,8 +63,8 @@
     const target = [data.serviceLabel, data.locationLabel].filter(Boolean).join(' · ');
     const heading = dates.length === 1 ? `Свободное время на ${formatDate(dates[0])}:` : 'Свободное время для записи:';
     const body = rows.length
-      ? rows.slice(0, 7).map(row => {
-          const times = row.times.length <= 3 ? row.times : [row.times[0], row.times[Math.floor((row.times.length - 1) / 2)], row.times[row.times.length - 1]];
+      ? (data.selectedOnly ? rows : rows.slice(0, 7)).map(row => {
+          const times = data.selectedOnly || row.times.length <= 3 ? row.times : [row.times[0], row.times[Math.floor((row.times.length - 1) / 2)], row.times[row.times.length - 1]];
           return `${dates.length === 1 ? 'Начало сеанса: ' : `${formatDate(row.date)} — `}${times.join(', ')}`;
         }).join('\n')
       : 'На выбранный период свободных окон пока нет.';
@@ -289,11 +289,60 @@
     const downloadQrButton = dialog.querySelector('#downloadFreeSlotsQr');
     const qrWrap = dialog.querySelector('.free-slots-qr-wrap');
     const fromLabel = dialog.querySelector('#freeSlotsFromLabel');
+    const showServiceControl = dialog.querySelector('#freeSlotsShowService');
+    const timeChoices = dialog.querySelector('#freeSlotsTimeChoices');
+    const selectionSummary = dialog.querySelector('#freeSlotsSelectionSummary');
+    const clearSelectionButton = dialog.querySelector('#freeSlotsClearSelection');
     let serverContext = null;
     let serverSlots = [];
     let requestRevision = 0;
     let publicationReady = false;
     let publicationText = '';
+    let selectionContext = '';
+    let selectedTimes = new Set();
+
+    function timeKey(slot) { return `${slot.booking_date}T${slotTime(slot.booking_time)}`; }
+
+    function renderTimeChoices(contextKey) {
+      const groups = new Map();
+      const { from, to } = currentRange();
+      const allowedDates = new Set(dateSpan(from, to));
+      for (const slot of serverSlots) {
+        const date = String(slot.booking_date || '');
+        const time = slotTime(slot.booking_time);
+        if (!allowedDates.has(date) || !time) continue;
+        if (!groups.has(date)) groups.set(date, new Set());
+        groups.get(date).add(time);
+      }
+      const rows = [...groups].sort(([left], [right]) => left.localeCompare(right))
+        .map(([date, times]) => ({ date, times:[...times].sort() }));
+      const availableKeys = new Set(rows.flatMap(row => row.times.map(time => `${row.date}T${time}`)));
+      if (selectionContext !== contextKey) {
+        selectedTimes = new Set();
+        for (const row of rows.slice(0, 7)) {
+          const times = row.times.length <= 3 ? row.times : [row.times[0], row.times[Math.floor((row.times.length - 1) / 2)], row.times[row.times.length - 1]];
+          times.forEach(time => selectedTimes.add(`${row.date}T${time}`));
+        }
+        selectionContext = contextKey;
+      } else selectedTimes = new Set([...selectedTimes].filter(key => availableKeys.has(key)));
+      timeChoices.replaceChildren();
+      for (const row of rows) {
+        const section = document.createElement('section');
+        const heading = document.createElement('h4'); heading.textContent = formatDate(row.date);
+        const grid = document.createElement('div'); grid.className = 'free-slots-time-grid';
+        for (const time of row.times) {
+          const label = document.createElement('label');
+          const input = document.createElement('input'); input.type = 'checkbox';
+          input.value = `${row.date}T${time}`; input.checked = selectedTimes.has(input.value);
+          input.setAttribute('aria-label', `${formatDate(row.date)}, начало в ${time}`);
+          const caption = document.createElement('span'); caption.textContent = time;
+          label.append(input, caption); grid.append(label);
+        }
+        section.append(heading, grid); timeChoices.append(section);
+      }
+      if (!rows.length) timeChoices.textContent = 'На выбранные даты свободного времени нет.';
+      clearSelectionButton.disabled = !rows.length;
+    }
 
     function rangeMode() { return modeControls.find(control => control.checked)?.value === 'range'; }
 
@@ -363,7 +412,8 @@
         publicationData:{
           ...data,
           bookingUrl:trackingUrl,
-          serviceLabel:service ? `${service.name || 'Услуга'}${service.performer_profiles?.display_name ? ` · ${service.performer_profiles.display_name}` : ''}` : '',
+          selectedOnly:true,
+          serviceLabel:service ? [showServiceControl.checked ? (service.name || 'Услуга') : '', service.performer_profiles?.display_name].filter(Boolean).join(' · ') : '',
           locationLabel:[
             (serverContext?.locations || []).length > 1 && !/^(?:(?:основной|главный|единственный)\s+)?филиал$/i.test(location?.name || '') ? location?.name : '',
             location?.address
@@ -375,9 +425,14 @@
     function renderPublication() {
       if (!publicationReady) return;
       const model = publicationModel();
-      publicationText = buildPublication(model.from, model.to, model.publicationData, serverSlots);
+      const chosenSlots = serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
+      publicationText = buildPublication(model.from, model.to, model.publicationData, chosenSlots);
+      const hasSelection = chosenSlots.length > 0;
+      selectionSummary.textContent = `Выбрать время · отмечено ${selectedTimes.size}`;
       const trackingUrl = model.trackingUrl;
-      textArea.value = publicationText.slice(0, -trackingUrl.length) + 'Ссылка на онлайн-запись';
+      textArea.value = !hasSelection && serverSlots.length
+        ? 'Отметьте время, которое хотите включить в публикацию.'
+        : publicationText.slice(0, -trackingUrl.length) + 'Ссылка на онлайн-запись';
       bookingLink.href = trackingUrl;
       bookingLink.textContent = 'Открыть страницу записи';
       const showQr = sourceControls.some(control => control.checked && control.value === 'qr');
@@ -395,8 +450,8 @@
         }
       }
       status.textContent = '';
-      copyButton.disabled = false;
-      shareButton.disabled = false;
+      copyButton.disabled = !hasSelection && serverSlots.length > 0;
+      shareButton.disabled = copyButton.disabled;
       copyLinkButton.disabled = false;
     }
 
@@ -415,6 +470,9 @@
       copyButton.disabled = true;
       shareButton.disabled = true;
       copyLinkButton.disabled = true;
+      clearSelectionButton.disabled = true;
+      timeChoices.replaceChildren();
+      selectionSummary.textContent = 'Время пока недоступно';
       dialog.removeAttribute('aria-busy');
     }
 
@@ -426,6 +484,8 @@
       copyLinkButton.disabled = true;
       bookingLink.removeAttribute('href');
       qrWrap.hidden = true;
+      clearSelectionButton.disabled = true;
+      timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
       status.textContent = 'Проверяем свободное время на сервере…';
       dialog.setAttribute('aria-busy', 'true');
       try {
@@ -455,6 +515,7 @@
         if (revision !== requestRevision || !dialog.open) return;
         if (result?.error) throw result.error;
         serverSlots = Array.isArray(result?.data) ? result.data : [];
+        renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
         publicationReady = true;
         dialog.removeAttribute('aria-busy');
         renderPublication();
@@ -485,6 +546,19 @@
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
     modeControls.forEach(control => control.addEventListener('change', () => { void refreshFromServer(); }));
     sourceControls.forEach(control => control.addEventListener('change', renderPublication));
+    showServiceControl.addEventListener('change', renderPublication);
+    timeChoices.addEventListener('change', event => {
+      if (!publicationReady || event.target.type !== 'checkbox') return;
+      if (event.target.checked) selectedTimes.add(event.target.value);
+      else selectedTimes.delete(event.target.value);
+      renderPublication();
+    });
+    clearSelectionButton.addEventListener('click', () => {
+      if (!publicationReady) return;
+      selectedTimes.clear();
+      timeChoices.querySelectorAll('input').forEach(input => { input.checked = false; });
+      renderPublication();
+    });
     fromInput.addEventListener('change', () => { void refreshFromServer(); });
     toInput.addEventListener('change', () => { void refreshFromServer(); });
     serviceSelect.addEventListener('change', () => { void refreshFromServer(); });
@@ -493,13 +567,13 @@
       void refreshFromServer();
     });
     copyButton.addEventListener('click', async () => {
-      if (!publicationReady) return;
+      if (!publicationReady || copyButton.disabled) return;
       const copied = await copyText(publicationText);
       status.textContent = copied ? 'Текст скопирован.' : 'Не удалось скопировать автоматически. Выделите текст вручную.';
       notify(copied ? 'Свободные окна скопированы' : 'Выделите и скопируйте текст вручную');
     });
     shareButton.addEventListener('click', async () => {
-      if (!publicationReady) return;
+      if (!publicationReady || shareButton.disabled) return;
       if (navigator.share) {
         try {
           await navigator.share({ title:'Свободные окна для записи', text:publicationText });

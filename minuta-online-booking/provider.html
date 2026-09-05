@@ -1275,6 +1275,13 @@
     <fieldset class="free-slots-mode"><legend class="sr-only">Период свободных окон</legend><label><input name="freeSlotsPeriod" type="radio" value="day" checked><span>Один день</span></label><label><input name="freeSlotsPeriod" type="radio" value="range"><span>Диапазон</span></label></fieldset>
     <div class="free-slots-dates"><label><span id="freeSlotsFromLabel">Дата</span><input id="freeSlotsFrom" type="date" required></label><label id="freeSlotsToField" hidden>По дату<input id="freeSlotsTo" type="date" required></label></div>
     <fieldset class="free-slots-source"><legend>Где разместите ссылку</legend><div><label><input name="freeSlotsSource" type="radio" value="master" checked><span>Обычная ссылка</span></label><label><input name="freeSlotsSource" type="radio" value="telegram"><span>Telegram</span></label><label><input name="freeSlotsSource" type="radio" value="whatsapp"><span>WhatsApp</span></label><label><input name="freeSlotsSource" type="radio" value="vk"><span>ВКонтакте</span></label><label><input name="freeSlotsSource" type="radio" value="qr"><span>QR-код</span></label></div><small>Метка добавится к ссылке автоматически и покажет владельцу источник перехода.</small></fieldset>
+    <details class="free-slots-time-picker">
+      <summary id="freeSlotsSelectionSummary">Выбрать время</summary>
+      <p>В публикацию войдут только отмеченные времена начала сеанса.</p>
+      <div id="freeSlotsTimeChoices"></div>
+      <button class="secondary-button" id="freeSlotsClearSelection" type="button" disabled>Снять выбор</button>
+    </details>
+    <label class="free-slots-title-toggle"><input id="freeSlotsShowService" type="checkbox" checked><span>Показывать название услуги в тексте</span></label>
     <label class="free-slots-text-label">Готовый текст<textarea id="freeSlotsText" rows="6" readonly aria-describedby="freeSlotsShareStatus"></textarea></label>
     <div class="free-slots-preview">
       <div class="free-slots-link"><a id="freeSlotsBookingLink" target="_blank" rel="noopener noreferrer">Открыть страницу записи</a><button class="secondary-button" id="copyFreeSlotsLink" type="button" disabled>Скопировать ссылку</button></div>
