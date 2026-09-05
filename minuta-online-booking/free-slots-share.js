@@ -300,6 +300,8 @@
     let publicationText = '';
     let selectionContext = '';
     let selectedTimes = new Set();
+    let checkingPublication = false;
+    let confirmedPublication = null;
 
     function timeKey(slot) { return `${slot.booking_date}T${slotTime(slot.booking_time)}`; }
 
@@ -519,11 +521,48 @@
         publicationReady = true;
         dialog.removeAttribute('aria-busy');
         renderPublication();
+        return true;
       } catch {
         if (revision !== requestRevision || !dialog.open) return;
         showUnavailable(navigator.onLine
           ? 'Не удалось проверить свободное время. Повторите попытку позже.'
           : 'Нет соединения. Для публикации нужна свежая проверка сервера.');
+      }
+    }
+
+    function hasFreshConfirmation() {
+      return confirmedPublication && publicationReady && dialog.open
+        && confirmedPublication.revision === requestRevision
+        && confirmedPublication.text === publicationText
+        && Date.now() - confirmedPublication.at < 5000;
+    }
+
+    async function confirmFreshPublication(actionLabel) {
+      if (checkingPublication || !publicationReady || !dialog.open) return false;
+      checkingPublication = true;
+      confirmedPublication = null;
+      const previousSelection = [...selectedTimes];
+      const expectedRevision = requestRevision + 1;
+      try {
+        const refreshed = await refreshFromServer({ reloadContext:true });
+        if (refreshed !== true || requestRevision !== expectedRevision || !dialog.open || !publicationReady) return false;
+        const removed = previousSelection.filter(key => !selectedTimes.has(key));
+        if (removed.length) {
+          status.textContent = 'Часть выбранного времени уже недоступна и убрана из текста. Проверьте публикацию и нажмите кнопку ещё раз.';
+          notify('Свободное время изменилось. Текст обновлён.');
+          return false;
+        }
+        if (copyButton.disabled) return false;
+        // Native share/clipboard can require a new trusted tap after a network wait.
+        // Keep that confirmation short-lived and tied to the exact checked text.
+        if (navigator.userActivation?.isActive !== true) {
+          confirmedPublication = { revision:requestRevision, text:publicationText, at:Date.now() };
+          status.textContent = `Время проверено. Нажмите «${actionLabel}» ещё раз для продолжения.`;
+          return false;
+        }
+        return true;
+      } finally {
+        checkingPublication = false;
       }
     }
 
@@ -539,6 +578,7 @@
 
     const close = () => {
       requestRevision += 1;
+      confirmedPublication = null;
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
     };
@@ -568,12 +608,16 @@
     });
     copyButton.addEventListener('click', async () => {
       if (!publicationReady || copyButton.disabled) return;
+      if (!hasFreshConfirmation() && !(await confirmFreshPublication('Скопировать текст'))) return;
+      confirmedPublication = null;
       const copied = await copyText(publicationText);
       status.textContent = copied ? 'Текст скопирован.' : 'Не удалось скопировать автоматически. Выделите текст вручную.';
       notify(copied ? 'Свободные окна скопированы' : 'Выделите и скопируйте текст вручную');
     });
     shareButton.addEventListener('click', async () => {
       if (!publicationReady || shareButton.disabled) return;
+      if (!hasFreshConfirmation() && !(await confirmFreshPublication('Поделиться'))) return;
+      confirmedPublication = null;
       if (navigator.share) {
         try {
           await navigator.share({ title:'Свободные окна для записи', text:publicationText });
