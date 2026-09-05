@@ -54,6 +54,7 @@ assert.doesNotMatch(concurrency, /-c\s+"[^"]*:'holder_app'/i, 'psql variables mu
 assert.match(concurrency, /pg_advisory_xact_lock[\s\S]*not pg_try_advisory_lock/i, 'concurrency test must synchronize without relying on pooler session metadata');
 assert.doesNotMatch(concurrency, /insert into public\.booking_resource_allocations/i, 'concurrency must not bypass the allocator with direct allocation inserts');
 assert.match(concurrency, /resource_unavailable[\s\S]*status\s*=\s*'cancelled'[\s\S]*book_minuta_appointment/i, 'concurrency must prove conflict rejection and resource release after cancellation');
+assert.match(concurrency, /delete from public\.resource_audit_log[\s\S]*subject_id in \([\s\S]*:'resource_id'::uuid[\s\S]*:'group_id'::uuid[\s\S]*:'specialist_service_id'::uuid[\s\S]*details::text like/i, 'concurrency cleanup must remove every audit row created by its fixture');
 
 assert.match(app, /get_public_minuta_catalog_v3/, 'public booking must prefer the v3 catalog');
 assert.match(app, /get_public_minuta_available_slots_v3/, 'public booking must request branch-aware resource slots');

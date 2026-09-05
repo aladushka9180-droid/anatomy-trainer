@@ -30,7 +30,12 @@ end $$;
 delete from public.booking_resource_allocations where resource_id=:'resource_id'::uuid;
 delete from public.service_resource_requirements where group_id=:'group_id'::uuid;
 delete from public.resource_audit_log
-where action='requirements_replaced' and details::text like '%' || :'group_id' || '%';
+where subject_id in (
+    :'resource_id'::uuid,
+    :'group_id'::uuid,
+    :'specialist_service_id'::uuid
+  )
+  or details::text like '%' || :'group_id' || '%';
 delete from public.resources where id=:'resource_id'::uuid;
 delete from public.resource_groups where id=:'group_id'::uuid;
 delete from public.services where id=:'specialist_service_id'::uuid;
