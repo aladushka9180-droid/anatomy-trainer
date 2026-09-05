@@ -75,6 +75,10 @@ assert.match(provider, /provider-themes-signature\.css\?v=447/, 'Кабинет 
 assert.match(worker, /\.\/provider-themes-signature\.css\?v=447/, 'Service Worker не кэширует Signature Collection v447');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
+const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
+assert.match(mobileTiger, /background-size:auto,480px auto!important/);
+assert.match(mobileTiger, /rgba\(255,243,231,\.5\)/, 'Mobile tiger keeps its muted palette');
+
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
 assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
 assert.match(mobileSnow, /--snow-print-size:260px/);
