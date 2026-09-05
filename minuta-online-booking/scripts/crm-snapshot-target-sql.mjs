@@ -181,6 +181,7 @@ function validateStatement(part) {
       || matches(action,`^ALTER COLUMN ${identifier} SET DEFAULT `)
       || matches(action,`^ALTER COLUMN ${identifier} ADD GENERATED (?:ALWAYS|BY DEFAULT) AS IDENTITY\\s*\\(`)
       || /^(?:ENABLE|FORCE|NO FORCE) ROW LEVEL SECURITY;$/i.test(action)
+      || matches(action,`^REPLICA IDENTITY (?:FULL|DEFAULT|NOTHING|USING INDEX ${identifier});$`)
       || matches(action,`^ATTACH PARTITION ${object}\\s`),
     'Unsupported restore ALTER TABLE');return 'keep';
   }

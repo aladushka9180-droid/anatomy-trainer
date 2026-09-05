@@ -111,6 +111,14 @@ test('does not let dump defaults remove the caller timeout bounds',()=>{
   assert.throws(()=>transformTargetSql(fixture('SET session_replication_role = replica;')));
 });
 
+test('preserves canonical table replica identity without accepting replica triggers',()=>{
+  for(const form of ['FULL','DEFAULT','NOTHING','USING INDEX booking_pk']){
+    assert.match(transformTargetSql(fixture(`ALTER TABLE ONLY public.bookings REPLICA IDENTITY ${form};`)),/REPLICA IDENTITY/);
+  }
+  assert.throws(()=>transformTargetSql(fixture('ALTER TABLE public.bookings ENABLE REPLICA TRIGGER unsafe;')));
+  assert.throws(()=>transformTargetSql(fixture('ALTER TABLE public.bookings REPLICA IDENTITY USING INDEX other.private;')));
+});
+
 test('guards only known public object drops when their owning table is missing',()=>{
   for(const kind of ['TRIGGER','POLICY','RULE']) {
     const output=transformTargetSql(fixture(`DROP ${kind} IF EXISTS old_object ON public.absent_table;`));
