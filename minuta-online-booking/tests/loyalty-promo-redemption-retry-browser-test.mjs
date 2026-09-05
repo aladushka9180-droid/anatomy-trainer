@@ -49,7 +49,7 @@ async function fixture() {
     const clone=value=>structuredClone(value),id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
     const rows=[],calls=[],notices=[],writeGates=[],readGates=[];
     const session={actor,generation:1};
-    let mode='success',readMode='success',deferWrite=false,deferRead=false,ackPatch=null,amount=10000,bps=1000;
+    let mode='success',readMode='success',deferWrite=false,deferRead=false,ackPatch=null,amount=10000,bps=1000,promoKind='percent';
     const scope=org=>{const s=[A,B].find(s=>s.org===org);if(!s)throw Error('Unmodelled organization');return s;};
     const clients=s=>[{id:s.client,client_name:'Клиент А',client_phone:'+79990000001'},{id:s.otherClient,client_name:'Клиент Б',client_phone:'+79990000002'}];
     const bookings=s=>[s.booking,s.nextBooking,s.otherBooking].map((value,index)=>({id:value,client_account_id:index===2?s.otherClient:s.client,
@@ -57,7 +57,7 @@ async function fixture() {
       visit_status:'completed',payment_method:'cash',amount_rub:amount}));
     function workspace(org){const s=scope(org);return {organization_id:org,current_role:'owner',enabled:true,max_redeem_percent_bps:3000,rule:{earn_rate_bps:500,min_paid_amount_rub:0},
       clients:clients(s),bookings:bookings(s),accounts:[],ledger:[],promo_redemptions:clone(rows.filter(r=>r.organization_id===org)),
-      promotions:[{id:s.promotion,code,kind:'percent',value:bps,active:true,valid_from:'2026-01-01',valid_until:'2026-12-31',
+      promotions:[{id:s.promotion,code,kind:promoKind,value:bps,active:true,valid_from:'2026-01-01',valid_until:'2026-12-31',
         total_limit:null,per_client_limit:null,usage_count:rows.filter(r=>r.organization_id===org).length}]};}
     function apply(p){
       const fail=(code,message)=>({data:null,error:{code,message}});
@@ -73,7 +73,7 @@ async function fixture() {
       const target=bookings(s).find(row=>row.id===p.p_booking);
       if(canonical!==code||!target)return fail('55000','promo_not_available');
       if(rows.some(row=>row.booking_id===target.id))return fail('23505','promo_already_applied');
-      const amount=target.amount_rub,discount=Math.min(amount,Math.floor(amount*bps/10000));
+      const amount=target.amount_rub,discount=Math.min(amount,promoKind==='percent'?Math.floor(amount*bps/10000):bps);
       if(discount<1||amount-discount<0||amount>10000000)throw Error('Outside v81 promo CHECK constraints');
       const row={id:id(100+rows.length),organization_id:org,promotion_id:promotion,booking_id:target.id,client_account_id:target.client_account_id,
         request_id:p.p_request_id,original_amount_rub:amount,discount_rub:discount,final_amount_rub:amount-discount,actor_id:session.actor,created_at:'2026-09-06T12:00:00Z'};
@@ -114,7 +114,7 @@ async function fixture() {
       sessionIsCurrent:(user,generation)=>user===session.actor&&generation===session.generation,applyWriteAvailability(){}});
     window.promoFixture={controller,rows,calls,notices,session,writeGates,readGates,mode:value=>{mode=value;},readMode:value=>{readMode=value;},
       deferWrite:()=>{deferWrite=true;},deferRead:()=>{deferRead=true;},forge:patch=>{mode='forged';ackPatch=patch;},
-      amountBoundary:(value,rate)=>{amount=value;bps=rate;}};
+      amountBoundary:(value,rate,kind)=>{amount=value;bps=rate;promoKind=kind;}};
     controller.bind();await controller.setOrganization({id:org,current_role:'owner'});
   },{A,B,code});
   // The real promo application form lives in a CLOSED native details element.
@@ -243,10 +243,12 @@ for(const phase of ['original','replay'])for(const [label,patch] of [
   assert.equal(after.notices.filter(n=>n==='Промокод применён и проверен сервером').length,0);
   assert.equal(after.code,code);assert.ok(after.error,'Malformed response must leave an explicit unresolved result');
 }]);
-for(const phase of ['original','replay'])for(const [label,amount,bps,discount,final] of [
-  ['minimum one-ruble discount',10,1000,1,9],['ten-million full discount and zero final',10000000,10000,10000000,0]
+// Use a fixed discount for the 10M positive: JS multiplication cannot prove
+// actual v81 integer multiplication is safe for 10M * 10000 percentage inputs.
+for(const phase of ['original','replay'])for(const [label,amount,bps,discount,final,kind] of [
+  ['minimum one-ruble discount',10,1000,1,9,'percent'],['ten-million full discount and zero final',10000000,10000000,10000000,0,'fixed']
 ])cases.push([`CONTROL ${phase} accepts ${label}`,async page=>{
-  await page.evaluate(async({amount,bps})=>{promoFixture.amountBoundary(amount,bps);await promoFixture.controller.load();},{amount,bps});
+  await page.evaluate(async({amount,bps,kind})=>{promoFixture.amountBoundary(amount,bps,kind);await promoFixture.controller.load();},{amount,bps,kind});
   if(phase==='replay')await unknown(page);else await fill(page);
   await submit(page);const s=await state(page);assert.equal(s.rows.length,1);
   assert.equal(writes(s).at(-1).reply.data.discount_rub,discount);assert.equal(writes(s).at(-1).reply.data.final_amount_rub,final);
