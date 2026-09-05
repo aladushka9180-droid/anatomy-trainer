@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {filterToc,authPlaceholders} from './crm-snapshot-toc.mjs';
+const toc='1; 1 1 TABLE public bookings postgres\n2; 1 1 TABLE DATA public bookings postgres\n';
+assert.equal(filterToc(toc+'3; 1 1 TABLE DATA vault secrets postgres\n4; 1 1 EVENT TRIGGER - public_bad postgres\n5; 1 1 FUNCTION net http_post() postgres\n6; 1 1 ACL public FUNCTION bad() postgres\n'),toc);
+assert.throws(()=>filterToc('unexpected'));
+assert.throws(()=>filterToc('1; 1 1 TABLE public bookings postgres'));
+assert.match(authPlaceholders('ALTER TABLE ONLY public.organizations\n ADD CONSTRAINT organizations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;'),/select distinct created_by from public.organizations/);
+assert.throws(()=>authPlaceholders('ALTER TABLE ONLY public.bookings ADD CONSTRAINT bad FOREIGN KEY (id) REFERENCES storage.objects(id);'));
+assert.throws(()=>authPlaceholders('ALTER TABLE ONLY public.bookings ADD CONSTRAINT bad FOREIGN KEY (id, other) REFERENCES auth.users(id, other);'));
+console.log('Offline snapshot TOC/auth filters: PASS');
