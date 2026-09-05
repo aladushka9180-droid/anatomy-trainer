@@ -35,6 +35,9 @@ for section in pre-data data post-data; do
     --section="$section" --file="/tmp/$section.sql" /tmp/source.dump >>"$private_log" 2>&1
 done
 docker cp "$box:/tmp/post-data.sql" "$RUNNER_TEMP/public-post-data.sql" >/dev/null
+stage=strip-outbound-webhooks
+node "$script_dir/crm-snapshot-postdata.mjs" "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/filtered-post-data.sql"
+docker cp "$RUNNER_TEMP/filtered-post-data.sql" "$box:/tmp/post-data.sql" >/dev/null
 stage=auth-placeholders
 node "$script_dir/crm-snapshot-toc.mjs" auth "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
 docker cp "$RUNNER_TEMP/auth-placeholders.sql" "$box:/tmp/auth-placeholders.sql" >/dev/null

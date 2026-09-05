@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {filterPostData} from './crm-snapshot-postdata.mjs';
+const sql=`CREATE TRIGGER webhook AFTER INSERT ON public.bookings FOR EACH ROW EXECUTE FUNCTION supabase_functions.http_request('https://private.invalid', 'POST', '{"Authorization":"secret"}', '{}', '1000');
+CREATE TRIGGER updated BEFORE UPDATE ON public.bookings FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT booking_pk PRIMARY KEY (id);`;
+const result=filterPostData(sql);
+assert.equal(result.removed,1);
+assert(!result.output.includes('private.invalid'));
+assert(!result.output.includes('secret'));
+assert(result.output.includes('touch_updated_at'));
+assert(result.output.includes('booking_pk'));
+assert.throws(()=>filterPostData("CREATE TRIGGER unsafe AFTER INSERT ON public.bookings FOR EACH ROW EXECUTE FUNCTION public.dispatch('secret');"));
+assert.throws(()=>filterPostData("CREATE TRIGGER unsafe AFTER INSERT ON public.bookings FOR EACH ROW EXECUTE FUNCTION other.dispatch();"));
+console.log('Post-data webhook filtering and rejection: PASS');
