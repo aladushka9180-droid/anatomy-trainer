@@ -938,7 +938,25 @@
 }
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-    --snow-print-veil:rgba(255,255,255,.90);
-    --snow-print-size:360px;
+    --snow-print-veil:rgba(255,255,255,.80);
+    --snow-print-size:260px;
+  }
+  /* Reveal the canvas between sections; keep each reading surface opaque. */
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-view,.schedule-card) {
+    background:transparent!important;
+    background-image:none!important;
+    border-color:transparent!important;
+    box-shadow:none!important;
+  }
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-view>.view-title,.provider-view>.view-description,.settings-tabs) {
+    background:var(--theme-surface)!important;
+    border-radius:var(--material-control-radius)!important;
+  }
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .schedule-card>:is(.date-strip,.schedule-toolbar,#providerBookings) {
+    margin-top:10px!important;
+  }
+  .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] #providerBookings.schedule-list {
+    background:transparent!important;
+    gap:12px!important;
   }
 }

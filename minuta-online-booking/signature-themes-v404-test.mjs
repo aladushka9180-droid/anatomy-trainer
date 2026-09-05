@@ -74,4 +74,12 @@ for (const [key, color, group] of [
 assert.match(provider, /provider-themes-signature\.css\?v=445/, 'Кабинет не подключает Signature Collection v445');
 assert.match(worker, /\.\/provider-themes-signature\.css\?v=445/, 'Service Worker не кэширует Signature Collection v445');
 
+// Mobile Snow Leopard reveals the canvas without making booking cards translucent.
+const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
+assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
+assert.match(mobileSnow, /--snow-print-size:260px/);
+assert.match(mobileSnow, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
+assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
+assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
+
 console.log('Signature themes v445: 13 unified themes OK');
