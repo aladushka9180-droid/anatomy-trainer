@@ -69,7 +69,8 @@ await database.exec(`
   );
   create table public.telegram_notification_log(
     id uuid primary key default gen_random_uuid(),booking_id uuid,event_type text,booking_date date,
-    booking_time time without time zone,sent_at timestamptz default now()
+    booking_time time without time zone,sent_at timestamptz default now(),
+    unique(booking_id,event_type,booking_date,booking_time)
   );
   create function public.has_organization_role(uuid,text[]) returns boolean language sql stable as $$select true$$;
   create function public.enqueue_minuta_booking_notification(p_booking uuid,p_kind text)
@@ -152,17 +153,12 @@ Deno.test("old Telegram stays live while unified is off and unavailable worker c
   assertEquals(before.rows, [{ cutover:false, legacy_allowed:true }]);
   const blockedClaim = await database.query(`select * from public.claim_minuta_notification_outbox(array['telegram'],20)`);
   assertEquals(blockedClaim.rows.length,0);
-  await database.exec(`
-    insert into public.telegram_notification_log(booking_id,event_type,booking_date,booking_time)
-      values('${booking}','confirmation','2099-09-10','14:30');
-    select public.record_minuta_legacy_notification_delivery_v114(
-      '${booking}','confirmation','2099-09-10','14:30',now()
-    );
+  const lease = await database.query<{ result:{ allowed:boolean; state:string; lock_token:string } }>(`
+    select public.begin_minuta_legacy_notification_delivery_v114(
+      '${booking}','confirmation','2099-09-10','14:30'
+    ) result
   `);
-  const mirrored = await database.query<{ status:string }>(`
-    select status from public.notification_outbox where booking_id='${booking}'
-  `);
-  assertEquals(mirrored.rows,[{ status:"sent" }]);
+  assertEquals(lease.rows[0].result.allowed,true);
 
   await database.exec(`
     update public.organization_notification_settings set enabled=true where organization_id='${organization}';
@@ -185,6 +181,22 @@ Deno.test("old Telegram stays live while unified is off and unavailable worker c
   await database.exec(`
     select public.mark_minuta_notification_worker_ready_v114('telegram_client_bridge','v114')
   `);
+  await assertRejects(() => database.exec(`
+    select public.activate_minuta_notification_v114_cutover('${organization}','v114',array['telegram'])
+  `));
+  const duringSend = await database.query<{ cutover:boolean }>(`
+    select public.is_minuta_notification_v114_cutover('${booking}') cutover
+  `);
+  assertEquals(duringSend.rows,[{ cutover:false }]);
+  await database.exec(`
+    select public.finish_minuta_legacy_notification_delivery_v114(
+      '${lease.rows[0].result.lock_token}','sent',now()
+    )
+  `);
+  const mirrored = await database.query<{ status:string }>(`
+    select status from public.notification_outbox where booking_id='${booking}'
+  `);
+  assertEquals(mirrored.rows,[{ status:"sent" }]);
   const activated = await database.query<{ result:{ activated:boolean; remaining_legacy_organizations:number; legacy_cron_disabled:boolean } }>(`
     select public.activate_minuta_notification_v114_cutover('${organization}','v114',array['telegram']) result
   `);
@@ -201,6 +213,12 @@ Deno.test("old Telegram stays live while unified is off and unavailable worker c
   await database.exec(`
     insert into public.bookings values('${newBooking}','CUT2',gen_random_uuid(),'${performer}','${service}','Старый клиент','79990000008','2099-09-10','14:45','confirmed','${organization}')
   `);
+  const postCutoverLegacy = await database.query<{ result:{ allowed:boolean; state:string } }>(`
+    select public.begin_minuta_legacy_notification_delivery_v114(
+      '${newBooking}','confirmation','2099-09-10','14:45'
+    ) result
+  `);
+  assertEquals(postCutoverLegacy.rows[0].result,{ allowed:false,state:"unified_cutover" });
   const unifiedClaim = await database.query<{ booking_id:string }>(`select booking_id from public.claim_minuta_notification_outbox(array['telegram'],20)`);
   assertEquals(unifiedClaim.rows.some(row => row.booking_id===booking),false);
   assertEquals(unifiedClaim.rows.some(row => row.booking_id===newBooking),true);
@@ -241,6 +259,32 @@ Deno.test("connection unlocks one idempotent send and delivery needs evidence", 
   assertEquals(evidence.rows[0].delivery_receipt_source, "mock_gateway");
 });
 
+Deno.test("expired ambiguous Telegram lease is quarantined and never auto-claimed", async () => {
+  const booking = "00000000-0000-4000-8000-000000000021";
+  await database.exec(`
+    insert into public.bookings values('${booking}','B21',gen_random_uuid(),'${performer}','${service}','Клиент','79990000020','2099-09-10','16:30','confirmed','${organization}');
+    update public.notification_outbox set status='sending',attempts=1,locked_at=now()-interval '16 minutes',lock_token=gen_random_uuid()
+      where booking_id='${booking}';
+    insert into public.notification_delivery_attempts(outbox_id,performer_id,attempt_no,outcome)
+      select id,performer_id,1,'sending' from public.notification_outbox where booking_id='${booking}';
+  `);
+  const claimed = await database.query<{ booking_id:string }>(`select booking_id from public.claim_minuta_notification_outbox(array['telegram'],20)`);
+  assertEquals(claimed.rows.some(row => row.booking_id===booking),false);
+  const state = await database.query<{ status:string; last_error_code:string; attempt_outcome:string; attempt_error:string }>(`
+    select queue.status,queue.last_error_code,attempt.outcome attempt_outcome,attempt.error_code attempt_error
+    from public.notification_outbox queue
+    join public.notification_delivery_attempts attempt on attempt.outbox_id=queue.id and attempt.attempt_no=queue.attempts
+    where queue.booking_id='${booking}'
+  `);
+  assertEquals(state.rows,[{
+    status:"failed",last_error_code:"telegram_delivery_unknown",
+    attempt_outcome:"failed",attempt_error:"telegram_delivery_unknown",
+  }]);
+  await assertRejects(() => database.exec(`select public.retry_notification_outbox((
+    select id from public.notification_outbox where booking_id='${booking}'
+  ))`));
+});
+
 Deno.test("confirmation, reschedule, reminder and cancellation supersede stale rows", async () => {
   const booking = "00000000-0000-4000-8000-000000000030";
   await database.exec(`
@@ -269,20 +313,22 @@ Deno.test("confirmation, reschedule, reminder and cancellation supersede stale r
 });
 
 Deno.test("compatibility rollback preserves data and RPCs while keeping replacement cron", async () => {
-  const before = await database.query<{ outbox_count:number; attempt_count:number; endpoint_count:number; cutover_count:number }>(`
+  const before = await database.query<{ outbox_count:number; attempt_count:number; endpoint_count:number; cutover_count:number; legacy_lease_count:number }>(`
     select
       (select count(*)::integer from public.notification_outbox) outbox_count,
       (select count(*)::integer from public.notification_delivery_attempts) attempt_count,
       (select count(*)::integer from public.notification_recipient_endpoints) endpoint_count,
-      (select count(*)::integer from public.notification_v114_organization_cutovers) cutover_count
+      (select count(*)::integer from public.notification_v114_organization_cutovers) cutover_count,
+      (select count(*)::integer from public.notification_v114_legacy_send_leases) legacy_lease_count
   `);
   await database.exec(rollback);
-  const after = await database.query<{ outbox_count:number; attempt_count:number; endpoint_count:number; cutover_count:number }>(`
+  const after = await database.query<{ outbox_count:number; attempt_count:number; endpoint_count:number; cutover_count:number; legacy_lease_count:number }>(`
     select
       (select count(*)::integer from public.notification_outbox) outbox_count,
       (select count(*)::integer from public.notification_delivery_attempts) attempt_count,
       (select count(*)::integer from public.notification_recipient_endpoints) endpoint_count,
-      (select count(*)::integer from public.notification_v114_organization_cutovers) cutover_count
+      (select count(*)::integer from public.notification_v114_organization_cutovers) cutover_count,
+      (select count(*)::integer from public.notification_v114_legacy_send_leases) legacy_lease_count
   `);
   assertEquals(after.rows, before.rows);
 
