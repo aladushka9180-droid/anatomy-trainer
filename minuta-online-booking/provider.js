@@ -6,7 +6,11 @@ if (providerNavigation?.type === 'reload') document.documentElement.classList.ad
 const providerReadFetch = window.MinutaProviderReadFetch.create({ baseUrl:window.MINUTA_CONFIG.supabaseUrl });
 let freeSlotsController = null;
 window.addEventListener('minuta:provider-session-reset', () => freeSlotsController?.invalidateScope());
-window.addEventListener('minuta:provider-session-reset', () => providerReadFetch.cancelPendingReads());
+let bookingSeriesCancellationRevision = 0;
+window.addEventListener('minuta:provider-session-reset', () => {
+  bookingSeriesCancellationRevision += 1;
+  providerReadFetch.cancelPendingReads();
+});
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -5568,6 +5572,7 @@ function openBookingSeriesCancellation(id) {
     </form>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+  $('#bookingSeriesCancelForm').dataset.cancellationRevision = String(++bookingSeriesCancellationRevision);
   $('#bookingSeriesCancelForm').addEventListener('submit', cancelBookingSeries);
   applyWriteAvailability();
 }
@@ -5575,32 +5580,55 @@ function openBookingSeriesCancellation(id) {
 async function cancelBookingSeries(event) {
   event.preventDefault();
   if (!requireWrites()) return;
+  const form = event.currentTarget;
+  const revision = bookingSeriesCancellationRevision;
+  if (form !== $('#bookingSeriesCancelForm') || $('#bookingSheet').hidden
+    || form.dataset.cancellationRevision !== String(revision) || form.dataset.cancellationPending) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const id = event.currentTarget.dataset.bookingId;
-  const scope = event.currentTarget.elements.cancelBookingSeriesScope?.value || 'one';
+  const organizationId = activeClientOrganizationId;
+  const id = form.dataset.bookingId;
+  const scope = form.elements.cancelBookingSeriesScope?.value || 'one';
   const button = event.submitter;
+  const contextIsCurrent = () => sessionIsCurrent(userId, generation) && activeClientOrganizationId === organizationId;
+  const formIsCurrent = () => contextIsCurrent() && bookingSeriesCancellationRevision === revision
+    && form === $('#bookingSeriesCancelForm') && !$('#bookingSheet').hidden;
+  let closedRevision = null;
+  const completionIsCurrent = () => contextIsCurrent() && closedRevision !== null
+    && bookingSeriesCancellationRevision === closedRevision
+    && form === $('#bookingSeriesCancelForm') && $('#bookingSheet').hidden;
+  form.dataset.cancellationPending = 'true';
   button.disabled = true;
   button.textContent = 'Отменяем…';
-  const { data, error } = await db.rpc('manage_minuta_booking_series', {
-    p_booking: id,
-    p_action: 'cancel',
-    p_scope: scope,
-    p_date: null,
-    p_time: null
-  });
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (error) {
-    button.disabled = false;
-    button.textContent = 'Отменить выбранные записи';
-    showFormError('#bookingSeriesCancelError', seriesRpcErrorMessage(error, 'cancel'));
-    return;
+  try {
+    const { data, error } = await db.rpc('manage_minuta_booking_series', {
+      p_booking: id,
+      p_action: 'cancel',
+      p_scope: scope,
+      p_date: null,
+      p_time: null
+    });
+    if (!formIsCurrent()) return;
+    if (error) {
+      showFormError('#bookingSeriesCancelError', seriesRpcErrorMessage(error, 'cancel'));
+      return;
+    }
+    const affected = Array.isArray(data?.affected) ? data.affected : [];
+    affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'cancelled'));
+    closeBookingSheet();
+    closedRevision = bookingSeriesCancellationRevision;
+    await refreshAfterWrite();
+    if (completionIsCurrent()) notify(`Отменено: ${seriesBookingCountLabel(Number(data?.affected_count || affected.length))}`);
+  } catch {
+    if (completionIsCurrent()) notify('Записи отменены. Не удалось обновить журнал — обновите его перед следующим действием.');
+    else if (formIsCurrent()) showFormError('#bookingSeriesCancelError', 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.');
+  } finally {
+    if (formIsCurrent()) {
+      delete form.dataset.cancellationPending;
+      button.disabled = false;
+      button.textContent = 'Отменить выбранные записи';
+    }
   }
-  const affected = Array.isArray(data?.affected) ? data.affected : [];
-  affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'cancelled'));
-  closeBookingSheet();
-  await refreshAfterWrite();
-  notify(`Отменено: ${seriesBookingCountLabel(Number(data?.affected_count || affected.length))}`);
 }
 
 async function saveBookingBlockNote(event) {
@@ -6917,6 +6945,7 @@ async function createNewBooking(event) {
 }
 
 function closeBookingSheet() {
+  bookingSeriesCancellationRevision += 1;
   editingOfflineBookingId = '';
   newBookingHistoricalMode = false;
   $('#bookingSheet').hidden = true;
@@ -10495,6 +10524,7 @@ const organizationController = window.MinutaOrganization.createController({
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
     activeClientOrganizationId = nextClientOrganizationId;
+    if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
     if (clientOrganizationChanged) {
       importedClients = [];
       importedBookingHistory = [];
