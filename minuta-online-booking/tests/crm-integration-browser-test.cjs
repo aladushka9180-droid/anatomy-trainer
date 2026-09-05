@@ -6,6 +6,9 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '..');
 const source = name => fs.readFileSync(path.join(root, name), 'utf8');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+const providerStylesheets = [...source('provider.html').matchAll(/<link\s+rel="stylesheet"\s+href="([^"?]+)/g)]
+  .map(match => match[1].replace(/^\.\//,''))
+  .filter(name => name.endsWith('.css') && !path.isAbsolute(name) && !name.startsWith('..') && fs.existsSync(path.join(root,name)));
 
 const shell = `<!doctype html><html lang="ru"><head><meta charset="utf-8"></head>
 <body class="provider-body" data-provider-theme="sage" data-provider-layout="bento">
@@ -20,7 +23,7 @@ const shell = `<!doctype html><html lang="ru"><head><meta charset="utf-8"></head
     </section>
     <section class="provider-view" data-provider-panel="notifications" aria-label="Уведомления">
       <div id="legacyNotifications">Старые уведомления продолжают работать</div>
-      <details class="panel unified-notification-panel" id="unifiedNotificationPanel" hidden open>
+      <details class="panel unified-notification-panel ux-disclosure" id="unifiedNotificationPanel" hidden open>
         <summary><strong>Настроить каналы доставки</strong><span id="unifiedNotificationState">Выключен</span></summary>
         <div class="resource-inline-error" id="unifiedNotificationUnavailable" hidden><div><strong>Центр каналов временно недоступен</strong><small id="unifiedNotificationUnavailableText"></small></div><button class="secondary-button" id="reloadUnifiedNotifications" type="button">Повторить</button></div>
         <div id="unifiedNotificationWorkspace" hidden>
@@ -42,7 +45,7 @@ async function createHarness(browser) {
     html,body{margin:0;min-width:0}.crm-test-shell{display:grid;gap:24px;max-width:980px;margin:auto;padding:12px;min-width:0}
     .crm-test-shell>section{min-width:0}.crm-test-shell #inventoryMovementForm{display:none}
   ` });
-  for (const name of ['styles.css', 'client-records.css', 'profitability-management.css']) {
+  for (const name of [...new Set([...providerStylesheets,'profitability-management.css'])]) {
     await page.addStyleTag({ content:source(name) });
   }
   for (const name of ['client-records.js', 'profitability-management.js', 'notification-center.js']) {
