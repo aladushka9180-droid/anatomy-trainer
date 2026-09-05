@@ -2090,7 +2090,7 @@
     }
 
     function openKeyboardDictation(message = '') {
-      directRecognitionAvailable = false;
+      // A transient recognition failure must not disable the API until reload.
       recordingRequested = false;
       clearTimeout(recognitionStartTimer);
       clearTimeout(recognitionRestartTimer);
@@ -2099,7 +2099,7 @@
       try { recognition?.abort(); } catch {}
       recognition = null;
       setListening(false);
-      listenButton.classList.add('is-unsupported');
+      listenButton.classList.toggle('is-unsupported', !directRecognitionAvailable);
       status.textContent = message || 'Клавиатура открыта. Нажмите значок микрофона на клавиатуре и продиктуйте команду.';
       try {
         input.focus({ preventScroll:true });
@@ -2615,7 +2615,13 @@
 
     function startRecognitionSession({ continuation = false } = {}) {
       const epoch = ++recognitionEpoch;
-      const currentRecognition = new Recognition();
+      let currentRecognition;
+      try { currentRecognition = new Recognition(); }
+      catch {
+        abortRecognition({ preserveCompatibilityClick:true });
+        status.textContent = 'Браузер не смог запустить распознавание. Попробуйте ещё раз или используйте микрофон клавиатуры.';
+        return;
+      }
       recognition = currentRecognition;
       currentRecognition.lang = 'ru-RU';
       // Мобильные движки могут игнорировать continuous и закрывать отдельную
@@ -2828,13 +2834,16 @@
         suppressCompatibilityClick = true;
         clearTimeout(compatibilityClickResetTimer);
         compatibilityClickResetTimer = null;
-        startRecognition();
       });
       listenButton.addEventListener('pointerup', event => {
         if (!/^(touch|pen)$/.test(event.pointerType || '')) return;
-        if (activeTouchPointerId !== null && event.pointerId !== undefined && event.pointerId !== activeTouchPointerId) return;
+        if (event.isPrimary === false || activeTouchPointerId === null) return;
+        if (event.pointerId !== undefined && event.pointerId !== activeTouchPointerId) return;
         event.preventDefault();
         activeTouchPointerId = null;
+        // Touch/pen user activation is granted on pointerup, not pointerdown.
+        // Start synchronously here, before consuming the compatibility click.
+        startRecognition();
         clearTimeout(compatibilityClickResetTimer);
         // compatibility click идёт после pointerup. Отсчёт начинается только
         // после отпускания, поэтому длительное удержание больше не превращается

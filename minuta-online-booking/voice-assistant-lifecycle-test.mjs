@@ -21,8 +21,13 @@ globalThis.matchMedia = query => ({ matches:query === '(pointer: coarse)' });
 class FakeRecognition {
   static instances = [];
   static throwOnNextStart = false;
+  static throwOnNextConstruction = false;
 
   constructor() {
+    if (FakeRecognition.throwOnNextConstruction) {
+      FakeRecognition.throwOnNextConstruction = false;
+      throw new Error('recognition_unavailable');
+    }
     this.abortCount = 0;
     this.stopCount = 0;
     FakeRecognition.instances.push(this);
@@ -233,7 +238,15 @@ const originalDateNow = Date.now;
 let fakeNow = 1000;
 Date.now = () => fakeNow;
 const cancelCountBeforeRecognition = speechSynthesis.cancelCount;
+const countBeforeTouch = FakeRecognition.instances.length;
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:1, isPrimary:true });
+assert.equal(FakeRecognition.instances.length, countBeforeTouch, 'touch pointerdown ещё не даёт пользовательскую активацию для запуска микрофона');
+listenButton.emit('pointerdown', { pointerType:'touch', pointerId:2, isPrimary:false });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:2, isPrimary:false });
+listenButton.emit('pointercancel', { pointerType:'touch', pointerId:2, isPrimary:false });
+assert.equal(FakeRecognition.instances.length, countBeforeTouch, 'второй палец не должен запускать микрофон');
+fakeNow = 2500;
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:1, isPrimary:true });
 const oldRecognition = FakeRecognition.instances.at(-1);
 assert.ok(oldRecognition?.started, 'распознавание должно запускаться только по явному нажатию');
 assert.equal(oldRecognition.continuous, true, 'Android-режим не должен завершаться после первой короткой паузы');
@@ -244,8 +257,6 @@ listenButton.emit('pointerdown', { pointerType:'touch', pointerId:2, isPrimary:f
 assert.equal(FakeRecognition.instances.length, recognitionCountBeforeSecondFinger, 'второй палец не должен переключать микрофон');
 assert.equal(oldRecognition.stopCount, 0, 'второй палец не должен останавливать текущую запись');
 listenButton.emit('pointercancel', { pointerType:'touch', pointerId:2, isPrimary:false });
-fakeNow = 2500;
-listenButton.emit('pointerup', { pointerType:'touch', pointerId:1, isPrimary:true });
 const recognitionCountAfterTouch = FakeRecognition.instances.length;
 listenButton.emit('click', { pointerType:'touch' });
 assert.equal(FakeRecognition.instances.length, recognitionCountAfterTouch, 'click после длительного касания не должен перезапускать микрофон');
@@ -264,17 +275,18 @@ assert.equal(snapshotCalls, snapshotCallsBeforeRecognitionResult + 1, 'фина�
 assert.match(status.textContent, /остаётся включённым/i, 'после финальной части микрофон должен оставаться включённым');
 
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:3, isPrimary:true });
+assert.equal(oldRecognition.stopCount, 0, 'повторное касание завершается при отпускании пальца');
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:3, isPrimary:true });
 assert.equal(oldRecognition.stopCount, 1, 'повторное касание должно завершать запись с получением результата, а не отбрасывать её через abort');
 assert.equal(oldRecognition.abortCount, 0);
-listenButton.emit('pointerup', { pointerType:'touch', pointerId:3, isPrimary:true });
 listenButton.emit('click', { pointerType:'touch' });
 oldRecognition.onend();
 assert.equal(snapshotCalls, snapshotCallsBeforeRecognitionResult + 2, 'команда должна обрабатываться после явного завершения мобильной записи');
 
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:4, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:4, isPrimary:true });
 const sessionRecognition = FakeRecognition.instances.at(-1);
 sessionRecognition.onstart();
-listenButton.emit('pointerup', { pointerType:'touch', pointerId:4, isPrimary:true });
 listenButton.emit('click', { pointerType:'touch' });
 
 globalThis.dispatchEvent({ type:'minuta:provider-session-reset' });
@@ -354,9 +366,9 @@ assert.equal(dialog.open, false, 'после успешной подготовк
 
 openButton.emit('click');
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:5, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:5, isPrimary:true });
 const noSpeechRecognition = FakeRecognition.instances.at(-1);
 noSpeechRecognition.onstart();
-listenButton.emit('pointerup', { pointerType:'touch', pointerId:5, isPrimary:true });
 listenButton.emit('click', { pointerType:'touch' });
 noSpeechRecognition.onerror({ error:'no-speech' });
 noSpeechRecognition.onend();
@@ -369,15 +381,15 @@ assert.equal(listenLabel.textContent, 'Остановить запись', 'кн
 assert.match(status.textContent, /продолжает слушать/i, 'пользователь должен видеть, что запись не завершилась');
 
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:6, isPrimary:true });
-assert.equal(retriedRecognition.stopCount, 1, 'повторное касание должно остановить продолженную запись');
 listenButton.emit('pointerup', { pointerType:'touch', pointerId:6, isPrimary:true });
+assert.equal(retriedRecognition.stopCount, 1, 'повторное касание должно остановить продолженную запись');
 listenButton.emit('click', { pointerType:'touch' });
 retriedRecognition.onend();
 
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:7, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:7, isPrimary:true });
 const earlyEndRecognition = FakeRecognition.instances.at(-1);
 earlyEndRecognition.onstart();
-listenButton.emit('pointerup', { pointerType:'touch', pointerId:7, isPrimary:true });
 listenButton.emit('click', { pointerType:'touch' });
 const recognitionCountBeforeEarlyEnd = FakeRecognition.instances.length;
 earlyEndRecognition.onend();
@@ -401,6 +413,8 @@ assert.equal(FakeRecognition.instances.length, recognitionCountBeforeStartFailur
 assert.match(status.textContent, /Микрофон уже используется/i, 'повторный compatibility click не должен перезаписывать ошибку запуска');
 
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:10, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:10, isPrimary:true });
+listenButton.emit('click', { pointerType:'touch' });
 const hiddenRecognition = FakeRecognition.instances.at(-1);
 hiddenRecognition.onstart();
 documentStub.hidden = true;
@@ -410,11 +424,37 @@ documentStub.hidden = false;
 documentStub.emit('visibilitychange');
 const recognitionCountAfterVisibilityAbort = FakeRecognition.instances.length;
 listenButton.emit('pointerdown', { pointerType:'touch', pointerId:11, isPrimary:true });
-assert.equal(FakeRecognition.instances.length, recognitionCountAfterVisibilityAbort + 1, 'первое касание после возврата на вкладку не должно теряться из-за старого pointerId');
 listenButton.emit('pointerup', { pointerType:'touch', pointerId:11, isPrimary:true });
+assert.equal(FakeRecognition.instances.length, recognitionCountAfterVisibilityAbort + 1, 'первое касание после возврата на вкладку не должно теряться из-за старого pointerId');
 listenButton.emit('click', { pointerType:'touch' });
 
 // Android can expose a newly installed Russian voice after initialization.
+const networkRecognition = FakeRecognition.instances.at(-1);
+networkRecognition.onerror({ error:'network' });
+networkRecognition.onend();
+assert.match(status.textContent, /Служба распознавания речи недоступна/);
+const countBeforeRetry = FakeRecognition.instances.length;
+listenButton.emit('pointerdown', { pointerType:'touch', pointerId:12, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:12, isPrimary:true });
+listenButton.emit('click', { pointerType:'touch' });
+assert.equal(FakeRecognition.instances.length, countBeforeRetry + 1, 'временная сетевая ошибка не должна навсегда отключать распознавание');
+closeButton.emit('click');
+openButton.emit('click');
+const countBeforeCancelledTouch = FakeRecognition.instances.length;
+listenButton.emit('pointerdown', { pointerType:'touch', pointerId:13, isPrimary:true });
+listenButton.emit('pointercancel', { pointerType:'touch', pointerId:13, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'touch', pointerId:13, isPrimary:true });
+listenButton.emit('click', { pointerType:'touch' });
+assert.equal(FakeRecognition.instances.length, countBeforeCancelledTouch, 'прерванный жест прокрутки не должен включать микрофон');
+FakeRecognition.throwOnNextConstruction = true;
+listenButton.emit('pointerdown', { pointerType:'pen', pointerId:14, isPrimary:true });
+listenButton.emit('pointerup', { pointerType:'pen', pointerId:14, isPrimary:true });
+listenButton.emit('click', { pointerType:'pen' });
+assert.match(status.textContent, /Браузер не смог запустить распознавание/, 'ошибка создания движка не должна оставаться без сообщения');
+listenButton.emit('click', { pointerType:'mouse' });
+assert.ok(FakeRecognition.instances.at(-1).started, 'обычный click должен работать для мыши и клавиатуры');
+closeButton.emit('click');
+openButton.emit('click');
 controller.stopSpeech();
 speechSynthesis.voices = [];
 speechSynthesis.listeners.get('voiceschanged')();
