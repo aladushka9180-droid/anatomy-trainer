@@ -27,6 +27,8 @@ on:
       - 'minuta-online-booking/tests/payroll-adjustment-recovery*.mjs'
       - 'minuta-online-booking/tests/inventory-movement-retry*.mjs'
       - 'minuta-online-booking/tests/loyalty-adjustment-retry*.mjs'
+      - 'minuta-online-booking/tests/loyalty-redemption-retry*.mjs'
+      - 'minuta-online-booking/tests/metadata-offline-*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   pull_request:
     paths:
@@ -54,6 +56,8 @@ on:
       - 'minuta-online-booking/tests/payroll-adjustment-recovery*.mjs'
       - 'minuta-online-booking/tests/inventory-movement-retry*.mjs'
       - 'minuta-online-booking/tests/loyalty-adjustment-retry*.mjs'
+      - 'minuta-online-booking/tests/loyalty-redemption-retry*.mjs'
+      - 'minuta-online-booking/tests/metadata-offline-*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   workflow_dispatch:
 
@@ -84,6 +88,9 @@ jobs:
       - run: node --check minuta-online-booking/loyalty-management.js
       - run: node minuta-online-booking/tests/inventory-movement-retry-test.mjs
       - run: node minuta-online-booking/tests/loyalty-adjustment-retry-test.mjs
+      - run: node minuta-online-booking/tests/loyalty-redemption-retry-test.mjs
+      - run: node minuta-online-booking/tests/metadata-offline-recovery-test.mjs
+      - run: node minuta-online-booking/tests/metadata-offline-adversarial-test.mjs
       - run: node minuta-online-booking/payroll-management-controller-test.mjs
       - run: node minuta-online-booking/payroll-v72-static-test.mjs
       - run: node minuta-online-booking/yookassa-v87-static-test.mjs
@@ -110,6 +117,8 @@ jobs:
       - run: node minuta-online-booking/tests/payroll-adjustment-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/inventory-movement-retry-browser-test.mjs
       - run: node minuta-online-booking/tests/loyalty-adjustment-retry-browser-test.mjs
+      - run: node minuta-online-booking/tests/loyalty-redemption-retry-browser-test.mjs
+      - run: node minuta-online-booking/tests/metadata-offline-browser-test.mjs
       - run: node minuta-online-booking/tests/public-booking-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/series-cancellation-recovery-browser-test.mjs

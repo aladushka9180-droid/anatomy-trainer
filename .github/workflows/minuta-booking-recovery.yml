@@ -66,5 +66,5 @@ jobs:
         run: git fetch --depth=1 origin 87721c45697036776a31b064908f87fd35b6377a
       - name: Verify real service worker update and failed-install recovery
         env:
-          MINUTA_BASELINE_REF: 87721c45697036776a31b064908f87fd35b6377a
+          MINUTA_BASELINE_REF: e3642db871ec8bf62d965859e6a4c9ff13d10c3f
         run: node minuta-online-booking/tests/pwa-resource-update-browser-test.mjs
