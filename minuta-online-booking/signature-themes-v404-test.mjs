@@ -64,7 +64,7 @@ for (const [key, color, group] of [
   ['pearl', '#f4f4f5', 'featured light'],
   ['butter', '#faf9f3', 'featured light'],
   ['celadon', '#f0f6f3', 'featured light natural'],
-  ['snow-leopard', '#f7f6f3', 'featured light'],
+  ['snow-leopard', '#f4f5f6', 'featured light'],
 ]) {
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
