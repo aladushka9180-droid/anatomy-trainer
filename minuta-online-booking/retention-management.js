@@ -44,6 +44,36 @@
       return /PGRST202|42883|get_minuta_retention_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
     }
     function scopeMatches(data, id) { return Boolean(data && String(data.organization_id || '') === String(id)); }
+    function record(value) { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
+    function text(value) { return typeof value === 'string' && value.length > 0; }
+    function nullableText(value) { return value === null || typeof value === 'string'; }
+    function workspaceIsValid(data) {
+      if (!record(data) || !['owner', 'admin'].includes(data.current_role) || typeof data.enabled !== 'boolean'
+        || ![data.inactivity_days, data.cooldown_days].every(value => Number.isInteger(value) && value >= 7 && value <= 730)
+        || typeof data.message_template !== 'string') return false;
+      return Array.isArray(data.clients) && data.clients.every(client => record(client)
+        && text(client.client_account_id) && typeof client.client_name === 'string' && typeof client.client_phone === 'string'
+        && nullableText(client.last_visit_on) && nullableText(client.last_sent_at)
+        && Number.isInteger(client.completed_visits) && client.completed_visits >= 0
+        && ['unknown', 'granted', 'revoked'].includes(client.consent_status)
+        // SQL's nullable consent join can produce NULL, which is not eligibility.
+        && (client.eligible === null || typeof client.eligible === 'boolean'))
+        && Array.isArray(data.deliveries) && data.deliveries.every(delivery => record(delivery)
+          && text(delivery.id) && text(delivery.client_account_id)
+          && ['prepared', 'sent', 'cancelled', 'failed'].includes(delivery.status)
+          && typeof delivery.message_snapshot === 'string' && text(delivery.prepared_at) && nullableText(delivery.sent_at))
+        && Array.isArray(data.audit) && data.audit.every(entry => record(entry)
+          && text(entry.id) && text(entry.action) && nullableText(entry.subject_id) && text(entry.created_at));
+    }
+    function mutationIsValid(name, data, args) {
+      if (!record(data)) return false;
+      if (name === 'save_minuta_retention_settings') return typeof data.enabled === 'boolean' && data.enabled === args.p_enabled;
+      if (name === 'set_minuta_marketing_consent') return data.client_account_id === args.p_client_account && data.status === args.p_status;
+      if (name === 'prepare_minuta_retention_delivery') return text(data.id) && typeof data.client_phone === 'string'
+        && typeof data.message === 'string' && data.status === 'prepared';
+      if (name === 'finish_minuta_retention_delivery') return data.id === args.p_delivery && data.status === args.p_action;
+      return false;
+    }
     function formatDate(value) {
       if (!value) return 'визитов пока нет';
       const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
@@ -104,7 +134,12 @@
         availability = 'error'; $('#retentionUnavailable').hidden = false; $('#retentionUnavailableText').textContent = 'Сервер вернул данные другой организации. Изменения заблокированы.';
         return { ok: false, optional: true, scopeMismatch: true };
       }
-      payload = { ...data, clients: Array.isArray(data.clients) ? data.clients : [], deliveries: Array.isArray(data.deliveries) ? data.deliveries : [], audit: Array.isArray(data.audit) ? data.audit : [] };
+      if (!workspaceIsValid(data)) {
+        availability = 'error'; $('#retentionUnavailable').hidden = false;
+        $('#retentionUnavailableText').textContent = 'Сервер вернул неполные данные возврата клиентов. Обновите раздел; изменения заблокированы.';
+        return { ok: false, optional: true, malformed: true };
+      }
+      payload = data;
       availability = 'ready'; render(); return { ok: true, optional: true };
     }
     function clientById(id) { return payload?.clients.find(client => String(client.client_account_id) === String(id)); }
@@ -147,7 +182,7 @@
         ['retention_disabled', 'Сначала включите возврат клиентов.'],
         ['invalid_retention_settings', 'Проверьте сроки и оставьте в шаблоне переменную {ссылка}.']
       ];
-      return rows.find(([key]) => text.includes(key))?.[1] || 'Изменение не сохранено. Записи клиентов не затронуты.';
+      return rows.find(([key]) => text.includes(key))?.[1] || 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.';
     }
     async function mutate(name, args, control, success, silent = false, reloadAfter = true) {
       if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return false;
@@ -168,8 +203,14 @@
         else if (!scopeIsCurrent(scope)) hideWorkspace();
         return false;
       }
-      if (error) { notify(messageFor(error)); await load(); return false; }
-      if (!scopeMatches(data, organizationId)) { notify('Ответ другой организации заблокирован.'); await load(); return false; }
+      if (error || !scopeMatches(data, organizationId) || !mutationIsValid(name, data, args)) {
+        const message = error ? messageFor(error) : !scopeMatches(data, organizationId)
+          ? 'Ответ другой организации заблокирован.'
+          : 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.';
+        await load();
+        if (scopeIsCurrent(scope)) notify(message);
+        return false;
+      }
       if (!silent) notify(success);
       if (reloadAfter) await load();
       return true;
@@ -197,7 +238,7 @@
         payload.cooldown_days = parameters.p_cooldown_days;
         payload.message_template = parameters.p_message_template;
       }
-      if (saveStatus) saveStatus.textContent = saved ? 'Сохранено автоматически' : 'Не удалось сохранить — повторите изменение';
+      if (saveStatus) saveStatus.textContent = saved ? 'Сохранено автоматически' : 'Не удалось подтвердить результат — проверьте актуальные данные перед повтором';
       return saved;
     }
     function scheduleSettingsSave() {
