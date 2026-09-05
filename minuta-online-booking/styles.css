@@ -7546,7 +7546,7 @@ html.provider-booting .provider-main {
     box-sizing:border-box;
   }
 }
-/* v396: полная информация в списках записей при любой теме и компоновке. */
+/* v428: полная информация в списках записей при любой теме и компоновке. */
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-open {
   align-items:start;
   height:auto;
