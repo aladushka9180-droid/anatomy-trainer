@@ -162,54 +162,54 @@
 .provider-body[data-provider-theme="butter"][data-provider-layout] .date-strip button.active :is(span,strong,small) { color:inherit!important; }
 
 .provider-body[data-provider-theme="botanical"] {
-  --theme-bg:#101c18;
-  --theme-surface:#1a2b23;
-  --theme-surface-alt:#23382c;
-  --theme-ink:#f2f0df;
-  --theme-muted:#bac8b7;
-  --theme-line:#647d6e;
-  --theme-accent:#a8c49c;
-  --theme-accent-soft:#2b4432;
-  --theme-accent-contrast:#16241b;
-  --theme-shadow:rgba(0,12,5,.32);
-  --material-card-bg:#1a2b23;
-  --material-card-border:#647d6e;
+  --theme-bg:#202623;
+  --theme-surface:#282f2b;
+  --theme-surface-alt:#303934;
+  --theme-ink:#e7e9e3;
+  --theme-muted:#b9c0b9;
+  --theme-line:#49564e;
+  --theme-accent:#a5b6a4;
+  --theme-accent-soft:#35443a;
+  --theme-accent-contrast:#202820;
+  --theme-shadow:rgba(8,12,9,.14);
+  --material-card-bg:#282f2b;
+  --material-card-border:#49564e;
   --material-radius:16px;
   --material-control-radius:10px;
-  --signature-sidebar:#14221b;
-  --signature-stage:#17261e;
-  --signature-nav-active:#2b4432;
-  --signature-card-shadow:0 8px 24px rgba(0,12,5,.16);
-  --atmosphere-background:radial-gradient(ellipse at 90% 0,rgba(139,165,109,.1),transparent 40%),linear-gradient(150deg,#101c18,#17291e);
-  --atmosphere-panel:#17261e;
-  --atmosphere-panel-strong:#1a2b23;
+  --signature-sidebar:#242b26;
+  --signature-stage:#282f2b;
+  --signature-nav-active:#35443a;
+  --signature-card-shadow:none;
+  --atmosphere-background:linear-gradient(150deg,#202623,#252d27);
+  --atmosphere-panel:#282f2b;
+  --atmosphere-panel-strong:#282f2b;
   --team-warning-text:#ead0a0;
   color-scheme:dark;
 }
 
 .provider-body[data-provider-theme="burgundy"] {
-  --theme-bg:#21131c;
-  --theme-surface:#32202b;
-  --theme-surface-alt:#422936;
-  --theme-ink:#fff1e8;
-  --theme-muted:#d5bac5;
-  --theme-line:#98788b;
-  --theme-accent:#e5b2b9;
-  --theme-accent-soft:#512f40;
-  --theme-accent-contrast:#301622;
-  --theme-shadow:rgba(24,2,15,.32);
-  --material-card-bg:#32202b;
-  --material-card-border:#98788b;
+  --theme-bg:#282326;
+  --theme-surface:#312c2f;
+  --theme-surface-alt:#3a3237;
+  --theme-ink:#eee7e5;
+  --theme-muted:#c8bcc1;
+  --theme-line:#60515a;
+  --theme-accent:#c6aab1;
+  --theme-accent-soft:#493a42;
+  --theme-accent-contrast:#2d2429;
+  --theme-shadow:rgba(15,10,13,.14);
+  --material-card-bg:#312c2f;
+  --material-card-border:#60515a;
   --material-radius:8px;
   --material-control-radius:5px;
-  --signature-sidebar:#291922;
-  --signature-stage:#2a1b24;
-  --signature-nav-active:#512f40;
-  --signature-card-shadow:0 10px 26px rgba(24,2,15,.18);
+  --signature-sidebar:#2c262a;
+  --signature-stage:#312c2f;
+  --signature-nav-active:#493a42;
+  --signature-card-shadow:none;
   --signature-heading-font:Georgia,"Times New Roman",serif;
-  --atmosphere-background:radial-gradient(ellipse at 80% 0,rgba(154,61,89,.13),transparent 45%),linear-gradient(150deg,#21131c,#301923);
-  --atmosphere-panel:#2a1b24;
-  --atmosphere-panel-strong:#32202b;
+  --atmosphere-background:linear-gradient(150deg,#282326,#30292e);
+  --atmosphere-panel:#312c2f;
+  --atmosphere-panel-strong:#312c2f;
   --team-warning-text:#f2d2a3;
   color-scheme:dark;
 }
@@ -365,8 +365,8 @@
 .theme-mono { --theme-preview-bg:#f3f3f0; --theme-preview-surface:#fff; --theme-preview-line:#92928d; --theme-preview-accent:#1c1c1c; --theme-preview-radius:0; --theme-preview-item-radius:0; }
 .theme-desert { --theme-preview-bg:#f5e9db; --theme-preview-surface:#fff9f2; --theme-preview-line:#aa8b78; --theme-preview-accent:#713b2a; --theme-preview-radius:16px; --theme-preview-item-radius:8px; }
 .theme-rose { --theme-preview-bg:#f2eaed; --theme-preview-surface:#fcf8f9; --theme-preview-line:#97838c; --theme-preview-accent:#75475a; --theme-preview-radius:11px; }
-.theme-botanical { --theme-preview-bg:#101c18; --theme-preview-surface:#1a2b23; --theme-preview-line:#647d6e; --theme-preview-accent:#a8c49c; --theme-preview-radius:12px; }
-.theme-burgundy { --theme-preview-bg:#21131c; --theme-preview-surface:#32202b; --theme-preview-line:#98788b; --theme-preview-accent:#e5b2b9; --theme-preview-radius:5px; }
+.theme-botanical { --theme-preview-bg:#202623; --theme-preview-surface:#282f2b; --theme-preview-line:#49564e; --theme-preview-accent:#a5b6a4; --theme-preview-radius:12px; }
+.theme-burgundy { --theme-preview-bg:#282326; --theme-preview-surface:#312c2f; --theme-preview-line:#60515a; --theme-preview-accent:#c6aab1; --theme-preview-radius:5px; }
 .theme-coastal { --theme-preview-bg:#f1f6f7; --theme-preview-surface:#ffffff; --theme-preview-line:#819ba6; --theme-preview-accent:#205b75; --theme-preview-radius:14px; }
 .theme-japandi .theme-swatch { background-image:radial-gradient(circle at 86% 8%,rgba(122,132,104,.16),transparent 42%),linear-gradient(145deg,#ebe7de,#f8f6f0); }
 .theme-midnight .theme-swatch { background-image:radial-gradient(circle at 86% 8%,rgba(112,180,207,.2),transparent 42%),linear-gradient(145deg,#09111b,#16273a); }

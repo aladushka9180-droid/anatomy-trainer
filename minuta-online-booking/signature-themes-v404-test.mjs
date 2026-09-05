@@ -59,8 +59,8 @@ assert.match(script, /mono:'#f3f3f0'/, 'Нет системного theme-color 
 assert.match(script, /desert:'#f3e8dc'|desert:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
 assert.match(script, /rose:'#f2e9ec'|rose:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
 for (const [key, color, group] of [
-  ['botanical', '#101c18', 'dark natural'],
-  ['burgundy', '#21131c', 'dark'],
+  ['botanical', '#202623', 'dark natural'],
+  ['burgundy', '#282326', 'dark'],
   ['coastal', '#f1f6f7', 'light'],
   ['pearl', '#f4f4f5', 'featured light'],
   ['butter', '#faf9f3', 'featured light'],
