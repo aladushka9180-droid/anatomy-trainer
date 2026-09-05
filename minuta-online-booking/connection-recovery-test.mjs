@@ -17,6 +17,8 @@ function harness() {
     syncTimer:null, visitorPresenceTimer:null, bookingReloadTimer:null,
     liveReconnectTimer:null, liveReconnectAttempt:0, lastLiveRecoveryAt:0,
     synchronizationPromise:null, synchronizationGeneration:-1, synchronizationQueued:false,
+    pendingSynchronizationTables:new Set(), pendingFullSynchronization:false,
+    portfolioSyncLoaded:false, portfolioSyncDirty:true, lastProviderVerificationAt:0,
     synchronizationRetryTimer:null, writesAllowed:true, offlineBookingInputsReady:false,
     visitorVisitsRemoteAvailable:false, SERVICE_SYNC_INTERVAL_MS:300000,
     navigator:{onLine:true}, document:{hidden:false,addEventListener:(name,callback)=>events.set(name,callback)}, Math,
@@ -27,7 +29,7 @@ function harness() {
     clearTimeout(id) { timers.delete(id); },
     setInterval() { return ++nextTimer; }, clearInterval() {},
     db:{
-      channel(name) { const channel = {name,on(){return this;},subscribe(fn){this.notify=fn;return this;}}; channels.push(channel); return channel; },
+      channel(name) { const channel = {name,handlers:new Map(),on(event,filter,callback){this.handlers.set(filter.table,callback);return this;},subscribe(fn){this.notify=fn;return this;}}; channels.push(channel); return channel; },
       removeChannel(channel) { channel.notify?.('CLOSED'); return Promise.resolve('ok'); }
     },
     sessionIsCurrent:(id,generation)=>context.currentUser?.id===id && context.sessionGeneration===generation,
@@ -39,11 +41,11 @@ function harness() {
     applyAutomaticVisitOutcomes:async()=>{}, flushOfflineBookings:async()=>{},
     canQueueOfflineBooking:()=>false, reliability:{savedAtLabel:()=>''},
     organizationController:{load:async()=>({ok:true})}, teamCalendarController:{load:async()=>({ok:true})},
-    loads:0,
+    loads:0, loadNames:[],
     renderTopbarDateTime(){},renderNotifications(){},queueDisplayPreferencesSync(){},
     renderOfflineBookingQueue(){},updateNewBookingConnectivity(){},notify(){},$:()=>null,
   };
-  for (const name of ['loadBookings','loadOwnServices','loadSchedule','loadDaysOff','loadBookingSettings','loadClientNotes','loadClientLabels','loadClientAvatars','loadBookingSessionItems','loadBookingOutcomes','loadPortfolio','loadWaitlist','loadProviderReviews']) context[name] = async()=>{context.loads++;return {ok:true};};
+  for (const name of ['loadBookings','loadOwnServices','loadSchedule','loadDaysOff','loadBookingSettings','loadClientNotes','loadClientLabels','loadClientAvatars','loadBookingSessionItems','loadBookingOutcomes','loadPortfolio','loadWaitlist','loadProviderReviews']) context[name] = async()=>{context.loads++;context.loadNames.push(name);return {ok:true};};
   vm.createContext(context);
   vm.runInContext(section + eventsSource,context);
   const fire = id => {const entry=timers.get(id);assert.ok(entry);timers.delete(id);entry.fn();};
@@ -208,3 +210,136 @@ assert.match(source, /if \(!options\.deferPresentation\) await loadRemoteBooking
   assert.ok(h.c.synchronizationRetryTimer);
 }
 console.log('Priority sync checks passed: journal readiness before details, write gates and deferred presentation');
+
+{
+  const h = harness();
+  h.c.bookingCreationReady = true;
+  h.c.lastProviderVerificationAt = 12345;
+  h.c.startLiveUpdates();
+  h.channels[0].handlers.get('client_labels')({ table:'client_labels' });
+  h.fire(h.c.bookingReloadTimer);
+  await h.drain();
+  assert.deepEqual(h.c.loadNames, ['loadClientLabels'], 'one label event must not reload the journal or other sections');
+  assert.equal(h.c.lastProviderVerificationAt, 12345, 'partial reads must not renew the journal verification timestamp');
+}
+{
+  const h = harness();
+  h.c.bookingCreationReady = true;
+  for (const table of ['client_notes', 'client_labels', 'client_notes', 'booking_session_items']) h.c.scheduleBookingsReload({ table });
+  h.fire(h.c.bookingReloadTimer);
+  await h.drain();
+  assert.deepEqual(h.c.loadNames.sort(), ['loadBookingSessionItems', 'loadClientLabels', 'loadClientNotes'], 'burst events are merged by table');
+}
+{
+  const h = harness();
+  h.c.bookingCreationReady = true;
+  h.c.startLiveUpdates();
+  let finish;
+  h.c.loadClientLabels = () => new Promise(resolve => { finish = resolve; });
+  const run = h.c.synchronizeProvider({ tables:['client_labels'], background:true });
+  await Promise.resolve();
+  h.c.scheduleBookingsReload('client_notes');
+  h.c.scheduleBookingsReload('client_avatars');
+  h.fire(h.c.bookingReloadTimer);
+  finish({ ok:true });
+  await run; await h.drain();
+  h.fire(h.c.bookingReloadTimer);
+  await h.drain();
+  assert.deepEqual(h.c.loadNames.sort(), ['loadClientAvatars', 'loadClientNotes'], 'events arriving during a sync retain their domains');
+}
+{
+  const h = harness();
+  h.c.bookingCreationReady = true;
+  h.c.scheduleBookingsReload('client_labels');
+  h.c.scheduleBookingsReload();
+  h.fire(h.c.bookingReloadTimer);
+  await h.drain();
+  assert.ok(h.c.loadNames.includes('loadBookings'), 'a reconnect/full-check request wins over narrow updates');
+  assert.equal(h.c.lastProviderVerificationAt, h.c.now);
+  const checked = h.c.lastProviderVerificationAt;
+  h.c.navigator.onLine = false; h.events.get('offline')();
+  assert.equal(h.c.lastProviderVerificationAt, checked, 'offline retains the last server verification');
+}
+for (const table of ['bookings', 'services', 'provider_schedule', 'provider_days_off', 'unknown_table']) {
+  const h = harness(); h.c.bookingCreationReady = true;
+  await h.c.synchronizeProvider({ tables:[table], background:true });
+  assert.ok(h.c.loadNames.includes('loadBookings'), table + ' must reconcile journal dependencies');
+  assert.ok(h.c.loadNames.includes('loadSchedule'));
+}
+{
+  const h = harness(); h.c.bookingCreationReady = true; h.c.writesAllowed = false;
+  await h.c.synchronizeProvider({ tables:['client_labels'], background:true });
+  assert.ok(h.c.loadNames.includes('loadBookings'), 'a narrow update cannot bypass a failed full-sync write gate');
+}
+{
+  const h = harness(); h.c.bookingCreationReady = true;
+  h.c.loadClientNotes = async () => { throw new Error('offline'); };
+  assert.equal(await h.c.synchronizeProvider({ tables:['client_notes'] }), false);
+  assert.equal(h.c.writesAllowed, false);
+  assert.ok(h.c.synchronizationRetryTimer, 'failed required targeted reads schedule a full recovery');
+}
+{
+  const h = harness(); h.c.bookingCreationReady = true; h.c.startLiveUpdates();
+  let finish;
+  h.c.loadClientLabels = () => new Promise(resolve => { finish = resolve; });
+  const run = h.c.synchronizeProvider({ tables:['client_labels'] });
+  await Promise.resolve();
+  h.channels[0].notify('CHANNEL_ERROR');
+  finish({ ok:true }); await run; await h.drain();
+  assert.equal(h.c.writesAllowed, false);
+  assert.notEqual(h.states.at(-1)[0], 'online', 'late targeted reads cannot mask a lost connection');
+  assert.ok(h.c.bookingReloadTimer);
+}
+{
+  const h = harness(); h.c.bookingCreationReady = true;
+  let finish;
+  h.c.loadClientLabels = () => new Promise(resolve => { finish = resolve; });
+  const run = h.c.synchronizeProvider({ tables:['client_labels'] });
+  await Promise.resolve();
+  const count = h.states.length;
+  h.c.currentUser = { id:'new' }; h.c.sessionGeneration++;
+  finish({ ok:true }); assert.equal(await run, false);
+  assert.equal(h.states.length, count, 'old-account partial results cannot update connection state');
+}
+{
+  const h = harness();
+  await h.c.synchronizeProvider({ background:true }); await h.drain();
+  assert.ok(h.c.loadNames.includes('loadPortfolio'), 'initial load retains sidebar counts');
+  h.c.loadNames.length = 0;
+  await h.c.synchronizeProvider({ background:true }); await h.drain();
+  assert.ok(!h.c.loadNames.includes('loadPortfolio') && !h.c.loadNames.includes('loadProviderReviews'), 'hidden portfolio media/reviews skip repeat background downloads');
+  assert.equal(h.c.portfolioSyncDirty, true);
+  h.c.loadNames.length = 0;
+  await h.c.synchronizeProvider({ tables:['portfolio_photos'], background:true }); await h.drain();
+  assert.equal(h.c.loads > 0, true);
+  assert.deepEqual(h.c.loadNames, [], 'hidden photo-only changes can wait');
+  h.c.$ = selector => selector === '#dashboard' ? { dataset:{ activeView:'portfolio' } } : null;
+  await h.c.synchronizeProvider({ tables:['portfolio_photos'], background:true }); await h.drain();
+  assert.deepEqual(h.c.loadNames.sort(), ['loadPortfolio', 'loadProviderReviews']);
+  assert.equal(h.c.portfolioSyncDirty, false);
+  h.c.loadNames.length = 0; h.c.$ = () => null;
+  await h.c.synchronizeProvider({ tables:['portfolio_items'], background:true }); await h.drain();
+  assert.ok(h.c.loadNames.includes('loadPortfolio'), 'item changes keep the navigation count current');
+  h.c.loadNames.length = 0;
+  await h.c.synchronizeProvider(); await h.drain();
+  assert.ok(h.c.loadNames.includes('loadPortfolio'), 'explicit refresh still checks every section');
+}
+for (const result of [{ ok:false, cached:true }, { ok:true, skipped:true }]) {
+  const h = harness(); h.c.lastProviderVerificationAt = 12345;
+  h.c.loadSchedule = async () => result;
+  await h.c.synchronizeProvider();
+  assert.equal(h.c.lastProviderVerificationAt, 12345, 'cached/unsaved schedules do not get a new server verification time');
+}
+{
+  const h = harness(); const badge = {}, log = {};
+  h.c.$ = selector => selector === '#syncVerifiedAt' ? badge : selector === '#connectionLogVerifiedAt' ? log : null;
+  h.c.renderProviderVerification();
+  assert.equal(badge.textContent, 'Сверка ещё не выполнена');
+  h.c.lastProviderVerificationAt = Date.parse('2026-09-05T10:45:00Z');
+  h.c.renderProviderVerification();
+  assert.match(badge.textContent, /Сверка 05\.09, /);
+  assert.match(log.textContent, /Записи и расписание проверены на сервере/);
+}
+assert.match(source, /view === 'portfolio' && currentUser && navigator.onLine && portfolioSyncDirty/);
+assert.match(source, /lastProviderVerificationAt = 0;[\s\S]*portfolioSyncLoaded = false;[\s\S]*portfolioSyncDirty = true;/);
+console.log('Targeted sync checks passed: domain coalescing, catch-up priority, lazy portfolio, verification time and write/session safety.');

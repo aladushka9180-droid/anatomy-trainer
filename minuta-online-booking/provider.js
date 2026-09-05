@@ -299,6 +299,11 @@ let bookingsRequestRevision = 0;
 let synchronizationPromise = null;
 let synchronizationGeneration = -1;
 let synchronizationQueued = false;
+const pendingSynchronizationTables = new Set();
+let pendingFullSynchronization = false;
+let portfolioSyncLoaded = false;
+let portfolioSyncDirty = true;
+let lastProviderVerificationAt = 0;
 let synchronizationRetryTimer = null;
 let writesAllowed = false;
 let bookingCreationReady = false;
@@ -518,6 +523,7 @@ function readConnectionLog(userId = currentUser?.id) {
   try { const value = JSON.parse(localStorage.getItem(connectionLogKey(userId)) || '[]'); return Array.isArray(value) ? value.slice(0, 30) : []; } catch { return []; }
 }
 function renderConnectionLog() {
+  renderProviderVerification();
   const holder = $('#connectionLogList');
   if (!holder) return;
   const entries = readConnectionLog();
@@ -933,7 +939,7 @@ async function notifyTelegramClient(bookingId, event) {
 function compactSyncLabel(kind, text) {
   if (kind === 'offline') return 'Нет интернета';
   if (kind === 'checking') return 'Обновляем данные…';
-  if (kind === 'online') return text.startsWith('Синхронизировано') ? 'Синхронизировано' : 'Обновляем данные…';
+  if (kind === 'online') return text.startsWith('Синхронизировано') ? 'Синхронизировано' : 'Онлайн';
   if (text.includes('несохранённое')) return 'Не всё сохранено';
   if (text.includes('только чтение')) return 'Только просмотр';
   if (text.includes('дополнительные')) return 'Обновлено частично';
@@ -944,6 +950,7 @@ function setSyncState(kind, text) {
   if (!element) return;
   element.className = `sync-state is-${kind}`;
   element.querySelector('span').textContent = compactSyncLabel(kind, text);
+  renderProviderVerification();
   element.title = `${text}. Нажмите, чтобы открыть журнал связи`;
   element.setAttribute('aria-label', `${text}. Открыть журнал связи`);
   recordConnectionEvent(kind, text);
@@ -957,6 +964,7 @@ async function manualSynchronizeProvider() {
   button.classList.add('is-spinning');
   recordConnectionEvent('manual', 'Запущено ручное обновление');
   try {
+    if (synchronizationPromise) await synchronizationPromise;
     const complete = await synchronizeProvider();
     if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
     notify(complete ? 'Все данные обновлены' : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
@@ -4431,6 +4439,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
+  if (view === 'portfolio' && currentUser && navigator.onLine && portfolioSyncDirty) scheduleBookingsReload('portfolio_items');
   if (view === 'waitlist') renderWaitlist();
   if (view === 'organization') {
     if (organizationController.availability === null) organizationController.load();
@@ -7858,6 +7867,57 @@ function stopLiveUpdates() {
   visitorPresenceTimer = null;
   clearTimeout(bookingReloadTimer);
   bookingReloadTimer = null;
+  pendingSynchronizationTables.clear();
+  pendingFullSynchronization = false;
+}
+
+function renderProviderVerification() {
+  const verified = lastProviderVerificationAt ? new Date(lastProviderVerificationAt) : null;
+  const short = verified ? `Сверка ${verified.toLocaleDateString('ru-RU', { day:'2-digit', month:'2-digit' })}, ${verified.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}` : 'Сверка ещё не выполнена';
+  const full = verified ? `Записи и расписание проверены на сервере: ${verified.toLocaleString('ru-RU')}.` : 'Записи и расписание ещё не проверены на сервере.';
+  const badge = $('#syncVerifiedAt');
+  if (badge) { badge.textContent = short; badge.title = full; }
+  const log = $('#connectionLogVerifiedAt');
+  if (log) log.textContent = full;
+}
+
+async function synchronizePortfolio({ force = false } = {}) {
+  // Keep the initial sidebar count, but do not repeatedly download hidden photos/reviews.
+  if (!force && portfolioSyncLoaded && $('#dashboard')?.dataset.activeView !== 'portfolio') {
+    portfolioSyncDirty = true;
+    return { ok:true, optional:true, deferred:true };
+  }
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const results = await Promise.allSettled([loadPortfolio(), loadProviderReviews()]);
+  if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
+  const ok = results.every(result => result.status === 'fulfilled' && result.value?.ok);
+  portfolioSyncLoaded = results[0].status === 'fulfilled' && Boolean(results[0].value?.ok);
+  portfolioSyncDirty = !ok;
+  return { ok, optional:true };
+}
+
+async function synchronizeProviderTables(tables, userId, generation) {
+  const loaders = new Map([
+    ['client_notes', loadClientNotes], ['client_labels', loadClientLabels],
+    ['client_avatars', loadClientAvatars], ['booking_outcomes', loadBookingOutcomes],
+    ['booking_session_items', loadBookingSessionItems], ['booking_waitlist_requests', loadWaitlist]
+  ]);
+  const tasks = tables.filter(table => loaders.has(table)).map(table => Promise.resolve().then(loaders.get(table)));
+  if (tables.some(table => table === 'portfolio_items' || table === 'portfolio_photos')) {
+    // Item changes affect the sidebar count; photo-only updates can wait until the section opens.
+    tasks.push(synchronizePortfolio({ force:tables.includes('portfolio_items') }));
+  }
+  const results = (await Promise.allSettled(tasks)).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
+  if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
+  const complete = results.every(result => result?.ok || result?.optional);
+  if (!writesAllowed) { scheduleBookingsReload(); return false; }
+  const degraded = results.some(result => !result?.ok);
+  renderBookingData();
+  if (!complete) { setWritesAllowed(false); scheduleSynchronizationRetry(); }
+  setSyncState(!complete || degraded ? 'warning' : 'online', !complete ? 'Не все изменения получены · повторяем сверку' : degraded ? 'Часть дополнительных данных не обновлена' : 'Онлайн · изменения получены');
+  // A label/photo event does not prove the journal is up to date: leave its verification time unchanged.
+  return complete;
 }
 
 function scheduleLiveReconnect(userId, generation) {
@@ -7876,7 +7936,14 @@ function recoverLiveUpdates(force = false) {
   startLiveUpdates();
 }
 
-function scheduleBookingsReload() {
+function scheduleBookingsReload(change) {
+  const table = typeof change === 'string' ? change : change?.table;
+  if (table) pendingSynchronizationTables.add(table);
+  else pendingFullSynchronization = true;
+  armBookingsReload();
+}
+
+function armBookingsReload() {
   clearTimeout(bookingReloadTimer);
   const userId = currentUser?.id;
   const generation = sessionGeneration;
@@ -7884,7 +7951,10 @@ function scheduleBookingsReload() {
     bookingReloadTimer = null;
     if (!sessionIsCurrent(userId, generation) || !navigator.onLine || document.hidden) return;
     if (synchronizationPromise) { synchronizationQueued = true; return; }
-    synchronizeProvider();
+    const tables = pendingFullSynchronization || !pendingSynchronizationTables.size ? null : [...pendingSynchronizationTables];
+    pendingSynchronizationTables.clear();
+    pendingFullSynchronization = false;
+    synchronizeProvider({ tables, background:true });
   }, 250);
 }
 
@@ -7934,20 +8004,27 @@ function startLiveUpdates() {
   visitorPresenceTimer = setInterval(renderVisitorVisits, 15000);
   syncTimer = setInterval(() => {
     refreshBusinessDay();
-    if (!document.hidden && navigator.onLine) synchronizeProvider();
+    if (!document.hidden && navigator.onLine) synchronizeProvider({ background:true });
   }, SERVICE_SYNC_INTERVAL_MS);
 }
 
-function synchronizeProvider() {
+function synchronizeProvider({ tables = null, background = false } = {}) {
   const requestedGeneration = sessionGeneration;
   const requestedUserId = currentUser?.id;
-  if (synchronizationPromise && synchronizationGeneration === requestedGeneration) return synchronizationPromise;
+  if (synchronizationPromise && synchronizationGeneration === requestedGeneration) {
+    if (!tables) scheduleBookingsReload();
+    return synchronizationPromise;
+  }
   const synchronizationStartedAt = performance.now();
   const run = (async () => {
     const userId = currentUser?.id;
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
+    const independentTables = new Set(['client_notes', 'client_labels', 'client_avatars', 'booking_outcomes', 'booking_session_items', 'booking_waitlist_requests', 'portfolio_items', 'portfolio_photos']);
+    if (tables?.length && tables.every(table => independentTables.has(table)) && writesAllowed && bookingCreationReady) {
+      return synchronizeProviderTables(tables, userId, generation);
+    }
     const primaryResults = (await Promise.allSettled([
       loadBookings({ silent:true, deferPresentation:true }),
       loadOwnServices({ silent:true }),
@@ -7967,6 +8044,10 @@ function synchronizeProvider() {
       return false;
     }
     freeSlotsController.refresh();
+    if (primaryResults.every(result => !result.skipped && !result.cached)) {
+      lastProviderVerificationAt = Date.now();
+      renderProviderVerification();
+    }
     setSyncState('checking', 'Записи и расписание обновлены · загружаем остальные разделы');
     providerPerformance.measure('provider_core_sync', synchronizationStartedAt, { complete:true });
     const secondaryResults = (await Promise.allSettled([
@@ -7981,9 +8062,8 @@ function synchronizeProvider() {
       loadClientAvatars(),
       loadBookingSessionItems(),
       loadBookingOutcomes(),
-      loadPortfolio(),
+      synchronizePortfolio({ force:!background }),
       loadWaitlist(),
-      loadProviderReviews(),
       organizationController.load(),
       teamCalendarController.load()
     ])).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
@@ -8029,7 +8109,7 @@ function synchronizeProvider() {
       synchronizationGeneration = -1;
       if (synchronizationQueued) {
         synchronizationQueued = false;
-        if (sessionIsCurrent(requestedUserId, requestedGeneration) && navigator.onLine && !document.hidden) scheduleBookingsReload();
+        if (sessionIsCurrent(requestedUserId, requestedGeneration) && navigator.onLine && !document.hidden) armBookingsReload();
       }
     }
   });
@@ -8107,6 +8187,10 @@ async function handleSession(session) {
     return;
   }
   const previousUserId = currentUser?.id;
+  lastProviderVerificationAt = 0;
+  portfolioSyncLoaded = false;
+  portfolioSyncDirty = true;
+  renderProviderVerification();
   const generation = ++sessionGeneration;
   resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));

@@ -746,6 +746,10 @@ dialog::backdrop { background:rgba(18,37,28,.34); backdrop-filter:blur(6px); }
 .provider-topbar-actions { display:flex; align-items:center; gap:10px; }
 .sync-state { display:inline-flex; align-items:center; gap:7px; min-height:34px; padding:0 11px; border:1px solid #dce7df; border-radius:999px; background:#fff; color:#577064; font-size:9px; font-weight:850; font-family:inherit; white-space:nowrap; cursor:pointer; }
 .sync-state i { width:7px; height:7px; border-radius:50%; background:#33aa6d; box-shadow:0 0 0 4px rgba(51,170,109,.11); }
+.provider-body #syncState { display:grid; grid-template-columns:7px minmax(0,1fr); column-gap:7px; row-gap:2px; align-content:center; min-height:44px; padding-block:5px; text-align:left; }
+.provider-body #syncState i { grid-column:1; grid-row:1/3; }
+.provider-body #syncState>span { grid-column:2; grid-row:1; }
+.provider-body #syncState>small { grid-column:2; grid-row:2; font-size:9px; line-height:1.3; font-weight:500; font-variant-numeric:tabular-nums; color:inherit; white-space:nowrap; }
 .sync-state.is-checking i,.sync-state.is-warning i { background:#d09a3e; box-shadow:0 0 0 4px rgba(208,154,62,.12); animation:pulse-status 1.2s ease-in-out infinite; }
 .sync-state.is-offline { color:#855537; background:#fff8ed; border-color:#ebdcc5; }
 .sync-state.is-offline i { background:#cb6b50; box-shadow:0 0 0 4px rgba(203,107,80,.12); }
@@ -8486,7 +8490,7 @@ html.provider-booting .provider-main {
 @media (max-width:760px) {
   .provider-body .provider-topbar-actions {
     grid-template-columns:repeat(3,48px)!important;
-    grid-template-rows:48px 38px!important;
+    grid-template-rows:48px 44px!important;
     align-items:center!important;
   }
   .provider-body .provider-topbar-actions>#openVoiceAssistant {
@@ -8525,7 +8529,7 @@ html.provider-booting .provider-main {
 @media (max-width:760px) {
   .provider-body .provider-topbar-actions {
     grid-template-columns:repeat(3,48px)!important;
-    grid-template-rows:48px 38px!important;
+    grid-template-rows:48px 44px!important;
     align-items:center!important;
   }
   .provider-body .provider-topbar-actions>#openVoiceAssistant {

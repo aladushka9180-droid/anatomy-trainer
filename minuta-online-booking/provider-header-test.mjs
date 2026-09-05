@@ -6,11 +6,11 @@ const functions=source.slice(source.indexOf('function compactSyncLabel('),source
 const label={}, attributes={}, events=[];
 const element={querySelector:()=>label,setAttribute:(key,value)=>attributes[key]=value};
 let availability=0;
-const context=vm.createContext({$:()=>element,recordConnectionEvent:(...args)=>events.push(args),applyWriteAvailability:()=>availability++});
+const context=vm.createContext({$:()=>element,renderProviderVerification(){},recordConnectionEvent:(...args)=>events.push(args),applyWriteAvailability:()=>availability++});
 vm.runInContext(functions,context);
 const examples=[
   ['online','Синхронизировано · 14:58','Синхронизировано'],
-  ['online','Онлайн · данные обновляются','Обновляем данные…'],
+  ['online','Онлайн · данные обновляются','Онлайн'],
   ['checking','Синхронизация…','Обновляем данные…'],
   ['offline','Офлайн · данные на 14:00 · новую запись можно отложить','Нет интернета'],
   ['warning','Есть несохранённое расписание · серверная сверка приостановлена','Не всё сохранено'],
