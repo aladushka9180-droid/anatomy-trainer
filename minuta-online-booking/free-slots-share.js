@@ -63,9 +63,12 @@
     const target = [data.serviceLabel, data.locationLabel].filter(Boolean).join(' · ');
     const heading = dates.length === 1 ? `Свободное время на ${formatDate(dates[0])}:` : 'Свободное время для записи:';
     const body = rows.length
-      ? rows.map(row => `${dates.length === 1 ? '' : `${formatDate(row.date)} — `}${row.times.join(', ')}`).join('\n')
+      ? rows.slice(0, 7).map(row => {
+          const times = row.times.length <= 3 ? row.times : [row.times[0], row.times[Math.floor((row.times.length - 1) / 2)], row.times[row.times.length - 1]];
+          return `${dates.length === 1 ? 'Начало сеанса: ' : `${formatDate(row.date)} — `}${times.join(', ')}`;
+        }).join('\n')
       : 'На выбранный период свободных окон пока нет.';
-    const invitation = rows.length ? 'Выберите удобное время и запишитесь онлайн:' : 'Посмотрите другие даты онлайн:';
+    const invitation = rows.length ? 'Другие варианты и запись:' : 'Посмотрите другие даты онлайн:';
     return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${invitation}\n${data.bookingUrl}`;
   }
 
@@ -232,7 +235,9 @@
   }
 
   function drawQr(canvas, text) {
-    const matrix = qrMatrix(text);
+    const code = window.qrcodegen?.QrCode;
+    const qr = code ? code.encodeText(text, code.Ecc.LOW) : null;
+    const matrix = qr ? Array.from({ length:qr.size }, (_, y) => Array.from({ length:qr.size }, (_, x) => qr.getModule(x, y))) : qrMatrix(text);
     const quiet = 4;
     const scale = 6;
     canvas.width = (matrix.length + (quiet * 2)) * scale;
@@ -280,10 +285,15 @@
     const sourceControls = [...dialog.querySelectorAll('[name="freeSlotsSource"]')];
     const copyButton = dialog.querySelector('#copyFreeSlots');
     const shareButton = dialog.querySelector('#shareFreeSlots');
+    const copyLinkButton = dialog.querySelector('#copyFreeSlotsLink');
+    const downloadQrButton = dialog.querySelector('#downloadFreeSlotsQr');
+    const qrWrap = dialog.querySelector('.free-slots-qr-wrap');
+    const fromLabel = dialog.querySelector('#freeSlotsFromLabel');
     let serverContext = null;
     let serverSlots = [];
     let requestRevision = 0;
     let publicationReady = false;
+    let publicationText = '';
 
     function rangeMode() { return modeControls.find(control => control.checked)?.value === 'range'; }
 
@@ -312,9 +322,10 @@
       const locations = serverContext?.mode === 'organization' ? (serverContext.locations || []) : [];
       replaceOptions(locationSelect, locations, preferredLocation || locations.find(item => item.is_primary)?.id, item => {
         const address = item.address ? ` · ${item.address}` : '';
-        return `${item.name || 'Филиал'}${address}`;
+        return `${item.name || 'Место приёма'}${address}`;
       });
-      locationField.hidden = !locations.length;
+      locationField.hidden = locations.length <= 1;
+      dialog.dataset.singleLocation = String(locations.length <= 1);
       const services = eligibleServices();
       replaceOptions(serviceSelect, services, preferredService, item => {
         const performer = item.performer_profiles?.display_name;
@@ -329,6 +340,8 @@
       const from = fromInput.value || data.today;
       const to = rangeMode() ? (toInput.value || from) : from;
       toField.hidden = !rangeMode();
+      if (fromLabel) fromLabel.textContent = rangeMode() ? 'С даты' : 'Дата';
+      dialog.dataset.dateRange = String(rangeMode());
       toInput.min = from;
       toInput.max = addDays(from, MAX_RANGE_DAYS - 1);
       if (!parseDate(toInput.value) || toInput.value < from) toInput.value = from;
@@ -351,7 +364,10 @@
           ...data,
           bookingUrl:trackingUrl,
           serviceLabel:service ? `${service.name || 'Услуга'}${service.performer_profiles?.display_name ? ` · ${service.performer_profiles.display_name}` : ''}` : '',
-          locationLabel:location?.name || ''
+          locationLabel:[
+            (serverContext?.locations || []).length > 1 && !/^(?:(?:основной|главный|единственный)\s+)?филиал$/i.test(location?.name || '') ? location?.name : '',
+            location?.address
+          ].filter(Boolean).join(' · ')
         }
       };
     }
@@ -359,34 +375,46 @@
     function renderPublication() {
       if (!publicationReady) return;
       const model = publicationModel();
-      textArea.value = buildPublication(model.from, model.to, model.publicationData, serverSlots);
+      publicationText = buildPublication(model.from, model.to, model.publicationData, serverSlots);
       const trackingUrl = model.trackingUrl;
+      textArea.value = publicationText.slice(0, -trackingUrl.length) + 'Ссылка на онлайн-запись';
       bookingLink.href = trackingUrl;
-      bookingLink.textContent = trackingUrl;
-      try {
-        drawQr(qrCanvas, trackingUrl);
-        qrCanvas.hidden = false;
-        dialog.querySelector('#freeSlotsQrError').hidden = true;
-      } catch {
-        qrCanvas.hidden = true;
-        dialog.querySelector('#freeSlotsQrError').hidden = false;
+      bookingLink.textContent = 'Открыть страницу записи';
+      const showQr = sourceControls.some(control => control.checked && control.value === 'qr');
+      qrWrap.hidden = !showQr;
+      qrCanvas.hidden = true;
+      downloadQrButton.hidden = true;
+      dialog.querySelector('#freeSlotsQrError').hidden = true;
+      if (showQr) {
+        try {
+          drawQr(qrCanvas, trackingUrl);
+          qrCanvas.hidden = false;
+          downloadQrButton.hidden = false;
+        } catch {
+          dialog.querySelector('#freeSlotsQrError').hidden = false;
+        }
       }
       status.textContent = '';
       copyButton.disabled = false;
       shareButton.disabled = false;
+      copyLinkButton.disabled = false;
     }
 
     function showUnavailable(message) {
       publicationReady = false;
+      publicationText = '';
       serverSlots = [];
       textArea.value = 'Свободное время не опубликовано: сервер не подтвердил доступные слоты.';
       bookingLink.removeAttribute('href');
       bookingLink.textContent = '';
       qrCanvas.hidden = true;
+      qrWrap.hidden = true;
+      downloadQrButton.hidden = true;
       dialog.querySelector('#freeSlotsQrError').hidden = true;
       status.textContent = message;
       copyButton.disabled = true;
       shareButton.disabled = true;
+      copyLinkButton.disabled = true;
       dialog.removeAttribute('aria-busy');
     }
 
@@ -395,6 +423,9 @@
       publicationReady = false;
       copyButton.disabled = true;
       shareButton.disabled = true;
+      copyLinkButton.disabled = true;
+      bookingLink.removeAttribute('href');
+      qrWrap.hidden = true;
       status.textContent = 'Проверяем свободное время на сервере…';
       dialog.setAttribute('aria-busy', 'true');
       try {
@@ -406,12 +437,12 @@
         const services = configureTargets(preferredService, preferredLocation);
         if (!services.length) {
           showUnavailable(serverContext?.mode === 'organization' && locationSelect.value
-            ? 'В выбранном филиале нет доступных услуг.'
+            ? 'В выбранном месте приёма нет доступных услуг.'
             : 'Нет активных услуг для публикации.');
           return;
         }
         if (serverContext?.mode === 'organization' && !(serverContext.locations || []).length) {
-          showUnavailable('У онлайн-записи организации нет активного филиала.');
+          showUnavailable('Для онлайн-записи не настроено место приёма.');
           return;
         }
         const result = await loadSlots({
@@ -463,7 +494,7 @@
     });
     copyButton.addEventListener('click', async () => {
       if (!publicationReady) return;
-      const copied = await copyText(textArea.value);
+      const copied = await copyText(publicationText);
       status.textContent = copied ? 'Текст скопирован.' : 'Не удалось скопировать автоматически. Выделите текст вручную.';
       notify(copied ? 'Свободные окна скопированы' : 'Выделите и скопируйте текст вручную');
     });
@@ -471,16 +502,28 @@
       if (!publicationReady) return;
       if (navigator.share) {
         try {
-          await navigator.share({ title:'Свободные окна для записи', text:textArea.value });
+          await navigator.share({ title:'Свободные окна для записи', text:publicationText });
           status.textContent = 'Материал передан через системное меню.';
           return;
         } catch (error) {
           if (error?.name === 'AbortError') return;
         }
       }
-      const copied = await copyText(textArea.value);
+      const copied = await copyText(publicationText);
       status.textContent = copied ? 'Системная отправка недоступна — текст скопирован.' : 'Системная отправка недоступна. Выделите текст вручную.';
       notify(copied ? 'Текст скопирован — вставьте его в нужное приложение' : 'Выделите и скопируйте текст вручную');
+    });
+    copyLinkButton.addEventListener('click', async () => {
+      if (!publicationReady) return;
+      const copied = await copyText(bookingLink.href);
+      status.textContent = copied ? 'Ссылка скопирована.' : 'Не удалось скопировать. Откройте страницу записи и скопируйте адрес.';
+    });
+    downloadQrButton.addEventListener('click', () => {
+      if (!publicationReady || qrCanvas.hidden || qrWrap.hidden) return;
+      const link = document.createElement('a');
+      link.download = 'minuta-online-booking-qr.png';
+      link.href = qrCanvas.toDataURL('image/png');
+      link.click();
     });
     return { open, refresh:() => { if (dialog.open) void refreshFromServer({ reloadContext:true }); } };
   }
