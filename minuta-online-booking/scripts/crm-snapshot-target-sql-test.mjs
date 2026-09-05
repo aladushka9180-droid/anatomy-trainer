@@ -111,6 +111,14 @@ test('does not let dump defaults remove the caller timeout bounds',()=>{
   assert.throws(()=>transformTargetSql(fixture('SET session_replication_role = replica;')));
 });
 
+test('preserves canonical table replica identity without accepting replica triggers',()=>{
+  for(const form of ['FULL','DEFAULT','NOTHING','USING INDEX booking_pk']){
+    assert.match(transformTargetSql(fixture(`ALTER TABLE ONLY public.bookings REPLICA IDENTITY ${form};`)),/REPLICA IDENTITY/);
+  }
+  assert.throws(()=>transformTargetSql(fixture('ALTER TABLE public.bookings ENABLE REPLICA TRIGGER unsafe;')));
+  assert.throws(()=>transformTargetSql(fixture('ALTER TABLE public.bookings REPLICA IDENTITY USING INDEX other.private;')));
+});
+
 test('guards only known public object drops when their owning table is missing',()=>{
   for(const kind of ['TRIGGER','POLICY','RULE']) {
     const output=transformTargetSql(fixture(`DROP ${kind} IF EXISTS old_object ON public.absent_table;`));
@@ -152,7 +160,8 @@ test('diagnostics expose only static codes and statement numbers',()=>{
     const diagnostic=targetSqlDiagnostic(error);
     assert.equal(diagnostic.code,'TARGET_ALTER_TABLE');
     assert.equal(typeof diagnostic.statementIndex,'number');
-    assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE_NAME|PRIVATE_TOKEN|ALTER TABLE/);
+    assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE_NAME|PRIVATE_TOKEN/);
+    assert.equal(diagnostic.shape,'ALTER TABLE ENABLE ALWAYS TRIGGER');
   }
   assert.deepEqual(targetSqlDiagnostic(new Error('secret-path-secret-key')),{code:'TARGET_INPUT_REJECTED'});
 });

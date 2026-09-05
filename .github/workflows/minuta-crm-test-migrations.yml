@@ -1,0 +1,116 @@
+name: Minuta test-only CRM migration rehearsal
+run-name: CRM v112-v114 test rehearsal (${{ inputs.mode }})
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Validate is read-only; exercise applies, rolls back and reapplies named CRM migrations
+        type: choice
+        options: [validate, exercise]
+        default: validate
+        required: true
+      release_sha:
+        description: Exact SHA of this workflow checkout, including reviewed v112-v114 SQL
+        type: string
+        required: true
+      restore_run_id:
+        description: Successful authorized anonymized test restore run ID
+        type: string
+        required: true
+      restore_sha:
+        description: Exact code SHA of that test restore run
+        type: string
+        required: true
+      test_backup_run_id:
+        description: Successful main test backup taken AFTER the restore, within six hours
+        type: string
+        required: true
+      backup_sha:
+        description: Exact main SHA of the post-restore test backup
+        type: string
+        required: true
+      exercise_confirm:
+        description: For exercise enter TEST_CRM_V112_V114_APPLY_ROLLBACK_REAPPLY
+        type: string
+        default: VALIDATE_ONLY
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+jobs:
+  test-only:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/client-record-files'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: minuta-test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.x
+      - name: Verify release pin and isolated runtime contracts
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$RELEASE_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          npm install --prefix "$RUNNER_TEMP/crm-migration-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
+          export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/crm-migration-deps/node_modules/@electric-sql/pglite/dist/index.js"
+          node minuta-online-booking/scripts/crm-test-migrations-contract-test.mjs
+          node minuta-online-booking/tests/client-records-pglite-runtime-test.mjs
+          node minuta-online-booking/tests/crm-integration-client-record-lifecycle-pglite-test.mjs
+          node minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
+          deno test --allow-read minuta-online-booking/notification-v114-integration-test.ts
+      - name: Install PostgreSQL 17 client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+      - name: Guarded test-only migration gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MIGRATION_MODE: ${{ inputs.mode }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RESTORE_RUN_ID: ${{ inputs.restore_run_id }}
+          RESTORE_SHA: ${{ inputs.restore_sha }}
+          TEST_BACKUP_RUN_ID: ${{ inputs.test_backup_run_id }}
+          BACKUP_SHA: ${{ inputs.backup_sha }}
+          EXERCISE_CONFIRM: ${{ inputs.exercise_confirm }}
+        run: bash minuta-online-booking/scripts/crm-test-migrations.sh
+      - name: Persist non-personal rehearsal result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-test-migrations-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-test-migrations-result.json
+          if-no-files-found: error
+          retention-days: 35
+      - name: Remove private logs and intermediates
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$(realpath -m "$RUNNER_TEMP/minuta-crm-test-migrations-private")"
+          test "$target" = "$(realpath "$RUNNER_TEMP")/minuta-crm-test-migrations-private"
+          rm -rf -- "$target"

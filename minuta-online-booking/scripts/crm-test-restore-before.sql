@@ -2,6 +2,9 @@
 set local statement_timeout='10min';
 set local lock_timeout='10s';
 set local session_replication_role=replica;
+-- Catalog pretty-printers qualify names according to search_path. Snapshot and
+-- comparison must use the same path even though pg_restore changes it later.
+set local search_path=pg_catalog;
 
 -- Repeat the exact read-only preflight gate in this restore transaction.
 -- Do not include its BEGIN/ROLLBACK wrapper, which would end our transaction.

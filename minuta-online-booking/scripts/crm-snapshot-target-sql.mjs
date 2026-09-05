@@ -181,6 +181,7 @@ function validateStatement(part) {
       || matches(action,`^ALTER COLUMN ${identifier} SET DEFAULT `)
       || matches(action,`^ALTER COLUMN ${identifier} ADD GENERATED (?:ALWAYS|BY DEFAULT) AS IDENTITY\\s*\\(`)
       || /^(?:ENABLE|FORCE|NO FORCE) ROW LEVEL SECURITY;$/i.test(action)
+      || matches(action,`^REPLICA IDENTITY (?:FULL|DEFAULT|NOTHING|USING INDEX ${identifier});$`)
       || matches(action,`^ATTACH PARTITION ${object}\\s`),
     'Unsupported restore ALTER TABLE');return 'keep';
   }
@@ -217,7 +218,9 @@ export function transformTargetSql(input,{preserveFunctions=[]}={}) {
       }
       actions.push(action);
     } catch(error) {
-      diagnosticContext.set(error,{statementIndex:actions.length+1});throw error;
+      const keywords=new Set('ALTER TABLE ONLY IF EXISTS COLUMN SET DEFAULT NOT NULL STATISTICS STORAGE ADD GENERATED ALWAYS BY AS IDENTITY ENABLE DISABLE REPLICA TRIGGER ROW LEVEL SECURITY NO FORCE DROP CONSTRAINT CHECK VALIDATE ATTACH PARTITION'.split(' '));
+      const shape=(part.mask.match(/\b[A-Z][A-Z_]*\b/g)||[]).filter(word=>keywords.has(word)).slice(0,24).join(' ');
+      diagnosticContext.set(error,{statementIndex:actions.length+1,shape});throw error;
     }
     if(/^COPY\b/i.test(part.mask))assert(!firstFkSeen,'COPY after foreign-key installation is unsupported');
     if(/^ALTER TABLE\b/i.test(part.mask)&&/\bADD CONSTRAINT\b[\s\S]*\bFOREIGN KEY\b/i.test(part.mask)){fks.push(part.mask);firstFkSeen=true;}

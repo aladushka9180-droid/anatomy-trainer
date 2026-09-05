@@ -1,4 +1,4 @@
-// Static contract + synthetic predicate tests only. Never connects to a database.
+// Static contracts plus optional isolated PGlite. Never connects to a server.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -8,6 +8,25 @@ const preflight = read('preflight');
 const quiesce = read('quiesce');
 const before = read('before');
 const after = read('after');
+
+test('catalog trigger rendering is compared under a stable search path',
+  {skip:!process.env.MINUTA_PGLITE_MODULE},async()=>{
+    const {PGlite}=await import(process.env.MINUTA_PGLITE_MODULE);
+    const db=new PGlite();
+    try{
+      await db.exec(`create schema auth; create table auth.users(id uuid);
+        create function public.signup() returns trigger language plpgsql as $$begin return new; end$$;
+        create trigger signup after insert on auth.users for each row execute function public.signup();`);
+      const definition=async()=> (await db.query("select pg_get_triggerdef(oid) as def from pg_trigger where tgname='signup'")).rows[0].def;
+      await db.exec('set search_path=public;'); const visible=await definition();
+      await db.exec('set search_path=pg_catalog;'); const pinned=await definition();
+      await db.exec("set search_path='';"); const dumped=await definition();
+      assert.notEqual(visible,pinned);
+      assert.equal(pinned,dumped);
+      assert.match(before,/set local search_path=pg_catalog;/);
+      assert.match(after,/set local search_path=pg_catalog;/);
+    }finally{await db.close();}
+  });
 
 test('preflight is read-only and rejects replica-capable auth/business hooks', () => {
   assert.match(preflight, /begin read only;/);
