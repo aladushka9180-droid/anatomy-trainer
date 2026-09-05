@@ -21,7 +21,7 @@ assert.match(read('sw.js'), /provider-ux.css\?v=\d+/);
 assert.match(provider, /block \? 'Занять время' : 'Новая запись'/);
 assert.match(provider, /toolbar.append\(search, tools\)/);
 assert.match(provider, /panel\.hidden/);
-assert.match(provider, /стоимость визитов, а не подтверждённое получение оплаты/);
+assert.match(provider, /Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено и долг/);
 assert.match(provider, /forecastCard.hidden = forecast.caption === 'Получено за период'/);
 assert.match(baseCss, /\.schedule-quick-days input \{[^}]*width:1px!important;[^}]*height:1px!important/);
 assert.match(css, /#newBookingButton>span \{ display:inline!important/);

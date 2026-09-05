@@ -1518,7 +1518,7 @@ function applyDisplayPreferences() {
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
-  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa', japandi:'#f3efe7', midnight:'#08111f', mono:'#f3f3f0', desert:'#f5e9db', rose:'#f2eaed', botanical:'#101c18', burgundy:'#21131c', coastal:'#f1f6f7', pearl:'#f4f4f5', butter:'#faf9f3', celadon:'#f0f6f3', 'snow-leopard':'#f4f5f6', 'apricot-tiger':'#fff3e7', 'golden-cheetah':'#fff7ec', 'pearl-zebra':'#f5f2ee' };
+  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa', japandi:'#f3efe7', midnight:'#08111f', mono:'#f3f3f0', desert:'#f5e9db', rose:'#f2eaed', botanical:'#202623', burgundy:'#282326', coastal:'#f1f6f7', pearl:'#f4f4f5', butter:'#faf9f3', celadon:'#f0f6f3', 'snow-leopard':'#f4f5f6', 'apricot-tiger':'#fff3e7', 'golden-cheetah':'#fff7ec', 'pearl-zebra':'#f5f2ee' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
   renderMobileNavigation();
   applyRoleViewOrder();
@@ -2485,12 +2485,12 @@ function reportDataQueryRange(range) {
 
 function reportBookings(range = reportRange()) {
   const liveSource = reportUsesScopedBookings() ? (reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : []) : allBookings;
-  const source = [...liveSource, ...importedBookingHistory];
+  const source = [...liveSource, ...(reportDataSource === 'demo' ? [] : importedBookingHistory)];
   const organizationId = reportOrganizationId();
   return source.filter(item => !isScheduleBlock(item)
     && item.booking_date >= range.start && item.booking_date <= range.end
     && (!organizationId || !item.organization_id || String(item.organization_id) === String(organizationId))
-    && (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all' || String(item.performer_id || '') === reportPerformerFilter));
+    && (!reportCanViewTeam || !reportPerformerFilter || reportPerformerFilter === 'all' || reportEffectivePerformerId(item) === reportPerformerFilter));
 }
 
 function previousReportRange(range) {
@@ -2507,8 +2507,23 @@ function reportCompletedItems(items) {
   return items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed');
 }
 
+function reportServiceValue(item) {
+  return globalThis.MinutaReportReconciliation.serviceValue({ perMinute:isPerMinuteBooking(item),
+    calculatedAmount:bookingOutcome(item).calculated_amount_rub, minuteRate:bookingMinuteRate(item),
+    duration:reportExportDuration(item), sessionTotal:bookingSessionTotal(item) });
+}
+function reportReceivedAmount(item) { return globalThis.MinutaReportReconciliation.amounts(item, bookingOutcome(item), 0).received; }
+function reportImportedValue(item) { return globalThis.MinutaReportReconciliation.amounts(item, bookingOutcome(item), reportServiceValue(item)).importedValue; }
+function reportDebtAmount(item) { return globalThis.MinutaReportReconciliation.amounts(item, bookingOutcome(item), reportServiceValue(item)).debt; }
+function reportEffectivePerformerId(item) { return globalThis.MinutaReportReconciliation.effectivePerformerId(item, bookingOutcome(item)); }
+function reportReconciledTeamRows(items, range) {
+  const query = reportDataQueryRange(range);
+  return globalThis.MinutaReportReconciliation.teamRows(items, { outcomeFor:bookingOutcome, valueFor:reportServiceValue,
+    durationFor:reportExportDuration, clientIdentityFor:reportClientIdentity, teamState:reportTeamAnalyticsState,
+    expectedTeamKey:reportSessionKey(reportOrganizationId(), query.start, query.end) });
+}
 function reportRevenue(items) {
-  return reportCompletedItems(items).reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+  return reportCompletedItems(items).reduce((sum, item) => sum + reportReceivedAmount(item), 0);
 }
 
 function reportClientIdentity(item) {
@@ -2807,6 +2822,7 @@ async function loadReportScopedBookings(range, performerId) {
 }
 
 function renderReportTeamRows(rows) {
+  rows = reportReconciledTeamRows(reportCompletedItems(reportBookings(reportRange())), reportRange());
   const panel = $('#reportPerformers');
   const holder = $('#reportPerformersList');
   if (!panel || !holder) return;
@@ -2836,7 +2852,7 @@ function renderReportTeamRows(rows) {
     const visits = Math.max(0, Number(row.completed_visits) || 0);
     const minutes = Math.max(0, Number(row.worked_minutes) || 0);
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
-    if (reportTeamMetric === 'payroll') return row.payroll_rub === null || row.payroll_rub === undefined ? null : Math.max(0, Number(row.payroll_rub) || 0);
+    if (reportTeamMetric === 'payroll') return row.payroll_rub === null || row.payroll_rub === undefined || !Number.isFinite(Number(row.payroll_rub)) ? null : Number(row.payroll_rub);
     if (reportTeamMetric === 'visits') return visits;
     if (reportTeamMetric === 'hours') return minutes / 60;
     if (reportTeamMetric === 'efficiency') return minutes > 0 ? revenue / (minutes / 60) : 0;
@@ -2857,9 +2873,9 @@ function renderReportTeamRows(rows) {
     const clients = Math.max(0, Number(row.unique_clients) || 0);
     const minutes = Math.max(0, Number(row.worked_minutes) || 0);
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
-    const average = visits ? revenue / visits : 0;
+    const average = row.payment_known_visits ? revenue / row.payment_known_visits : null;
     const width = item.value === null ? 0 : Math.max(item.value > 0 ? 3 : 0, Math.round((item.value || 0) / maximum * 100));
-    return `<article class="report-performer-row${index === 0 && item.value !== null ? ' is-leader' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><div class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${money(Math.round(average))}/визит</small></div><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><div class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Настройте начисление</small>' : ''}</div><span class="report-team-arrow" aria-hidden="true">→</span></article>`;
+    return `<article class="report-performer-row${index === 0 && item.value !== null ? ' is-leader' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><div class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></div><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><div class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Настройте начисление</small>' : ''}</div><span class="report-team-arrow" aria-hidden="true">→</span></article>`;
   }).join('');
   holder.querySelectorAll('[data-report-performer]').forEach(row => {
     const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
@@ -2988,7 +3004,7 @@ function reportVisitWord(count) {
 function reportTrendMarkup(completed, range) {
   const chart = $('#reportRevenueChart');
   if (!chart) return;
-  const total = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).amount_rub || 0), 0);
+  const total = completed.reduce((sum, item) => sum + reportReceivedAmount(item), 0);
   setReportText('#reportTrendTotal', money(total));
   if (!completed.length) {
     chart.innerHTML = '<div class="report-empty-inline">После завершённых визитов здесь появится динамика.</div>';
@@ -3008,7 +3024,7 @@ function reportTrendMarkup(completed, range) {
   completed.forEach(item => {
     const offset = Math.max(0, Math.floor((parseLocalIsoDate(item.booking_date) - start) / 86400000));
     const bucket = buckets[Math.min(buckets.length - 1, Math.floor(offset / bucketDays))];
-    if (bucket) bucket.value += Number(bookingOutcome(item).amount_rub || 0);
+    if (bucket) bucket.value += reportReceivedAmount(item);
   });
   const maximum = Math.max(...buckets.map(item => item.value), 1);
   const bestIndex = buckets.reduce((best, bucket, index) => bucket.value > buckets[best].value ? index : best, 0);
@@ -3187,7 +3203,7 @@ function reportForecastMetrics(range, revenue, completed, items) {
   const historyEnd = parseLocalIsoDate(todayIso);
   historyEnd.setDate(historyEnd.getDate() - 1);
   const dailyRevenue = new Map();
-  completed.forEach(item => dailyRevenue.set(item.booking_date, (dailyRevenue.get(item.booking_date) || 0) + Number(bookingOutcome(item).amount_rub || 0)));
+  completed.forEach(item => dailyRevenue.set(item.booking_date, (dailyRevenue.get(item.booking_date) || 0) + reportReceivedAmount(item)));
   const weekdaySamples = Array.from({ length:7 }, () => []);
   const start = parseLocalIsoDate(range.start);
   for (let cursor = new Date(start); cursor <= historyEnd; cursor.setDate(cursor.getDate() + 1)) {
@@ -3202,10 +3218,10 @@ function reportForecastMetrics(range, revenue, completed, items) {
   for (let cursor = tomorrow; cursor <= target; cursor.setDate(cursor.getDate() + 1)) paceRemaining += weekdayAverage[(cursor.getDay() + 6) % 7];
   const concluded = completed.length + items.filter(item => item.status === 'cancelled' || bookingOutcome(item).visit_status === 'no_show').length;
   const attendanceRate = concluded ? completed.length / concluded : .8;
-  const completedValue = completed.reduce((sum, item) => sum + bookingCalculatedValue(item), 0);
+  const completedValue = completed.reduce((sum, item) => sum + reportServiceValue(item) - reportImportedValue(item), 0);
   const collectionRate = completedValue ? Math.min(1, revenue / completedValue) : .9;
   const future = reportBookingPool().filter(item => item.booking_date > todayIso && item.booking_date <= targetEnd && item.status !== 'cancelled');
-  const pipeline = future.reduce((sum, item) => sum + bookingCalculatedValue(item), 0) * attendanceRate * collectionRate;
+  const pipeline = future.reduce((sum, item) => sum + reportServiceValue(item), 0) * attendanceRate * collectionRate;
   const remaining = Math.max(paceRemaining, pipeline);
   const sampleDays = weekdaySamples.flat().length;
   const sampleVisits = completed.length;
@@ -3224,7 +3240,7 @@ function renderReportFunnel(items, completed) {
   if (!holder) return;
   const booked = items.length;
   const accepted = items.filter(item => item.status !== 'cancelled').length;
-  const paid = completed.filter(item => Number(bookingOutcome(item).amount_rub || 0) > 0).length;
+  const paid = completed.filter(item => reportReceivedAmount(item) > 0).length;
   const steps = [
     { label:'Все записи', value:booked, icon:'calendar' },
     { label:'Не отменены', value:accepted, icon:'check' },
@@ -3352,12 +3368,13 @@ function reportDataQualityMetrics({ items, completed, utilizationPercent }) {
   return { score, warnings, outcomeCoverage, identityCoverage, sourceCoverage, durationCoverage, scheduleCoverage };
 }
 
-function renderReportCommandCenter({ range, items, completed, revenue, completedValue, debt, pending, clients, sources, utilizationPercent, rows, cancelled, noShows, average }) {
+function renderReportCommandCenter({ range, items, completed, revenue, completedValue, importedValue = 0, unknownPaymentCount = 0, debt, pending, clients, sources, utilizationPercent, rows, cancelled, noShows, average }) {
   const forecast = reportForecastMetrics(range, revenue, completed, items);
   const concluded = completed.length + cancelled.length + noShows.length;
   const conversion = concluded ? Math.round(completed.length / concluded * 100) : null;
   const repeatRate = clients.uniqueClients ? Math.round(clients.returningClients / clients.uniqueClients * 100) : 0;
-  const paymentRate = completedValue ? Math.min(100, Math.round(revenue / completedValue * 100)) : null;
+  const knownValue = completedValue - importedValue;
+  const paymentRate = knownValue > 0 ? Math.min(100, Math.round(revenue / knownValue * 100)) : null;
   const goals = reportGoals();
   const visitTarget = Math.max(0, 100 - goals.cancellation_percent);
   const components = [
@@ -3396,7 +3413,7 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   setReportText('#reportVisitConversion', conversion === null ? '—' : `${conversion}%`);
   setReportText('#reportVisitConversionNote', concluded ? `${completed.length} из ${concluded}; цель ${visitTarget}%` : 'Нет известных исходов');
   setReportText('#reportPaymentRate', paymentRate === null ? '—' : `${paymentRate}%`);
-  setReportText('#reportPaymentRateNote', paymentRate === null ? 'Нет стоимости услуг' : `Получено из стоимости; цель 100%`);
+  setReportText('#reportPaymentRateNote', paymentRate === null ? 'Нет данных для сверки оплаты' : unknownPaymentCount ? `По визитам с данными; без данных: ${unknownPaymentCount}` : 'Получено из стоимости; цель 100%');
   setReportText('#reportRepeatRate', `${repeatRate}%`);
   setReportText('#reportRepeatRateNote', clients.uniqueClients ? `${clients.returningClients} из ${clients.uniqueClients}; цель ${goals.repeat_percent}%` : 'Появится после визитов');
   setReportText('#reportHealthUtilization', utilizationPercent === null ? '—' : `${utilizationPercent}%`);
@@ -3467,12 +3484,15 @@ function renderAnalytics() {
   const pending = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'scheduled' && bookingIsCompleted(item));
   const upcoming = items.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'scheduled' && !bookingIsCompleted(item));
   const revenue = reportRevenue(items);
-  const completedValue = completed.reduce((sum, item) => sum + bookingCalculatedValue(item), 0);
-  const debt = completed.reduce((sum, item) => sum + Math.max(0, bookingCalculatedValue(item) - Number(bookingOutcome(item).amount_rub || 0)), 0);
-  const unpaid = completed.filter(item => Number(bookingOutcome(item).amount_rub || 0) < bookingCalculatedValue(item));
-  const adjustment = revenue - completedValue;
-  const average = completed.length ? revenue / completed.length : 0;
-  const workedMinutes = completed.reduce((sum, item) => sum + Number(bookingOutcome(item).actual_duration_minutes || item.duration_minutes || item.services?.duration_minutes || 0), 0);
+  const completedValue = completed.reduce((sum, item) => sum + reportServiceValue(item), 0);
+  const importedValue = completed.reduce((sum, item) => sum + reportImportedValue(item), 0);
+  const unknownPaymentCount = completed.filter(item => globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))).length;
+  const debt = completed.reduce((sum, item) => sum + reportDebtAmount(item), 0);
+  const unpaid = completed.filter(item => reportDebtAmount(item) > 0);
+  const adjustment = revenue - (completedValue - importedValue);
+  const knownPaymentCount = completed.length - unknownPaymentCount;
+  const average = knownPaymentCount ? revenue / knownPaymentCount : 0;
+  const workedMinutes = completed.reduce((sum, item) => sum + reportExportDuration(item), 0);
   const clients = reportClientMetrics(completed, range);
   const sources = reportSourceMetrics(items);
   const sourceTotal = sources.online + sources.manual + sources.unknown;
@@ -3481,7 +3501,7 @@ function renderAnalytics() {
   setReportText('#reportDecisionHint', reportDataSource === 'demo' ? 'Учебные данные без перехода в журнал' : 'Нажмите показатель, чтобы открыть записи');
   const importedInPeriod = completed.filter(item => item.is_imported_history).length;
   $('#reportPeriodLabel').textContent = `${reportDateText(range.start, { day:'numeric', month:'long', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'long', year:'numeric' })} · обновлено ${new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
-  setReportText('#reportImportMethod', importedInPeriod ? `${importedInPeriod} ${reportVisitWord(importedInPeriod)} из прежнего журнала. Сумма отражает стоимость записей.` : 'В выбранном периоде импортированных визитов нет.');
+  setReportText('#reportImportMethod', importedInPeriod ? `${importedInPeriod} ${reportVisitWord(importedInPeriod)} из прежнего журнала. Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено и долг.` : 'В выбранном периоде импортированных визитов нет.');
   updateReportFilterSummary();
   const visualPeriod = `${reportDateText(range.start, { day:'numeric', month:'short', year:'numeric' })} — ${reportDateText(range.end, { day:'numeric', month:'short', year:'numeric' })} · ${reportPerformerName()}`;
   setReportText('#reportTrendPeriod', visualPeriod);
@@ -3490,9 +3510,10 @@ function renderAnalytics() {
   $('#reportCompletedValue').textContent = money(completedValue);
   $('#reportDebt').textContent = money(debt);
   $('#reportCompleted').textContent = String(completed.length);
-  $('#reportUnpaid').textContent = unpaid.length ? `${unpaid.length} ${reportVisitWord(unpaid.length)} с долгом` : 'Нет визитов с долгом';
+  $('#reportUnpaid').textContent = unpaid.length ? `${unpaid.length} ${reportVisitWord(unpaid.length)} с долгом` : unknownPaymentCount ? 'По визитам с данными долга нет' : 'Нет визитов с долгом';
   $('#reportWorkload').textContent = workedMinutes >= 60 ? `${Math.round(workedMinutes / 6) / 10} ч работы` : `${workedMinutes} мин работы`;
-  $('#reportAverage').textContent = money(Math.round(average));
+  $('#reportAverage').textContent = knownPaymentCount ? money(Math.round(average)) : 'Нет данных';
+  $('#reportAverage').title = 'Средняя отмеченная оплата по визитам с данными об оплате. Неизвестные оплаты исключены.';
   $('#reportPending').textContent = String(pending.length);
   const secondaryMetrics = [
     { selector:'#reportPendingMetric', value:pending.length, clear:'Все визиты отмечены' }
@@ -3573,7 +3594,7 @@ function renderAnalytics() {
     reconciliation.hidden = adjustment === 0;
     if (adjustment !== 0) {
       const differenceText = adjustment > 0 ? `Доплаты и корректировки +${money(adjustment)}` : `Недополучено ${money(Math.abs(adjustment))}`;
-      reconciliation.innerHTML = `<small>Сверка оплаты</small><strong>Услуги ${money(completedValue)} · ${differenceText} · получено ${money(revenue)}</strong>`;
+      reconciliation.innerHTML = `<small>Сверка визитов с данными об оплате</small><strong>Услуги ${money(completedValue - importedValue)} · ${differenceText} · получено ${money(revenue)}</strong>`;
       reconciliation.className = `report-reconciliation ${adjustment > 0 ? 'is-positive' : 'is-negative'}`;
     }
   }
@@ -3582,17 +3603,16 @@ function renderAnalytics() {
   completed.forEach(item => {
     const outcome = bookingOutcome(item);
     const method = payments.has(outcome.payment_method) ? outcome.payment_method : 'unpaid';
-    payments.set(method, payments.get(method) + Number(outcome.amount_rub || 0));
+    payments.set(method, payments.get(method) + reportReceivedAmount(item));
   });
   const paymentNames = { cash:'Наличные',card:'Карта',transfer:'Перевод',imported:'Стоимость из журнала',unpaid:'Без оплаты' };
   const visiblePayments = [...payments.entries()].filter(([, amount]) => amount > 0);
-  const importedValue = payments.get('imported') || 0;
   const paymentEvidence = $('#reportPaymentEvidence');
   if (paymentEvidence) {
-    paymentEvidence.hidden = importedValue <= 0;
-    paymentEvidence.textContent = importedValue > 0 ? `В сумме ${money(revenue)} учтено ${money(importedValue)} из прежнего журнала. Эта часть отражает стоимость визитов, а не подтверждённое получение оплаты.` : '';
+    paymentEvidence.hidden = unknownPaymentCount === 0;
+    paymentEvidence.textContent = unknownPaymentCount ? `Данные об оплате есть у ${completed.length - unknownPaymentCount} из ${completed.length} визитов. История на ${money(importedValue)} сохранена в стоимости услуг: для ${unknownPaymentCount} визитов нет данных об оплате, их не относим к получено или долгу. Отчёт относится к датам визитов, не банковских операций.` : '';
   }
-  const receivedLabel = importedValue > 0 ? 'Оплаты и стоимость импорта' : 'Получено от клиентов';
+  const receivedLabel = 'Получено от клиентов';
   const heroCaption = $('#reportHeroRevenue')?.closest('article')?.querySelector('small');
   if (heroCaption) heroCaption.textContent = receivedLabel;
   const revenueCaption = $('#reportRevenue')?.closest('article')?.querySelector('small');
@@ -3602,7 +3622,7 @@ function renderAnalytics() {
   completed.forEach(item => {
     const entries = bookingSession(item).filter(entry => entry.title);
     const weightTotal = entries.reduce((sum, entry) => sum + Math.max(0, Number(entry.price_rub || 0)), 0);
-    const received = Number(bookingOutcome(item).amount_rub || 0);
+    const received = reportReceivedAmount(item);
     entries.forEach(entry => {
       const name = serviceName(entry.title || 'Услуга');
       const key = entry.service_id ? `service:${entry.service_id}` : `title:${name.toLowerCase()}`;
@@ -3615,7 +3635,7 @@ function renderAnalytics() {
   const rows = [...grouped.values()].sort((a, b) => b[reportServiceMetric] - a[reportServiceMetric] || b.revenue - a.revenue || b.visits - a.visits);
   renderReportFunnel(items, completed);
   renderReportHeatmap(items, range);
-  renderReportCommandCenter({ range, items, completed, revenue, completedValue, debt, pending, clients, sources, utilizationPercent, rows, cancelled, noShows, average });
+  renderReportCommandCenter({ range, items, completed, revenue, completedValue, importedValue, unknownPaymentCount, debt, pending, clients, sources, utilizationPercent, rows, cancelled, noShows, average });
   const maximumServiceValue = Math.max(...rows.map(row => row[reportServiceMetric]), 1);
   const visibleServiceRows = reportServicesExpanded ? rows : rows.slice(0, 5);
   $$('[data-report-service-metric]').forEach(button => {
@@ -3645,7 +3665,8 @@ function renderAnalytics() {
       { value:noShows.length, text:'клиенты не пришли' }
     ].sort((a, b) => b.value - a.value)[0];
     if (attention?.value) details.push(`<strong>${attention.value}</strong> ${attention.text}.`);
-    else if (items.length) details.push('Проблемных записей за период нет.');
+    else if (items.length && !unknownPaymentCount) details.push('Проблемных записей за период нет.');
+    if (unknownPaymentCount) details.push(`Нет данных об оплате у <strong>${unknownPaymentCount}</strong> визитов из истории.`);
     decisionInsight.hidden = !details.length;
     decisionInsight.innerHTML = details.join(' ');
   }
@@ -3654,6 +3675,7 @@ function renderAnalytics() {
     const messages = [];
     if (pending.length) messages.push(`${pending.length} ${reportVisitWord(pending.length)} требуют завершения.`);
     if (debt > 0) messages.push(`Долг клиентов — ${money(debt)}.`);
+    if (unknownPaymentCount) messages.push(`Нет данных об оплате у ${unknownPaymentCount} визитов из истории; их стоимость не включена в получено и долг.`);
     if (!completed.length && !pending.length) messages.push('За выбранный период нет состоявшихся визитов.');
     if (completed.length) {
       if (hasPreviousData && previousRevenue > 0) {
@@ -3812,9 +3834,7 @@ function reportExportDuration(item) {
   return outcome.visit_status === 'completed' && Number(outcome.actual_duration_minutes) > 0 ? Number(outcome.actual_duration_minutes) : planned;
 }
 function reportExportValue(item) {
-  const outcome = bookingOutcome(item);
-  if (isPerMinuteBooking(item)) return Math.max(0, Math.round(Number(outcome.calculated_amount_rub) || bookingMinuteRate(item) * reportExportDuration(item)));
-  return Math.max(0, Math.round(bookingSessionTotal(item)));
+  return reportServiceValue(item);
 }
 function reportExportEnd(item, duration) {
   const [hours, minutes] = String(item.booking_time || '00:00').slice(0,5).split(':').map(Number);
@@ -3824,10 +3844,19 @@ function reportExportEnd(item, duration) {
 function reportExportSource(item) { return item.booking_source === 'client_online' ? 'Онлайн' : item.booking_source === 'provider_manual' ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено'; }
 function reportExportVisit(item) {
   const status = bookingOutcome(item).visit_status;
-  return status === 'completed' ? 'Состоялся' : status === 'no_show' ? 'Не пришёл' : item.status === 'cancelled' ? 'Отменён' : 'Запланирован';
+  return item.status === 'cancelled' ? 'Отменён' : status === 'completed' ? 'Состоялся' : status === 'no_show' ? 'Не пришёл' : 'Запланирован';
 }
-function reportExportPerformers() { return new Map((reportTeamAnalyticsState.rows || []).map(row => [String(row.performer_id || ''), row.performer_name || 'Мастер'])); }
-function reportExportMaster(item, performers) { return performers.get(String(item.performer_id || '')) || 'Мастер'; }
+function reportCurrentTeamRows() {
+  const query = reportDataQueryRange(reportRange());
+  return globalThis.MinutaReportReconciliation.currentTeamRows(reportTeamAnalyticsState, reportSessionKey(reportOrganizationId(), query.start, query.end));
+}
+function reportCurrentEventRows(range = reportRange()) {
+  if (reportDataSource === 'demo' || !currentUser?.id || !reportOrganizationId()) return [];
+  const key = reportSessionKey(reportOrganizationId(), range.start, range.end);
+  return reportEventState.status === 'ready' && reportEventState.key === key && Array.isArray(reportEventState.rows) ? reportEventState.rows : [];
+}
+function reportExportPerformers() { return new Map(reportCurrentTeamRows().map(row => [String(row.performer_id || ''), row.performer_name || 'Мастер'])); }
+function reportExportMaster(item, performers) { return performers.get(reportEffectivePerformerId(item)) || 'Мастер'; }
 function reportExportCreator(item, performers) {
   if (item.booking_source === 'client_online') return 'Клиент';
   if (item.created_by_user_id && performers.has(String(item.created_by_user_id))) return performers.get(String(item.created_by_user_id));
@@ -3839,33 +3868,34 @@ function reportExportData(privacy = 'masked') {
   const completed = reportCompletedItems(items);
   const revenue = reportRevenue(completed);
   const completedValue = completed.reduce((sum,item) => sum + reportExportValue(item),0);
-  const debt = completed.reduce((sum,item) => sum + Math.max(0,reportExportValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0);
+  const debt = completed.reduce((sum,item) => sum + reportDebtAmount(item),0);
+  const importedValue = completed.reduce((sum,item) => sum + reportImportedValue(item),0);
+  const unknownPaymentCount = completed.filter(item => globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))).length;
   const workedMinutes = completed.reduce((sum,item) => sum + reportExportDuration(item),0);
-  const average = completed.length ? Math.round(revenue/completed.length) : 0;
+  const knownPaymentCount = completed.length - unknownPaymentCount;
+  const average = knownPaymentCount ? Math.round(revenue/knownPaymentCount) : null;
   const clients = reportClientMetrics(completed,range);
   const sources = reportSourceMetrics(items);
   const performers = reportExportPerformers();
   const headers = ['Дата','Начало','Окончание','Клиент','Телефон','Услуга','Мастер','Длительность, мин','Ставка, ₽/мин','Стоимость, ₽','Получено, ₽','Долг, ₽','Оплата','Результат визита','Источник','Кто создал','Комментарий'];
   const rows = items.map(item => {
     const outcome = bookingOutcome(item), duration = reportExportDuration(item), value = reportExportValue(item);
-    return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,Number(outcome.amount_rub || 0),outcome.visit_status === 'completed' ? Math.max(0,value-Number(outcome.amount_rub || 0)) : 0,paymentMethodLabel(outcome.payment_method,outcome.completion_source),reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),bookingDisplayNote(item)];
+    const unknownPayment = globalThis.MinutaReportReconciliation.paymentUnknown(item, outcome);
+    const paymentLabel = unknownPayment ? 'Нет данных об оплате (история)' : paymentMethodLabel(outcome.payment_method,outcome.completion_source);
+    return [reportExportDate(item.booking_date),String(item.booking_time || '').slice(0,5),reportExportEnd(item,duration),item.client_name || 'Без имени',reportExportPhone(item.client_phone,privacy),bookingSession(item).map(entry => serviceName(entry.title)).join(' + '),reportExportMaster(item,performers),duration,isPerMinuteBooking(item) ? bookingMinuteRate(item) : 0,value,unknownPayment ? null : reportReceivedAmount(item),unknownPayment ? null : reportDebtAmount(item),paymentLabel,reportExportVisit(item),reportExportSource(item),reportExportCreator(item,performers),bookingDisplayNote(item)];
   });
-  let team = (reportTeamAnalyticsState.rows || []).filter(row => !reportCanViewTeam || reportPerformerFilter === 'all' || String(row.performer_id || '') === reportPerformerFilter).map(row => [row.performer_name || 'Мастер',Number(row.completed_visits || 0),Number(row.unique_clients || 0),Math.round(Number(row.worked_minutes || 0)),Math.round(Number(row.revenue_rub || 0)),Number(row.completed_visits || 0) ? Math.round(Number(row.revenue_rub || 0)/Number(row.completed_visits)) : 0,row.payroll_rub === null || row.payroll_rub === undefined ? 'Не рассчитано' : Math.round(Number(row.payroll_rub || 0))]);
-  if (!team.length) {
-    const grouped = new Map();
-    completed.forEach(item => { const key = String(item.performer_id || 'master'), row = grouped.get(key) || { name:reportExportMaster(item,performers),visits:0,clients:new Set(),minutes:0,revenue:0 }; row.visits += 1; row.clients.add(reportClientIdentity(item)); row.minutes += reportExportDuration(item); row.revenue += Number(bookingOutcome(item).amount_rub || 0); grouped.set(key,row); });
-    team = [...grouped.values()].map(row => [row.name,row.visits,[...row.clients].filter(Boolean).length,row.minutes,row.revenue,row.visits ? Math.round(row.revenue/row.visits) : 0,'Не рассчитано']);
-  }
-  const periodKeys = new Set(completed.map(reportClientIdentity).filter(Boolean));
+  const team = reportReconciledTeamRows(completed, range)
+    .filter(row => !reportCanViewTeam || reportPerformerFilter === 'all' || String(row.performer_id || '') === reportPerformerFilter)
+    .map(row => [row.performer_name,row.completed_visits,row.unique_clients,row.worked_minutes,row.revenue_rub,row.payment_known_visits ? Math.round(row.revenue_rub/row.payment_known_visits) : null,row.payroll_rub === null ? 'Не рассчитано' : row.payroll_rub]);
   const groups = new Map();
-  const clientHistorySource = reportUsesScopedBookings() && reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : allBookings;
-  reportCompletedItems(clientHistorySource.filter(item => !isScheduleBlock(item))).forEach(item => {
-    const key = reportClientIdentity(item); if (!key || !periodKeys.has(key)) return;
-    const row = groups.get(key) || { name:item.client_name || 'Без имени',phone:item.client_phone || '',visits:0,revenue:0,first:item.booking_date,last:item.booking_date };
-    row.visits += 1; row.revenue += Number(bookingOutcome(item).amount_rub || 0); if (item.booking_date < row.first) row.first=item.booking_date; if (item.booking_date > row.last) row.last=item.booking_date; groups.set(key,row);
+  completed.forEach(item => {
+    const key = reportClientIdentity(item); if (!key) return;
+    const row = groups.get(key) || { name:item.client_name || 'Без имени',phone:item.client_phone || '',visits:0,knownVisits:0,revenue:0,first:item.booking_date,last:item.booking_date };
+    if (!globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))) row.knownVisits += 1;
+    row.visits += 1; row.revenue += reportReceivedAmount(item); if (item.booking_date < row.first) row.first=item.booking_date; if (item.booking_date > row.last) row.last=item.booking_date; groups.set(key,row);
   });
-  const clientRows = [...groups.values()].sort((a,b) => b.revenue-a.revenue).map(row => { const days=Math.max(0,Math.round((parseLocalIsoDate(range.end)-parseLocalIsoDate(row.last))/86400000)); return [row.name,reportExportPhone(row.phone,privacy),reportExportDate(row.first),reportExportDate(row.last),row.visits,row.revenue,row.visits?Math.round(row.revenue/row.visits):0,days,days>=60?'Давно не приходил':row.first>=range.start?'Новый':row.visits>=2?'Постоянный':'Разовый']; });
-  return { range,items,completed,revenue,completedValue,debt,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:reportEventState.rows||[] };
+  const clientRows = [...groups.values()].sort((a,b) => b.revenue-a.revenue).map(row => { const days=Math.max(0,Math.round((parseLocalIsoDate(range.end)-parseLocalIsoDate(row.last))/86400000)); return [row.name,reportExportPhone(row.phone,privacy),reportExportDate(row.first),reportExportDate(row.last),row.visits,row.revenue,row.knownVisits?Math.round(row.revenue/row.knownVisits):null,days,row.visits>=2?'Повторные визиты':'Один визит']; });
+  return { range,items,completed,revenue,completedValue,debt,importedValue,unknownPaymentCount,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:reportCurrentEventRows(range) };
 }
 function reportExportSheet(rows, options) {
   const body = rows.map((row,rowIndex) => `<row r="${rowIndex+1}"${options.heights?.[rowIndex+1] ? ` ht="${options.heights[rowIndex+1]}" customHeight="1"` : ''}>${row.map((raw,columnIndex) => { if (raw === '' || raw === null || raw === undefined) return ''; const cell = raw && typeof raw === 'object' && 'value' in raw ? raw : reportExportCell(raw); const ref=`${reportColumnName(columnIndex)}${rowIndex+1}`; return typeof cell.value === 'number' && Number.isFinite(cell.value) ? `<c r="${ref}" s="${cell.style}"><v>${cell.value}</v></c>` : `<c r="${ref}" t="inlineStr" s="${cell.style}"><is><t xml:space="preserve">${reportXmlText(cell.value)}</t></is></c>`; }).join('')}</row>`).join('');
@@ -3891,16 +3921,18 @@ function reportProfessionalWorkbook(sheets) {
 function reportExportSheets(data) {
   const period=`${reportExportDate(data.range.start)} — ${reportExportDate(data.range.end)}`, totalSources=data.sources.online+data.sources.manual+data.sources.unknown;
   const cancelled=data.items.filter(item=>item.status==='cancelled').length, noShow=data.items.filter(item=>bookingOutcome(item).visit_status==='no_show').length;
-  const summary=[[reportExportCell('ОТЧЁТ «МИНУТА — ОНЛАЙН-ЗАПИСЬ»',1)],[reportExportCell(`Период: ${period} · сформирован ${new Date().toLocaleString('ru-RU')}`,2)],[],[reportExportCell('ФИНАНСЫ',3)],[reportExportCell('Получено',5),reportExportCell(data.revenue,10),'','',reportExportCell('Оказано услуг на',5),reportExportCell(data.completedValue,10)],[reportExportCell('Долг',5),reportExportCell(data.debt,10),'','',reportExportCell('Средний чек',5),reportExportCell(data.average,10)],[],[reportExportCell('ВИЗИТЫ И КЛИЕНТЫ',3)],[reportExportCell('Состоялось',5),reportExportCell(data.completed.length,6),'','',reportExportCell('Уникальных клиентов',5),reportExportCell(data.clients.uniqueClients,6)],[reportExportCell('Отменено',5),reportExportCell(cancelled,6),'','',reportExportCell('Новых клиентов',5),reportExportCell(data.clients.newClients,6)],[reportExportCell('Не пришли',5),reportExportCell(noShow,6),'','',reportExportCell('Вернувшихся клиентов',5),reportExportCell(data.clients.returningClients,6)],[reportExportCell('Отработано',5),reportExportCell(String(reportHours(data.workedMinutes)).replace('.',','),6)],[],[reportExportCell('ИСТОЧНИК ВСЕХ ЗАПИСЕЙ',3)],[reportExportCell('Онлайн',5),reportExportCell(data.sources.online,6),reportExportCell(reportShare(data.sources.online,totalSources),8),'',reportExportCell('Создано вручную',5),reportExportCell(data.sources.manual,6),reportExportCell(reportShare(data.sources.manual,totalSources),8)],[reportExportCell('Не определено',5),reportExportCell(data.sources.unknown,6),reportExportCell(reportShare(data.sources.unknown,totalSources),8)],[],[reportExportCell('КОНТРОЛЬ',3)],[reportExportCell('Сверка денег',5),reportExportCell(`${data.completedValue.toLocaleString('ru-RU')} ₽ оказано → ${data.revenue.toLocaleString('ru-RU')} ₽ получено`,9)],[reportExportCell('Правило',5),reportExportCell('Получено учитывает только отмеченные оплаты. Поминутная услуга: ставка за минуту × длительность.',9)]];
+  const summary=[[reportExportCell('ОТЧЁТ «МИНУТА — ОНЛАЙН-ЗАПИСЬ»',1)],[reportExportCell(`Период: ${period} · сформирован ${new Date().toLocaleString('ru-RU')}`,2)],[],[reportExportCell('ФИНАНСЫ',3)],[reportExportCell('Получено',5),reportExportCell(data.revenue,10),'','',reportExportCell('Оказано услуг на',5),reportExportCell(data.completedValue,10)],[reportExportCell('Долг',5),reportExportCell(data.debt,10),'','',reportExportCell('Средняя оплата',5),reportExportCell(data.average ?? 'Нет данных',10)],[],[reportExportCell('ВИЗИТЫ И КЛИЕНТЫ',3)],[reportExportCell('Состоялось',5),reportExportCell(data.completed.length,6),'','',reportExportCell('Уникальных клиентов',5),reportExportCell(data.clients.uniqueClients,6)],[reportExportCell('Отменено',5),reportExportCell(cancelled,6),'','',reportExportCell('Новых клиентов',5),reportExportCell(data.clients.newClients,6)],[reportExportCell('Не пришли',5),reportExportCell(noShow,6),'','',reportExportCell('Вернувшихся клиентов',5),reportExportCell(data.clients.returningClients,6)],[reportExportCell('Отработано',5),reportExportCell(String(reportHours(data.workedMinutes)).replace('.',','),6)],[],[reportExportCell('ИСТОЧНИК ВСЕХ ЗАПИСЕЙ',3)],[reportExportCell('Онлайн',5),reportExportCell(data.sources.online,6),reportExportCell(reportShare(data.sources.online,totalSources),8),'',reportExportCell('Создано вручную',5),reportExportCell(data.sources.manual,6),reportExportCell(reportShare(data.sources.manual,totalSources),8)],[reportExportCell('Не определено',5),reportExportCell(data.sources.unknown,6),reportExportCell(reportShare(data.sources.unknown,totalSources),8)],[],[reportExportCell('КОНТРОЛЬ',3)],[reportExportCell('Сверка денег',5),reportExportCell(`${data.completedValue.toLocaleString('ru-RU')} ₽ оказано → ${data.revenue.toLocaleString('ru-RU')} ₽ получено`,9)],[reportExportCell('Правило',5),reportExportCell('Получено и средняя оплата учитывают визиты с данными об оплате. Период — даты визитов, не банковских операций.',9)]];
+  summary.push([reportExportCell('Стоимость истории',5),reportExportCell(data.importedValue,10)],
+    [reportExportCell('Данные об оплате',5),reportExportCell(`${data.completed.length-data.unknownPaymentCount} из ${data.completed.length} визитов; для ${data.unknownPaymentCount} нет данных. История без отметки оплаты не входит в получено и долг.`,9)]);
   const detail=[[reportExportCell('ДЕТАЛЬНЫЙ РЕЕСТР ЗАПИСЕЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],data.headers.map(value=>reportExportCell(value,4)),...data.rows.map(row=>row.map((value,index)=>reportExportCell(value,index>=8&&index<=11?7:index===7?6:5)))];
   const teamHeaders=['Мастер','Визиты','Клиенты','Отработано, мин','Выручка, ₽','Средняя оплата, ₽','Заработок сотрудника, ₽'];
   const team=[[reportExportCell('РЕЗУЛЬТАТЫ КОМАНДЫ',1)],[reportExportCell(`Период: ${period}`,2)],[],teamHeaders.map(value=>reportExportCell(value,4)),...data.team.map(row=>row.map((value,index)=>reportExportCell(value,index>=4&&typeof value==='number'?7:index>0?6:5)))];
-  const clientHeaders=['Клиент','Телефон','Первый визит','Последний визит','Визиты','Получено, ₽','Средний чек, ₽','Дней без визита','Статус'];
+  const clientHeaders=['Клиент','Телефон','Первый в периоде','Последний в периоде','Визиты','Получено, ₽','Средний чек, ₽','Дней без визита','Частота в периоде'];
   const clients=[[reportExportCell('КЛИЕНТЫ ЗА ПЕРИОД',1)],[reportExportCell(`Период: ${period}`,2)],[],clientHeaders.map(value=>reportExportCell(value,4)),...data.clientRows.map(row=>row.map((value,index)=>reportExportCell(value,index===5||index===6?7:index===4||index===7?6:5)))];
   const historyHeaders=['Дата и время','Событие','Клиент','Услуга','Мастер','Кто изменил','План, ₽','Оказано, ₽','Получено, ₽','Минуты'];
   const historyEvents=data.events.filter(event=>!reportCanViewTeam||reportPerformerFilter==='all'||String(event.performer_id||'')===reportPerformerFilter);
   const history=[[reportExportCell('ИСТОРИЯ ИЗМЕНЕНИЙ',1)],[reportExportCell(`Период: ${period}`,2)],[],historyHeaders.map(value=>reportExportCell(value,4)),...historyEvents.map(event=>[new Date(event.occurred_at).toLocaleString('ru-RU'),reportEventTitle(event),event.client_name||'Клиент',event.service_name||'Услуга',event.performer_name||'Мастер',event.actor_name||'Система',Number(event.delta_planned_rub||0),Number(event.delta_completed_rub||0),Number(event.delta_received_rub||0),Number(event.delta_duration_minutes||0)].map((value,index)=>reportExportCell(value,index>=6&&index<=8?7:index===9?6:5)))];
-  return [{name:'Сводка',rows:summary,options:{widths:[30,28,9,9,32,28,10,10],merges:['A1:H1','A2:H2','A4:H4','A8:H8','A14:H14','A18:H18','B19:H19','B20:H20'],heights:{1:34,2:24,20:34},freeze:2}},{name:'Записи',rows:detail,options:{widths:[13,10,11,24,20,38,22,16,16,17,17,15,18,19,17,22,30],merges:['A1:Q1','A2:Q2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:Q${Math.max(4,detail.length)}`}},{name:'Мастера',rows:team,options:{widths:[28,14,14,20,20,20,20],merges:['A1:G1','A2:G2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:G${Math.max(4,team.length)}`}},{name:'Клиенты',rows:clients,options:{widths:[28,21,16,16,14,20,20,19,22],merges:['A1:I1','A2:I2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:I${Math.max(4,clients.length)}`}},{name:'История изменений',rows:history,options:{widths:[22,38,24,34,24,24,16,16,16,14],merges:['A1:J1','A2:J2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:J${Math.max(4,history.length)}`}}];
+  return [{name:'Сводка',rows:summary,options:{widths:[30,28,9,9,32,28,10,10],merges:['A1:H1','A2:H2','A4:H4','A8:H8','A14:H14','A18:H18','B19:H19','B20:H20','B21:H21','B22:H22'],heights:{1:34,2:24,20:34,21:28,22:34},freeze:2}},{name:'Записи',rows:detail,options:{widths:[13,10,11,24,20,38,22,16,16,17,17,15,18,19,17,22,30],merges:['A1:Q1','A2:Q2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:Q${Math.max(4,detail.length)}`}},{name:'Мастера',rows:team,options:{widths:[28,14,14,20,20,20,20],merges:['A1:G1','A2:G2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:G${Math.max(4,team.length)}`}},{name:'Клиенты',rows:clients,options:{widths:[28,21,16,16,14,20,20,19,22],merges:['A1:I1','A2:I2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:I${Math.max(4,clients.length)}`}},{name:'История изменений',rows:history,options:{widths:[22,38,24,34,24,24,16,16,16,14],merges:['A1:J1','A2:J2'],heights:{1:34,2:24,4:32},freeze:4,filter:`A4:J${Math.max(4,history.length)}`}}];
 }
 function reportExportFilename(range,extension){return `Отчёт_Минута_${reportExportDate(range.start).replaceAll('.','-')}_${reportExportDate(range.end).replaceAll('.','-')}.${extension}`;}
 function reportExportDownload(blob,filename){const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;link.hidden=true;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}
@@ -3912,8 +3944,8 @@ function reportPdfImageBytes(canvas){const base64=canvas.toDataURL('image/jpeg',
 function reportPdfBlob(images){const encoder=new TextEncoder(),objects=[],pageIds=images.map((_,i)=>3+i*3);objects[0]=encoder.encode('<< /Type /Catalog /Pages 2 0 R >>');objects[1]=encoder.encode(`<< /Type /Pages /Kids [${pageIds.map(id=>`${id} 0 R`).join(' ')}] /Count ${images.length} >>`);images.forEach((image,index)=>{const pageId=pageIds[index],contentId=pageId+1,imageId=pageId+2,content=`q 842 0 0 595 0 0 cm /Im${index+1} Do Q`;objects[pageId-1]=encoder.encode(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 842 595] /Resources << /XObject << /Im${index+1} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);objects[contentId-1]=encoder.encode(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);const head=encoder.encode(`<< /Type /XObject /Subtype /Image /Width 1600 /Height 1131 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.length} >>\nstream\n`),tail=encoder.encode('\nendstream');objects[imageId-1]=new Blob([head,image,tail]);});const chunks=[encoder.encode('%PDF-1.4\n%PDF\n')],offsets=[0];let offset=chunks[0].length;objects.forEach((object,index)=>{offsets[index+1]=offset;const head=encoder.encode(`${index+1} 0 obj\n`),tail=encoder.encode('\nendobj\n');chunks.push(head,object,tail);offset+=head.length+(object.size??object.length)+tail.length;});const xref=offset;let table=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let i=1;i<=objects.length;i+=1)table+=`${String(offsets[i]).padStart(10,'0')} 00000 n \n`;chunks.push(encoder.encode(`${table}trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`));return new Blob(chunks,{type:'application/pdf'});}
 function exportBookingsPdf(privacy='masked'){
   const data=reportExportData(privacy),period=`${reportExportDate(data.range.start)} — ${reportExportDate(data.range.end)}`,images=[];
-  let page=reportPdfPage('Отчёт «Минута»',`Период: ${period}`),ctx=page.ctx;const cards=[['Получено',money(data.revenue)],['Оказано на',money(data.completedValue)],['Визиты',data.completed.length],['Клиенты',data.clients.uniqueClients]];cards.forEach((card,index)=>{const x=55+index*378;ctx.fillStyle='#fffdfa';ctx.fillRect(x,180,352,125);ctx.fillStyle='#78695f';ctx.font='20px Arial';ctx.fillText(card[0],x+22,218);ctx.fillStyle='#332923';ctx.font='700 32px Arial';ctx.fillText(String(card[1]),x+22,270);});ctx.fillStyle='#332923';ctx.font='700 26px Arial';ctx.fillText('Результаты мастеров',55,365);const teamHeaders=['Мастер','Визиты','Клиенты','Минуты','Выручка','Средний чек'];ctx.font='700 17px Arial';teamHeaders.forEach((value,index)=>ctx.fillText(value,65+[0,460,610,760,940,1170][index],410));ctx.font='17px Arial';data.team.slice(0,12).forEach((row,rowIndex)=>{const y=450+rowIndex*45;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-28,1490,40);ctx.fillStyle='#332923';row.slice(0,6).forEach((value,index)=>reportPdfText(ctx,index>=4&&typeof value==='number'?money(value):value,65+[0,460,610,760,940,1170][index],y,index===0?390:190));});images.push(reportPdfImageBytes(page.canvas));
-  const perPage=22;for(let start=0;start<data.rows.length;start+=perPage){page=reportPdfPage('Реестр записей',`${period} · строки ${start+1}–${Math.min(start+perPage,data.rows.length)}`);ctx=page.ctx;const columns=[['Дата',0,120],['Время',125,90],['Клиент',220,260],['Услуга',485,420],['Мастер',910,210],['Мин.',1125,80],['Получено',1210,155],['Результат',1370,170]];ctx.fillStyle='#332923';ctx.font='700 16px Arial';columns.forEach(column=>ctx.fillText(column[0],60+column[1],190));ctx.font='15px Arial';data.rows.slice(start,start+perPage).forEach((row,rowIndex)=>{const y=230+rowIndex*38;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-25,1490,34);ctx.fillStyle='#332923';const values=[row[0],row[1],row[3],row[5],row[6],row[7],money(row[10]),row[13]];values.forEach((value,index)=>reportPdfText(ctx,value,60+columns[index][1],y,columns[index][2]-10));});images.push(reportPdfImageBytes(page.canvas));}
+  let page=reportPdfPage('Отчёт «Минута»',`Период: ${period}`),ctx=page.ctx;const cards=[['Получено',money(data.revenue)],['Оказано на',money(data.completedValue)],['Визиты',data.completed.length],['Клиенты',data.clients.uniqueClients]];cards.forEach((card,index)=>{const x=55+index*378;ctx.fillStyle='#fffdfa';ctx.fillRect(x,180,352,125);ctx.fillStyle='#78695f';ctx.font='20px Arial';ctx.fillText(card[0],x+22,218);ctx.fillStyle='#332923';ctx.font='700 32px Arial';ctx.fillText(String(card[1]),x+22,270);});ctx.fillStyle='#78695f';ctx.font='16px Arial';ctx.fillText(data.unknownPaymentCount ? `История: ${money(data.importedValue)} · нет данных об оплате: ${data.unknownPaymentCount} из ${data.completed.length} визитов; не включено в получено и долг.` : 'Отчёт по датам визитов. Получено — отмеченные оплаты, не банковская выписка.',55,334);ctx.fillStyle='#332923';ctx.font='700 26px Arial';ctx.fillText('Результаты мастеров',55,365);const teamHeaders=['Мастер','Визиты','Клиенты','Минуты','Выручка','Средний чек'];ctx.font='700 17px Arial';teamHeaders.forEach((value,index)=>ctx.fillText(value,65+[0,460,610,760,940,1170][index],410));ctx.font='17px Arial';data.team.slice(0,12).forEach((row,rowIndex)=>{const y=450+rowIndex*45;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-28,1490,40);ctx.fillStyle='#332923';row.slice(0,6).forEach((value,index)=>reportPdfText(ctx,index>=4&&typeof value==='number'?money(value):value,65+[0,460,610,760,940,1170][index],y,index===0?390:190));});images.push(reportPdfImageBytes(page.canvas));
+  const perPage=22;for(let start=0;start<data.rows.length;start+=perPage){page=reportPdfPage('Реестр записей',`${period} · строки ${start+1}–${Math.min(start+perPage,data.rows.length)}`);ctx=page.ctx;const columns=[['Дата',0,120],['Время',125,90],['Клиент',220,260],['Услуга',485,420],['Мастер',910,210],['Мин.',1125,80],['Получено',1210,155],['Результат',1370,170]];ctx.fillStyle='#332923';ctx.font='700 16px Arial';columns.forEach(column=>ctx.fillText(column[0],60+column[1],190));ctx.font='15px Arial';data.rows.slice(start,start+perPage).forEach((row,rowIndex)=>{const y=230+rowIndex*38;ctx.fillStyle=rowIndex%2?'#fffdfa':'#f2e6dd';ctx.fillRect(55,y-25,1490,34);ctx.fillStyle='#332923';const values=[row[0],row[1],row[3],row[5],row[6],row[7],row[10] === null ? 'Нет данных' : money(row[10]),row[13]];values.forEach((value,index)=>reportPdfText(ctx,value,60+columns[index][1],y,columns[index][2]-10));});images.push(reportPdfImageBytes(page.canvas));}
   reportExportDownload(reportPdfBlob(images),reportExportFilename(data.range,'pdf'));notify('Готовый отчёт PDF скачан');
 }
 
@@ -5062,8 +5094,8 @@ function applyBookingQuery(items) {
     if (bookingStatusFilter !== 'all' && bookingStatusClass(item) !== bookingStatusFilter) return false;
     if (bookingSourceFilter !== 'all' && reportBookingSource(item) !== bookingSourceFilter) return false;
     if (bookingAnalyticsScope && (item.booking_date < bookingAnalyticsScope.start || item.booking_date > bookingAnalyticsScope.end)) return false;
-    if (bookingAnalyticsScope?.performer && bookingAnalyticsScope.performer !== 'all' && String(item.performer_id || '') !== String(bookingAnalyticsScope.performer)) return false;
-    if (bookingAnalyticsFilter === 'debt' && !(bookingOutcome(item).visit_status === 'completed' && bookingCalculatedValue(item) > Number(bookingOutcome(item).amount_rub || 0))) return false;
+    if (bookingAnalyticsScope?.performer && bookingAnalyticsScope.performer !== 'all' && reportEffectivePerformerId(item) !== String(bookingAnalyticsScope.performer)) return false;
+    if (bookingAnalyticsFilter === 'debt' && !(reportDebtAmount(item) > 0)) return false;
     if (bookingAnalyticsFilter === 'lost' && !(item.status === 'cancelled' || bookingOutcome(item).visit_status === 'no_show')) return false;
     if (!query) return true;
     const text = [item.client_name, item.client_phone, serviceName(item.services?.name || ''), ...bookingSession(item).map(entry => entry.title), bookingDisplayNote(item)]
