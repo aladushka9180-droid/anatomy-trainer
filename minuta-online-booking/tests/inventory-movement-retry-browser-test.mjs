@@ -36,7 +36,7 @@ async function fixture(){
   await page.evaluate(async({org,actor,warehouse,item,location})=>{
     const clone=value=>JSON.parse(JSON.stringify(value));
     window.calls=[];window.rows=[];window.notices=[];window.stock=10;
-    window.replyMode='success';window.deferReply=false;window.gates=[];window.nextRefusal=null;
+    window.replyMode='success';window.deferReply=false;window.gates=[];window.nextRefusal=null;window.readFailure=null;
     const workspace=()=>({organization_id:org,current_role:'owner',enabled:true,auto_deduct_completed_visits:false,
       locations:[{id:location,name:'Филиал',active:true}],services:[],usage:[],audit:[],
       items:[{id:item,name:'Материал',unit:'piece',low_stock_threshold:0,active:true}],
@@ -44,7 +44,13 @@ async function fixture(){
       balances:[{warehouse_id:warehouse,inventory_item_id:item,quantity:stock}],movements:clone(rows)});
     const db={rpc:async(name,args)=>{
       calls.push({name,args:clone(args)});
-      if(name==='get_minuta_inventory_workspace')return {data:workspace(),error:null};
+      if(name==='get_minuta_inventory_workspace'){
+        if(readFailure){const mode=readFailure;readFailure=null;
+          if(mode==='throw')throw Error('Synthetic workspace rejection');
+          return {data:null,error:{code:'08006',message:'Synthetic workspace unavailable'}};
+        }
+        return {data:workspace(),error:null};
+      }
       if(name!=='apply_minuta_stock_movement')throw Error('Unexpected write '+name);
       // v82 enabled/target guards precede replay lookup, so a later refusal
       // cannot disprove that an earlier unknown call already committed.
@@ -153,9 +159,13 @@ const cases=[
     for(const call of writes(s))assert.deepEqual(call.args,writes(first)[0].args);
   }],
   ['POLICY real edit after unknown cannot silently discard the unresolved operation',async page=>{
-    await uncertain(page);await page.locator('#inventoryMovementQuantity').fill('3');await submit(page);
+    const first=await uncertain(page);await page.locator('#inventoryMovementQuantity').fill('3');await submit(page);
     const s=await state(page);assert.equal(s.rows.length,1);assert.equal(writes(s).length,1);
     assert.match(s.error,/не подтвержд|исходн|результат|восстанов/i);
+    await page.locator('[data-inventory-restore-movement]').click();
+    assert.equal((await state(page)).quantity,'2');await submit(page);
+    const recovered=await state(page);assert.equal(recovered.rows.length,1);assert.equal(recovered.stock,8);
+    assert.deepEqual(writes(recovered)[1].args,writes(first)[0].args,'Restore must replay the exact original tuple and key');
   }],
   ['SAFETY refusal of a replay cannot clear an earlier unknown intent',async page=>{
     await uncertain(page);await page.evaluate(()=>{nextRefusal={code:'55000',message:'inventory_disabled'};});await submit(page);
@@ -170,6 +180,16 @@ const cases=[
     const s=await state(page);assert.equal(s.rows.length,1);assert.equal(s.stock,9);
   }],
 ];
+for(const mode of ['error','throw'])cases.push([`SAFETY unknown then workspace ${mode} retains the key through native read retry`,async page=>{
+  await fill(page);await page.evaluate(mode=>{replyMode='lost';readFailure=mode;},mode);await submit(page);
+  assert.equal((await state(page)).rows.length,1);
+  assert.equal(await page.locator('#inventoryUnavailable').isVisible(),true,'Failed read must expose an actionable read retry');
+  await page.locator('#reloadInventory').click();await settle(page);
+  assert.match((await state(page)).summary,/остаток\s*8/);
+  await page.locator('#inventoryMovementQuantity').fill('2.0');await submit(page);
+  const s=await state(page);assert.equal(s.rows.length,1);assert.equal(s.stock,8);
+  assert.equal(writes(s).length,2);assert.deepEqual(writes(s)[1].args,writes(s)[0].args);
+}]);
 for(const mode of ['badId','badQuantity'])cases.push([`SAFETY ${mode} acknowledgement does not confirm a movement`,async page=>{
   const s=await uncertain(page,mode);assert.equal(s.quantity,'2');
   assert.equal(s.notices.includes('Списание сохранён'),false);
