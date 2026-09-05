@@ -40,7 +40,7 @@ assert.match(dispatcher, /NOTIFICATION_DISPATCHER_SECRET/);
 assert.match(dispatcher, /x-worker-secret/i);
 assert.match(dispatcher, /error: "not_configured"/);
 assert.match(dispatcher, /claim_minuta_notification_outbox/);
-assert.match(dispatcher, /ack_notification_outbox/);
+assert.match(dispatcher, /ack_(?:minuta_)?notification_outbox/);
 assert.match(dispatcher, /fail_notification_outbox/);
 assert.match(dispatcher, /Deno\.serve\(/);
 assert.match(adapters, /"idempotency-key": job\.event_key/i);

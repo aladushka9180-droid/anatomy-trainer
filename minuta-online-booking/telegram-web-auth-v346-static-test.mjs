@@ -33,9 +33,10 @@ assert.match(app, /notifyTelegramEvent\('confirmation', manageToken\)/, 'Online 
 assert.match(provider, /deliverTelegramClientNotification\(createdBooking\.id, 'confirmation'\)/, 'Booking created by the master does not trigger a Telegram confirmation for a connected client');
 assert.match(provider, /telegram_client_settings/, 'Master Telegram settings are not stored in protected account metadata');
 assert.match(provider, /normalizeTelegramContactUsername/, 'Master Telegram username is not validated');
-assert.match(worker, /performerTelegramSettings\(booking\.performer_id\)/, 'Delivery does not load the master notification settings');
-assert.match(worker, /text: "Написать мастеру"/, 'Telegram message does not contain direct contact with the master');
-assert.match(worker, /reason: "event_disabled"/, 'Disabled notification events are not respected by the worker');
+assert.match(worker, /get_minuta_client_notification_state_v114/, 'Client route does not report the durable queue state');
+const eventReporter = worker.slice(worker.indexOf('async function sendBookingEvent'), worker.indexOf('async function telegramAuthConfig'));
+assert.doesNotMatch(eventReporter, /telegram\("sendMessage"/, 'Client event route bypasses the durable queue');
+assert.match(worker, /telegram_write_access_required/, 'Telegram write access is not proven before the endpoint becomes active');
 
 for (const html of [index, booking]) {
   assert.match(html, /script-src 'self' https:\/\/telegram\.org/, 'Telegram login SDK is blocked by CSP');
