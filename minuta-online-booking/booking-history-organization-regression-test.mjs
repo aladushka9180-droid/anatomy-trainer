@@ -51,8 +51,8 @@ assert.match(
 );
 assert.match(
   organizationSwitch,
-  /importedClients = \[\][\s\S]*importedBookingHistory = \[\]/,
-  'При смене организации импортированные клиенты и история должны очищаться синхронно'
+  /if \(clientOrganizationChanged\) \{[\s\S]*importedClients = \[\][\s\S]*importedBookingHistory = \[\]/,
+  'Импортированные клиенты и история должны очищаться только при фактической смене организации'
 );
 assert.match(
   organizationSwitch,
