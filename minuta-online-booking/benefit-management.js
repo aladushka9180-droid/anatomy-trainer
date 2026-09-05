@@ -76,8 +76,8 @@
       const value=item.kind==='certificate'?rubles(item.face_value_rub):`${item.visits_count} посещ.`;
       return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(item.name)} · ${escapeHtml(value)}</strong><small>${escapeHtml(kindLabels[item.kind]||item.kind)} · продажа ${escapeHtml(rubles(item.sale_price_rub))} · ${item.validity_days} дней</small></div><span class="organization-status ${item.active?'is-active':''}">${item.active?'Доступен':'Скрыт'}</span></article>`;
     }
-    function instrumentCard(item) {
-      const expired=String(item.expires_on)<new Date().toISOString().slice(0,10);
+    function instrumentCard(item,today) {
+      const expired=String(item.expires_on)<today;
       const status=expired&&item.status==='active'?'expired':item.status;
       const snapshot=item.product_snapshot||{};
       const balance=snapshot.kind==='certificate'?rubles(item.remaining_amount_rub):`${item.remaining_visits} посещ.`;
@@ -116,16 +116,16 @@
     }
     function render() {
       if(availability!=='ready'||!payload)return;
+      const today=todayIso();
       $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
       $('#benefitProductsList').innerHTML=payload.products.length?payload.products.map(productCard).join(''):empty('Продуктов пока нет','Создайте абонемент, сертификат или пакет услуг.');
-      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(instrumentCard).join(''):empty('Ничего не выдано','Выданные продукты появятся здесь.');
+      $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(item=>instrumentCard(item,today)).join(''):empty('Ничего не выдано','Выданные продукты появятся здесь.');
       $('#benefitRedemptionsList').innerHTML=payload.redemptions.length?payload.redemptions.map(redemptionCard).join(''):empty('Списаний пока нет','Примените продукт к записи клиента.');
       $('#benefitProductCreator').hidden=!payload.enabled; $('#benefitIssueCreator').hidden=!payload.enabled; $('#benefitApplyCreator').hidden=!payload.enabled;
       const activeProducts=payload.products.filter(item=>item.active);
       $('#benefitIssueProduct').innerHTML=selectOptions(activeProducts,item=>`${item.name} · ${kindLabels[item.kind]||item.kind}`,'Сначала создайте продукт');
       $('#benefitIssueClient').innerHTML=selectOptions(payload.clients,item=>`${item.client_name} · ${item.client_phone}`,'Нет клиентов с записями');
-      const today=todayIso();
       $('#benefitIssueExpiry').min=today;
       const activeInstruments=payload.instruments.filter(item=>item.status==='active'&&item.expires_on>=today);
       $('#benefitApplyInstrument').innerHTML=selectOptions(activeInstruments,item=>`${item.product_snapshot?.name||productName(item.product_id)} · ${item.public_code}`,'Сначала выдайте продукт клиенту');

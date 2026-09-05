@@ -1,0 +1,38 @@
+name: Minuta booking recovery regression
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/group-bookings.js'
+      - 'minuta-online-booking/benefit-management.js'
+      - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
+      - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
+      - 'minuta-online-booking/benefit-management-controller-test.mjs'
+      - '.github/workflows/minuta-booking-recovery.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/group-bookings.js'
+      - 'minuta-online-booking/benefit-management.js'
+      - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
+      - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
+      - 'minuta-online-booking/benefit-management-controller-test.mjs'
+      - '.github/workflows/minuta-booking-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check minuta-online-booking/group-bookings.js
+      - run: node --check minuta-online-booking/benefit-management.js
+      - run: node minuta-online-booking/tests/group-bookings-recovery-test.mjs
+      - run: node minuta-online-booking/tests/benefit-expiry-boundary-test.mjs
+      - run: node minuta-online-booking/benefit-management-controller-test.mjs

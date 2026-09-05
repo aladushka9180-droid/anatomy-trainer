@@ -6,6 +6,14 @@
     return /PGRST202|42883/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
   }
 
+  async function callRpc(db, name, parameters) {
+    try {
+      return await db.rpc(name, parameters) || { error:new Error('empty_rpc_response') };
+    } catch (error) {
+      return { error:error || new Error('rpc_failed') };
+    }
+  }
+
   function localIso(date) {
     return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
   }
@@ -38,9 +46,42 @@
     let available = null;
     let revision = 0;
     let bound = false;
+    let scopeRevision = 0;
+    let formRevision = 0;
+    let pendingSave = null;
+    const pendingActions = new Set();
+
+    function scopeSnapshot() {
+      return { organizationId:organization?.id, userId:getCurrentUser()?.id, generation:getSessionGeneration(), revision:scopeRevision };
+    }
+
+    function scopeIsCurrent(scope) {
+      return Boolean(scope.organizationId && organization?.id === scope.organizationId && scope.revision === scopeRevision && sessionIsCurrent(scope.userId, scope.generation));
+    }
+
+    function invalidateForm() {
+      formRevision += 1;
+      pendingSave = null;
+    }
+
+    async function action(name, parameters, message) {
+      if (!requireWrites() || !organization?.id || available !== 'ready') return;
+      const scope = scopeSnapshot();
+      const key = `${scope.revision}:${name}:${parameters.p_event || parameters.p_participant || ''}`;
+      if (pendingActions.has(key)) return;
+      pendingActions.add(key);
+      const { error } = await callRpc(db, name, parameters);
+      pendingActions.delete(key);
+      if (!scopeIsCurrent(scope)) return;
+      notify(message(error));
+      await load();
+    }
 
     function reset() {
       revision += 1;
+      scopeRevision += 1;
+      invalidateForm();
+      $('#groupEventDialog')?.close();
       organization = null;
       payload = null;
       available = null;
@@ -52,10 +93,13 @@
       organization = next || null;
       if (!organization) return reset();
       if (changed) {
+        scopeRevision += 1;
+        invalidateForm();
+        $('#groupEventDialog')?.close();
         payload = null;
         available = null;
       }
-      load();
+      return load();
     }
 
     async function load() {
@@ -69,12 +113,13 @@
       start.setDate(start.getDate() - 30);
       const end = new Date();
       end.setDate(end.getDate() + 365);
-      const { data, error } = await db.rpc('get_minuta_group_booking_admin', {
+      const scope = scopeSnapshot();
+      const { data, error } = await callRpc(db, 'get_minuta_group_booking_admin', {
         p_organization:organization.id,
         p_start:localIso(start),
         p_end:localIso(end)
       });
-      if (!sessionIsCurrent(userId, generation) || currentRevision !== revision) return { ok:false, optional:true, stale:true };
+      if (!sessionIsCurrent(userId, generation) || !scopeIsCurrent(scope) || currentRevision !== revision) return { ok:false, optional:true, stale:true };
       if (error) {
         available = isMissingRpc(error, 'get_minuta_group_booking_admin') ? 'unsupported' : 'error';
         payload = null;
@@ -93,7 +138,7 @@
       if (!panel || !settings) return;
       const supported = Boolean(organization && ['ready','loading','error'].includes(available));
       settings.hidden = !supported;
-      if (!supported) return;
+      if (!supported) { panel.hidden = true; return; }
       const enabled = payload?.enabled === true;
       panel.hidden = !enabled;
       const toggle = $('#groupBookingsEnabled');
@@ -143,7 +188,10 @@
     function populateEventForm(item = null) {
       const form = $('#groupEventForm');
       if (!form || !payload) return;
+      invalidateForm();
       form.reset();
+      const submit = $('#groupEventForm button[type="submit"]');
+      if (submit) submit.disabled = false;
       $('#groupEventId').value = item?.id || '';
       $('#groupEventDialogTitle').textContent = item ? 'Изменить событие' : 'Новое групповое событие';
       $('#groupEventLocation').innerHTML = (payload.locations || []).map(location => `<option value="${escapeHtml(location.id)}">${escapeHtml(location.name)}</option>`).join('');
@@ -166,7 +214,11 @@
 
     async function saveEvent(event) {
       event.preventDefault();
-      if (!requireWrites()) return;
+      if (!requireWrites() || !organization?.id || available !== 'ready' || pendingSave) return;
+      const scope = scopeSnapshot();
+      const currentForm = formRevision;
+      const token = {};
+      pendingSave = token;
       const button = event.submitter || $('#groupEventForm button[type="submit"]');
       button.disabled = true;
       $('#groupEventError').hidden = true;
@@ -183,10 +235,30 @@
         p_capacity:Number($('#groupEventCapacity').value),
         p_status:$('#groupEventStatus').value
       };
-      const { error } = await db.rpc('upsert_minuta_group_event', parameters);
+      const result = await callRpc(db, 'upsert_minuta_group_event', parameters);
+      if (pendingSave === token) pendingSave = null;
+      if (!scopeIsCurrent(scope) || currentForm !== formRevision) return;
+      const error = result.error || (typeof result.data !== 'string' || !result.data.trim() ? new Error('unconfirmed_group_event_response') : null);
       button.disabled = false;
+      applyWriteAvailability?.();
       if (error) {
         const text = `${error.message || ''} ${error.details || ''}`;
+        const rejectionCodes = {
+          invalid_group_event:'22023', group_event_must_be_future:'22023',
+          group_event_location_unavailable:'23514', group_event_performer_unavailable:'23514', group_event_capacity_below_participants:'23514',
+          foreign_group_event_denied:'42501', group_booking_management_denied:'42501',
+          group_event_not_found:'P0001', group_event_conflicts_with_booking:'P0001', group_event_time_conflict:'P0001'
+        };
+        const definite = Object.prototype.hasOwnProperty.call(rejectionCodes, error.message) && rejectionCodes[error.message] === error.code;
+        if (!parameters.p_event && !definite) {
+          pendingSave = token;
+          button.disabled = true;
+          $('#groupEventError').textContent = 'Результат создания пока неизвестен. Обновляем список событий для проверки. Не создавайте событие повторно, пока не убедитесь, что оно не появилось в списке. Введённые данные сохранены в этой форме.';
+          $('#groupEventError').hidden = false;
+          await load();
+          if (scopeIsCurrent(scope) && currentForm === formRevision) button.disabled = true;
+          return;
+        }
         $('#groupEventError').textContent = /conflict/i.test(text) ? 'В это время у специалиста уже есть запись или другое событие.' : /capacity_below/i.test(text) ? 'Вместимость меньше числа действующих участников.' : 'Не удалось сохранить событие.';
         $('#groupEventError').hidden = false;
         return;
@@ -203,28 +275,15 @@
         render();
         return;
       }
-      const { error } = await db.rpc('set_minuta_group_bookings_enabled', { p_organization:organization.id, p_enabled:enabled });
-      if (error) {
-        notify('Не удалось изменить настройку групповых событий');
-        render();
-        return;
-      }
-      notify(enabled ? 'Групповые сеансы включены' : 'Групповые сеансы скрыты');
-      await load();
+      return action('set_minuta_group_bookings_enabled', { p_organization:organization?.id, p_enabled:enabled }, error => error ? 'Не удалось изменить настройку групповых событий' : enabled ? 'Групповые сеансы включены' : 'Групповые сеансы скрыты');
     }
 
     async function setEventStatus(id, status) {
-      if (!requireWrites()) return;
-      const { error } = await db.rpc('set_minuta_group_event_status', { p_organization:organization.id, p_event:id, p_status:status });
-      notify(error ? 'Не удалось изменить статус события' : 'Статус события обновлён');
-      await load();
+      return action('set_minuta_group_event_status', { p_organization:organization?.id, p_event:id, p_status:status }, error => error ? 'Не удалось изменить статус события' : 'Статус события обновлён');
     }
 
     async function setParticipantStatus(id, status) {
-      if (!requireWrites()) return;
-      const { error } = await db.rpc('set_minuta_group_participant_status', { p_organization:organization.id, p_participant:id, p_status:status });
-      notify(error ? (/group_event_full/i.test(`${error.message || ''}`) ? 'В событии больше нет свободных мест' : 'Не удалось изменить участника') : 'Статус участника обновлён');
-      await load();
+      return action('set_minuta_group_participant_status', { p_organization:organization?.id, p_participant:id, p_status:status }, error => error ? (/group_event_full/i.test(`${error.message || ''}`) ? 'В событии больше нет свободных мест' : 'Не удалось изменить участника') : 'Статус участника обновлён');
     }
 
     function bind() {
@@ -233,7 +292,8 @@
       $('#groupBookingsEnabled')?.addEventListener('change', event => setEnabled(event.target.checked));
       $('#newGroupEvent')?.addEventListener('click', () => populateEventForm());
       $('#groupEventForm')?.addEventListener('submit', saveEvent);
-      $('#closeGroupEventDialog')?.addEventListener('click', () => $('#groupEventDialog').close());
+      $('#closeGroupEventDialog')?.addEventListener('click', () => { invalidateForm(); $('#groupEventDialog').close(); });
+      $('#groupEventDialog')?.addEventListener('cancel', invalidateForm);
       $('#groupEventsPanel')?.addEventListener('click', event => {
         const edit = event.target.closest('[data-edit-group-event]');
         const eventStatus = event.target.closest('[data-group-event-status]');
@@ -252,15 +312,52 @@
     let events = [];
     let selected = null;
     let available = null;
+    let revision = 0;
+    let formRevision = 0;
+    let catalogSlug = null;
+    let selectedSlug = null;
+    let pendingSubmit = null;
+    let submittedParameters = null;
+    let resolvedBooking = false;
+    let bound = false;
+
+    function setBookingFields(readOnly, parameters = null) {
+      for (const [selector, key] of [['#publicGroupClientName','p_client_name'], ['#publicGroupClientPhone','p_client_phone'], ['#publicGroupClientComment','p_comment']]) {
+        const input = $(selector);
+        if (!input) continue;
+        input.readOnly = readOnly;
+        if (parameters) input.value = parameters[key];
+      }
+    }
+
+    function invalidateForm() {
+      formRevision += 1;
+      pendingSubmit = null;
+      selected = null;
+      selectedSlug = null;
+      submittedParameters = null;
+      resolvedBooking = false;
+      setBookingFields(false);
+    }
 
     async function load() {
       const slug = getSlug();
+      const currentRevision = ++revision;
       const root = $('#publicGroupEvents');
+      if (catalogSlug !== slug) {
+        catalogSlug = slug;
+        events = [];
+        available = null;
+        invalidateForm();
+        $('#publicGroupBookingDialog')?.close();
+        render();
+      }
       if (!root || !slug) return;
       const start = new Date();
       const end = new Date();
       end.setDate(end.getDate() + 180);
-      const { data, error } = await db.rpc('get_public_minuta_group_events', { p_slug:slug, p_start:localIso(start), p_end:localIso(end) });
+      const { data, error } = await callRpc(db, 'get_public_minuta_group_events', { p_slug:slug, p_start:localIso(start), p_end:localIso(end) });
+      if (currentRevision !== revision || slug !== getSlug()) return;
       if (error) {
         available = isMissingRpc(error, 'get_public_minuta_group_events') ? 'unsupported' : 'error';
         root.hidden = true;
@@ -286,10 +383,15 @@
     }
 
     function open(id) {
+      if (catalogSlug !== getSlug() || available !== 'ready') return;
+      invalidateForm();
       selected = events.find(item => item.id === id) || null;
       if (!selected) return;
+      selectedSlug = catalogSlug;
       const form = $('#publicGroupBookingForm');
       form.reset();
+      const submit = form.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = false;
       form.dataset.requestId = requestId();
       $('#publicGroupBookingTitle').textContent = selected.title;
       $('#publicGroupBookingSummary').textContent = `${eventDateLabel(selected)} · ${selected.performer_name} · ${selected.location_name}`;
@@ -301,28 +403,54 @@
 
     async function submit(event) {
       event.preventDefault();
-      if (!selected) return;
+      if (!selected || selectedSlug !== getSlug() || pendingSubmit || resolvedBooking) return;
       const form = event.currentTarget;
-      if (!form.checkValidity()) {
+      if (!submittedParameters && !form.checkValidity()) {
         form.reportValidity();
         return;
       }
       const button = event.submitter || form.querySelector('button[type="submit"]');
+      const currentForm = formRevision;
+      const slug = selectedSlug;
+      const token = {};
+      pendingSubmit = token;
       button.disabled = true;
       $('#publicGroupBookingError').hidden = true;
-      const { data, error } = await db.rpc('book_minuta_group_event', {
+      if (!submittedParameters) submittedParameters = {
         p_request_id:form.dataset.requestId,
         p_event:selected.id,
         p_client_name:$('#publicGroupClientName').value.trim(),
         p_client_phone:$('#publicGroupClientPhone').value.trim(),
         p_comment:$('#publicGroupClientComment').value.trim()
-      });
+      };
+      setBookingFields(true, submittedParameters);
+      const result = await callRpc(db, 'book_minuta_group_event', submittedParameters);
+      if (pendingSubmit === token) pendingSubmit = null;
+      if (currentForm !== formRevision || slug !== getSlug()) return;
       button.disabled = false;
+      const data = result.data;
+      const validResult = data && typeof data.participant_id === 'string' && data.participant_id.trim() && typeof data.booking_code === 'string' && data.booking_code.trim() && ['confirmed','cancelled','attended','no_show'].includes(data.status);
+      const error = result.error || (!validResult ? new Error('unconfirmed_booking_response') : null);
       if (error) {
         const text = `${error.message || ''} ${error.details || ''}`;
-        $('#publicGroupBookingError').textContent = /duplicate/i.test(text) ? 'Этот номер уже записан на событие.' : /full/i.test(text) ? 'Свободные места только что закончились.' : /started|unavailable/i.test(text) ? 'Запись на это событие уже закрыта.' : 'Не удалось подтвердить запись. Повторите попытку — повтор не создаст дубль.';
+        const rejectionCodes = { group_event_duplicate_participant:'23505', group_event_full:'P0001', group_event_started:'P0001', group_event_unavailable:'P0001', invalid_group_participant:'22023' };
+        const definite = Object.prototype.hasOwnProperty.call(rejectionCodes, error.message) && rejectionCodes[error.message] === error.code;
+        if (definite) { submittedParameters = null; setBookingFields(false); }
+        $('#publicGroupBookingError').textContent = definite
+          ? /duplicate/i.test(text) ? 'Этот номер уже записан на событие.' : /full/i.test(text) ? 'Свободные места только что закончились.' : /started|unavailable/i.test(text) ? 'Запись на это событие уже закрыта.' : 'Проверьте имя, телефон и комментарий.'
+          : 'Ответ о записи не получен. Повторите проверку — отправим те же данные без дубля. Пока результат неизвестен, данные защищены от изменения.';
         $('#publicGroupBookingError').hidden = false;
-        if (/duplicate|full|started|unavailable/i.test(text)) await load();
+        if (definite && /duplicate|full|started|unavailable/i.test(text)) await load();
+        return;
+      }
+      resolvedBooking = true;
+      if (data.status !== 'confirmed') {
+        button.disabled = true;
+        $('#publicGroupBookingError').textContent = data.status === 'cancelled'
+          ? 'Это участие отменено. Чтобы записаться снова, закройте окно и выберите событие заново.'
+          : data.status === 'attended' ? 'Посещение этого события уже отмечено мастером.' : 'Мастер отметил, что вы не пришли на это событие.';
+        $('#publicGroupBookingError').hidden = false;
+        await load();
         return;
       }
       form.hidden = true;
@@ -333,12 +461,15 @@
     }
 
     function bind() {
+      if (bound) return;
+      bound = true;
       $('#publicGroupEventsList')?.addEventListener('click', event => {
         const button = event.target.closest('[data-book-group-event]');
         if (button) open(button.dataset.bookGroupEvent);
       });
       $('#publicGroupBookingForm')?.addEventListener('submit', submit);
-      $('#closePublicGroupBooking')?.addEventListener('click', () => $('#publicGroupBookingDialog').close());
+      $('#closePublicGroupBooking')?.addEventListener('click', () => { invalidateForm(); $('#publicGroupBookingDialog').close(); });
+      $('#publicGroupBookingDialog')?.addEventListener('cancel', invalidateForm);
     }
 
     return { bind, load };
