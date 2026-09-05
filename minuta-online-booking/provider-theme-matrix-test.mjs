@@ -128,4 +128,4 @@ assert.match(calmCss, /\.connection-log-entry\s*\{[^}]*background:var\(--theme-s
 assert.match(calmCss, /\.connection-log-actions \.primary\s*\{[^}]*background:var\(--theme-accent\)!important;[^}]*color:var\(--theme-accent-contrast\)!important;/s);
 assert.match(calmCss, /\.connection-log-dialog :is\(\.connection-log-head small,\.connection-log-lead,\.connection-log-entry small\)\s*\{[^}]*var\(--theme-muted\) 82%,var\(--theme-ink\)/s);
 
-console.log('Provider theme matrix checks passed: 22 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 24 themes × 6 layouts.');
