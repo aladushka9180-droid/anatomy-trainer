@@ -7646,7 +7646,7 @@ html.provider-booting .provider-main {
   }
 }
 
-/* v398: спокойная атмосферная система для остальных шести тем. */
+/* v399: спокойная атмосферная система для остальных шести тем. */
 .provider-body[data-provider-theme="nordic"] {
   --theme-bg:#edf3f6;
   --theme-surface:rgba(255,255,255,.92);
@@ -7687,7 +7687,7 @@ html.provider-booting .provider-main {
   --theme-ink:#332e40;
   --theme-muted:#766f83;
   --theme-line:rgba(143,126,168,.2);
-  --theme-accent:#806eaf;
+  --theme-accent:#7863a7;
   --theme-accent-soft:#ece7f4;
   --theme-accent-contrast:#fff;
   --theme-shadow:rgba(81,65,108,.12);
@@ -7720,7 +7720,7 @@ html.provider-booting .provider-main {
   --theme-ink:#354035;
   --theme-muted:#74786d;
   --theme-line:rgba(139,126,104,.22);
-  --theme-accent:#748262;
+  --theme-accent:#637253;
   --theme-accent-soft:#e7eadc;
   --theme-accent-contrast:#fff;
   --theme-shadow:rgba(79,68,48,.11);
@@ -7736,7 +7736,7 @@ html.provider-booting .provider-main {
   --theme-ink:#213747;
   --theme-muted:#687e8d;
   --theme-line:rgba(104,151,178,.22);
-  --theme-accent:#3a89b4;
+  --theme-accent:#276f98;
   --theme-accent-soft:#dfedf4;
   --theme-accent-contrast:#fff;
   --theme-shadow:rgba(42,96,127,.12);
