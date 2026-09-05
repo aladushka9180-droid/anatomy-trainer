@@ -257,6 +257,8 @@ const selectedVoice = voice.selectRussianVoice([
 assert.equal(selectedVoice, russianVoice, 'озвучивание не должно выбирать китайский или системный голос вместо русского');
 assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
 assert.equal(voice.normalizedSpeechRate('1.3'), 1.3);
+assert.equal(voice.normalizedSpeechRate('1.25'), 1.25, 'скорость 1,25× не должна округляться до 1,3×');
+assert.equal(voice.normalizedSpeechRate('1.75'), 1.75, 'скорость 1,75× не должна округляться до 1,8×');
 assert.equal(voice.normalizedSpeechRate('9'), 2, 'скорость озвучки должна иметь безопасный верхний предел');
 for (const name of ['Google русский', 'Microsoft Irina', 'Microsoft Ирина', 'Microsoft Pavel', 'Microsoft Павел']) {
   assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }])?.name, name, `${name} должен быть доступен как русский голос устройства`);

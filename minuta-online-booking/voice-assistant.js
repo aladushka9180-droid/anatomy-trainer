@@ -1680,7 +1680,7 @@
   function normalizedSpeechRate(value) {
     const rate = Number(value);
     if (!Number.isFinite(rate)) return DEFAULT_SPEECH_RATE;
-    return Math.round(Math.min(2, Math.max(0.6, rate)) * 10) / 10;
+    return Math.round(Math.min(2, Math.max(0.6, rate)) * 100) / 100;
   }
 
   function speechVoiceKey(voice) {
@@ -1957,7 +1957,7 @@
       try {
         const saved = JSON.parse(global.localStorage?.getItem(SPEECH_SETTINGS_KEY) || '{}');
         speechRate = normalizedSpeechRate(saved.rate);
-        if (![1, 1.5, 2].includes(speechRate)) speechRate = DEFAULT_SPEECH_RATE;
+        if (![1, 1.25, 1.5, 1.75, 2].includes(speechRate)) speechRate = DEFAULT_SPEECH_RATE;
         preferredVoiceKey = String(saved.voiceKey || '').slice(0, 300);
       } catch {
         speechRate = DEFAULT_SPEECH_RATE;

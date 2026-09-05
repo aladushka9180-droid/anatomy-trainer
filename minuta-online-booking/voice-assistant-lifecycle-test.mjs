@@ -126,6 +126,8 @@ const voiceSelect = createElement({
   append(child) { this.children.push(child); }
 });
 const voicePreviewButton = createElement();
+const rateInput = createElement();
+const rateValue = createElement();
 const dialog = createElement({
   showModal() { this.open = true; },
   close() { this.open = false; }
@@ -168,6 +170,8 @@ const elements = new Map([
 ]);
 elements.set('#voiceAssistantVoice', voiceSelect);
 elements.set('#voiceAssistantVoicePreview', voicePreviewButton);
+elements.set('#voiceAssistantRate', rateInput);
+elements.set('#voiceAssistantRateValue', rateValue);
 const documentListeners = new Map();
 const documentStub = {
   createElement:() => createElement(),
@@ -496,6 +500,16 @@ speechSynthesis.voices = [googleRussian];
 voicePreviewButton.emit('click');
 assert.equal(speechSynthesis.lastUtterance.voice, googleRussian, 'нажатие проверки должно находить поздно загруженный голос без события');
 controller.stopSpeech();
+for (const rate of [1.25, 1.75]) {
+  rateInput.value = String(rate);
+  rateInput.emit('input');
+  rateInput.emit('change');
+  assert.equal(JSON.parse(savedSpeech).rate, rate, 'дробная скорость должна сохраняться точно');
+  assert.equal(rateValue.textContent, `${String(rate).replace('.', ',')}×`);
+  voicePreviewButton.emit('click');
+  assert.equal(speechSynthesis.lastUtterance.rate, rate, 'озвучка должна получать выбранную дробную скорость');
+  controller.stopSpeech();
+}
 controller.destroy();
 assert.equal(speechSynthesis.listeners.has('voiceschanged'), false);
 assert.equal(globalListeners.get('minuta:provider-session-reset')?.size || 0, 0, 'destroy должен снять глобальный обработчик');
@@ -503,6 +517,13 @@ speechSynthesis.voices.push({ name:'Microsoft Svetlana Online', lang:'ru-RU', vo
 const restoredController = voice.createController({ document:documentStub, bridge });
 restoredController.bind();
 assert.equal(voiceSelect.value, 'google-ru', 'новый контроллер должен восстановить сохранённый выбор Google, даже если доступна Светлана');
+assert.equal(rateInput.value, '1.75', 'сохранённая скорость 1,75× должна восстанавливаться после повторного открытия');
+assert.equal(rateValue.textContent, '1,75×');
 restoredController.destroy();
+savedSpeech = JSON.stringify({ voiceKey:'google-ru', rate:1.25 });
+const quarterSpeedController = voice.createController({ document:documentStub, bridge });
+quarterSpeedController.bind();
+assert.equal(rateInput.value, '1.25', 'сохранённая скорость 1,25× должна восстанавливаться');
+quarterSpeedController.destroy();
 
 console.log('Voice assistant lifecycle security tests passed');
