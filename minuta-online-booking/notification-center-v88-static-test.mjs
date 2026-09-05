@@ -5,12 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const repository = path.resolve(directory, '..');
-const [migration, rollback, dispatcher, adapters, config] = await Promise.all([
+const [migration, rollback, dispatcher, adapters, config, center] = await Promise.all([
   readFile(path.join(directory, 'supabase-migration-v88.sql'), 'utf8'),
   readFile(path.join(directory, 'recovery/rollback-notification-center-v88.sql'), 'utf8'),
   readFile(path.join(repository, 'supabase/functions/notification-dispatcher/index.ts'), 'utf8'),
   readFile(path.join(repository, 'supabase/functions/notification-dispatcher/adapters.ts'), 'utf8'),
   readFile(path.join(repository, 'supabase/config.toml'), 'utf8'),
+  readFile(path.join(directory, 'notification-center.js'), 'utf8'),
 ]);
 
 assert.match(migration, /organization_payment_provider_settings/i, 'v88 must follow the canonical v87 marker');
@@ -51,6 +52,11 @@ assert.match(adapters, /sms: gateway\("SMS"\)/);
 assert.match(adapters, /max: gateway\("MAX"\)/);
 assert.match(adapters, /push: gateway\("PUSH"\)/);
 assert.doesNotMatch(dispatcher + adapters, /\b\d{6,}:[A-Za-z0-9_-]{20,}\b/, 'secrets must not be committed');
+assert.match(center, /let revision = 0/);
+assert.match(center, /requestRevision === revision && organization\?\.id === organizationId/);
+assert.match(center, /if \(!current\(requestRevision, organizationId\)\) return/);
+assert.match(center, /if \(!current\(operationRevision, organizationId\)\) return/g);
+assert.match(center, /min-height:44px/);
 
 assert.match(rollback, /v88_rollback_requires_empty_unified_outbox/i);
 assert.match(rollback, /drop table if exists public\.notification_recipient_endpoints/i);

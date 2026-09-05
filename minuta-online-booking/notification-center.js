@@ -18,6 +18,7 @@
     let deliveryHealth = null;
     let currentUserId = '';
     let busy = false;
+    let revision = 0;
 
     function missing(error) {
       return /PGRST202|42883|get_minuta_notification_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -51,32 +52,40 @@
       });
     }
     function reset() {
+      revision += 1;
       organization = null; payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false;
       if ($('#unifiedNotificationPanel')) $('#unifiedNotificationPanel').hidden = true;
+    }
+    function current(requestRevision, organizationId) {
+      return requestRevision === revision && organization?.id === organizationId;
     }
     async function loadDeliveryHealth() {
       try {
         const { data } = await db.auth.getUser();
-        currentUserId = data?.user?.id || '';
+        const userId = data?.user?.id || '';
         const base = String(global.MINUTA_CONFIG?.supabaseUrl || '').replace(/\/$/, '');
-        if (!base) return null;
+        if (!base || !userId) return { health:null, userId };
         const url = new URL(`${base}/functions/v1/notification-dispatcher`);
-        if (currentUserId) url.searchParams.set('performer_id', currentUserId);
+        url.searchParams.set('performer_id', userId);
         const response = await fetch(url, {
           headers:{ apikey:String(global.MINUTA_CONFIG?.supabaseKey || '') },
           cache:'no-store'
         });
         const result = await response.json().catch(() => null);
-        return response.ok && result?.ok ? result : null;
-      } catch { return null; }
+        return { health:response.ok && result?.ok ? result : null, userId };
+      } catch { return { health:null, userId:'' }; }
     }
     async function load() {
       if (!organization) return;
+      const organizationId = organization.id;
+      const requestRevision = ++revision;
       const [result, health] = await Promise.all([
-        db.rpc('get_minuta_notification_workspace', { p_organization:organization.id }),
+        db.rpc('get_minuta_notification_workspace', { p_organization:organizationId }),
         loadDeliveryHealth()
       ]);
-      deliveryHealth = health || { unavailable:true, configured_channels:[] };
+      if (!current(requestRevision, organizationId)) return;
+      currentUserId = health.userId;
+      deliveryHealth = health.health || { unavailable:true, configured_channels:[] };
       if (result.error) {
         available = missing(result.error) ? false : null;
         render(result.error);
@@ -87,9 +96,11 @@
       render();
     }
     async function setOrganization(next) {
+      revision += 1;
       organization = next?.id ? next : null;
-      payload = null; available = null;
+      payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false;
       if (!organization) { reset(); return; }
+      render();
       await load();
     }
     function render(error = null) {
@@ -125,7 +136,7 @@
         const context = item.context || {};
         const appointment = [context.client_name, context.service_name, context.booking_date, String(context.booking_time || '').slice(0,5)].filter(Boolean).join(' · ');
         const error = item.status === 'failed' && item.last_error ? ` · ${item.last_error}` : '';
-        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(appointment || new Date(item.created_at).toLocaleString('ru-RU'))}${escapeHtml(error)}</small></div><span><em>${escapeHtml(status)}</em>${item.status === 'failed' ? `<button class="secondary-button" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>` : ''}</span></article>`;
+        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(appointment || new Date(item.created_at).toLocaleString('ru-RU'))}${escapeHtml(error)}</small></div><span><em>${escapeHtml(status)}</em>${item.status === 'failed' ? `<button class="secondary-button" style="min-height:44px" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>` : ''}</span></article>`;
       }).join('')
         : '<div class="provider-empty compact-empty"><strong>Единая очередь пока пуста</strong><small>Сообщения появятся после подключения хотя бы одного канала.</small></div>';
       setBusy(busy);
@@ -133,24 +144,32 @@
     }
     async function change(event) {
       if (!organization || !manager() || busy || !requireWrites()) return;
+      const organizationId = organization.id;
+      const operationRevision = revision;
       if (event.target.id === 'unifiedNotificationsEnabled') {
         setBusy(true);
-        const result = await db.rpc('set_minuta_notification_master', { p_organization:organization.id, p_enabled:event.target.checked });
+        const enabled = event.target.checked;
+        const result = await db.rpc('set_minuta_notification_master', { p_organization:organizationId, p_enabled:enabled });
+        if (!current(operationRevision, organizationId)) return;
         setBusy(false);
         if (result.error) { notify('Не удалось изменить центр уведомлений'); await load(); return; }
         payload = result.data || payload;
         render();
-        notify(event.target.checked ? 'Единый центр уведомлений включён' : 'Единый центр уведомлений выключен');
+        notify(enabled ? 'Единый центр уведомлений включён' : 'Единый центр уведомлений выключен');
         return;
       }
       if (!event.target.matches('[data-unified-channel]')) return;
       setBusy(true);
+      const audience = event.target.dataset.unifiedAudience;
+      const channel = event.target.dataset.unifiedChannel;
+      const enabled = event.target.checked;
       const result = await db.rpc('set_minuta_notification_channel', {
-        p_organization:organization.id,
-        p_audience:event.target.dataset.unifiedAudience,
-        p_channel:event.target.dataset.unifiedChannel,
-        p_enabled:event.target.checked
+        p_organization:organizationId,
+        p_audience:audience,
+        p_channel:channel,
+        p_enabled:enabled
       });
+      if (!current(operationRevision, organizationId)) return;
       setBusy(false);
       if (result.error) { notify('Не удалось изменить канал'); await load(); return; }
       payload = result.data || payload;
@@ -159,9 +178,12 @@
     }
     async function click(event) {
       const retry = event.target.closest('[data-unified-retry]');
-      if (!retry || busy || !requireWrites()) return;
+      if (!retry || !organization || busy || !requireWrites()) return;
+      const organizationId = organization.id;
+      const operationRevision = revision;
       setBusy(true);
       const result = await db.rpc('retry_notification_outbox', { p_outbox:retry.dataset.unifiedRetry });
+      if (!current(operationRevision, organizationId)) return;
       setBusy(false);
       if (result.error) notify('Не удалось повторить уведомление');
       else notify('Уведомление возвращено в очередь');
