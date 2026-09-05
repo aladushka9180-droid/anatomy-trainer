@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=458/, 'Кабинет не подключает Signature Collection v458');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=458/, 'Service Worker не кэширует Signature Collection v458');
+assert.match(provider, /provider-themes-signature\.css\?v=459/, 'Кабинет не подключает Signature Collection v459');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=459/, 'Service Worker не кэширует Signature Collection v459');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -99,4 +99,4 @@ assert.match(mobileSnow, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider
 assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
-console.log('Signature themes v458: 13 unified themes OK');
+console.log('Signature themes v459: 13 unified themes OK');
