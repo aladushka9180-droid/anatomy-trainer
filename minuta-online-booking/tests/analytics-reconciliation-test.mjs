@@ -15,7 +15,7 @@ function declaration(name){
 }
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange','reportExportPerformers','reportExportMaster','reportExportCreator','applyBookingQuery'];
 // New shared report helpers are loaded verbatim when implemented, not stubbed.
-const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId','reportCurrentTeamRows'];
+const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId','reportCurrentTeamRows','reportCurrentEventRows'];
 const actual=[...optional.filter(name=>source.includes(`function ${name}(`)),...names].map(declaration).join('\n');
 const range={start:'2026-09-01',end:'2026-09-30',period:'month'};
 function booking(id, overrides={}){
@@ -119,4 +119,19 @@ test('actual analytics debt drilldown agrees with completed performer report sco
   const expected=context.reportBookings(range).filter(item=>context.reportDebtAmount(item)>0).map(item=>item.id);
   assert.equal(expected.length,1);
   assert.deepEqual(Array.from(context.applyBookingQuery(items),item=>item.id),Array.from(expected));
+});
+
+test('export events require exact ready actor/org/period scope and never enter demo',()=>{
+  const {state,context}=fixture();
+  const key='1:master-A:org-A:2026-09-01:2026-09-30';
+  state.reportEventState={key,status:'ready',rows:[{actor_name:'CURRENT EVENT'}]};
+  assert.equal(context.reportExportData().events.length,1);
+  for(const stale of ['1:other:org-A:2026-09-01:2026-09-30','1:master-A:org-B:2026-09-01:2026-09-30','1:master-A:org-A:2026-08-01:2026-08-31']) {
+    state.reportEventState.key=stale;
+    assert.equal(context.reportExportData().events.length,0);
+  }
+  state.reportEventState.key=key;state.reportEventState.status='failed';
+  assert.equal(context.reportExportData().events.length,0);
+  state.reportEventState.status='ready';state.reportDataSource='demo';
+  assert.equal(context.reportExportData().events.length,0);
 });

@@ -7,7 +7,7 @@ const moduleSource=readFileSync(new URL('../report-reconciliation.js',import.met
 function declaration(name){const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const lineEnd=source.indexOf('\n',start);return source.slice(start,source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2);}
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange',
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
-  'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','renderAnalytics',
+  'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
   'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv',
   'exportBookingsPdf','reportPdfText','reportPdfPage','reportPdfImageBytes','reportPdfBlob'];
 const script=`

@@ -3799,6 +3799,11 @@ function reportCurrentTeamRows() {
   const query = reportDataQueryRange(reportRange());
   return globalThis.MinutaReportReconciliation.currentTeamRows(reportTeamAnalyticsState, reportSessionKey(reportOrganizationId(), query.start, query.end));
 }
+function reportCurrentEventRows(range = reportRange()) {
+  if (reportDataSource === 'demo' || !currentUser?.id || !reportOrganizationId()) return [];
+  const key = reportSessionKey(reportOrganizationId(), range.start, range.end);
+  return reportEventState.status === 'ready' && reportEventState.key === key && Array.isArray(reportEventState.rows) ? reportEventState.rows : [];
+}
 function reportExportPerformers() { return new Map(reportCurrentTeamRows().map(row => [String(row.performer_id || ''), row.performer_name || 'Мастер'])); }
 function reportExportMaster(item, performers) { return performers.get(reportEffectivePerformerId(item)) || 'Мастер'; }
 function reportExportCreator(item, performers) {
@@ -3839,7 +3844,7 @@ function reportExportData(privacy = 'masked') {
     row.visits += 1; row.revenue += reportReceivedAmount(item); if (item.booking_date < row.first) row.first=item.booking_date; if (item.booking_date > row.last) row.last=item.booking_date; groups.set(key,row);
   });
   const clientRows = [...groups.values()].sort((a,b) => b.revenue-a.revenue).map(row => { const days=Math.max(0,Math.round((parseLocalIsoDate(range.end)-parseLocalIsoDate(row.last))/86400000)); return [row.name,reportExportPhone(row.phone,privacy),reportExportDate(row.first),reportExportDate(row.last),row.visits,row.revenue,row.knownVisits?Math.round(row.revenue/row.knownVisits):null,days,row.visits>=2?'Повторные визиты':'Один визит']; });
-  return { range,items,completed,revenue,completedValue,debt,importedValue,unknownPaymentCount,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:reportEventState.rows||[] };
+  return { range,items,completed,revenue,completedValue,debt,importedValue,unknownPaymentCount,workedMinutes,average,clients,sources,headers,rows,team,clientRows,events:reportCurrentEventRows(range) };
 }
 function reportExportSheet(rows, options) {
   const body = rows.map((row,rowIndex) => `<row r="${rowIndex+1}"${options.heights?.[rowIndex+1] ? ` ht="${options.heights[rowIndex+1]}" customHeight="1"` : ''}>${row.map((raw,columnIndex) => { if (raw === '' || raw === null || raw === undefined) return ''; const cell = raw && typeof raw === 'object' && 'value' in raw ? raw : reportExportCell(raw); const ref=`${reportColumnName(columnIndex)}${rowIndex+1}`; return typeof cell.value === 'number' && Number.isFinite(cell.value) ? `<c r="${ref}" s="${cell.style}"><v>${cell.value}</v></c>` : `<c r="${ref}" t="inlineStr" s="${cell.style}"><is><t xml:space="preserve">${reportXmlText(cell.value)}</t></is></c>`; }).join('')}</row>`).join('');
