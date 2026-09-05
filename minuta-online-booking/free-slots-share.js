@@ -154,8 +154,8 @@
       return { date, windows:dayWindows, times };
     }).filter(row => hourly ? row.times.length : row.windows.length);
     const heading = dates.length === 1 ? `Свободные окна на ${formatDate(from)}:` : 'Свободные окна для записи:';
-    const target = [data.performerLabel, data.locationLabel].filter(Boolean).join(' · ');
-    const body = rows.length ? rows.map(row => `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${hourly ? `Начало свободного часа: ${row.times.join(', ')}` : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join('\n')}`).join('\n\n')
+    const target = data.locationLabel || '';
+    const body = rows.length ? rows.map(row => `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${hourly ? row.times.join(', ') : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join('\n')}`).join('\n\n')
       : hourly ? 'На выбранный период целых свободных часов нет. Более короткие окна смотрите по ссылке.' : 'На выбранный период свободных окон пока нет.';
     return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${rows.length ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
   }
@@ -592,8 +592,7 @@
           timeFormat:timeFormat(),
           bookingUrl:trackingUrl,
           selectedOnly:true,
-          performerLabel:serverContext?.performerLabel || '',
-          serviceLabel:service ? [showServiceControl.checked ? (service.name || 'Услуга') : '', service.performer_profiles?.display_name].filter(Boolean).join(' · ') : '',
+          serviceLabel:service && showServiceControl.checked ? (service.name || 'Услуга') : '',
           locationLabel:[
             (serverContext?.locations || []).length > 1 && !/^(?:(?:основной|главный|единственный)\s+)?филиал$/i.test(location?.name || '') ? location?.name : '',
             location?.address

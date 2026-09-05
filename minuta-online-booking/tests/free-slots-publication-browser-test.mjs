@@ -22,7 +22,7 @@ try {
     window.controller=window.MinutaFreeSlots.createController({
       root:document.querySelector('#freeSlotsDialog'),
       getData:()=>({userId:window.testUser || 'master-a',today:'2026-09-05',now:window.testNow || '2026-09-05T08:00:00Z',selectedDate:'2026-09-06',bookingUrl:'https://example.test/booking.html?service=old&time=10:00&repeat=1'}),
-      loadContext:async()=>({mode:'personal',services:[{id:'service-60',name:'Массаж',duration_minutes:60}],locations:[]}),
+      loadContext:async()=>({mode:'personal',performerLabel:'Рамиль',services:[{id:'service-60',name:'Массаж',duration_minutes:60,performer_profiles:{display_name:'Рамиль'}}],locations:[]}),
       loadWindows:async args=>{
         if(window.serverFail) throw Error('Unavailable');
         return {data:window.generalWindows || [{booking_date:args.from,start_time:'10:00',end_time:'20:00',duration_minutes:600}]};
@@ -41,13 +41,15 @@ try {
   const text=()=>page.locator('#freeSlotsText').inputValue();
   assert.ok((await text()).includes('10:00–20:00 · 10 часов'));
   assert.ok(!(await text()).includes('Массаж'));
+  assert.ok(!(await text()).includes('Рамиль'));
   assert.equal(await page.locator('#freeSlotsService').isVisible(),false);
   const catalogUrl=new URL(await page.locator('#freeSlotsBookingLink').getAttribute('href'));
   for(const key of ['service','time','repeat']) assert.equal(catalogUrl.searchParams.has(key),false);
   await page.locator('#freeSlotsFormatSummary').click();
   await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').check();
-  assert.ok((await text()).includes('Начало свободного часа: 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00'));
+  assert.ok((await text()).includes('\n10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00\n'));
   assert.ok(!(await text()).includes('20:00'));
+  assert.ok(!(await text()).includes('Рамиль'));
   assert.equal(await page.evaluate(()=>localStorage.getItem('minuta:free-slots-format:master-a')),'hourly');
   await page.locator('[data-close-free-slots]').click();
   await page.locator('#open').click();
@@ -68,6 +70,12 @@ try {
   await page.locator('[name="freeSlotsBookingMode"][value="service"]').check();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.equal(await page.locator('#freeSlotsFormatSettings').isVisible(),false);
+  assert.ok((await text()).includes('Массаж'));
+  assert.ok(!(await text()).includes('Рамиль'));
+  await page.locator('#freeSlotsShowService').uncheck();
+  assert.ok(!(await text()).includes('Массаж'));
+  assert.ok(!(await text()).includes('Рамиль'));
+  await page.locator('#freeSlotsShowService').check();
   assert.ok(await page.evaluate(()=>Boolean(document.querySelector('#freeSlotsFrom').compareDocumentPosition(document.querySelector('#freeSlotsService')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'Date must precede the secondary service choice');
   assert.ok((await text()).includes('10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00'));
   assert.equal(await page.locator('#freeSlotsTimeChoices input:checked').count(),10);
@@ -142,7 +150,7 @@ try {
   await page.evaluate(setup);
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
-  assert.ok((await text()).includes('Начало свободного часа: 10:00, 11:00'));
+  assert.ok((await text()).includes('\n10:00, 11:00'));
   await page.locator('#freeSlotsFormatSummary').click();
   await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('Storage denied');};});
   await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
