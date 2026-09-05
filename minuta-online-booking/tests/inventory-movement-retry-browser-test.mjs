@@ -249,6 +249,39 @@ for(const field of ['Quantity','Reason'])for(const transition of ['organization'
     assert.equal(await page.locator('[data-inventory-restore-movement]:visible').count(),0);
   }
 ]);
+for(const outcome of ['success','error','throw'])cases.push([
+  `SAFETY latest requested A wins pending A then B then A after ${outcome}`,async page=>{
+    await fill(page);await page.evaluate(()=>{deferReply=true;});await submit(page);
+    const original=writes(await state(page))[0].args;
+    await page.evaluate(async({org,orgB})=>{await controller.setOrganization({id:orgB,current_role:'owner'});await controller.setOrganization({id:org,current_role:'owner'});},{org,orgB});
+    await page.evaluate(outcome=>{deferReply=false;const gate=gates[0];if(outcome==='throw')gate.reject(Error('Synthetic reply lost after commit'));else gate.resolve(outcome==='success'?gate.ack:{data:null,error:{code:'08006',message:'connection lost after commit'}});},outcome);await settle(page);
+    assert.equal(await page.evaluate(()=>controller.payload?.organization_id),org,'Final requested scope A must supersede queued B');
+    assert.equal(await page.locator('#inventoryMovementWarehouse').inputValue(),warehouse);assert.equal(await page.locator('#inventoryMovementItem').inputValue(),item);
+    const after=await state(page);assert.equal(after.calls.filter(call=>call.name==='get_minuta_inventory_workspace'&&call.args.p_organization===orgB).length,0,'Never load a superseded queued B');
+    if(outcome!=='success'){
+      await submit(page);const resolved=await state(page);assert.equal(resolved.rows.length,1);assert.equal(resolved.stock,8);
+      assert.deepEqual(writes(resolved).at(-1).args,original,'Resolution belongs to original A, not a new B operation');
+    }
+  }
+]);
+for(const field of ['Quantity','Reason'])cases.push([
+  `SAFETY initial unknown empty required ${field} restores locally and remains recoverable after clearing again`,async page=>{
+    const original=await uncertain(page);const selector='#inventoryMovement'+field;
+    for(let attempt=0;attempt<2;attempt++){
+      await page.locator(selector).fill('');await page.locator(button).click();await settle(page);
+      assert.equal(await page.locator('#inventoryMovementForm').evaluate(form=>form.checkValidity()),false);
+      const before=await state(page);assert.equal(writes(before).length,1,'Ordinary native invalid submission cannot call mutation');
+      const restore=page.locator('[data-inventory-restore-movement]');
+      assert.equal(await restore.count(),1,`Recovery action must exist after clear #${attempt+1}`);assert.equal(await restore.isVisible(),true);assert.equal(await restore.getAttribute('type'),'button');
+      await restore.click();await settle(page);const restored=await state(page);
+      assert.equal(restored.calls.length,before.calls.length);assert.deepEqual(restored.notices,before.notices);
+      assert.equal(restored.quantity,'2');assert.equal(await page.locator('#inventoryMovementReason').inputValue(),reason);
+      assert.equal(await page.locator('#inventoryMovementForm').evaluate(form=>form.checkValidity()),true);
+    }
+    await submit(page);const resolved=await state(page);assert.equal(resolved.rows.length,1);assert.equal(resolved.stock,8);
+    assert.deepEqual(writes(resolved).at(-1).args,writes(original)[0].args);
+  }
+]);
 let failures=0;
 try{
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
