@@ -1540,6 +1540,49 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .booking-labels-disclosure>summary>span { min-width:64px; justify-content:center; }.booking-labels-summary .client-badges { gap:3px; }.booking-labels-summary .client-badge { width:19px; height:19px; border-radius:6px; }.booking-labels-summary .client-badge .ui-icon { width:11px; height:11px; }.booking-labels-editor { margin:0 14px 14px; padding-top:13px; border-top:1px solid #e5ece7; }.booking-labels-editor .client-label-options { margin-top:0; }.booking-labels-editor .client-labels-save { width:auto; }
 .client-labels-autosave { display:block; min-height:14px; margin-top:9px; color:#788a80; font-size:9px; font-weight:750; }.booking-labels-editor .client-labels-autosave { text-align:right; }
 .booking-sheet-actions .booking-cancel-action { grid-column:1/-1; min-height:37px; border:0; background:transparent; color:#a03d39; box-shadow:none; font-size:9px; font-weight:850; }
+.booking-message-actions { grid-template-columns:1fr; margin-top:14px; }
+.booking-message-actions .client-message-action { border-color:#bfd6c7; background:#eef7f1; color:#226644; }
+.client-profile-primary-actions { display:grid; gap:7px; min-width:142px; }
+.client-profile-primary-actions button { width:100%; min-height:40px; margin:0; }
+.client-profile-primary-actions .client-message-action { border-color:#c9ddd0; background:#f4f8f5; color:#286849; }
+.client-messaging-dialog { width:min(560px,calc(100% - 28px)); max-height:calc(100vh - 32px); padding:24px; overflow:auto; border:1px solid #dce7df; border-radius:22px; background:#fff; color:var(--ink); box-shadow:none; }
+.client-messaging-dialog::backdrop { background:rgba(16,36,26,.38); backdrop-filter:blur(4px); }
+.client-messaging-head { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.client-messaging-head small,.client-messaging-head h2 { display:block; margin:0; }
+.client-messaging-head small { color:#708279; font-size:9px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+.client-messaging-head h2 { margin-top:5px; font-size:24px; letter-spacing:-.03em; }
+.client-messaging-head>button { display:grid; place-items:center; width:40px; height:40px; border:1px solid #dce7df; border-radius:12px; background:#f3f7f4; color:#426451; cursor:pointer; }
+.client-messaging-head .ui-icon { width:18px; height:18px; }
+.client-messaging-recipient { display:flex; align-items:baseline; gap:9px; margin-top:18px; padding:13px 14px; border:1px solid #e1e9e3; border-radius:14px; background:#f8faf8; }
+.client-messaging-recipient strong { font-size:14px; }
+.client-messaging-recipient span { color:#667b70; font-size:11px; font-weight:750; }
+.client-message-presets { display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
+.client-message-presets button { min-height:34px; padding:0 11px; border:1px solid #dce6df; border-radius:10px; background:#fff; color:#536d5f; cursor:pointer; font:inherit; font-size:9px; font-weight:850; }
+.client-message-presets button.active { border-color:#2b704d; background:#2b704d; color:#fff; }
+.client-message-presets button:disabled { display:none; }
+.client-message-text { display:grid; gap:7px; margin-top:17px; color:#40594c; font-size:10px; font-weight:850; }
+.client-message-text textarea { width:100%; min-height:116px; padding:12px 13px; resize:vertical; border:1px solid #d7e3db; border-radius:13px; background:#fff; color:var(--ink); font:inherit; font-size:12px; line-height:1.5; }
+.client-message-text textarea:focus { outline:2px solid rgba(47,118,84,.16); border-color:#6b967f; }
+.client-message-copy-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.client-message-copy-actions button { min-height:40px; margin:0; }
+.client-message-channels { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:18px; }
+.client-message-channels button { min-height:44px; border:1px solid #d6e2da; border-radius:12px; background:#f5f8f6; color:#285f43; cursor:pointer; font:inherit; font-size:11px; font-weight:900; }
+.client-message-channels button:first-child { border-color:#b9d9c2; background:#e8f7ed; color:#15733d; }
+.client-message-status { min-height:17px; margin:12px 0 0; color:#6e8076; font-size:9px; line-height:1.45; }
+.provider-body[data-provider-theme] .client-messaging-dialog { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .client-messaging-dialog :is(.client-messaging-head>button,.client-message-presets button,.client-message-text textarea,.client-message-channels button) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .client-messaging-recipient { border-color:var(--theme-line); background:var(--theme-surface-alt); }
+.provider-body[data-provider-theme] .client-message-presets button.active { border-color:var(--theme-accent); background:var(--theme-accent); color:var(--theme-accent-contrast,#fff); }
+@media (max-width:760px) {
+  .client-profile-head { grid-template-columns:52px minmax(0,1fr); align-items:start; }
+  .client-profile-primary-actions { grid-column:1/-1; grid-template-columns:1fr 1fr; width:100%; }
+  .client-messaging-dialog { width:100%; max-width:none; max-height:calc(100dvh - 18px); margin:auto 0 0; padding:20px 16px calc(20px + env(safe-area-inset-bottom)); border-radius:22px 22px 0 0; }
+  .client-message-presets { flex-wrap:nowrap; margin-right:-16px; padding-right:16px; overflow-x:auto; scrollbar-width:none; }
+  .client-message-presets::-webkit-scrollbar { display:none; }
+  .client-message-presets button { flex:none; min-height:38px; }
+  .client-message-copy-actions { grid-template-columns:1fr; }
+  .client-message-channels { grid-template-columns:1fr 1fr; }
+}
 .booking-repeat-actions { margin-top:12px; }.booking-repeat-action { display:flex; grid-column:1/-1; align-items:center; justify-content:center; gap:7px; border-color:#c9ddd0; background:#f2f8f4; color:#276747; }.booking-repeat-action .ui-icon { width:15px; height:15px; }
 .booking-delete-zone { margin-top:14px; padding-top:12px; border-top:1px solid #edf0ee; text-align:center; }.booking-delete-action { min-height:34px; padding:0 12px; border:0; background:transparent; color:#a75a57; cursor:pointer; font:inherit; font-size:9px; font-weight:800; }.booking-delete-action:hover { color:#8f302d; text-decoration:underline; }.booking-delete-action:disabled { cursor:wait; opacity:.5; }
 .booking-outcome-heading small,.booking-outcome-form>p { font-size:10px; }

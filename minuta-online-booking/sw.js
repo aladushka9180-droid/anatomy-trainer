@@ -119,6 +119,7 @@ const ASSETS = [
   './group-bookings.js?v=402',
   './telegram-auth.js?v=402',
   './pwa-install.js?v=402',
+  './client-messaging.js?v=402',
   './provider.js?v=402',
   './onboarding.js?v=402',
   './report-worker.js?v=402',
