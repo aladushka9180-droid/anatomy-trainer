@@ -19,5 +19,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node minuta-online-booking/tests/theme-card-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-publication-browser-test.mjs
+      - run: node minuta-online-booking/tests/client-waitlist-browser-test.mjs
+      - run: node minuta-online-booking/tests/waitlist-management-browser-test.mjs
       - run: node minuta-online-booking/provider-header-test.mjs
       - run: node minuta-online-booking/tests/header-browser-test.mjs

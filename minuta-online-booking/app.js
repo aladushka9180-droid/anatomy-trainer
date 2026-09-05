@@ -7,6 +7,8 @@ let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
 let selectionValidationBlocked = false;
 let bookingResultUncertain = false;
+let waitlistContext = null;
+let waitlistSubmissionPending = false;
 const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
 const CLIENT_SESSION_KEY = 'minuta-client-session-v1';
 const CLIENT_CONTACT_KEY = 'minuta-client-contact-v1';
@@ -643,8 +645,8 @@ function renderDates() {
   $('#dates').innerHTML = visibleDates.map(item => {
     const hasLoaded = state.availability.has(item.iso);
     const hasSlots = (state.availability.get(item.iso) || []).length > 0;
-    const disabled = !state.loadingAvailability && hasLoaded && !hasSlots;
-    return `<button class="date ${item.iso === state.date ? 'selected' : ''} ${disabled ? 'unavailable' : ''}" type="button" data-date="${item.iso}" aria-label="${item.label}" aria-pressed="${item.iso === state.date}" ${disabled ? 'disabled' : ''}><small>${item.weekday}</small><strong>${item.day}</strong>${disabled ? '<i>нет мест</i>' : ''}</button>`;
+    const unavailable = !state.loadingAvailability && hasLoaded && !hasSlots;
+    return `<button class="date ${item.iso === state.date ? 'selected' : ''} ${unavailable ? 'unavailable' : ''}" type="button" data-date="${item.iso}" aria-label="${item.label}${unavailable ? ', нет мест — можно оставить заявку в лист ожидания' : ''}" aria-pressed="${item.iso === state.date}"><small>${item.weekday}</small><strong>${item.day}</strong>${unavailable ? '<i>нет мест</i>' : ''}</button>`;
   }).join('');
   $('#moreDates').hidden = state.moreDates;
 }
@@ -700,7 +702,7 @@ function renderTimes() {
   $('#timeHours').hidden = !state.loadingAvailability && !times.length;
   $('#noTimes').hidden = state.loadingAvailability || Boolean(times.length) || suggestionShown;
   const waitlistCta = $('#waitlistCta');
-  if (waitlistCta) waitlistCta.hidden = state.teamMode || state.loadingAvailability || state.availabilityError || !state.date || Boolean(times.length);
+  if (waitlistCta) waitlistCta.hidden = state.loadingAvailability || state.availabilityError || !state.date || !service;
 }
 
 function renderAvailabilitySuggestion(times) {
@@ -770,53 +772,80 @@ async function loadAvailability() {
 function openWaitlistDialog() {
   const service = selectedService();
   const date = selectedDate();
-  if (!service || !date) return;
+  if (!service || !date || waitlistSubmissionPending || state.loadingAvailability || state.availabilityError) return;
+  const locationItem = state.locations.find(item => item.id === state.locationId);
+  if (state.teamMode && (!state.organization?.public_slug || !locationItem)) return;
+  waitlistContext = { serviceId:service.id, date:state.date, dateLabel:date.label,
+    teamMode:state.teamMode, slug:state.organization?.public_slug || '', locationId:state.locationId };
   $('#waitlistForm').hidden = false;
   $('#waitlistSuccess').hidden = true;
   $('#waitlistError').hidden = true;
-  $('#waitlistService').textContent = serviceName(service.name);
+  $('#waitlistService').textContent = [serviceName(service.name),service.performer_profiles?.display_name, state.teamMode ? locationItem?.name : ''].filter(Boolean).join(' · ');
   $('#waitlistDate').textContent = date.label;
   $('#waitlistName').value = $('#clientName')?.value || '';
   $('#waitlistPhone').value = $('#clientPhone')?.value || '';
+  $('#waitlistConsent').checked = false;
+  $('#waitlistPeriod').value = 'any';
   $('#waitlistDialog').showModal();
 }
 
 async function submitWaitlist(event) {
   event.preventDefault();
-  const service = selectedService();
+  if (waitlistSubmissionPending) return;
+  const context = waitlistContext;
   const name = $('#waitlistName').value.trim();
   const phone = $('#waitlistPhone').value;
   const phoneDigits = phone.replace(/\D/g, '');
   const errorHolder = $('#waitlistError');
   errorHolder.hidden = true;
-  if (!service || !state.date || name.length < 2 || phoneDigits.length !== 11 || !$('#waitlistConsent').checked) {
+  if (!context || context.serviceId !== state.serviceId || context.date !== state.date
+    || context.teamMode !== state.teamMode || context.locationId !== state.locationId
+    || context.slug !== (state.organization?.public_slug || '')) {
+    errorHolder.textContent = 'Услуга или место приёма изменились. Закройте форму и откройте её снова.';
+    errorHolder.hidden = false;
+    return;
+  }
+  if (name.length < 2 || name.length > 80 || phoneDigits.length !== 11 || !$('#waitlistConsent').checked) {
     errorHolder.textContent = 'Укажите имя, полный номер телефона и подтвердите согласие.';
     errorHolder.hidden = false;
     return;
   }
   const button = $('#submitWaitlist');
+  waitlistSubmissionPending = true;
   button.disabled = true;
   button.textContent = 'Отправляем…';
-  const { data, error } = await db.rpc('join_booking_waitlist', {
-    p_service: service.id,
-    p_date: state.date,
-    p_time_period: $('#waitlistPeriod').value,
-    p_client_name: name,
-    p_client_phone: phoneDigits
-  });
-  button.disabled = false;
-  button.textContent = 'Оставить заявку';
-  if (error || !data?.[0]?.manage_token) {
-    errorHolder.textContent = 'Не удалось добавить заявку. Проверьте соединение и попробуйте ещё раз.';
+  try {
+    const args = {
+      p_service: context.serviceId,
+      p_date: context.date,
+      p_time_period: $('#waitlistPeriod').value,
+      p_client_name: name,
+      p_client_phone: phoneDigits
+    };
+    if (context.teamMode) Object.assign(args,{p_slug:context.slug,p_location:context.locationId});
+    const { data, error } = await db.rpc(context.teamMode ? 'join_minuta_waitlist_v111' : 'join_booking_waitlist',args);
+    if (error || !data?.[0]?.manage_token) {
+      throw error || new Error('waitlist_response_missing');
+    }
+    const manageUrl = new URL('waitlist.html', location.href);
+    if (context.teamMode) manageUrl.searchParams.set('scope','organization');
+    manageUrl.hash = `token=${encodeURIComponent(data[0].manage_token)}`;
+    $('#waitlistManageLink').href = manageUrl.href;
+    $('#waitlistSuccessText').textContent = `Заявка ${data[0].request_code} на ${context.dateLabel} сохранена. Мастер увидит её в кабинете и свяжется с вами. Это ещё не запись на сеанс.`;
+    $('#waitlistForm').hidden = true;
+    $('#waitlistSuccess').hidden = false;
+  } catch (error) {
+    errorHolder.textContent = context.teamMode && /PGRST202|42883/.test(String(error?.code || ''))
+      ? 'Лист ожидания этого филиала пока не подключён. Свяжитесь с мастером.'
+      : error?.message === 'waitlist_request_already_exists'
+      ? 'Заявка с этим телефоном на эту дату уже есть. Используйте сохранённую ссылку или свяжитесь с мастером.'
+      : 'Не удалось добавить заявку. Проверьте соединение и попробуйте ещё раз.';
     errorHolder.hidden = false;
-    return;
+  } finally {
+    waitlistSubmissionPending = false;
+    button.disabled = false;
+    button.textContent = 'Оставить заявку';
   }
-  const manageUrl = new URL('waitlist.html', location.href);
-  manageUrl.hash = `token=${encodeURIComponent(data[0].manage_token)}`;
-  $('#waitlistManageLink').href = manageUrl.href;
-  $('#waitlistSuccessText').textContent = `Заявка ${data[0].request_code} на ${selectedDate().label} сохранена. Мастер увидит её в кабинете.`;
-  $('#waitlistForm').hidden = true;
-  $('#waitlistSuccess').hidden = false;
 }
 
 async function showStep(step) {

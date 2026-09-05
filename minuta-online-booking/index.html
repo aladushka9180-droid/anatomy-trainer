@@ -18,7 +18,7 @@
   <title>Массаж в Ижевске — онлайн-запись</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=433">
+  <link rel="stylesheet" href="styles.css?v=434">
 </head>
 <body class="booking-client-page">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -54,7 +54,7 @@
           <details class="minute-picker" id="minutePicker" hidden><summary><span>Другое время</span><strong>с шагом 5 минут</strong></summary><div class="minute-groups" id="times"></div></details>
           <p class="no-times" id="noTimes" hidden>На эту дату всё занято. Выберите другой день.</p>
           <div class="availability-suggestion" id="availabilityHint" hidden></div>
-          <div class="waitlist-cta" id="waitlistCta" hidden><div><strong>Подходящего времени нет?</strong><span>Оставьте заявку — мастер увидит удобную дату и свяжется, когда появится окно.</span></div><button class="secondary-button" id="openWaitlist" type="button">Встать в лист ожидания</button></div>
+          <div class="waitlist-cta" id="waitlistCta" hidden><div><strong>Не подходит время?</strong><span>Оставьте заявку — мастер увидит удобную дату и свяжется, когда появится окно.</span></div><button class="secondary-button" id="openWaitlist" type="button">Встать в лист ожидания</button></div>
           <div class="actions"><button class="back" type="button" data-back="1" aria-label="Вернуться к услугам"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"/></svg><span>Услуги</span></button><button class="primary" id="continueBooking" type="button" data-next="3"><span>Ввести контакты</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button></div>
         </div>
         <form class="step" data-step="3" id="bookingForm" novalidate>
@@ -159,7 +159,7 @@
   <dialog class="waitlist-dialog" id="waitlistDialog" aria-labelledby="waitlistTitle">
     <button class="dialog-close" type="button" data-close-waitlist aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"/></svg></button>
     <div id="waitlistFormContent">
-      <small>Лист ожидания</small><h2 id="waitlistTitle">Сообщим об освободившемся времени</h2>
+      <small>Лист ожидания</small><h2 id="waitlistTitle">Оставьте удобное время</h2>
       <p class="waitlist-context"><strong id="waitlistService">Услуга</strong><span id="waitlistDate">Дата</span></p>
       <form id="waitlistForm" novalidate>
         <label>Ваше имя<input id="waitlistName" autocomplete="name" maxlength="80" placeholder="Например, Елена" required></label>
@@ -173,6 +173,6 @@
     <div class="waitlist-success" id="waitlistSuccess" hidden aria-live="polite"><span class="success-mark"><svg class="ui-icon"><use href="ui-icons.svg#icon-check"/></svg></span><small>Заявка принята</small><h2>Вы в листе ожидания</h2><p id="waitlistSuccessText"></p><a class="primary" id="waitlistManageLink" href="waitlist.html">Управлять заявкой</a></div>
   </dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=433"></script><script src="site-update.js?v=433" defer></script><script src="reliability.js?v=433"></script><script src="group-bookings.js?v=433" defer></script><script src="telegram-auth.js?v=433" defer></script><script src="app.js?v=433" defer></script>
+  <script src="config.js?v=434"></script><script src="site-update.js?v=434" defer></script><script src="reliability.js?v=434"></script><script src="group-bookings.js?v=434" defer></script><script src="telegram-auth.js?v=434" defer></script><script src="app.js?v=434" defer></script>
 </body>
 </html>
