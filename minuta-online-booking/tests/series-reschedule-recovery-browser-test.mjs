@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 // Native editor DOM and sourced actual provider handlers. This is NOT full
-// provider/auth/SQL E2E. RPC, color, note and refresh are deferred boundaries;
+// provider/auth/SQL E2E. Real color/note helpers and localStorage execute;
+// their RPC transport, client-note transport and refresh are deferred boundaries.
 // final openBookingSheet/selectScheduleDate are navigation spies, not fake UI.
 // The unsafe baseline is intentionally RED; no expected-failure inversion.
 const source = readFileSync(process.env.MINUTA_PROVIDER_SOURCE || new URL('../provider.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -28,10 +29,22 @@ const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots'
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
   'actionableSeriesBookings', 'seriesBookingCountLabel', 'bookingSeriesScopeMarkup', 'seriesRpcErrorMessage',
-  'showFormError', 'clearFormError'];
+  'showFormError', 'clearFormError', 'persistBookingColors', 'persistBookingNotes',
+  'bookingColorStorageKey', 'bookingColorPendingStorageKey', 'bookingNoteStorageKey', 'bookingNotePendingStorageKey'];
 const colorConstants = source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(colorConstants, 'Use actual color-control definitions');
-const loader = [colorConstants, ...names.map(declaration),
+const lifecycle = ['bookingSeriesCancellationRevision','bookingEditorRevision'].map(name =>
+  source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0] || `let ${name}=0;`).join('\n');
+const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
+  .map(match=>match[0]).join('\n');
+const orgStart = source.indexOf('  onActiveOrganizationChange: organization => {');
+const orgEnd = source.indexOf('    if (clientOrganizationChanged) {',orgStart);
+assert.ok(orgStart>=0&&orgEnd>orgStart,'Actual organization identity/epoch prefix');
+// Only the actual identity/epoch prefix, not sibling organization controllers.
+const orgHook = source.slice(orgStart,orgEnd).replace('  onActiveOrganizationChange: organization => {','function changeOrganization(organization) {')+'\n}';
+const loader = [lifecycle, resetHooks, orgHook, colorConstants, ...names.map(declaration),
+  declaration('saveBookingColor').replace('function saveBookingColor(', 'function actualSaveBookingColor('),
+  declaration('saveBookingNote').replace('function saveBookingNote(', 'function actualSaveBookingNote('),
   listener("document.addEventListener('click', async event => {"),
   listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;")].join('\n');
 const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222',
@@ -74,8 +87,10 @@ async function fixture(holdAt = '') {
     var ids=${JSON.stringify(ids)}, responseFixture=${JSON.stringify(reply)}, holdAt=${JSON.stringify(holdAt)};
     var currentUser={id:'same-provider'}, sessionGeneration=7, activeClientOrganizationId='org-A';
     var bookingEditTime='', editingOfflineBookingId='', newBookingHistoricalMode=false;
-    var bookingSeriesCancellationRevision=0, gestureClickSuppressedUntil=0, writesAllowed=true;
+    var gestureClickSuppressedUntil=0, writesAllowed=true;
+    var freeSlotsController={invalidateScope(){}}, providerReadFetch={cancelPendingReads(){}};
     var SCHEDULE_BLOCK_PHONE='0000000000', bookingColors=new Map(), bookingNotes=new Map(), bookingOutcomes=new Map();
+    var pendingBookingColors=new Set(), pendingBookingNotes=new Set();
     var clientNotes=new Map([['79990000001','Исходная заметка A'],['79990000002','Исходная заметка B']]);
     var ownServices=[{id:ids.service,name:'Услуга',duration_minutes:60,price_rub:1000,active:true}];
     var allBookings=['A','B'].map((name,index)=>({id:ids[name],series_id:ids['series'+name],series_occurrence:1,
@@ -85,12 +100,19 @@ async function fixture(holdAt = '') {
     var businessTodayIso=()=> '2099-09-05', applyClientHighlightClasses=()=>{};
     var effects=[], gates=[], slotCalls=[], notices=[];
     var boundary=(kind,value)=>{effects.push({kind});return kind===holdAt
-      ?new Promise((resolve,reject)=>gates.push({kind,resolve:()=>resolve(value),reject})):Promise.resolve(value);};
-    var db={rpc:(name,args)=>{effects.push({kind:'rpc-args',name,args:structuredClone(args)});return boundary('rpc',responseFixture);},
+      ?new Promise((resolve,reject)=>gates.push({kind,resolve:override=>resolve(override===undefined?value:override),reject})):Promise.resolve(value);};
+    var db={rpc:(name,args)=>{
+      if(name==='set_booking_color')return boundary('color',{data:null,error:null});
+      if(name==='set_booking_note')return boundary('booking-note',{data:null,error:null});
+      if(name!=='manage_minuta_booking_series')throw new Error('Unexpected RPC '+name);
+      effects.push({kind:'rpc-args',name,args:structuredClone(args)});return boundary('rpc',responseFixture);},
       from:name=>{if(name!=='client_notes')throw new Error('Unexpected table '+name);return {upsert:args=>{
         effects.push({kind:'note-args',args:structuredClone(args)});return boundary('note',{error:null});}};}};
-    var saveBookingColor=(id,color,options)=>{effects.push({kind:'color-args',id,color,options});return boundary('color',true);};
-    var getProviderAvailableSlots=async args=>{slotCalls.push(structuredClone(args));return {data:[{booking_time:'10:00:00'},{booking_time:'11:00:00'},{booking_time:'15:00:00'}],error:null};};
+    var saveBookingColor=(id,color,options)=>{effects.push({kind:'color-args',id,color,options:{rerender:options.rerender}});return actualSaveBookingColor(id,color,options);};
+    var renderBookingData=()=>effects.push({kind:'render-bookings'});
+    var getProviderAvailableSlots=async args=>{slotCalls.push(structuredClone(args));
+      const value={data:[{booking_time:'10:00:00'},{booking_time:'11:00:00'},{booking_time:'15:00:00'}],error:null};
+      return holdAt==='slots'?new Promise((resolve,reject)=>gates.push({kind:'slots',resolve:override=>resolve(override===undefined?value:override),reject})):value;};
     var refreshAfterWrite=()=>boundary('refresh',true);
     var notifyTelegramClient=(id,event)=>effects.push({kind:'telegram',id,event});
     var notify=text=>{notices.push(text);effects.push({kind:'notify',text});};
@@ -127,6 +149,15 @@ async function editorSnapshot(page) {
     disabled:$('#bookingEditForm button[type="submit"]').disabled,caption:$('#bookingEditForm button[type="submit"]').textContent,
     user:currentUser.id,generation:sessionGeneration}));
 }
+async function effectsSnapshot(page) {
+  return page.evaluate(()=>({effects:structuredClone(effects),notes:[...clientNotes],
+    colors:[...bookingColors],bookingNotes:[...bookingNotes],pendingColors:[...pendingBookingColors],pendingNotes:[...pendingBookingNotes],
+    storage:Object.entries(localStorage).sort(),items:structuredClone(allBookings)}));
+}
+async function release(page, value) {
+  await page.evaluate(value=>gates.shift().resolve(value),value);
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+}
 const cases = [
   ['current editor completes the intended RPC/color/note/refresh pipeline', '', async page => {
     await startA(page);
@@ -149,15 +180,140 @@ for (const boundary of ['rpc','color','note','refresh']) cases.push([
     await page.keyboard.press('Escape');
     await open(page,'B'); await edit(page,'B');
     await page.evaluate(()=>{window.newEditor=$('#bookingEditForm');});
-    const before = await page.evaluate(()=>({effects:structuredClone(effects),notes:[...clientNotes]}));
+    const before = await effectsSnapshot(page);
     const formBefore = await editorSnapshot(page);
-    await page.evaluate(()=>gates.shift().resolve());
-    await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+    await release(page);
     assert.deepEqual(await editorSnapshot(page),formBefore,'Late A must not change any native B editor control');
-    const after = await page.evaluate(()=>({effects,notes:[...clientNotes]}));
+    const after = await effectsSnapshot(page);
     assert.deepEqual(after,before,'A must not start further writes, mutate the notes cache, change schedule, toast, or navigate after B opens');
   }
 ]);
+for (const phase of ['rpc','color','note','refresh']) for (const transition of ['org-roundtrip','session-reset','account-replacement']) cases.push([
+  `${phase} completion after ${transition} cannot touch current editor/maps/storage`,phase,async page=>{
+    await startA(page);
+    await page.waitForFunction(kind=>gates.some(g=>g.kind===kind),phase);
+    await page.evaluate(transition=>{
+      if(transition==='org-roundtrip'){changeOrganization({id:'org-B'});changeOrganization({id:'org-A'});}
+      if(transition==='session-reset')window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
+      if(transition==='account-replacement'){
+        currentUser={id:'different-provider'};sessionGeneration++;
+        bookingColors=new Map([[ids.A,'rose']]);pendingBookingColors=new Set([ids.A]);
+        bookingNotes=new Map([[ids.A,'Другой аккаунт']]);pendingBookingNotes=new Set([ids.A]);
+        clientNotes=new Map([['79990000001','Чужая заметка']]);
+        allBookings=structuredClone(allBookings);allBookings[0].provider_note='Другой аккаунт';
+        persistBookingColors();persistBookingNotes();
+      }
+      window.newEditor=$('#bookingEditForm');
+    },transition);
+    const before=await effectsSnapshot(page), form=await editorSnapshot(page);
+    await release(page);
+    assert.deepEqual(await effectsSnapshot(page),before,'Stale context must have zero subsequent effects including native localStorage');
+    assert.deepEqual(await editorSnapshot(page),form,'Stale finally must not modify the current form');
+  }
+]);
+cases.push(['same-org callback does not invalidate a current save','rpc',async page=>{
+  await startA(page);await page.waitForFunction(()=>gates.length===1);
+  await page.evaluate(()=>changeOrganization({id:'org-A'}));
+  await release(page);
+  assert.equal(await page.evaluate(()=>effects.at(-1).kind),'open-sheet');
+  assert.equal(await page.evaluate(()=>effects.at(-1).id),ids.A);
+}]);
+for(const phase of ['rpc','color','note','refresh']){
+  cases.push([`late rejected ${phase} cannot paint an error into native B`,phase,async page=>{
+    await startA(page);await page.waitForFunction(()=>gates.length===1);
+    await page.keyboard.press('Escape');await open(page,'B');await edit(page,'B');
+    await page.evaluate(()=>{window.newEditor=$('#bookingEditForm');});
+    const before=await effectsSnapshot(page),form=await editorSnapshot(page);
+    await page.evaluate(()=>gates.shift().reject(new Error('Failed to fetch')));
+    await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+    assert.deepEqual(await effectsSnapshot(page),before);assert.deepEqual(await editorSnapshot(page),form);
+  }]);
+  cases.push([`current rejected ${phase} restores native submit with truthful status`,phase,async page=>{
+    await startA(page);await page.waitForFunction(()=>gates.length===1);
+    await page.evaluate(()=>gates.shift().reject(new Error('Failed to fetch')));
+    await page.waitForFunction(()=>!$('#bookingEditForm button[type="submit"]').disabled);
+    assert.equal(await page.locator('#bookingEditForm button[type="submit"]').textContent(),'Сохранить изменения');
+    assert.equal(await page.locator('#bookingEditError').isVisible(),true);
+    assert.match(await page.locator('#bookingEditError').textContent(),phase==='rpc'?/Не удалось подтвердить результат/:/Основное изменение сохранено/);
+    assert.equal(await page.evaluate(()=>effects.some(e=>e.kind==='open-sheet'||e.kind==='notify')),false);
+  }]);
+}
+cases.push(['closing and reopening the same booking invalidates the old incarnation','rpc',async page=>{
+  await startA(page);await page.waitForFunction(()=>gates.length===1);
+  await page.keyboard.press('Escape');await open(page,'A');
+  await page.locator('#editBookingNote').fill('Другая форма той же записи');
+  await page.evaluate(()=>{window.newEditor=$('#bookingEditForm');});
+  const before=await effectsSnapshot(page),form=await editorSnapshot(page);
+  await release(page);
+  assert.deepEqual(await effectsSnapshot(page),before);assert.deepEqual(await editorSnapshot(page),form);
+}]);
+cases.push(['actual color/note helpers reject an already stale context before maps/storage/RPC','',async page=>{
+  const before=await effectsSnapshot(page);
+  assert.deepEqual(await page.evaluate(async()=>[
+    await actualSaveBookingColor(ids.A,'mint',{isCurrent:()=>false}),
+    await actualSaveBookingNote(ids.A,'Запрещённая заметка',{isCurrent:()=>false})]),[false,false]);
+  assert.deepEqual(await effectsSnapshot(page),before);
+}]);
+for(const kind of ['color','booking-note'])for(const failed of [false,true])cases.push([
+  `actual ${kind} helper after account/maps replacement (${failed?'error':'success'}) preserves the new account`,kind,async page=>{
+    await page.evaluate(kind=>{
+      const actor=currentUser.id,generation=sessionGeneration;
+      const options={rerender:false,isCurrent:()=>sessionIsCurrent(actor,generation)};
+      window.helperOperation=kind==='color'?actualSaveBookingColor(ids.A,'mint',options):actualSaveBookingNote(ids.A,'Заметка A',options);
+    },kind);
+    await page.waitForFunction(()=>gates.length===1);
+    await page.evaluate(()=>{
+      currentUser={id:'different-provider'};sessionGeneration++;
+      bookingColors=new Map([[ids.A,'rose']]);pendingBookingColors=new Set([ids.A]);
+      bookingNotes=new Map([[ids.A,'Заметка B']]);pendingBookingNotes=new Set([ids.A]);
+      allBookings=structuredClone(allBookings);allBookings[0].color_key='rose';allBookings[0].provider_note='Заметка B';
+      persistBookingColors();persistBookingNotes();
+    });
+    const before=await effectsSnapshot(page);
+    await release(page,{data:null,error:failed?{code:'08006',message:'connection lost'}:null});
+    assert.equal(await page.evaluate(()=>helperOperation),false);
+    assert.deepEqual(await effectsSnapshot(page),before,'Post-await guard must protect replacement maps, pending markers and account-keyed real storage');
+  }
+]);
+cases.push(['late initial A slot response cannot overwrite native B selection','slots',async page=>{
+  await page.locator(`[data-edit-booking="${ids.A}"]`).click();
+  await page.waitForFunction(()=>gates.length===1);
+  await page.keyboard.press('Escape');
+  await page.evaluate(()=>{holdAt='';});
+  await open(page,'B');await edit(page,'B');
+  await page.evaluate(()=>{window.newEditor=$('#bookingEditForm');});
+  const before=await editorSnapshot(page), times=await page.locator('#editBookingTimes').innerHTML();
+  await release(page,{data:[{booking_time:'23:45:00'}],error:null});
+  assert.deepEqual(await editorSnapshot(page),before);
+  assert.equal(await page.locator('#editBookingTimes').innerHTML(),times);
+}]);
+cases.push(['same-form out-of-order dates keep the latest actual slot response','',async page=>{
+  await open(page,'A');
+  await page.evaluate(()=>{holdAt='slots';});
+  for(const date of ['2099-09-06','2099-09-07']){
+    // Date-input fill can itself fire change in Chromium. Dispatch exactly one
+    // actual native change handler per value to control response ordering.
+    await page.locator('#editBookingDate').evaluate((input,date)=>{
+      input.value=date;input.dispatchEvent(new Event('change',{bubbles:true}));
+    },date);
+  }
+  await page.waitForFunction(()=>gates.length===2);
+  await page.evaluate(()=>gates.pop().resolve({data:[{booking_time:'15:00:00'}],error:null}));
+  await page.locator('[data-edit-booking-time="15:00"]').click();
+  await release(page,{data:[{booking_time:'23:45:00'}],error:null});
+  assert.equal(await page.locator('[data-edit-booking-time="23:45"]').count(),0);
+  assert.equal(await page.evaluate(()=>bookingEditTime),'15:00');
+  assert.equal(await page.locator('#editBookingDate').inputValue(),'2099-09-07');
+}]);
+cases.push(['native slot loading recovers after rejected transport on the next date change','slots',async page=>{
+  await page.locator(`[data-edit-booking="${ids.A}"]`).click();await page.waitForFunction(()=>gates.length===1);
+  await page.evaluate(()=>gates.shift().reject(new Error('Failed to fetch')));
+  await page.waitForFunction(()=>$('#editBookingTimes').textContent.includes('Не удалось загрузить'));
+  await page.evaluate(()=>{holdAt='';});
+  await page.locator('#editBookingDate').fill('2099-09-08');await page.locator('#editBookingDate').dispatchEvent('change');
+  await page.locator('[data-edit-booking-time="15:00"]').click();
+  assert.equal(await page.evaluate(()=>bookingEditTime),'15:00');
+}]);
 try {
   browser = await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   for(const [name,hold,run] of cases) {
