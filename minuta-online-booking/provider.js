@@ -6440,6 +6440,13 @@ function renderNewBookingTimePicker({ offline = false, historical = false, outsi
 function updateNewBookingSubmitCaption() {
   const submit = $('#newBookingSubmit');
   if (!submit) return;
+  const historicalState = $('#newBookingForm')?.dataset.historicalCreateState;
+  if (historicalState) {
+    submit.disabled = true;
+    submit.textContent = historicalState === 'pending' ? 'Создаём…' : historicalState === 'created' ? 'Запись уже создана' : 'Результат не подтверждён';
+    submit.title = historicalState === 'pending' ? 'Дождитесь результата создания' : 'Проверьте расписание перед созданием новой записи';
+    return;
+  }
   const occurrenceCount = Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
   const historicalOffline = newBookingHistoricalMode && !navigator.onLine;
   submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? 'Добавить прошедший визит' : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingOutsideSchedule ? (newBookingMode === 'block' ? 'Занять вне графика' : 'Создать вне графика') : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
@@ -6789,6 +6796,8 @@ async function ensureCreatedBookingVisible(criteria) {
 
 async function createNewBooking(event) {
   event.preventDefault();
+  const submittedForm = event.currentTarget || $('#newBookingForm');
+  if (submittedForm?.dataset.historicalCreateState) return;
   if (!requireBookingWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
@@ -6805,6 +6814,7 @@ async function createNewBooking(event) {
   const selectedButtonTime = $('[data-new-booking-time].active')?.dataset.newBookingTime || '';
   newBookingTime = newBookingTime || selectedButtonTime;
   const historical = newBookingHistoricalMode || date < businessTodayIso() || (date === businessTodayIso() && newBookingTime && new Date(`${date}T${newBookingTime}:00`) < new Date());
+  if (historical && (submittedForm !== $('#newBookingForm') || $('#bookingSheet').hidden)) return;
   const validationError = name.length < 2
     ? (block ? 'Укажите название перерыва.' : 'Укажите имя клиента.')
     : (!block && normalizePhone(phone).length < 10)
@@ -6904,6 +6914,14 @@ async function createNewBooking(event) {
     return;
   }
   if (historical) {
+    const form = $('#newBookingForm');
+    const formRevision = bookingEditorRevision;
+    const contextIsCurrent = captureBookingMetadataContext();
+    const formIsCurrent = () => contextIsCurrent() && bookingEditorRevision === formRevision
+      && form === $('#newBookingForm') && !$('#bookingSheet').hidden;
+    if (!formIsCurrent() || (event.currentTarget && event.currentTarget !== form)) return;
+    let closedIsCurrent = null;
+    let createdId = '';
     const organizationId = organizationController?.getActiveOrganization?.()?.id || '';
     if (!organizationId) {
       button.disabled = false;
@@ -6911,62 +6929,105 @@ async function createNewBooking(event) {
       showFormError('#newBookingError', 'Не удалось определить организацию. Обновите страницу и попробуйте ещё раз.');
       return;
     }
-    const { data, error } = await db.rpc('create_minuta_historical_booking', {
-      p_organization:organizationId,
-      p_service:service,
-      p_date:date,
-      p_time:`${newBookingTime}:00`,
-      p_duration_minutes:durationMinutes,
-      p_client_name:name,
-      p_client_phone:phone
-    });
-    if (!sessionIsCurrent(userId, generation)) return;
-    if (error) {
-      button.disabled = false;
-      updateNewBookingSubmitCaption();
-      const reason = String(error.message || '');
-      const message = /slot_unavailable|overlap|conflict|exclude/i.test(reason)
-        ? 'Это время пересекается с другой записью. Выберите другое.'
-        : /historical_booking_denied|service_unavailable|organization_access_denied/i.test(reason)
-          ? 'Недостаточно прав для добавления этой записи.'
-        : /historical_time_required/i.test(reason)
-          ? 'Выбранное время ещё не прошло. Для будущей записи выберите свободное окно.'
-          : /invalid_client_data/i.test(reason)
-            ? 'Проверьте имя и номер телефона клиента.'
-            : /invalid_historical_booking/i.test(reason)
-              ? 'Проверьте выбранные услугу, дату и время.'
-              : /invalid_historical_duration|invalid_historical_price|invalid_historical_terms/i.test(reason)
-                ? 'Проверьте длительность и рассчитанную стоимость записи.'
-                : /booking_location_unavailable/i.test(reason)
-                  ? 'Не найден активный филиал. Настройте филиал организации и повторите попытку.'
-                  : /authentication_required|jwt|session/i.test(reason)
-                    ? 'Сессия завершилась. Войдите снова и повторите попытку.'
-          : /create_minuta_historical_booking|schema cache|could not find/i.test(reason)
-                      ? 'Сервер пока не поддерживает создание записей в прошлом. Обновите страницу или обратитесь к администратору.'
-                      : 'Не удалось создать запись в прошлом. Данные сохранены в форме, попробуйте ещё раз.';
-      showFormError('#newBookingError', message);
-      return;
+    form.dataset.historicalCreateState = 'pending';
+    try {
+      const { data, error } = await db.rpc('create_minuta_historical_booking', {
+        p_organization:organizationId,
+        p_service:service,
+        p_date:date,
+        p_time:`${newBookingTime}:00`,
+        p_duration_minutes:durationMinutes,
+        p_client_name:name,
+        p_client_phone:phone
+      });
+      if (!formIsCurrent()) return;
+      if (error) {
+        // Exact v98 SQL refusals abort this invocation. Transport text and
+        // malformed acknowledgements do not prove that no row was committed.
+        const refusals = {
+          '42501':['authentication_required', 'organization_access_denied', 'historical_booking_denied'],
+          '22023':['invalid_historical_booking', 'invalid_client_data', 'invalid_historical_time', 'service_unavailable',
+            'invalid_service_terms', 'historical_duration_required', 'fixed_service_duration_mismatch',
+            'invalid_historical_price', 'invalid_location_timezone', 'invalid_historical_duration', 'historical_time_required'],
+          'P0001':['booking_location_unavailable'],
+          '23P01':['slot_unavailable']
+        };
+        if (!refusals[String(error.code || '')]?.includes(String(error.message || ''))) {
+          form.dataset.historicalCreateState = 'unknown';
+          showFormError('#newBookingError', 'Не удалось подтвердить создание записи в прошлом. Проверьте расписание перед повтором.');
+          return;
+        }
+        delete form.dataset.historicalCreateState;
+        button.disabled = false;
+        updateNewBookingSubmitCaption();
+        const reason = String(error.message || '');
+        const message = /slot_unavailable|overlap|conflict|exclude/i.test(reason)
+          ? 'Это время пересекается с другой записью. Выберите другое.'
+          : /historical_booking_denied|service_unavailable|organization_access_denied/i.test(reason)
+            ? 'Недостаточно прав для добавления этой записи.'
+          : /historical_time_required/i.test(reason)
+            ? 'Выбранное время ещё не прошло. Для будущей записи выберите свободное окно.'
+            : /invalid_client_data/i.test(reason)
+              ? 'Проверьте имя и номер телефона клиента.'
+              : /invalid_historical_booking/i.test(reason)
+                ? 'Проверьте выбранные услугу, дату и время.'
+                : /invalid_historical_duration|invalid_historical_price|invalid_historical_terms/i.test(reason)
+                  ? 'Проверьте длительность и рассчитанную стоимость записи.'
+                  : /booking_location_unavailable/i.test(reason)
+                    ? 'Не найден активный филиал. Настройте филиал организации и повторите попытку.'
+                    : /authentication_required|jwt|session/i.test(reason)
+                      ? 'Сессия завершилась. Войдите снова и повторите попытку.'
+            : /create_minuta_historical_booking|schema cache|could not find/i.test(reason)
+                        ? 'Сервер пока не поддерживает создание записей в прошлом. Обновите страницу или обратитесь к администратору.'
+                        : 'Не удалось создать запись в прошлом. Данные сохранены в форме, попробуйте ещё раз.';
+        showFormError('#newBookingError', message);
+        return;
+      }
+      const validAcknowledgement = data && typeof data === 'object'
+        && typeof data.booking_id === 'string' && typeof data.booking_code === 'string'
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(data.booking_id)
+        && /^MIN-[0-9A-F]{10}$/.test(data.booking_code)
+        && Number.isInteger(data.duration_minutes) && data.duration_minutes >= 1 && data.duration_minutes <= 480
+        && Number.isInteger(data.unit_price_rub) && data.unit_price_rub >= 0 && data.unit_price_rub <= 1000000
+        && Number.isInteger(data.total_price_rub) && data.total_price_rub >= 0 && data.total_price_rub <= 10000000
+        && data.payment_required === false && data.notifications_suppressed === true;
+      if (!validAcknowledgement) {
+        form.dataset.historicalCreateState = 'unknown';
+        showFormError('#newBookingError', 'Сервер не вернул созданную запись. Обновите расписание и проверьте результат.');
+        return;
+      }
+      createdId = data.booking_id;
+      form.dataset.historicalCreateState = 'created';
+      const normalizedPhone = normalizePhone(phone);
+      if (note) {
+        await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
+        if (!formIsCurrent()) return;
+        clientNotes.set(normalizedPhone, note);
+      }
+      await saveBookingColor(createdId, color, { rerender:false, isCurrent:formIsCurrent });
+      if (!formIsCurrent()) return;
+      selectScheduleDate(date);
+      clearNewBookingDraft(userId);
+      closeBookingSheet();
+      const closedRevision = bookingEditorRevision;
+      closedIsCurrent = () => contextIsCurrent() && bookingEditorRevision === closedRevision && $('#bookingSheet').hidden;
+      await refreshAfterWrite();
+      if (!closedIsCurrent()) return;
+      focusCreatedBooking(createdId);
+      notify('Запись в прошлом создана · отметьте результат и оплату');
+    } catch {
+      if (!(closedIsCurrent ? closedIsCurrent() : formIsCurrent())) return;
+      if (!createdId) form.dataset.historicalCreateState = 'unknown';
+      const message = createdId
+        ? 'Запись в прошлом создана, но завершение обновления не подтверждено. Проверьте запись перед повтором.'
+        : 'Не удалось подтвердить создание записи в прошлом. Проверьте расписание перед повтором.';
+      if (closedIsCurrent) notify(message);
+      else showFormError('#newBookingError', message);
+    } finally {
+      if (formIsCurrent()) {
+        updateNewBookingSubmitCaption();
+      }
     }
-    const createdId = data?.booking_id || '';
-    if (!createdId) {
-      button.disabled = false;
-      updateNewBookingSubmitCaption();
-      showFormError('#newBookingError', 'Сервер не вернул созданную запись. Обновите расписание и проверьте результат.');
-      return;
-    }
-    const normalizedPhone = normalizePhone(phone);
-    if (note) {
-      await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
-      if (!sessionIsCurrent(userId, generation)) return;
-      clientNotes.set(normalizedPhone, note);
-    }
-    await saveBookingColor(createdId, color, { rerender:false });
-    selectScheduleDate(date);
-    clearNewBookingDraft(userId);
-    closeBookingSheet();
-    await refreshAfterWrite();
-    focusCreatedBooking(createdId);
-    notify('Запись в прошлом создана · отметьте результат и оплату');
     return;
   }
   if (occurrenceCount > 1) {
