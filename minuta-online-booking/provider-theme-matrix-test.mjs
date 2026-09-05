@@ -4,10 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [css, provider] = await Promise.all([
+const [baseCss, signatureCss, provider] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
+  readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
 ]);
+const css = `${baseCss}\n${signatureCss}`;
 
 function sourceArray(name) {
   const source = provider.match(new RegExp(`const ${name} = \\[([^\\]]+)\\]`))?.[1] || '';
@@ -17,9 +19,9 @@ function sourceArray(name) {
 const themes = sourceArray('PROVIDER_THEME_KEYS');
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 54, 'the supported appearance matrix must contain 54 combinations');
+assert.equal(themes.length * layouts.length, 84, 'the supported appearance matrix must contain 84 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
@@ -117,4 +119,4 @@ assert.match(css, /\.unified-channel-card input\s*\{[^}]*width:20px!important[^}
 assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav :is\(button,a\):not\(\.active\)/);
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
-console.log('Provider theme matrix checks passed: 9 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 14 themes × 6 layouts.');
