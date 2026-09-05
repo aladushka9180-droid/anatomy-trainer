@@ -52,7 +52,8 @@
   }
 
   // Select real server-confirmed starts, never manufacture hours from working hours.
-  // Keep each whole hour and the beginning of a separate non-hour opening.
+  // Keep the first available start in each hour (HH:00 when allowed),
+  // plus the beginning of a separate non-hour opening.
   function defaultPublicationTimes(times) {
     const sorted = [...new Set(times)].sort();
     const minutes = sorted.map(time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)));
