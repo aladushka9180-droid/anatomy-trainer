@@ -22,7 +22,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=401">
+  <link rel="stylesheet" href="styles.css?v=402">
   <link rel="stylesheet" href="utm-funnel.css?v=401">
   <link rel="stylesheet" href="onboarding.css?v=401">
   <link rel="stylesheet" href="visitor-presence.css?v=401">
@@ -247,7 +247,7 @@
               <button class="client-profile-back" id="clientProfileBack" type="button"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Назад к клиентам</span></button>
               <div class="client-profile-empty" id="clientProfileEmpty"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-user"></use></svg></span><strong>Выберите клиента</strong><small>Откроются контакты, история и заметки.</small></div>
               <div id="clientProfileContent" hidden>
-                <div class="client-profile-head"><div class="client-avatar-control client-profile-avatar-control"><span class="client-avatar" id="clientAvatar">К</span><label class="client-avatar-picker client-profile-avatar-picker" aria-label="Добавить или сменить фото клиента"><input id="clientAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span></label><button class="client-avatar-remove" id="clientAvatarRemove" type="button" data-remove-client-avatar="" aria-label="Удалить фото клиента" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div><div><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div id="clientProfileBadges"></div><a id="clientPhone" href="tel:">Телефон</a></div><button class="primary client-quick-repeat" id="clientQuickRepeat" type="button" data-quick-repeat-client><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Записать снова</span></button></div>
+                <div class="client-profile-head"><div class="client-avatar-control client-profile-avatar-control"><span class="client-avatar" id="clientAvatar">К</span><label class="client-avatar-picker client-profile-avatar-picker" aria-label="Добавить или сменить фото клиента"><input id="clientAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span></label><button class="client-avatar-remove" id="clientAvatarRemove" type="button" data-remove-client-avatar="" aria-label="Удалить фото клиента" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div><div><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div id="clientProfileBadges"></div><a id="clientPhone" href="tel:">Телефон</a></div><div class="client-profile-primary-actions"><button class="secondary-button client-message-action" id="clientMessageButton" type="button" data-message-client disabled>Написать</button><button class="primary client-quick-repeat" id="clientQuickRepeat" type="button" data-quick-repeat-client><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Записать снова</span></button></div></div>
                 <div class="client-summary"><article><strong id="clientVisits">0</strong><small>посещений</small></article><article><strong id="clientNext">—</strong><small>ближайшая запись</small></article></div>
                 <section class="client-labels-panel" aria-labelledby="clientLabelsTitle">
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
@@ -1287,6 +1287,15 @@
     </form>
     <p class="notification-device-note">WhatsApp не сообщает сайту о доставке — отметку об отправке ставите вы.</p>
   </dialog>
+  <dialog class="client-messaging-dialog" id="clientMessagingDialog" aria-labelledby="clientMessagingTitle">
+    <div class="client-messaging-head"><div><small>Связь с клиентом</small><h2 id="clientMessagingTitle">Написать</h2></div><button type="button" data-close-client-messaging aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+    <div class="client-messaging-recipient"><strong id="clientMessagingName">Клиент</strong><span id="clientMessagingPhone"></span></div>
+    <div class="client-message-presets" role="group" aria-label="Шаблоны сообщения"><button type="button" data-message-preset="confirmation">Подтверждение</button><button class="active" type="button" data-message-preset="reminder">Напоминание</button><button type="button" data-message-preset="reschedule">Перенос</button><button type="button" data-message-preset="cancellation">Отмена</button><button type="button" data-message-preset="custom">Свой текст</button></div>
+    <label class="client-message-text"><span>Сообщение</span><textarea id="clientMessagingText" rows="5" maxlength="1000" placeholder="Введите сообщение"></textarea></label>
+    <div class="client-message-copy-actions"><button class="secondary-button" id="copyClientMessage" type="button">Скопировать текст</button><button class="secondary-button" id="copyClientPhone" type="button">Скопировать номер</button></div>
+    <div class="client-message-channels" aria-label="Способ связи"><button type="button" data-message-channel="whatsapp">WhatsApp</button><button type="button" data-message-channel="telegram">Telegram</button><button type="button" data-message-channel="max">MAX</button><button type="button" data-message-channel="vk">VK</button><button type="button" data-message-channel="sms">SMS</button><button type="button" data-message-channel="email" hidden>Email</button></div>
+    <p class="client-message-status" id="clientMessagingStatus" role="status" aria-live="polite">После перехода проверьте отправку в приложении.</p>
+  </dialog>
   <dialog class="service-creator-dialog" id="serviceCreatorDialog" aria-labelledby="serviceCreatorTitle">
     <div class="notification-template-dialog-head"><div><small>Каталог</small><h2 id="serviceCreatorTitle">Новая услуга</h2></div><button type="button" data-close-service-creator aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <form id="serviceForm" class="service-form">
@@ -1431,7 +1440,8 @@
   <script src="free-slots-share.js?v=401" defer></script>
   <script src="group-bookings.js?v=401" defer></script>
   <script src="onboarding.js?v=401" defer></script>
-  <script src="provider.js?v=401" defer></script>
+  <script src="client-messaging.js?v=402" defer></script>
+  <script src="provider.js?v=402" defer></script>
   <script src="voice-assistant.js?v=401" defer></script>
 </body>
 </html>

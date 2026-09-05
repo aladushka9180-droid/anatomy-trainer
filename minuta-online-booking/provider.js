@@ -1794,6 +1794,12 @@ function whatsappLink(item, type = 'reminder') {
   if (!phone) return '';
   return `https://wa.me/${phone}?text=${encodeURIComponent(composeNotificationMessage(type, item))}`;
 }
+function clientMessageButtonMarkup(item, label = 'Написать клиенту') {
+  if (isScheduleBlock(item) || !normalizePhone(item.client_phone)) return '';
+  const name = item.client_name || 'Клиент';
+  const reschedule = `Здравствуйте, ${name}! Ваша запись перенесена. Новые дата и время: укажите здесь.`;
+  return `<button class="secondary-button client-message-action" type="button" data-message-client data-client-phone="${escapeHtml(item.client_phone)}" data-client-name="${escapeHtml(name)}" data-message-confirmation="${escapeHtml(composeNotificationMessage('confirmation', item))}" data-message-reminder="${escapeHtml(composeNotificationMessage('reminder', item))}" data-message-reschedule="${escapeHtml(reschedule)}" data-message-cancellation="${escapeHtml(composeNotificationMessage('cancellation', item))}">${escapeHtml(label)}</button>`;
+}
 function outcomeStorageKey() { return `massage-booking-outcomes-${currentUser?.id || 'guest'}`; }
 function sessionItemsStorageKey(userId = currentUser?.id) { return `massage-booking-session-items-${userId || 'guest'}`; }
 function autoCompleteStorageKey(userId = currentUser?.id) { return `massage-auto-complete-visits-${userId || 'guest'}`; }
@@ -5278,7 +5284,7 @@ function openBookingSheet(id) {
   const statusText = bookingStatus(item, true);
   const statusClass = bookingStatusClass(item);
   const phone = escapeHtml(String(item.client_phone || '').replace(/[^+\d]/g, ''));
-  const whatsapp = escapeHtml(whatsappLink(item));
+  const messageButton = clientMessageButtonMarkup(item);
   const note = bookingDisplayNote(item);
   const outcome = bookingOutcome(item);
   const minuteRate = bookingMinuteRate(item);
@@ -5337,7 +5343,8 @@ function openBookingSheet(id) {
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     </div>
-    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${whatsapp ? `<a class="secondary-button whatsapp-action" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>${item.series_id ? `<button class="secondary-button danger" type="button" data-cancel-booking-series="${item.id}">Отменить</button>` : ''}</div>` : ''}
+    ${messageButton ? `<div class="booking-sheet-actions booking-message-actions">${messageButton}</div>` : ''}
+    ${item.status !== 'cancelled' && !bookingIsCompleted(item) ? `<div class="booking-sheet-actions">${item.status === 'new' ? `<button class="primary" type="button" data-booking-status="confirmed" data-booking-id="${item.id}">Подтвердить</button>` : ''}<button class="secondary-button" type="button" data-edit-booking="${item.id}">Перенести</button>${item.series_id ? `<button class="secondary-button danger" type="button" data-cancel-booking-series="${item.id}">Отменить</button>` : ''}</div>` : ''}
     <div class="booking-delete-zone"><button class="booking-delete-action" type="button" data-delete-booking="${item.id}">Удалить запись</button></div>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
@@ -7075,6 +7082,15 @@ function renderClientDetail(phone) {
     return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
   }).length;
   const upcoming = clientUpcoming(client);
+  const messageButton = $('#clientMessageButton');
+  const fallbackMessage = `Здравствуйте, ${client.name}!`;
+  messageButton.disabled = !normalizePhone(client.phone);
+  messageButton.dataset.clientPhone = client.phone;
+  messageButton.dataset.clientName = client.name;
+  messageButton.dataset.messageConfirmation = upcoming ? composeNotificationMessage('confirmation', upcoming) : fallbackMessage;
+  messageButton.dataset.messageReminder = upcoming ? composeNotificationMessage('reminder', upcoming) : fallbackMessage;
+  messageButton.dataset.messageReschedule = `Здравствуйте, ${client.name}! Ваша запись перенесена. Новые дата и время: укажите здесь.`;
+  messageButton.dataset.messageCancellation = upcoming ? composeNotificationMessage('cancellation', upcoming) : fallbackMessage;
   $('#clientVisits').textContent = String(Math.max(visits, Number(client.imported?.visit_count || 0)));
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
   batchBookingsController?.setClient(client);
