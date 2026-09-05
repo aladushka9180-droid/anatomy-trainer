@@ -7,9 +7,10 @@ const browser=await chromium.launch({headless:true});
 try{
   const page=await browser.newPage();const failures=[];let combinations=0;
   await page.goto(url);
-  for(const width of [320,390,768,1440,1920]){
+  for(const width of [320,390,760,761,768,1440,1920]){
     await page.setViewportSize({width,height:1000});
-    for(const layout of layouts)for(const theme of themes){
+    for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
+      await page.evaluate(scale=>{document.body.dataset.providerTextScale=scale;},scale);
       await page.evaluate(({layout,theme})=>{document.body.dataset.providerTheme=theme;document.body.dataset.providerLayout=layout;},{layout,theme});
       await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
       await page.evaluate(()=>document.fonts.ready);
@@ -38,7 +39,7 @@ try{
         if(verified.scrollWidth>verified.clientWidth+1)errors.push('clipped verification date');
         return errors;
       });
-      failures.push(...errors.map(error=>({theme,layout,width,error})));combinations++;
+      failures.push(...errors.map(error=>({theme,layout,width,scale,error})));combinations++;
     }
   }
   assert.deepEqual(failures,[]);
