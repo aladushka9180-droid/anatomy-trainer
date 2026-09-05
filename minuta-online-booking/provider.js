@@ -8,9 +8,11 @@ let freeSlotsController = null;
 window.addEventListener('minuta:provider-session-reset', () => freeSlotsController?.invalidateScope());
 let bookingSeriesCancellationRevision = 0;
 let bookingEditorRevision = 0;
+let bookingMetadataRevision = 0;
 window.addEventListener('minuta:provider-session-reset', () => {
   bookingSeriesCancellationRevision += 1;
   bookingEditorRevision += 1;
+  bookingMetadataRevision += 1;
   providerReadFetch.cancelPendingReads();
 });
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
@@ -1882,34 +1884,50 @@ function bookingSessionMarkup(item) {
   const countLabel = `${items.length} ${items.length === 1 ? 'услуга' : items.length < 5 ? 'услуги' : 'услуг'}`;
   return `<section class="booking-session-summary"><div class="booking-session-heading"><div><small>Состав сеанса</small><strong>${countLabel} · ${bookingSessionDuration(items)} мин</strong></div><button type="button" data-edit-booking-session="${item.id}"><span>Изменить</span>${uiIcon('arrow-right')}</button></div>${addons.length ? `<div class="booking-session-addons"><small>Дополнительно</small>${addons.map(entry => `<div><span><b>${escapeHtml(entry.title)}</b><small>${entry.extends_duration ? `+${entry.duration_minutes} мин` : 'без увеличения времени'}</small></span><strong>+ ${money(entry.price_rub)}</strong></div>`).join('')}</div>` : ''}</section>`;
 }
+function captureBookingMetadataContext() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const organizationId = activeClientOrganizationId;
+  const revision = bookingMetadataRevision;
+  return () => Boolean(userId) && sessionIsCurrent(userId, generation)
+    && activeClientOrganizationId === organizationId && bookingMetadataRevision === revision;
+}
 async function saveBookingColor(id, color, { rerender = true, isCurrent = () => true } = {}) {
-  if (!isCurrent()) return false;
+  const contextIsCurrent = captureBookingMetadataContext();
+  const userId = currentUser?.id;
+  const colors = bookingColors, pending = pendingBookingColors;
+  const canApply = () => contextIsCurrent() && bookingColors === colors && pendingBookingColors === pending && isCurrent();
+  if (!canApply()) return false;
   const selected = validBookingColor(color);
   bookingColors.set(id, selected);
   pendingBookingColors.add(id);
-  persistBookingColors();
+  persistBookingColors(userId);
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
   const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
-  if (!isCurrent()) return false;
+  if (!canApply()) return false;
   if (!error) pendingBookingColors.delete(id);
-  persistBookingColors();
+  persistBookingColors(userId);
   return !error;
 }
 async function saveBookingNote(id, note, { rerender = true, isCurrent = () => true } = {}) {
-  if (!isCurrent()) return false;
+  const contextIsCurrent = captureBookingMetadataContext();
+  const userId = currentUser?.id;
+  const notes = bookingNotes, pending = pendingBookingNotes;
+  const canApply = () => contextIsCurrent() && bookingNotes === notes && pendingBookingNotes === pending && isCurrent();
+  if (!canApply()) return false;
   const value = String(note || '').trim().slice(0, 1000);
   bookingNotes.set(id, value);
-  persistBookingNotes();
+  persistBookingNotes(userId);
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.provider_note = value;
   if (rerender) renderBookingData();
   const { error } = await db.rpc('set_booking_note', { p_booking: id, p_note: value });
-  if (!isCurrent()) return false;
+  if (!canApply()) return false;
   if (error) pendingBookingNotes.add(id);
   else pendingBookingNotes.delete(id);
-  persistBookingNotes();
+  persistBookingNotes(userId);
   return !error;
 }
 async function loadRemoteBookingColors(userId, generation) {
@@ -5674,19 +5692,33 @@ async function cancelBookingSeries(event) {
 async function saveBookingBlockNote(event) {
   event.preventDefault();
   if (!requireWrites()) return;
-  const id = event.currentTarget.dataset.bookingId;
+  const form = event.currentTarget;
+  const contextIsCurrent = captureBookingMetadataContext();
+  const isCurrent = () => contextIsCurrent() && form === $('#bookingBlockNoteForm') && !$('#bookingSheet').hidden;
+  if (!isCurrent() || form.dataset.metadataPending) return;
+  const id = form.dataset.bookingId;
   const note = $('#bookingBlockNote')?.value.trim() || '';
   const button = event.submitter;
+  form.dataset.metadataPending = 'true';
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const remoteSaved = await saveBookingNote(id, note);
-  button.disabled = false;
-  button.textContent = 'Сохранить заметку';
-  const state = $('.booking-note-state');
-  if (state) state.textContent = note ? 'Добавлена' : 'Добавить';
-  notify(remoteSaved
-    ? (note ? 'Заметка сохранена' : 'Заметка удалена')
-    : 'Заметка сохранена на этом устройстве');
+  try {
+    const remoteSaved = await saveBookingNote(id, note, { isCurrent });
+    if (!isCurrent()) return;
+    const state = $('.booking-note-state');
+    if (state) state.textContent = note ? 'Добавлена' : 'Добавить';
+    notify(remoteSaved
+      ? (note ? 'Заметка сохранена' : 'Заметка удалена')
+      : 'Заметка сохранена на этом устройстве');
+  } catch {
+    if (isCurrent()) notify('Не удалось подтвердить сохранение заметки. Проверьте запись перед повтором.');
+  } finally {
+    if (isCurrent()) {
+      delete form.dataset.metadataPending;
+      button.disabled = false;
+      button.textContent = 'Сохранить заметку';
+    }
+  }
 }
 
 async function saveBookingSheetNote(event) {
@@ -10371,8 +10403,18 @@ document.addEventListener('change', async event => {
   const colorInput = event.target.closest('[data-booking-color-id]');
   if (!colorInput) return;
   if (!requireWrites()) return;
-  await saveBookingColor(colorInput.dataset.bookingColorId, colorInput.value);
-  notify('Цвет записи сохранён');
+  const contextIsCurrent = captureBookingMetadataContext();
+  const sheet = colorInput.closest('#bookingSheet');
+  // Journal controls are replaced by our own scheduled render after choosing a
+  // color. Only sheet controls need DOM ownership in addition to account scope.
+  const isCurrent = () => contextIsCurrent() && (!sheet || (!sheet.hidden && colorInput.isConnected));
+  try {
+    const remoteSaved = await saveBookingColor(colorInput.dataset.bookingColorId, colorInput.value, { isCurrent });
+    if (!isCurrent()) return;
+    notify(remoteSaved ? 'Цвет записи сохранён' : 'Не удалось подтвердить сохранение цвета на сервере. Проверьте запись перед повтором.');
+  } catch {
+    if (isCurrent()) notify('Не удалось подтвердить сохранение цвета на сервере. Проверьте запись перед повтором.');
+  }
 });
 
 document.addEventListener('keydown', event => {
@@ -10647,6 +10689,7 @@ const organizationController = window.MinutaOrganization.createController({
     activeClientOrganizationId = nextClientOrganizationId;
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
     if (clientOrganizationChanged) bookingEditorRevision += 1;
+    if (clientOrganizationChanged) bookingMetadataRevision += 1;
     if (clientOrganizationChanged) {
       importedClients = [];
       importedBookingHistory = [];

@@ -14,12 +14,19 @@ function between(start, end) {
   return source.slice(from, to);
 }
 const metadata = between('function bookingColorStorageKey(', 'function bookingColor(item)')
-  + between('async function saveBookingColor(', 'async function loadRemoteBookingColors(');
+  + between(source.includes('function captureBookingMetadataContext(')
+    ? 'function captureBookingMetadataContext(' : 'async function saveBookingColor(', 'async function loadRemoteBookingColors(');
 const handlers = between("document.addEventListener('change', async event => {", "document.addEventListener('keydown', event => {")
   + between('async function saveBookingBlockNote(', 'async function saveBookingSheetNote(')
   + between('async function finalizeQueuedBooking(', 'async function flushOfflineBookings(');
 const constants = ['BOOKING_COLOR_KEYS', 'BOOKING_COLOR_DEFAULT']
   .map(name => source.match(new RegExp(`^const ${name} = .*;$`, 'm'))?.[0]).join('\n');
+const lifecycleDeclarations = ['bookingMetadataRevision', 'bookingEditorRevision', 'bookingSeriesCancellationRevision']
+  .map(name => source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0] || '').join('\n');
+const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
+  .map(match => match[0]).join('\n');
+const orgHook = between('  onActiveOrganizationChange: organization => {', '    if (clientOrganizationChanged) {')
+  .replace('  onActiveOrganizationChange: organization => {', 'function changeOrganization(organization) {') + '\n}';
 const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222' };
 const booking = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', otherBooking = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const success = { data:true, error:null }, failure = { data:null, error:{ code:'42501', message:'booking_access_denied' } };
@@ -32,6 +39,7 @@ const observe = promise => promise.then(value => ({ value, error:null }), error 
 
 function harness() {
   const gate = deferred(), effects = [], storage = new Map(), listeners = new Map();
+  const resetListeners = [];
   const nodes = {};
   const createNodes = () => {
     nodes.sheet = { hidden:false, dataset:{ bookingId:booking } };
@@ -46,6 +54,8 @@ function harness() {
   createNodes();
   const state = {
     currentUser:{ id:ids.A }, sessionGeneration:1, activeClientOrganizationId:'org-A',
+    window:{ addEventListener:(name, listener) => { if (name === 'minuta:provider-session-reset') resetListeners.push(listener); } },
+    freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
     bookingColors:new Map(), pendingBookingColors:new Set(), bookingNotes:new Map(), pendingBookingNotes:new Set(),
     allBookings:[{ id:booking }], clientNotes:new Map(), offlineBookingQueue:[],
     localStorage:{ getItem:key => storage.get(key) ?? null,
@@ -62,7 +72,8 @@ function harness() {
     renderOfflineBookingQueue:() => effects.push(['renderQueue']), deliverOfflineBookingProviderNotice(){}
   };
   const context = vm.createContext(state);
-  vm.runInContext(constants + '\n' + source.match(/^function sessionIsCurrent[^\n]+/m)[0]
+  vm.runInContext(constants + '\n' + lifecycleDeclarations + '\n' + resetHooks + '\n' + orgHook
+    + '\n' + source.match(/^function sessionIsCurrent[^\n]+/m)[0]
     + '\n' + metadata + '\n' + handlers, context);
   const replaceContext = (account = ids.B) => {
     state.currentUser = { id:account }; state.sessionGeneration += 1;
@@ -83,7 +94,8 @@ function harness() {
   const start = kind => kind === 'color'
     ? observe(listeners.get('change')({ target:nodes.color }))
     : observe(context.saveBookingBlockNote({ preventDefault(){}, currentTarget:nodes.form, submitter:nodes.form.button }));
-  return { state, context, gate, effects, storage, nodes, replaceContext, snapshot, start };
+  return { state, context, gate, effects, storage, nodes, replaceContext, snapshot, start,
+    reset:() => resetListeners.forEach(listener => listener()) };
 }
 
 test('same-account quick color persists actual keys and confirms remote success', async () => {
@@ -152,3 +164,60 @@ test('queue outer session guard cannot permit helper persistence into account B'
   assert.equal(result.error, null); assert.equal(result.value, false);
   assert.equal(h.snapshot(), before); assert.deepEqual(h.effects.slice(count), []);
 });
+
+for (const kind of ['color', 'note']) {
+  for (const change of ['org-roundtrip', 'session-reset']) {
+    test(`${kind} actual ${change} invalidates old completion without changing account id`, async () => {
+      const h = harness(); const pending = h.start(kind);
+      if (change === 'org-roundtrip') {
+        h.context.changeOrganization({ id:'org-B' }); h.context.changeOrganization({ id:'org-A' });
+      } else h.reset();
+      const before = h.snapshot(), count = h.effects.length;
+      h.gate.resolve(success); assert.equal((await pending).error, null);
+      assert.equal(h.snapshot(), before); assert.deepEqual(h.effects.slice(count), []);
+    });
+  }
+  test(`${kind} same-organization refresh does not invalidate current save`, async () => {
+    const h = harness(); const pending = h.start(kind); h.context.changeOrganization({ id:'org-A' });
+    h.gate.resolve(success); assert.equal((await pending).error, null);
+    assert.equal(h.effects.at(-1)[0], 'notify');
+    assert.match(h.effects.at(-1)[1], /сохран[её]н/);
+  });
+}
+
+test('quick color survives its own journal control replacement', async () => {
+  const h = harness(); const original = h.nodes.color;
+  h.state.renderBookingData = () => { h.nodes.color = { isConnected:true }; };
+  const pending = h.start('color'); assert.equal(original.isConnected, false);
+  h.gate.resolve(success); assert.equal((await pending).error, null);
+  assert.equal(h.state.pendingBookingColors.has(booking), false);
+  assert.deepEqual(h.effects.at(-1), ['notify', 'Цвет записи сохранён']);
+});
+
+test('block-note duplicate submit sends a single RPC', async () => {
+  const h = harness(); const pending = h.start('note'); const duplicate = h.start('note');
+  const rpcCount = h.effects.filter(e => e[0] === 'rpc').length;
+  h.gate.resolve(success); assert.equal((await pending).error, null); assert.equal((await duplicate).error, null);
+  assert.equal(rpcCount, 1);
+});
+
+for (const helper of ['saveBookingColor', 'saveBookingNote']) {
+  test(`${helper} combines intrinsic ownership with an explicit permissive caller guard`, async () => {
+    const h = harness(); const pending = observe(h.context[helper](booking, 'sky', { rerender:false, isCurrent:() => true }));
+    h.replaceContext(); const before = h.snapshot(), count = h.effects.length;
+    h.gate.resolve(success); assert.equal((await pending).value, false);
+    assert.equal(h.snapshot(), before); assert.deepEqual(h.effects.slice(count), []);
+  });
+  test(`${helper} respects editor-style restrictive guard before local or remote writes`, async () => {
+    const h = harness(); const before = h.snapshot();
+    assert.equal(await h.context[helper](booking, 'sky', { rerender:false, isCurrent:() => false }), false);
+    assert.equal(h.snapshot(), before); assert.deepEqual(h.effects, []);
+  });
+  test(`${helper} rejects replacement maps even with unchanged account/session/org`, async () => {
+    const h = harness(); const pending = observe(h.context[helper](booking, 'sky', { rerender:false }));
+    h.replaceContext(ids.A); h.state.sessionGeneration = 1; h.state.activeClientOrganizationId = 'org-A';
+    const before = h.snapshot(), count = h.effects.length;
+    h.gate.resolve(failure); assert.equal((await pending).value, false);
+    assert.equal(h.snapshot(), before); assert.deepEqual(h.effects.slice(count), []);
+  });
+}
