@@ -8,6 +8,8 @@
 #freeSlotsDialog .free-slots-help { margin:10px 0 18px; font-size:13px; }
 #freeSlotsDialog .free-slots-targets,#freeSlotsDialog .free-slots-dates { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0 0 16px; }
 #freeSlotsDialog[data-single-location="true"] .free-slots-targets,#freeSlotsDialog[data-date-range="false"] .free-slots-dates { grid-template-columns:minmax(0,1fr); }
+#freeSlotsDialog[data-booking-mode="general"] .free-slots-targets { grid-template-columns:minmax(0,1fr); }
+#freeSlotsDialog[data-booking-mode="general"][data-single-location="true"] .free-slots-targets { display:none; }
 #freeSlotsDialog .free-slots-mode { margin:0 0 16px; }
 #freeSlotsDialog .free-slots-mode span { min-height:44px; font-size:13px; }
 #freeSlotsDialog .free-slots-mode input:checked+span { box-shadow:none; }

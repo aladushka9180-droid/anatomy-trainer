@@ -51,6 +51,104 @@
     return match ? `${match[1]}:${match[2]}` : '';
   }
 
+  function publicationClock(now = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone:'Europe/Samara', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'
+    }).formatToParts(new Date(now));
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    const minutes = Number(values.hour) * 60 + Number(values.minute) + Number(values.second) / 60;
+    return { today:`${values.year}-${values.month}-${values.day}`, cutoff:Math.ceil(minutes / 60) * 60 };
+  }
+
+  function timeMinutes(value) {
+    const match = /^(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(String(value || ''));
+    if (!match || Number(match[1]) > 24 || Number(match[2]) > 59 || Number(match[3] || 0) > 59
+      || (Number(match[1]) === 24 && Number(match[2]) > 0)) throw new Error('invalid_schedule_time');
+    return Number(match[1]) * 60 + Number(match[2]) + Number(match[3] || 0) / 60;
+  }
+
+  function minuteTime(value) {
+    return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+  }
+
+  function subtractIntervals(windows, busy) {
+    if (busy.some(([start, end]) => !Number.isFinite(start) || !Number.isFinite(end) || end <= start)) throw new Error('invalid_busy_interval');
+    return busy.reduce((result, [start, end]) => result.flatMap(([left, right]) => {
+      if (end <= left || start >= right) return [[left, right]];
+      return [[left, Math.min(right, start)], [Math.max(left, end), right]].filter(([a, b]) => b > a);
+    }), windows);
+  }
+
+  // General windows describe ONE master's time, not availability of a chosen service.
+  // The caller must supply fresh, complete, authenticated rows for that master only.
+  function calculateFreeWindows({ from, to, schedule, daysOff, bookings, groups, policy, shifts = null, performerId, locationId, now }) {
+    if (!Array.isArray(schedule) || !schedule.length) throw new Error('schedule_not_configured');
+    const clock = publicationClock(now);
+    const buffer = policy?.booking_buffer_enabled ? Number(policy.booking_buffer_minutes) : 0;
+    if (!Number.isFinite(buffer) || buffer < 0 || buffer > 1440) throw new Error('invalid_booking_buffer');
+    const result = [];
+    for (const date of dateSpan(from, to)) {
+      if (date < clock.today) continue;
+      const weekday = parseDate(date).getDay() || 7;
+      const day = schedule.find(row => Number(row.weekday) === weekday);
+      if (!day?.enabled) continue;
+      let windows = [[timeMinutes(day.start_time), timeMinutes(day.end_time)]];
+      if (windows[0][1] <= windows[0][0]) throw new Error('invalid_working_hours');
+      const breakOf = row => row.break_start || row.break_end
+        ? [[timeMinutes(row.break_start), timeMinutes(row.break_end)]] : [];
+      windows = subtractIntervals(windows, breakOf(day));
+      if (shifts?.enabled) {
+        if (shifts.absences.some(row => row.active && row.performer_id === performerId && row.starts_on <= date && row.ends_on >= date)) continue;
+        windows = windows.flatMap(([left, right]) => shifts.shifts
+          .filter(row => row.active && row.performer_id === performerId && row.location_id === locationId && row.shift_date === date)
+          .flatMap(row => subtractIntervals([[Math.max(left, timeMinutes(row.start_time)), Math.min(right, timeMinutes(row.end_time))]], breakOf(row)))
+          .filter(([left, right]) => right > left));
+      }
+      const off = daysOff.filter(row => row.off_date === date);
+      if (off.some(row => row.all_day)) continue;
+      const busy = off.map(row => [timeMinutes(row.start_time), timeMinutes(row.end_time)]);
+      for (const row of [...bookings.filter(row => row.status !== 'cancelled'), ...groups.filter(row => ['published', 'closed'].includes(row.status))]) {
+        const rowDate = row.booking_date || row.event_date;
+        const offset = (Date.parse(`${rowDate}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86400000 * 1440;
+        const start = offset + timeMinutes(row.booking_time || row.start_time);
+        const duration = Number(row.duration_minutes);
+        if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(offset)) throw new Error('invalid_busy_interval');
+        // v101 applies booking buffers on the booking date, not to calendar blocks or group events.
+        const padding = row.booking_date === date && String(row.client_phone || '').replace(/\D/g, '') !== '0000000000' ? buffer : 0;
+        busy.push([start - padding, start + duration + padding]);
+      }
+      windows = subtractIntervals(windows, busy);
+      const unique = new Set();
+      for (const [left, right] of windows.sort((a, b) => a[0] - b[0] || b[1] - a[1])) {
+        const start = Math.max(Math.ceil(left), date === clock.today ? clock.cutoff : 0);
+        const end = Math.min(1440, Math.floor(right));
+        const key = `${start}|${end}`;
+        if (end <= start || unique.has(key)) continue;
+        unique.add(key);
+        result.push({ booking_date:date, start_time:minuteTime(start), end_time:minuteTime(end), duration_minutes:end - start });
+      }
+    }
+    return result;
+  }
+
+  function durationLabel(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    const unit = hours % 100 >= 11 && hours % 100 <= 14 ? 'часов' : hours % 10 === 1 ? 'час' : hours % 10 >= 2 && hours % 10 <= 4 ? 'часа' : 'часов';
+    return [hours ? `${hours} ${unit}` : '', rest ? `${rest} мин` : ''].filter(Boolean).join(' ');
+  }
+
+  function buildGeneralPublication(from, to, data, windows) {
+    const dates = dateSpan(from, to);
+    const rows = dates.map(date => ({ date, windows:windows.filter(row => row.booking_date === date) })).filter(row => row.windows.length);
+    const heading = dates.length === 1 ? `Свободные окна на ${formatDate(from)}:` : 'Свободные окна для записи:';
+    const target = [data.performerLabel, data.locationLabel].filter(Boolean).join(' · ');
+    const body = rows.length ? rows.map(row => `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join('\n')}`).join('\n\n')
+      : 'На выбранный период свободных окон пока нет.';
+    return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${rows.length ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
+  }
+
   // Select real server-confirmed starts, never manufacture hours from working hours.
   // Keep the first available start in each hour (HH:00 when allowed),
   // plus the beginning of a separate non-hour opening.
@@ -281,10 +379,11 @@
     return copied;
   }
 
-  function createController({ root, getData, loadContext, loadSlots, notify }) {
+  function createController({ root, getData, loadContext, loadSlots, loadWindows, notify }) {
     if (!root) return { open() {}, refresh() {} };
     const dialog = root;
     const modeControls = [...dialog.querySelectorAll('[name="freeSlotsPeriod"]')];
+    const bookingModeControls = [...dialog.querySelectorAll('[name="freeSlotsBookingMode"]')];
     const serviceSelect = dialog.querySelector('#freeSlotsService');
     const locationField = dialog.querySelector('#freeSlotsLocationField');
     const locationSelect = dialog.querySelector('#freeSlotsLocation');
@@ -317,6 +416,32 @@
     let manualSelection = false;
     let checkingPublication = false;
     let confirmedPublication = null;
+    let clockKey = '';
+
+    function generalMode() { return bookingModeControls.find(control => control.checked)?.value === 'general'; }
+    function currentClock() { return publicationClock(getData().now); }
+    function configureMode() {
+      const general = generalMode();
+      dialog.dataset.bookingMode = general ? 'general' : 'service';
+      serviceSelect.closest('label').hidden = general;
+      showServiceControl.closest('label').hidden = general;
+      timeChoices.closest('details').hidden = general;
+      dialog.querySelector('.free-slots-help').textContent = general
+        ? 'Ваше свободное время без привязки к услуге: рабочие часы за вычетом записей, перерывов и выходных. Клиент выберет услугу по ссылке; её длительность и условия записи проверятся отдельно.'
+        : 'Свободные начала сеанса по часам с учётом длительности выбранной услуги. Сегодня — не раньше ближайшего целого часа: в 15:32 начнём с 16:00.';
+    }
+
+    function currentRows(rows) {
+      const clock = currentClock();
+      clockKey = `${clock.today}|${clock.cutoff}`;
+      return rows.filter(row => row.booking_date >= clock.today).flatMap(row => {
+        if (row.booking_date !== clock.today) return [row];
+        if (!generalMode()) return timeMinutes(row.booking_time) >= clock.cutoff ? [row] : [];
+        const start = Math.max(timeMinutes(row.start_time), clock.cutoff);
+        const end = timeMinutes(row.end_time);
+        return end > start ? [{ ...row, start_time:minuteTime(start), duration_minutes:end - start }] : [];
+      });
+    }
 
     function timeKey(slot) { return `${slot.booking_date}T${slotTime(slot.booking_time)}`; }
 
@@ -423,7 +548,9 @@
       const location = selectedLocation();
       const sourceKey = sourceControls.find(control => control.checked)?.value || 'master';
       const targetUrl = new URL(data.bookingUrl, window.location.href);
-      if (service?.id) targetUrl.searchParams.set('service', service.id);
+      // A catalog link must never carry an old service/time preselection.
+      for (const key of ['service', 'date', 'time', 'repeat']) targetUrl.searchParams.delete(key);
+      if (!generalMode() && service?.id) targetUrl.searchParams.set('service', service.id);
       if (serverContext?.mode === 'organization' && location?.id) targetUrl.searchParams.set('location', location.id);
       const trackingUrl = trackedBookingUrl(targetUrl.href, sourceKey);
       return {
@@ -432,6 +559,7 @@
           ...data,
           bookingUrl:trackingUrl,
           selectedOnly:true,
+          performerLabel:serverContext?.performerLabel || '',
           serviceLabel:service ? [showServiceControl.checked ? (service.name || 'Услуга') : '', service.performer_profiles?.display_name].filter(Boolean).join(' · ') : '',
           locationLabel:[
             (serverContext?.locations || []).length > 1 && !/^(?:(?:основной|главный|единственный)\s+)?филиал$/i.test(location?.name || '') ? location?.name : '',
@@ -444,8 +572,8 @@
     function renderPublication() {
       if (!publicationReady) return;
       const model = publicationModel();
-      const chosenSlots = serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
-      publicationText = buildPublication(model.from, model.to, model.publicationData, chosenSlots);
+      const chosenSlots = generalMode() ? serverSlots : serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
+      publicationText = (generalMode() ? buildGeneralPublication : buildPublication)(model.from, model.to, model.publicationData, chosenSlots);
       const hasSelection = chosenSlots.length > 0;
       selectionSummary.textContent = `${manualSelection ? 'Выбрано вручную' : 'Свободные начала сеанса'} · ${selectedTimes.size}`;
       const trackingUrl = model.trackingUrl;
@@ -498,6 +626,7 @@
 
     async function refreshFromServer({ reloadContext = false } = {}) {
       const revision = ++requestRevision;
+      configureMode();
       publicationReady = false;
       copyButton.disabled = true;
       shareButton.disabled = true;
@@ -508,12 +637,17 @@
       if (autoSelectionButton) autoSelectionButton.disabled = true;
       timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
       status.textContent = 'Проверяем свободное время на сервере…';
+      textArea.value = 'Проверяем свободное время…';
       dialog.setAttribute('aria-busy', 'true');
       try {
         const { from, to } = currentRange();
         const preferredService = serviceSelect.value;
         const preferredLocation = locationSelect.value;
-        if (reloadContext || !serverContext) serverContext = await loadContext();
+        if (reloadContext || !serverContext) {
+          const freshContext = await loadContext();
+          if (revision !== requestRevision || !dialog.open) return;
+          serverContext = freshContext;
+        }
         if (revision !== requestRevision || !dialog.open) return;
         const services = configureTargets(preferredService, preferredLocation);
         if (!services.length) {
@@ -526,7 +660,7 @@
           showUnavailable('Для онлайн-записи не настроено место приёма.');
           return;
         }
-        const result = await loadSlots({
+        const result = await (generalMode() ? loadWindows : loadSlots)({
           context:serverContext,
           serviceId:serviceSelect.value,
           locationId:locationSelect.value || null,
@@ -535,22 +669,27 @@
         });
         if (revision !== requestRevision || !dialog.open) return;
         if (result?.error) throw result.error;
-        serverSlots = Array.isArray(result?.data) ? result.data : [];
-        renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
+        if (!Array.isArray(result?.data)) throw new Error('invalid_availability_response');
+        serverSlots = currentRows(result.data);
+        if (!generalMode()) renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
         publicationReady = true;
         dialog.removeAttribute('aria-busy');
         renderPublication();
         return true;
-      } catch {
+      } catch (error) {
         if (revision !== requestRevision || !dialog.open) return;
-        showUnavailable(navigator.onLine
+        showUnavailable(error?.message === 'own_services_unavailable'
+          ? 'Для общей записи нужны ваши активные услуги в этом месте приёма. Для другого сотрудника выберите «Конкретная услуга».'
+          : error?.message === 'schedule_not_configured' ? 'Сначала сохраните рабочий график в расписании.' : navigator.onLine
           ? 'Не удалось проверить свободное время. Повторите попытку позже.'
           : 'Нет соединения. Для публикации нужна свежая проверка сервера.');
       }
     }
 
     function hasFreshConfirmation() {
+      const clock = currentClock();
       return confirmedPublication && publicationReady && dialog.open
+        && clockKey === `${clock.today}|${clock.cutoff}`
         && confirmedPublication.revision === requestRevision
         && confirmedPublication.text === publicationText
         && Date.now() - confirmedPublication.at < 5000;
@@ -561,12 +700,13 @@
       checkingPublication = true;
       confirmedPublication = null;
       const previousSelection = [...selectedTimes];
+      const previousText = publicationText;
       const expectedRevision = requestRevision + 1;
       try {
         const refreshed = await refreshFromServer({ reloadContext:true });
         if (refreshed !== true || requestRevision !== expectedRevision || !dialog.open || !publicationReady) return false;
         const removed = previousSelection.filter(key => !selectedTimes.has(key));
-        if (removed.length) {
+        if (generalMode() ? previousText !== publicationText : removed.length) {
           status.textContent = 'Часть выбранного времени уже недоступна и убрана из текста. Проверьте публикацию и нажмите кнопку ещё раз.';
           notify('Свободное время изменилось. Текст обновлён.');
           return false;
@@ -606,6 +746,12 @@
     dialog.querySelectorAll('[data-close-free-slots]').forEach(button => button.addEventListener('click', close));
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
     modeControls.forEach(control => control.addEventListener('change', () => { void refreshFromServer(); }));
+    bookingModeControls.forEach(control => control.addEventListener('change', () => {
+      confirmedPublication = null;
+      selectionContext = '';
+      selectedTimes.clear();
+      void refreshFromServer({ reloadContext:true });
+    }));
     sourceControls.forEach(control => control.addEventListener('change', renderPublication));
     showServiceControl.addEventListener('change', renderPublication);
     timeChoices.addEventListener('change', event => {
@@ -670,8 +816,14 @@
       link.href = qrCanvas.toDataURL('image/png');
       link.click();
     });
+    // An open preview must not keep advertising an hour that just became past.
+    window.setInterval(() => {
+      if (!dialog.open || !publicationReady || checkingPublication) return;
+      const clock = currentClock();
+      if (`${clock.today}|${clock.cutoff}` !== clockKey) void refreshFromServer({ reloadContext:true });
+    }, 1000);
     return { open, refresh:() => { if (dialog.open) void refreshFromServer({ reloadContext:true }); } };
   }
 
-  window.MinutaFreeSlots = { createController };
+  window.MinutaFreeSlots = { createController, calculateFreeWindows };
 })();

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('../free-slots-share.js',import.meta.url),'utf8');
 const context=vm.createContext({window:{}});
-vm.runInContext(source.replace('window.MinutaFreeSlots = { createController }','window.MinutaFreeSlots = { createController, defaultPublicationTimes, buildPublication }'),context);
+vm.runInContext(source.replace('window.MinutaFreeSlots = { createController, calculateFreeWindows }','window.MinutaFreeSlots = { createController, calculateFreeWindows, defaultPublicationTimes, buildPublication }'),context);
 const {defaultPublicationTimes:select,buildPublication:build}=context.window.MinutaFreeSlots;
 const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
 const full=Array.from({length:109},(_,i)=>clock(600+i*5));

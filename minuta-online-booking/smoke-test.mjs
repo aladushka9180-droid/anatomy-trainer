@@ -60,8 +60,9 @@ assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role
 assert.match(indexHtml, /id="locationFilter"[\s\S]*id="locationSelect"/, 'На клиентской странице нет выбора филиала');
 assert.match(providerHtml, /id="freeSlotsService"[\s\S]*id="freeSlotsLocation"/, 'Публикация свободного времени не позволяет выбрать услугу и филиал');
 assert.match(provider, /getFreeSlotsServerAvailability[\s\S]*get_public_minuta_available_slots_v101/, 'Свободное время не сверяется с серверной доступностью онлайн-записи');
-assert.match(freeSlotsShare, /loadSlots\(\{[\s\S]*serviceId:serviceSelect\.value[\s\S]*locationId:locationSelect\.value/, 'Публикация не запрашивает слоты выбранной услуги и филиала');
-assert.doesNotMatch(freeSlotsShare, /scheduleRows|daysOff|allBookings/, 'Публикация снова рассчитывает свободное время по локальному снимку');
+assert.match(freeSlotsShare, /generalMode\(\) \? loadWindows : loadSlots[\s\S]*serviceId:serviceSelect\.value[\s\S]*locationId:locationSelect\.value/, 'Режимы публикации не разделяют общие окна и слоты услуги');
+assert.doesNotMatch(freeSlotsShare, /scheduleRows|allBookings|localStorage/, 'Публикация снова рассчитывает свободное время по локальному кэшу');
+assert.match(provider, /loadWindows:getFreeSlotsGeneralAvailability/, 'Общие окна не получают свежий график');
 assert.match(freeSlotsShare, /сервер не подтвердил доступные слоты/, 'При ошибке сервера публикация не закрывается безопасно');
 assert.match(app, /requestedLocationId[\s\S]*state\.locationId = requestedLocationId/, 'Ссылка публикации не открывает выбранный филиал');
 assert.match(app, /isFreeSlotsLink[\s\S]*state\.serviceId = requestedServiceId/, 'Ссылка публикации не открывает выбранную услугу');

@@ -36,9 +36,10 @@ try {
   await page.evaluate(()=>{
     window.fixtureSlots=window.MinutaFreeSlots.createController({
       root:document.querySelector('#freeSlotsDialog'),
-      getData:()=>({today:'2026-09-05',selectedDate:'2026-09-06',bookingUrl:location.origin+'/booking.html'}),
+      getData:()=>({today:'2026-09-05',now:'2026-09-05T08:00:00Z',selectedDate:'2026-09-06',bookingUrl:location.origin+'/booking.html'}),
       loadContext:async()=>({mode:'personal',services:[{id:'test',name:'Массаж',duration_minutes:60}],locations:[]}),
       loadSlots:async()=>({data:[{booking_date:'2026-09-06',booking_time:'10:00'}]}),
+      loadWindows:async()=>({data:[{booking_date:'2026-09-06',start_time:'10:00',end_time:'20:00',duration_minutes:600}]}),
       notify:()=>{}
     });
     document.querySelector('#openFreeSlots').addEventListener('click',window.fixtureSlots.open);
@@ -57,6 +58,10 @@ try {
       await button.click();
       await page.waitForFunction(()=>document.querySelector('#freeSlotsDialog').open);
       assert.equal(await page.locator('#freeSlotsDialog').isVisible(),true);
+      await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+      assert.equal(await page.locator('[name="freeSlotsBookingMode"][value="general"]').isChecked(),true);
+      assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Dialog must not overflow horizontally');
+      if(process.env.FREE_SLOTS_SCREENSHOT && width===390 && theme==='sage') await page.screenshot({path:process.env.FREE_SLOTS_SCREENSHOT});
       await page.locator('[data-close-free-slots]').click();
     }
   }

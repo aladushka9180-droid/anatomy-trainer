@@ -88,11 +88,19 @@ async function getProviderAvailableSlots({ p_service, p_start, p_end, p_ignore_b
   return db.rpc('get_available_slots', parameters);
 }
 async function getFreeSlotsServerContext() {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) throw new Error('session_required');
   const organization = organizationController?.getActiveOrganization?.() || null;
+  const ownResult = await db.from('services').select('id,name,duration_minutes,performer_id,performer_profiles(display_name)').eq('performer_id', userId).eq('active', true);
+  if (ownResult.error) throw ownResult.error;
+  if (!sessionIsCurrent(userId, generation) || (organizationController.getActiveOrganization()?.id || null) !== (organization?.id || null)) throw new Error('stale_session');
+  const personal = { performerId:userId, performerLabel:ownResult.data?.[0]?.performer_profiles?.display_name || 'Мастер', organizationId:organization?.id || null };
   if (!organization?.public_booking_enabled || !organization.public_slug) {
     return {
+      ...personal,
       mode:'personal', organizationSlug:'', resourceScheduling:false, branchShiftScheduling:false,
-      locations:[], services:ownServices.filter(item => item.active)
+      locations:[], services:ownResult.data || []
     };
   }
   let result = await db.rpc('get_public_minuta_catalog_v4', { p_slug:organization.public_slug });
@@ -109,8 +117,10 @@ async function getFreeSlotsServerContext() {
     resourceScheduling = false;
   }
   if (result.error) throw result.error;
+  if (!sessionIsCurrent(userId, generation) || (organizationController.getActiveOrganization()?.id || null) !== personal.organizationId) throw new Error('stale_session');
   if (!result.data?.organization) throw new Error('organization_unavailable');
   return {
+    ...personal,
     mode:'organization', organizationSlug:organization.public_slug, resourceScheduling, branchShiftScheduling,
     locations:Array.isArray(result.data.locations) ? result.data.locations.filter(item => item?.id) : [],
     services:Array.isArray(result.data.services) ? result.data.services.filter(item => item?.id) : []
@@ -130,6 +140,50 @@ async function getFreeSlotsServerAvailability({ context, serviceId, locationId, 
     return db.rpc('get_public_minuta_available_slots_v3', parameters);
   }
   return getProviderAvailableSlots({ p_service:serviceId, p_start:from, p_end:to, p_ignore_booking:null });
+}
+
+async function getFreeSlotsGeneralAvailability({ context, locationId, from, to }) {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId || context.performerId !== userId) throw new Error('stale_session');
+  if (!context.services.some(service => service.performer_id === userId
+    && (!context.resourceScheduling || service.location_ids?.includes(locationId)))) throw new Error('own_services_unavailable');
+  // Only the signed-in master's complete schedule is readable across organizations.
+  // Never infer another employee's free time from organization-scoped booking rows.
+  const readAll = async makeQuery => {
+    const rows = [];
+    let expectedCount = null;
+    for (let offset = 0; offset < 50000;) {
+      const result = await makeQuery().order('id').range(offset, offset + 499);
+      if (result.error) throw result.error;
+      if (!Array.isArray(result.data) || !Number.isInteger(result.count)) throw new Error('invalid_schedule_response');
+      if (expectedCount !== null && expectedCount !== result.count) throw new Error('schedule_changed_during_read');
+      expectedCount = result.count;
+      rows.push(...result.data);
+      if (rows.length === expectedCount && new Set(rows.map(row => row.id)).size === rows.length) return rows;
+      if (!result.data.length || rows.length > expectedCount) throw new Error('incomplete_schedule_response');
+      offset += result.data.length;
+    }
+    throw new Error('schedule_range_too_large');
+  };
+  // Include the previous day's long events crossing midnight; buffers are same-date in v101.
+  const previousDate = new Date(`${from}T12:00:00Z`);
+  previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+  const previous = previousDate.toISOString().slice(0, 10);
+  const [schedule, daysOff, bookings, groups, policy, shiftRows, absences] = await Promise.all([
+    db.from('provider_schedule').select('weekday,enabled,start_time,end_time,break_start,break_end').eq('performer_id', userId).order('weekday'),
+    readAll(() => db.from('provider_days_off').select('id,off_date,all_day,start_time,end_time', { count:'exact' }).eq('performer_id', userId).gte('off_date', from).lte('off_date', to)),
+    readAll(() => db.from('bookings').select('id,booking_date,booking_time,duration_minutes,status,client_phone', { count:'exact' }).eq('performer_id', userId).gte('booking_date', previous).lte('booking_date', to).neq('status', 'cancelled')),
+    readAll(() => db.from('group_booking_events').select('id,event_date,start_time,duration_minutes,status', { count:'exact' }).eq('performer_id', userId).gte('event_date', previous).lte('event_date', to).in('status', ['published', 'closed'])),
+    db.from('booking_policies').select('booking_buffer_enabled,booking_buffer_minutes').eq('performer_id', userId).maybeSingle(),
+    context.branchShiftScheduling ? readAll(() => db.from('staff_location_shifts').select('id,performer_id,location_id,shift_date,start_time,end_time,break_start,break_end,active', { count:'exact' }).eq('organization_id', context.organizationId).eq('performer_id', userId).eq('location_id', locationId).gte('shift_date', from).lte('shift_date', to).eq('active', true)) : [],
+    context.branchShiftScheduling ? readAll(() => db.from('staff_absences').select('id,performer_id,starts_on,ends_on,active', { count:'exact' }).eq('organization_id', context.organizationId).eq('performer_id', userId).lte('starts_on', to).gte('ends_on', from).eq('active', true)) : []
+  ]);
+  if (schedule.error) throw schedule.error;
+  if (policy.error) throw policy.error;
+  if (!sessionIsCurrent(userId, generation) || (organizationController.getActiveOrganization()?.id || null) !== context.organizationId) throw new Error('stale_session');
+  return { data:window.MinutaFreeSlots.calculateFreeWindows({ from, to, schedule:schedule.data, daysOff, bookings, groups, policy:policy.data,
+    shifts:{ enabled:context.branchShiftScheduling, shifts:shiftRows, absences }, performerId:userId, locationId }) };
 }
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
@@ -10469,6 +10523,7 @@ const freeSlotsController = window.MinutaFreeSlots.createController({
   notify,
   loadContext:getFreeSlotsServerContext,
   loadSlots:getFreeSlotsServerAvailability,
+  loadWindows:getFreeSlotsGeneralAvailability,
   getData: () => {
     const organization = organizationController.getActiveOrganization();
     const bookingUrl = new URL('index.html', window.location.href);
