@@ -1,6 +1,7 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
 const CACHE = `${CACHE_PREFIX}v443`;
 const ASSETS = [
+  './provider-apricot-tiger.svg?v=443',
   './provider-snow-leopard-natural-v2.webp?v=443',
   './provider-header.css?v=443',
   './free-slots-compact.css?v=443',

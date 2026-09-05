@@ -20,7 +20,7 @@ export async function startHeaderFixture(port=0){
       const verification=source.slice(source.indexOf('function renderProviderVerification('),source.indexOf('async function synchronizePortfolio('));
       const links=[...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"[^>]*>/g)].map(m=>`<link rel="stylesheet" href="/assets/${m[1]}">`).join('');
       const header=html.match(/<header class="provider-topbar">[\s\S]*?<\/header>/)[0].replaceAll('href="ui-icons.svg','href="/assets/ui-icons.svg');
-      const themes=['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard'];
+      const themes=['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger'];
       const layouts=['linear','soft','capsule','editorial','bento','split'];
       const theme=themes.includes(url.searchParams.get('theme'))?url.searchParams.get('theme'):'lavender';
       const layout=layouts.includes(url.searchParams.get('layout'))?url.searchParams.get('layout'):'soft';

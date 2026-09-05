@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-export const themes = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard'];
+export const themes = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger'];
 export const layouts = ['linear','soft','capsule','editorial','bento','split'];
 const marks = ['', 'active', 'client-vip', 'client-favorite', 'client-attention', 'client-vip active', 'client-favorite active', 'client-attention active', 'client-favorite client-vip client-attention'];
 const labels = ['Обычный клиент','Выбранный клиент','VIP-клиент','Избранный клиент','Требует внимания','Выбранный VIP','Выбранный избранный','Выбранный с вниманием','Несколько меток'];

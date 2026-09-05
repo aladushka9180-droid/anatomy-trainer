@@ -1,4 +1,35 @@
 /* Signature Collection: современные темы кабинета с общей системой компонентов. */
+.provider-body[data-provider-theme="apricot-tiger"] {
+  --theme-bg:#fff3e7;
+  --theme-surface:#fffdfb;
+  --theme-surface-alt:#f5e9de;
+  --theme-ink:#342a24;
+  --theme-muted:#746357;
+  --theme-line:#ae9785;
+  --theme-accent:#49362a;
+  --theme-accent-soft:#efe0d3;
+  --theme-accent-contrast:#ffffff;
+  --theme-shadow:rgba(88,56,34,.09);
+  --material-card-bg:#fffdfb;
+  --material-card-border:#ae9785;
+  --material-radius:20px;
+  --material-control-radius:10px;
+  --signature-sidebar:#fffdfb;
+  --signature-stage:#fffaf5;
+  --signature-nav-active:#efe0d3;
+  --signature-card-shadow:0 8px 26px rgba(88,56,34,.04);
+  --atmosphere-background:#fff3e7;
+  --atmosphere-panel:#fffdfb;
+  --atmosphere-panel-strong:#fffdfb;
+  color-scheme:light;
+}
+.theme-apricot-tiger { --theme-preview-bg:#fff3e7; --theme-preview-surface:#fffdfb; --theme-preview-line:#ae9785; --theme-preview-accent:#49362a; --theme-preview-radius:14px; }
+.theme-apricot-tiger .theme-swatch {
+  background-image:linear-gradient(90deg,#fff3e7,rgba(255,243,231,.1)),url("provider-apricot-tiger.svg?v=443");
+  background-size:100% 100%,240px auto;
+  background-position:center;
+}
+
 .provider-body[data-provider-theme="snow-leopard"] {
   --theme-bg:#f4f5f6;
   --theme-surface:#ffffff;
@@ -348,7 +379,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) {
   min-height:100vh;
   font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
@@ -364,7 +395,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(*,button,input,select,textarea) { text-shadow:none!important; }
 
 .provider-body:is(
@@ -372,7 +403,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.provider-app,.provider-view) {
   border-color:transparent!important;
   background:transparent!important;
@@ -385,7 +416,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .ambient { display:none!important; }
 
 .provider-body:is(
@@ -393,7 +424,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-sidebar {
   border:1px solid var(--theme-line)!important;
   background:var(--signature-sidebar)!important;
@@ -407,7 +438,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.provider-brand,.sidebar-bottom) { border-color:var(--theme-line)!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -415,7 +446,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-brand .brand-mark {
   border:1px solid color-mix(in srgb,var(--theme-accent) 50%,var(--theme-line))!important;
   border-radius:var(--material-control-radius)!important;
@@ -430,7 +461,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.brand strong,.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.notification-toolbar h3,.client-profile-head h3,.organization-overview-copy h3) {
   color:var(--theme-ink)!important;
   font-family:var(--signature-heading-font,inherit)!important;
@@ -448,7 +479,7 @@
   font-weight:600!important;
 }
 
-.provider-body:is([data-provider-theme="japandi"],[data-provider-theme="midnight"],[data-provider-theme="mono"],[data-provider-theme="desert"],[data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]) :is(
+.provider-body:is([data-provider-theme="japandi"],[data-provider-theme="midnight"],[data-provider-theme="mono"],[data-provider-theme="desert"],[data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]) :is(
   .date-strip button,.booking-time-column,.timeline-time-axis,.timeline-booking-time,.provider-booking time,.report-value
 ) { font-variant-numeric:tabular-nums; }
 
@@ -457,7 +488,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.brand small,.provider-topbar small,.view-title>div:first-child>span:not(.panel-count),.provider-nav-label) {
   color:var(--theme-muted)!important;
   letter-spacing:.07em!important;
@@ -468,7 +499,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-topbar {
   border:1px solid var(--theme-line)!important;
   border-radius:var(--material-radius)!important;
@@ -482,7 +513,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-nav { gap:5px!important; border:0!important; }
 
 .provider-body:is(
@@ -490,7 +521,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-nav button {
   min-height:48px!important;
   border:1px solid transparent!important;
@@ -506,7 +537,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-nav button:hover { border-color:var(--theme-line)!important; background:var(--theme-surface-alt)!important; color:var(--theme-ink)!important; }
 
 .provider-body:is(
@@ -514,7 +545,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-nav button.active {
   border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line))!important;
   background:var(--signature-nav-active)!important;
@@ -529,7 +560,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.provider-nav button.active>span:first-child,.provider-nav b,.panel-count,.dashboard-summary) {
   border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line))!important;
   background:var(--theme-accent-soft)!important;
@@ -542,7 +573,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(
   .panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,
   .report-summary article,.report-comparison,.report-business-card,.report-performers,.report-visual-grid>.panel,
@@ -563,7 +594,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(
   .date-navigation,.date-strip,.schedule-toolbar,.timeline-view,.schedule-empty,.provider-user,.service-form,
   .booking-sheet-client,.booking-sheet-note-editor,.client-labels-panel,.provider-display-hint,.organization-row,
@@ -583,7 +614,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(
   .date-nav-button,.date-today-button,.schedule-date-picker,.refresh-button,.sync-tool-button,.journal-mode-toggle,
   .booking-filters button,.notification-filters,.notification-filters button,.report-periods,.report-periods button,
@@ -604,7 +635,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.connection-log-head small,.connection-log-lead,.connection-log-entry small) { color:var(--theme-muted)!important; }
 
 .provider-body:is(
@@ -612,7 +643,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(
   .primary,.date-strip button.active,.calendar-view-toggle button.active,.journal-mode-toggle button.active,
   .booking-filters button.active,.notification-filters button.active,.report-periods button.active,
@@ -630,7 +661,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.primary,.journal-mode-toggle button.active)>span { color:var(--theme-accent-contrast)!important; }
 
 .provider-body:is(
@@ -638,7 +669,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .date-strip { gap:5px!important; padding:8px!important; }
 
 .provider-body:is(
@@ -646,7 +677,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .date-strip button {
   min-height:64px!important;
   margin:0!important;
@@ -662,7 +693,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .date-strip button.active { border-color:var(--theme-accent)!important; background:var(--theme-accent)!important; color:var(--theme-accent-contrast)!important; }
 
 .provider-body:is(
@@ -670,7 +701,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.timeline-stage,.team-dispatcher-stage) {
   border-color:var(--theme-line)!important;
   background:var(--signature-stage)!important;
@@ -683,7 +714,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .timeline-grid-line { background:var(--theme-line)!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -691,7 +722,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.timeline-view .timeline-booking,.schedule-list .provider-booking) {
   border-color:color-mix(in srgb,var(--booking-tone,var(--theme-accent)) 30%,var(--theme-line))!important;
   border-radius:var(--material-radius)!important;
@@ -708,7 +739,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.booking-client-visit,.timeline-client-visit,.booking-status,.client-badge) {
   border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line))!important;
   background:var(--theme-accent-soft)!important;
@@ -721,7 +752,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(.report-command-kicker i,.report-command-center::after) { animation:none!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -729,7 +760,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .report-command-center::after { display:none!important; }
 
 .provider-body:is(
@@ -737,7 +768,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-mobile-nav {
   border:1px solid var(--theme-line)!important;
   border-radius:calc(var(--material-radius) + 4px)!important;
@@ -752,7 +783,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-mobile-nav :is(button,a) { color:var(--theme-muted)!important; }
 
 .provider-body:is(
@@ -760,7 +791,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) .provider-mobile-nav button.active {
   border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line))!important;
   border-radius:var(--material-control-radius)!important;
@@ -774,7 +805,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
 ) :is(
   .booking-sheet-panel,.notification-template-dialog,.service-creator-dialog,.dialog-card,.modal-card,
   .connection-log-dialog,.free-slots-dialog,.portfolio-editor-dialog,.product-feedback-dialog,.provider-confirm-dialog,
@@ -815,7 +846,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
   ) { background:var(--theme-bg)!important; }
 
   .provider-body:is(
@@ -823,7 +854,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
   ) :is(.provider-topbar,.provider-view) {
     margin-top:0!important;
     border-radius:0!important;
@@ -836,7 +867,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
   ) .date-strip button { min-height:56px!important; padding:6px 2px!important; }
 
   .provider-theme-options .provider-theme-option:last-child { grid-column:auto; }
@@ -848,11 +879,41 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"],[data-provider-theme="apricot-tiger"]
   ) * { transition-duration:.01ms!important; animation-duration:.01ms!important; }
 }
 
 /* Muted, full-page textile: scale is independent of wide screens or page length. */
+/* The tiger print belongs to the canvas, never to a reading surface. */
+.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+  background-color:var(--theme-bg)!important;
+  background-image:radial-gradient(ellipse 42% 95% at 56% 38%,#fff3e7 12%,rgba(255,243,231,.94) 40%,rgba(255,243,231,.12) 100%),url("provider-apricot-tiger.svg?v=443")!important;
+  background-size:100% 100%,1200px auto!important;
+  background-position:center top,center top!important;
+  background-repeat:no-repeat,repeat!important;
+  background-attachment:fixed!important;
+}
+.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace) {
+  background:transparent!important;
+}
+.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] :is(.provider-sidebar,.provider-view) {
+  background:var(--theme-surface)!important;
+  background-image:none!important;
+}
+.provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] :is(.provider-topbar h1,.schedule-title-line h2) {
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-weight:500!important;
+  letter-spacing:-.025em!important;
+}
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
+    background-image:linear-gradient(rgba(255,243,231,.5),rgba(255,243,231,.5)),url("provider-apricot-tiger.svg?v=443")!important;
+    background-size:auto,760px auto!important;
+    background-attachment:scroll!important;
+    background-repeat:repeat!important;
+  }
+}
+
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
   --snow-print-veil:rgba(255,255,255,.86);
   --snow-print-size:480px;

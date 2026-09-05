@@ -20,6 +20,7 @@ const themes = [
   ['butter', 'Butter Studio'],
   ['celadon', 'Celadon'],
   ['snow-leopard', 'Snow Leopard'],
+  ['apricot-tiger', 'Apricot Tiger'],
 ];
 
 for (const [key, label] of themes) {
@@ -65,6 +66,7 @@ for (const [key, color, group] of [
   ['butter', '#faf9f3', 'featured light'],
   ['celadon', '#f0f6f3', 'featured light natural'],
   ['snow-leopard', '#f4f5f6', 'featured light'],
+  ['apricot-tiger', '#fff3e7', 'featured light natural'],
 ]) {
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
@@ -72,4 +74,4 @@ for (const [key, color, group] of [
 assert.match(provider, /provider-themes-signature\.css\?v=443/, 'Кабинет не подключает Signature Collection v443');
 assert.match(worker, /\.\/provider-themes-signature\.css\?v=443/, 'Service Worker не кэширует Signature Collection v443');
 
-console.log('Signature themes v443: 12 unified themes OK');
+console.log('Signature themes v443: 13 unified themes OK');
