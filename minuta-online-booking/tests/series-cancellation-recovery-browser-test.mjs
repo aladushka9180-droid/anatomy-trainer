@@ -37,8 +37,12 @@ const resetHooks = [...source.matchAll(/window\.addEventListener\('minuta:provid
   .map(match => listener(resetPrefix, match.index));
 assert.ok(resetHooks.length, 'All actual session reset hooks must be loaded');
 const reset = resetHooks.join('\n');
-const revisionDeclaration = source.match(/^let bookingSeriesCancellationRevision = .*;$/m)?.[0]
-  ?.replace(/^let /, 'var ') || 'var bookingSeriesCancellationRevision=0;';
+const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditorRevision']
+  .map(name => {
+    const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
+    assert.ok(declaration, `Actual lifecycle declaration: ${name}`);
+    return declaration.replace(/^let /, 'var ');
+  }).join('\n');
 const writeSelectors = source.match(/^const writeSelectors = \[[\s\S]*?^\];/m)?.[0];
 assert.ok(writeSelectors, 'Production write selectors must be present');
 const orgStart = source.indexOf('onActiveOrganizationChange: organization => {');
