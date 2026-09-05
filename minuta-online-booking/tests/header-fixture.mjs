@@ -20,13 +20,16 @@ export async function startHeaderFixture(port=0){
       const verification=source.slice(source.indexOf('function renderProviderVerification('),source.indexOf('async function synchronizePortfolio('));
       const links=[...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"[^>]*>/g)].map(m=>`<link rel="stylesheet" href="/assets/${m[1]}">`).join('');
       const header=html.match(/<header class="provider-topbar">[\s\S]*?<\/header>/)[0].replaceAll('href="ui-icons.svg','href="/assets/ui-icons.svg');
-      const themes=['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger'];
+      const themes=['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard','apricot-tiger','golden-cheetah','pearl-zebra'];
       const layouts=['linear','soft','capsule','editorial','bento','split'];
       const theme=themes.includes(url.searchParams.get('theme'))?url.searchParams.get('theme'):'lavender';
       const layout=layouts.includes(url.searchParams.get('layout'))?url.searchParams.get('layout'):'soft';
       response.setHeader('Content-Type','text/html; charset=utf-8');
       response.end(`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Проверка шапки кабинета</title>${links}<style>*,*::before,*::after{transition:none!important;animation:none!important}</style><body class="provider-body" data-provider-theme="${theme}" data-provider-layout="${layout}" data-provider-text-scale="default"><div class="provider-app"><aside class="provider-sidebar"><strong>Тестовый кабинет</strong></aside><div class="provider-workspace">${header}<section class="provider-view active"><h2>Расписание</h2><p class="view-description">Проверка оформления — без клиентов и записей.</p></section></div></div><dialog id="fixtureLog"><h2>Журнал связи</h2><p></p><button>Закрыть</button></dialog><script>
       const $=selector=>document.querySelector(selector);const events=[];const recordConnectionEvent=(kind,text)=>events.push(text);const applyWriteAvailability=()=>{};
+      // Real setSyncState reads the four queues even when this isolated header
+      // fixture has no pending metadata or application bootstrap.
+      const pendingBookingColors=new Set(),pendingBookingNotes=new Set(),pendingClientLabels=new Set(),pendingClientNotes=new Map();
       ${functions}
       let lastProviderVerificationAt = new Date('2026-09-05T10:45:00Z').getTime();
       ${verification}

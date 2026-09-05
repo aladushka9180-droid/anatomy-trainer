@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
+import {pathToFileURL} from 'node:url';
 import {startHeaderFixture} from './header-fixture.mjs';
 import {themes,layouts} from './theme-card-fixture.mjs';
+const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const {server,url}=await startHeaderFixture();
-const browser=await chromium.launch({headless:true});
+let browser;
 try{
+  browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   const page=await browser.newPage();const failures=[];let combinations=0;
+  const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
   await page.goto(url);
+  assert.deepEqual(pageErrors,[],'Header fixture must execute real status/verification initialization');
   for(const width of [320,390,760,761,768,1440,1920]){
     await page.setViewportSize({width,height:1000});
     for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
@@ -16,7 +20,7 @@ try{
       await page.evaluate(()=>document.fonts.ready);
       const errors=await page.evaluate(()=>{
         const errors=[],header=document.querySelector('.provider-topbar'),css=getComputedStyle(header),r=header.getBoundingClientRect();
-        const tigerMobile=document.body.dataset.providerTheme==='apricot-tiger'&&innerWidth<=760;
+        const tigerMobile=['apricot-tiger','golden-cheetah','pearl-zebra'].includes(document.body.dataset.providerTheme)&&innerWidth<=760;
         if(css.backgroundColor!=='rgba(0, 0, 0, 0)'||css.boxShadow!=='none')errors.push('opaque header');
         if(tigerMobile){if(!css.backgroundImage.startsWith('linear-gradient('))errors.push('missing tiger header veil');}
         else if(css.backgroundImage!=='none')errors.push('unexpected header image');
@@ -45,5 +49,6 @@ try{
   assert.deepEqual(failures,[]);
   await page.locator('#syncState').click();await page.getByRole('dialog').waitFor({state:'visible'});
   assert.match(await page.getByRole('dialog').innerText(),/дополнительные данные сохранены/);
+  assert.deepEqual(pageErrors,[],'Header matrix and dialog must not hide script errors');
   console.log(`Header browser: ${combinations} combinations, transparent frame, 44px targets, no clipping/overlap; full status opens on click.`);
-}finally{await browser.close();server.close();}
+}finally{await browser?.close();server.close();}

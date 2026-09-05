@@ -126,7 +126,7 @@ async function harness() {
     'batchBookingsController', 'bookingPolicyController', 'dataGovernanceController']) ctx[name] = controllerStub();
   for (const name of ['renderProviderVerification', 'resetReportSessionState', 'stopLiveUpdates', 'restoreTelegramClientSettings',
     'renderTelegramClientSettings', 'renderProviderPhoneState', 'renderProviderSocialState', 'setAuthTabImmediate', 'showFormError',
-    'finishProviderBoot', 'loadBookingColors', 'loadBookingNotes', 'loadLocalClientLabels', 'restoreServiceDurationDefaults',
+    'finishProviderBoot', 'loadBookingColors', 'loadBookingNotes', 'loadLocalClientLabels', 'loadPendingClientNotes', 'restoreServiceDurationDefaults',
     'applyDisplayPreferences', 'renderDisplayPreferencesForm', 'queueDisplayPreferencesSync', 'updateScheduleSaveState',
     'renderNotifications', 'startTopbarClock', 'stopTopbarClock', 'showRecoveryReset', 'closeBookingSheet',
     'renderOfflineBookingQueue', 'setSyncState', 'renderTopbarDateTime', 'renderDateStrip', 'renderNotificationTemplates',
