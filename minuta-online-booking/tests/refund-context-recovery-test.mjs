@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// TEST-ONLY safety regressions, intentionally RED on the current controller.
-// Exactly ONE deferred refund invoke per scenario: no lost-reply/new-key duplication.
+// Controller context safety regressions. Original 18-case baseline was 5 PASS/13 RED.
+// No same-intent lost-reply/new-key duplication; concurrent invokes below belong
+// to explicitly different organizations, testing ownership of the new busy state.
 // Executes actual controller, provider construction, full handleSession and actual
 // organization callback. DOM/auth/bootstrap/transport are explicit local fixtures.
 // Not native browser, actual JWT login, database, payment or deployment evidence.
@@ -22,6 +23,11 @@ const construction = between('const paymentController = ', 'paymentController.bi
 const sessionFunction = between('async function handleSession(session) {', 'async function providerAccessAllowed(');
 const orgBlock = between('onActiveOrganizationChange: organization => {', '\n  }\n});\norganizationController.bind();');
 const orgCallback = `${orgBlock.slice('onActiveOrganizationChange: '.length)}\n  }`;
+const lifecycleDeclarations = ['bookingSeriesCancellationRevision', 'bookingEditorRevision'].map(name => {
+  const declaration = providerSource.match(new RegExp(`^let ${name} = [^;]+;`, 'm'))?.[0];
+  assert.ok(declaration, `Missing actual lifecycle declaration: ${name}`);
+  return declaration;
+}).join('\n');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const actorA = id(1), actorB = id(2), orgA = id(10), orgB = id(11), attemptA = id(20), attemptB = id(21);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -32,8 +38,12 @@ async function harness() {
   const elements = new Map(), handlers = new Map(), windowHandlers = new Map();
   const rpcCalls = [], invokeCalls = [], notifications = [], resetEvents = [], deviceClears = [];
   let formResets = 0, navigationRenders = 0, optionsKeys, nextUuid = 100;
-  let resolveInvoke, rejectInvoke;
-  const deferred = new Promise((resolve, reject) => { resolveInvoke = resolve; rejectInvoke = reject; });
+  const invocations = [], submissions = [], loadQueue = [], settingsQueue = [];
+  function deferred() {
+    let resolve, reject;
+    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    return { promise, resolve, reject };
+  }
   const controlIds = ['#paymentRefundAttempt', '#paymentRefundAmount', '#paymentRefundReason', '#refundSubmit', '#reloadPaymentProvider'];
   function $(selector) {
     if (!elements.has(selector)) {
@@ -67,7 +77,7 @@ async function harness() {
   const controllerStub = () => ({ reset() {}, setOrganization() {}, refreshAvailability: async () => {} });
   const ctx = {
     $, $$: () => [], Map, Set, Promise, Date, Intl,
-    currentUser: { id: actorA }, sessionGeneration: 1, activeClientOrganizationId: '', bookingSeriesCancellationRevision: 0,
+    currentUser: { id: actorA }, sessionGeneration: 1, activeClientOrganizationId: '',
     displayPreferencesSaveRevision: 0, displayPreferencesSaveTimer: null, synchronizationRetryTimer: null,
     notificationTimer: null, bookingsChannel: null, recoveryMode: false, bookingCreationReady: true,
     DEFAULT_DISPLAY_PREFERENCES: {}, DEFAULT_TELEGRAM_CLIENT_SETTINGS: {},
@@ -131,13 +141,15 @@ async function harness() {
   }
   ctx.db = {
     rpc: async (name, params) => {
-      assert.equal(name, 'get_minuta_payment_workspace');
+      assert.ok(['get_minuta_payment_workspace', 'set_minuta_yookassa_settings'].includes(name));
       rpcCalls.push({ name, params: clone(params), actor: ctx.currentUser?.id ?? null });
+      if (name === 'set_minuta_yookassa_settings') return settingsQueue.shift()?.promise ?? { data: {}, error: null };
+      if (loadQueue.length) return loadQueue.shift().promise;
       return { data: payload(params.p_organization), error: null };
     },
     functions: { invoke: (name, params) => {
       assert.equal(name, 'yookassa-refund'); invokeCalls.push({ name, params: clone(params), actor: ctx.currentUser?.id ?? null });
-      return deferred;
+      const operation = deferred(); invocations.push(operation); return operation.promise;
     } },
     auth: { signOut: async () => {} },
     from: name => {
@@ -151,9 +163,10 @@ async function harness() {
   ctx.window.MinutaPayments.createController = options => {
     optionsKeys = Object.keys(options).sort(); return actualCreate(options);
   };
-  runInContext(`${construction}\n${sessionFunction}\nvar onOrgChange = ${orgCallback};`, vm, { filename: 'actual-provider-excerpts.js' });
-  async function switchOrg(organization) {
-    ctx.onOrgChange({ id: organization, current_role: 'owner', public_slug: `fixture-${organization}` });
+  runInContext(`${lifecycleDeclarations}\n${construction}\n${sessionFunction}\nvar onOrgChange = ${orgCallback};`, vm, { filename: 'actual-provider-excerpts.js' });
+  const controller = runInContext('paymentController', vm);
+  async function switchOrg(organization, role = 'owner') {
+    ctx.onOrgChange({ id: organization, current_role: role, public_slug: `fixture-${organization}` });
     // Actual callback does not await setOrganization; drain its fulfilled mock RPC.
     await tick(); await tick();
   }
@@ -164,25 +177,30 @@ async function harness() {
     return { panelHidden: $('#paymentProviderPanel').hidden, formHidden: $('#paymentRefundForm').hidden,
       amount: $('#paymentRefundAmount').value, reason: $('#paymentRefundReason').value,
       attempt: $('#paymentRefundAttempt').value, controls: controlIds.map(selector => [selector, $(selector).disabled]),
+      attemptOptions: $('#paymentRefundAttempt').innerHTML,
       formResets, navigationRenders };
   }
-  let pending;
-  function submit() {
+  function submit(organization = orgA, attempt = attemptA) {
+    $('#paymentRefundAttempt').value = attempt;
     $('#paymentRefundAmount').value = '10.00'; $('#paymentRefundReason').value = 'Возврат из контекста A';
-    pending = Promise.resolve(handlers.get('submit')({ target: $('#paymentRefundForm'), preventDefault() {} }))
-      .then(() => null, error => ({ name: error.name, message: error.message }));
-    assert.equal(invokeCalls.length, 1);
-    assert.equal(invokeCalls[0].params.body.organization_id, orgA);
-    assert.equal(invokeCalls[0].params.body.attempt_id, attemptA);
+    const index = submissions.length;
+    submissions.push(Promise.resolve(handlers.get('submit')({ target: $('#paymentRefundForm'), preventDefault() {} }))
+      .then(() => null, error => ({ name: error.name, message: error.message })));
+    assert.equal(invokeCalls.length, index + 1);
+    assert.equal(invokeCalls[index].params.body.organization_id, organization);
+    assert.equal(invokeCalls[index].params.body.attempt_id, attempt);
   }
-  async function settle(kind) {
-    if (kind === 'success') resolveInvoke({ data: { ok: true, refund_id: id(90), status: 'succeeded', amount_minor: 1000 }, error: null });
-    else if (kind === 'error') resolveInvoke({ data: null, error: { name: 'FunctionsFetchError', message: 'Failed to send a request to the Edge Function' } });
-    else rejectInvoke(new Error('defensive_unexpected_invoke_rejection'));
-    const escaped = await pending; await tick(); return escaped;
+  async function settle(kind, index = 0) {
+    if (kind === 'success') invocations[index].resolve({ data: { ok: true, refund_id: id(90 + index), status: 'succeeded', amount_minor: 1000 }, error: null });
+    else if (kind === 'error') invocations[index].resolve({ data: null, error: { name: 'FunctionsFetchError', message: 'Failed to send a request to the Edge Function' } });
+    else invocations[index].reject(new Error('defensive_unexpected_invoke_rejection'));
+    const escaped = await submissions[index]; await tick(); return escaped;
   }
+  function deferLoad() { const operation = deferred(); loadQueue.push(operation); return operation; }
+  function deferSettings() { const operation = deferred(); settingsQueue.push(operation); return operation; }
   return { ctx, optionsKeys, invokeCalls, rpcCalls, notifications, resetEvents, deviceClears,
-    ui, maps, submit, settle, switchOrg, session };
+    ui, maps, submit, settle, switchOrg, session, payload, deferLoad, deferSettings, load: () => controller.load(),
+    submitSettings: () => handlers.get('submit')({ target: $('#paymentProviderSettingsForm'), preventDefault() {} }) };
 }
 
 test('fixture evidence: options originate from actual provider construction, not invented session APIs', async t => {
@@ -229,6 +247,7 @@ test('SAFETY organization switch must release the previous context busy state', 
 
 const transitions = {
   'organization A -> organization B': async h => { await h.switchOrg(orgB); },
+  'same organization owner -> specialist': async h => { await h.switchOrg(orgA, 'specialist'); },
   'logout': async h => { await h.session(null); assert.equal(h.ctx.currentUser, null); },
   'logout -> same actor fresh session -> reopen A': async h => {
     const generation = h.ctx.sessionGeneration;
@@ -262,3 +281,103 @@ for (const [name, transition] of Object.entries(transitions)) {
     });
   }
 }
+
+for (const kind of ['success', 'error', 'unexpected-reject']) {
+  test(`late workspace A ${kind} cannot overwrite loaded organization B`, async () => {
+    const h = await harness(), old = h.deferLoad(); const pending = h.load();
+    await h.switchOrg(orgB);
+    const before = h.ui(), notices = h.notifications.length;
+    if (kind === 'success') old.resolve({ data: h.payload(orgA), error: null });
+    else if (kind === 'error') old.resolve({ data: null, error: { code: '42501', message: 'payment_access_denied' } });
+    else old.reject(new Error('old_workspace_rejected'));
+    await pending;
+    assert.deepEqual(h.ui(), before); assert.deepEqual(h.notifications.slice(notices), []);
+    assert.equal(h.invokeCalls.length, 0);
+  });
+  test(`old refund ${kind} cannot unlock a new organization B refund`, async () => {
+    const h = await harness(); h.submit(); await h.switchOrg(orgB); h.submit(orgB, attemptB);
+    const before = h.ui(), beforeRpc = h.rpcCalls.length, notices = h.notifications.length;
+    assert.ok(before.controls.every(([, disabled]) => disabled));
+    assert.equal(await h.settle(kind, 0), null);
+    assert.deepEqual(h.ui(), before); assert.equal(h.rpcCalls.length, beforeRpc);
+    assert.deepEqual(h.notifications.slice(notices), []);
+    assert.equal(h.invokeCalls.length, 2); // Two different organizations, NOT same-refund replay.
+    assert.equal(await h.settle('success', 1), null);
+    assert.equal(h.ui().controls.every(([, disabled]) => !disabled), true);
+    assert.deepEqual(h.notifications.slice(notices), ['Возврат выполнен']);
+  });
+}
+test('same-org workspace loads accept only the latest response without invalidating a refund', async () => {
+  const h = await harness(); h.submit();
+  const old = h.deferLoad(), oldLoad = h.load(), latest = h.deferLoad(), latestLoad = h.load();
+  const latestPayload = h.payload(orgA); latestPayload.recent_attempts[0].captured_amount_minor = 9000;
+  latest.resolve({ data: latestPayload, error: null }); await latestLoad;
+  const before = h.ui(); old.resolve({ data: h.payload(orgA), error: null }); await oldLoad;
+  assert.deepEqual(h.ui(), before); assert.ok(h.ui().controls.every(([, disabled]) => disabled));
+  assert.equal(await h.settle('success'), null); assert.deepEqual(h.notifications, ['Возврат выполнен']);
+});
+test('authoritative workspace role downgrade invalidates pending write authority', async () => {
+  const h = await harness(); h.submit(); const response = h.deferLoad(), load = h.load();
+  response.resolve({ data: { ...h.payload(orgA), current_role: 'specialist' }, error: null }); await load;
+  const before = h.ui(), beforeRpc = h.rpcCalls.length;
+  assert.equal(before.panelHidden, true);
+  assert.equal(await h.settle('success'), null);
+  assert.deepEqual(h.ui(), before); assert.equal(h.rpcCalls.length, beforeRpc); assert.deepEqual(h.notifications, []);
+});
+test('old refund post-success reload cannot clear a new operation busy state', async () => {
+  const h = await harness(); h.submit(); const oldLoad = h.deferLoad();
+  const oldCompletion = h.settle('success'); await tick();
+  await h.switchOrg(orgB); h.submit(orgB, attemptB);
+  const before = h.ui(), notices = h.notifications.length;
+  oldLoad.resolve({ data: h.payload(orgA), error: null }); assert.equal(await oldCompletion, null);
+  assert.deepEqual(h.ui(), before); assert.deepEqual(h.notifications.slice(notices), []);
+  assert.equal(await h.settle('success', 1), null);
+});
+test('current unexpected refund rejection remains unknown and releases its own busy state', async () => {
+  const h = await harness(); h.submit();
+  assert.equal(await h.settle('unexpected-reject'), null);
+  assert.equal(h.ui().formResets, 0); assert.equal(h.ui().amount, '10.00');
+  assert.ok(h.ui().controls.every(([, disabled]) => !disabled));
+  assert.match(h.notifications.at(-1), /не подтверждён/);
+  assert.doesNotMatch(h.notifications.at(-1), /не списан|откач|отменён|не выполнен/);
+});
+
+for (const kind of ['success', 'error', 'unexpected-reject']) {
+  test(`old settings ${kind} cannot affect replacement organization`, async () => {
+    const h = await harness(), response = h.deferSettings(), save = h.submitSettings();
+    await h.switchOrg(orgB);
+    const before = h.ui(), beforeRpc = h.rpcCalls.length, notices = h.notifications.length;
+    if (kind === 'success') response.resolve({ data: {}, error: null });
+    else if (kind === 'error') response.resolve({ data: null, error: { message: 'network_error' } });
+    else response.reject(new Error('settings_rejected'));
+    await save;
+    assert.deepEqual(h.ui(), before); assert.equal(h.rpcCalls.length, beforeRpc);
+    assert.deepEqual(h.notifications.slice(notices), []);
+  });
+}
+test('same-org owner downgrade invalidates a pending settings save', async () => {
+  const h = await harness(), response = h.deferSettings(), save = h.submitSettings();
+  await h.switchOrg(orgA, 'specialist'); const before = h.ui(), beforeRpc = h.rpcCalls.length;
+  response.resolve({ data: {}, error: null }); await save;
+  assert.deepEqual(h.ui(), before); assert.equal(h.rpcCalls.length, beforeRpc); assert.deepEqual(h.notifications, []);
+});
+test('settings post-save reload cannot announce success after switching organizations', async () => {
+  const h = await harness(), response = h.deferSettings(), oldLoad = h.deferLoad(), save = h.submitSettings();
+  response.resolve({ data: {}, error: null }); await tick(); await h.switchOrg(orgB);
+  const before = h.ui(), notices = h.notifications.length;
+  oldLoad.resolve({ data: h.payload(orgA), error: null }); await save;
+  assert.deepEqual(h.ui(), before); assert.deepEqual(h.notifications.slice(notices), []);
+});
+test('current settings unexpected rejection reports uncertainty and restores controls', async () => {
+  const h = await harness(), response = h.deferSettings(), save = h.submitSettings();
+  response.reject(new Error('settings_rejected')); await save;
+  assert.match(h.notifications.at(-1), /не подтверждено/);
+  assert.ok(h.ui().controls.every(([, disabled]) => !disabled));
+});
+test('current settings success still reloads its own workspace and confirms save', async () => {
+  const h = await harness(), beforeRpc = h.rpcCalls.length;
+  await h.submitSettings();
+  assert.deepEqual(h.rpcCalls.slice(beforeRpc).map(call => call.name), ['set_minuta_yookassa_settings', 'get_minuta_payment_workspace']);
+  assert.deepEqual(h.notifications, ['Настройки ЮKassa сохранены']);
+  assert.ok(h.ui().controls.every(([, disabled]) => !disabled));
+});

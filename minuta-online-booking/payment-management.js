@@ -9,6 +9,28 @@
     let available = null;
     let busy = false;
     let refundSelectionInitialized = false;
+    let contextRevision = 0;
+    let loadRevision = 0;
+    let operationRevision = 0;
+
+    // UI lifetime only: these tokens do not cancel or deduplicate server refunds.
+    function currentContext() {
+      const revision = contextRevision;
+      const organizationId = organization?.id;
+      const role = currentRole();
+      return () => revision === contextRevision && organization?.id === organizationId && currentRole() === role;
+    }
+    function invalidateContext() {
+      contextRevision += 1;
+      loadRevision += 1;
+      setBusy(false);
+    }
+    function beginOperation() {
+      const contextIsCurrent = currentContext();
+      const revision = ++operationRevision;
+      setBusy(true);
+      return () => contextIsCurrent() && revision === operationRevision;
+    }
 
     function isMissing(error) {
       return /PGRST202|42883|get_minuta_payment_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -50,6 +72,7 @@
     }
     function reset() {
       organization = null; payload = null; available = null; busy = false;
+      invalidateContext();
       refundSelectionInitialized = false;
       if ($('#paymentProviderPanel')) $('#paymentProviderPanel').hidden = true;
       refreshNavigation();
@@ -57,23 +80,39 @@
     async function load() {
       if (!organization) return;
       if (!manager()) { available = false; render(); return; }
-      const result = await db.rpc('get_minuta_payment_workspace', { p_organization:organization.id });
-      if (result.error) {
-        const denied = /42501|payment_access_denied/i.test(`${result.error.code || ''} ${result.error.message || ''}`);
-        available = isMissing(result.error) || denied ? false : null;
-        render(result.error);
-        return;
+      const contextIsCurrent = currentContext();
+      const revision = ++loadRevision;
+      const isCurrent = () => contextIsCurrent() && revision === loadRevision;
+      try {
+        const result = await db.rpc('get_minuta_payment_workspace', { p_organization:organization.id });
+        if (!isCurrent()) return;
+        if (result.error) {
+          const denied = /42501|payment_access_denied/i.test(`${result.error.code || ''} ${result.error.message || ''}`);
+          if (denied) invalidateContext();
+          available = isMissing(result.error) || denied ? false : null;
+          render(result.error);
+          return;
+        }
+        if (String(result.data?.current_role || organization.current_role || '') !== currentRole()) invalidateContext();
+        available = true;
+        payload = result.data || {};
+        render();
+      } catch (error) {
+        if (!isCurrent()) return;
+        available = null;
+        render(error);
       }
-      available = true;
-      payload = result.data || {};
-      render();
     }
     async function setOrganization(next) {
+      const changed = (next?.id || null) !== (organization?.id || null)
+        || String(next?.current_role || '') !== currentRole();
+      if (changed) invalidateContext();
       organization = next?.id ? next : null;
       payload = null;
       available = null;
       if (!organization) { reset(); return; }
       if (!manager()) { available = false; render(); return; }
+      if (changed) render();
       await load();
     }
     function statusLabel(value) {
@@ -145,21 +184,28 @@
       if (event.target.id === 'paymentProviderSettingsForm') {
         event.preventDefault();
         if (!organization || !owner() || busy || !requireWrites()) return;
-        setBusy(true);
+        const isCurrent = beginOperation();
         const fiscal = $('#paymentFiscalizationEnabled').checked;
-        const result = await db.rpc('set_minuta_yookassa_settings', {
-          p_organization:organization.id,
-          p_enabled:$('#paymentProviderEnabled').checked,
-          p_environment:$('#paymentProviderEnvironment').value,
-          p_fiscalization_enabled:fiscal,
-          p_taxation:fiscal ? $('#paymentTaxation').value : null,
-          p_vat_code:fiscal ? Number($('#paymentVatCode').value) : null,
-          p_payment_mode:fiscal ? $('#paymentMode').value : null
-        });
-        setBusy(false);
-        if (result.error) { notify('Не удалось сохранить настройки ЮKassa'); return; }
-        await load();
-        notify('Настройки ЮKassa сохранены');
+        try {
+          const result = await db.rpc('set_minuta_yookassa_settings', {
+            p_organization:organization.id,
+            p_enabled:$('#paymentProviderEnabled').checked,
+            p_environment:$('#paymentProviderEnvironment').value,
+            p_fiscalization_enabled:fiscal,
+            p_taxation:fiscal ? $('#paymentTaxation').value : null,
+            p_vat_code:fiscal ? Number($('#paymentVatCode').value) : null,
+            p_payment_mode:fiscal ? $('#paymentMode').value : null
+          });
+          if (!isCurrent()) return;
+          setBusy(false);
+          if (result.error) { notify('Сохранение настроек ЮKassa не подтверждено. Проверьте настройки.'); return; }
+          await load();
+          if (isCurrent()) notify('Настройки ЮKassa сохранены');
+        } catch {
+          if (isCurrent()) notify('Сохранение настроек ЮKassa не подтверждено. Проверьте настройки.');
+        } finally {
+          if (isCurrent()) setBusy(false);
+        }
         return;
       }
       if (event.target.id !== 'paymentRefundForm') return;
@@ -201,19 +247,29 @@
         notify('Укажите причину возврата не короче 8 символов');
         return;
       }
-      setBusy(true);
-      const result = await db.functions.invoke('yookassa-refund', { body:{
-        organization_id:organization.id,
-        attempt_id:$('#paymentRefundAttempt').value,
-        request_id:requestId(),
-        amount_minor:amountMinor,
-        reason
-      }});
-      setBusy(false);
-      if (result.error || !result.data?.ok) { notify('Возврат не подтверждён. Проверьте настройки и журнал операций.'); await load(); return; }
-      event.target.reset();
-      await load();
-      notify(result.data.status === 'succeeded' ? 'Возврат выполнен' : 'Возврат принят в обработку');
+      const isCurrent = beginOperation();
+      try {
+        const result = await db.functions.invoke('yookassa-refund', { body:{
+          organization_id:organization.id,
+          attempt_id:$('#paymentRefundAttempt').value,
+          request_id:requestId(),
+          amount_minor:amountMinor,
+          reason
+        }});
+        if (!isCurrent()) return;
+        setBusy(false);
+        if (result.error || !result.data?.ok) { notify('Возврат не подтверждён. Проверьте настройки и журнал операций.'); await load(); return; }
+        event.target.reset();
+        await load();
+        if (isCurrent()) notify(result.data.status === 'succeeded' ? 'Возврат выполнен' : 'Возврат принят в обработку');
+      } catch {
+        if (isCurrent()) {
+          notify('Возврат не подтверждён. Проверьте настройки и журнал операций.');
+          await load();
+        }
+      } finally {
+        if (isCurrent()) setBusy(false);
+      }
     }
     function change(event) {
       if (event.target.id === 'paymentFiscalizationEnabled' || event.target.id === 'paymentRefundAttempt') updateRefundAmount();
