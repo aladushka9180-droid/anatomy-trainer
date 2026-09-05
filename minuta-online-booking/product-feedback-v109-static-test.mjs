@@ -50,4 +50,21 @@ for (const command of [
   'product-feedback-v109-static-test.mjs'
 ]) assert.ok(workflow.includes(command), `Release workflow must include ${command}`);
 
+const testMigrationRelease = workflow.split('test-migration:')[1]?.split('production-migration:')[0] || '';
+const initialV65Rollback = testMigrationRelease.indexOf('rollback-multi-tenant-v65.sql');
+assert.ok(initialV65Rollback > 0, 'Test migration must reset the v65 baseline');
+for (const rollbackCommand of [
+  'supabase-migration-v109-rollback.sql',
+  'supabase-migration-v108-rollback.sql',
+  'supabase-migration-v107-rollback.sql',
+  'supabase-migration-v106-rollback.sql',
+  'supabase-migration-v105-rollback.sql',
+  'supabase-migration-v104-rollback.sql',
+  'supabase-migration-v103-rollback.sql',
+  'rollback-team-calendar-dispatcher-v102.sql'
+]) {
+  const rollbackIndex = testMigrationRelease.indexOf(rollbackCommand);
+  assert.ok(rollbackIndex > 0 && rollbackIndex < initialV65Rollback, `${rollbackCommand} must run before the initial v65 rollback`);
+}
+
 console.log('product-feedback-v109-static-test: OK');

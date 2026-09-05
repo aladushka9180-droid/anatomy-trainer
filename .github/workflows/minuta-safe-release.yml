@@ -322,6 +322,36 @@ jobs:
             -f minuta-online-booking/supabase-migration-v61.sql
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -f minuta-online-booking/supabase-migration-v64.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.product_feedback') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v109-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)') is not null and position('p_quantity' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0 and position('p_item' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v108-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regclass('public.booking_funnel_events') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v107-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.save_minuta_booking_outcome_v106(uuid,text,text,integer,integer,text)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v106-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.upsert_public_booking_presence(text,uuid,text,text,text,text,text,text)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v105-rollback.sql
+          fi
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is not null or to_regprocedure('public.move_minuta_team_booking_v104(uuid,uuid,uuid,uuid,uuid,date,time without time zone,uuid,uuid,date,time without time zone)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/supabase-migration-v104-rollback.sql
+          fi
+          psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+            -f minuta-online-booking/supabase-migration-v103-rollback.sql
+          if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.move_minuta_team_booking_v102(uuid,uuid,uuid,uuid,date,time without time zone)') is not null or to_regprocedure('public.get_minuta_team_calendar_v3(uuid,date,date,uuid,uuid,uuid)') is not null;")" = "t"; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
+              -f minuta-online-booking/recovery/rollback-team-calendar-dispatcher-v102.sql
+          fi
           if test "$(psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc "select to_regprocedure('public.get_available_slots_v101(uuid,date,date,uuid)') is not null or exists(select 1 from information_schema.columns where table_schema='public' and table_name='booking_policies' and column_name in ('booking_buffer_enabled','booking_buffer_minutes'));")" = "t"; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
               -f minuta-online-booking/supabase-migration-v101-rollback.sql
