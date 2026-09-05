@@ -21,7 +21,12 @@ const resetHook = [...source.matchAll(/^window\.addEventListener\('minuta:provid
 assert.ok(resetHook, 'Actual read-reset callback including series invalidation');
 const orgHook = between('  onActiveOrganizationChange: organization => {', '    if (clientOrganizationChanged) {')
   .replace('  onActiveOrganizationChange: organization => {', 'function changeOrganization(organization) {') + '\n}';
-const revisionDeclaration = source.match(/^let bookingSeriesCancellationRevision = .*;$/m)?.[0] || '';
+const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditorRevision']
+  .map(name => {
+    const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
+    assert.ok(declaration, `Actual lifecycle declaration: ${name}`);
+    return declaration;
+  }).join('\n');
 const deferred = () => {
   let resolve, reject;
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });

@@ -7,8 +7,10 @@ const providerReadFetch = window.MinutaProviderReadFetch.create({ baseUrl:window
 let freeSlotsController = null;
 window.addEventListener('minuta:provider-session-reset', () => freeSlotsController?.invalidateScope());
 let bookingSeriesCancellationRevision = 0;
+let bookingEditorRevision = 0;
 window.addEventListener('minuta:provider-session-reset', () => {
   bookingSeriesCancellationRevision += 1;
+  bookingEditorRevision += 1;
   providerReadFetch.cancelPendingReads();
 });
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
@@ -1880,7 +1882,8 @@ function bookingSessionMarkup(item) {
   const countLabel = `${items.length} ${items.length === 1 ? 'услуга' : items.length < 5 ? 'услуги' : 'услуг'}`;
   return `<section class="booking-session-summary"><div class="booking-session-heading"><div><small>Состав сеанса</small><strong>${countLabel} · ${bookingSessionDuration(items)} мин</strong></div><button type="button" data-edit-booking-session="${item.id}"><span>Изменить</span>${uiIcon('arrow-right')}</button></div>${addons.length ? `<div class="booking-session-addons"><small>Дополнительно</small>${addons.map(entry => `<div><span><b>${escapeHtml(entry.title)}</b><small>${entry.extends_duration ? `+${entry.duration_minutes} мин` : 'без увеличения времени'}</small></span><strong>+ ${money(entry.price_rub)}</strong></div>`).join('')}</div>` : ''}</section>`;
 }
-async function saveBookingColor(id, color, { rerender = true } = {}) {
+async function saveBookingColor(id, color, { rerender = true, isCurrent = () => true } = {}) {
+  if (!isCurrent()) return false;
   const selected = validBookingColor(color);
   bookingColors.set(id, selected);
   pendingBookingColors.add(id);
@@ -1889,11 +1892,13 @@ async function saveBookingColor(id, color, { rerender = true } = {}) {
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
   const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
+  if (!isCurrent()) return false;
   if (!error) pendingBookingColors.delete(id);
   persistBookingColors();
   return !error;
 }
-async function saveBookingNote(id, note, { rerender = true } = {}) {
+async function saveBookingNote(id, note, { rerender = true, isCurrent = () => true } = {}) {
+  if (!isCurrent()) return false;
   const value = String(note || '').trim().slice(0, 1000);
   bookingNotes.set(id, value);
   persistBookingNotes();
@@ -1901,6 +1906,7 @@ async function saveBookingNote(id, note, { rerender = true } = {}) {
   if (item) item.provider_note = value;
   if (rerender) renderBookingData();
   const { error } = await db.rpc('set_booking_note', { p_booking: id, p_note: value });
+  if (!isCurrent()) return false;
   if (error) pendingBookingNotes.add(id);
   else pendingBookingNotes.delete(id);
   persistBookingNotes();
@@ -1930,7 +1936,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=445#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=446#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3713,7 +3719,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=445');
+    worker = new Worker('./report-worker.js?v=446');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5856,25 +5862,44 @@ async function saveServiceChanges(event) {
 }
 
 async function loadBookingEditSlots(id, preserveCurrent = false) {
+  const form = $('#bookingEditForm');
+  const revision = bookingEditorRevision;
+  if (!form || form.dataset.bookingId !== id || form.dataset.editorRevision !== String(revision)) return;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const organizationId = activeClientOrganizationId;
   const item = allBookings.find(booking => booking.id === id);
   const service = $('#editBookingService')?.value;
   const date = $('#editBookingDate')?.value;
   const holder = $('#editBookingTimes');
   if (!item || !service || !date || !holder) return;
-  const scope = $('#bookingEditForm')?.elements.editBookingSeriesScope?.value || 'one';
+  const scope = form.elements.editBookingSeriesScope?.value || 'one';
+  const request = String(Number(form.dataset.slotsRevision || 0) + 1);
+  form.dataset.slotsRevision = request;
+  const isCurrent = () => sessionIsCurrent(userId, generation) && activeClientOrganizationId === organizationId
+    && bookingEditorRevision === revision && form === $('#bookingEditForm') && !$('#bookingSheet').hidden
+    && holder === $('#editBookingTimes') && form.dataset.slotsRevision === request
+    && $('#editBookingService')?.value === service && $('#editBookingDate')?.value === date
+    && (form.elements.editBookingSeriesScope?.value || 'one') === scope;
   const movesSeveral = Boolean(item.series_id && scope !== 'one');
   if (!preserveCurrent) bookingEditTime = '';
   holder.innerHTML = '<span>Ищем свободное время…</span>';
-  const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date, p_ignore_booking:item.id });
-  const currentTime = String(item.booking_time).slice(0, 5);
-  const times = error ? [] : (data || []).map(slot => String(slot.booking_time).slice(0, 5));
-  if (movesSeveral && !times.includes(currentTime)) times.unshift(currentTime);
-  if (!times.length) {
-    holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
-    return;
+  try {
+    const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date, p_ignore_booking:item.id });
+    if (!isCurrent()) return;
+    if (error) throw error;
+    const currentTime = String(item.booking_time).slice(0, 5);
+    const times = (data || []).map(slot => String(slot.booking_time).slice(0, 5));
+    if (movesSeveral && !times.includes(currentTime)) times.unshift(currentTime);
+    if (!times.length) {
+      holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
+      return;
+    }
+    if (preserveCurrent && service === item.service_id && date === item.booking_date && times.includes(currentTime)) bookingEditTime = currentTime;
+    holder.innerHTML = `${movesSeveral ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>' : ''}${times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" data-edit-booking-time="${time}">${time}</button>`).join('')}`;
+  } catch {
+    if (isCurrent()) holder.innerHTML = '<span>Не удалось загрузить свободное время. Выберите дату ещё раз.</span>';
   }
-  if (preserveCurrent && service === item.service_id && date === item.booking_date && times.includes(currentTime)) bookingEditTime = currentTime;
-  holder.innerHTML = `${movesSeveral ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>' : ''}${times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" data-edit-booking-time="${time}">${time}</button>`).join('')}`;
 }
 
 function sessionServiceOptions(selectedId = '', allowCustom = false) {
@@ -6038,6 +6063,7 @@ function openBookingEditor(id, preset = {}) {
     </form>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+  $('#bookingEditForm').dataset.editorRevision = String(++bookingEditorRevision);
   $('#editBookingService').addEventListener('change', () => loadBookingEditSlots(id));
   $('#editBookingDate').addEventListener('change', () => loadBookingEditSlots(id));
   $$('[name="editBookingSeriesScope"]').forEach(control => control.addEventListener('change', () => loadBookingEditSlots(id, true)));
@@ -6048,14 +6074,22 @@ function openBookingEditor(id, preset = {}) {
 async function saveBookingChanges(event) {
   event.preventDefault();
   if (!requireWrites()) return;
+  const form = event.currentTarget;
+  const revision = bookingEditorRevision;
+  if (form !== $('#bookingEditForm') || $('#bookingSheet').hidden
+    || form.dataset.editorRevision !== String(revision) || form.dataset.editorPending) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const id = event.currentTarget.dataset.bookingId;
+  const organizationId = activeClientOrganizationId;
+  const isCurrent = () => sessionIsCurrent(userId, generation) && activeClientOrganizationId === organizationId
+    && bookingEditorRevision === revision && form === $('#bookingEditForm') && !$('#bookingSheet').hidden;
+  const id = form.dataset.bookingId;
   const item = allBookings.find(booking => booking.id === id);
+  const seriesId = item?.series_id;
   const block = isScheduleBlock(item);
   const service = ownServices.find(entry => entry.id === $('#editBookingService').value);
   const date = $('#editBookingDate').value;
-  const seriesScope = event.currentTarget.elements.editBookingSeriesScope?.value || 'one';
+  const seriesScope = form.elements.editBookingSeriesScope?.value || 'one';
   const color = $('[name="editBookingColor"]:checked')?.value || bookingColor(item);
   const note = $('#editBookingNote')?.value.trim() || '';
   const blockTitle = block ? ($('#editBookingBlockTitle')?.value.trim() || '') : '';
@@ -6064,51 +6098,103 @@ async function saveBookingChanges(event) {
     return;
   }
   const button = event.submitter;
+  form.dataset.editorPending = 'true';
   button.disabled = true;
   button.textContent = 'Сохраняем…';
   const changes = { service_id:block ? service.id : item.service_id, duration_minutes:block ? service.duration_minutes : item.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` };
   if (block) changes.client_name = blockTitle;
-  let error = null;
-  let affected = [{ booking_id:id }];
-  if (item.series_id && !block) {
-    const result = await db.rpc('manage_minuta_booking_series', {
-      p_booking: id,
-      p_action: 'reschedule',
-      p_scope: seriesScope,
-      p_date: date,
-      p_time: `${bookingEditTime}:00`
-    });
-    error = result.error;
-    if (Array.isArray(result.data?.affected)) affected = result.data.affected;
-  } else {
-    ({ error } = await db.from('bookings').update(changes).eq('id', id).eq('performer_id', userId));
+  let primaryConfirmed = false;
+  const unconfirmedMessage = 'Не удалось подтвердить результат. Проверьте актуальную запись перед повтором.';
+  try {
+    let error = null;
+    let affected = [{ booking_id:id }];
+    if (item.series_id && !block) {
+      const result = await db.rpc('manage_minuta_booking_series', {
+        p_booking: id,
+        p_action: 'reschedule',
+        p_scope: seriesScope,
+        p_date: date,
+        p_time: changes.booking_time
+      });
+      if (!isCurrent()) return;
+      error = result.error;
+      if (!error) {
+        const data = result.data;
+        const entries = data?.affected;
+        const confirmed = data?.series_id === seriesId && data?.action === 'reschedule' && data?.scope === seriesScope
+          && Number.isSafeInteger(data?.affected_count) && data.affected_count > 0 && data.affected_count <= 24
+          && Array.isArray(entries) && entries.length === data.affected_count
+          && entries.every(entry => entry && typeof entry.booking_id === 'string'
+            && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(entry.booking_id)
+            && Number.isSafeInteger(entry.occurrence) && entry.occurrence > 0 && entry.occurrence <= 24)
+          && new Set(entries.map(entry => entry.booking_id)).size === entries.length
+          && new Set(entries.map(entry => entry.occurrence)).size === entries.length
+          && (seriesScope !== 'one' || (entries.length === 1 && entries[0].booking_id === id));
+        if (!confirmed) throw new Error('unconfirmed_series_reschedule');
+        affected = entries;
+      }
+    } else {
+      ({ error } = await db.from('bookings').update(changes).eq('id', id).eq('performer_id', userId));
+    }
+    if (!isCurrent()) return;
+    if (error) {
+      const seriesErrors = {
+        'P0001:series_slot_unavailable':'Одно из новых времён занято. Проверьте журнал и выберите другое время.',
+        '22023:series_reschedule_out_of_range':'После переноса часть серии окажется в прошлом или слишком далеко. Выберите другую дату.',
+        '22023:series_reschedule_target_required':'Выберите дату и время переноса.',
+        '22023:invalid_series_action':'Параметры переноса устарели. Откройте форму заново.',
+        '42501:authentication_required':'Войдите в аккаунт снова и обновите журнал.',
+        '42501:booking_access_denied':'У вас нет доступа к переносу этой записи.',
+        'P0001:booking_not_found':'Запись не найдена. Обновите журнал.',
+        'P0001:booking_not_in_series':'Эта запись не входит в серию. Обновите журнал.',
+        'P0001:series_booking_not_actionable':'Эту запись уже нельзя перенести. Обновите журнал.',
+        'P0001:series_has_no_actionable_bookings':'В выбранной части серии нет записей, доступных для переноса. Обновите журнал.'
+      };
+      const message = seriesId && !block ? seriesErrors[`${error.code}:${error.message}`] : null;
+      showFormError('#bookingEditError', message || unconfirmedMessage);
+      if (message) await loadBookingEditSlots(id);
+      return;
+    }
+    primaryConfirmed = true;
+    if (!block) affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'rescheduled'));
+    const colorRemoteSaved = await saveBookingColor(id, color, { rerender:false, isCurrent });
+    if (!isCurrent()) return;
+    let noteRemoteSaved = true;
+    if (block) {
+      noteRemoteSaved = await saveBookingNote(id, note, { rerender:false, isCurrent });
+      if (!isCurrent()) return;
+    } else {
+      const normalizedPhone = normalizePhone(item.client_phone);
+      const { error:noteError } = await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
+      if (!isCurrent()) return;
+      noteRemoteSaved = !noteError;
+      if (!noteError) clientNotes.set(normalizedPhone, note);
+    }
+    selectScheduleDate(date);
+    const refreshed = await refreshAfterWrite();
+    if (!isCurrent()) return;
+    if (refreshed === false) {
+      showFormError('#bookingEditError', 'Основное изменение сохранено, но журнал не обновлён. Проверьте запись перед следующим действием.');
+      return;
+    }
+    const affectedCount = affected.length;
+    notify(!colorRemoteSaved
+      ? 'Запись обновлена, но цвет или заметку не удалось полностью сохранить. Проверьте запись.'
+      : noteRemoteSaved
+      ? (block ? 'Перерыв обновлён' : affectedCount > 1 ? `Перенесено: ${seriesBookingCountLabel(affectedCount)}` : 'Запись обновлена')
+      : (block ? 'Перерыв обновлён. Заметка сохранена на этом устройстве' : 'Запись обновлена, но заметку сохранить не удалось'));
+    openBookingSheet(id);
+  } catch {
+    if (isCurrent()) showFormError('#bookingEditError', primaryConfirmed
+      ? 'Основное изменение сохранено, но обновление не завершено. Проверьте запись перед следующим действием.'
+      : unconfirmedMessage);
+  } finally {
+    if (isCurrent()) {
+      delete form.dataset.editorPending;
+      button.disabled = false;
+      button.textContent = 'Сохранить изменения';
+    }
   }
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (error) {
-    button.disabled = false;
-    button.textContent = 'Сохранить изменения';
-    showFormError('#bookingEditError', item.series_id && !block ? seriesRpcErrorMessage(error, 'reschedule') : 'Это время уже занято. Выберите другой вариант.');
-    await loadBookingEditSlots(id);
-    return;
-  }
-  if (!block) affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'rescheduled'));
-  await saveBookingColor(id, color, { rerender:false });
-  let noteRemoteSaved = true;
-  if (block) {
-    noteRemoteSaved = await saveBookingNote(id, note, { rerender:false });
-  } else {
-    const normalizedPhone = normalizePhone(item.client_phone);
-    const { error:noteError } = await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
-    noteRemoteSaved = !noteError;
-    if (!noteError) clientNotes.set(normalizedPhone, note);
-  }
-  selectScheduleDate(date);
-  await refreshAfterWrite();
-  const affectedCount = affected.length;
-  notify(noteRemoteSaved
-    ? (block ? 'Перерыв обновлён' : affectedCount > 1 ? `Перенесено: ${seriesBookingCountLabel(affectedCount)}` : 'Запись обновлена')
-    : (block ? 'Перерыв обновлён. Заметка сохранена на этом устройстве' : 'Запись обновлена, но заметку сохранить не удалось'));
-  openBookingSheet(id);
 }
 
 function offlineCandidateSlots(serviceId, dateIso, requestedDuration = 0) {
@@ -6980,6 +7066,7 @@ async function createNewBooking(event) {
 
 function closeBookingSheet() {
   bookingSeriesCancellationRevision += 1;
+  bookingEditorRevision += 1;
   editingOfflineBookingId = '';
   newBookingHistoricalMode = false;
   $('#bookingSheet').hidden = true;
@@ -10559,6 +10646,7 @@ const organizationController = window.MinutaOrganization.createController({
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
     activeClientOrganizationId = nextClientOrganizationId;
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
+    if (clientOrganizationChanged) bookingEditorRevision += 1;
     if (clientOrganizationChanged) {
       importedClients = [];
       importedBookingHistory = [];
