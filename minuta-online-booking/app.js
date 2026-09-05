@@ -531,6 +531,8 @@ async function loadServices() {
   state.services = data || [];
   renderLocations();
   if (restorePersistedBookingSelection()) {
+    // Restoration may select a non-primary branch after the initial render.
+    renderLocations();
     renderSpecialists(); renderServices(); await showStep(3);
     showError('Есть незавершённая проверка записи. Укажите исходные контакты и нажмите «Проверить результат».');
     return;
