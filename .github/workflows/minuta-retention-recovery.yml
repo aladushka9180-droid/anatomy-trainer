@@ -1,0 +1,41 @@
+name: Minuta retention recovery regression
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/retention-management.js'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/retention-v83-static-test.mjs'
+      - 'minuta-online-booking/tests/retention-context-recovery*.mjs'
+      - '.github/workflows/minuta-retention-recovery.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/retention-management.js'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/retention-v83-static-test.mjs'
+      - 'minuta-online-booking/tests/retention-context-recovery*.mjs'
+      - '.github/workflows/minuta-retention-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check minuta-online-booking/retention-management.js
+      - run: node minuta-online-booking/retention-v83-static-test.mjs
+      - run: node minuta-online-booking/tests/retention-context-recovery-test.mjs
+      - name: Install isolated browser dependencies
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/retention-browser" --no-save --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/retention-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/retention-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - run: node minuta-online-booking/tests/retention-context-recovery-browser-test.mjs
