@@ -173,6 +173,14 @@ async function verifyReadyUi(browser, failures) {
         await page.evaluate(theme => { document.body.dataset.providerTheme = theme; }, theme);
         const violations = await page.evaluate(() => {
           const result = [];
+          const panel = document.querySelector('#unifiedNotificationPanel');
+          const probe = document.createElement('span');
+          probe.style.backgroundColor = 'var(--theme-surface, #fff)';
+          panel.append(probe);
+          if (getComputedStyle(panel).backgroundColor !== getComputedStyle(probe).backgroundColor) {
+            result.push('notification panel does not use the selected theme surface');
+          }
+          probe.remove();
           const roots = ['#clientRecords','#profitabilityPanel','#unifiedNotificationPanel'].map(selector => document.querySelector(selector)).filter(Boolean);
           for (const root of roots) {
             if (!root.getClientRects().length) continue;

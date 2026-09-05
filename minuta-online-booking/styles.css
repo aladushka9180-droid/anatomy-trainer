@@ -5551,7 +5551,7 @@ html.provider-booting .provider-main {
 .payment-provider-settings>.settings-check,.unified-notification-panel>.settings-check { margin-bottom:4px; }
 
 /* Keep the notification center readable and aligned with the selected theme. */
-.provider-body #unifiedNotificationPanel { background:var(--theme-surface,#fff); color:var(--theme-ink,#244535); border-color:var(--theme-line,#dce8df); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+.provider-body #unifiedNotificationPanel { background:var(--theme-surface,#fff)!important; color:var(--theme-ink,#244535); border-color:var(--theme-line,#dce8df); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
 .provider-body #unifiedNotificationPanel>summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; min-height:44px; color:var(--theme-ink,#244535); }
 .provider-body #unifiedNotificationPanel>summary strong { font-size:16px; line-height:1.4; }
 .provider-body #unifiedNotificationPanel strong { font-size:14px; line-height:1.45; }
