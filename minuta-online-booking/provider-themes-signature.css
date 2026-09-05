@@ -26,7 +26,7 @@
 
 .theme-snow-leopard { --theme-preview-bg:#f7f6f3; --theme-preview-surface:#fffefc; --theme-preview-line:#96968e; --theme-preview-accent:#484b47; --theme-preview-radius:14px; }
 .theme-snow-leopard .theme-swatch {
-  background-image:url("provider-snow-leopard.svg?v=437");
+  background-image:url("provider-snow-leopard.svg?v=438");
   background-size:auto 90%;
   background-position:right center;
   background-repeat:no-repeat;
@@ -40,7 +40,7 @@
   max-width:100%;
   height:36px;
   margin-top:6px;
-  background:url("provider-snow-leopard.svg?v=437") left center / contain no-repeat;
+  background:url("provider-snow-leopard.svg?v=438") left center / contain no-repeat;
   opacity:.58;
   pointer-events:none;
   user-select:none;
@@ -52,7 +52,7 @@
   max-width:100%;
   height:62px;
   margin:12px 0 0 auto;
-  background:url("provider-snow-leopard.svg?v=437") right center / contain no-repeat;
+  background:url("provider-snow-leopard.svg?v=438") right center / contain no-repeat;
   opacity:.42;
   pointer-events:none;
 }
