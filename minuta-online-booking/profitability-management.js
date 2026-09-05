@@ -119,10 +119,15 @@
 
     async function mutate(rpc, parameters, button, success) {
       if (!requireWrites() || writing || !organization?.id) return false;
-      writing = true; const old = button?.textContent; if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
+      writing = true; const old = button?.textContent, wasDisabled = Boolean(button?.disabled); if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
       const organizationId = organization.id;
-      const { data, error } = await db.rpc(rpc, parameters);
-      writing = false; if (button) button.textContent = old;
+      let response;
+      try { response = await db.rpc(rpc, parameters); }
+      catch (error) { response = { data:null,error }; }
+      const { data, error } = response || {};
+      writing = false;
+      if (button) { button.textContent = old; button.disabled = wasDisabled; }
+      applyWriteAvailability();
       if (error || String(data?.organization_id || '') !== String(organizationId)) { notify('Данные не сохранены. Расчёт и склад не изменены.'); return false; }
       if (rpc === 'set_minuta_service_material_mode_v113') {
         const rows = inventory.service_cost_settings || (inventory.service_cost_settings = []);
