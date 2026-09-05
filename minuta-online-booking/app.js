@@ -1148,6 +1148,7 @@ async function submitBooking(event) {
     return;
   }
   const manageToken = data?.[0]?.manage_token;
+  if (manageToken) void db.rpc('record_minuta_booking_legal_acceptance_v110', { p_token:manageToken, p_privacy_version:'2026-09-05', p_terms_version:'2026-09-05' }).then(({ error }) => { if (error) console.warn('Legal acceptance was not recorded:', error.message); });
   void trackBookingFunnelEvent('booking_created', { serviceId:service.id, manageToken });
   const bookedLocation = state.teamMode ? state.locations.find(item => item.id === state.locationId) : null;
   currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: serviceName(service.name), performer: service.performer_profiles?.display_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: state.date, time: state.time, duration: service.duration_minutes, uid: manageToken || attempt.requestId });

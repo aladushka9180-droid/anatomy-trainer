@@ -4,6 +4,7 @@ const yookassaPaymentEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v
 const $ = selector => document.querySelector(selector);
 const token = new URLSearchParams(location.search).get('token') || new URLSearchParams(location.hash.slice(1)).get('token') || '';
 if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `booking.html#token=${encodeURIComponent(token)}`);
+document.querySelector('#clientDataRights')?.addEventListener('click',async event=>{const button=event.target.closest('[data-client-data-request]');if(!button||!token)return;const status=document.querySelector('#clientDataRequestStatus');button.disabled=true;if(status)status.textContent='Отправляем запрос...';try{const{data,error}=await db.rpc('submit_minuta_client_data_request_v108',{p_token:token,p_request_type:button.dataset.clientDataRequest});if(error)throw error;if(status)status.textContent=`Запрос принят. Номер: ${data}`}catch(error){if(status)status.textContent=error?.message||'Не удалось отправить запрос.'}finally{button.disabled=false}});
 const state = { booking: null, paymentCapability: null, dates: [], availability: new Map(), date: '', time: '' };
 let bookingLoadRevision = 0;
 

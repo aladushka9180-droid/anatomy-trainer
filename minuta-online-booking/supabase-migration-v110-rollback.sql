@@ -1,0 +1,14 @@
+drop function if exists public.run_minuta_privacy_cleanup_v110(uuid,boolean);
+drop function if exists public.cancel_minuta_data_request_v110(uuid);
+drop function if exists public.request_minuta_data_action_v110(uuid,text);
+drop function if exists public.export_minuta_organization_data_v110(uuid);
+drop function if exists public.save_minuta_data_governance_v110(uuid,integer,integer,integer,integer);
+drop function if exists public.get_minuta_data_governance_workspace_v110(uuid);
+drop function if exists public.submit_minuta_client_data_request_v110(uuid,text);
+drop function if exists public.record_minuta_booking_legal_acceptance_v110(uuid,text,text);
+drop function if exists public.require_minuta_governance_role_v110(uuid,boolean);
+drop table if exists public.minuta_personal_data_access_log;
+drop table if exists public.minuta_data_subject_requests;
+drop table if exists public.booking_legal_acceptances;
+drop table if exists public.organization_data_governance;
+

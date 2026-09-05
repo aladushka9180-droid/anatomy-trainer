@@ -7546,7 +7546,7 @@ html.provider-booting .provider-main {
     box-sizing:border-box;
   }
 }
-/* v393: полная информация в списках записей при любой теме и компоновке. */
+/* v396: полная информация в списках записей при любой теме и компоновке. */
 .provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-open {
   align-items:start;
   height:auto;
@@ -8563,3 +8563,7 @@ html.provider-booting .provider-main {
   }
 }
 
+
+
+/* Data governance v428 */
+.data-governance-card{display:grid;grid-template-columns:auto 1fr;gap:18px 22px;align-items:start}.data-governance-card>.settings-heading{min-width:0}.data-governance-grid{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.data-governance-grid label{display:grid;gap:7px;font-weight:700;color:var(--muted)}.data-governance-grid input{width:100%;min-width:0}.data-governance-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px}.data-governance-details{grid-column:1/-1;border:1px solid var(--line);border-radius:22px;padding:16px 18px}.data-governance-details summary{cursor:pointer;font-weight:800}.data-request-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}.data-request-row span:first-child{display:grid;gap:3px}.data-request-row small{color:var(--muted)}.data-request-status{padding:5px 9px;border-radius:999px;background:var(--soft)}.data-governance-card[data-owner="false"] .owner-only-data-action{display:none}.client-data-rights{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:20px}.client-data-rights summary{cursor:pointer;font-weight:800}.client-data-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.client-data-actions button{min-height:44px;border:1px solid var(--line);border-radius:14px;background:var(--surface);font:inherit;font-weight:700}.consent-check a{color:inherit;text-decoration:underline;text-underline-offset:2px}@media(max-width:760px){.data-governance-card{grid-template-columns:1fr}.data-governance-grid{grid-template-columns:1fr 1fr}.client-data-actions{grid-template-columns:1fr}}@media(max-width:440px){.data-governance-grid{grid-template-columns:1fr}.data-governance-actions>*{width:100%}}

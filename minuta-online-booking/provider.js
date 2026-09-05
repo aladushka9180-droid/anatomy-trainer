@@ -10403,6 +10403,7 @@ const clientImportController = window.MinutaClientImport?.createController ? win
   }
 }) : { bind() {}, load() { return Promise.resolve({ ok:true,optional:true }); }, setOrganization() {} };
 clientImportController.bind();
+const dataGovernanceController = window.MinutaDataGovernance?.createController({ db, $, escapeHtml, notify }) || { bind() {}, setOrganization() {} };
 
 const organizationController = window.MinutaOrganization.createController({
   db,
@@ -10449,9 +10450,11 @@ const organizationController = window.MinutaOrganization.createController({
     notificationCenterController.setOrganization(organization);
     clientFieldsController.setOrganization(organization);
     clientImportController.setOrganization(organization?.public_slug === REPORT_DEMO_SLUG ? null : organization);
+    dataGovernanceController.setOrganization(organization);
   }
 });
 organizationController.bind();
+dataGovernanceController.bind();
 providerFeedbackController = window.MinutaProviderFeedback?.createController ? window.MinutaProviderFeedback.createController({
   db,
   $,

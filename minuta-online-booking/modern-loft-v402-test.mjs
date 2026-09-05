@@ -35,4 +35,4 @@ assert.match(css, /\.provider-body\[data-provider-theme="loft"\] \.date-strip bu
 assert.match(provider, /provider-theme-loft-modern\.css\?v=427/);
 assert.match(worker, /\.\/provider-theme-loft-modern\.css\?v=427/);
 
-console.log('Modern Loft v427: OK');
+console.log('Modern Loft v428: OK');

@@ -744,10 +744,12 @@ jobs:
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v108.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v106.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v108.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109.sql
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select position('p_quantity' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0 and position('p_item' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0;" \
               | grep -qx t
@@ -781,6 +783,7 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
+            psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v108-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107-rollback.sql
@@ -1085,6 +1088,7 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v107.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v108.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v109.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v110.sql
             cat <<'SQL'
           do $v105_validation$
           declare v_function oid;
@@ -1108,6 +1112,7 @@ jobs:
           end
           $v105_validation$;
           SQL
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v110-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v109-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v108-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v107-rollback.sql
@@ -1549,6 +1554,7 @@ jobs:
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v107.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v108.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109.sql
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select position('p_quantity' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0 and position('p_item' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0 and has_function_privilege('authenticated','public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)','EXECUTE') and not has_function_privilege('anon','public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)','EXECUTE');" \
               | grep -qx t

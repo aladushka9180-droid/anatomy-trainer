@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v427`;
+const CACHE = `${CACHE_PREFIX}v428`;
 const ASSETS = [
   './provider-header.css?v=427',
   './free-slots-compact.css?v=427',
@@ -13,6 +13,7 @@ const ASSETS = [
   './my-bookings.html',
   './waitlist.html',
   './privacy.html',
+  './terms.html',
   './help/index.html',
   './help/article.html',
   './help/category.html',
@@ -129,6 +130,7 @@ const ASSETS = [
   './client-messaging.js?v=427',
   './provider-read-fetch.js?v=427',
   './provider.js?v=427',
+  './data-governance.js?v=427',
   './onboarding.js?v=427',
   './report-worker.js?v=427',
   './voice-assistant.js?v=427',
@@ -190,7 +192,7 @@ async function navigationResponse(request) {
     return response;
   } catch {
     const path = new URL(request.url).pathname;
-    const shell = path.endsWith('/help/article.html') ? './help/article.html' : path.endsWith('/help/category.html') ? './help/category.html' : path.endsWith('/help/') || path.endsWith('/help/index.html') ? './help/index.html' : path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/waitlist.html') ? './waitlist.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : './index.html';
+    const shell = path.endsWith('/help/article.html') ? './help/article.html' : path.endsWith('/help/category.html') ? './help/category.html' : path.endsWith('/help/') || path.endsWith('/help/index.html') ? './help/index.html' : path.endsWith('/booking.html') ? './booking.html' : path.endsWith('/my-bookings.html') ? './my-bookings.html' : path.endsWith('/waitlist.html') ? './waitlist.html' : path.endsWith('/provider.html') ? './provider.html' : path.endsWith('/privacy.html') ? './privacy.html' : path.endsWith('/terms.html') ? './terms.html' : './index.html';
     return (await caches.match(shell)) || (await caches.match('./index.html'));
   }
 }
