@@ -30,6 +30,7 @@ const names=['reportBookings','reportCompletedItems','reportRevenue','reportClie
 // The fixed source delegates name gating to this actual helper; old baseline
 // has no such declaration. Never substitute a model for either implementation.
 if (/^function reportCurrentTeamRows\(/m.test(source)) names.push('reportCurrentTeamRows');
+if (/^function reportCurrentEventRows\(/m.test(source)) names.push('reportCurrentEventRows');
 const actual=names.map(declaration).join('\n');
 const range={start:'2026-09-01',end:'2026-09-30',period:'month'};
 function booking(id,overrides={}) {
