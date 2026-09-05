@@ -52,3 +52,14 @@ test('stale salary and staff labels never enter a new report',()=>{
   const rows=api.teamRows([{...item,client:'C',outcome:paid}],{...options,expectedTeamKey:'7:actor:org:2026-08-01:2026-08-31'});
   assert.equal(rows.length,1);assert.equal(rows[0].payroll_rub,null);assert.equal(rows[0].performer_name,'Мастер');
 });
+test('signed server payroll is preserved; invalid salary stays unknown',()=>{
+  for(const [payroll,expected] of [[-321,-321],[NaN,null],[Infinity,null],[null,null]]){
+    const teamState={...options.teamState,rows:[{performer_id:'A',payroll_rub:payroll}]};
+    assert.equal(api.teamRows([{...item,client:'C',outcome:paid}],{...options,teamState})[0].payroll_rub,expected);
+  }
+});
+test('service quote is separate from completed service total',()=>{
+  const rows=[{...item,outcome:paid},{...item,status:'cancelled',outcome:paid},{...item,outcome:{...paid,visit_status:'scheduled'}}];
+  const completedValue=rows.filter(row=>api.completed(row,row.outcome)).reduce((sum,row)=>sum+api.amounts(row,row.outcome,1000).serviceValue,0);
+  assert.equal(completedValue,1000);
+});

@@ -6,6 +6,7 @@ import test from 'node:test';
 // Actual report computations; synthetic bookings and transport-free boundaries.
 // These are report contracts, not proof of bank settlements or production data.
 const source=readFileSync(process.env.MINUTA_PROVIDER_SOURCE || new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const reconciliation=readFileSync(new URL('../report-reconciliation.js',import.meta.url),'utf8');
 function declaration(name){
   const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));
   assert.ok(start>=0, name);
@@ -27,12 +28,12 @@ function fixture(items=[],imports=[],team=[]){
     currentUser:{id:'master-A'},reportRange:()=>range,reportUsesScopedBookings:()=>false,reportOrganizationId:()=> 'org-A',
     isScheduleBlock:item=>Boolean(item.is_schedule_block),bookingOutcome:item=>item.booking_outcomes,
     normalizePhone:value=>String(value||'').replace(/\D/g,''),parseLocalIsoDate:value=>new Date(`${value}T00:00:00Z`),
-    reportExportValue:item=>item.value,bookingCalculatedValue:item=>item.value,reportExportDuration:item=>item.duration_minutes,
+    reportExportValue:item=>item.value,bookingCalculatedValue:item=>item.value,bookingSessionTotal:item=>item.value,reportExportDuration:item=>item.duration_minutes,
     reportSourceMetrics:()=>({online:0,manual:0,unknown:0}),reportExportPerformers:()=>new Map(team.map(row=>[row.performer_id,row.performer_name])),
     reportExportDate:value=>value,reportExportEnd:()=> '11:00',reportExportPhone:value=>value,reportExportMaster:(item,names)=>names.get(item.performer_id)||'Мастер',
     bookingSession:()=>[{title:'Услуга'}],serviceName:value=>value,isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,
     paymentMethodLabel:value=>value,reportExportSource:()=> 'Мастер',reportExportCreator:()=> 'Мастер',bookingDisplayNote:()=>''};
-  const context=vm.createContext(state);vm.runInContext(actual,context);return {state,context};
+  const context=vm.createContext(state);vm.runInContext(reconciliation+'\n'+actual,context);return {state,context};
 }
 test('control: completed cash, service value and debt reconcile',()=>{
   const {context}=fixture([booking('A')]),data=context.reportExportData();
@@ -94,7 +95,7 @@ test('completed performer snapshot takes precedence, with assigned performer fal
 });
 test('actual per-minute display and export valuation agree with actual duration fallback',()=>{
   const context=vm.createContext({bookingOutcome:item=>item.outcome,isPerMinuteBooking:()=>true,bookingSessionTotal:()=>600,bookingMinuteRate:()=>10,bookingSession:()=>[],bookingSessionDuration:()=>60});
-  vm.runInContext(['bookingCalculatedValue','reportExportDuration','reportExportValue',...optional.filter(name=>source.includes(`function ${name}(`))].map(declaration).join('\n'),context);
+  vm.runInContext(reconciliation+'\n'+['bookingCalculatedValue','reportExportDuration','reportExportValue',...optional.filter(name=>source.includes(`function ${name}(`))].map(declaration).join('\n'),context);
   const item={duration_minutes:60,outcome:{visit_status:'completed',actual_duration_minutes:30,calculated_amount_rub:0}};
   const displayed=context.reportServiceValue?context.reportServiceValue(item):context.bookingCalculatedValue(item);
   assert.equal(displayed,300);assert.equal(context.reportExportValue(item),300);

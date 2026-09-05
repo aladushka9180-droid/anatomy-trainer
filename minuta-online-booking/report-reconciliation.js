@@ -32,12 +32,13 @@
     const groups = new Map();
     const rowFor = (id, name = 'Мастер', payroll = null) => ({
       performer_id:id, performer_name:name, completed_visits:0, unique_clients:0,
-      worked_minutes:0, revenue_rub:0, payroll_rub:payroll, clients:new Set()
+      worked_minutes:0, revenue_rub:0, payroll_rub:payroll, payment_known_visits:0, clients:new Set()
     });
     // Never carry salary or staff labels across a stale actor/org/period snapshot.
     if (payrollCurrent) performerRows.forEach(row => {
       const id = String(row.performer_id || '');
-      groups.set(id, rowFor(id, row.performer_name || 'Мастер', row.payroll_rub == null ? null : nonnegative(row.payroll_rub)));
+      const payroll = row.payroll_rub == null || !Number.isFinite(Number(row.payroll_rub)) ? null : Number(row.payroll_rub);
+      groups.set(id, rowFor(id, row.performer_name || 'Мастер', payroll));
     });
     items.forEach(item => {
       const outcome = outcomeFor(item);
@@ -46,6 +47,7 @@
       row.completed_visits += 1;
       row.worked_minutes += nonnegative(durationFor(item));
       row.revenue_rub += amounts(item, outcome, valueFor(item)).received;
+      if (!paymentUnknown(item, outcome)) row.payment_known_visits += 1;
       const client = clientIdentityFor(item); if (client) row.clients.add(client);
       groups.set(id, row);
     });
