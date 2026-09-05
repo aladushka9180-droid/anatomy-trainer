@@ -407,7 +407,7 @@ assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-entry \{[\
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-actions \{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/, 'Действия журнала связи не выровнены в Luxury');
 assert.match(styles, /\.schedule-empty-create/, 'Кнопка пустого расписания не оформлена');
 const providerThemes = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal'], 'Набор тем кабинета неожиданно изменился');
+assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon'], 'Набор тем кабинета неожиданно изменился');
 const allProviderThemeStyles = `${styles}\n${signatureStyles}`;
 for (const theme of providerThemes) assert.match(allProviderThemeStyles, new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\] \\{[^}]*--theme-bg:`), `У темы ${theme} нет полной палитры`);
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.booking-sheet-panel \{[^}]*background:var\(--theme-surface\)[^}]*color:var\(--theme-ink\)/, 'Окно записи не использует поверхность активной темы');
@@ -420,7 +420,7 @@ assert.match(styles, /@media \(prefers-reduced-motion:reduce\) \{\s*\.calendar-v
 assert.match(styles, /booking-sheet-client-name \{ display:flex; align-items:center;/, 'Метка под именем клиента не стала компактной');
 assert.match(styles, /timeline-booking\.client-favorite/, 'Для любимого клиента не задан нежный акцент карточки');
 assert.match(styles, /timeline-booking\.client-attention/, 'Для метки «Внимание» не задан заметный акцент карточки');
-for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal']) assert.match(allProviderThemeStyles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
+for (const theme of ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon']) assert.match(allProviderThemeStyles, new RegExp(`data-provider-theme="${theme}"`), `Нет CSS темы ${theme}`);
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) assert.match(styles, new RegExp(`data-provider-layout="${layout}"`), `Нет CSS структуры ${layout}`);
 assert.match(styles, /booking-client-visit\.is-regular/, 'Постоянный клиент не выделяется в карточке записи');
 assert.match(styles, /:is\(\.primary,\.journal-mode-toggle button\.active\)>span \{ color:#fff; \}/, 'Текст главной кнопки или активного режима теряет контраст темы');
@@ -520,7 +520,7 @@ const defaultMobileNav = ['bookings', 'notifications', 'analytics', 'schedule'];
 const defaultAnalyticsGoals = { revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 };
 const defaultAnalyticsGoalsByScope = {};
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
-  for (const theme of ['luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal']) {
+  for (const theme of ['luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon']) {
     assert.deepEqual(normalizeAppearance({ layout, theme }).layout, layout, `Структура ${layout} потерялась с темой ${theme}`);
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
