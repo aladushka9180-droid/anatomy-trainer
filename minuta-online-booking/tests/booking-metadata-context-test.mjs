@@ -53,7 +53,7 @@ function harness() {
   };
   createNodes();
   const state = {
-    currentUser:{ id:ids.A }, sessionGeneration:1, activeClientOrganizationId:'org-A',
+    currentUser:{ id:ids.A }, sessionGeneration:1, activeClientOrganizationId:'org-A', writesAllowed:true,
     window:{ addEventListener:(name, listener) => { if (name === 'minuta:provider-session-reset') resetListeners.push(listener); } },
     freeSlotsController:{ invalidateScope(){} }, providerReadFetch:{ cancelPendingReads(){} },
     bookingColors:new Map(), pendingBookingColors:new Set(), bookingNotes:new Map(), pendingBookingNotes:new Set(),
@@ -64,7 +64,7 @@ function harness() {
       '#bookingBlockNote':nodes.note, '.booking-note-state':nodes.state })[selector],
     document:{ addEventListener:(name, callback) => listeners.set(name, callback), contains:node => node?.isConnected === true },
     requireWrites:() => true, renderBookingData:() => effects.push(['render']), notify:message => effects.push(['notify', message]),
-    db:{ rpc:(name, params) => { effects.push(['rpc', name, JSON.parse(JSON.stringify(params))]); return gate.promise; } },
+    db:{ rpc:(name, params) => { effects.push(['rpc', name, JSON.parse(JSON.stringify(params))]); return gate.promise.then(result => result === success ? {data:params.p_note ?? params.p_color,error:null} : result); } },
     normalizePhone:String,
     deliverTelegramClientNotification:async () => ({ delivered:true, retryable:false }),
     stageOfflineBookingProviderNotice:() => null,

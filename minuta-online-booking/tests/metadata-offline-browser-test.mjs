@@ -11,7 +11,7 @@ function declaration(name) {
 }
 const helpers=source.slice(source.indexOf('// Background replay'),source.indexOf('// Local completion ownership'));
 const script=`
-let currentUser={id:'actor-A'},sessionGeneration=1,activeClientOrganizationId='org-A',bookingMetadataRevision=0;
+let currentUser={id:'actor-A'},sessionGeneration=1,activeClientOrganizationId='org-A',bookingMetadataRevision=0,writesAllowed=true;
 let pendingClientNotes=new Map(),clientNotes=new Map(),selectedClientPhone='79990000000',bookingNotes=new Map();
 const $=selector=>document.querySelector(selector),sessionIsCurrent=(id,generation)=>currentUser?.id===id&&sessionGeneration===generation;
 const normalizePhone=value=>String(value||'').replace(/\\D/g,''),requireWrites=()=>true;

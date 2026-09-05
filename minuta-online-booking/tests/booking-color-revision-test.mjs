@@ -28,7 +28,7 @@ const observe = promise => promise.then(value => ({ value, error:null }), error 
 function harness() {
   const storage = new Map(), effects = [], calls = [], listeners = new Map();
   const state = {
-    currentUser:{ id:actor }, sessionGeneration:1, activeClientOrganizationId:'org-A',
+    currentUser:{ id:actor }, sessionGeneration:1, activeClientOrganizationId:'org-A', writesAllowed:true,
     bookingColors:new Map(), pendingBookingColors:new Set(), allBookings:[{ id:first }, { id:second }],
     localStorage:{ getItem:key => storage.get(key) ?? null,
       setItem:(key, value) => { storage.set(key, value); effects.push(['storage', key, value]); } },
@@ -56,7 +56,7 @@ function harness() {
   }
   async function settle(index, outcome, pending) {
     if (outcome === 'throw') calls[index].reject(Error('defensive unexpected rejection'));
-    else calls[index].resolve(outcome === 'success' ? { data:true, error:null }
+    else calls[index].resolve(outcome === 'success' ? { data:calls[index].params.p_color, error:null }
       : { data:null, error:{ code:'08006', message:'connection_failure' } });
     return pending;
   }

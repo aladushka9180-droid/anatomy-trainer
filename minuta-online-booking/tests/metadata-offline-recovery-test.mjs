@@ -42,6 +42,26 @@ function fixture(storage = new Map()) {
   return { state, context, storage, calls, notices };
 }
 const ack = call => call.resolve({data:call.params.p_note ?? call.params.p_color ?? null,error:null});
+
+test('foreground metadata rechecks write permission after replay barrier', async () => {
+  const h = fixture(); h.state.navigator.onLine = false;
+  await h.context.saveBookingNote('booking-A', 'old'); h.state.navigator.onLine = true;
+  const replay = h.context.flushPendingMetadata(); await tick();
+  const newer = h.context.saveBookingNote('booking-A', 'new');
+  h.state.writesAllowed = false; ack(h.calls[0]); await tick();
+  assert.equal(h.calls.length, 1);
+  assert.equal(await newer, false); await replay;
+  assert.ok(h.state.pendingBookingNotes.has('booking-A'));
+});
+
+for (const [method, value, pending] of [['saveBookingNote', 'note', 'pendingBookingNotes'], ['saveBookingColor', 'mint', 'pendingBookingColors']]) {
+  test(`${method} rejects a null-data RPC acknowledgement`, async () => {
+    const h = fixture(), saving = h.context[method]('booking-A', value);
+    h.calls[0].resolve({data:null,error:null});
+    assert.equal(await saving, false);
+    assert.ok(h.state[pending].has('booking-A'));
+  });
+}
 test('note is marked pending durably BEFORE transport acknowledgement', async () => {
   const h = fixture();
   const saving = h.context.saveBookingNote('booking-A', 'Новая заметка');

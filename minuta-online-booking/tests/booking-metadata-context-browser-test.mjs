@@ -85,7 +85,7 @@ async function fixture(){
     var db={rpc:(name,args)=>{
       if(!['set_booking_color','set_booking_note'].includes(name))throw new Error('Unexpected RPC '+name);
       effects.push({kind:'rpc',name,args:structuredClone(args)});
-      return new Promise((resolve,reject)=>gates.push({name,resolve,reject}));
+      return new Promise((resolve,reject)=>gates.push({name,resolve,reject,value:args.p_note ?? args.p_color}));
     }};
     ${loader}
   `});
@@ -109,7 +109,7 @@ async function release(page,outcome){
   await page.evaluate(outcome=>{
     const gate=gates.shift();
     if(outcome==='throw')gate.reject(new Error('Failed to fetch'));
-    else gate.resolve({data:null,error:outcome==='error'?{code:'08006',message:'connection lost'}:null});
+    else gate.resolve({data:gate.value,error:outcome==='error'?{code:'08006',message:'connection lost'}:null});
   },outcome);
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
 }

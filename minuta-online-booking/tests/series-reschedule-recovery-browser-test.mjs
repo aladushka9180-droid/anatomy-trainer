@@ -96,7 +96,7 @@ async function fixture(holdAt = '') {
     var gestureClickSuppressedUntil=0, writesAllowed=true;
     var freeSlotsController={invalidateScope(){}}, providerReadFetch={cancelPendingReads(){}};
     var SCHEDULE_BLOCK_PHONE='0000000000', bookingColors=new Map(), bookingNotes=new Map(), bookingOutcomes=new Map();
-    var pendingBookingColors=new Set(), pendingBookingNotes=new Set();
+    var pendingBookingColors=new Set(), pendingBookingNotes=new Set(), pendingClientNotes=new Map();
     var clientNotes=new Map([['79990000001','Исходная заметка A'],['79990000002','Исходная заметка B']]);
     var ownServices=[{id:ids.service,name:'Услуга',duration_minutes:60,price_rub:1000,active:true}];
     var allBookings=['A','B'].map((name,index)=>({id:ids[name],series_id:ids['series'+name],series_occurrence:1,
@@ -108,8 +108,8 @@ async function fixture(holdAt = '') {
     var boundary=(kind,value)=>{effects.push({kind});return kind===holdAt
       ?new Promise((resolve,reject)=>gates.push({kind,resolve:override=>resolve(override===undefined?value:override),reject})):Promise.resolve(value);};
     var db={rpc:(name,args)=>{
-      if(name==='set_booking_color')return boundary('color',{data:null,error:null});
-      if(name==='set_booking_note')return boundary('booking-note',{data:null,error:null});
+      if(name==='set_booking_color')return boundary('color',{data:args.p_color,error:null});
+      if(name==='set_booking_note')return boundary('booking-note',{data:args.p_note,error:null});
       if(name!=='manage_minuta_booking_series')throw new Error('Unexpected RPC '+name);
       effects.push({kind:'rpc-args',name,args:structuredClone(args)});return boundary('rpc',responseFixture);},
       from:name=>{if(name!=='client_notes')throw new Error('Unexpected table '+name);return {upsert:args=>{

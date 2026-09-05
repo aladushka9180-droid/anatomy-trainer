@@ -48,7 +48,7 @@ async function fixture(){
     var db={rpc:(name,args)=>{
       if(name!=='set_booking_color')throw new Error('Unexpected RPC '+name);
       effects.push({kind:'rpc',args:structuredClone(args)});
-      return new Promise((resolve,reject)=>gates.push({resolve,reject}));
+      return new Promise((resolve,reject)=>gates.push({resolve,reject,value:args.p_color}));
     }};
     ${loader}
     $('#journal').innerHTML=bookingColorPicker('journal-A','auto',ids.A)+bookingColorPicker('journal-B','auto',ids.B);
@@ -64,7 +64,7 @@ async function answer(page,index,outcome){
   await page.evaluate(({index,outcome})=>{
     const [gate]=gates.splice(index,1);
     if(outcome==='throw')gate.reject(new Error('Failed to fetch'));
-    else gate.resolve({data:null,error:outcome==='error'?{code:'08006',message:'connection lost'}:null});
+    else gate.resolve({data:gate.value,error:outcome==='error'?{code:'08006',message:'connection lost'}:null});
   },{index,outcome});
   await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
 }

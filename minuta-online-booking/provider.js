@@ -781,9 +781,10 @@ function bookingConnectionError(error) {
 async function finalizeQueuedBooking(item, booking, userId, generation) {
   if (!sessionIsCurrent(userId, generation) || !offlineBookingQueue.some(entry => entry.id === item.id)) return false;
   if (item.note) {
-    await db.from('client_notes').upsert({ performer_id:item.userId, client_phone:normalizePhone(item.clientPhone), note:item.note, updated_at:new Date().toISOString() });
+    if (item.userId !== userId) return false;
+    const noteSaved = await saveClientNoteValue(item.clientPhone, item.note, { isCurrent:() => sessionIsCurrent(userId, generation) });
     if (!sessionIsCurrent(userId, generation)) return false;
-    clientNotes.set(normalizePhone(item.clientPhone), item.note);
+    if (!noteSaved) return false;
   }
   if (booking?.id) await saveBookingColor(booking.id, item.color, { rerender:false });
   if (!sessionIsCurrent(userId, generation)) return false;
@@ -1905,7 +1906,7 @@ function captureBookingMetadataContext() {
 // Background replay waits for already dispatched writes. A new edit waits for
 // replay, but keeps its own immediate local draft and completion ownership.
 const metadataWriteStates = new WeakMap();
-function runMetadataWrite(store, id, canSend, write, replay = false, rethrow = false) {
+function runMetadataWrite(store, id, canSend, write, replay = false, rethrow = false, accepts = () => true) {
   let entries = metadataWriteStates.get(store);
   if (!entries) { entries = new Map(); metadataWriteStates.set(store, entries); }
   let state = entries.get(id);
@@ -1916,9 +1917,9 @@ function runMetadataWrite(store, id, canSend, write, replay = false, rethrow = f
     try {
       if (barrier) await barrier;
       if (earlier.length) await Promise.all(earlier.map(task => task.catch(() => false)));
-      if (!canSend() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return false;
+      if (!canSend() || !writesAllowed || (typeof navigator !== 'undefined' && navigator.onLine === false)) return false;
       const response = await write();
-      return Boolean(response && response.error === null);
+      return Boolean(response && response.error === null && accepts(response.data));
     } catch (error) { if (rethrow) throw error; return false; }
   })();
   state.active.add(operation);
@@ -1954,25 +1955,27 @@ function persistPendingClientNotes(userId = currentUser?.id) {
   catch { return false; }
 }
 const clientNoteSaveQueues = new Map();
-async function saveClientNoteValue(phone, note, { replay = false, isCurrent = () => true } = {}) {
+async function saveClientNoteValue(phone, note, { replay = false, isCurrent = () => true, optimistic = true, rethrow = false } = {}) {
   const contextIsCurrent = captureBookingMetadataContext(), userId = currentUser?.id;
   const generation = sessionGeneration, pending = pendingClientNotes;
   phone = normalizePhone(phone);
   const value = String(note || '').trim().slice(0, 1000);
   const canApply = () => contextIsCurrent() && pendingClientNotes === pending && isCurrent();
   if (!userId || !phone || !canApply()) return false;
-  pendingClientNotes.set(phone, value); clientNotes.set(phone, value);
+  pendingClientNotes.set(phone, value);
+  if (optimistic) clientNotes.set(phone, value);
   const locallySaved = persistPendingClientNotes(userId);
   const key = JSON.stringify([userId, generation, phone]);
   const previous = clientNoteSaveQueues.get(key) || Promise.resolve();
   const operation = previous.catch(() => {}).then(() => runMetadataWrite(pending, phone,
     () => canApply() && pendingClientNotes.get(phone) === value,
-    () => db.from('client_notes').upsert({performer_id:userId,client_phone:phone,note:value,updated_at:new Date().toISOString()}), replay));
+    () => db.from('client_notes').upsert({performer_id:userId,client_phone:phone,note:value,updated_at:new Date().toISOString()}), replay, rethrow));
   clientNoteSaveQueues.set(key, operation);
-  const saved = await operation;
-  if (clientNoteSaveQueues.get(key) === operation) clientNoteSaveQueues.delete(key);
+  let saved;
+  try { saved = await operation; }
+  finally { if (clientNoteSaveQueues.get(key) === operation) clientNoteSaveQueues.delete(key); }
   if (!canApply() || pendingClientNotes.get(phone) !== value) return false;
-  if (saved) pendingClientNotes.delete(phone);
+  if (saved) { pendingClientNotes.delete(phone); clientNotes.set(phone, value); }
   persistPendingClientNotes(userId);
   if (!saved && !locallySaved && !replay) throw new Error('local_note_storage_unavailable');
   return saved;
@@ -2005,7 +2008,7 @@ async function saveBookingColor(id, color, { rerender = true, isCurrent = () => 
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
   const saved = await runMetadataWrite(colors, id, () => canApply() && isLatest(),
-    () => db.rpc('set_booking_color', { p_booking:id, p_color:selected }), replay, !replay);
+    () => db.rpc('set_booking_color', { p_booking:id, p_color:selected }), replay, !replay, data => data === selected);
   if (!canApply() || !isLatest()) return false;
   if (saved) pendingBookingColors.delete(id);
   persistBookingColors(userId);
@@ -2027,7 +2030,7 @@ async function saveBookingNote(id, note, { rerender = true, isCurrent = () => tr
   if (item) item.provider_note = value;
   if (rerender) renderBookingData();
   const saved = await runMetadataWrite(notes, id, () => canApply() && isLatest(),
-    () => db.rpc('set_booking_note', { p_booking:id, p_note:value }), replay);
+    () => db.rpc('set_booking_note', { p_booking:id, p_note:value }), replay, false, data => data === value);
   if (!canApply() || !isLatest()) return false;
   if (saved) pendingBookingNotes.delete(id);
   persistBookingNotes(userId);
@@ -6335,10 +6338,8 @@ async function saveBookingChanges(event) {
       if (!isCurrent()) return;
     } else {
       const normalizedPhone = normalizePhone(item.client_phone);
-      const { error:noteError } = await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
+      noteRemoteSaved = await saveClientNoteValue(normalizedPhone, note, { isCurrent, rethrow:true });
       if (!isCurrent()) return;
-      noteRemoteSaved = !noteError;
-      if (!noteError) clientNotes.set(normalizedPhone, note);
     }
     selectScheduleDate(date);
     const refreshed = await refreshAfterWrite();
@@ -7124,15 +7125,12 @@ async function createNewBooking(event) {
       form.dataset.historicalCreateState = 'created';
       const normalizedPhone = normalizePhone(phone);
       if (note) {
-        const noteResult = await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
+        const noteSaved = await saveClientNoteValue(normalizedPhone, note, { isCurrent:formIsCurrent, optimistic:false });
         if (!formIsCurrent()) return;
-        // PostgREST upsert without select legitimately returns data:null. Its
-        // error envelope, not returned rows, confirms completion of this step.
-        if (noteResult?.error !== null) {
+        if (!noteSaved) {
           showFormError('#newBookingError', 'Запись в прошлом создана, но сохранение заметки не подтверждено. Проверьте запись перед повтором.');
           return;
         }
-        clientNotes.set(normalizedPhone, note);
       }
       const colorSaved = await saveBookingColor(createdId, color, { rerender:false, isCurrent:formIsCurrent });
       if (!formIsCurrent()) return;
@@ -7199,8 +7197,8 @@ async function createNewBooking(event) {
     }
     const normalizedPhone = normalizePhone(phone);
     if (note) {
-      await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
-      clientNotes.set(normalizedPhone, note);
+      await saveClientNoteValue(normalizedPhone, note, { isCurrent:() => sessionIsCurrent(userId, generation) });
+      if (!sessionIsCurrent(userId, generation)) return;
     }
     const created = Array.isArray(data?.created) ? data.created : [];
     const createdIds = created.map(entry => entry.booking_id).filter(Boolean);
@@ -7277,9 +7275,8 @@ async function createNewBooking(event) {
   }
   const normalizedPhone = normalizePhone(phone);
   if (!block && note) {
-    await db.from('client_notes').upsert({ performer_id: userId, client_phone: normalizedPhone, note, updated_at: new Date().toISOString() });
+    await saveClientNoteValue(normalizedPhone, note, { isCurrent:() => sessionIsCurrent(userId, generation) });
     if (!sessionIsCurrent(userId, generation)) return;
-    clientNotes.set(normalizedPhone, note);
   }
   selectScheduleDate(date);
   clearNewBookingDraft(userId);
@@ -8614,6 +8611,7 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
         || key === bookingNotePendingStorageKey(userId)
         || key === clientLabelStorageKey(userId)
         || key === clientLabelPendingStorageKey(userId)
+        || key === pendingClientNoteStorageKey(userId)
         || key === sessionItemsStorageKey(userId)
         || key === connectionLogKey(userId)
         || key === serviceDurationDefaultsStorageKey(userId)

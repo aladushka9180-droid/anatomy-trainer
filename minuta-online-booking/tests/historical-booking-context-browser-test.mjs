@@ -60,7 +60,7 @@ async function fixture(){
     var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
     var PER_MINUTE_BOOKING_MIN=1,PER_MINUTE_BOOKING_MAX=480,serviceDurationDefaults={},SCHEDULE_BLOCK_PHONE='0000000000',gestureClickSuppressedUntil=0;
     var ownServices=[{id:ids.service,active:true,name:'Тестовая услуга',duration_minutes:60,price_rub:1000}],scheduleRows=[];
-    var allBookings=[],clientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set();
+    var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set();
     var businessTodayIso=()=> '2026-09-06',bookingUsesDemoData=()=>false;
     var placementCalls=[],bookingPlacementIssue=(...args)=>{placementCalls.push(args);return null;};
     var applyClientHighlightClasses=()=>{},scheduleNewBookingClientSuggestions=()=>{},hideNewBookingClientSuggestions=()=>{};
@@ -72,12 +72,12 @@ async function fixture(){
     var focusCreatedBooking=id=>effects.push({kind:'focus-created',id});
     var historicalAck={booking_id:ids.booking,booking_code:'MIN-A1B2C3D4E5',duration_minutes:60,unit_price_rub:1000,
       total_price_rub:1000,payment_required:false,notifications_suppressed:true};
-    var transport=(kind,value)=>hold===kind?new Promise((resolve,reject)=>gates.push({kind,resolve,reject})):Promise.resolve(value);
+    var transport=(kind,value)=>hold===kind?new Promise((resolve,reject)=>gates.push({kind,resolve,reject,value})):Promise.resolve(value);
     var db={rpc:(name,args)=>{
       effects.push({kind:'rpc',name,args:structuredClone(args)});
       // Actual v98 envelope; no invented status or notification dispatch.
       if(name==='create_minuta_historical_booking')return transport('create',{data:structuredClone(historicalAck),error:null});
-      if(name==='set_booking_color')return transport('color',{data:null,error:null});
+      if(name==='set_booking_color')return transport('color',{data:args.p_color,error:null});
       throw Error('Unexpected RPC '+name);
     },from:name=>{
       if(name!=='client_notes')throw Error('Unexpected table write '+name);
@@ -102,7 +102,7 @@ async function start(page){
   await openAndFill(page,'A');await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.length===1);
   assert.deepEqual(await page.evaluate(()=>effects.filter(e=>e.kind==='rpc').map(e=>e.name)),['create_minuta_historical_booking','set_booking_color']);
 }
-async function release(page){await page.evaluate(()=>gates.shift().resolve({data:null,error:null}));await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));}
+async function release(page){await page.evaluate(()=>{const gate=gates.shift();gate.resolve(gate.value);});await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));}
 async function startCreate(page){
   await page.evaluate(()=>{hold='create';});await openAndFill(page,'A');await page.locator('#newBookingSubmit').click();
   await page.waitForFunction(()=>gates.some(gate=>gate.kind==='create'));
