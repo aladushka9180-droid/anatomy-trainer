@@ -49,6 +49,7 @@ jobs:
       - name: Isolated PostgreSQL models — no production credentials
         run: |
           node minuta-online-booking/tests/client-records-pglite-runtime-test.mjs
+          node minuta-online-booking/tests/crm-integration-client-record-lifecycle-pglite-test.mjs
           node minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
           deno test --allow-read minuta-online-booking/notification-v114-integration-test.ts
           deno test supabase/functions/notification-dispatcher/adapters_test.ts
