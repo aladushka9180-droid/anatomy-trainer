@@ -44,7 +44,7 @@ for phase in pre-data data auth-placeholders post-data; do
     echo "Offline snapshot load failed at $phase; private SQL output not published" >&2
     # Whitelist structural diagnostics; never print arbitrary errors or rows.
     sed -nE 's/^(psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}):.*$/\1/p' "$private_log" >&2
-    sed -nE 's/^psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}:  schema "([a-z_][a-z0-9_]*)" does not exist$/Missing schema: \1/p' "$private_log" >&2
+    sed -nE 's/^psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR: +[0-9A-Z]{5}: +schema "([a-z_][a-z0-9_]*)" does not exist\r?$/Missing schema: \1/p' "$private_log" >&2
     exit 1
   fi
 done
