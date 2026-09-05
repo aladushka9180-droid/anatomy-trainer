@@ -53,7 +53,15 @@ assert.match(script, /midnight:'#0b1420'|midnight:'#08111f'/, 'Нет систе
 assert.match(script, /mono:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
 assert.match(script, /desert:'#f3e8dc'|desert:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
 assert.match(script, /rose:'#f2e9ec'|rose:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
-assert.match(provider, /provider-themes-signature\.css\?v=406/, 'Кабинет не подключает Signature Collection v406');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=406/, 'Service Worker не кэширует Signature Collection v406');
+for (const [key, color, group] of [
+  ['botanical', '#101c18', 'dark natural'],
+  ['burgundy', '#21131c', 'dark'],
+  ['coastal', '#f1f6f7', 'light'],
+]) {
+  assert.ok(script.includes(`${key}:'${color}'`), `Нет системного цвета ${key}`);
+  assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
+}
+assert.match(provider, /provider-themes-signature\.css\?v=407/, 'Кабинет не подключает Signature Collection v407');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=407/, 'Service Worker не кэширует Signature Collection v407');
 
-console.log('Signature themes v406: 8 unified themes OK');
+console.log('Signature themes v407: 8 unified themes OK');
