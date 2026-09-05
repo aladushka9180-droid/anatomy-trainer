@@ -4,10 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider] = await Promise.all([
+const [baseCss, signatureCss, provider, calmCss] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
+  readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
 ]);
 const css = `${baseCss}\n${signatureCss}`;
 
@@ -118,5 +119,12 @@ for (const layout of layouts) {
 assert.match(css, /\.unified-channel-card input\s*\{[^}]*width:20px!important[^}]*height:20px!important[^}]*\}/s);
 assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav :is\(button,a\):not\(\.active\)/);
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
+
+// The modal lives outside the themed panels: both foreground and background
+// must be assigned together, otherwise dark themes inherit the light base.
+assert.match(calmCss, /\.provider-body\[data-provider-theme\] \.connection-log-dialog\s*\{[^}]*background:var\(--theme-surface\)!important;[^}]*color:var\(--theme-ink\)!important;/s);
+assert.match(calmCss, /\.connection-log-entry\s*\{[^}]*background:var\(--theme-surface-alt\)!important;[^}]*color:var\(--theme-ink\)!important;/s);
+assert.match(calmCss, /\.connection-log-actions \.primary\s*\{[^}]*background:var\(--theme-accent\)!important;[^}]*color:var\(--theme-accent-contrast\)!important;/s);
+assert.match(calmCss, /\.connection-log-dialog :is\(\.connection-log-head small,\.connection-log-lead,\.connection-log-entry small\)\s*\{[^}]*var\(--theme-muted\) 82%,var\(--theme-ink\)/s);
 
 console.log('Provider theme matrix checks passed: 17 themes × 6 layouts.');
