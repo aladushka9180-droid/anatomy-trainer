@@ -51,6 +51,18 @@
     return match ? `${match[1]}:${match[2]}` : '';
   }
 
+  // Select real server-confirmed starts, never manufacture hours from working hours.
+  // Keep each whole hour and the beginning of a separate non-hour opening.
+  function defaultPublicationTimes(times) {
+    const sorted = [...new Set(times)].sort();
+    const minutes = sorted.map(time => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5)));
+    const gaps = minutes.slice(1).map((value, index) => value - minutes[index]).filter(value => value > 0);
+    const step = gaps.length ? Math.min(...gaps) : 60;
+    return sorted.filter((time, index) => index === 0
+      || Math.floor(minutes[index] / 60) !== Math.floor(minutes[index - 1] / 60)
+      || minutes[index] - minutes[index - 1] > step);
+  }
+
   function buildPublication(from, to, data, slots) {
     const dates = dateSpan(from, to);
     const grouped = new Map(dates.map(date => [date, []]));
@@ -63,12 +75,12 @@
     const target = [data.serviceLabel, data.locationLabel].filter(Boolean).join(' · ');
     const heading = dates.length === 1 ? `Свободное время на ${formatDate(dates[0])}:` : 'Свободное время для записи:';
     const body = rows.length
-      ? (data.selectedOnly ? rows : rows.slice(0, 7)).map(row => {
-          const times = data.selectedOnly || row.times.length <= 3 ? row.times : [row.times[0], row.times[Math.floor((row.times.length - 1) / 2)], row.times[row.times.length - 1]];
+      ? rows.map(row => {
+          const times = row.times;
           return `${dates.length === 1 ? 'Начало сеанса: ' : `${formatDate(row.date)} — `}${times.join(', ')}`;
         }).join('\n')
       : 'На выбранный период свободных окон пока нет.';
-    const invitation = rows.length ? 'Другие варианты и запись:' : 'Посмотрите другие даты онлайн:';
+    const invitation = rows.length ? 'Выбрать время и записаться:' : 'Посмотрите другие даты онлайн:';
     return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${invitation}\n${data.bookingUrl}`;
   }
 
@@ -293,6 +305,7 @@
     const timeChoices = dialog.querySelector('#freeSlotsTimeChoices');
     const selectionSummary = dialog.querySelector('#freeSlotsSelectionSummary');
     const clearSelectionButton = dialog.querySelector('#freeSlotsClearSelection');
+    const autoSelectionButton = dialog.querySelector('#freeSlotsAutoSelection');
     let serverContext = null;
     let serverSlots = [];
     let requestRevision = 0;
@@ -300,6 +313,7 @@
     let publicationText = '';
     let selectionContext = '';
     let selectedTimes = new Set();
+    let manualSelection = false;
     let checkingPublication = false;
     let confirmedPublication = null;
 
@@ -319,14 +333,15 @@
       const rows = [...groups].sort(([left], [right]) => left.localeCompare(right))
         .map(([date, times]) => ({ date, times:[...times].sort() }));
       const availableKeys = new Set(rows.flatMap(row => row.times.map(time => `${row.date}T${time}`)));
-      if (selectionContext !== contextKey) {
+      if (selectionContext !== contextKey) manualSelection = false;
+      if (!manualSelection) {
         selectedTimes = new Set();
-        for (const row of rows.slice(0, 7)) {
-          const times = row.times.length <= 3 ? row.times : [row.times[0], row.times[Math.floor((row.times.length - 1) / 2)], row.times[row.times.length - 1]];
+        for (const row of rows) {
+          const times = defaultPublicationTimes(row.times);
           times.forEach(time => selectedTimes.add(`${row.date}T${time}`));
         }
-        selectionContext = contextKey;
       } else selectedTimes = new Set([...selectedTimes].filter(key => availableKeys.has(key)));
+      selectionContext = contextKey;
       timeChoices.replaceChildren();
       for (const row of rows) {
         const section = document.createElement('section');
@@ -344,6 +359,7 @@
       }
       if (!rows.length) timeChoices.textContent = 'На выбранные даты свободного времени нет.';
       clearSelectionButton.disabled = !rows.length;
+      if (autoSelectionButton) autoSelectionButton.disabled = !rows.length;
     }
 
     function rangeMode() { return modeControls.find(control => control.checked)?.value === 'range'; }
@@ -430,7 +446,7 @@
       const chosenSlots = serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
       publicationText = buildPublication(model.from, model.to, model.publicationData, chosenSlots);
       const hasSelection = chosenSlots.length > 0;
-      selectionSummary.textContent = `Выбрать время · отмечено ${selectedTimes.size}`;
+      selectionSummary.textContent = `${manualSelection ? 'Выбрано вручную' : 'Свободные начала сеанса'} · ${selectedTimes.size}`;
       const trackingUrl = model.trackingUrl;
       textArea.value = !hasSelection && serverSlots.length
         ? 'Отметьте время, которое хотите включить в публикацию.'
@@ -473,6 +489,7 @@
       shareButton.disabled = true;
       copyLinkButton.disabled = true;
       clearSelectionButton.disabled = true;
+      if (autoSelectionButton) autoSelectionButton.disabled = true;
       timeChoices.replaceChildren();
       selectionSummary.textContent = 'Время пока недоступно';
       dialog.removeAttribute('aria-busy');
@@ -487,6 +504,7 @@
       bookingLink.removeAttribute('href');
       qrWrap.hidden = true;
       clearSelectionButton.disabled = true;
+      if (autoSelectionButton) autoSelectionButton.disabled = true;
       timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
       status.textContent = 'Проверяем свободное время на сервере…';
       dialog.setAttribute('aria-busy', 'true');
@@ -567,6 +585,8 @@
     }
 
     async function open() {
+      selectionContext = '';
+      manualSelection = false;
       const data = getData();
       fromInput.min = data.today;
       fromInput.value = data.selectedDate >= data.today ? data.selectedDate : data.today;
@@ -589,15 +609,21 @@
     showServiceControl.addEventListener('change', renderPublication);
     timeChoices.addEventListener('change', event => {
       if (!publicationReady || event.target.type !== 'checkbox') return;
+      manualSelection = true;
       if (event.target.checked) selectedTimes.add(event.target.value);
       else selectedTimes.delete(event.target.value);
       renderPublication();
     });
     clearSelectionButton.addEventListener('click', () => {
       if (!publicationReady) return;
+      manualSelection = true;
       selectedTimes.clear();
       timeChoices.querySelectorAll('input').forEach(input => { input.checked = false; });
       renderPublication();
+    });
+    autoSelectionButton?.addEventListener('click', () => {
+      manualSelection = false;
+      void refreshFromServer({ reloadContext:true });
     });
     fromInput.addEventListener('change', () => { void refreshFromServer(); });
     toInput.addEventListener('change', () => { void refreshFromServer(); });

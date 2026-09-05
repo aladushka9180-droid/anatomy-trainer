@@ -1268,7 +1268,7 @@
   </dialog>
   <dialog class="free-slots-dialog" id="freeSlotsDialog" aria-labelledby="freeSlotsTitle">
     <div class="notification-template-dialog-head"><div><small>Публикация</small><h2 id="freeSlotsTitle">Свободные окна</h2></div><button type="button" data-close-free-slots aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
-    <p class="free-slots-help">Выберите услугу и дату. Покажем несколько свободных вариантов, остальные будут доступны по ссылке.</p>
+    <p class="free-slots-help">Покажем доступные начала сеанса по часам: 10:00, 11:00, 12:00 и далее. Время проверяется по выбранной услуге на сервере с учётом её длительности. Если отдельное окно начинается между часами, покажем и его начало.</p>
     <div class="free-slots-targets">
       <label>Услуга<select id="freeSlotsService" required aria-describedby="freeSlotsShareStatus"></select></label>
       <label id="freeSlotsLocationField" hidden>Место приёма<select id="freeSlotsLocation" aria-describedby="freeSlotsShareStatus"></select></label>
@@ -1278,9 +1278,10 @@
     <fieldset class="free-slots-source"><legend>Где разместите ссылку</legend><div><label><input name="freeSlotsSource" type="radio" value="master" checked><span>Обычная ссылка</span></label><label><input name="freeSlotsSource" type="radio" value="telegram"><span>Telegram</span></label><label><input name="freeSlotsSource" type="radio" value="whatsapp"><span>WhatsApp</span></label><label><input name="freeSlotsSource" type="radio" value="vk"><span>ВКонтакте</span></label><label><input name="freeSlotsSource" type="radio" value="qr"><span>QR-код</span></label></div><small>Метка добавится к ссылке автоматически и покажет владельцу источник перехода.</small></fieldset>
     <details class="free-slots-time-picker">
       <summary id="freeSlotsSelectionSummary">Выбрать время</summary>
-      <p>В публикацию войдут только отмеченные времена начала сеанса.</p>
+      <p>Автоматически отмечены свободные начала по часам. Здесь можно выбрать другое подтверждённое время или убрать отдельные варианты. Последний сеанс должен закончиться до закрытия.</p>
       <div id="freeSlotsTimeChoices"></div>
       <button class="secondary-button" id="freeSlotsClearSelection" type="button" disabled>Снять выбор</button>
+      <button class="secondary-button" id="freeSlotsAutoSelection" type="button" disabled>Все свободные часы</button>
     </details>
     <label class="free-slots-title-toggle"><input id="freeSlotsShowService" type="checkbox" checked><span>Показывать название услуги в тексте</span></label>
     <label class="free-slots-text-label">Готовый текст<textarea id="freeSlotsText" rows="6" readonly aria-describedby="freeSlotsShareStatus"></textarea></label>
