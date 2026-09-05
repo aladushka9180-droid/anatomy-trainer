@@ -205,6 +205,17 @@ async function verifyReadyUi(browser, failures) {
         failures.push(...violations.map(item => `${width}/${theme}: ${item}`));
       }
     }
+    if (process.env.MINUTA_CRM_SCREENSHOT_DIR) {
+      const screenshotDir = path.resolve(process.env.MINUTA_CRM_SCREENSHOT_DIR);
+      fs.mkdirSync(screenshotDir,{recursive:true});
+      for (const [width,theme] of [[390,'sage'],[1440,'luxury']]) {
+        await page.setViewportSize({width,height:1400});
+        await page.evaluate(theme => { document.body.dataset.providerTheme = theme; },theme);
+        const screenshotPath = path.join(screenshotDir,`crm-ready-${width}-${theme}.png`);
+        await page.screenshot({path:screenshotPath,fullPage:true});
+        console.log(`CRM ready screenshot: ${screenshotPath}`);
+      }
+    }
 
     await page.evaluate(() => { crm.delayProfitRead = true; });
     await page.locator('#reloadProfitability').click();

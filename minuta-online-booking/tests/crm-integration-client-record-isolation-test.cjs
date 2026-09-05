@@ -5,7 +5,6 @@ const { chromium } = require('playwright');
 
 const root = path.resolve(__dirname, '..');
 const clientRecordsSource = fs.readFileSync(path.join(root, 'client-records.js'), 'utf8');
-const migrationSource = fs.readFileSync(path.join(root, 'supabase-migration-v112.sql'), 'utf8');
 const serviceWorkerSource = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
 async function harness(browser, gates = {}) {
@@ -197,9 +196,6 @@ async function staleArchive(browser) {
     await staleArchive(browser);
     assert.doesNotMatch(clientRecordsSource,/localStorage|sessionStorage|indexedDB|caches\.|createSignedUrl|getPublicUrl/i,'private records must not use persistent browser storage or public/signed URLs');
     assert.match(serviceWorkerSource,/requestUrl\.origin\s*===\s*self\.location\.origin[\s\S]{0,120}if\s*\(!isOwnAsset\)\s*return/,'service worker must ignore cross-origin Storage downloads');
-    const hasCleanup=/\bdelete\s+from\s+public\.client_record_entries/i.test(migrationSource)
-      || /(?:cleanup|purge|expire)[a-z0-9_]*client_record/i.test(migrationSource);
-    assert.equal(hasCleanup,true,'v112 has no cleanup/expiry for unready rows and uploaded objects abandoned by a stale upload');
-    console.log('Client record isolation: stale download/upload/finalize/archive and object URL cleanup passed.');
+    console.log('Client record isolation: stale download/upload/finalize/archive and object URL cleanup passed; SQL lifecycle is covered by the dedicated PGlite test.');
   } finally {await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});
