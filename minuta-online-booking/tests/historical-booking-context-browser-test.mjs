@@ -64,17 +64,19 @@ async function fixture(){
     var placementCalls=[],bookingPlacementIssue=(...args)=>{placementCalls.push(args);return null;};
     var applyClientHighlightClasses=()=>{},scheduleNewBookingClientSuggestions=()=>{},hideNewBookingClientSuggestions=()=>{};
     var organizationController={getActiveOrganization:()=>({id:activeClientOrganizationId})};
-    var effects=[],gates=[];
+    var effects=[],gates=[],hold='color',refreshOutcome='success';
     var renderBookingData=()=>effects.push({kind:'render-list'}),notify=text=>effects.push({kind:'notify',text});
     var selectScheduleDate=date=>effects.push({kind:'select-date',date});
-    var refreshAfterWrite=async()=>{effects.push({kind:'refresh'});return true;};
+    var refreshAfterWrite=async()=>{effects.push({kind:'refresh'});if(refreshOutcome==='throw')throw Error('refresh_failed');return refreshOutcome!=='error';};
     var focusCreatedBooking=id=>effects.push({kind:'focus-created',id});
+    var historicalAck={booking_id:ids.booking,booking_code:'MIN-A1B2C3D4E5',duration_minutes:60,unit_price_rub:1000,
+      total_price_rub:1000,payment_required:false,notifications_suppressed:true};
+    var transport=(kind,value)=>hold===kind?new Promise((resolve,reject)=>gates.push({kind,resolve,reject})):Promise.resolve(value);
     var db={rpc:(name,args)=>{
       effects.push({kind:'rpc',name,args:structuredClone(args)});
       // Actual v98 envelope; no invented status or notification dispatch.
-      if(name==='create_minuta_historical_booking')return Promise.resolve({data:{booking_id:ids.booking,booking_code:'TEST-HISTORY',
-        duration_minutes:60,unit_price_rub:1000,total_price_rub:1000,payment_required:false,notifications_suppressed:true},error:null});
-      if(name==='set_booking_color')return new Promise((resolve,reject)=>gates.push({resolve,reject}));
+      if(name==='create_minuta_historical_booking')return transport('create',{data:structuredClone(historicalAck),error:null});
+      if(name==='set_booking_color')return transport('color',{data:null,error:null});
       throw Error('Unexpected RPC '+name);
     },from:name=>{throw Error('Unexpected table write '+name);}};
     ${loader}
@@ -97,6 +99,43 @@ async function start(page){
   assert.deepEqual(await page.evaluate(()=>effects.filter(e=>e.kind==='rpc').map(e=>e.name)),['create_minuta_historical_booking','set_booking_color']);
 }
 async function release(page){await page.evaluate(()=>gates.shift().resolve({data:null,error:null}));await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));}
+async function startCreate(page){
+  await page.evaluate(()=>{hold='create';});await openAndFill(page,'A');await page.locator('#newBookingSubmit').click();
+  await page.waitForFunction(()=>gates.some(gate=>gate.kind==='create'));
+}
+async function answerCreate(page,kind){
+  await page.evaluate(kind=>{
+    const gate=gates.shift();hold='';
+    if(kind==='throw')return gate.reject(Error('slot_unavailable'));
+    const result=kind==='refusal'?{data:null,error:{code:'23P01',message:'slot_unavailable'}}
+      :kind==='null'?{data:null,error:null}
+      :kind==='partial'?{data:{booking_id:ids.booking},error:null}
+      :kind==='network-name'?{data:null,error:{code:'08006',message:'slot_unavailable'}}
+      :{data:null,error:{code:'23P01',message:'network: slot_unavailable'}};
+    gate.resolve(result);
+  },kind);
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+}
+async function exerciseCaption(page){
+  // Real form input/date-change/occurrence-change handlers, including actual
+  // historical slot rendering and updateNewBookingSubmitCaption. Programmatic
+  // events also test the submit guard if a caller bypasses disabled controls.
+  await page.evaluate(()=>{
+    $('#newBookingName').dispatchEvent(new Event('input',{bubbles:true}));
+    $('#newBookingDate').dispatchEvent(new Event('change',{bubbles:true}));
+    $('#newBookingOccurrences').dispatchEvent(new Event('change',{bubbles:true}));
+    $('[data-new-booking-time="10:15"]').click();
+  });
+  assert.equal(await page.evaluate(()=>newBookingTime),'10:15','Keep validation preconditions valid; missing time must not mask duplicate protection');
+}
+async function attemptResubmit(page){
+  await page.evaluate(()=>{
+    const form=$('#newBookingForm'),button=$('#newBookingSubmit');
+    form.requestSubmit(button);
+    form.dispatchEvent(new SubmitEvent('submit',{bubbles:true,cancelable:true,submitter:button}));
+  });
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+}
 async function snapshot(page){return page.evaluate(()=>({
   visible:!$('#bookingSheet').hidden,sameForm:!window.destinationForm||window.destinationForm===$('#newBookingForm'),
   name:$('#newBookingName').value,phone:$('#newBookingPhone').value,date:$('#newBookingDate').value,time:newBookingTime,
@@ -129,6 +168,57 @@ for(const transition of ['account','close-reopen'])cases.push([
     await page.evaluate(()=>{window.destinationForm=$('#newBookingForm');});
     const before=await snapshot(page);await release(page);
     assert.deepEqual(await snapshot(page),before,'Old completion cannot clear draft, close B, navigate, refresh, toast or change current caches');
+  }
+]);
+cases.push(['SAFETY pending CREATE survives input/change caption refresh and duplicate submit',async page=>{
+  await startCreate(page);await exerciseCaption(page);const disabled=await page.locator('#newBookingSubmit').isDisabled();
+  await attemptResubmit(page);
+  const calls=await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length);
+  // Drain all fixture transports even on the unsafe baseline before asserting.
+  await page.evaluate(()=>{hold='';gates.splice(0).forEach(g=>g.resolve({data:null,error:{code:'23P01',message:'slot_unavailable'}}));});
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+  assert.equal(disabled,true,'A caption refresh must not unlock an in-flight non-idempotent CREATE');
+  assert.equal(calls,1,'Exactly one CREATE while the first result is pending');
+}]);
+for(const kind of ['null','partial','network-name','wrong-pair','throw'])cases.push([
+  `SAFETY unknown historical ${kind} keeps CREATE latched with no retry`,async page=>{
+    await startCreate(page);await answerCreate(page,kind);await exerciseCaption(page);
+    const disabled=await page.locator('#newBookingSubmit').isDisabled();await attemptResubmit(page);
+    const state=await snapshot(page);
+    assert.equal(disabled,true,'No request_id exists: unknown outcome cannot unlock a safe CREATE repeat');
+    assert.equal(state.effects.filter(e=>e.name==='create_minuta_historical_booking').length,1);
+    assert.equal(state.effects.filter(e=>e.name==='set_booking_color').length,0,'Unconfirmed acknowledgement must not start auxiliary writes');
+    assert.equal(state.effects.some(e=>e.kind==='focus-created'),false);
+    assert.equal(state.effects.some(e=>e.kind==='notify'&&/Запись в прошлом создана/.test(e.text)),false);
+    assert.equal(state.name,'Клиент A');assert.equal(state.visible,true);
+  }
+]);
+cases.push(['CONTROL exact v98 SQL refusal unlocks editing and a new explicit attempt',async page=>{
+  await startCreate(page);await answerCreate(page,'refusal');
+  assert.equal(await page.locator('#newBookingSubmit').isEnabled(),true);
+  assert.equal(await page.locator('#newBookingError').isVisible(),true);
+  await page.locator('#newBookingName').fill('Исправленный клиент');
+  await page.locator('[data-new-booking-time="10:15"]').click();
+  await page.evaluate(()=>{hold='create';});await page.locator('#newBookingSubmit').click();
+  assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),2);
+  await answerCreate(page,'refusal');
+}]);
+for(const phase of ['color','refresh'])for(const outcome of ['error','throw'])cases.push([
+  `SAFETY confirmed CREATE then ${phase} ${outcome} remains created without another CREATE`,async page=>{
+    if(phase==='refresh')await page.evaluate(outcome=>{refreshOutcome=outcome;},outcome);
+    await start(page);
+    await page.evaluate(({phase,outcome})=>{
+      const gate=gates.shift();hold='';
+      if(phase==='color'&&outcome==='throw')gate.reject(Error('color_failed'));
+      else gate.resolve({data:null,error:phase==='color'?{code:'08006',message:'color failed'}:null});
+    },{phase,outcome});
+    await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+    const message=await page.evaluate(()=>[$('#newBookingError').hidden?'':$('#newBookingError').textContent,...effects.filter(e=>e.kind==='notify').map(e=>e.text)].join(' '));
+    await exerciseCaption(page);await attemptResubmit(page);
+    assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),1,'Confirmed primary must never be repeated for an auxiliary error');
+    assert.match(message,/создан|добавлен|основн.{0,30}сохран/i,'The acknowledged creation must be distinguished from failed auxiliary work');
+    assert.match(message,/проверьте|не удалось|не заверш|не обнов|не сохран/i,'Auxiliary failure must not be reported as full success');
+    assert.doesNotMatch(message,/ничего не создан|запись не создана|откат/i,'No invented rollback');
   }
 ]);
 let failed=0;
