@@ -7653,13 +7653,22 @@ html.provider-booting .provider-main {
   }
 
   .provider-body .schedule-view-title .view-title-actions {
-    display:block!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
     width:100%!important;
     padding:0!important;
   }
 
-  .provider-body .schedule-view-title #openFreeSlots {
-    display:none!important;
+  .provider-body:not(.booking-demo-mode) .schedule-view-title #openFreeSlots {
+    display:inline-flex!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:44px!important;
+    padding:10px 8px!important;
+    justify-content:center!important;
+    gap:6px!important;
+    white-space:normal!important;
   }
 
   .provider-body .schedule-view-title #newBookingButton {
