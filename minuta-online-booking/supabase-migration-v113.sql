@@ -147,6 +147,28 @@ end $$;
 create index if not exists inventory_service_cost_settings_history_idx
   on public.inventory_service_cost_settings(organization_id,service_id,effective_from desc,id desc);
 
+-- v69 supplies UNIQUE(id,organization_id,location_id), not the two-column
+-- referenced key below. The global id PK guarantees this additive key can be
+-- built without rewriting bookings. Reuse any valid immediate equivalent key;
+-- never drop/rebuild existing indexes or the v69 key used by other foreign keys.
+do $$ begin
+  if not exists(
+    select 1 from pg_catalog.pg_index i
+    join pg_catalog.pg_attribute id_column on id_column.attrelid=i.indrelid
+      and id_column.attname='id' and not id_column.attisdropped
+    join pg_catalog.pg_attribute org_column on org_column.attrelid=i.indrelid
+      and org_column.attname='organization_id' and not org_column.attisdropped
+    where i.indrelid='public.bookings'::regclass
+      and i.indisunique and i.indisvalid and i.indisready and i.indimmediate
+      and i.indpred is null and i.indexprs is null and i.indnkeyatts=2
+      and ((i.indkey[0]=id_column.attnum and i.indkey[1]=org_column.attnum)
+        or (i.indkey[1]=id_column.attnum and i.indkey[0]=org_column.attnum))
+  ) then
+    alter table public.bookings add constraint bookings_id_organization_key_v113
+      unique(id,organization_id);
+  end if;
+end $$;
+-- Retain this additive key through rollback; dependent objects may reuse it.
 create table if not exists public.booking_confirmed_commissions (
   booking_id uuid primary key,
   organization_id uuid not null references public.organizations(id) on delete restrict,

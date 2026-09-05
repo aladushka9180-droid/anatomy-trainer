@@ -37,7 +37,11 @@ create table public.performer_profiles(id uuid primary key,display_name text not
 create table public.organization_memberships(organization_id uuid,user_id uuid,role text,active boolean,is_bookable boolean default true,primary key(organization_id,user_id));
 create table public.locations(id uuid primary key,organization_id uuid,name text,active boolean default true,is_primary boolean default false,unique(id,organization_id));
 create table public.services(id uuid primary key,name text,performer_id uuid,active boolean default true);
-create table public.bookings(id uuid primary key,organization_id uuid,location_id uuid,performer_id uuid,service_id uuid,booking_date date,unique(id,organization_id));
+-- Match the real v69 baseline. A fabricated two-column UNIQUE hid SQLSTATE 42830.
+create table public.bookings(id uuid primary key,organization_id uuid,location_id uuid,performer_id uuid,service_id uuid,booking_date date,
+  constraint bookings_id_organization_location_key unique(id,organization_id,location_id));
+create table public.booking_fixture_dependency(booking_id uuid,organization_id uuid,location_id uuid,
+  foreign key(booking_id,organization_id,location_id) references public.bookings(id,organization_id,location_id));
 create table public.booking_outcomes(booking_id uuid primary key,visit_status text,amount_rub bigint);
 create table public.organization_inventory_settings(organization_id uuid primary key,enabled boolean not null default false);
 create table public.inventory_items(id uuid primary key,organization_id uuid,name text,sku text,unit text,low_stock_threshold numeric(14,3) default 0,active boolean default true,unique(id,organization_id));
@@ -96,7 +100,28 @@ async function asOwner(sql) {
   await db.exec(`begin;select set_config('request.jwt.claim.sub','${id.owner}',true);set local role authenticated;${sql};reset role;commit;`);
 }
 
+await assertScalar(`select count(*) from pg_constraint where conrelid='public.bookings'::regclass and contype='u' and cardinality(conkey)=2`,0,'реальная v69 основа не имеет UNIQUE booking/org');
 await db.exec(migration);
+await assertScalar(`select count(*) from pg_constraint where conrelid='public.bookings'::regclass and conname='bookings_id_organization_key_v113'`,1,'v113 сама создаёт недостающий tenant key');
+await assertScalar(`select count(*) from pg_constraint where conrelid='public.bookings'::regclass and conname='bookings_id_organization_location_key'`,1,'старый v69 ключ сохранён');
+await assertScalar(`select count(*) from pg_constraint where conrelid='public.booking_fixture_dependency'::regclass and contype='f'`,1,'зависимый FK не удалён');
+await db.exec(`begin;
+ insert into public.bookings(id,organization_id,location_id) values('00000000-0000-4000-8000-000000009113','${id.orgA}','${id.locationA}');
+ insert into public.booking_confirmed_commissions(booking_id,organization_id,amount_kopecks)
+ values('00000000-0000-4000-8000-000000009113','${id.orgA}',100);
+ do $$ begin
+   begin
+     update public.booking_confirmed_commissions set organization_id='${id.orgB}'
+     where booking_id='00000000-0000-4000-8000-000000009113';
+     raise exception 'cross-tenant commission accepted';
+   exception when foreign_key_violation then null; end;
+ end $$;
+ rollback;`);
+console.log('PASS: tenant FK принимает свою запись и отклоняет чужую организацию');
+await db.exec(destructiveRollback);
+await db.exec(migration);
+await db.exec(migration);
+await assertScalar(`select count(*) from pg_constraint where conrelid='public.bookings'::regclass and conname='bookings_id_organization_key_v113'`,1,'rollback/reapply не дублирует tenant key');
 await assertScalar('select count(*) from public.organization_inventory_cost_settings',0,'миграция выключена по умолчанию');
 await assertScalar('select count(*) from public.inventory_cost_layers',0,'apply не создаёт baseline');
 await db.exec(`begin;

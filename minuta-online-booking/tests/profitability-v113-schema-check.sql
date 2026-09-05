@@ -2,6 +2,19 @@ do $$
 declare
   v_definition text;
 begin
+  if not exists(
+    select 1 from pg_constraint c
+    where c.conrelid=to_regclass('public.booking_confirmed_commissions')
+      and c.confrelid='public.bookings'::regclass and c.contype='f' and c.convalidated
+      and c.conkey=array[
+        (select attnum from pg_attribute where attrelid=c.conrelid and attname='booking_id' and not attisdropped),
+        (select attnum from pg_attribute where attrelid=c.conrelid and attname='organization_id' and not attisdropped)
+      ]::smallint[]
+      and c.confkey=array[
+        (select attnum from pg_attribute where attrelid=c.confrelid and attname='id' and not attisdropped),
+        (select attnum from pg_attribute where attrelid=c.confrelid and attname='organization_id' and not attisdropped)
+      ]::smallint[]
+  ) then raise exception 'v113_booking_commission_tenant_fk_missing'; end if;
   if to_regclass('public.organization_inventory_cost_settings') is null
      or to_regclass('public.inventory_cost_layers') is null
      or to_regclass('public.inventory_movement_cost_snapshots') is null
