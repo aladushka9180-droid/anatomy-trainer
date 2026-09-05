@@ -1480,7 +1480,7 @@ function applyDisplayPreferences() {
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
-  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa', japandi:'#f3efe7', midnight:'#08111f', mono:'#f3f3f0', desert:'#f5e9db', rose:'#f2eaed', botanical:'#101c18', burgundy:'#21131c', coastal:'#f1f6f7', pearl:'#f4f4f5', butter:'#faf9f3', celadon:'#f0f6f3', 'snow-leopard':'#f4f5f6', 'apricot-tiger':'#fff3e7', 'golden-cheetah':'#fff7ec', 'pearl-zebra':'#f5f2ee' };
+  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa', japandi:'#f3efe7', midnight:'#08111f', mono:'#f3f3f0', desert:'#f5e9db', rose:'#f2eaed', botanical:'#202623', burgundy:'#282326', coastal:'#f1f6f7', pearl:'#f4f4f5', butter:'#faf9f3', celadon:'#f0f6f3', 'snow-leopard':'#f4f5f6', 'apricot-tiger':'#fff3e7', 'golden-cheetah':'#fff7ec', 'pearl-zebra':'#f5f2ee' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
   renderMobileNavigation();
 }
@@ -2092,7 +2092,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=459#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=460#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3907,7 +3907,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=459');
+    worker = new Worker('./report-worker.js?v=460');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
