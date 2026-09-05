@@ -78,7 +78,10 @@ async function fixture(){
       if(name==='create_minuta_historical_booking')return transport('create',{data:structuredClone(historicalAck),error:null});
       if(name==='set_booking_color')return transport('color',{data:null,error:null});
       throw Error('Unexpected RPC '+name);
-    },from:name=>{throw Error('Unexpected table write '+name);}};
+    },from:name=>{
+      if(name!=='client_notes')throw Error('Unexpected table write '+name);
+      return {upsert:args=>{effects.push({kind:'client-note',args:structuredClone(args)});return transport('note',{error:null});}};
+    }};
     ${loader}
   `});
   return{context,page,errors,traffic};
@@ -219,6 +222,59 @@ for(const phase of ['color','refresh'])for(const outcome of ['error','throw'])ca
     assert.match(message,/создан|добавлен|основн.{0,30}сохран/i,'The acknowledged creation must be distinguished from failed auxiliary work');
     assert.match(message,/проверьте|не удалось|не заверш|не обнов|не сохран/i,'Auxiliary failure must not be reported as full success');
     assert.doesNotMatch(message,/ничего не создан|запись не создана|откат/i,'No invented rollback');
+  }
+]);
+async function startNotes(page){
+  await page.evaluate(()=>{hold='note';clientNotes.set('79990000001','Прежняя сохранённая заметка A');});await openAndFill(page,'A');
+  await page.locator('#newBookingNote').fill('Новая заметка клиента A');
+  await page.locator('#newBookingSubmit').click();await page.waitForFunction(()=>gates.some(g=>g.kind==='note'));
+  assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),1);
+}
+async function answerNotes(page,outcome){
+  await page.evaluate(outcome=>{
+    const gate=gates.shift();hold='';
+    if(outcome==='throw')gate.reject(Error('client_note_failed'));
+    else gate.resolve({data:null,error:outcome==='error'?{code:'42501',message:'new row violates row-level security policy for table "client_notes"'}:null});
+  },outcome);
+  await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
+}
+cases.push(['CONTROL confirmed historical CREATE and successful client note update its own cache',async page=>{
+  await startNotes(page);await answerNotes(page,'success');const state=await snapshot(page);
+  assert.deepEqual(state.clientNotes,[['79990000001','Новая заметка клиента A']]);
+  const write=state.effects.find(e=>e.kind==='client-note').args;
+  assert.equal(write.performer_id,'actor-A');assert.equal(write.client_phone,'79990000001');assert.equal(write.note,'Новая заметка клиента A');
+  assert.equal(state.effects.filter(e=>e.name==='create_minuta_historical_booking').length,1);
+  assert.equal(state.effects.filter(e=>e.name==='set_booking_color').length,1);
+  assert.equal(state.visible,false);assert.match(state.effects.at(-1).text,/Запись в прошлом создана/);
+}]);
+for(const outcome of ['error','throw'])cases.push([
+  `SAFETY confirmed CREATE then client note ${outcome} cannot cache unsaved text or repeat CREATE`,async page=>{
+    await startNotes(page);await answerNotes(page,outcome);
+    const state=await snapshot(page);
+    const message=await page.evaluate(()=>[$('#newBookingError').hidden?'':$('#newBookingError').textContent,...effects.filter(e=>e.kind==='notify').map(e=>e.text)].join(' '));
+    await exerciseCaption(page);await attemptResubmit(page);
+    assert.deepEqual(state.clientNotes,[['79990000001','Прежняя сохранённая заметка A']],'A failed client_notes write must preserve prior saved client data');
+    assert.equal(await page.evaluate(()=>effects.filter(e=>e.name==='create_minuta_historical_booking').length),1);
+    assert.match(message,/создан|добавлен|основн.{0,30}сохран/i);
+    assert.match(message,/проверьте|не удалось|не заверш|не подтвержд|не сохран/i,'Warn about incomplete note persistence after confirmed creation');
+    assert.doesNotMatch(message,/ничего не создан|запись не создана|откат/i);
+  }
+]);
+for(const transition of ['account','close-reopen'])for(const outcome of ['success','error','throw'])cases.push([
+  `SAFETY pending client note ${outcome} after ${transition} B cannot mutate its cache or native form`,async page=>{
+    await startNotes(page);await page.keyboard.press('Escape');
+    await page.evaluate(transition=>{
+      if(transition==='account'){
+        currentUser={id:'actor-B'};sessionGeneration++;activeClientOrganizationId='org-B';
+        bookingColors=new Map();pendingBookingColors=new Set();
+        clientNotes=new Map([['79990000002','Сохранённая заметка B']]);allBookings=[];
+      }
+      selectedDate='2020-01-06';
+    },transition);
+    await openAndFill(page,'B');await page.locator('#newBookingNote').fill('Черновик клиента B');
+    await page.evaluate(()=>{window.destinationForm=$('#newBookingForm');});
+    const before=await snapshot(page);await answerNotes(page,outcome);
+    assert.deepEqual(await snapshot(page),before,'Old note result must not add unsaved cache data, start color, close B, clear draft or notify');
   }
 ]);
 let failed=0;
