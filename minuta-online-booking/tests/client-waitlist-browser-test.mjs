@@ -15,6 +15,7 @@ try {
   assert.ok(cta.includes('Встать в лист ожидания'));
   await page.route('https://example.test/**',route=>route.fulfill({contentType:'text/html',body:ids.map(id=>`<div id="${id}"></div>`).join('')+cta+'<button id="continueBooking"></button>'+dialog}));
   await page.goto('https://example.test/');
+  await page.addStyleTag({content:readFileSync(new URL('../styles.css',import.meta.url),'utf8')});
   await page.addScriptTag({content:`
     const $=selector=>document.querySelector(selector);
     let waitlistContext=null,waitlistSubmissionPending=false;
@@ -46,6 +47,8 @@ try {
   assert.equal(await page.locator('#waitlistCta').evaluate(el=>el.hidden),true);
   await page.evaluate(()=>{state.availabilityError=false;window.openForm();});
   assert.ok((await page.locator('#waitlistService').textContent()).includes('Мастер А · Центр'));
+  const closeBox=await page.locator('[data-close-waitlist]').boundingBox();
+  assert.ok(closeBox.width>=44 && closeBox.height>=44,'Mobile dialog close target must be at least 44px');
   const fill=async()=>{
     await page.locator('#waitlistName').fill('Тест Клиент');await page.locator('#waitlistPhone').fill('79999999999');
     await page.locator('#waitlistConsent').check();await page.locator('#waitlistPeriod').selectOption('evening');
