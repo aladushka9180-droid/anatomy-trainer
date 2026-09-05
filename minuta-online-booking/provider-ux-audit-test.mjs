@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './provider-layout-responsive-test.mjs';
 import { readFileSync } from 'node:fs';
 
 const read = file => readFileSync(new URL(file, import.meta.url), 'utf8');

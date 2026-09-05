@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const read = name => readFileSync(new URL(name, import.meta.url), 'utf8');
+const css = read('provider-layout-responsive.css');
+const page = read('provider.html');
+assert.match(page, /provider-layout-responsive\.css\?v=\d+/);
+assert.match(read('sw.js'), /provider-layout-responsive\.css\?v=\d+/);
+assert.ok(page.indexOf('provider-layout-responsive.css') < page.indexOf('provider-ux.css'), 'Shared UX remains the final stylesheet');
+assert.match(css, /\.schedule-settings-layout\s*\{[^}]*grid-template-columns:minmax\(0,1fr\)/s);
+assert.match(css, /data-provider-layout="bento"\] \.schedule-card\s*\{[^}]*grid-template-columns:minmax\(0,1fr\)/s);
+assert.match(css, /\.provider-layout-option,\.provider-theme-option\) strong\s*\{[^}]*font-size:calc\(14px/s);
+assert.match(css, /#providerBookings\.schedule-list\s*\{[^}]*min-height:0/s);
+assert.doesNotMatch(css, /#providerBookings(?:\s|\{)/, 'Timeline height must not be reset together with lists');
+assert.doesNotMatch(css, /(?:background|(?:^|;)\s*color)\s*:/m, 'Layout fixes must not change theme or status colours');
+console.log('Provider responsive layout contract passed');

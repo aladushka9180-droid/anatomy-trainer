@@ -1,0 +1,98 @@
+/* Layout geometry only: colours, fonts and saved appearance choices stay intact. */
+.provider-body[data-provider-theme][data-provider-layout] .schedule-settings-layout {
+  grid-template-columns:minmax(0,1fr);
+  min-width:0;
+  max-width:100%;
+}
+.provider-body[data-provider-theme][data-provider-layout] .schedule-settings-layout>.panel {
+  min-width:0;
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-card {
+  grid-template-columns:minmax(0,1fr);
+  min-width:0;
+  max-width:100%;
+}
+.provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-card>div {
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(.provider-layout-option,.provider-theme-option) strong {
+  font-size:calc(14px + var(--provider-text-step,0px));
+  line-height:1.35;
+  font-weight:750;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(.provider-layout-option,.provider-theme-option) small {
+  font-weight:400;
+}
+
+@media (min-width:761px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-nav button>span:nth-child(2) {
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+    overflow-wrap:normal;
+    line-height:1.35;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-nav button {
+    height:auto;
+    min-height:48px;
+    padding-block:10px;
+  }
+}
+
+@media (min-width:761px) and (max-width:1100px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-app {
+    grid-template-columns:220px minmax(0,1fr);
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-nav button {
+    grid-template-columns:18px minmax(0,1fr) auto;
+    column-gap:6px;
+    padding-inline:4px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:12px;
+    padding-block:16px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar>div:first-child {
+    flex:1 0 100%;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar h1 {
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions {
+    flex:1 1 100%;
+    flex-wrap:wrap;
+    justify-content:flex-start;
+    max-width:100%;
+  }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .date-navigation {
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .provider-body[data-provider-theme][data-provider-layout="bento"] .schedule-controls {
+    flex-wrap:wrap;
+    justify-content:flex-start;
+    width:100%;
+  }
+}
+
+@media (min-width:1101px) {
+  .provider-body[data-provider-theme][data-provider-layout="split"] [data-provider-panel="bookings"] .schedule-card {
+    grid-template-rows:repeat(4,auto);
+    align-content:start;
+  }
+  /* Lists size to content; timelines keep the actual height of the working day. */
+  .provider-body[data-provider-theme][data-provider-layout="split"] [data-provider-panel="bookings"] #providerBookings.schedule-list {
+    min-height:0;
+    align-self:start;
+  }
+}
