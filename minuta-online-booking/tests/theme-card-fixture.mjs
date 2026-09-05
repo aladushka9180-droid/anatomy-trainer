@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-export const themes = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon'];
+export const themes = ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard'];
 export const layouts = ['linear','soft','capsule','editorial','bento','split'];
 const marks = ['', 'active', 'client-vip', 'client-favorite', 'client-attention', 'client-vip active', 'client-favorite active', 'client-attention active', 'client-favorite client-vip client-attention'];
 const labels = ['Обычный клиент','Выбранный клиент','VIP-клиент','Избранный клиент','Требует внимания','Выбранный VIP','Выбранный избранный','Выбранный с вниманием','Несколько меток'];
@@ -24,7 +24,7 @@ async function fixture(url) {
 }
 
 function runner() {
-  return `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Матрица оформления</title><h1>20 тем × 6 компоновок × 2 ширины</h1><p>Локальные тестовые карточки, без доступа к клиентской базе.</p><button id="run">Проверить все сочетания</button><pre id="result" role="status">Готово к проверке</pre><iframe title="Проверяемые карточки" src="/fixture" style="width:390px;height:900px;border:0"></iframe><script type="module">
+  return `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Матрица оформления</title><h1>21 тема × 6 компоновок × 2 ширины</h1><p>Локальные тестовые карточки, без доступа к клиентской базе.</p><button id="run">Проверить все сочетания</button><pre id="result" role="status">Готово к проверке</pre><iframe title="Проверяемые карточки" src="/fixture" style="width:390px;height:900px;border:0"></iframe><script type="module">
 import { inspectCardStates } from '/checks.mjs';
 const frame = document.querySelector('iframe'), result = document.querySelector('#result');
 document.querySelector('#run').addEventListener('click', async () => {

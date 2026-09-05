@@ -1,4 +1,71 @@
 /* Signature Collection: современные темы кабинета с общей системой компонентов. */
+.provider-body[data-provider-theme="snow-leopard"] {
+  --theme-bg:#f7f6f3;
+  --theme-surface:#fffefc;
+  --theme-surface-alt:#efeeea;
+  --theme-ink:#30312f;
+  --theme-muted:#666760;
+  --theme-line:#96968e;
+  --theme-accent:#484b47;
+  --theme-accent-soft:#e6e6df;
+  --theme-accent-contrast:#ffffff;
+  --theme-shadow:rgba(55,55,49,.11);
+  --material-card-bg:#fffefc;
+  --material-card-border:#96968e;
+  --material-radius:20px;
+  --material-control-radius:10px;
+  --signature-sidebar:#f1f0ec;
+  --signature-stage:#faf9f6;
+  --signature-nav-active:#e6e6df;
+  --signature-card-shadow:0 8px 26px rgba(55,55,49,.05);
+  --atmosphere-background:linear-gradient(145deg,#f3f2ee,#fdfcf9 58%,#f5f4f0);
+  --atmosphere-panel:#faf9f6;
+  --atmosphere-panel-strong:#fffefc;
+  color-scheme:light;
+}
+
+.theme-snow-leopard { --theme-preview-bg:#f7f6f3; --theme-preview-surface:#fffefc; --theme-preview-line:#96968e; --theme-preview-accent:#484b47; --theme-preview-radius:14px; }
+.theme-snow-leopard .theme-swatch {
+  background-image:url("provider-snow-leopard.svg?v=437");
+  background-size:auto 90%;
+  background-position:right center;
+  background-repeat:no-repeat;
+}
+
+/* Dedicated empty space keeps the print away from names, dates and controls. */
+.provider-theme-ornament { display:none; }
+.provider-body[data-provider-theme="snow-leopard"] .provider-theme-ornament {
+  display:block;
+  width:148px;
+  max-width:100%;
+  height:36px;
+  margin-top:6px;
+  background:url("provider-snow-leopard.svg?v=437") left center / contain no-repeat;
+  opacity:.58;
+  pointer-events:none;
+  user-select:none;
+}
+.provider-body[data-provider-theme="snow-leopard"] .sidebar-bottom::after {
+  content:"";
+  display:block;
+  width:180px;
+  max-width:100%;
+  height:62px;
+  margin:12px 0 0 auto;
+  background:url("provider-snow-leopard.svg?v=437") right center / contain no-repeat;
+  opacity:.42;
+  pointer-events:none;
+}
+@media (max-width:760px) {
+  .provider-body[data-provider-theme="snow-leopard"] .provider-theme-ornament {
+    width:76px;
+    height:22px;
+    margin-top:4px;
+    background-size:118px auto;
+  }
+  .provider-body[data-provider-theme="snow-leopard"] .sidebar-bottom::after { display:none; }
+}
+
 .provider-body[data-provider-theme="pearl"] {
   --theme-bg:#f4f4f5;
   --theme-surface:#ffffff;
@@ -307,7 +374,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) {
   min-height:100vh;
   font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
@@ -323,7 +390,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(*,button,input,select,textarea) { text-shadow:none!important; }
 
 .provider-body:is(
@@ -331,7 +398,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.provider-app,.provider-view) {
   border-color:transparent!important;
   background:transparent!important;
@@ -344,7 +411,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .ambient { display:none!important; }
 
 .provider-body:is(
@@ -352,7 +419,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-sidebar {
   border:1px solid var(--theme-line)!important;
   background:var(--signature-sidebar)!important;
@@ -366,7 +433,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.provider-brand,.sidebar-bottom) { border-color:var(--theme-line)!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -374,7 +441,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-brand .brand-mark {
   border:1px solid color-mix(in srgb,var(--theme-accent) 50%,var(--theme-line))!important;
   border-radius:var(--material-control-radius)!important;
@@ -389,7 +456,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.brand strong,.provider-topbar h1,.view-title h2,.settings-heading h3,.panel-head h3,.notification-toolbar h3,.client-profile-head h3,.organization-overview-copy h3) {
   color:var(--theme-ink)!important;
   font-family:var(--signature-heading-font,inherit)!important;
@@ -407,7 +474,7 @@
   font-weight:600!important;
 }
 
-.provider-body:is([data-provider-theme="japandi"],[data-provider-theme="midnight"],[data-provider-theme="mono"],[data-provider-theme="desert"],[data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]) :is(
+.provider-body:is([data-provider-theme="japandi"],[data-provider-theme="midnight"],[data-provider-theme="mono"],[data-provider-theme="desert"],[data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]) :is(
   .date-strip button,.booking-time-column,.timeline-time-axis,.timeline-booking-time,.provider-booking time,.report-value
 ) { font-variant-numeric:tabular-nums; }
 
@@ -416,7 +483,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.brand small,.provider-topbar small,.view-title>div:first-child>span:not(.panel-count),.provider-nav-label) {
   color:var(--theme-muted)!important;
   letter-spacing:.07em!important;
@@ -427,7 +494,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-topbar {
   border:1px solid var(--theme-line)!important;
   border-radius:var(--material-radius)!important;
@@ -441,7 +508,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-nav { gap:5px!important; border:0!important; }
 
 .provider-body:is(
@@ -449,7 +516,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-nav button {
   min-height:48px!important;
   border:1px solid transparent!important;
@@ -465,7 +532,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-nav button:hover { border-color:var(--theme-line)!important; background:var(--theme-surface-alt)!important; color:var(--theme-ink)!important; }
 
 .provider-body:is(
@@ -473,7 +540,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-nav button.active {
   border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line))!important;
   background:var(--signature-nav-active)!important;
@@ -488,7 +555,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.provider-nav button.active>span:first-child,.provider-nav b,.panel-count,.dashboard-summary) {
   border-color:color-mix(in srgb,var(--theme-accent) 25%,var(--theme-line))!important;
   background:var(--theme-accent-soft)!important;
@@ -501,7 +568,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(
   .panel,.schedule-card,.clients-directory,.client-profile,.settings-card,.notification-card,.waitlist-provider-card,
   .report-summary article,.report-comparison,.report-business-card,.report-performers,.report-visual-grid>.panel,
@@ -522,7 +589,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(
   .date-navigation,.date-strip,.schedule-toolbar,.timeline-view,.schedule-empty,.provider-user,.service-form,
   .booking-sheet-client,.booking-sheet-note-editor,.client-labels-panel,.provider-display-hint,.organization-row,
@@ -542,7 +609,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(
   .date-nav-button,.date-today-button,.schedule-date-picker,.refresh-button,.sync-tool-button,.journal-mode-toggle,
   .booking-filters button,.notification-filters,.notification-filters button,.report-periods,.report-periods button,
@@ -563,7 +630,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.connection-log-head small,.connection-log-lead,.connection-log-entry small) { color:var(--theme-muted)!important; }
 
 .provider-body:is(
@@ -571,7 +638,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(
   .primary,.date-strip button.active,.calendar-view-toggle button.active,.journal-mode-toggle button.active,
   .booking-filters button.active,.notification-filters button.active,.report-periods button.active,
@@ -589,7 +656,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.primary,.journal-mode-toggle button.active)>span { color:var(--theme-accent-contrast)!important; }
 
 .provider-body:is(
@@ -597,7 +664,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .date-strip { gap:5px!important; padding:8px!important; }
 
 .provider-body:is(
@@ -605,7 +672,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .date-strip button {
   min-height:64px!important;
   margin:0!important;
@@ -621,7 +688,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .date-strip button.active { border-color:var(--theme-accent)!important; background:var(--theme-accent)!important; color:var(--theme-accent-contrast)!important; }
 
 .provider-body:is(
@@ -629,7 +696,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.timeline-stage,.team-dispatcher-stage) {
   border-color:var(--theme-line)!important;
   background:var(--signature-stage)!important;
@@ -642,7 +709,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .timeline-grid-line { background:var(--theme-line)!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -650,7 +717,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.timeline-view .timeline-booking,.schedule-list .provider-booking) {
   border-color:color-mix(in srgb,var(--booking-tone,var(--theme-accent)) 30%,var(--theme-line))!important;
   border-radius:var(--material-radius)!important;
@@ -667,7 +734,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.booking-client-visit,.timeline-client-visit,.booking-status,.client-badge) {
   border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line))!important;
   background:var(--theme-accent-soft)!important;
@@ -680,7 +747,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(.report-command-kicker i,.report-command-center::after) { animation:none!important; box-shadow:none!important; }
 
 .provider-body:is(
@@ -688,7 +755,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .report-command-center::after { display:none!important; }
 
 .provider-body:is(
@@ -696,7 +763,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-mobile-nav {
   border:1px solid var(--theme-line)!important;
   border-radius:calc(var(--material-radius) + 4px)!important;
@@ -711,7 +778,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-mobile-nav :is(button,a) { color:var(--theme-muted)!important; }
 
 .provider-body:is(
@@ -719,7 +786,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) .provider-mobile-nav button.active {
   border-color:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-line))!important;
   border-radius:var(--material-control-radius)!important;
@@ -733,7 +800,7 @@
   [data-provider-theme="midnight"],
   [data-provider-theme="mono"],
   [data-provider-theme="desert"],
-  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+  [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
 ) :is(
   .booking-sheet-panel,.notification-template-dialog,.service-creator-dialog,.dialog-card,.modal-card,
   .connection-log-dialog,.free-slots-dialog,.portfolio-editor-dialog,.product-feedback-dialog,.provider-confirm-dialog,
@@ -774,7 +841,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
   ) { background:var(--theme-bg)!important; }
 
   .provider-body:is(
@@ -782,7 +849,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
   ) :is(.provider-topbar,.provider-view) {
     margin-top:0!important;
     border-radius:0!important;
@@ -795,7 +862,7 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
   ) .date-strip button { min-height:56px!important; padding:6px 2px!important; }
 
   .provider-theme-options .provider-theme-option:last-child { grid-column:auto; }
@@ -807,6 +874,6 @@
     [data-provider-theme="midnight"],
     [data-provider-theme="mono"],
     [data-provider-theme="desert"],
-    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"]
+    [data-provider-theme="rose"],[data-provider-theme="botanical"],[data-provider-theme="burgundy"],[data-provider-theme="coastal"],[data-provider-theme="pearl"],[data-provider-theme="butter"],[data-provider-theme="celadon"],[data-provider-theme="snow-leopard"]
   ) * { transition-duration:.01ms!important; animation-duration:.01ms!important; }
 }

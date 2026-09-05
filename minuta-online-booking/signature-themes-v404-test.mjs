@@ -19,6 +19,7 @@ const themes = [
   ['pearl', 'Pearl Atelier'],
   ['butter', 'Butter Studio'],
   ['celadon', 'Celadon'],
+  ['snow-leopard', 'Snow Leopard'],
 ];
 
 for (const [key, label] of themes) {
@@ -63,11 +64,12 @@ for (const [key, color, group] of [
   ['pearl', '#f4f4f5', 'featured light'],
   ['butter', '#faf9f3', 'featured light'],
   ['celadon', '#f0f6f3', 'featured light natural'],
+  ['snow-leopard', '#f7f6f3', 'featured light'],
 ]) {
-  assert.ok(script.includes(`${key}:'${color}'`), `Нет системного цвета ${key}`);
+  assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=436/, 'Кабинет не подключает Signature Collection v436');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=436/, 'Service Worker не кэширует Signature Collection v436');
+assert.match(provider, /provider-themes-signature\.css\?v=437/, 'Кабинет не подключает Signature Collection v437');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=437/, 'Service Worker не кэширует Signature Collection v437');
 
-console.log('Signature themes v436: 11 unified themes OK');
+console.log('Signature themes v437: 12 unified themes OK');
