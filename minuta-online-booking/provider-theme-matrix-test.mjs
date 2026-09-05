@@ -4,13 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider, calmCss] = await Promise.all([
+const [baseCss, signatureCss, provider, calmCss, wildlifeCss] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
+  readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
 ]);
-const css = `${baseCss}\n${signatureCss}`;
+const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}`;
 
 function sourceArray(name) {
   const source = provider.match(new RegExp(`const ${name} = \\[([^\\]]+)\\]`))?.[1] || '';
@@ -20,9 +21,9 @@ function sourceArray(name) {
 const themes = sourceArray('PROVIDER_THEME_KEYS');
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'golden-cheetah', 'pearl-zebra']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 132, 'the supported appearance matrix must contain 132 combinations');
+assert.equal(themes.length * layouts.length, 144, 'the supported appearance matrix must contain 144 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
