@@ -74,9 +74,14 @@ assert.match(integration, /event_access_denied/i);
 assert.match(workflow, /employee-analytics-v97/);
 assert.equal(
   (workflow.match(/MINUTA_TEST_DATABASE_URL="\$\{MINUTA_TEST_DATABASE_URL\/:6543\/:5432\}"/g) || []).length,
-  3,
-  'The test guard, migration runner and emergency cleanup must bypass the transaction pooler'
+  4,
+  'The test guard, migration runner, waitlist regression and emergency cleanup must bypass the transaction pooler'
 );
+const waitlistTest = workflow.split('  test-waitlist:')[1]?.split('  test-migration:')[0] || '';
+assert.match(waitlistTest, /migration-config-guard\.mjs/);
+assert.match(waitlistTest, /minuta_migration_guard\.target/);
+assert.match(waitlistTest, /MINUTA_TEST_DATABASE_URL="\$\{MINUTA_TEST_DATABASE_URL\/:6543\/:5432\}"/);
+assert.doesNotMatch(waitlistTest, /secrets\.SUPABASE_DB_URL/);
 const testMigration = workflow.split('  test-migration:')[1]?.split('  validate-production-rollback:')[0] || '';
 const productionMigration = workflow.split('  production-migration:')[1]?.split('  diagnose-client-links:')[0] || '';
 assert.equal((testMigration.match(/-f minuta-online-booking\/supabase-migration-v100\.sql/g) || []).length, 2);
