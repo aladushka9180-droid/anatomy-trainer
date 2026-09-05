@@ -18,7 +18,9 @@ drop function if exists public.get_minuta_feedback_capability();
 drop policy if exists product_feedback_objects_owner_delete on storage.objects;
 drop policy if exists product_feedback_objects_owner_select on storage.objects;
 drop policy if exists product_feedback_objects_owner_insert on storage.objects;
-delete from storage.buckets where id='product-feedback';
+-- Supabase Storage blocks direct SQL deletion of buckets. The empty private
+-- bucket is intentionally retained; its policies and all application access
+-- are removed by this rollback.
 drop table if exists public.product_feedback;
 
 notify pgrst,'reload schema';

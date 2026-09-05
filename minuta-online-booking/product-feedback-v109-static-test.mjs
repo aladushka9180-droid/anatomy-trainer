@@ -24,7 +24,7 @@ assert.match(migration, /object\.bucket_id='product-feedback' and object\.name=v
 
 assert.match(rollback, /v109_rollback_blocked_feedback_exists/i);
 assert.match(rollback, /v109_rollback_blocked_screenshots_exist/i);
-assert.match(rollback, /delete from storage\.buckets where id='product-feedback'/i);
+assert.doesNotMatch(rollback, /delete from storage\.buckets/i);
 assert.match(rollback, /drop table if exists public\.product_feedback/i);
 
 assert.match(page, /data-open-product-feedback/);
