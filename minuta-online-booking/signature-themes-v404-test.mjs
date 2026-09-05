@@ -16,6 +16,9 @@ const themes = [
   ['botanical', 'Botanical Night'],
   ['burgundy', 'Burgundy Atelier'],
   ['coastal', 'Coastal Porcelain'],
+  ['pearl', 'Pearl Atelier'],
+  ['butter', 'Butter Studio'],
+  ['celadon', 'Celadon'],
 ];
 
 for (const [key, label] of themes) {
@@ -57,6 +60,9 @@ for (const [key, color, group] of [
   ['botanical', '#101c18', 'dark natural'],
   ['burgundy', '#21131c', 'dark'],
   ['coastal', '#f1f6f7', 'light'],
+  ['pearl', '#f4f4f5', 'featured light'],
+  ['butter', '#faf9f3', 'featured light'],
+  ['celadon', '#f0f6f3', 'featured light natural'],
 ]) {
   assert.ok(script.includes(`${key}:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
@@ -64,4 +70,4 @@ for (const [key, color, group] of [
 assert.match(provider, /provider-themes-signature\.css\?v=436/, 'Кабинет не подключает Signature Collection v436');
 assert.match(worker, /\.\/provider-themes-signature\.css\?v=436/, 'Service Worker не кэширует Signature Collection v436');
 
-console.log('Signature themes v436: 8 unified themes OK');
+console.log('Signature themes v436: 11 unified themes OK');

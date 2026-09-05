@@ -12,7 +12,7 @@ try {
   await page.getByRole('button',{name:'Проверить все сочетания'}).click();
   await page.waitForFunction(() => document.querySelector('#result').dataset.complete === 'true', undefined, {timeout:120000});
   const result = JSON.parse(await page.locator('#result').innerText());
-  assert.equal(result.combinations,204);
+  assert.equal(result.combinations,240);
   assert.deepEqual(result.failures,[]);
   // Actual :hover and keyboard :focus-visible, not synthetic class substitutes.
   for (const width of [390,1440]) for (const theme of themes) {
@@ -29,5 +29,5 @@ try {
     assert.equal(focus.outline,'solid'); assert.ok(focus.width >= 2);
   }
   assert.deepEqual(errors,[]);
-  console.log(`PASS: ${result.combinations} theme/layout/viewport combinations, ${result.assertions} colour checks, minimum ${result.minimumContrast}:1; 170 hover and 34 keyboard-focus checks.`);
+  console.log(`PASS: ${result.combinations} theme/layout/viewport combinations, ${result.assertions} colour checks, minimum ${result.minimumContrast}:1; ${themes.length * 10} hover and ${themes.length * 2} keyboard-focus checks.`);
 } finally { await browser.close(); server.close(); }
