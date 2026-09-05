@@ -7641,3 +7641,62 @@ html.provider-booting .provider-main {
     display:none!important;
   }
 }
+
+/* Mobile viewport guard: prevent the schedule editor from shifting the whole page sideways. */
+@media (max-width:760px) {
+  html,
+  body.provider-body {
+    max-width:100vw!important;
+    overflow-x:clip!important;
+    overscroll-behavior-x:none;
+  }
+
+  .provider-body .provider-app,
+  .provider-body .provider-workspace,
+  .provider-body .provider-view,
+  .provider-body .provider-topbar,
+  .provider-body .schedule-settings-layout,
+  .provider-body .weekly-schedule-panel,
+  .provider-body .schedule-week-editor,
+  .provider-body .schedule-week-editor-body,
+  .provider-body .schedule-quick-setup,
+  .provider-body .booking-step-setting,
+  .provider-body .weekly-schedule-details,
+  .provider-body .monthly-schedule-panel,
+  .provider-body .schedule-date-editor {
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+
+  .provider-body .provider-app,
+  .provider-body .provider-workspace,
+  .provider-body .provider-view,
+  .provider-body .schedule-settings-layout,
+  .provider-body .schedule-week-editor-body {
+    overflow-x:clip!important;
+  }
+
+  .provider-body .schedule-quick-presets,
+  .provider-body .schedule-quick-days,
+  .provider-body .schedule-quick-times,
+  .provider-body .schedule-quick-actions,
+  .provider-body .slot-step-control,
+  .provider-body .weekly-schedule-details>summary,
+  .provider-body .schedule-date-editor>summary {
+    min-width:0!important;
+    max-width:100%!important;
+    box-sizing:border-box!important;
+  }
+
+  .provider-body .provider-mobile-nav {
+    position:fixed!important;
+    right:8px!important;
+    left:8px!important;
+    width:auto!important;
+    max-width:calc(100vw - 16px)!important;
+    overflow:hidden!important;
+    transform:none!important;
+  }
+}
