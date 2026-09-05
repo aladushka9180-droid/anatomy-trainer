@@ -20,7 +20,7 @@ try{
       await page.evaluate(()=>document.fonts.ready);
       const errors=await page.evaluate(()=>{
         const errors=[],header=document.querySelector('.provider-topbar'),css=getComputedStyle(header),r=header.getBoundingClientRect();
-        const tigerMobile=document.body.dataset.providerTheme==='apricot-tiger'&&innerWidth<=760;
+        const tigerMobile=['apricot-tiger','golden-cheetah','pearl-zebra'].includes(document.body.dataset.providerTheme)&&innerWidth<=760;
         if(css.backgroundColor!=='rgba(0, 0, 0, 0)'||css.boxShadow!=='none')errors.push('opaque header');
         if(tigerMobile){if(!css.backgroundImage.startsWith('linear-gradient('))errors.push('missing tiger header veil');}
         else if(css.backgroundImage!=='none')errors.push('unexpected header image');
