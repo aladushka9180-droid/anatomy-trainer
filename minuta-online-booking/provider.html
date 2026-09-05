@@ -34,6 +34,7 @@
   <link rel="stylesheet" href="provider-ux.css?v=435">
   <link rel="stylesheet" href="provider-header.css?v=435">
   <link rel="stylesheet" href="free-slots-compact.css?v=435">
+  <link rel="stylesheet" href="client-records.css?v=435">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -255,7 +256,9 @@
               <div class="client-profile-empty" id="clientProfileEmpty"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-user"></use></svg></span><strong>Выберите клиента</strong><small>Откроются контакты, история и заметки.</small></div>
               <div id="clientProfileContent" hidden>
                 <div class="client-profile-head"><div class="client-avatar-control client-profile-avatar-control"><span class="client-avatar" id="clientAvatar">К</span><label class="client-avatar-picker client-profile-avatar-picker" aria-label="Добавить или сменить фото клиента"><input id="clientAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span></label><button class="client-avatar-remove" id="clientAvatarRemove" type="button" data-remove-client-avatar="" aria-label="Удалить фото клиента" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div><div><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div id="clientProfileBadges"></div><a id="clientPhone" href="tel:">Телефон</a></div><button class="primary client-quick-repeat" id="clientQuickRepeat" type="button" data-quick-repeat-client><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-refresh"></use></svg><span>Записать снова</span></button></div>
-                <div class="client-summary"><article><strong id="clientVisits">0</strong><small>посещений</small></article><article><strong id="clientNext">—</strong><small>ближайшая запись</small></article></div>
+                <div class="client-summary"><article><strong id="clientVisits">0</strong><small>посещений</small></article><article><strong id="clientNext">—</strong><small>ближайшая запись</small></article><article><strong id="clientDebt">—</strong><small>долг по визитам</small></article></div>
+                <details class="client-disclosure client-preferences-disclosure">
+                  <summary><span>Предпочтения и метки</span><small>Важное к следующему визиту</small></summary>
                 <section class="client-labels-panel" aria-labelledby="clientLabelsTitle">
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
@@ -271,6 +274,8 @@
                 </section>
                 <label class="client-note-label">Заметка<textarea id="clientNote" maxlength="1000" rows="4" placeholder="Предпочтения, важные детали или пожелания клиента"></textarea></label>
                 <button class="secondary-button client-note-save" id="saveClientNote" type="button">Сохранить заметку</button>
+                </details>
+                <div id="clientRecords" hidden></div>
                 <section class="client-custom-fields" id="clientCustomFields" hidden>
                   <div><small>Карточка организации</small><strong>Дополнительные данные</strong></div>
                   <form id="clientCustomFieldsForm"></form>
@@ -1507,5 +1512,6 @@
   <script src="data-governance.js?v=435" defer></script>
   <script src="provider.js?v=435" defer></script>
   <script src="voice-assistant.js?v=435" defer></script>
+  <script src="client-records.js?v=435" defer></script>
 </body>
 </html>

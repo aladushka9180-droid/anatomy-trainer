@@ -7293,6 +7293,16 @@ function renderClientDetail(phone) {
     const status = bookingStatus(item);
     return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
   }).join('') || '<p class="provider-empty compact-empty">История визитов появится после первой записи в Minuta.</p>';
+  $('#clientDebt').textContent = money(client.bookings.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed')
+    .reduce((sum,item) => sum + Math.max(0,bookingCalculatedValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0));
+  clientRecordsController.setClient({phone:client.phone,bookings:history.map(item => {
+    const outcome = bookingOutcome(item);
+    const received = Number(outcome.amount_rub || 0);
+    const debt = item.status !== 'cancelled' && outcome.visit_status === 'completed' ? Math.max(0,bookingCalculatedValue(item)-received) : 0;
+    return {id:item.id,at:`${item.booking_date}T${String(item.booking_time).slice(0,8)}+04:00`,
+      title:serviceName(item.services?.name || 'Услуга'),status:bookingStatus(item),
+      payment:`Получено ${money(received)}${debt ? ` · Долг ${money(debt)}` : ''}${item.is_imported_history ? ' · Из импортированной истории' : ''}`};
+  })});
 }
 
 function populateRepeatServices() {
@@ -8215,6 +8225,7 @@ async function logout() {
   const userId = currentUser?.id;
   if (offlineBookingQueue.length && !confirm(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей. При выходе они будут удалены. Всё равно выйти?`)) return;
   ++sessionGeneration;
+  clientRecordsController.reset();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
@@ -8247,6 +8258,7 @@ async function handleSession(session) {
   portfolioSyncDirty = true;
   renderProviderVerification();
   const generation = ++sessionGeneration;
+  clientRecordsController.reset();
   resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   window.MinutaProviderOnboarding?.reset();
@@ -10443,6 +10455,11 @@ const clientFieldsController = window.createMinutaClientFieldsUIController ? win
 }) : { bind() {}, setOrganization() {}, setClient() {}, render() {} };
 clientFieldsController.bind();
 
+const clientRecordsController = window.MinutaClientRecords?.createController({
+  db, requireWrites, getContext:() => ({userId:currentUser?.id,sessionGeneration})
+}) || {bind() {},reset() {},setOrganization() {},setClient() {}};
+clientRecordsController.bind();
+
 const clientImportController = window.MinutaClientImport?.createController ? window.MinutaClientImport.createController({
   db, $, escapeHtml, notify, requireWrites,
   onLoaded: (clients, historyRows) => {
@@ -10526,6 +10543,7 @@ const organizationController = window.MinutaOrganization.createController({
     paymentController.setOrganization(organization);
     notificationCenterController.setOrganization(organization);
     clientFieldsController.setOrganization(organization);
+    clientRecordsController.setOrganization(organization);
     clientImportController.setOrganization(organization?.public_slug === REPORT_DEMO_SLUG ? null : organization);
     dataGovernanceController.setOrganization(organization);
   }

@@ -1,0 +1,54 @@
+/* Private client records inherit the active cabinet palette, not public-page styles. */
+.provider-body #clientRecords {
+  color:var(--theme-ink,var(--ink)); font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px; line-height:1.5; min-width:0; margin-top:20px;
+}
+#clientRecords *, #clientRecords *::before, #clientRecords *::after { box-sizing:border-box; }
+#clientRecords [hidden] { display:none!important; }
+#clientRecords .cr-panel { border:0; border-top:1px solid var(--theme-line,var(--line)); border-radius:0; background:none; margin:0; padding:0; }
+#clientRecords summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 16px; min-height:64px; padding:16px 0; cursor:pointer; list-style:none; font-size:16px; font-weight:600; }
+#clientRecords summary::-webkit-details-marker { display:none; }
+#clientRecords summary::after { content:'+'; margin-left:auto; font-size:22px; font-weight:400; }
+#clientRecords details[open]>summary::after { content:'−'; }
+#clientRecords summary small { color:var(--theme-muted,var(--muted)); font-size:14px; font-weight:400; }
+#clientRecords .cr-panel-body { padding:0 0 20px; }
+#clientRecords .cr-meta,#clientRecords time { display:block; color:var(--theme-muted,var(--muted)); font-size:14px; line-height:1.5; overflow-wrap:anywhere; }
+#clientRecords strong { display:block; font-size:16px; font-weight:600; line-height:1.5; overflow-wrap:anywhere; }
+#clientRecords p { margin:6px 0 12px; font-size:16px; white-space:pre-wrap; overflow-wrap:anywhere; }
+#clientRecords .cr-gate { padding:16px; border-radius:16px; background:var(--theme-surface-alt,var(--soft)); margin-bottom:16px; }
+#clientRecords .cr-empty { color:var(--theme-muted,var(--muted)); padding:12px 0; }
+#clientRecords form { display:grid; gap:12px; min-width:0; padding:16px; margin-bottom:16px; border-radius:16px; background:var(--theme-surface-alt,var(--soft)); }
+#clientRecords label { display:grid; gap:6px; min-width:0; font-size:14px; }
+#clientRecords .cr-file-picker { position:relative; display:flex; align-items:center; justify-content:center; min-height:44px; border:1px dashed var(--theme-line,var(--line)); border-radius:10px; padding:10px; font-size:16px; cursor:pointer; }
+#clientRecords .cr-file-picker input { position:absolute; inset:0; width:100%; height:100%; padding:0; opacity:0; cursor:pointer; }
+#clientRecords .cr-file-picker:focus-within { outline:2px solid var(--theme-accent,var(--green)); outline-offset:3px; }
+#clientRecords input,#clientRecords select,#clientRecords textarea { min-width:0; width:100%; max-width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--theme-line,var(--line)); border-radius:10px; background:var(--theme-surface,var(--white)); color:inherit; font:inherit; font-size:16px; }
+#clientRecords textarea { resize:vertical; }
+#clientRecords button { min-width:44px; min-height:44px; border-radius:10px; cursor:pointer; font:inherit; font-size:15px; line-height:1.4; white-space:normal; overflow-wrap:anywhere; }
+#clientRecords .cr-button { justify-self:start; padding:10px 18px; border:0; background:var(--theme-accent,var(--green)); color:var(--theme-accent-contrast,#fff); font-weight:600; }
+#clientRecords .cr-link { padding:10px 6px; border:0; background:none; color:var(--theme-accent,var(--green)); text-align:left; }
+#clientRecords button:disabled { opacity:.55; cursor:wait; }
+#clientRecords :is(button,summary,input,select,textarea):focus-visible { outline:2px solid var(--theme-accent,var(--green)); outline-offset:3px; }
+#clientRecords .cr-files { display:grid; gap:12px; }
+#clientRecords .cr-file { display:grid; grid-template-columns:44px minmax(0,1fr); gap:12px; padding:12px 0; border-bottom:1px solid var(--theme-line,var(--line)); }
+#clientRecords .cr-file-type { display:grid; place-items:center; width:44px; height:48px; border-radius:10px; background:var(--theme-surface-alt,var(--soft)); color:var(--theme-muted,var(--muted)); font-size:12px; }
+#clientRecords .cr-actions { display:flex; flex-wrap:wrap; gap:4px 12px; }
+#clientRecords .cr-timeline { display:grid; margin-top:8px; }
+#clientRecords .cr-event { display:grid; grid-template-columns:12px minmax(0,1fr); gap:14px; position:relative; padding:0 0 24px; }
+#clientRecords .cr-event:not(:last-child)::before { content:''; position:absolute; top:14px; bottom:0; left:4px; width:1px; background:var(--theme-line,var(--line)); }
+#clientRecords .cr-event-dot { width:9px; height:9px; border-radius:50%; margin-top:6px; background:var(--theme-accent,var(--green)); }
+#clientRecords .cr-status:empty { display:none; }
+#clientRecords .cr-status { font-size:14px; margin-bottom:12px; overflow-wrap:anywhere; }
+#clientRecords .cr-composer { margin-bottom:20px; }
+#clientRecords .cr-composer>summary { min-height:44px; color:var(--theme-accent,var(--green)); padding:8px 0; }
+.provider-body .client-preferences-disclosure>.client-labels-panel { margin-top:8px; }
+.provider-body .client-profile .client-summary { display:flex; flex-wrap:wrap; gap:12px; }
+.provider-body .client-profile .client-summary>article { flex:1 1 140px; min-width:0; }
+.provider-body .client-profile .client-summary strong { overflow-wrap:anywhere; }
+@media (max-width:760px) {
+  #clientRecords summary { gap:2px 10px; position:relative; padding-right:24px; }
+  #clientRecords summary small { flex-basis:100%; }
+  #clientRecords summary::after { position:absolute; right:0; top:16px; }
+  #clientRecords form { padding:12px; }
+  #clientRecords .cr-button { width:100%; }
+}
