@@ -1,0 +1,133 @@
+name: Minuta offline anonymized CRM snapshot
+run-name: Offline CRM snapshot from backup ${{ inputs.backup_run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      backup_run_id:
+        description: Successful encrypted production backup run ID
+        type: string
+        required: true
+      backup_sha:
+        description: Exact main SHA of the backup
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: minuta-crm-snapshot-prepare
+  cancel-in-progress: false
+jobs:
+  prepare-offline:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Verify source identity and successful backup
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+          BACKUP_SHA: ${{ inputs.backup_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$BACKUP_SHA" =~ ^[a-f0-9]{40}$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID")"
+          test "$(jq -r '.conclusion' <<<"$run")" = success
+          test "$(jq -r '.head_branch' <<<"$run")" = main
+          test "$(jq -r '.head_sha' <<<"$run")" = "$BACKUP_SHA"
+          test "$(jq -r '.path' <<<"$run")" = .github/workflows/minuta-supabase-backup.yml
+          age="$(( $(date -u +%s) - $(date -u -d "$(jq -r '.created_at' <<<"$run")" +%s) ))"
+          test "$age" -ge 0
+          test "$age" -le 21600
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired==false)] | length' <<<"$artifacts")" = 1
+          echo "name=$(jq -r '.artifacts[] | select(.expired==false) | .name' <<<"$artifacts")" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ steps.source.outputs.name }}
+          path: ${{ runner.temp }}/encrypted-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.backup_run_id }}
+      - name: Verify checksum and decrypt privately
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mapfile -t dumps < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg.sha256')
+          test "${#dumps[@]}" = 1
+          test "${#checksums[@]}" = 1
+          expected="$(tr -d '[:space:]' < "${checksums[0]}")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$expected"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/crm-source.dump" --decrypt "${dumps[0]}"
+      - name: Validate offline filters
+        run: |
+          node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-toc-review-test.mjs
+          npm install --prefix "$RUNNER_TEMP/snapshot-test-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
+          export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/snapshot-test-deps/node_modules/@electric-sql/pglite/dist/index.js"
+          node minuta-online-booking/scripts/crm-snapshot-anonymize-test.mjs
+      - name: Restore and anonymize without any network connection
+        env:
+          CRM_SOURCE_DUMP: ${{ runner.temp }}/crm-source.dump
+        run: bash minuta-online-booking/scripts/crm-snapshot-offline.sh
+      - name: Encrypt and verify anonymized output
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+          BACKUP_SHA: ${{ inputs.backup_sha }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          plain="$RUNNER_TEMP/crm-anonymized.dump"
+          encrypted="$plain.gpg"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 \
+            --output "$encrypted" "$plain"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/crm-anonymized-verify.dump" --decrypt "$encrypted"
+          cmp --silent "$plain" "$RUNNER_TEMP/crm-anonymized-verify.dump"
+          sha256sum "$encrypted" | awk '{print $1}' > "$encrypted.sha256"
+          jq -n --arg sha "$GITHUB_SHA" --arg base "$BACKUP_SHA" --arg run "$BACKUP_RUN_ID" \
+            --arg digest "$(cat "$encrypted.sha256")" \
+            '{schemaVersion:1,status:"success",operation:"offline-anonymization",codeSha:$sha,sourceSha:$base,sourceBackupRunId:$run,encryptedSha256:$digest,networkMode:"none",testDatabaseWritten:false,productionWritten:false}' \
+            > "$RUNNER_TEMP/crm-anonymized.json"
+      - name: Store structural metadata only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-snapshot-structure-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-snapshot-structure.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-anonymized-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/crm-anonymized.dump.gpg
+            ${{ runner.temp }}/crm-anonymized.dump.gpg.sha256
+            ${{ runner.temp }}/crm-anonymized.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove private intermediate artifacts
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/crm-source.dump" "$RUNNER_TEMP/crm-anonymized.dump" \
+            "$RUNNER_TEMP/crm-anonymized-verify.dump" "$RUNNER_TEMP/crm-offline-private.log" \
+            "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
