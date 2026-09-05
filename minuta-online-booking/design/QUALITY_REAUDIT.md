@@ -16,7 +16,7 @@
 Для полноты нужен список просмотренных источников и оставшихся недоступных данных.
 Нельзя объявлять «перепроверили всё» только после чтения 18 строк или запуска smoke.
 
-## Разделённая очередь
+## Разделённая очередь первого прохода
 
 | Охват | Исполнитель | Статус повторной приёмки |
 | --- | --- | --- |
@@ -25,8 +25,10 @@
 | P10–P17: платежи, денежный журнал, зарплата, склад, материалы, продукты, лояльность, отчёты | finance_gap | Назначено: денежные инварианты, код/контракты и источники |
 | Сведение реестра, границы доказательств, приоритеты и приёмка | Координатор | В работе |
 
-Агенты этой волны работают read-only. Этот реестр и дорожную карту изменяет
-только координатор. Публикация, SQL и чужие файлы не входят в аудит.
+Первый проход выполнялся read-only. Последующие подтверждённые дефекты исправляются
+отдельными назначениями в изолированных worktrees с независимым review. Этот реестр
+и дорожную карту изменяет только координатор. Текущие владельцы файлов и очереди
+публикации проверяются заново, а не выводятся из исторической таблицы выше.
 
 ## Карточка каждого решения
 
@@ -66,7 +68,42 @@
 лучше конкретного сравниваемого сценария только при сопоставимых измерениях;
 нельзя обещать систему без каких-либо ошибок.
 
-## Первый независимый проход: результаты и незакрытые проверки
+## Проверенный срез v444, 5 сентября 2026 года
+
+Этот раздел обновляет статус отдельных находок первого прохода. Он не означает
+приёмку всего P01–P18. Происхождение конкретного кода от YCLIENTS по-прежнему
+не доказано; ниже зафиксированы наши дефекты и наши проверки.
+
+Опубликованный frontend: `2303d662f1a8f819b2177a526bbb8641902fe3bf`, cache v444.
+Все пять branch CI и пять main CI прошли; [Pages 33985184940](https://github.com/aladushka9180-droid/anatomy-trainer/actions/runs/33985184940)
+успешен. Read-only production health с ожидаемой версией 444 прошёл. SHA-256
+`provider.js`, `app.js`, `free-slots-share.js`, `sw.js`, `provider.html`, `index.html`
+совпали с байтами Git-коммита, а не с преобразованными Windows CRLF-копиями.
+После этого среза текущий `main` и владельца следующего выпуска сверять заново.
+
+| Находка | Решение и подтверждение на срезе | Что остаётся непроверенным или открытым |
+| --- | --- | --- |
+| P01, потерянный ответ публичной записи | Сохранение исходного request ID и immutable payload опубликовано в v442; восстановление DOM филиала B вместо primary A — в v443. VM 25/25 и полный public-app native 3/3 прошли. Реальный bundled SDK повторяет transport запросы; проверяются один ID, одинаковые параметры и одна запись mock ledger, а не искусственное число HTTP-запросов | Реальные конкурентные SQL-соединения и authenticated production lost-reply E2E не выполнялись |
+| P02, отмена серии A после открытия B | В v444 опубликованы form/revision/org/session guards до и после RPC/helper refresh. Unknown/malformed response не закрывает форму и не объявляет отмену. Envelope сверяется с v79, UUID и occurrence уникальны, scope one относится к исходной записи. VM 50/50, native DOM с actual handlers 11/11 прошли; исходная версия воспроизводила stale-form ошибки | Native harness использует mock RPC и соседние контроллеры; это не полный authenticated provider E2E. Отмена оплаченной записи не доказывает денежный возврат |
+| P02, перенос серии | Отдельный test-only `f03a9cc` воспроизводит stale effects после RPC/color/note/refresh: VM 2 PASS / 10 FAIL. Независимый native `62aafde` дал 1 PASS / 4 FAIL. Исправление назначено отдельной ветке | На срезе v444 runtime переноса не исправлен. Подмена финального openBookingSheet счётчиком доказывает stale navigation call, но не весь renderer |
+| E-P01-SHARE, публикация свободных окон | В v443 добавлена инвалидация org/session/revision и пятисекундного подтверждения, suppression late output/fallback. Native 10/10 и прежний publication browser прошли; v444 повторно сохранил эти проверки | Начатое системное share/clipboard нельзя отозвать. Provider wiring проверяется извлечённым actual callback, не всей authenticated страницей |
+| P10, денежные границы возврата | В v442 опубликованы integer-cent parsing, минимум 100 копеек и остаток 0 либо не менее 100, сохранение выбранного payment attempt. VM 49/49 и native 6/6 прошли | Эти проверки не закрывают неизвестный результат возврата и не являются реальными банковскими операциями |
+| P10, lost-reply refund retry | `67590f6` и уточняющий `814179d` сохраняют честное воспроизведение: новый request ID при повторе может дать второй partial refund. После review: 5 PASS / 4 FAIL; отдельно разрешён законный явно новый возврат той же суммы | Synthetic provider counters не являются provider E2E; thrown invoke — defensive case, обычный bundled SDK возвращает error envelope. Browser reload recovery — отдельный будущий контракт |
+| P10, backend recovery draft | Local-only sidecar `e095c8e` / disable `d877b33`: private receipts, own-actor lookup/list/explicit ACK, keyset за 50 записей, disable/reapply, PGlite 23/23. Prepare-only `b7c6889`: immutable private intent, exact replay/changed-payload refusal, min/cap/tail, PGlite 26/26 | Не миграции и не main runtime. Настоящий legacy prepare обходит enrolled creating intent по exact/new same-amount key — integration BLOCKED. Нет provider-body/dispatch/24h и browser wiring; legacy manager SELECT существующей refunds таблицы сохранён |
+| P06/P09/P14, CRM v112–v114 | Test-only apply → reverse rollback → reapply завершён на `4e73ff98a2a44e857915356b18a265edb025cfe6`, run 33984549873. Реальная тестовая схема выявила отсутствующий UNIQUE bookings(id, organization_id); исправлена v113 и PGlite fixture, прежде скрывавшая проблему | Это отдельная анонимизированная testDB, default-off; не production migration/Edge deployment, не Storage HTTP E2E и не реальные отправки. Полную устаревшую frontend-ветку CRM в main не переносить |
+| P18, доставка ресурсов PWA | Реальный isolated service worker: update v443→v444, failed-install recovery и offline SHA всех шести app/free-slots/provider/group/benefit/retention JS прошли, 4/4 фазы | Инертная HTML-оболочка не запускает app/provider bootstrap. Не проверялись установленная Android/iOS PWA и её authenticated offline workflow |
+
+Свидетельство test-only CRM: [exercise 33984549873](https://github.com/aladushka9180-droid/anatomy-trainer/actions/runs/33984549873),
+предшествующий [backup 33984056948](https://github.com/aladushka9180-droid/anatomy-trainer/actions/runs/33984056948)
+закреплён на `bd7d46e863b4076ecfd238c05d9bd0c36bbc3a91`. Сохранены counts и fingerprints
+24 исходных наборов колонок. Это не основание автоматически разрешать production gate.
+
+Следующие приоритеты: закрыть runtime переноса серии; закрыть legacy refund bypass
+и только затем проектировать исполнение/восстановление реального возврата;
+пройти отдельные server concurrency, Storage и authenticated UI gates.
+Новые локальные draft-тесты не повышают опубликованную готовность сами по себе.
+
+## Первый независимый проход: исторические результаты и незакрытые проверки
 
 Срез кода: frontend `bd697f0` и документальная ветка `6e89373`; CRM v113
 изучался отдельно на `4b0c3b8`, v112/v114 — на `c0767a2`.
