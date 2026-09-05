@@ -78,6 +78,9 @@ jobs:
         run: |
           node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
           node minuta-online-booking/scripts/crm-snapshot-toc-review-test.mjs
+          npm install --prefix "$RUNNER_TEMP/snapshot-test-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
+          export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/snapshot-test-deps/node_modules/@electric-sql/pglite/dist/index.js"
+          node minuta-online-booking/scripts/crm-snapshot-anonymize-test.mjs
       - name: Restore and anonymize without any network connection
         env:
           CRM_SOURCE_DUMP: ${{ runner.temp }}/crm-source.dump
