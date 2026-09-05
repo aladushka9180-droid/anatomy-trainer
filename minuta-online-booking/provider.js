@@ -255,6 +255,7 @@ let editingOfflineBookingId = '';
 let lastConnectionLogSignature = '';
 let teamCalendarController = null;
 let batchBookingsController = null;
+let providerFeedbackController = { bind() {}, refreshAvailability() {}, reset() {} };
 let timelineBookingDrag = null;
 let timelineMovePending = false;
 let scheduleDaySwipe = null;
@@ -1765,7 +1766,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=394#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=395#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3521,7 +3522,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=394');
+    worker = new Worker('./report-worker.js?v=395');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -7897,6 +7898,7 @@ async function logout() {
 async function handleSession(session) {
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
+    void providerFeedbackController.refreshAvailability();
     restoreTelegramClientSettings(currentUser);
     renderTelegramClientSettings();
     renderProviderPhoneState();
@@ -7929,6 +7931,7 @@ async function handleSession(session) {
   groupBookingsController.reset();
   paymentController.reset();
   notificationCenterController.reset();
+  providerFeedbackController.reset();
   clientFieldsController.setOrganization(null);
   clientImportController.setOrganization(null);
   organizationController.reset();
@@ -7954,6 +7957,7 @@ async function handleSession(session) {
     finishProviderBoot();
     return;
   }
+  if (currentUser) void providerFeedbackController.refreshAvailability();
   const completedSocialFlow = window.MinutaSocialAuth?.flow();
   if (currentUser && completedSocialFlow?.mode === 'provider-link') {
     window.MinutaSocialAuth.clearFlow();
@@ -10147,6 +10151,15 @@ const organizationController = window.MinutaOrganization.createController({
   }
 });
 organizationController.bind();
+providerFeedbackController = window.MinutaProviderFeedback?.createController ? window.MinutaProviderFeedback.createController({
+  db,
+  $,
+  notify,
+  requireWrites,
+  getCurrentUser:() => currentUser,
+  getOrganization:() => organizationController.getActiveOrganization()
+}) : providerFeedbackController;
+providerFeedbackController.bind();
 const freeSlotsController = window.MinutaFreeSlots.createController({
   root: $('#freeSlotsDialog'),
   notify,

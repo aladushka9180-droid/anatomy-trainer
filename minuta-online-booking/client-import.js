@@ -408,7 +408,9 @@
           createdCount += Number(data?.created_count || 0);
           updatedCount += Number(data?.updated_count || data?.duplicate_count || 0);
         }
-        notify(importPreview.kind === 'history' ? `История загружена: ${createdCount} записей${updatedCount ? `, ${updatedCount} дублей пропущено` : ''}` : `Импортировано: ${createdCount} новых, ${updatedCount} обновлено`);
+        notify(importPreview.kind === 'history'
+          ? `История загружена: ${createdCount} записей${updatedCount ? `, ${updatedCount} дублей пропущено` : ''}`
+          : `Клиенты загружены: ${createdCount} новых, ${updatedCount} обновлено. Чтобы восстановить прошлый график, отдельно загрузите журнал записей Excel.`);
         $('#clientImportForm').reset();
         pendingTable = null;
         preview = null;

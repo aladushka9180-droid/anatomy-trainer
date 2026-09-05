@@ -155,13 +155,21 @@ function checkReleaseOrder() {
     }
 
     const expectedCounts = jobName === 'test-migration'
-      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2], [96, 2], [97, 2], [100, 2], [101, 2], [102, 2], [103, 2], [104, 2], [105, 2], [106, 2]])
-      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1], [96, 1], [97, 1], [100, 1], [101, 1], [102, 1], [103, 1], [104, 1], [105, 1], [106, 1]]);
+      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2], [96, 2], [97, 2], [100, 2], [101, 2], [102, 2], [103, 2], [104, 2], [105, 2], [106, 2], [107, 2], [108, 2], [109, 2]])
+      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1], [96, 1], [97, 1], [100, 1], [101, 1], [102, 1], [103, 1], [104, 1], [105, 1], [106, 1], [107, 1], [108, 1], [109, 1]]);
     for (const [version, expectedCount] of expectedCounts) {
       const actualCount = chain.filter(reference => reference.version === version).length;
       if (actualCount !== expectedCount) {
         errors.push(`Job ${jobName} должен применять v${version} ${expectedCount} раз, найдено: ${actualCount}.`);
       }
+    }
+
+    const expectedLatestSuffix = jobName === 'test-migration'
+      ? [106, 107, 108, 109, 106, 107, 108, 109]
+      : [106, 107, 108, 109];
+    const actualLatestSuffix = chain.slice(-expectedLatestSuffix.length).map(reference => reference.version);
+    if (actualLatestSuffix.join(',') !== expectedLatestSuffix.join(',')) {
+      errors.push(`Job ${jobName} должен завершать цепочку миграций версиями ${expectedLatestSuffix.join(', ')}.`);
     }
 
     for (const [left, right] of REQUIRED_RELEASE_TAIL.slice(0, -1).map((version, index) => [version, REQUIRED_RELEASE_TAIL[index + 1]])) {
