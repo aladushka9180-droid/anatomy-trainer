@@ -10981,9 +10981,9 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
-    freeSlotsController?.invalidateScope();
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
+    if (clientOrganizationChanged) freeSlotsController?.invalidateScope();
     activeClientOrganizationId = nextClientOrganizationId;
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
     if (clientOrganizationChanged) bookingEditorRevision += 1;
