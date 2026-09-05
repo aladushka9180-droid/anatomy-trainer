@@ -58,9 +58,9 @@ docker exec "$box" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 -c \
 # No raw data/schema/log is uploaded. Sanitizer must fail closed on unknown data.
 docker cp "$script_dir/crm-snapshot-anonymize.sql" "$box:/tmp/anonymize.sql" >/dev/null
 stage=anonymize
-if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f /tmp/anonymize.sql >>"$private_log" 2>&1; then
+if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f /tmp/anonymize.sql >>"$private_log" 2>&1; then
   echo 'Offline anonymization refused the snapshot; no testDB changes' >&2
-  grep -E '^psql:/tmp/anonymize\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}$' "$private_log" >&2 || true
+  node "$script_dir/crm-snapshot-diagnostics.mjs" "$private_log"
   exit 1
 fi
 stage=export

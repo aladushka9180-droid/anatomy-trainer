@@ -1,0 +1,101 @@
+name: Minuta guarded anonymized test restore
+run-name: Test-only CRM restore from snapshot ${{ inputs.snapshot_run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Validate without database writes first; restore requires prior review
+        type: choice
+        options: [validate, restore]
+        default: validate
+        required: true
+      snapshot_run_id:
+        description: Successful offline anonymized snapshot run ID
+        type: string
+        required: true
+      snapshot_sha:
+        description: Exact 40-character SHA of the snapshot workflow
+        type: string
+        required: true
+      test_backup_run_id:
+        description: Successful main test-backup run ID, no older than six hours
+        type: string
+        required: true
+      backup_sha:
+        description: Exact 40-character main SHA of the test backup
+        type: string
+        required: true
+      restore_confirm:
+        description: Enter RESTORE_UMAZHVVXUTNSYUPHBHDA_ANONYMIZED_CRM
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  restore-test-only:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/client-record-files'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: minuta-test
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install PostgreSQL 17 client and OpenPGP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+      - name: Validate target SQL transformer without a database
+        run: |
+          node minuta-online-booking/scripts/crm-snapshot-target-sql-test.mjs
+          node minuta-online-booking/scripts/crm-test-restore-guards-test.mjs
+      - name: Verify backups and restore only the authorized isolated test project
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+          SNAPSHOT_RUN_ID: ${{ inputs.snapshot_run_id }}
+          SNAPSHOT_SHA: ${{ inputs.snapshot_sha }}
+          TEST_BACKUP_RUN_ID: ${{ inputs.test_backup_run_id }}
+          BACKUP_SHA: ${{ inputs.backup_sha }}
+          RESTORE_CONFIRM: ${{ inputs.restore_confirm }}
+          RESTORE_MODE: ${{ inputs.mode }}
+        run: bash minuta-online-booking/scripts/crm-test-restore.sh
+      - name: Persist commit-confirmed non-personal restore journal
+        if: inputs.mode == 'restore'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-test-restore-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-test-restore-success.json
+          if-no-files-found: error
+          retention-days: 35
+      - name: Remove private intermediates even after cancellation
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only the fixed directory owned by this job is removed; journals are separate.
+          target="$(realpath -m "$RUNNER_TEMP/minuta-crm-test-restore-private")"
+          test "$target" = "$(realpath "$RUNNER_TEMP")/minuta-crm-test-restore-private"
+          rm -rf -- "$target"
