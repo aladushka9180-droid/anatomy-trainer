@@ -1968,7 +1968,7 @@ async function saveClientNoteValue(phone, note, { replay = false, isCurrent = ()
   const key = JSON.stringify([userId, generation, phone]);
   const previous = clientNoteSaveQueues.get(key) || Promise.resolve();
   const operation = previous.catch(() => {}).then(() => runMetadataWrite(pending, phone,
-    () => canApply() && pendingClientNotes.get(phone) === value,
+    () => locallySaved && canApply() && pendingClientNotes.get(phone) === value,
     () => db.from('client_notes').upsert({performer_id:userId,client_phone:phone,note:value,updated_at:new Date().toISOString()}), replay, rethrow));
   clientNoteSaveQueues.set(key, operation);
   let saved;
@@ -2007,7 +2007,7 @@ async function saveBookingColor(id, color, { rerender = true, isCurrent = () => 
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
-  const saved = await runMetadataWrite(colors, id, () => canApply() && isLatest(),
+  const saved = await runMetadataWrite(colors, id, () => locallySaved && canApply() && isLatest(),
     () => db.rpc('set_booking_color', { p_booking:id, p_color:selected }), replay, !replay, data => data === selected);
   if (!canApply() || !isLatest()) return false;
   if (saved) pendingBookingColors.delete(id);
@@ -2029,7 +2029,7 @@ async function saveBookingNote(id, note, { rerender = true, isCurrent = () => tr
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.provider_note = value;
   if (rerender) renderBookingData();
-  const saved = await runMetadataWrite(notes, id, () => canApply() && isLatest(),
+  const saved = await runMetadataWrite(notes, id, () => locallySaved && canApply() && isLatest(),
     () => db.rpc('set_booking_note', { p_booking:id, p_note:value }), replay, false, data => data === value);
   if (!canApply() || !isLatest()) return false;
   if (saved) pendingBookingNotes.delete(id);
@@ -7891,7 +7891,7 @@ async function persistClientLabelValue(phone, value, statusElement, { replay = f
   const key = JSON.stringify([userId, generation, phone]);
   const previous = clientLabelSaveQueues.get(key) || Promise.resolve();
   const operation = previous.catch(() => {}).then(() => runMetadataWrite(labels, phone,
-    () => canApply() && clientLabels.get(phone) === value,
+    () => locallySaved && canApply() && clientLabels.get(phone) === value,
     () => db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' }), replay));
   clientLabelSaveQueues.set(key, operation);
   const saved = await operation;

@@ -43,6 +43,23 @@ function fixture(storage = new Map()) {
 }
 const ack = call => call.resolve({data:call.params.p_note ?? call.params.p_color ?? null,error:null});
 
+for(const kind of ['client-note','booking-note','color','label']) {
+  test(`${kind}: failed durable update prevents a new remote ACK followed by stale replay`, async()=>{
+    const h=fixture(), save=(context,newer)=>kind==='client-note'?context.saveClientNoteValue('79990000000',newer?'NEW':'OLD')
+      :kind==='booking-note'?context.saveBookingNote('booking-A',newer?'NEW':'OLD')
+      :kind==='color'?context.saveBookingColor('booking-A',newer?'mint':'sky')
+      :context.persistClientLabelValue('79990000000',{vip:newer},null);
+    h.state.navigator.onLine=false; await save(h.context,false); h.state.navigator.onLine=true;
+    const before=[...h.storage]; h.state.localStorage.setItem=()=>{throw Error('QuotaExceededError');};
+    const saving=save(h.context,true).catch(()=>false); await tick();
+    if(h.calls[0]) ack(h.calls[0]); const saved=await saving;
+    assert.equal(saved,false);assert.equal(h.calls.length,0,'Do not acknowledge newer remote data while durable storage still has old data');
+    assert.deepEqual([...h.storage],before,'Other pending data must not be deleted');
+    const reopened=fixture(h.storage),replay=reopened.context.flushPendingMetadata();await tick();
+    assert.equal(reopened.calls.length,1);ack(reopened.calls[0]);assert.equal(await replay,true);
+  });
+}
+
 test('multi-client replay never resurrects an old snapshot value after newer ACK', async () => {
   const h=fixture(); h.state.navigator.onLine=false;
   await h.context.saveClientNoteValue('79990000001','old A');
