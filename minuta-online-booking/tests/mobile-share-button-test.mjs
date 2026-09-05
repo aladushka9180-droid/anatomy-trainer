@@ -61,6 +61,14 @@ try {
       await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
       assert.equal(await page.locator('[name="freeSlotsBookingMode"][value="general"]').isChecked(),true);
       assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Dialog must not overflow horizontally');
+      await page.locator('#freeSlotsFormatSettings').evaluate(el=>{el.open=true;});
+      for (const format of ['hourly','intervals']) {
+        await page.locator(`[name="freeSlotsTimeFormat"][value="${format}"]+span`).click();
+        assert.equal(await page.locator(`[name="freeSlotsTimeFormat"][value="${format}"]`).isChecked(),true);
+        const option = await page.locator(`[name="freeSlotsTimeFormat"][value="${format}"]+span`).boundingBox();
+        assert.ok(option.height>=44 && option.width>=44,'Format touch target');
+        assert.ok(await page.locator('#freeSlotsDialog').evaluate(dialog=>dialog.scrollWidth<=dialog.clientWidth+1),'Expanded format settings overflow');
+      }
       if(process.env.FREE_SLOTS_SCREENSHOT && width===390 && theme==='sage') await page.screenshot({path:process.env.FREE_SLOTS_SCREENSHOT});
       await page.locator('[data-close-free-slots]').click();
     }

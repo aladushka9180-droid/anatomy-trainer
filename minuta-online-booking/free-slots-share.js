@@ -141,11 +141,22 @@
 
   function buildGeneralPublication(from, to, data, windows) {
     const dates = dateSpan(from, to);
-    const rows = dates.map(date => ({ date, windows:windows.filter(row => row.booking_date === date) })).filter(row => row.windows.length);
+    const hourly = data.timeFormat === 'hourly';
+    const rows = dates.map(date => {
+      const dayWindows = windows.filter(row => row.booking_date === date);
+      const times = [...new Set(dayWindows.flatMap(item => {
+        const starts = [];
+        // General mode has no service duration: advertise complete free HOURS,
+        // not an unchecked promise that any procedure fits at these starts.
+        for (let start = Math.ceil(timeMinutes(item.start_time) / 60) * 60; start + 60 <= timeMinutes(item.end_time); start += 60) starts.push(minuteTime(start));
+        return starts;
+      }))].sort();
+      return { date, windows:dayWindows, times };
+    }).filter(row => hourly ? row.times.length : row.windows.length);
     const heading = dates.length === 1 ? `Свободные окна на ${formatDate(from)}:` : 'Свободные окна для записи:';
     const target = [data.performerLabel, data.locationLabel].filter(Boolean).join(' · ');
-    const body = rows.length ? rows.map(row => `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join('\n')}`).join('\n\n')
-      : 'На выбранный период свободных окон пока нет.';
+    const body = rows.length ? rows.map(row => `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${hourly ? `Начало свободного часа: ${row.times.join(', ')}` : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join('\n')}`).join('\n\n')
+      : hourly ? 'На выбранный период целых свободных часов нет. Более короткие окна смотрите по ссылке.' : 'На выбранный период свободных окон пока нет.';
     return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${rows.length ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
   }
 
@@ -384,6 +395,10 @@
     const dialog = root;
     const modeControls = [...dialog.querySelectorAll('[name="freeSlotsPeriod"]')];
     const bookingModeControls = [...dialog.querySelectorAll('[name="freeSlotsBookingMode"]')];
+    const formatControls = [...dialog.querySelectorAll('[name="freeSlotsTimeFormat"]')];
+    const formatSettings = dialog.querySelector('#freeSlotsFormatSettings');
+    const formatSummary = dialog.querySelector('#freeSlotsFormatSummary');
+    const formatHint = dialog.querySelector('#freeSlotsFormatHint');
     const serviceSelect = dialog.querySelector('#freeSlotsService');
     const locationField = dialog.querySelector('#freeSlotsLocationField');
     const locationSelect = dialog.querySelector('#freeSlotsLocation');
@@ -417,6 +432,22 @@
     let checkingPublication = false;
     let confirmedPublication = null;
     let clockKey = '';
+    const formatPreferences = new Map();
+
+    function timeFormat() { return formatControls.find(control => control.checked)?.value === 'hourly' ? 'hourly' : 'intervals'; }
+    function preferenceKey() { return `minuta:free-slots-format:${getData().userId || 'local'}`; }
+    function restoreFormat() {
+      const key = preferenceKey();
+      let saved = formatPreferences.get(key);
+      try { if (!saved) saved = window.localStorage.getItem(key); } catch {}
+      const format = saved === 'hourly' ? 'hourly' : 'intervals';
+      formatControls.forEach(control => { control.checked = control.value === format; });
+    }
+    function configureFormat() {
+      if (!formatSettings) return;
+      formatSettings.hidden = !generalMode();
+      formatSummary.textContent = `Формат времени · ${timeFormat() === 'hourly' ? 'По часам' : 'Промежутками'}`;
+    }
 
     function generalMode() { return bookingModeControls.find(control => control.checked)?.value === 'general'; }
     function currentClock() { return publicationClock(getData().now); }
@@ -426,6 +457,7 @@
       serviceSelect.closest('label').hidden = general;
       showServiceControl.closest('label').hidden = general;
       timeChoices.closest('details').hidden = general;
+      configureFormat();
       dialog.querySelector('.free-slots-help').textContent = general
         ? 'Ваше свободное время без привязки к услуге: рабочие часы за вычетом записей, перерывов и выходных. Клиент выберет услугу по ссылке; её длительность и условия записи проверятся отдельно.'
         : 'Свободные начала сеанса по часам с учётом длительности выбранной услуги. Сегодня — не раньше ближайшего целого часа: в 15:32 начнём с 16:00.';
@@ -557,6 +589,7 @@
         from, to, service, location, trackingUrl,
         publicationData:{
           ...data,
+          timeFormat:timeFormat(),
           bookingUrl:trackingUrl,
           selectedOnly:true,
           performerLabel:serverContext?.performerLabel || '',
@@ -729,6 +762,7 @@
       selectionContext = '';
       manualSelection = false;
       const data = getData();
+      restoreFormat();
       fromInput.min = data.today;
       fromInput.value = data.selectedDate >= data.today ? data.selectedDate : data.today;
       toInput.value = addDays(fromInput.value, 6);
@@ -753,6 +787,19 @@
       void refreshFromServer({ reloadContext:true });
     }));
     sourceControls.forEach(control => control.addEventListener('change', renderPublication));
+    formatControls.forEach(control => control.addEventListener('change', () => {
+      confirmedPublication = null;
+      const key = preferenceKey();
+      formatPreferences.set(key, timeFormat());
+      try {
+        window.localStorage.setItem(key, timeFormat());
+        formatHint.textContent = 'Выбор запоминается для вашего аккаунта в этом браузере.';
+      } catch {
+        formatHint.textContent = 'Браузер не разрешил сохранение. Выбор действует до перезагрузки страницы.';
+      }
+      configureFormat();
+      renderPublication();
+    }));
     showServiceControl.addEventListener('change', renderPublication);
     timeChoices.addEventListener('change', event => {
       if (!publicationReady || event.target.type !== 'checkbox') return;

@@ -61,7 +61,12 @@ assert.match(indexHtml, /id="locationFilter"[\s\S]*id="locationSelect"/, 'На �
 assert.match(providerHtml, /id="freeSlotsService"[\s\S]*id="freeSlotsLocation"/, 'Публикация свободного времени не позволяет выбрать услугу и филиал');
 assert.match(provider, /getFreeSlotsServerAvailability[\s\S]*get_public_minuta_available_slots_v101/, 'Свободное время не сверяется с серверной доступностью онлайн-записи');
 assert.match(freeSlotsShare, /generalMode\(\) \? loadWindows : loadSlots[\s\S]*serviceId:serviceSelect\.value[\s\S]*locationId:locationSelect\.value/, 'Режимы публикации не разделяют общие окна и слоты услуги');
-assert.doesNotMatch(freeSlotsShare, /scheduleRows|allBookings|localStorage/, 'Публикация снова рассчитывает свободное время по локальному кэшу');
+// Only the display preference may use storage; schedule/availability still must not.
+assert.match(freeSlotsShare, /function preferenceKey\(\) \{ return `minuta:free-slots-format:/);
+const availabilityWithoutFormatPreference = freeSlotsShare
+  .replace('window.localStorage.getItem(key)', '')
+  .replace('window.localStorage.setItem(key, timeFormat())', '');
+assert.doesNotMatch(availabilityWithoutFormatPreference, /scheduleRows|allBookings|localStorage/, 'Публикация снова рассчитывает свободное время по локальному кэшу');
 assert.match(provider, /loadWindows:getFreeSlotsGeneralAvailability/, 'Общие окна не получают свежий график');
 assert.match(freeSlotsShare, /сервер не подтвердил доступные слоты/, 'При ошибке сервера публикация не закрывается безопасно');
 assert.match(app, /requestedLocationId[\s\S]*state\.locationId = requestedLocationId/, 'Ссылка публикации не открывает выбранный филиал');

@@ -10,9 +10,10 @@ const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANN
 try {
   const page=await browser.newPage({viewport:{width:390,height:844}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.setContent('<button id="open">Открыть</button>'+dialog);
+  await page.route('https://example.test/**',route=>route.fulfill({contentType:'text/html',body:'<button id="open">Открыть</button>'+dialog}));
+  await page.goto('https://example.test/');
   await page.addScriptTag({content:script});
-  await page.evaluate(()=>{
+  const setup=()=>{
     const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
     window.serverTimes=Array.from({length:109},(_,i)=>clock(600+i*5));
     window.serverCalls=[];window.copied=[];window.shared=[];window.serverFail=false;
@@ -20,7 +21,7 @@ try {
     Object.defineProperty(navigator,'share',{value:async data=>window.shared.push(data.text),configurable:true});
     window.controller=window.MinutaFreeSlots.createController({
       root:document.querySelector('#freeSlotsDialog'),
-      getData:()=>({today:'2026-09-05',now:window.testNow || '2026-09-05T08:00:00Z',selectedDate:'2026-09-06',bookingUrl:'https://example.test/booking.html?service=old&time=10:00&repeat=1'}),
+      getData:()=>({userId:window.testUser || 'master-a',today:'2026-09-05',now:window.testNow || '2026-09-05T08:00:00Z',selectedDate:'2026-09-06',bookingUrl:'https://example.test/booking.html?service=old&time=10:00&repeat=1'}),
       loadContext:async()=>({mode:'personal',services:[{id:'service-60',name:'Массаж',duration_minutes:60}],locations:[]}),
       loadWindows:async args=>{
         if(window.serverFail) throw Error('Unavailable');
@@ -33,7 +34,8 @@ try {
       },notify:()=>{}
     });
     document.querySelector('#open').addEventListener('click',window.controller.open);
-  });
+  };
+  await page.evaluate(setup);
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   const text=()=>page.locator('#freeSlotsText').inputValue();
@@ -42,8 +44,30 @@ try {
   assert.equal(await page.locator('#freeSlotsService').isVisible(),false);
   const catalogUrl=new URL(await page.locator('#freeSlotsBookingLink').getAttribute('href'));
   for(const key of ['service','time','repeat']) assert.equal(catalogUrl.searchParams.has(key),false);
+  await page.locator('#freeSlotsFormatSummary').click();
+  await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').check();
+  assert.ok((await text()).includes('Начало свободного часа: 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00'));
+  assert.ok(!(await text()).includes('20:00'));
+  assert.equal(await page.evaluate(()=>localStorage.getItem('minuta:free-slots-format:master-a')),'hourly');
+  await page.locator('[data-close-free-slots]').click();
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').isChecked(),true);
+  // Preferences do not leak to a different signed-in master in the same browser.
+  await page.locator('[data-close-free-slots]').click();
+  await page.evaluate(()=>{window.testUser='master-b';});
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').isChecked(),true);
+  await page.locator('[data-close-free-slots]').click();
+  await page.evaluate(()=>{window.testUser='master-a';});
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').isChecked(),true);
+  await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
   await page.locator('[name="freeSlotsBookingMode"][value="service"]').check();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.equal(await page.locator('#freeSlotsFormatSettings').isVisible(),false);
   assert.ok(await page.evaluate(()=>Boolean(document.querySelector('#freeSlotsFrom').compareDocumentPosition(document.querySelector('#freeSlotsService')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'Date must precede the secondary service choice');
   assert.ok((await text()).includes('10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00'));
   assert.equal(await page.locator('#freeSlotsTimeChoices input:checked').count(),10);
@@ -91,12 +115,18 @@ try {
   await page.locator('[name="freeSlotsBookingMode"][value="general"]').check();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.ok((await text()).includes('16:00–20:00 · 4 часа'));
+  await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').check();
+  assert.ok((await text()).includes('16:00, 17:00, 18:00, 19:00'));
+  assert.ok(!(await text()).includes('15:'));
   // A new booking before copying must change the preview, never silently send the old interval.
   const copiedBefore=await page.evaluate(()=>window.copied.length);
   await page.evaluate(()=>{window.generalWindows=[{booking_date:'2026-09-06',start_time:'17:00',end_time:'20:00',duration_minutes:180}];});
   await page.locator('#copyFreeSlots').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.equal(await page.evaluate(()=>window.copied.length),copiedBefore);
+  assert.ok((await text()).includes('17:00, 18:00, 19:00'));
+  assert.ok(!(await text()).includes('16:00'));
+  await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
   assert.ok((await text()).includes('17:00–20:00 · 3 часа'));
   // The open dialog refreshes when its time boundary passes, without a new user click.
   await page.evaluate(()=>{window.testNow='2026-09-06T13:01:00Z';});
@@ -105,6 +135,23 @@ try {
   await page.waitForFunction(()=>document.querySelector('#freeSlotsText').value.includes('не опубликовано'));
   assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true);
   assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true);
+  // A new page/controller restores the saved format, not just a live radio state.
+  await page.evaluate(()=>localStorage.setItem('minuta:free-slots-format:master-a','hourly'));
+  await page.reload();
+  await page.addScriptTag({content:script});
+  await page.evaluate(setup);
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.ok((await text()).includes('Начало свободного часа: 10:00, 11:00'));
+  await page.locator('#freeSlotsFormatSummary').click();
+  await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('Storage denied');};});
+  await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
+  assert.ok((await text()).includes('10:00–20:00 · 10 часов'));
+  assert.ok((await page.locator('#freeSlotsFormatHint').textContent()).includes('до перезагрузки'));
+  await page.locator('[data-close-free-slots]').click();
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.ok((await text()).includes('10:00–20:00 · 10 часов'),'In-memory fallback survives reopening with storage denied');
   assert.deepEqual(errors,[]);
   console.log('PASS: both modes, catalog link, full hourly preview, server gaps, manual/auto, today 15:32→16:00, live clock rollover, fresh pre-send, copy/share, fail-closed');
 } finally {await browser.close();}
