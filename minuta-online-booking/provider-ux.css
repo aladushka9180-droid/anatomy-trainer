@@ -1,4 +1,51 @@
 /* Shared workspace hierarchy. Theme colours and the user's text scale stay authoritative. */
+/* Client marks describe the person, not a separate light colour scheme. Keep
+   icons/labels as the distinction and let every theme own the card surface. */
+.provider-body[data-provider-theme][data-provider-layout] {
+  --client-state-surface:var(--theme-surface);
+  --client-state-selected:color-mix(in srgb,var(--theme-surface) 88%,var(--theme-accent));
+  --workspace-secondary:color-mix(in srgb,var(--theme-muted) 75%,var(--theme-ink));
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(
+  .client-list-item,.provider-booking,.timeline-booking
+):is(.client-vip,.client-favorite,.client-attention) {
+  background:var(--client-state-surface)!important;
+  border-color:var(--theme-line)!important;
+  color:var(--theme-ink)!important;
+  box-shadow:inset 3px 0 0 var(--theme-accent)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .client-list-item:is(:hover,.active) {
+  background:var(--client-state-selected)!important;
+  border-color:var(--theme-accent)!important;
+  color:var(--theme-ink)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(.provider-booking,.timeline-booking):is(.client-vip,.client-favorite,.client-attention):hover {
+  background:var(--client-state-selected)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .client-list-item .client-list-main strong,
+.provider-body[data-provider-theme][data-provider-layout] :is(.provider-booking,.timeline-booking):is(.client-vip,.client-favorite,.client-attention) :is(
+  .provider-booking-top h3,.booking-client-name-row strong,.timeline-booking-copy>strong,.timeline-client-name,.timeline-booking-time,.booking-time-column>strong
+) { color:var(--theme-ink)!important; }
+.provider-body[data-provider-theme][data-provider-layout] :is(
+  .client-list-avatar,.client-avatar,.client-badge
+) {
+  background:var(--theme-accent-soft)!important;
+  color:var(--theme-ink)!important;
+  border-color:var(--theme-line)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(.client-list-main small,.client-list-main i) {
+  color:var(--workspace-secondary)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(.provider-booking,.timeline-booking):is(.client-vip,.client-favorite,.client-attention) :is(
+  .provider-booking-phone,.provider-booking-note-full,.provider-booking-note-full b,.timeline-booking-client,.timeline-client-phone,.timeline-booking-note,.timeline-booking-note b
+) { color:var(--workspace-secondary)!important; }
+.provider-body[data-provider-theme][data-provider-layout] :is(input,textarea)::placeholder {
+  color:var(--workspace-secondary)!important;
+  opacity:1!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] :is(
+  .view-description,.organization-invite-help,.settings-card>p,.provider-section-nav button:not(.active)
+) { color:var(--workspace-secondary)!important; }
 .provider-body[data-provider-theme][data-provider-layout] .ux-disclosure {
   min-width:0; margin-block:12px; color:var(--theme-ink); box-shadow:none;
 }

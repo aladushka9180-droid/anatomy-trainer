@@ -1,0 +1,20 @@
+name: Minuta theme card browser regression
+on:
+  push:
+    paths: ['minuta-online-booking/**', '.github/workflows/minuta-theme-cards.yml']
+  pull_request:
+    paths: ['minuta-online-booking/**', '.github/workflows/minuta-theme-cards.yml']
+permissions:
+  contents: read
+jobs:
+  card-states:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npx playwright install --with-deps chromium
+      - run: node minuta-online-booking/tests/theme-card-browser-test.mjs
