@@ -101,11 +101,18 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
       },
     };
     let html = '';
+    if (selectIds.has(id)) {
+      let selected = '';
+      Object.defineProperty(element, 'value', { get:() => selected, set:value => {
+        const values = [...html.matchAll(/<option value="([^"]*)"/g)].map(match => match[1]);
+        selected = values.includes(String(value)) ? String(value) : '';
+      } });
+    }
     Object.defineProperty(element, 'innerHTML', { get:() => html, set:value => {
       html = String(value);
       element.textContent = html.replace(/<[^>]*>/g, '');
       // Actual render replaces select options; emulate first-option selection.
-      // One warehouse/item deliberately avoids conflating target-switch defects.
+      // Selection restoration is tested separately from the one-target ledger.
       if (selectIds.has(id)) element.value = html.match(/<option value="([^"]*)"/)?.[1] || '';
     } });
     nodes.set(id, element); return element;
@@ -160,7 +167,8 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
     return pending;
   }
   const restore = () => listeners.get('click')({ target:{ closest:selector => selector === '[data-inventory-restore-movement]' ? {} : null } });
-  return { ledger, otherLedger, readResponses, calls, effects, controller, node, fill, submit, event, loseFirstReply, auth, restore,
+  const reload = () => listeners.get('click')({ target:{ closest:selector => selector === '#reloadInventory' ? {} : null } });
+  return { ledger, otherLedger, readResponses, calls, effects, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
     acknowledgeFirst:() => releaseFirstReply(calls[0].committedReply) };
 }
 
@@ -428,3 +436,98 @@ test('unresolved original-description message is not displayed in a different or
   await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
   assert.equal(h.node('inventoryMovementError').textContent, ''); assert.equal(h.node('inventoryMovementError').hidden, true);
 });
+
+test('unknown automatically reads committed journal/balance without ACK or changing raw form', async () => {
+  const h = await harness(); h.fill({ quantity:'2.0', reason:'  Исходная причина  ' });
+  await h.loseFirstReply();
+  assert.equal(h.controller.payload.movements.length, 1);
+  assert.equal(h.controller.payload.balances[0].quantity, 8);
+  assert.equal(h.node('inventoryMovementsCount').textContent, '1');
+  assert.equal(h.node('inventoryMovementQuantity').value, '2.0');
+  assert.equal(h.node('inventoryMovementReason').value, '  Исходная причина  ');
+  assert.equal(h.node('inventoryMovementError').hidden, false);
+  assert.match(h.node('inventoryMovementError').textContent, /мог измениться/);
+  assert.equal(h.calls.length, 1); assert.equal(h.effects.some(e => e[0] === 'notify'), false);
+  await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+});
+
+test('initial definite refusal reads workspace and preserves corrected draft without mutation', async () => {
+  const h = await harness({ firstRefusal:{ code:'55000', message:'insufficient_inventory_stock' } });
+  const pending = h.submit(); await tick();
+  h.node('inventoryMovementQuantity').value = '3.0';
+  h.calls[0].resolve(h.calls[0].committedReply); await pending;
+  assert.equal(h.effects.filter(e => e[0] === 'workspaceRead').length, 2);
+  assert.equal(h.node('inventoryMovementQuantity').value, '3.0');
+  assert.match(h.node('inventoryMovementError').textContent, /Сервер отклонил/);
+  assert.equal(h.calls.length, 1); assert.equal(h.ledger.rows.length, 0);
+});
+
+for (const failure of ['error', 'throw', 'malformed']) {
+  test(`unknown then read ${failure}: visible read retry preserves frozen intent and journal warning`, async () => {
+    const h = await harness();
+    const failRead = () => failure === 'throw' ? Promise.reject(Error('read transport'))
+      : failure === 'error' ? { data:null, error:{ code:'42883', message:'get_minuta_inventory_workspace missing' } }
+        : { data:{ organization_id:otherIds.org }, error:null };
+    h.readResponses.push(failRead); await h.loseFirstReply();
+    assert.equal(h.node('inventoryPanel').hidden, false);
+    assert.equal(h.node('inventoryUnavailable').hidden, false);
+    assert.equal(h.node('inventoryLoading').hidden, true);
+    assert.match(h.node('inventoryUnavailableText').textContent, /ещё не подтверждён/);
+    assert.match(h.node('inventoryUnavailableText').textContent, /Повторить/);
+    h.readResponses.push(failRead); await h.reload();
+    assert.equal(h.node('inventoryLoading').hidden, true); assert.equal(h.calls.length, 1);
+    await h.reload();
+    assert.equal(h.controller.availability, 'ready'); assert.equal(h.controller.payload.movements.length, 1);
+    assert.equal(h.node('inventoryMovementError').hidden, false);
+    assert.equal(h.node('inventoryMovementQuantity').value, '2');
+    await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+    assert.equal(h.ledger.rows.length, 1);
+  });
+}
+
+test('reconciliation preserves edits made during read and selected target when options reorder', async () => {
+  const h = await harness(); let resolveRead;
+  h.readResponses.push(() => new Promise(resolve => { resolveRead = resolve; }));
+  const pending = h.submit(); await tick(); h.calls[0].resolve(lostReply()); await tick();
+  h.node('inventoryMovementQuantity').value = '3.0'; h.node('inventoryMovementReason').value = '  Новая причина  ';
+  const data = h.ledger.workspace();
+  data.items.unshift({ ...data.items[0], id:otherIds.item });
+  data.warehouses.unshift({ ...data.warehouses[0], id:otherIds.warehouse });
+  resolveRead({ data, error:null }); await pending;
+  assert.equal(h.node('inventoryMovementWarehouse').value, ids.warehouse);
+  assert.equal(h.node('inventoryMovementItem').value, ids.item);
+  assert.equal(h.node('inventoryMovementQuantity').value, '3.0');
+  assert.equal(h.node('inventoryMovementReason').value, '  Новая причина  ');
+  await h.submit(); assert.equal(h.calls.length, 1, 'changed draft is not silently sent after read');
+  await h.restore(); await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+});
+
+test('read removing original target leaves selection empty instead of silently choosing another', async () => {
+  const h = await harness();
+  h.readResponses.push(() => {
+    const data = h.ledger.workspace(); data.items[0].id = otherIds.item;
+    return { data, error:null };
+  });
+  await h.loseFirstReply(); assert.equal(h.node('inventoryMovementItem').value, '');
+  await h.submit(); await h.restore(); await h.submit();
+  assert.equal(h.calls.length, 1); assert.equal(h.ledger.rows.length, 1);
+});
+
+for (const outcome of ['success', 'error', 'throw']) {
+  test(`late unknown reconciliation ${outcome} cannot render over B or release B pending write`, async () => {
+    const h = await harness({ deferAllReplies:true }); let resolveRead, rejectRead;
+    h.readResponses.push(() => new Promise((resolve, reject) => { resolveRead = resolve; rejectRead = reject; }));
+    const a = h.submit(); await tick(); h.calls[0].resolve(lostReply()); await tick();
+    h.controller.reset(); h.auth.actor = otherIds.actor; h.auth.generation += 1;
+    await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' }); h.fill({ fixture:otherIds });
+    const b = h.submit(); await tick(); const before = JSON.stringify(h.effects);
+    if (outcome === 'throw') rejectRead(Error('late read reject'));
+    else resolveRead(outcome === 'success' ? { data:h.ledger.workspace(), error:null } : lostReply());
+    await a;
+    assert.equal(JSON.stringify(h.effects), before); assert.equal(h.node('movementSubmit').disabled, true);
+    assert.equal(h.controller.payload.organization_id, otherIds.org);
+    assert.equal(h.node('inventoryMovementItem').value, otherIds.item);
+    await h.submit(); assert.equal(h.calls.length, 2);
+    h.calls[1].resolve(h.calls[1].committedReply); await b;
+  });
+}

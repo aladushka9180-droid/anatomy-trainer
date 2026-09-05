@@ -19,6 +19,7 @@
     const movementIntents = new Map();
     let movementOperation = null;
     let movementErrorScope = null;
+    let movementReadRecovery = null;
 
     function unsupported(error) { return /PGRST202|42883|get_minuta_inventory_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
     function scopeMatches(data, id) { return Boolean(data && String(data.organization_id || '') === String(id)); }
@@ -47,6 +48,7 @@
     function reset() {
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementOperation = null;
       movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
+      movementReadRecovery = null;
       $('#inventoryPanel').hidden = true; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
     }
 
@@ -61,17 +63,38 @@
       organization = normalized; pendingOrganization = undefined; return load();
     }
 
-    async function load() {
+    async function load({ movementRecovery = null } = {}) {
       if (writing) return { ok:false, optional:true, pending:true };
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
+      const scope = movementScope();
+      if (movementReadRecovery?.scope !== scope) movementReadRecovery = null;
+      if (movementRecovery) movementReadRecovery = { ...movementRecovery, scope };
+      const recovery = movementReadRecovery || (movementIntents.has(scope) ? {
+        preserve:true, message:'Результат движения ещё не подтверждён, и журнал не удалось обновить. Нажмите «Повторить» для чтения склада; новая операция не отправляется.'
+      } : null);
+      const readIsCurrent = () => sessionIsCurrent(userId, generation) && current === revision && organization?.id === organizationId;
+      const readFailed = () => {
+        availability = 'error'; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = false;
+        $('#inventoryUnavailableText').textContent = recovery.message;
+        if (recovery.notifyFailure) notify(recovery.message);
+        return { ok:false, optional:true };
+      };
       if (movementErrorScope && movementErrorScope !== movementScope()) {
         movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
       }
       availability = 'loading'; payload = null; $('#inventoryPanel').hidden = false; $('#inventoryLoading').hidden = false; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId });
-      if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) return { ok:false, optional:true, stale:true };
+      let result;
+      try { result = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId }); }
+      catch (error) {
+        if (!readIsCurrent()) return { ok:false, optional:true, stale:true };
+        if (recovery) return readFailed();
+        throw error;
+      }
+      if (!readIsCurrent()) return { ok:false, optional:true, stale:true };
+      const { data, error } = result || {};
       $('#inventoryLoading').hidden = true;
+      if (recovery && (error || !scopeMatches(data, organizationId))) return readFailed();
       if (error) {
         availability = unsupported(error) ? 'unsupported' : 'error';
         if (availability === 'unsupported') { $('#inventoryPanel').hidden = true; return { ok:false, optional:true, unsupported:true }; }
@@ -81,7 +104,18 @@
       if (!scopeMatches(data, organizationId)) { availability = 'error'; $('#inventoryUnavailable').hidden = false; $('#inventoryUnavailableText').textContent = 'Сервер вернул данные другой организации. Изменения заблокированы.'; return { ok:false, optional:true }; }
       payload = data;
       for (const key of ['locations', 'services', 'items', 'warehouses', 'balances', 'usage', 'movements', 'audit']) if (!Array.isArray(payload[key])) payload[key] = [];
-      availability = 'ready'; render(); return { ok:true, optional:true };
+      // Read reconciliation must not change the pending intent or overwrite
+      // edits made while this read was in flight. Capture immediately at render.
+      const fields = ['Warehouse', 'Item', 'Kind', 'Quantity', 'Reason'];
+      const draft = recovery?.preserve ? fields.map(name => [name, $('#inventoryMovement' + name).value]) : null;
+      const counted = draft ? $('#inventoryCountedQuantity').value : null;
+      availability = 'ready'; render();
+      if (draft) {
+        for (const [name, value] of draft) $('#inventoryMovement' + name).value = value;
+        $('#inventoryCountedQuantity').value = counted; updateMovementKind();
+      }
+      movementReadRecovery = null;
+      return { ok:true, optional:true };
     }
 
     function balanceFor(warehouseId, itemId) { return Number(payload.balances.find(row => row.warehouse_id === warehouseId && row.inventory_item_id === itemId)?.quantity || 0); }
@@ -276,15 +310,13 @@
               }
             }
           }
-          else if (acknowledged) {
-            try { await load(); }
-            catch {
-              if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current + 1 && movementOperation === null) {
-                availability = 'error'; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = false;
-                $('#inventoryUnavailableText').textContent = 'Движение сохранено, но обновление журнала не подтверждено. Обновите склад.';
-                notify('Движение сохранено, но обновление журнала не подтверждено. Проверьте журнал.');
-              }
-            }
+          else if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current) {
+            await load({ movementRecovery:{ preserve:!acknowledged, notifyFailure:acknowledged,
+              message:acknowledged
+                ? 'Движение сохранено, но обновление журнала не подтверждено. Нажмите «Повторить» для чтения склада.'
+                : movementIntents.has(scope)
+                  ? 'Результат движения ещё не подтверждён, и журнал не удалось обновить. Нажмите «Повторить» для чтения склада; новая операция не отправляется.'
+                  : 'Сервер отклонил движение, но журнал не удалось обновить. Нажмите «Повторить» для чтения склада; новая операция не отправляется.' } });
           }
         }
       }
