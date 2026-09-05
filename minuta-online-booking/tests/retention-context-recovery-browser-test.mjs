@@ -35,10 +35,11 @@ async function fixture() {
   await page.addScriptTag({ content:source });
   await page.evaluate(async () => {
     const state = window.testState = { user:'owner', generation:1, mode:'success', calls:[], notices:[], settled:0 };
-    const workspace = id => ({ organization_id:id, enabled:true, inactivity_days:45, cooldown_days:90,
+    const workspace = id => ({ organization_id:id, current_role:'owner', enabled:true, inactivity_days:45, cooldown_days:90,
       message_template:`Здравствуйте, клиент ${id}! Приглашаем снова: {ссылка}`,
       clients:[{ client_account_id:`client-${id}`, client_name:`Клиент ${id}`, client_phone:'+79990000000',
-        last_visit_on:'2025-01-01', eligible:true, consent_status:'granted', completed_visits:1 }],
+        last_visit_on:'2025-01-01', eligible:true, consent_status:'granted', completed_visits:1,
+        performer_id:'performer-a', last_booking_id:'booking-a', last_sent_at:null }],
       deliveries:[], audit:[] });
     const db = { rpc:async (name, args) => {
       state.calls.push({ name, args:structuredClone(args) });
@@ -48,7 +49,10 @@ async function fixture() {
           state.release = () => resolve(); state.reject = () => reject(new Error('connection lost'));
         });
         if (state.mode === 'throw') throw new Error('connection lost');
-        return { data:workspace(args.p_organization), error:null };
+        const scope = { organization_id:args.p_organization };
+        if (name === 'save_minuta_retention_settings') return { data:{ ...scope, enabled:args.p_enabled }, error:null };
+        if (name === 'prepare_minuta_retention_delivery') return { data:{ ...scope, id:'delivery-a', client_phone:'+79990000000', message:'Приглашаем клиента снова', status:'prepared' }, error:null };
+        throw new Error(`Unexpected fixture RPC: ${name}`);
       } finally { state.settled += 1; }
     } };
     window.controller = window.MinutaRetention.createController({ db,
@@ -121,7 +125,7 @@ try {
 
   await runCase('thrown autosave releases native controls and a subsequent edit saves', async page => {
     await beginAutosave(page, 'throw');
-    await page.waitForFunction(() => document.querySelector('#retentionSaveStatus').textContent === 'Не удалось сохранить — повторите изменение');
+    await page.waitForFunction(() => document.querySelector('#retentionSaveStatus').textContent === 'Не удалось подтвердить результат — проверьте актуальные данные перед повтором');
     assert.equal(await page.locator('#retentionMessageTemplate').isEditable(), true);
     assert.equal(await page.locator('#retentionInactivityDays').isEditable(), true);
     assert.equal(await page.locator('[data-retention-prepare]').isEnabled(), true);
