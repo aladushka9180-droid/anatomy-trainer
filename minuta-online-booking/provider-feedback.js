@@ -58,6 +58,10 @@
   }
 
   function createController({ db, $, notify, requireWrites, getCurrentUser, getOrganization }) {
+    if (global.MinutaFeedbackMedia) return global.MinutaFeedbackMedia.createController(
+      { db, $, notify, requireWrites, getCurrentUser, getOrganization },
+      { prepareScreenshot, createId, clientVersion, deviceSummary }
+    );
     let available = false;
     let bound = false;
     let availabilityRevision = 0;

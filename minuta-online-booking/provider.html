@@ -31,6 +31,7 @@
   <link rel="stylesheet" href="provider-themes-signature.css?v=417">
   <link rel="stylesheet" href="provider-themes-calm.css?v=417">
   <link rel="stylesheet" href="provider-ux.css?v=417">
+  <link rel="stylesheet" href="feedback-media.css?v=417">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -1254,13 +1255,22 @@
     <div class="notification-template-dialog-head"><div><small>Мы читаем каждое сообщение</small><h2 id="productFeedbackTitle">Помощь и обратная связь</h2></div><button type="button" data-close-product-feedback aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
     <form class="product-feedback-form" id="productFeedbackForm">
       <fieldset class="product-feedback-kind"><legend class="sr-only">Тип сообщения</legend><label><input id="productFeedbackKindProblem" name="productFeedbackKind" type="radio" value="problem" checked><span>Проблема</span></label><label><input name="productFeedbackKind" type="radio" value="suggestion"><span>Предложение</span></label></fieldset>
-      <label><span id="productFeedbackMessageLabel">Что произошло?</span><textarea id="productFeedbackMessage" rows="5" minlength="10" maxlength="4000" placeholder="Коротко опишите действие и что пошло не так" required></textarea></label>
-      <label id="productFeedbackExpectedField"><span>Что вы ожидали?</span><textarea id="productFeedbackExpected" rows="3" maxlength="2000" placeholder="Необязательно, но поможет быстрее разобраться"></textarea></label>
-      <label class="product-feedback-file"><span>Снимок экрана</span><input id="productFeedbackScreenshot" type="file" accept="image/jpeg,image/png,image/webp"><small id="productFeedbackFileStatus">Необязательно · PNG, JPEG или WebP до 12 МБ</small></label>
-      <p class="product-feedback-privacy">Перед отправкой закройте на снимке телефоны и другие личные данные клиентов. Мы автоматически добавим только страницу, версию сайта и общий тип устройства — без записей, паролей и токенов.</p>
+      <label><span id="productFeedbackMessageLabel">Расскажите подробнее</span><textarea id="productFeedbackMessage" rows="5" minlength="10" maxlength="4000" placeholder="Что вы делали, что произошло и как должно было работать?" required></textarea></label>
+      <label id="productFeedbackExpectedField" hidden><span>Что вы ожидали?</span><textarea id="productFeedbackExpected" rows="3" maxlength="2000" placeholder="Необязательно, но поможет быстрее разобраться"></textarea></label>
+      <label class="product-feedback-file"><span id="productFeedbackAttachmentLabel">Фото или видео</span><input id="productFeedbackScreenshot" type="file" accept="image/jpeg,image/png,image/webp"><small id="productFeedbackFileStatus">Необязательно · PNG, JPEG или WebP до 12 МБ</small></label>
+      <div class="feedback-media-list" id="productFeedbackAttachments"></div>
+      <p class="feedback-draft-status" id="productFeedbackDraftStatus" role="status"></p>
+      <progress class="feedback-upload-progress" id="productFeedbackUploadProgress" aria-label="Загрузка вложений" hidden></progress>
+      <p class="feedback-upload-status" id="productFeedbackUploadStatus" role="status" aria-live="polite"></p>
+      <p class="product-feedback-privacy">Перед отправкой скройте на фото и видео телефоны и другие личные данные клиентов. Вложения доступны только вам и поддержке. Мы автоматически добавим только страницу, версию сайта и общий тип устройства — без записей, паролей и токенов.</p>
       <p class="form-error" id="productFeedbackError" role="alert" hidden></p>
       <div class="product-feedback-actions"><button class="secondary-button" type="button" data-close-product-feedback>Отмена</button><button class="primary" id="productFeedbackSubmit" type="submit">Отправить</button></div>
     </form>
+    <details class="feedback-history" id="productFeedbackHistory" hidden>
+      <summary>Мои обращения и ответы</summary>
+      <button type="button" id="productFeedbackHistoryRefresh">Обновить</button>
+      <div id="productFeedbackHistoryList" aria-live="polite"></div>
+    </details>
     <section class="product-feedback-success" id="productFeedbackSuccess" aria-live="polite" hidden><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-check"></use></svg></span><h3>Спасибо, сообщение получено</h3><p>Номер обращения: <strong>№ <b id="productFeedbackRequestNumber">—</b></strong></p><div class="product-feedback-actions"><button class="secondary-button" type="button" data-new-product-feedback>Отправить ещё</button><button class="primary" type="button" data-close-product-feedback>Готово</button></div></section>
   </dialog>
   <dialog class="free-slots-dialog" id="freeSlotsDialog" aria-labelledby="freeSlotsTitle">
@@ -1474,6 +1484,7 @@
   <script src="notification-center.js?v=417" defer></script>
   <script src="client-fields.js?v=417" defer></script>
   <script src="client-import.js?v=417" defer></script>
+  <script src="provider-feedback-media.js?v=417" defer></script>
   <script src="provider-feedback.js?v=417" defer></script>
   <script src="batch-bookings.js?v=417" defer></script>
   <script src="booking-policy-management.js?v=417" defer></script>
