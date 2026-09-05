@@ -52,7 +52,10 @@ jobs:
           node minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
           deno test --allow-read minuta-online-booking/notification-v114-integration-test.ts
           deno test supabase/functions/notification-dispatcher/adapters_test.ts
+          deno check minuta-online-booking/supabase/functions/client-record-cleanup/index.ts
+          deno test minuta-online-booking/supabase/functions/client-record-cleanup/handler_test.ts
       - name: Browser mocks — no real client notifications
         run: |
           node minuta-online-booking/tests/client-records-browser-test.cjs
           node minuta-online-booking/tests/crm-integration-browser-test.cjs
+          node minuta-online-booking/tests/crm-integration-client-record-isolation-test.cjs

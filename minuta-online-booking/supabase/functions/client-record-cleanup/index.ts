@@ -56,8 +56,8 @@ async function serve(request: Request): Promise<Response> {
       if (error) throw new Error("storage_remove_failed");
     },
     finish:async id => {
-      const { error } = await admin.rpc("finish_expired_minuta_client_record",{ p_id:id });
-      if (error) throw new Error("finish_failed");
+      const { data,error } = await admin.rpc("finish_expired_minuta_client_record",{ p_id:id });
+      if (error || data !== true) throw new Error("finish_failed");
     },
   });
   return handler(request);

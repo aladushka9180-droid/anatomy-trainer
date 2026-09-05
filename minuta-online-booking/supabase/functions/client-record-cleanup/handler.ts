@@ -16,7 +16,7 @@ const jsonHeaders = {
 };
 const uuidPattern = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const uuid = new RegExp(`^${uuidPattern}$`);
-const objectPath = new RegExp(`^(${uuidPattern})/(${uuidPattern})\\.([a-z0-9]{1,10})$`);
+const objectPath = new RegExp(`^(${uuidPattern})/(${uuidPattern})\\.(pdf|jpg|png|webp)$`);
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
