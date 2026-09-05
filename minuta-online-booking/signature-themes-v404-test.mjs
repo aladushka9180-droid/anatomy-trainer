@@ -83,6 +83,11 @@ assert.match(mobileTigerAsset, /<g fill="#98745d" opacity="\.22">/);
 assert.doesNotMatch(mobileTigerAsset, /fill-opacity=/, 'Mobile branches must not accumulate opacity at joins');
 assert.match(worker, /provider-apricot-tiger-mobile\.svg/, 'Mobile tiger asset is available offline');
 assert.match(mobileTiger, /rgba\(255,243,231,\.5\)/, 'Mobile tiger keeps its muted palette');
+const tigerCanvas = css.slice(css.indexOf('/* As in Snow Leopard'), css.indexOf('.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {'));
+assert.match(tigerCanvas, /:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
+assert.match(tigerCanvas, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
+assert.match(tigerCanvas, /gap:12px!important/);
+assert.doesNotMatch(tigerCanvas, /url\(|\.mobile-more-grid|\.provider-booking\s*\{/, 'Tiger stays on one page canvas, not individual tiles or booking cards');
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
 assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
