@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,17 @@ const signatureStyles = readFileSync(join(root, 'provider-themes-signature.css')
 const cacheVersion = serviceWorker.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
 assert.ok(cacheVersion, 'Не удалось определить текущую версию кэша');
 const version = cacheVersion;
+
+// Nested CSS assets must advance with the HTML and service-worker manifest too.
+for (const file of readdirSync(root).filter(name => name.endsWith('.css'))) {
+  const css = readFileSync(join(root, file), 'utf8');
+  for (const match of css.matchAll(/url\(\s*['"]?([^'"\s)]+)/g)) {
+    const url = match[1];
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(url)) continue;
+    const assetVersion = url.match(/[?&]v=(\d+)(?:[&#]|$)/)?.[1];
+    if (assetVersion) assert.equal(assetVersion, version, `${file}: ${url} не совпадает с кэшем v${version}`);
+  }
+}
 
 for (const page of pages) {
   const html = readFileSync(join(root, page), 'utf8');
