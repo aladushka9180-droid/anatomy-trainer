@@ -29,7 +29,7 @@ const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots'
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
   'actionableSeriesBookings', 'seriesBookingCountLabel', 'bookingSeriesScopeMarkup', 'seriesRpcErrorMessage',
-  'showFormError', 'clearFormError', 'persistBookingColors', 'persistBookingNotes', 'captureBookingMetadataContext',
+  'showFormError', 'clearFormError', 'persistBookingColors', 'persistBookingNotes', 'captureBookingMetadataContext', 'beginBookingColorOperation',
   'bookingColorStorageKey', 'bookingColorPendingStorageKey', 'bookingNoteStorageKey', 'bookingNotePendingStorageKey'];
 const colorConstants = source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(colorConstants, 'Use actual color-control definitions');
@@ -45,7 +45,9 @@ const orgEnd = source.indexOf('    if (clientOrganizationChanged) {',orgStart);
 assert.ok(orgStart>=0&&orgEnd>orgStart,'Actual organization identity/epoch prefix');
 // Only the actual identity/epoch prefix, not sibling organization controllers.
 const orgHook = source.slice(orgStart,orgEnd).replace('  onActiveOrganizationChange: organization => {','function changeOrganization(organization) {')+'\n}';
-const loader = [lifecycle, resetHooks, orgHook, colorConstants, ...names.map(declaration),
+const colorOperationRegistry = source.match(/^const bookingColorOperations = .*;$/m)?.[0];
+assert.ok(colorOperationRegistry, 'Actual per-map operation registry declaration');
+const loader = [lifecycle, resetHooks, orgHook, colorConstants, colorOperationRegistry, ...names.map(declaration),
   declaration('saveBookingColor').replace('function saveBookingColor(', 'function actualSaveBookingColor('),
   declaration('saveBookingNote').replace('function saveBookingNote(', 'function actualSaveBookingNote('),
   listener("document.addEventListener('click', async event => {"),

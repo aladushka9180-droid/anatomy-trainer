@@ -19,6 +19,7 @@ on:
       - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
       - 'minuta-online-booking/tests/refund-context-recovery*.mjs'
       - 'minuta-online-booking/tests/booking-metadata-context*.mjs'
+      - 'minuta-online-booking/tests/booking-color-revision*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
       - 'minuta-online-booking/tests/refund-context-recovery*.mjs'
       - 'minuta-online-booking/tests/booking-metadata-context*.mjs'
+      - 'minuta-online-booking/tests/booking-color-revision*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   workflow_dispatch:
 
@@ -61,6 +63,7 @@ jobs:
       - run: node minuta-online-booking/tests/refund-amount-ux-test.mjs
       - run: node minuta-online-booking/tests/refund-context-recovery-test.mjs
       - run: node minuta-online-booking/tests/booking-metadata-context-test.mjs
+      - run: node minuta-online-booking/tests/booking-color-revision-test.mjs
       - run: node minuta-online-booking/yookassa-v87-static-test.mjs
 
   native:
@@ -80,6 +83,7 @@ jobs:
       - run: node minuta-online-booking/tests/refund-amount-ux-browser-test.mjs
       - run: node minuta-online-booking/tests/refund-context-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/booking-metadata-context-browser-test.mjs
+      - run: node minuta-online-booking/tests/booking-color-revision-browser-test.mjs
       - run: node minuta-online-booking/tests/public-booking-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/series-cancellation-recovery-browser-test.mjs
