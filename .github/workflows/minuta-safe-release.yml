@@ -12,6 +12,7 @@ on:
         options:
           - preflight
           - test-migration
+          - test-waitlist
           - validate-production-rollback
           - production-migration
           - diagnose-client-links
@@ -64,7 +65,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ inputs.phase == 'test-migration' && 'minuta-test-database' || 'minuta-production-database' }}
+  group: ${{ (inputs.phase == 'test-migration' || inputs.phase == 'test-waitlist') && 'minuta-test-database' || 'minuta-production-database' }}
   cancel-in-progress: false
 
 jobs:
@@ -236,6 +237,40 @@ jobs:
           node --check minuta-online-booking/report-worker.js
           node minuta-online-booking/report-xlsx-test.mjs
           node minuta-online-booking/smoke-test.mjs
+
+  test-waitlist:
+    if: inputs.phase == 'test-waitlist'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Проверить изоляцию и лист ожидания без сохранения изменений
+        shell: bash
+        env:
+          WAITLIST_TEST_PREPARE_V71: '1'
+        run: |
+          set -euo pipefail
+          export MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          marker="$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = '1'
+          bash minuta-online-booking/tests/client-waitlist-v111-integration.sh
 
   test-migration:
     if: inputs.phase == 'test-migration'

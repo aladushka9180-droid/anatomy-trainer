@@ -5,6 +5,12 @@ node minuta-online-booking/scripts/migration-config-guard.mjs
 # including synthetic fixtures and the new schema, is rolled back on connection exit.
 {
   printf 'begin;\n'
+  if [ "${WAITLIST_TEST_PREPARE_V71:-}" = '1' ]; then
+    # The full test gate leaves the disposable database at v69. Restore only
+    # the catalog prerequisites in this transaction, never persist them.
+    sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v70.sql
+    sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v71.sql
+  fi
   for pass in 1 2; do
     sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v111.sql
   done
