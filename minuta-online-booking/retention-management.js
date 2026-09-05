@@ -14,6 +14,31 @@
     let writing = false;
     let pendingOrganization;
     let settingsSaveTimer = null;
+    let scopeRevision = 0;
+    let activeWrite = null;
+    let pendingSession = null;
+    let bound = false;
+
+    async function rpc(name, args) {
+      try { return await db.rpc(name, args) || { error: new Error('empty_rpc_response') }; }
+      catch (error) { return { error: error || new Error('rpc_failed') }; }
+    }
+    function scopeSnapshot() {
+      return { id: organization?.id, userId: getCurrentUser()?.id, generation: getSessionGeneration(), revision: scopeRevision };
+    }
+    function scopeIsCurrent(scope) {
+      return Boolean(scope.id && organization?.id === scope.id && scopeRevision === scope.revision && sessionIsCurrent(scope.userId, scope.generation));
+    }
+    function hideWorkspace() {
+      payload = null; availability = null;
+      $('#retentionPanel').hidden = true;
+      $('#retentionLoading').hidden = true;
+      $('#retentionUnavailable').hidden = true;
+      $('#retentionWorkspace').hidden = true;
+      $('#retentionClientsList').innerHTML = '';
+      $('#retentionDeliveriesList').innerHTML = '';
+      if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = '';
+    }
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_retention_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -45,18 +70,20 @@
     }
     function reset() {
       clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
-      revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined;
-      $('#retentionPanel').hidden = true;
-      $('#retentionLoading').hidden = true;
-      $('#retentionUnavailable').hidden = true;
-      $('#retentionWorkspace').hidden = true;
+      revision += 1; scopeRevision += 1; organization = null; writing = false; activeWrite = null; pendingOrganization = undefined; pendingSession = null;
+      setBusy(false); hideWorkspace();
     }
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
       clearTimeout(settingsSaveTimer); settingsSaveTimer = null;
-      if (writing) { pendingOrganization = normalized; revision += 1; return { ok: false, optional: true, pending: true }; }
+      scopeRevision += 1;
+      if (writing) {
+        pendingOrganization = normalized; pendingSession = { userId: getCurrentUser()?.id, generation: getSessionGeneration() };
+        revision += 1; hideWorkspace();
+        return { ok: false, optional: true, pending: true };
+      }
       if (!normalized || !['owner', 'admin'].includes(normalized.current_role)) { reset(); return { ok: false, optional: true }; }
-      organization = normalized; pendingOrganization = undefined; return load();
+      organization = normalized; pendingOrganization = undefined; pendingSession = null; return load();
     }
     async function load() {
       if (writing) return { ok: false, optional: true, pending: true };
@@ -64,7 +91,7 @@
       if (!userId || !organizationId) { reset(); return { ok: false, optional: true }; }
       availability = 'loading'; payload = null;
       $('#retentionPanel').hidden = false; $('#retentionLoading').hidden = false; $('#retentionUnavailable').hidden = true; $('#retentionWorkspace').hidden = true;
-      const { data, error } = await db.rpc('get_minuta_retention_workspace', { p_organization: organizationId });
+      const { data, error } = await rpc('get_minuta_retention_workspace', { p_organization: organizationId });
       if (!sessionIsCurrent(userId, generation) || request !== revision || organization?.id !== organizationId) return { ok: false, optional: true, stale: true };
       $('#retentionLoading').hidden = true;
       if (error) {
@@ -124,12 +151,23 @@
     }
     async function mutate(name, args, control, success, silent = false, reloadAfter = true) {
       if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return false;
-      const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
+      const scope = scopeSnapshot(), organizationId = organization.id, request = ++revision, token = {};
+      const originallyDisabled = control?.disabled;
+      activeWrite = token;
       writing = true; setBusy(true); if (control) control.disabled = true;
-      const { data, error } = await db.rpc(name, args);
-      const stale = !sessionIsCurrent(userId, generation) || organization?.id !== organizationId;
+      const { data, error } = await rpc(name, args);
+      if (activeWrite !== token) return false;
+      const stale = !scopeIsCurrent(scope) || request !== revision || pendingOrganization !== undefined;
+      activeWrite = null;
       writing = false; setBusy(false);
-      if (stale) { const next = pendingOrganization; pendingOrganization = undefined; if (next !== undefined) await setOrganization(next); return false; }
+      if (control) control.disabled = originallyDisabled;
+      if (stale) {
+        const next = pendingOrganization, nextSession = pendingSession;
+        pendingOrganization = undefined; pendingSession = null;
+        if (next !== undefined && nextSession && sessionIsCurrent(nextSession.userId, nextSession.generation)) await setOrganization(next);
+        else if (!scopeIsCurrent(scope)) hideWorkspace();
+        return false;
+      }
       if (error) { notify(messageFor(error)); await load(); return false; }
       if (!scopeMatches(data, organizationId)) { notify('Ответ другой организации заблокирован.'); await load(); return false; }
       if (!silent) notify(success);
@@ -137,35 +175,41 @@
       return true;
     }
     async function saveSettings() {
+      if (!organization?.id || writing || availability !== 'ready' || !scopeMatches(payload, organization.id)) return false;
+      const scope = scopeSnapshot();
       const form = $('#retentionSettingsForm');
       const saveStatus = $('#retentionSaveStatus');
       if (!form?.reportValidity()) { if (saveStatus) saveStatus.textContent = 'Проверьте заполнение полей'; return false; }
       if (!$('#retentionMessageTemplate').value.includes('{ссылка}')) { if (saveStatus) saveStatus.textContent = 'Добавьте в сообщение переменную {ссылка}'; return false; }
       if (saveStatus) saveStatus.textContent = 'Сохраняем…';
-      const saved = await mutate('save_minuta_retention_settings', {
+      const parameters = {
         p_organization: organization.id,
         p_enabled: $('#retentionEnabled').checked,
         p_inactivity_days: Number($('#retentionInactivityDays').value),
         p_cooldown_days: Number($('#retentionCooldownDays').value),
         p_message_template: $('#retentionMessageTemplate').value.trim()
-      }, null, 'Настройки возврата клиентов сохранены', true, false);
+      };
+      const saved = await mutate('save_minuta_retention_settings', parameters, null, 'Настройки возврата клиентов сохранены', true, false);
+      if (!scopeIsCurrent(scope)) return false;
       if (saved && payload) {
-        payload.enabled = $('#retentionEnabled').checked;
-        payload.inactivity_days = Number($('#retentionInactivityDays').value);
-        payload.cooldown_days = Number($('#retentionCooldownDays').value);
-        payload.message_template = $('#retentionMessageTemplate').value.trim();
+        payload.enabled = parameters.p_enabled;
+        payload.inactivity_days = parameters.p_inactivity_days;
+        payload.cooldown_days = parameters.p_cooldown_days;
+        payload.message_template = parameters.p_message_template;
       }
       if (saveStatus) saveStatus.textContent = saved ? 'Сохранено автоматически' : 'Не удалось сохранить — повторите изменение';
       return saved;
     }
     function scheduleSettingsSave() {
       clearTimeout(settingsSaveTimer);
+      if (!organization?.id || writing || availability !== 'ready') return;
       const saveStatus = $('#retentionSaveStatus');
       if (saveStatus) saveStatus.textContent = 'Ожидает сохранения…';
       settingsSaveTimer = setTimeout(() => saveSettings(), 500);
     }
     function handleInput(event) {
       if (!event.target.closest('#retentionSettingsForm')) return;
+      if (!organization?.id || writing || availability !== 'ready') return;
       const form = $('#retentionSettingsForm');
       if (!form?.checkValidity()) { clearTimeout(settingsSaveTimer); if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = 'Проверьте заполнение полей'; return; }
       if (!$('#retentionMessageTemplate').value.includes('{ссылка}')) { clearTimeout(settingsSaveTimer); if ($('#retentionSaveStatus')) $('#retentionSaveStatus').textContent = 'Добавьте в сообщение переменную {ссылка}'; return; }
@@ -178,6 +222,7 @@
       await saveSettings();
     }
     async function handleChange(event) {
+      if (!organization?.id || writing || availability !== 'ready') return;
       if (event.target.closest('#retentionSettingsForm')) { scheduleSettingsSave(); return; }
       const account = event.target.dataset.retentionConsent;
       if (!account || event.target.value === 'unknown') { if (account) await load(); return; }
@@ -187,12 +232,15 @@
     }
     async function handleClick(event) {
       if (event.target.closest('#reloadRetention')) { await load(); return; }
+      if (!organization?.id || writing || availability !== 'ready') return;
       const prepare = event.target.closest('[data-retention-prepare]');
       if (prepare) { await mutate('prepare_minuta_retention_delivery', { p_organization: organization.id, p_client_account: prepare.dataset.retentionPrepare, p_channel: 'whatsapp' }, prepare, 'Сообщение подготовлено'); return; }
       const finish = event.target.closest('[data-retention-finish]');
       if (finish) await mutate('finish_minuta_retention_delivery', { p_organization: organization.id, p_delivery: finish.dataset.retentionFinish, p_action: finish.dataset.retentionAction }, finish, finish.dataset.retentionAction === 'sent' ? 'Отправка отмечена' : 'Сообщение отменено');
     }
     function bind() {
+      if (bound) return;
+      bound = true;
       $('#retentionPanel')?.addEventListener('submit', handleSubmit);
       $('#retentionPanel')?.addEventListener('input', handleInput);
       $('#retentionPanel')?.addEventListener('change', handleChange);
