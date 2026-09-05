@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './voice-assistant-clarity-test.mjs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -247,7 +248,7 @@ assert.equal(voice.supportsDirectRecognition(function Recognition() {}, { userAg
 assert.equal(voice.supportsDirectRecognition(function Recognition() {}, { userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) CriOS/140 Mobile Safari/604.1' }, false), false, 'iOS WKWebView должен использовать системную диктовку');
 assert.equal(voice.supportsDirectRecognition(null, {}, false), false);
 
-const russianVoice = { name:'Google русский', lang:'ru-RU', localService:true };
+const russianVoice = { name:'Microsoft Svetlana Online (Natural)', lang:'ru-RU', localService:false };
 const selectedVoice = voice.selectRussianVoice([
   { name:'Ting-Ting', lang:'zh-CN', default:true, localService:true },
   russianVoice,
@@ -256,7 +257,12 @@ const selectedVoice = voice.selectRussianVoice([
 assert.equal(selectedVoice, russianVoice, 'озвучивание не должно выбирать китайский или системный голос вместо русского');
 assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
 assert.equal(voice.normalizedSpeechRate('1.3'), 1.3);
-assert.equal(voice.normalizedSpeechRate('9'), 1.5, 'скорость озвучки должна иметь безопасный верхний предел');
+assert.equal(voice.normalizedSpeechRate('9'), 2, 'скорость озвучки должна иметь безопасный верхний предел');
+for (const name of ['Microsoft Irina', 'Microsoft Ирина', 'Microsoft Pavel', 'Microsoft Павел']) {
+  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }]), null, `${name} не должен выбираться даже как единственный голос`);
+  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }, russianVoice]), russianVoice);
+}
+assert.equal(voice.selectRussianVoice([{ name:'Microsoft Дмитрий Online (Natural)', lang:'ru-RU' }])?.name, 'Microsoft Дмитрий Online (Natural)');
 assert.equal(voice.normalizedSpeechRate('0.1'), 0.6, 'скорость озвучки должна иметь безопасный нижний предел');
 assert.equal(voice.speechVoiceKey({ voiceURI:'ru-local', lang:'ru-RU', name:'Русский' }), 'ru-local');
 

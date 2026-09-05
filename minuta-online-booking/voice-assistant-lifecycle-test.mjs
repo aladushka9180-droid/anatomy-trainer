@@ -55,7 +55,9 @@ const speechSynthesis = {
   lastUtterance:null,
   voices:[
     { name:'Ting-Ting', lang:'zh-CN', default:true, localService:true },
-    { name:'Google русский', lang:'ru-RU', default:false, localService:true }
+    { name:'Microsoft Irina', lang:'ru-RU', default:true, localService:true },
+    { name:'Microsoft Pavel', lang:'ru-RU', default:false, localService:true },
+    { name:'Microsoft Svetlana Online (Natural)', lang:'ru-RU', default:false, localService:false }
   ],
   listeners:new Map(),
   cancel() { this.cancelCount += 1; },
@@ -66,6 +68,11 @@ const speechSynthesis = {
 };
 globalThis.SpeechSynthesisUtterance = FakeUtterance;
 globalThis.speechSynthesis = speechSynthesis;
+let savedSpeech = JSON.stringify({ voiceKey:'Microsoft Pavel', rate:2 });
+globalThis.localStorage = {
+  getItem() { return savedSpeech; },
+  setItem(key, value) { savedSpeech = value; }
+};
 
 function createElement(overrides = {}) {
   const listeners = new Map();
@@ -198,6 +205,9 @@ speakButton.emit('click');
 assert.equal(speechSynthesis.speakCount, 1, 'озвучивание должно запускаться только по явному нажатию');
 assert.equal(speechSynthesis.lastUtterance.voice.lang, 'ru-RU', 'озвучивание должно явно выбирать русский голос');
 assert.equal(speechSynthesis.lastUtterance.lang, 'ru-RU');
+assert.match(speechSynthesis.lastUtterance.voice.name, /Svetlana/);
+assert.equal(speechSynthesis.lastUtterance.rate, 2);
+assert.doesNotMatch(savedSpeech, /Pavel|Irina/);
 assert.equal(speakButton.textContent, 'Остановить голос', 'во время речи кнопка должна предлагать остановку');
 speakButton.emit('click');
 assert.equal(speakButton.textContent, 'Озвучить ответ', 'повторное нажатие должно останавливать голос');

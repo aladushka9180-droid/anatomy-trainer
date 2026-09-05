@@ -1377,27 +1377,28 @@
   <dialog class="voice-assistant-dialog" id="voiceAssistantDialog" aria-labelledby="voiceAssistantTitle" aria-describedby="voiceAssistantLead">
     <div class="voice-assistant-shell">
       <div class="voice-assistant-head">
-        <div><small>Помощник «Минута»</small><h2 id="voiceAssistantTitle">Чем помочь?</h2></div>
+        <div><small>Минута</small><h2 id="voiceAssistantTitle">Помощник</h2></div>
         <div class="voice-assistant-head-actions">
           <button class="voice-assistant-back" type="button" data-voice-back aria-label="Вернуться к основному меню помощника" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"></use></svg><span>Назад</span></button>
           <button type="button" data-close-voice-assistant aria-label="Закрыть помощника"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button>
         </div>
       </div>
       <div class="voice-assistant-scroll">
-        <p class="voice-assistant-lead" id="voiceAssistantLead">Спросите голосом, напишите или выберите действие. Изменения — только после вашего подтверждения.</p>
+        <p class="voice-assistant-lead" id="voiceAssistantLead">Расписание, клиенты и свободное время. Что хотите узнать?</p>
         <button class="voice-assistant-proactive" id="voiceAssistantProactive" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg><span><small>Актуально сейчас</small><strong id="voiceAssistantProactiveTitle"></strong><span id="voiceAssistantProactiveMessage"></span></span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
         <div class="voice-assistant-starters" id="voiceAssistantStarters" aria-label="Быстрые вопросы">
-          <button type="button" data-voice-example="Какие записи сегодня?"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"></use></svg><span><strong>Что у меня сегодня?</strong><small>Расписание и клиенты</small></span></button>
-          <button type="button" data-voice-example="Найди свободное время завтра"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span><strong>Найти свободное время</strong><small>Ближайшие доступные окна</small></span></button>
-          <button type="button" data-voice-example="Какая выручка сегодня?"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-chart"></use></svg><span><strong>Выручка и загрузка</strong><small>Главные показатели</small></span></button>
-          <button type="button" data-voice-example="Что требует внимания?"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-alert"></use></svg><span><strong>Что требует внимания?</strong><small>Оплаты, отмены и материалы</small></span></button>
-          <button type="button" data-voice-example="Напиши напоминание клиенту на завтра"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-bell"></use></svg><span><strong>Написать клиенту</strong><small>Напоминание или подтверждение</small></span></button>
-          <button type="button" data-voice-example="Дай короткую сводку и план на день"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg><span><strong>С чего начать?</strong><small>Ситуация и следующий шаг</small></span></button>
+          <button type="button" data-voice-example="Какие записи сегодня?"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"></use></svg><span><strong>Сегодня</strong></span></button>
+          <button type="button" data-voice-example="Найди свободное время завтра"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span><strong>Свободное время</strong></span></button>
+          <button type="button" data-voice-example="Что требует внимания?"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-alert"></use></svg><span><strong>Важное</strong></span></button>
         </div>
         <section class="voice-assistant-result" id="voiceAssistantResult" role="region" aria-label="Ответ помощника" aria-live="polite" aria-atomic="false" hidden></section>
         <details class="voice-assistant-capabilities">
-          <summary>Все возможности</summary>
+          <summary>Ещё возможности</summary>
           <div class="voice-assistant-examples" aria-label="Примеры команд">
+            <button type="button" data-voice-example="Какая выручка сегодня?">Выручка сегодня</button>
+            <button type="button" data-voice-example="Напиши напоминание клиенту на завтра">Написать клиенту</button>
+            <button type="button" data-voice-example="Дай короткую сводку и план на день">С чего начать?</button>
+            <button type="button" data-voice-example="Как включить бонусы?">Бонусы и промокоды</button>
             <button type="button" data-voice-example="Почему упала выручка на этой неделе?">Почему упала выручка?</button>
             <button type="button" data-voice-example="Какие материалы заканчиваются?">Что заканчивается?</button>
             <button type="button" data-voice-example="Сколько новых клиентов в этом месяце?">Новые клиенты</button>
@@ -1418,21 +1419,24 @@
             <button type="button" data-voice-example="Найди окно завтра как обычно">Использовать рабочие привычки</button>
           </div>
         </details>
+        <details class="voice-assistant-settings" id="voiceAssistantSettings">
+          <summary>Настройки помощника</summary>
         <details class="voice-assistant-speech-settings" id="voiceAssistantSpeechSettings">
           <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-settings"></use></svg><span>Голос и скорость озвучки</span></summary>
           <div class="voice-assistant-speech-controls">
             <label><span>Голос</span><select id="voiceAssistantVoice" aria-describedby="voiceAssistantSpeechHint"><option value="">Загрузка голосов…</option></select></label>
-            <label><span>Скорость <output id="voiceAssistantRateValue" for="voiceAssistantRate">1×</output></span><input id="voiceAssistantRate" type="range" min="0.6" max="1.5" step="0.1" value="1" aria-describedby="voiceAssistantSpeechHint"></label>
+            <label><span>Скорость <output id="voiceAssistantRateValue" for="voiceAssistantRate">1×</output></span><select id="voiceAssistantRate" aria-describedby="voiceAssistantSpeechHint"><option value="1">1× — обычная</option><option value="1.5">1,5× — быстрее</option><option value="2">2× — быстро</option></select></label>
             <button class="secondary-button" id="voiceAssistantVoicePreview" type="button" aria-pressed="false">Проверить голос</button>
           </div>
-          <p id="voiceAssistantSpeechHint">Доступные голоса зависят от браузера и установленных языков устройства. Выбор сохранится только на этом устройстве.</p>
+          <p id="voiceAssistantSpeechHint">Только Светлана и Дмитрий, если браузер предоставляет эти голоса. Другие голоса не включаются. Настройки сохраняются на этом устройстве.</p>
         </details>
         <details class="voice-assistant-memory"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"></use></svg><span>Что помощник запомнил</span></summary><p id="voiceAssistantMemoryText">Пока привычки не определены.</p><button class="secondary-button" id="voiceAssistantClearMemory" type="button" hidden>Удалить рабочие привычки</button></details>
         <details class="voice-assistant-privacy"><summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg><span>Как защищены данные</span></summary><p>Сейчас текстовые команды разбираются локально внутри «Минуты» и не отправляются во внешний ИИ. Полный текст команды не сохраняется. После явного исправления помощник может запомнить безопасную замену рабочего слова, а после подтверждённого выбора — только обычное время, услугу и длительность для текущего кабинета. Имена клиентов не сохраняются, а рабочие привычки можно удалить. Действия требуют вашего подтверждения. Голос может обрабатываться службой браузера или операционной системы.</p></details>
+        </details>
       </div>
       <div class="voice-assistant-composer">
         <form class="voice-assistant-form" id="voiceAssistantForm">
-          <label class="voice-transcript-field"><span class="sr-only">Вопрос или команда помощнику</span><textarea id="voiceAssistantInput" rows="2" maxlength="500" inputmode="text" enterkeyhint="done" autocapitalize="sentences" spellcheck="true" placeholder="Например: найди окно завтра"></textarea><button class="voice-listen-button" id="voiceListenButton" type="button" aria-describedby="voiceAssistantStatus" aria-label="Продиктовать команду" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Говорить</span></button></label>
+          <label class="voice-transcript-field"><span class="sr-only">Вопрос или команда помощнику</span><textarea id="voiceAssistantInput" rows="1" maxlength="500" inputmode="text" enterkeyhint="done" autocapitalize="sentences" spellcheck="true" placeholder="Напишите вопрос…"></textarea><button class="voice-listen-button" id="voiceListenButton" type="button" aria-describedby="voiceAssistantStatus" aria-label="Продиктовать команду" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg><span>Говорить</span></button></label>
           <button class="primary voice-understand-button" type="submit"><span>Отправить</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
         </form>
         <p class="voice-assistant-status" id="voiceAssistantStatus" role="status" aria-live="polite">Напишите вопрос или нажмите микрофон. Действия выполнятся только после подтверждения.<span class="sr-only"> Кнопку удерживать не нужно; повторное касание завершит запись.</span></p>

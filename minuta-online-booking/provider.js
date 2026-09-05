@@ -10565,6 +10565,7 @@ window.MinutaProviderAssistant = Object.freeze({
       snapshotSource:!readable ? 'unavailable' : bookingsSnapshotFromCache ? 'cache' : 'live',
       sessionGeneration,
       today:businessTodayIso(),
+      currentMinute:providerAssistantCurrentMinute(),
       selectedDate,
       organizationName:readable ? String(organization?.name || '') : '',
       currentRole:readable ? String(organization?.current_role || '') : '',
@@ -10739,7 +10740,7 @@ window.MinutaProviderAssistant = Object.freeze({
       .filter(time => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)
         && minutesFromTime(time) > currentMinute
         && !bookingPlacementIssue({ id:'voice-assistant-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
-    return { ok:true, slots:[...new Set(slots)].slice(0, 24), durationMinutes:duration };
+    return { ok:true, slots:[...new Set(slots)].sort(), durationMinutes:duration };
   },
   prepareBookingDraft(plan = {}) {
     const snapshotTime = new Date(bookingsSnapshotSavedAt).getTime();
