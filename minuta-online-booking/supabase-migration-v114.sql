@@ -7,6 +7,8 @@ set local search_path = public, extensions, pg_catalog;
 do $$
 begin
   if to_regclass('public.notification_outbox') is null
+     or to_regclass('public.client_telegram_subscriptions') is null
+     or to_regclass('public.telegram_notification_log') is null
      or to_regclass('public.organization_notification_settings') is null
      or to_regclass('public.organization_notification_channels') is null
      or to_regclass('public.notification_recipient_endpoints') is null
@@ -109,6 +111,23 @@ alter table public.notification_v114_worker_readiness enable row level security;
 revoke all on public.notification_v114_worker_readiness from public,anon,authenticated;
 grant all on public.notification_v114_worker_readiness to service_role;
 
+create table if not exists public.notification_v114_legacy_send_leases(
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  event_key text not null unique,
+  event_type text not null check(event_type in ('confirmation','rescheduled','cancelled','reminder')),
+  booking_date date not null,
+  booking_time time without time zone not null,
+  lock_token uuid not null unique default gen_random_uuid(),
+  state text not null default 'sending' check(state in ('sending','sent','rejected','unknown')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.notification_v114_legacy_send_leases enable row level security;
+revoke all on public.notification_v114_legacy_send_leases from public,anon,authenticated;
+grant all on public.notification_v114_legacy_send_leases to service_role;
+
 create or replace function public.mark_minuta_notification_worker_ready_v114(
   p_component text,p_worker_version text
 )
@@ -184,6 +203,73 @@ begin
     if found then v_count:=v_count+1; end if;
   end loop;
   return v_count;
+end
+$$;
+
+create or replace function public.begin_minuta_legacy_notification_delivery_v114(
+  p_booking uuid,p_event text,p_booking_date date,p_booking_time time without time zone
+)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare v_organization uuid; v_event_key text; v_lease record;
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  if p_event not in ('confirmation','rescheduled','cancelled','reminder') then
+    raise exception using errcode='22023',message='invalid_legacy_notification_event';
+  end if;
+  select booking.organization_id into v_organization from public.bookings booking
+  where booking.id=p_booking for update;
+  if not found or v_organization is null then return jsonb_build_object('allowed',false,'state','not_found'); end if;
+  perform 1 from public.organizations organization where organization.id=v_organization for update;
+  if exists(select 1 from public.notification_v114_organization_cutovers cutover
+      where cutover.organization_id=v_organization) then
+    return jsonb_build_object('allowed',false,'state','unified_cutover');
+  end if;
+  v_event_key:=p_booking::text||':'||p_event||':'||p_booking_date::text||':'||p_booking_time::text;
+  select lease.state,lease.lock_token into v_lease
+  from public.notification_v114_legacy_send_leases lease where lease.event_key=v_event_key;
+  if found then return jsonb_build_object('allowed',false,'state',v_lease.state); end if;
+  if exists(select 1 from public.telegram_notification_log legacy
+      where legacy.booking_id=p_booking and legacy.event_type=p_event
+        and legacy.booking_date=p_booking_date and legacy.booking_time=p_booking_time) then
+    return jsonb_build_object('allowed',false,'state','sent');
+  end if;
+  insert into public.notification_v114_legacy_send_leases(
+    organization_id,booking_id,event_key,event_type,booking_date,booking_time
+  ) values(v_organization,p_booking,v_event_key,p_event,p_booking_date,p_booking_time)
+  returning lock_token into v_lease;
+  return jsonb_build_object('allowed',true,'state','sending','lock_token',v_lease.lock_token);
+end
+$$;
+
+create or replace function public.finish_minuta_legacy_notification_delivery_v114(
+  p_lock_token uuid,p_outcome text,p_sent_at timestamptz default now()
+)
+returns text language plpgsql security definer set search_path to '' as $$
+declare v_lease record;
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  if p_outcome not in ('sent','rejected','unknown') then
+    raise exception using errcode='22023',message='invalid_legacy_notification_outcome';
+  end if;
+  select * into v_lease from public.notification_v114_legacy_send_leases lease
+  where lease.lock_token=p_lock_token and lease.state='sending' for update;
+  if not found then raise exception using errcode='P0001',message='legacy_notification_lease_lost'; end if;
+  if p_outcome='sent' then
+    insert into public.telegram_notification_log(
+      booking_id,event_type,booking_date,booking_time,sent_at
+    ) values(v_lease.booking_id,v_lease.event_type,v_lease.booking_date,v_lease.booking_time,p_sent_at)
+    on conflict(booking_id,event_type,booking_date,booking_time) do nothing;
+    perform public.record_minuta_legacy_notification_delivery_v114(
+      v_lease.booking_id,v_lease.event_type,v_lease.booking_date,v_lease.booking_time,p_sent_at
+    );
+  end if;
+  update public.notification_v114_legacy_send_leases
+  set state=p_outcome,updated_at=now() where id=v_lease.id;
+  return p_outcome;
 end
 $$;
 
@@ -320,6 +406,23 @@ returns table(
 )
 language plpgsql security definer set search_path to 'pg_catalog','extensions' as $$
 begin
+  update public.notification_delivery_attempts attempt
+  set outcome='failed',error_code='telegram_delivery_unknown',
+    error_message='Результат отправки Telegram неизвестен; автоматический повтор заблокирован',
+    finished_at=now()
+  from public.notification_outbox queue
+  where attempt.outbox_id=queue.id and attempt.performer_id=queue.performer_id
+    and attempt.attempt_no=queue.attempts and queue.dispatcher='unified'
+    and queue.channel='telegram' and queue.status='sending'
+    and queue.locked_at<now()-interval '15 minutes';
+
+  update public.notification_outbox queue
+  set status='failed',locked_at=null,lock_token=null,
+    last_error_code='telegram_delivery_unknown',
+    last_error='Результат отправки Telegram неизвестен; автоматический повтор заблокирован',updated_at=now()
+  where queue.dispatcher='unified' and queue.channel='telegram'
+    and queue.status='sending' and queue.locked_at<now()-interval '15 minutes';
+
   update public.notification_outbox queue
   set status='cancelled',locked_at=null,lock_token=null,
     last_error_code='notification_event_stale',
@@ -370,7 +473,8 @@ begin
       ))
       and (queue.audience='provider' or endpoint.destination is not null)
       and ((queue.status='pending' and queue.next_attempt_at<=now())
-        or (queue.status='sending' and queue.locked_at<now()-interval '15 minutes'))
+        or (queue.status='sending' and queue.channel<>'telegram'
+          and queue.locked_at<now()-interval '15 minutes'))
     order by queue.next_attempt_at,queue.created_at
     for update of queue skip locked
     limit greatest(1,least(coalesce(p_limit,20),100))
@@ -414,6 +518,8 @@ begin
   if coalesce(auth.role(),'')<>'service_role' then
     raise exception using errcode='42501',message='service_role_required';
   end if;
+  perform 1 from public.organizations organization where organization.id=p_organization for update;
+  if not found then raise exception using errcode='P0001',message='v114_organization_not_found'; end if;
   if p_worker_version<>'v114' or not ('telegram'=any(coalesce(p_configured_channels,array[]::text[]))) then
     raise exception using errcode='P0001',message='v114_dispatcher_not_ready';
   end if;
@@ -441,6 +547,10 @@ begin
     if v_replacement_count<>1 then
       raise exception using errcode='P0001',message='v114_requires_active_notification_dispatcher_cron';
     end if;
+  end if;
+  if exists(select 1 from public.notification_v114_legacy_send_leases lease
+      where lease.organization_id=p_organization and lease.state in ('sending','unknown')) then
+    raise exception using errcode='P0001',message='v114_legacy_delivery_in_flight_or_unknown';
   end if;
 
   -- Repair any transitional send whose message/log succeeded but whose mirror
@@ -478,6 +588,26 @@ begin
   end if;
   return jsonb_build_object('activated',true,'organization_id',p_organization,
     'remaining_legacy_organizations',v_remaining,'legacy_cron_disabled',v_remaining=0);
+end
+$$;
+
+create or replace function public.retry_notification_outbox(p_outbox uuid)
+returns text language plpgsql security definer set search_path to '' as $$
+begin
+  if exists(select 1 from public.notification_outbox queue
+      where queue.id=p_outbox and queue.status='failed'
+        and queue.last_error_code='telegram_delivery_unknown') then
+    raise exception using errcode='P0001',message='notification_retry_blocked_ambiguous_delivery';
+  end if;
+  update public.notification_outbox queue set status='pending',next_attempt_at=now(),
+    locked_at=null,lock_token=null,last_error_code=null,last_error=null
+  where queue.id=p_outbox and queue.status='failed' and (
+    public.has_organization_role(queue.organization_id,array['owner','admin'])
+    or (queue.performer_id=auth.uid()
+      and public.has_organization_role(queue.organization_id,array['specialist']))
+  );
+  if not found then raise exception using errcode='P0001',message='notification_not_retryable'; end if;
+  return 'pending';
 end
 $$;
 
@@ -649,8 +779,11 @@ revoke all on function public.is_minuta_legacy_client_notification_allowed_v114(
 revoke all on function public.record_minuta_legacy_notification_delivery_v114(uuid,text,date,time without time zone,timestamptz) from public,anon,authenticated,service_role;
 revoke all on function public.activate_minuta_notification_v114_cutover(uuid,text,text[]) from public,anon,authenticated,service_role;
 revoke all on function public.mark_minuta_notification_worker_ready_v114(text,text) from public,anon,authenticated,service_role;
+revoke all on function public.begin_minuta_legacy_notification_delivery_v114(uuid,text,date,time without time zone) from public,anon,authenticated,service_role;
+revoke all on function public.finish_minuta_legacy_notification_delivery_v114(uuid,text,timestamptz) from public,anon,authenticated,service_role;
 revoke all on function public.claim_minuta_notification_outbox(text[],integer) from public,anon,authenticated,service_role;
 revoke all on function public.get_minuta_notification_workspace(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.retry_notification_outbox(uuid) from public,anon,authenticated,service_role;
 
 grant execute on function public.ack_minuta_notification_outbox_v114(uuid,uuid,text,text,timestamptz,text) to service_role;
 grant execute on function public.confirm_minuta_notification_delivery_v114(text,text,timestamptz,text) to service_role;
@@ -661,7 +794,10 @@ grant execute on function public.is_minuta_legacy_client_notification_allowed_v1
 grant execute on function public.record_minuta_legacy_notification_delivery_v114(uuid,text,date,time without time zone,timestamptz) to service_role;
 grant execute on function public.activate_minuta_notification_v114_cutover(uuid,text,text[]) to service_role;
 grant execute on function public.mark_minuta_notification_worker_ready_v114(text,text) to service_role;
+grant execute on function public.begin_minuta_legacy_notification_delivery_v114(uuid,text,date,time without time zone) to service_role;
+grant execute on function public.finish_minuta_legacy_notification_delivery_v114(uuid,text,timestamptz) to service_role;
 grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role;
 grant execute on function public.get_minuta_notification_workspace(uuid) to authenticated;
+grant execute on function public.retry_notification_outbox(uuid) to authenticated;
 
 commit;

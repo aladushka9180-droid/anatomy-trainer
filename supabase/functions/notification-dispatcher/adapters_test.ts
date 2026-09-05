@@ -57,3 +57,14 @@ Deno.test("Missing client endpoint fails without contacting a gateway", async ()
     assertEquals(calls, 0);
   } finally { globalThis.fetch = originalFetch; }
 });
+
+Deno.test("Ambiguous Telegram network result is never retried automatically", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.reject(new TypeError("connection reset after write"));
+  try {
+    const result = await deliverNotification(job,{ telegram:{ token:"test-token" } });
+    assertEquals(result.ok,false);
+    assertEquals(result.errorCode,"telegram_delivery_unknown");
+    assertEquals(result.retryable,false);
+  } finally { globalThis.fetch = originalFetch; }
+});

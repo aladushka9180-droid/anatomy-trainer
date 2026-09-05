@@ -264,27 +264,31 @@ async function legacySendBookingEvent(booking: any, event: BookingEvent) {
   const inlineKeyboard = [];
   if (settings.contactUsername) inlineKeyboard.push([{ text:"Написать мастеру",url:`https://t.me/${settings.contactUsername}` }]);
   inlineKeyboard.push([{ text:event === "cancelled" ? "Выбрать другое время" : "Управлять записью",url:message.managementUrl }]);
+  const { data:lease,error:leaseError } = await admin.rpc("begin_minuta_legacy_notification_delivery_v114",{
+    p_booking:booking.id,p_event:event,p_booking_date:booking.booking_date,p_booking_time:booking.booking_time,
+  });
+  if (leaseError || lease?.allowed !== true || !lease?.lock_token) {
+    return { delivered:false,reason:String(lease?.state || "legacy_route_unavailable") };
+  }
+  const finishLegacy = async (outcome:"sent"|"rejected"|"unknown") => {
+    const { error } = await admin.rpc("finish_minuta_legacy_notification_delivery_v114",{
+      p_lock_token:lease.lock_token,p_outcome:outcome,p_sent_at:new Date().toISOString(),
+    });
+    if (error) console.error("Legacy notification lease finish failed",booking.id,event,outcome,error.code || error.message);
+  };
   try {
     await telegram("sendMessage",{
       chat_id:subscription.chat_id,text:message.text,parse_mode:"HTML",disable_web_page_preview:true,
       reply_markup:{ inline_keyboard:inlineKeyboard },
     });
   } catch (error) {
+    await finishLegacy((error as any).telegram ? "rejected" : "unknown");
     if ((error as any).telegram?.error_code === 403) {
       await admin.from("client_telegram_subscriptions").update({ active:false,updated_at:new Date().toISOString() }).eq("id",subscription.id);
     }
     throw error;
   }
-  const sentAt = new Date().toISOString();
-  await admin.from("telegram_notification_log").insert({
-    booking_id:booking.id,event_type:event,booking_date:booking.booking_date,booking_time:booking.booking_time,
-    sent_at:sentAt,
-  });
-  const { error:mirrorError } = await admin.rpc("record_minuta_legacy_notification_delivery_v114",{
-    p_booking:booking.id,p_event:event,p_booking_date:booking.booking_date,
-    p_booking_time:booking.booking_time,p_sent_at:sentAt,
-  });
-  if (mirrorError) console.error("Legacy notification mirror failed",booking.id,event,mirrorError.code || mirrorError.message);
+  await finishLegacy("sent");
   return { delivered:true, sent:true, queued:false, connected:true, reason:"legacy_delivered" };
 }
 

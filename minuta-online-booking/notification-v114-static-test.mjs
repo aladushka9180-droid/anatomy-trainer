@@ -36,6 +36,11 @@ assert.match(migration, /notification_v114_worker_readiness/i);
 assert.match(migration, /v114_telegram_client_bridge_not_ready/i);
 assert.match(migration, /is_minuta_legacy_client_notification_allowed_v114/i);
 assert.match(migration, /record_minuta_legacy_notification_delivery_v114/i);
+assert.match(migration, /begin_minuta_legacy_notification_delivery_v114/i);
+assert.match(migration, /finish_minuta_legacy_notification_delivery_v114/i);
+assert.match(migration, /v114_legacy_delivery_in_flight_or_unknown/i);
+assert.match(migration, /telegram_delivery_unknown/i);
+assert.match(migration, /notification_retry_blocked_ambiguous_delivery/i);
 assert.match(migration, /telegram-client-reminders-hourly/i);
 assert.match(migration, /v114_requires_active_notification_dispatcher_cron/i);
 assert.match(migration, /jobname='minuta-notification-dispatcher'/i);
@@ -54,6 +59,8 @@ assert.match(dispatcher, /deactivate_minuta_notification_endpoint_v114/);
 assert.match(adapters, /deliveryState: "sent"/);
 assert.match(adapters, /state !== "delivered"/);
 assert.match(adapters, /receiptSource/);
+assert.match(adapters, /telegram_delivery_unknown/);
+assert.match(adapters, /retryable:false/);
 
 const eventReporter = clientFunction.slice(
   clientFunction.indexOf('async function sendBookingEvent'),
@@ -64,7 +71,8 @@ assert.doesNotMatch(eventReporter, /telegram\("sendMessage"/, 'browser event end
 assert.match(clientFunction, /legacySendBookingEvent/);
 assert.match(clientFunction, /is_minuta_notification_v114_cutover/);
 assert.match(clientFunction, /is_minuta_legacy_client_notification_allowed_v114/);
-assert.match(clientFunction, /record_minuta_legacy_notification_delivery_v114/);
+assert.match(clientFunction, /begin_minuta_legacy_notification_delivery_v114/);
+assert.match(clientFunction, /finish_minuta_legacy_notification_delivery_v114/);
 assert.match(clientFunction, /unified_skipped/);
 assert.match(clientFunction, /cutover-ready/);
 assert.match(clientFunction, /mark_minuta_notification_worker_ready_v114/);
@@ -90,6 +98,8 @@ assert.doesNotMatch(rollback, /cron\.schedule/i, 'rollback must not recreate the
 assert.doesNotMatch(rollback, /drop\s+(table|column)/i, 'rollback must preserve queue schema and data');
 assert.doesNotMatch(rollback, /truncate|delete\s+from\s+public\.notification_outbox/i, 'rollback must preserve queued events');
 assert.match(dispatcherReadme, /activate_organization/i);
+assert.match(dispatcherReadme, /Exactly-once/i);
+assert.match(dispatcherReadme, /telegram_delivery_unknown/i);
 assert.match(dispatcherReadme, /supabase-migration-v114-rollback\.sql/i);
 assert.match(dispatcher, /body\.dry_run === true/);
 assert.match(dispatcher, /activate_minuta_notification_v114_cutover/);

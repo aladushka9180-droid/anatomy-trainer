@@ -146,6 +146,7 @@ async function telegram(job: NotificationJob, configuration: NonNullable<Adapter
     response = await fetch(`https://api.telegram.org/bot${configuration.token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(10000),
       body: JSON.stringify({
         chat_id: chatId,
         text: telegramMessage(job),
@@ -154,7 +155,14 @@ async function telegram(job: NotificationJob, configuration: NonNullable<Adapter
       }),
     });
   } catch {
-    return { ok: false, errorCode: "telegram_network_error", errorMessage: "Сетевая ошибка Telegram", retryable: true };
+    // The request may have reached Telegram before the connection failed. A
+    // blind retry can duplicate the message, so quarantine the event for
+    // explicit review instead of scheduling an automatic retry.
+    return {
+      ok:false,errorCode:"telegram_delivery_unknown",
+      errorMessage:"Результат отправки Telegram неизвестен; автоматический повтор заблокирован",
+      retryable:false,
+    };
   }
   let body: Record<string, unknown> = {};
   try { body = await response.json(); } catch { /* status is enough */ }
