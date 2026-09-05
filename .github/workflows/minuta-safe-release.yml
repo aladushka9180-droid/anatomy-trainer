@@ -12,6 +12,7 @@ on:
         options:
           - preflight
           - test-migration
+          - test-waitlist
           - validate-production-rollback
           - production-migration
           - diagnose-client-links
@@ -64,7 +65,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: ${{ inputs.phase == 'test-migration' && 'minuta-test-database' || 'minuta-production-database' }}
+  group: ${{ (inputs.phase == 'test-migration' || inputs.phase == 'test-waitlist') && 'minuta-test-database' || 'minuta-production-database' }}
   cancel-in-progress: false
 
 jobs:
@@ -237,6 +238,40 @@ jobs:
           node minuta-online-booking/report-xlsx-test.mjs
           node minuta-online-booking/smoke-test.mjs
 
+  test-waitlist:
+    if: inputs.phase == 'test-waitlist'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Проверить изоляцию и лист ожидания без сохранения изменений
+        shell: bash
+        env:
+          WAITLIST_TEST_PREPARE_V71: '1'
+        run: |
+          set -euo pipefail
+          export MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          marker="$(psql "$MINUTA_TEST_DATABASE_URL" -X -At -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = '1'
+          bash minuta-online-booking/tests/client-waitlist-v111-integration.sh
+
   test-migration:
     if: inputs.phase == 'test-migration'
     needs: preflight
@@ -278,6 +313,7 @@ jobs:
       - name: Применить миграции к отдельной тестовой базе
         env:
           MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
           MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
           MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
           MINUTA_MIGRATION_TARGET: ${{ inputs.migration_target }}
@@ -783,6 +819,9 @@ jobs:
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
+            bash minuta-online-booking/tests/client-waitlist-v111-integration.sh
+          fi
+          if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v108-rollback.sql
@@ -1089,6 +1128,8 @@ jobs:
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v108.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v109.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v110.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v111.sql
+            cat minuta-online-booking/tests/client-waitlist-v111-schema-check.sql
             cat <<'SQL'
           do $v105_validation$
           declare v_function oid;
@@ -1113,6 +1154,8 @@ jobs:
           $v105_validation$;
           SQL
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v110-rollback.sql
+            sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v111-rollback.sql
+            echo "do \$\$ begin if has_function_privilege('anon','public.join_minuta_waitlist_v111(text,uuid,uuid,date,text,text,text)','EXECUTE') then raise exception 'v111_rollback_failed'; end if; end \$\$;"
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v109-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v108-rollback.sql
             sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v107-rollback.sql
@@ -1555,6 +1598,8 @@ jobs:
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v108.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110.sql
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v111.sql
+            psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/client-waitlist-v111-schema-check.sql
             psql "$MIGRATION_DB_URL" -v ON_ERROR_STOP=1 -X -Atc \
               "select position('p_quantity' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0 and position('p_item' in lower(pg_get_functiondef('public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)'::regprocedure)))=0 and has_function_privilege('authenticated','public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)','EXECUTE') and not has_function_privilege('anon','public.upsert_minuta_inventory_warehouse(uuid,uuid,uuid,text,boolean)','EXECUTE');" \
               | grep -qx t
