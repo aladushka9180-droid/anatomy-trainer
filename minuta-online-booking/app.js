@@ -7,6 +7,8 @@ let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
 let selectionValidationBlocked = false;
 let bookingResultUncertain = false;
+let bookingSubmissionPending = false;
+let bookingFormRevision = 0;
 let waitlistContext = null;
 let waitlistSubmissionPending = false;
 const BOOKING_ATTEMPT_KEY = 'minuta-booking-attempt-v1';
@@ -183,13 +185,60 @@ function registerBookingPageVisit({ force = false } = {}) {
 function loadBookingAttempt() {
   try {
     const attempt = JSON.parse(sessionStorage.getItem(BOOKING_ATTEMPT_KEY) || 'null');
-    if (/^[0-9a-f-]{36}$/i.test(attempt?.requestId) && /^[0-9a-f]{64}$/i.test(attempt?.fingerprint)) return attempt;
+    if (/^[0-9a-f-]{36}$/i.test(attempt?.requestId) && /^[0-9a-f]{64}$/i.test(attempt?.fingerprint)) {
+      bookingResultUncertain = true;
+      return { requestId:attempt.requestId, fingerprint:attempt.fingerprint, scope:typeof attempt.scope === 'string' ? attempt.scope : undefined };
+    }
   } catch {}
   return null;
 }
 
 function saveBookingAttempt(attempt) {
-  try { sessionStorage.setItem(BOOKING_ATTEMPT_KEY, JSON.stringify(attempt)); } catch {}
+  // Persist identity only: never contacts, management tokens or full RPC parameters.
+  try { sessionStorage.setItem(BOOKING_ATTEMPT_KEY, JSON.stringify({ requestId:attempt.requestId, fingerprint:attempt.fingerprint, scope:attempt.scope })); } catch {}
+}
+
+function bookingScopeKey() {
+  return JSON.stringify([requestedOrganizationSlug, state.teamMode, state.organization?.id || '', state.serviceId, state.locationId, state.date, state.time]);
+}
+function lockBookingContacts(locked) {
+  for (const selector of ['#clientName', '#clientPhone']) { const field = $(selector); if (field) field.readOnly = locked; }
+}
+function restoreBookingRequest() {
+  const request = bookingAttempt?.request;
+  if (!request || bookingAttempt.detached) return;
+  $('#clientName').value = request.p_client_name;
+  $('#clientPhone').value = request.p_client_phone;
+  state.serviceId = request.p_service;
+  state.date = request.p_date;
+  state.time = request.p_time.slice(0, 5);
+  if (request.p_location) state.locationId = request.p_location;
+}
+function restorePersistedBookingSelection() {
+  if (!bookingAttempt?.scope || bookingAttempt.detached) return false;
+  try {
+    const [slug, teamMode, organizationId, serviceId, locationId, date, time] = JSON.parse(bookingAttempt.scope);
+    if (slug !== requestedOrganizationSlug || teamMode !== state.teamMode || organizationId !== (state.organization?.id || '')
+      || !state.services.some(service => service.id === serviceId)
+      || (teamMode && !state.locations.some(location => location.id === locationId))
+      || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return false;
+    state.serviceId = serviceId; state.locationId = locationId; state.date = date; state.time = time;
+    if (!dates.some(item => item.iso === date)) {
+      const value = new Date(`${date}T12:00:00`);
+      if (Number.isNaN(value.getTime())) return false;
+      dates.push({ iso:date, day:value.getDate(), weekday:value.toLocaleDateString('ru-RU', { weekday:'short' }), label:value.toLocaleDateString('ru-RU', { day:'numeric', month:'long' }) });
+    }
+    return true;
+  } catch { return false; }
+}
+function bookingReplyIsValid(data) {
+  return Array.isArray(data) && data.length === 1 && typeof data[0]?.booking_code === 'string' && data[0].booking_code.length > 0
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data[0].manage_token || '');
+}
+function bookingDefiniteRejection(error) {
+  return error?.code === 'P0001' && ['request_id_required', 'invalid_booking_data', 'invalid_client_data',
+    'service_unavailable', 'organization_unavailable', 'location_unavailable', 'slot_unavailable',
+    'resource_unavailable', 'booking_buffer_conflict'].includes(error.message);
 }
 
 async function bookingFingerprint(service, name, phone) {
@@ -199,18 +248,24 @@ async function bookingFingerprint(service, name, phone) {
 }
 
 async function currentBookingAttempt(service, name, phone) {
+  const scope = bookingScopeKey();
   const fingerprint = await bookingFingerprint(service, name, phone);
-  if (!bookingAttempt || bookingAttempt.fingerprint !== fingerprint) {
-    bookingAttempt = { requestId: createRequestId(), fingerprint };
-    saveBookingAttempt(bookingAttempt);
-    bookingResultUncertain = false;
+  if (scope !== bookingScopeKey()) throw new Error('stale_booking_selection');
+  if (bookingAttempt && (bookingAttempt.fingerprint !== fingerprint || (bookingAttempt.scope && bookingAttempt.scope !== scope))) {
+    throw new Error('booking_attempt_unresolved');
   }
+  if (!bookingAttempt) {
+    bookingAttempt = { requestId: createRequestId(), fingerprint, scope };
+    saveBookingAttempt(bookingAttempt);
+  }
+  bookingAttempt.detached = false;
   return bookingAttempt;
 }
 
 function clearBookingAttempt() {
   bookingAttempt = null;
   bookingResultUncertain = false;
+  lockBookingContacts(false);
   try { sessionStorage.removeItem(BOOKING_ATTEMPT_KEY); } catch {}
 }
 
@@ -240,10 +295,11 @@ function restoreClientContact() {
 }
 
 function bookingInputChanged() {
+  if (bookingAttempt?.request && !bookingAttempt.detached) restoreBookingRequest();
+  else bookingFormRevision += 1;
   $('#formError').hidden = true;
   updateSubmitAvailability();
   if (!bookingResultUncertain) return;
-  bookingResultUncertain = false;
   if (state.step === 3 && !selectionValidationBlocked) setSelectionValidationState('ready');
 }
 
@@ -380,7 +436,7 @@ function contactFormIsComplete() {
 function updateSubmitAvailability() {
   const submit = $('#submitBooking');
   if (!submit) return;
-  submit.disabled = selectionValidationPending || selectionValidationBlocked || !contactFormIsComplete();
+  submit.disabled = bookingSubmissionPending || (!bookingAttempt && (selectionValidationPending || selectionValidationBlocked)) || !contactFormIsComplete();
   const phone = $('#clientPhone');
   const hint = $('#phoneHint');
   if (!phone || !hint) return;
@@ -474,6 +530,11 @@ async function loadServices() {
   }
   state.services = data || [];
   renderLocations();
+  if (restorePersistedBookingSelection()) {
+    renderSpecialists(); renderServices(); await showStep(3);
+    showError('Есть незавершённая проверка записи. Укажите исходные контакты и нажмите «Проверить результат».');
+    return;
+  }
   const requestedService = state.services.find(item => item.id === requestedServiceId);
   const performers = performerOptions();
   if (isRepeatBooking && requestedService) state.performerId = requestedService.performer_id || '';
@@ -1051,6 +1112,11 @@ function openSuccessCalendar() {
   dialog.showModal();
 }
 async function validateCurrentSelection() {
+  // An already committed request can occupy this slot: resolve its nonce,
+  // never use availability as evidence that the earlier write did not happen.
+  if (bookingAttempt && (!bookingAttempt.scope || bookingAttempt.scope === bookingScopeKey())) {
+    setSelectionValidationState('ready'); renderSummary(); return;
+  }
   const service = selectedService();
   const selectedTime = state.time;
   const selectedBookingDate = state.date;
@@ -1126,16 +1192,18 @@ function renderClientAccess(result, phone) {
   $('#clientAccessResult').hidden = false;
   downloadClientAccessFile(result.access_code, phone);
 }
-async function bootstrapClientAccess(manageToken, phone) {
+async function bootstrapClientAccess(manageToken, phone, isCurrent = () => true) {
   if (!manageToken) return;
   const { data } = await db.rpc('bootstrap_client_access', { p_manage_token: manageToken, p_device_name: navigator.userAgent.slice(0, 120) });
-  renderClientAccess(data?.[0], phone);
+  if (isCurrent()) renderClientAccess(data?.[0], phone);
 }
 
 async function submitBooking(event) {
   event.preventDefault();
-  if (selectionValidationPending) { showError('Подождите, пока выбранное время будет перепроверено.'); return; }
-  if (selectionValidationBlocked) { showError('Сначала обновите расписание и перепроверьте выбранное время.'); return; }
+  if (bookingSubmissionPending) return;
+  restoreBookingRequest();
+  if (selectionValidationPending && !bookingAttempt) { showError('Подождите, пока выбранное время будет перепроверено.'); return; }
+  if (selectionValidationBlocked && !bookingAttempt) { showError('Сначала обновите расписание и перепроверьте выбранное время.'); return; }
   const name = $('#clientName').value.trim();
   const phone = $('#clientPhone').value;
   const service = selectedService();
@@ -1144,30 +1212,42 @@ async function submitBooking(event) {
   if (!service || !state.time) { showError('Выберите услугу и свободное время.'); return; }
   if (state.teamMode && !state.locations.length) { showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.'); return; }
   if (state.teamMode && !state.locationId) { showError('Выберите филиал для записи.'); return; }
-  if (!navigator.onLine) { showError('Нет соединения с интернетом. Запись не создана — подключитесь к сети и повторите попытку.'); return; }
+  if (!navigator.onLine) { showError(bookingAttempt ? 'Нет соединения. Исходный результат ещё не подтверждён — подключитесь к сети для проверки.' : 'Нет соединения с интернетом. Запись не создана — подключитесь к сети и повторите попытку.'); return; }
+  const scope = bookingScopeKey(), revision = bookingFormRevision;
+  const isCurrent = () => revision === bookingFormRevision && scope === bookingScopeKey();
+  const wasUncertain = bookingResultUncertain;
+  bookingSubmissionPending = true;
+  lockBookingContacts(true);
+  updateSubmitAvailability();
+  try {
   const attempt = await currentBookingAttempt(service, name, phone);
+  if (!isCurrent()) return;
+  if (!attempt.request) {
+    attempt.rpc = state.teamMode ? 'book_minuta_appointment' : 'book_appointment';
+    attempt.request = Object.freeze({ p_request_id: attempt.requestId, p_service:service.id, p_date:state.date, p_time:`${state.time}:00`,
+      p_client_name:name, p_client_phone:phone, ...(state.teamMode ? { p_slug:requestedOrganizationSlug, p_location:state.locationId } : {}) });
+  }
+  bookingResultUncertain = true;
   const submit = $('#submitBooking');
   submit.disabled = true;
   setSubmitLabel(bookingResultUncertain ? 'Проверяем…' : 'Сохраняем…');
   $('#formError').hidden = true;
-  const bookingResult = state.teamMode
-    ? await db.rpc('book_minuta_appointment', { p_request_id: attempt.requestId, p_slug: requestedOrganizationSlug, p_location: state.locationId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone })
-    : await db.rpc('book_appointment', { p_request_id: attempt.requestId, p_service: service.id, p_date: state.date, p_time: `${state.time}:00`, p_client_name: name, p_client_phone: phone });
+  const bookingResult = await db.rpc(attempt.rpc, attempt.request);
+  if (!isCurrent()) { bookingResultUncertain = true; return; }
+  if (!bookingResult || typeof bookingResult !== 'object') throw new Error('invalid_booking_response');
   const { data, error } = bookingResult;
   setSubmitLabel(bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись');
   updateSubmitAvailability();
   if (error) {
-    const missingTeamBookingRpc = state.teamMode && isMissingRpc(error, 'book_minuta_appointment');
-    if (missingTeamBookingRpc) {
+    const missingTeamBookingRpc = state.teamMode && ['PGRST202', '42883'].includes(error.code) && isMissingRpc(error, 'book_minuta_appointment');
+    if (!wasUncertain && missingTeamBookingRpc) {
       clearBookingAttempt();
       showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
-    } else if (error.message?.includes('slot_unavailable') || error.message?.includes('resource_unavailable') || error.message?.includes('booking_buffer_conflict') || error.code === '23P01' || error.code === '23505') {
+    } else if (!wasUncertain && bookingDefiniteRejection(error)) {
       clearBookingAttempt();
-      showError('Это время только что заняли. Выберите другое.');
-      await showStep(2);
-    } else if (error.message?.includes('request_conflict')) {
-      clearBookingAttempt();
-      showError('Параметры записи изменились. Проверьте услугу, дату и время, затем повторите отправку.');
+      const slotRejected = ['slot_unavailable', 'resource_unavailable', 'booking_buffer_conflict'].includes(error.message);
+      showError(slotRejected ? 'Это время больше недоступно. Выберите другое.' : 'Сервер отклонил заявку. Проверьте услугу, филиал и контактные данные.');
+      if (slotRejected) await showStep(2);
     } else {
       bookingResultUncertain = true;
       setSubmitLabel('Проверить результат');
@@ -1177,46 +1257,76 @@ async function submitBooking(event) {
     return;
   }
   const manageToken = data?.[0]?.manage_token;
-  if (manageToken) void db.rpc('record_minuta_booking_legal_acceptance_v110', { p_token:manageToken, p_privacy_version:'2026-09-05', p_terms_version:'2026-09-05' }).then(({ error }) => { if (error) console.warn('Legal acceptance was not recorded:', error.message); });
+  if (!bookingReplyIsValid(data)) throw new Error('invalid_booking_response');
+  const { data: management, error: managementError } = await db.rpc('get_booking_management', { p_token:manageToken });
+  if (!isCurrent()) { bookingResultUncertain = true; return; }
+  const current = management?.[0];
+  if (managementError || !current || current.booking_code !== data[0].booking_code
+    || !['new', 'confirmed', 'cancelled'].includes(current.status)
+    || typeof current.booking_date !== 'string' || typeof current.booking_time !== 'string'
+    || typeof current.service_name !== 'string') throw new Error('booking_status_unconfirmed');
+  if (manageToken) void db.rpc('record_minuta_booking_legal_acceptance_v110', { p_token:manageToken, p_privacy_version:'2026-09-05', p_terms_version:'2026-09-05' }).then(({ error }) => { if (error) console.warn('Legal acceptance was not recorded:', error.message); }).catch(() => {});
   void trackBookingFunnelEvent('booking_created', { serviceId:service.id, manageToken });
   const bookedLocation = state.teamMode ? state.locations.find(item => item.id === state.locationId) : null;
-  currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: serviceName(service.name), performer: service.performer_profiles?.display_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: state.date, time: state.time, duration: service.duration_minutes, uid: manageToken || attempt.requestId });
+  const currentDate = new Date(`${current.booking_date}T00:00:00`);
+  const currentDateLabel = currentDate.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' });
+  currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service:current.service_name, performer:current.performer_name || 'Мастер', location:bookedLocation?.address || bookedLocation?.name || '', date:current.booking_date, time:current.booking_time, duration:current.duration_minutes, uid:current.booking_code });
   saveClientContact(name, phone);
   clearBookingAttempt();
   $('#bookingFlow').hidden = true;
   $('#success').hidden = false;
-  $('#successTitle').textContent = `До встречи, ${name.split(/\s+/)[0]}!`;
-  $('#successDetails').innerHTML = successDetailsMarkup(serviceName(service.name), service.performer_profiles?.display_name || 'Мастер', selectedDate().label, timeRange(state.time, service.duration_minutes));
+  $('#successTitle').textContent = current.status === 'cancelled' ? 'Эта запись уже отменена' : `До встречи, ${name.split(/\s+/)[0]}!`;
+  $('#successDetails').innerHTML = successDetailsMarkup(current.service_name, current.performer_name || 'Мастер', currentDateLabel, timeRange(current.booking_time.slice(0, 5), current.duration_minutes));
   if (manageToken) {
     const manageUrl = new URL('booking.html', location.href);
     manageUrl.hash = `token=${encodeURIComponent(manageToken)}`;
     $('#manageBooking').href = manageUrl.href;
     $('#manageBooking').hidden = false;
     $('#telegramConnect').hidden = false;
-    void prepareTelegramAuthorization(manageToken);
-    await bootstrapClientAccess(manageToken, phone);
-    const [{ data: management }, paymentCapability] = await Promise.all([
-      db.rpc('get_booking_management', { p_token: manageToken }),
-      getPaymentCapability(manageToken)
-    ]);
-    const current = management?.[0];
+    void Promise.resolve(prepareTelegramAuthorization(manageToken)).catch(() => {});
+    await bootstrapClientAccess(manageToken, phone, isCurrent);
+    if (!isCurrent()) return;
+    const paymentCapability = await getPaymentCapability(manageToken);
+    if (!isCurrent()) return;
     renderSuccessPayment(current, paymentCapability, manageToken);
-    if (current) {
-      currentSuccessCalendarEvent = buildSuccessCalendarEvent({ service: current.service_name, performer: current.performer_name || 'Мастер', location: bookedLocation?.address || bookedLocation?.name || '', date: current.booking_date, time: current.booking_time, duration: current.duration_minutes, uid: current.booking_code || manageToken });
-      const currentDate = new Date(`${current.booking_date}T00:00:00`);
-      const currentDateLabel = currentDate.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
-      $('#successDetails').innerHTML = successDetailsMarkup(current.service_name, current.performer_name || 'Мастер', currentDateLabel, timeRange(current.booking_time.slice(0, 5), current.duration_minutes));
-      if (current.status === 'cancelled') {
-        $('#successTitle').textContent = 'Эта запись уже отменена';
-      }
-    }
-    if (!current || current.status !== 'cancelled') notifyTelegramEvent('confirmation', manageToken);
+    if (current.status !== 'cancelled') notifyTelegramEvent('confirmation', manageToken);
   }
   $('.booking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (error) {
+    if (!isCurrent()) return;
+    if (!bookingAttempt && !$('#success').hidden) { showError('Запись найдена, но дополнительные данные не загрузились. Откройте страницу управления записью.'); return; }
+    bookingResultUncertain = Boolean(bookingAttempt);
+    showError(error?.message === 'booking_attempt_unresolved'
+      ? 'Сначала проверьте исходную запись: восстановите ту же услугу, дату, время и контакты. Новая заявка не отправлена. Если данные не помните, уточните результат у специалиста.'
+      : 'Не удалось подтвердить результат. Повторите проверку исходной записи; её параметры и номер запроса сохранены.');
+  } finally {
+    bookingSubmissionPending = false;
+    if (isCurrent()) {
+      setSubmitLabel(bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись');
+    }
+    lockBookingContacts(Boolean(bookingAttempt?.request && !bookingAttempt.detached));
+    updateSubmitAvailability();
+  }
 }
 
-function resetFlow() { $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; clearBookingAttempt(); currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1); }
+function resetFlow() {
+  bookingFormRevision += 1;
+  if (bookingAttempt) { bookingAttempt.detached = true; bookingResultUncertain = true; }
+  lockBookingContacts(false);
+  // Telegram's helper owns async state by DOM node. Detach the old node so
+  // its pending preparation cannot repaint or authorize the next form.
+  const telegramButton = $('#telegramConnect');
+  if (telegramButton?.cloneNode && telegramButton?.replaceWith) {
+    const replacement = telegramButton.cloneNode(true);
+    delete replacement.dataset.telegramAuthBound;
+    telegramButton.replaceWith(replacement);
+  }
+  $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1);
+}
 document.addEventListener('click', event => {
+  if ((bookingSubmissionPending || (bookingAttempt?.request && !bookingAttempt.detached)) && event.target.closest('[data-performer], [data-service], [data-date], [data-time], [data-suggested-date], [data-time-period], [data-back], [data-next], #moreDates')) {
+    event.preventDefault(); showError('Сначала проверьте результат исходной записи.'); return;
+  }
   const performer = event.target.closest('[data-performer]');
   const service = event.target.closest('[data-service]');
   const date = event.target.closest('[data-date]');
@@ -1287,6 +1397,7 @@ $('#clientPhone').addEventListener('input', event => { event.target.value = form
 $('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
 $('#locationSelect')?.addEventListener('change', async event => {
+  if (bookingSubmissionPending || (bookingAttempt?.request && !bookingAttempt.detached)) { event.target.value = state.locationId; showError('Сначала проверьте результат исходной записи.'); return; }
   const nextLocation = event.target.value || '';
   if (state.locationId === nextLocation) return;
   state.locationId = nextLocation;
