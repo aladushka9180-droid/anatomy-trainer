@@ -88,6 +88,9 @@ assert.match(tigerCanvas, /:is\(\.provider-view,\.schedule-card\)\s*\{\s*backgro
 assert.match(tigerCanvas, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
 assert.match(tigerCanvas, /gap:12px!important/);
 assert.doesNotMatch(tigerCanvas, /url\(|\.mobile-more-grid|\.provider-booking\s*\{/, 'Tiger stays on one page canvas, not individual tiles or booking cards');
+assert.match(tigerCanvas, /\.schedule-date-picker input\s*\{\s*border:0!important;[\s\S]*?background:transparent!important/, 'Date input must not add a second contour');
+assert.match(tigerCanvas, /\.timeline-stage\s*\{\s*overflow:clip;/, 'Timeline grid must stay inside its rounded stage');
+assert.match(tigerCanvas, /\.timeline-stage:focus-visible\s*\{\s*outline-offset:-3px;/, 'Clipped timeline keeps its keyboard focus visible');
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
 assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
