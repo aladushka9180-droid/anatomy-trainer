@@ -21,10 +21,13 @@ Workflow `Minuta CRM server preprod v112-v114` выполняет только p
    используется как источник `pg_dump` в этом workflow.
 4. После точного подтверждения и двух маркеров перезаписывает только выбранную
    testDB проверенной production-копией.
-5. Исключает из восстановления `cron.job` и `vault.secrets`, удаляет прежние
-   тестовые cron/secrets и блокирует продолжение при обнаружении активного
-   исходящего HTTP-триггера. Production endpoint не должен запускаться из копии.
-6. Применяет v112 → v113 → v114, проверяет схему и тестовые контракты, выполняет
+5. До восстановления строит явный allowlist архива: прикладная схема `public`
+   и только необходимые для её внешних ключей записи `auth.users`. Управляемые
+   схемы и очереди `cron`, `vault`, `net`, `storage`, webhook-конфигурация и иные
+   внешние endpoints в restore-list не попадают. Если состав архива нельзя
+   доказать до `pg_restore`, этап останавливается без изменения testDB.
+6. Применяет v112 → v113 → v114, проверяет схему и тестовые контракты, включая
+   cleanup-worker и полный PGlite lifecycle незавершённой загрузки, выполняет
    v114 compatibility rollback → v113 destructive rollback → v112
    non-destructive rollback, затем повторно применяет v112 → v113 → v114.
 
@@ -61,8 +64,14 @@ on conflict(project_ref) do update
 set allow_destructive_restore=excluded.allow_destructive_restore;
 ```
 
-Если маркер, ref, подтверждение, backup, checksum, безопасная изоляция cron/vault
-или полный replay не подтверждены, workflow прекращается. Он не содержит обхода.
+Если маркер, ref, подтверждение, backup, checksum, allowlist restore или полный
+replay не подтверждены, workflow прекращается. Он не содержит обхода. Тесты
+server-only набора не читают и не требуют CRM HTML/CSS/браузерный JavaScript.
+
+Production cron, Vault, HTTP-очереди и Storage metadata не копируются даже во
+временно отключённом виде. Нужные Storage-объекты тесты создают синтетически и
+откатывают в рамках тестовой транзакции. Это schema/runtime preprod, а не E2E
+production cron или реальная доставка уведомления.
 
 ## Что остаётся после preprod
 

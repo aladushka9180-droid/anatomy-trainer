@@ -28,6 +28,15 @@ begin
     raise exception 'crm_release_additive_objects_missing';
   end if;
 
+  if not exists (
+       select 1 from storage.buckets
+       where id='minuta-client-records' and name='minuta-client-records'
+         and public is false and file_size_limit=10485760
+         and allowed_mime_types=array['application/pdf','image/jpeg','image/png','image/webp']::text[]
+     ) then
+    raise exception 'v112_private_bucket_contract_invalid';
+  end if;
+
   if coalesce((select bool_or(enabled) from public.client_record_settings), false)
      or exists(select 1 from public.notification_v114_organization_cutovers)
      or exists(select 1 from public.notification_v114_worker_readiness) then
@@ -43,6 +52,8 @@ begin
 
   if v_state = 'applied' then
     if to_regprocedure('public.get_minuta_client_records(uuid,text,integer)') is null
+       or to_regprocedure('public.claim_expired_minuta_client_records(integer,boolean)') is null
+       or to_regprocedure('public.finish_expired_minuta_client_record(uuid)') is null
        or to_regprocedure('public.get_minuta_profitability_v113(uuid,date,date,uuid,uuid)') is null
        or to_regprocedure('public.ack_minuta_notification_outbox_v114(uuid,uuid,text,text,timestamptz,text)') is null
        or to_regprocedure('public.activate_minuta_notification_v114_cutover(uuid,text,text[])') is null
@@ -55,6 +66,10 @@ begin
        or has_function_privilege('anon','public.get_minuta_client_records(uuid,text,integer)','EXECUTE')
        or not has_function_privilege('authenticated','public.get_minuta_profitability_v113(uuid,date,date,uuid,uuid)','EXECUTE')
        or has_function_privilege('anon','public.get_minuta_profitability_v113(uuid,date,date,uuid,uuid)','EXECUTE')
+       or not has_function_privilege('service_role','public.claim_expired_minuta_client_records(integer,boolean)','EXECUTE')
+       or not has_function_privilege('service_role','public.finish_expired_minuta_client_record(uuid)','EXECUTE')
+       or has_function_privilege('authenticated','public.claim_expired_minuta_client_records(integer,boolean)','EXECUTE')
+       or has_function_privilege('authenticated','public.finish_expired_minuta_client_record(uuid)','EXECUTE')
        or not has_function_privilege('service_role','public.ack_minuta_notification_outbox_v114(uuid,uuid,text,text,timestamptz,text)','EXECUTE')
        or has_function_privilege('authenticated','public.ack_minuta_notification_outbox_v114(uuid,uuid,text,text,timestamptz,text)','EXECUTE') then
       raise exception 'crm_release_applied_rpc_acl_invalid';
@@ -77,7 +92,9 @@ begin
       raise exception 'v113_destructive_rollback_incomplete';
     end if;
     if has_function_privilege('authenticated','public.get_minuta_client_records(uuid,text,integer)','EXECUTE')
-       or has_function_privilege('authenticated','public.set_minuta_client_records_enabled(uuid,boolean)','EXECUTE') then
+       or has_function_privilege('authenticated','public.set_minuta_client_records_enabled(uuid,boolean)','EXECUTE')
+       or has_function_privilege('service_role','public.claim_expired_minuta_client_records(integer,boolean)','EXECUTE')
+       or has_function_privilege('service_role','public.finish_expired_minuta_client_record(uuid)','EXECUTE') then
       raise exception 'v112_compatibility_rollback_incomplete';
     end if;
     select lower(pg_get_functiondef(

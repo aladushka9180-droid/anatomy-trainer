@@ -22,7 +22,7 @@ function exactSha(name) {
   return value;
 }
 
-function connectionIdentity(name) {
+function connectionIdentity(name, projectRef) {
   let url;
   try {
     url = new URL(required(name));
@@ -31,38 +31,44 @@ function connectionIdentity(name) {
   }
   assert(['postgres:', 'postgresql:'].includes(url.protocol), `${name} должен использовать PostgreSQL`);
   assert(Boolean(url.hostname) && Boolean(url.username) && Boolean(url.pathname.replaceAll('/', '')), `${name} неполон`);
+  const hostname = url.hostname.toLowerCase();
+  const username = decodeURIComponent(url.username).toLowerCase();
+  const database = decodeURIComponent(url.pathname).replace(/^\/+/, '').toLowerCase();
+  const port = url.port || '5432';
+  const direct = hostname === `db.${projectRef}.supabase.co` && username === 'postgres';
+  const pooler = /^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.pooler\.supabase\.com$/.test(hostname)
+    && username === `postgres.${projectRef}`;
+  assert(direct || pooler, `${name} не имеет точной привязки host/username к ожидаемому project ref`);
+  assert(database === 'postgres', `${name} должен указывать на базу /postgres`);
+  assert(['5432', '6543'].includes(port), `${name} использует недопустимый порт`);
   return [
-    url.hostname.toLowerCase(),
-    decodeURIComponent(url.username).toLowerCase(),
-    decodeURIComponent(url.pathname).toLowerCase(),
+    hostname,
+    port,
+    username,
+    database,
   ].join('|');
 }
 
 const exactFiles = new Set([
-  '.github/workflows/minuta-crm-server-release.yml',
-  'minuta-online-booking/CRM_SERVER_RELEASE.md',
   'minuta-online-booking/client-records-v112-integration.sql',
   'minuta-online-booking/notification-v114-integration-test.ts',
-  'minuta-online-booking/notification-v114-static-test.mjs',
-  'minuta-online-booking/profitability-v113-static-test.mjs',
   'minuta-online-booking/recovery/rollback-client-records-v112.sql',
-  'minuta-online-booking/scripts/crm-server-release-guard.mjs',
-  'minuta-online-booking/scripts/crm-server-release-schema-check.sql',
   'minuta-online-booking/supabase-migration-v112.sql',
   'minuta-online-booking/supabase-migration-v113-operational-rollback.sql',
   'minuta-online-booking/supabase-migration-v113-rollback.sql',
   'minuta-online-booking/supabase-migration-v113.sql',
   'minuta-online-booking/supabase-migration-v114-rollback.sql',
   'minuta-online-booking/supabase-migration-v114.sql',
-  'minuta-online-booking/telegram-reminder-security-v77-static-test.mjs',
-  'minuta-online-booking/telegram-web-auth-v346-static-test.mjs',
   'minuta-online-booking/tests/client-records-pglite-runtime-test.mjs',
+  'minuta-online-booking/tests/client-record-postgres-concurrency-test.sh',
+  'minuta-online-booking/tests/client-record-postgres-fixture.mjs',
+  'minuta-online-booking/tests/crm-integration-client-record-lifecycle-pglite-test.mjs',
   'minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs',
   'minuta-online-booking/tests/profitability-v113-schema-check.sql',
-  'minuta-online-booking/supabase/TELEGRAM_CLIENT_SETUP.md',
 ]);
 
 const allowedPrefixes = [
+  'minuta-online-booking/supabase/functions/client-record-cleanup/',
   'minuta-online-booking/supabase/functions/telegram-client-notify/',
   'supabase/functions/notification-dispatcher/',
 ];
@@ -74,15 +80,20 @@ const requiredReleaseFiles = [
   'minuta-online-booking/recovery/rollback-client-records-v112.sql',
   'minuta-online-booking/supabase-migration-v113-rollback.sql',
   'minuta-online-booking/supabase-migration-v114-rollback.sql',
+  'minuta-online-booking/tests/crm-integration-client-record-lifecycle-pglite-test.mjs',
+  'minuta-online-booking/supabase/functions/client-record-cleanup/handler.ts',
+  'minuta-online-booking/supabase/functions/client-record-cleanup/handler_test.ts',
+  'minuta-online-booking/supabase/functions/client-record-cleanup/index.ts',
   'minuta-online-booking/supabase/functions/telegram-client-notify/index.ts',
   'supabase/functions/notification-dispatcher/index.ts',
 ];
 
 try {
   if (mode === 'config') {
-    exactSha('MINUTA_RELEASE_SHA');
-    exactSha('MINUTA_SERVER_BASE_SHA');
+    const releaseSha = exactSha('MINUTA_RELEASE_SHA');
+    const baseSha = exactSha('MINUTA_SERVER_BASE_SHA');
     exactSha('GITHUB_SHA');
+    assert(releaseSha !== baseSha, 'Release SHA совпадает с server base SHA');
     assert(required('GITHUB_REF') === 'refs/heads/main', 'Preprod разрешён только из main');
 
     const productionRef = required('MINUTA_PRODUCTION_PROJECT_REF').toLowerCase();
@@ -95,11 +106,8 @@ try {
     assert(required('MINUTA_TEST_RESTORE_CONFIRM') === RESTORE_CONFIRMATION,
       'Не получено точное разрешение на перезапись выбранной testDB');
 
-    const productionIdentity = connectionIdentity('SUPABASE_DB_URL');
-    const testIdentity = connectionIdentity('MINUTA_TEST_DATABASE_URL');
-    assert(productionIdentity.includes(productionRef), 'SUPABASE_DB_URL не соответствует production ref');
-    assert(testIdentity.includes(testRef), 'MINUTA_TEST_DATABASE_URL не соответствует test ref');
-    assert(!testIdentity.includes(productionRef), 'Test URL содержит production ref');
+    const productionIdentity = connectionIdentity('SUPABASE_DB_URL', productionRef);
+    const testIdentity = connectionIdentity('MINUTA_TEST_DATABASE_URL', testRef);
     assert(productionIdentity !== testIdentity, 'Production и test URL указывают на одну базу');
     console.log('CRM server release config guard: OK');
   } else if (mode === 'tree') {
@@ -114,7 +122,8 @@ try {
     for (const path of requiredReleaseFiles) {
       assert(changedFiles.includes(path), `В server-only diff отсутствует обязательный файл ${path}`);
     }
-    assert(!changedFiles.some(path => /(^|\/)(provider|index|booking|my-bookings|waitlist)\.(html|js|css)$/i.test(path)),
+    assert(!changedFiles.some(path => /\.(?:html|css)$/i.test(path)
+      || /^minuta-online-booking\/(?:provider|index|booking|my-bookings|waitlist|client-records|profitability-management|notification-center)\.js$/i.test(path)),
       'Server-only SHA содержит пользовательский frontend');
     console.log(`CRM server release tree guard: OK (${changedFiles.length} файлов)`);
   } else {
