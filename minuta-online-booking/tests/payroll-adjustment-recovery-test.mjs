@@ -299,3 +299,24 @@ test('late queued B workspace rejection cannot hide or change ready C', async ()
   h.fill(); const c = h.submit(); await h.deliver(1, 'success', c);
   assert.equal(h.ledger[1].organization_id, id(10));
 });
+
+for (const context of ['organization', 'actor']) {
+  test(`completed unknown warning follows its ${context} without changing the latch`, async () => {
+    const h = await harness(), pending = h.submit(); await h.deliver(0, 'lost', pending);
+    assert.equal(h.$('#payrollAdjustmentError').hidden, false);
+    if (context === 'organization') await h.switchOrg(id(9));
+    else await h.resetActor(id(7));
+    assert.equal(h.$('#adjustmentSubmit').disabled, false);
+    assert.equal(h.$('#payrollAdjustmentError').hidden, true);
+    assert.equal(h.$('#payrollAdjustmentError').textContent, '');
+    h.fill(); const b = h.submit(); await h.deliver(1, 'success', b);
+    if (context === 'organization') await h.switchOrg(organization);
+    else await h.resetActor(actor);
+    await h.controller.load(); await h.submit();
+    assert.equal(h.mutations.length, 2);
+    assert.equal(h.$('#adjustmentSubmit').disabled, true);
+    assert.equal(h.$('#payrollAdjustmentForm').dataset.adjustmentState, 'unknown');
+    assert.equal(h.$('#payrollAdjustmentError').hidden, false);
+    assert.match(h.$('#payrollAdjustmentError').textContent, /Результат корректировки не подтверждён/);
+  });
+}

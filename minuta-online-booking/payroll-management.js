@@ -38,12 +38,17 @@
     // matching amount/reason or a similar workspace row cannot resolve an intent.
     const adjustmentIntents = new Map();
     let activeAdjustmentWrite = null;
+    let adjustmentErrorKey = null;
+    const adjustmentUnknownMessage = 'Результат корректировки не подтверждён. Проверьте расчёт перед новой операцией. Повторная отправка заблокирована.';
 
     function adjustmentKey(userId = getCurrentUser()?.id, organizationId = organization?.id) {
       return JSON.stringify([userId || '', organizationId || '']);
     }
     function syncAdjustmentLock() {
-      const intent = adjustmentIntents.get(adjustmentKey());
+      const key = adjustmentKey();
+      const intent = adjustmentIntents.get(key);
+      if (adjustmentErrorKey && adjustmentErrorKey !== key) clearError('#payrollAdjustmentError');
+      if (intent?.state === 'unknown') showError('#payrollAdjustmentError', adjustmentUnknownMessage);
       const form = $('#payrollAdjustmentForm');
       const button = $('#payrollAdjustmentForm button[type="submit"]');
       if (!form || !button) return;
@@ -82,6 +87,7 @@
       writePending = false;
       pendingOrganization = undefined;
       activeAdjustmentWrite = null;
+      clearError('#payrollAdjustmentError');
       $('#payrollPanel').hidden = true;
       $('#payrollLoading').hidden = true;
       $('#payrollUnavailable').hidden = true;
@@ -242,8 +248,8 @@
       syncAdjustmentLock();
     }
 
-    function showError(selector, message) { const holder = $(selector); if (!holder) return; holder.textContent = message; holder.hidden = false; }
-    function clearError(selector) { const holder = $(selector); if (!holder) return; holder.textContent = ''; holder.hidden = true; }
+    function showError(selector, message) { const holder = $(selector); if (!holder) return; if (selector === '#payrollAdjustmentError') adjustmentErrorKey = adjustmentKey(); holder.textContent = message; holder.hidden = false; }
+    function clearError(selector) { const holder = $(selector); if (!holder) return; if (selector === '#payrollAdjustmentError') adjustmentErrorKey = null; holder.textContent = ''; holder.hidden = true; }
 
     async function mutate(rpc, parameters, button, success, errorSelector) {
       if (rpc === 'add_minuta_payroll_adjustment') return mutateAdjustment(parameters, button, errorSelector);
@@ -367,7 +373,7 @@
           payroll_performer_not_in_organization:'Выберите действующего сотрудника организации.'
         };
         showError(errorSelector, messages[error.message] || 'Недостаточно прав для этой корректировки.');
-      } else showError(errorSelector, 'Результат корректировки не подтверждён. Проверьте расчёт перед новой операцией. Повторная отправка заблокирована.');
+      } else showError(errorSelector, adjustmentUnknownMessage);
       const reloadRevision = requestRevision + 1;
       try { await load(); }
       catch {
