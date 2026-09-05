@@ -14,8 +14,11 @@ const between = (start, end) => {
 };
 const controller = between('function openBookingSeriesCancellation(', 'async function saveBookingBlockNote(')
   + between('function closeBookingSheet()', 'function calendarRangeTitle(')
+  + between('function seriesRpcErrorMessage(', 'function stackMinuteTimelineItems(')
   + source.match(/^function sessionIsCurrent[^\n]+/m)[0];
-const resetHook = between("window.addEventListener('minuta:provider-session-reset'", "window.addEventListener('offline'");
+const resetHook = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
+  .map(match => match[0]).find(binding => binding.includes('providerReadFetch.cancelPendingReads()'));
+assert.ok(resetHook, 'Actual read-reset callback including series invalidation');
 const orgHook = between('  onActiveOrganizationChange: organization => {', '    if (clientOrganizationChanged) {')
   .replace('  onActiveOrganizationChange: organization => {', 'function changeOrganization(organization) {') + '\n}';
 const revisionDeclaration = source.match(/^let bookingSeriesCancellationRevision = .*;$/m)?.[0] || '';
@@ -49,16 +52,16 @@ function harness() {
     activeClientOrganizationId:'org-A', editingOfflineBookingId:'', newBookingHistoricalMode:false,
     allBookings:['A', 'B'].map(id => ({ id, series_id:`series-${id}`, status:'confirmed' })),
     bookingOutcome:() => ({ visit_status:'scheduled' }), uiIcon:() => '', bookingSeriesScopeMarkup:() => '',
-    window:{ addEventListener:(name, callback) => hooks.set(name, callback) },
+    window:{ addEventListener:(name, callback) => hooks.set(name, [...(hooks.get(name) || []), callback]) },
     document:{ body:{ classList:{ add(){}, remove(){} } } },
     providerReadFetch:{ cancelPendingReads:() => effects.push(['cancelReads']) },
+    freeSlotsController:{ invalidateScope(){} },
     applyWriteAvailability(){}, applyClientHighlightClasses(){}, requireWrites:() => true,
     db:{ rpc:(name, params) => {
       effects.push(['rpc', name, JSON.parse(JSON.stringify(params))]);
       const next = deferred(); rpcQueue.push(next); return next.promise;
     } },
     showFormError:(selector, message) => effects.push(['error', selector, message]),
-    seriesRpcErrorMessage:() => 'Доступ запрещён',
     notifyTelegramClient:(id, status) => effects.push(['clientNotification', id, status]),
     refreshAfterWrite:async () => { effects.push(['refresh']); },
     notify:message => effects.push(['toast', message]), seriesBookingCountLabel:String
@@ -70,7 +73,7 @@ function harness() {
   });
   const changeOrg = id => context.changeOrganization({ id });
   return { context, nodes, sheet, effects, rpcQueue, open, submit, changeOrg,
-    reset:() => hooks.get('minuta:provider-session-reset')() };
+    reset:() => hooks.get('minuta:provider-session-reset').forEach(callback => callback()) };
 }
 
 test('current success preserves exact RPC and closes only its form', async () => {
@@ -177,4 +180,59 @@ test('replacement by another booking sheet identity invalidates completion witho
   delete h.nodes['#bookingSeriesCancelForm']; h.sheet.dataset.bookingId = 'B';
   const before = h.effects.length; h.rpcQueue[0].resolve(success); await pending;
   assert.equal(h.effects.length, before); assert.equal(h.sheet.hidden, false);
+});
+
+for (const [name, data] of [
+  ['null', null], ['empty', {}], ['partial', { affected:success.data.affected, affected_count:1 }],
+  ['wrong series', { ...success.data, series_id:'series-B' }],
+  ['wrong action', { ...success.data, action:'reschedule' }],
+  ['wrong scope', { ...success.data, scope:'all' }],
+  ['zero count', { ...success.data, affected_count:0, affected:[] }],
+  ['string count', { ...success.data, affected_count:'1' }],
+  ['count mismatch', { ...success.data, affected_count:2 }],
+  ['null row', { ...success.data, affected:[null] }],
+  ['missing booking id', { ...success.data, affected:[{ occurrence:1 }] }],
+  ['blank booking id', { ...success.data, affected:[{ booking_id:' ', occurrence:1 }] }],
+  ['missing occurrence', { ...success.data, affected:[{ booking_id:'A' }] }],
+  ['invalid occurrence', { ...success.data, affected:[{ booking_id:'A', occurrence:0 }] }],
+  ['duplicate id', { ...success.data, affected_count:2,
+    affected:[{ booking_id:'A', occurrence:1 }, { booking_id:'A', occurrence:2 }] }],
+  ['duplicate occurrence', { ...success.data, affected_count:2,
+    affected:[{ booking_id:'A', occurrence:1 }, { booking_id:'B', occurrence:1 }] }]
+]) {
+  test(`malformed ${name} cannot close, refresh or announce cancellation`, async () => {
+    const h = harness(); const form = h.open();
+    h.context.refreshAfterWrite = async () => { throw Error('must not reach refresh'); };
+    const pending = h.submit(); h.rpcQueue[0].resolve({ data, error:null }); await pending;
+    assert.equal(h.sheet.hidden, false);
+    assert.equal(form.button.disabled, false);
+    assert.deepEqual(h.effects.map(e => e[0]), ['rpc', 'error']);
+    assert.match(h.effects.at(-1)[2], /Не удалось подтвердить результат/);
+    const retry = h.submit(); h.context.refreshAfterWrite = async () => {};
+    h.rpcQueue[1].resolve(success); await retry;
+    assert.equal(h.sheet.hidden, true, 'valid later response can recover');
+  });
+}
+
+for (const error of [
+  { message:'Failed to fetch', code:'' },
+  { message:'booking_access_denied' },
+  { message:'series_slot_unavailable', code:'08006' },
+  { message:'schema cache: could not find manage_minuta_booking_series' },
+  { message:'network overlap failed', code:'P0001' }
+]) {
+  test(`ambiguous fulfilled error stays unconfirmed: ${JSON.stringify(error)}`, async () => {
+    const h = harness(); const form = h.open(); const pending = h.submit();
+    h.rpcQueue[0].resolve({ data:null, error }); await pending;
+    assert.equal(h.sheet.hidden, false); assert.equal(form.button.disabled, false);
+    assert.deepEqual(h.effects.map(e => e[0]), ['rpc', 'error']);
+    assert.match(h.effects.at(-1)[2], /Не удалось подтвердить результат/);
+    assert.doesNotMatch(h.effects.at(-1)[2], /без изменений|отменены|Отменено/);
+  });
+}
+
+test('exact business rejection uses actionable guidance, not a transport or slot claim', async () => {
+  const h = harness(); h.open(); const pending = h.submit();
+  h.rpcQueue[0].resolve(denied); await pending;
+  assert.equal(h.effects.at(-1)[2], 'У вас нет доступа к отмене этой записи.');
 });

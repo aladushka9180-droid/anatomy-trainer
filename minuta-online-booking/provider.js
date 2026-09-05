@@ -5588,8 +5588,10 @@ async function cancelBookingSeries(event) {
   const generation = sessionGeneration;
   const organizationId = activeClientOrganizationId;
   const id = form.dataset.bookingId;
+  const seriesId = allBookings.find(item => item.id === id)?.series_id;
   const scope = form.elements.cancelBookingSeriesScope?.value || 'one';
   const button = event.submitter;
+  const unconfirmedMessage = 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.';
   const contextIsCurrent = () => sessionIsCurrent(userId, generation) && activeClientOrganizationId === organizationId;
   const formIsCurrent = () => contextIsCurrent() && bookingSeriesCancellationRevision === revision
     && form === $('#bookingSeriesCancelForm') && !$('#bookingSheet').hidden;
@@ -5610,10 +5612,39 @@ async function cancelBookingSeries(event) {
     });
     if (!formIsCurrent()) return;
     if (error) {
-      showFormError('#bookingSeriesCancelError', seriesRpcErrorMessage(error, 'cancel'));
+      // Only exact server rejections justify specific guidance. A fulfilled
+      // network error, like a rejected Promise, does not prove rollback.
+      const rejectionMessages = {
+        '42501:authentication_required':'Войдите в аккаунт снова и обновите журнал.',
+        '42501:booking_access_denied':'У вас нет доступа к отмене этой записи.',
+        '22023:invalid_series_action':'Параметры отмены устарели. Откройте форму заново.',
+        'P0001:booking_not_found':'Запись не найдена. Обновите журнал.',
+        'P0001:booking_not_in_series':'Эта запись не входит в серию. Обновите журнал.',
+        'P0001:series_booking_not_actionable':'Эту запись уже нельзя отменить. Обновите журнал.',
+        'P0001:series_has_no_actionable_bookings':'В выбранной части серии нет записей, доступных для отмены. Обновите журнал.',
+        'P0001:series_slot_unavailable':'Не удалось завершить отмену из-за конфликта данных. Обновите журнал.'
+      };
+      const message = error.code === 'PGRST202'
+        ? 'Управление сериями пока недоступно. Обновите страницу или обратитесь в поддержку.'
+        : rejectionMessages[`${error.code}:${error.message}`] || unconfirmedMessage;
+      showFormError('#bookingSeriesCancelError', message);
       return;
     }
-    const affected = Array.isArray(data?.affected) ? data.affected : [];
+    // v79 returns the requested series/action/scope and one occurrence per
+    // affected booking. Never turn an empty or partial envelope into success.
+    const affected = data?.affected;
+    const confirmed = typeof seriesId === 'string' && seriesId.length > 0
+      && data?.series_id === seriesId && data.action === 'cancel' && data.scope === scope
+      && Number.isSafeInteger(data.affected_count) && data.affected_count > 0
+      && Array.isArray(affected) && affected.length === data.affected_count
+      && affected.every(entry => entry && typeof entry.booking_id === 'string' && entry.booking_id.trim()
+        && Number.isSafeInteger(entry.occurrence) && entry.occurrence > 0)
+      && new Set(affected.map(entry => entry.booking_id)).size === affected.length
+      && new Set(affected.map(entry => entry.occurrence)).size === affected.length;
+    if (!confirmed) {
+      showFormError('#bookingSeriesCancelError', unconfirmedMessage);
+      return;
+    }
     affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'cancelled'));
     closeBookingSheet();
     closedRevision = bookingSeriesCancellationRevision;
@@ -5621,7 +5652,7 @@ async function cancelBookingSeries(event) {
     if (completionIsCurrent()) notify(`Отменено: ${seriesBookingCountLabel(Number(data?.affected_count || affected.length))}`);
   } catch {
     if (completionIsCurrent()) notify('Записи отменены. Не удалось обновить журнал — обновите его перед следующим действием.');
-    else if (formIsCurrent()) showFormError('#bookingSeriesCancelError', 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.');
+    else if (formIsCurrent()) showFormError('#bookingSeriesCancelError', unconfirmedMessage);
   } finally {
     if (formIsCurrent()) {
       delete form.dataset.cancellationPending;
