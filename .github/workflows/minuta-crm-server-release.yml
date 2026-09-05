@@ -1,0 +1,489 @@
+name: Minuta CRM server preprod v112-v114
+run-name: CRM server preprod — code ${{ inputs.release_sha }} — snapshot ${{ inputs.server_base_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Полный SHA отдельной server-only ветки
+        required: true
+        type: string
+      server_base_sha:
+        description: Полный SHA main, соответствующий production backup
+        required: true
+        type: string
+      production_backup_run_id:
+        description: ID свежего encrypted production backup на release SHA
+        required: true
+        type: string
+      test_restore_confirm:
+        description: Введите точную фразу из CRM_SERVER_RELEASE.md
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  preprod:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: minuta-test
+    env:
+      PGSSLMODE: require
+      MINUTA_RELEASE_SHA: ${{ inputs.release_sha }}
+      MINUTA_SERVER_BASE_SHA: ${{ inputs.server_base_sha }}
+      MINUTA_TEST_RESTORE_CONFIRM: ${{ inputs.test_restore_confirm }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - name: Извлечь доверенный управляющий код из main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: control
+
+      - name: Извлечь точный server-only код отдельно
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: release
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+
+      - name: Проверить точный SHA, ref и server-only состав
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node control/minuta-online-booking/scripts/crm-server-release-guard.mjs config
+          git -C release cat-file -e "$MINUTA_SERVER_BASE_SHA^{commit}"
+          git -C release merge-base --is-ancestor "$MINUTA_SERVER_BASE_SHA" "$MINUTA_RELEASE_SHA"
+          test "$(git -C release rev-parse HEAD)" = "$MINUTA_RELEASE_SHA"
+          changed_files="$(git -C release diff --name-only "$MINUTA_SERVER_BASE_SHA" "$MINUTA_RELEASE_SHA")"
+          MINUTA_CHANGED_FILES="$changed_files" \
+            node control/minuta-online-booking/scripts/crm-server-release-guard.mjs tree
+
+      - name: Проверить CRM-контракты без production credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check control/minuta-online-booking/scripts/crm-server-release-guard.mjs
+          node release/minuta-online-booking/notification-v114-static-test.mjs
+          node release/minuta-online-booking/profitability-v113-static-test.mjs
+          npm install --prefix "$RUNNER_TEMP/crm-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
+          echo "MINUTA_PGLITE_MODULE=$RUNNER_TEMP/crm-deps/node_modules/@electric-sql/pglite/dist/index.js" >> "$GITHUB_ENV"
+          node release/minuta-online-booking/tests/client-records-pglite-runtime-test.mjs
+          node release/minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
+          deno test --allow-read release/minuta-online-booking/notification-v114-integration-test.ts
+          deno test release/supabase/functions/notification-dispatcher/adapters_test.ts
+
+      - name: Установить PostgreSQL 17 и OpenPGP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes curl gnupg
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes --output /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
+
+      - name: Проверить оба защитных маркера testDB
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker_state="$(psql "$test_db" -v ON_ERROR_STOP=1 -X -At \
+            --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select
+            (select count(*) from minuta_migration_guard.target
+             where project_ref=:'expected_ref' and allow_migrations is true)::text
+            || '|'
+            ||
+            (select count(*) from minuta_restore_guard.target
+             where project_ref=:'expected_ref' and allow_destructive_restore is true)::text;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker_state")" = '1|1'
+
+      - name: Создать и локально проверить encrypted backup текущей testDB
+        id: test_backup
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          plain="$RUNNER_TEMP/test-before.dump"
+          verified="$RUNNER_TEMP/test-before.verified.dump"
+          encrypted="$RUNNER_TEMP/test-before.dump.gpg"
+          checksum="$RUNNER_TEMP/test-before.dump.gpg.sha256"
+          journal="$RUNNER_TEMP/test-before.json"
+          trap 'rm -f "$plain" "$verified"' EXIT
+          /usr/lib/postgresql/17/bin/pg_dump --dbname="$test_db" --format=custom \
+            --no-owner --no-privileges --file="$plain"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$plain" >/dev/null
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes \
+            --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            --s2k-digest-algo SHA512 --output "$encrypted" "$plain"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes \
+            --pinentry-mode loopback --passphrase-fd 0 --output "$verified" --decrypt "$encrypted"
+          cmp --silent "$plain" "$verified"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$verified" >/dev/null
+          sha256sum "$encrypted" | awk '{print $1}' > "$checksum"
+          jq -n --arg release_sha "$MINUTA_RELEASE_SHA" --arg test_ref "$MINUTA_TEST_PROJECT_REF" \
+            --arg encrypted_sha "$(tr -d '[:space:]' < "$checksum")" \
+            --arg created_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            '{schemaVersion:1,kind:"test-db-before-destructive-restore",releaseSha:$release_sha,testProjectRef:$test_ref,encryptedSha256:$encrypted_sha,createdAtUtc:$created_at}' \
+            > "$journal"
+          {
+            echo "encrypted=$encrypted"
+            echo "checksum=$checksum"
+            echo "journal=$journal"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Сохранить testDB backup до первой записи
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-testdb-before-${{ github.run_id }}
+          path: |
+            ${{ steps.test_backup.outputs.encrypted }}
+            ${{ steps.test_backup.outputs.checksum }}
+            ${{ steps.test_backup.outputs.journal }}
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Проверить exact production backup run
+        id: production_backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RUN_ID: ${{ inputs.production_backup_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          api="https://api.github.com/repos/$GITHUB_REPOSITORY"
+          run_json="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$api/actions/runs/$BACKUP_RUN_ID")"
+          test "$(jq -r '.conclusion' <<<"$run_json")" = success
+          test "$(jq -r '.head_branch' <<<"$run_json")" = main
+          test "$(jq -r '.head_sha' <<<"$run_json")" = "$MINUTA_SERVER_BASE_SHA"
+          test "$(jq -r '.path' <<<"$run_json")" = '.github/workflows/minuta-supabase-backup.yml'
+          created="$(date -u -d "$(jq -r '.created_at' <<<"$run_json")" +%s)"
+          now="$(date -u +%s)"
+          test "$((now-created))" -ge 0
+          test "$((now-created))" -le 21600
+          jobs_json="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$api/actions/runs/$BACKUP_RUN_ID/jobs?per_page=100")"
+          test "$(jq '[.jobs[] | select(.name=="backup" and .conclusion=="success")] | length' <<<"$jobs_json")" = 1
+          artifacts_json="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "$api/actions/runs/$BACKUP_RUN_ID/artifacts?per_page=100")"
+          test "$(jq '[.artifacts[] | select(.expired==false)] | length' <<<"$artifacts_json")" = 1
+          artifact_name="$(jq -r '.artifacts[] | select(.expired==false) | .name' <<<"$artifacts_json")"
+          test -n "$artifact_name"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
+
+      - name: Скачать encrypted production backup artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.production_backup.outputs.artifact_name }}
+          path: ${{ runner.temp }}/production-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.production_backup_run_id }}
+
+      - name: Проверить production artifact, checksum и шифрование
+        id: production_source
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mapfile -t encrypted_files < <(find "$RUNNER_TEMP/production-source" -type f -name '*.dump.gpg')
+          mapfile -t checksum_files < <(find "$RUNNER_TEMP/production-source" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journal_files < <(find "$RUNNER_TEMP/production-source" -type f -name '*.json')
+          test "${#encrypted_files[@]}" = 1
+          test "${#checksum_files[@]}" = 1
+          test "${#journal_files[@]}" = 1
+          encrypted="${encrypted_files[0]}"
+          checksum="${checksum_files[0]}"
+          journal="${journal_files[0]}"
+          expected_sha="$(tr -d '[:space:]' < "$checksum")"
+          [[ "$expected_sha" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "$encrypted" | awk '{print $1}')" = "$expected_sha"
+          test "$(jq -r '.operation+":"+.status' "$journal")" = 'backup:success'
+          plain="$RUNNER_TEMP/production-source.dump"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes \
+            --pinentry-mode loopback --passphrase-fd 0 --output "$plain" --decrypt "$encrypted"
+          /usr/lib/postgresql/17/bin/pg_restore --list "$plain" >/dev/null
+          {
+            echo "encrypted=$encrypted"
+            echo "checksum=$checksum"
+            echo "journal=$journal"
+            echo "plain=$plain"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Сохранить проверенный source artifact и checksum
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-production-source-${{ github.run_id }}
+          path: |
+            ${{ steps.production_source.outputs.encrypted }}
+            ${{ steps.production_source.outputs.checksum }}
+            ${{ steps.production_source.outputs.journal }}
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Остановить test cron и удалить test vault после сохранённого backup
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X <<'SQL'
+          do $safe_test_isolation$
+          declare v_job record;
+          begin
+            if to_regclass('cron.job') is not null then
+              for v_job in select jobid from cron.job loop
+                perform cron.unschedule(v_job.jobid);
+              end loop;
+            end if;
+            if to_regclass('vault.secrets') is not null then
+              delete from vault.secrets;
+            end if;
+          end
+          $safe_test_isolation$;
+          SQL
+
+      - name: Восстановить production snapshot только в testDB без cron и vault
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          PRODUCTION_DUMP: ${{ steps.production_source.outputs.plain }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          /usr/lib/postgresql/17/bin/pg_restore --exit-on-error --clean --if-exists \
+            --no-owner --no-privileges --exclude-table-data='cron.job' \
+            --exclude-table-data='vault.secrets' --dbname="$test_db" "$PRODUCTION_DUMP"
+
+          marker_state="$(psql "$test_db" -v ON_ERROR_STOP=1 -X -At \
+            --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select
+            (select count(*) from minuta_migration_guard.target
+             where project_ref=:'expected_ref' and allow_migrations is true)::text
+            || '|'
+            ||
+            (select count(*) from minuta_restore_guard.target
+             where project_ref=:'expected_ref' and allow_destructive_restore is true)::text;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker_state")" = '1|1'
+
+          psql "$test_db" -v ON_ERROR_STOP=1 -X <<'SQL'
+          do $post_restore_isolation$
+          declare v_job record; v_unsafe_triggers integer; v_vault_count integer;
+          begin
+            if to_regclass('cron.job') is not null then
+              for v_job in select jobid from cron.job loop
+                perform cron.unschedule(v_job.jobid);
+              end loop;
+              if exists(select 1 from cron.job) then
+                raise exception 'test_cron_not_empty_after_restore';
+              end if;
+            end if;
+            if to_regclass('vault.secrets') is not null then
+              select count(*) into v_vault_count from vault.secrets;
+              if v_vault_count<>0 then raise exception 'production_vault_restored_to_test'; end if;
+            end if;
+            select count(*) into v_unsafe_triggers
+            from pg_trigger trigger_row
+            join pg_proc function_row on function_row.oid=trigger_row.tgfoid
+            where not trigger_row.tgisinternal
+              and (lower(pg_get_functiondef(function_row.oid)) like '%net.http_%'
+                   or lower(pg_get_functiondef(function_row.oid)) like '%http_request%');
+            if v_unsafe_triggers<>0 then
+              raise exception 'outgoing_http_trigger_detected:%',v_unsafe_triggers;
+            end if;
+            if to_regclass('public.organization_notification_settings') is not null then
+              update public.organization_notification_settings set enabled=false;
+            end if;
+            if to_regclass('public.organization_notification_channels') is not null then
+              update public.organization_notification_channels set enabled=false;
+            end if;
+            if to_regclass('public.client_telegram_subscriptions') is not null then
+              update public.client_telegram_subscriptions set active=false;
+            end if;
+          end
+          $post_restore_isolation$;
+          SQL
+
+      - name: Проверить v111 baseline и записать контрольные количества
+        id: baseline
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -Atc \
+            "select to_regprocedure('public.join_minuta_waitlist_v111(text,uuid,uuid,date,text,text,text)') is not null
+              and to_regclass('public.client_record_settings') is null
+              and to_regclass('public.organization_inventory_cost_settings') is null
+              and to_regclass('public.notification_v114_organization_cutovers') is null;" | grep -qx t
+          counts="$RUNNER_TEMP/crm-core-counts-before.txt"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -At -F '|' -c \
+            "select (select count(*) from public.organizations),
+                    (select count(*) from public.services),
+                    (select count(*) from public.bookings),
+                    (select count(*) from public.client_accounts),
+                    (select count(*) from public.inventory_movements),
+                    (select count(*) from public.notification_outbox);" > "$counts"
+          echo "counts=$counts" >> "$GITHUB_OUTPUT"
+
+      - name: Применить v112-v114 и проверить схему
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v112.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v113.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v114.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -v expected_state=applied \
+            -f control/minuta-online-booking/scripts/crm-server-release-schema-check.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/client-records-v112-integration.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/tests/profitability-v113-schema-check.sql
+
+      - name: Создать только инертную cron topology для проверки rollback v114
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X <<'SQL'
+          do $inert_cron$
+          begin
+            if to_regclass('cron.job') is null then
+              raise exception 'cron_extension_required_for_full_v114_rollback_test';
+            end if;
+            if exists(select 1 from cron.job) then
+              raise exception 'test_cron_must_be_empty_before_inert_topology';
+            end if;
+            perform cron.schedule('telegram-client-reminders-hourly','0 0 1 1 *','select 1');
+            if (select count(*) from cron.job where jobname='telegram-client-reminders-hourly'
+                and active and command='select 1')<>1 then
+              raise exception 'inert_legacy_cron_not_created';
+            end if;
+          end
+          $inert_cron$;
+          SQL
+
+      - name: Проверить rollback в обратном порядке и повторное применение
+        env:
+          MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          BEFORE_COUNTS: ${{ steps.baseline.outputs.counts }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v114-rollback.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v113-rollback.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/recovery/rollback-client-records-v112.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -v expected_state=rolled_back \
+            -f control/minuta-online-booking/scripts/crm-server-release-schema-check.sql
+
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v112.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v113.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -f release/minuta-online-booking/supabase-migration-v114.sql
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -v expected_state=applied \
+            -f control/minuta-online-booking/scripts/crm-server-release-schema-check.sql
+
+          after_counts="$RUNNER_TEMP/crm-core-counts-after.txt"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X -At -F '|' -c \
+            "select (select count(*) from public.organizations),
+                    (select count(*) from public.services),
+                    (select count(*) from public.bookings),
+                    (select count(*) from public.client_accounts),
+                    (select count(*) from public.inventory_movements),
+                    (select count(*) from public.notification_outbox);" > "$after_counts"
+          cmp --silent "$BEFORE_COUNTS" "$after_counts"
+          psql "$test_db" -v ON_ERROR_STOP=1 -X <<'SQL'
+          do $cleanup_inert_cron$
+          declare v_job record;
+          begin
+            if to_regclass('cron.job') is not null then
+              for v_job in select jobid from cron.job loop
+                perform cron.unschedule(v_job.jobid);
+              end loop;
+            end if;
+          end
+          $cleanup_inert_cron$;
+          SQL
+
+      - name: Сохранить только неперсональный журнал preprod
+        shell: bash
+        run: |
+          set -euo pipefail
+          journal="$RUNNER_TEMP/crm-server-preprod.json"
+          jq -n --arg release_sha "$MINUTA_RELEASE_SHA" \
+            --arg server_base_sha "$MINUTA_SERVER_BASE_SHA" \
+            --arg production_backup_run_id "${{ inputs.production_backup_run_id }}" \
+            --arg completed_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            '{schemaVersion:1,status:"success",scope:"preprod-only",releaseSha:$release_sha,serverBaseSha:$server_base_sha,productionBackupRunId:$production_backup_run_id,testBackupArtifact:("crm-testdb-before-"+env.GITHUB_RUN_ID),productionSourceArtifact:("crm-production-source-"+env.GITHUB_RUN_ID),productionWritten:false,frontendPublished:false,edgeFunctionsDeployed:false,completedAtUtc:$completed_at}' \
+            > "$journal"
+          sha256sum "$journal" > "$journal.sha256"
+
+      - name: Загрузить журнал preprod
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crm-server-preprod-journal-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/crm-server-preprod.json
+            ${{ runner.temp }}/crm-server-preprod.json.sha256
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Удалить незашифрованные dumps с runner
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/test-before.dump" \
+            "$RUNNER_TEMP/test-before.verified.dump" \
+            "$RUNNER_TEMP/production-source.dump"
