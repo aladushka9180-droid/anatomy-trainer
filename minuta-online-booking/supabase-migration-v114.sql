@@ -87,6 +87,106 @@ create index if not exists notification_outbox_delivery_receipt_idx
   on public.notification_outbox(channel,provider_message_id)
   where status='sent' and provider_message_id is not null;
 
+-- Per-organization cutover prevents both a global consent change and a gap:
+-- the legacy Telegram path remains authoritative until an authenticated,
+-- configured v114 dispatcher activates that exact organization.
+create table if not exists public.notification_v114_organization_cutovers(
+  organization_id uuid primary key references public.organizations(id) on delete cascade,
+  activated_at timestamptz not null default now(),
+  activated_by uuid,
+  worker_version text not null check(worker_version='v114')
+);
+alter table public.notification_v114_organization_cutovers enable row level security;
+revoke all on public.notification_v114_organization_cutovers from public,anon,authenticated;
+grant all on public.notification_v114_organization_cutovers to service_role;
+
+create table if not exists public.notification_v114_worker_readiness(
+  component text primary key check(component in ('telegram_client_bridge')),
+  worker_version text not null check(worker_version='v114'),
+  checked_at timestamptz not null default now()
+);
+alter table public.notification_v114_worker_readiness enable row level security;
+revoke all on public.notification_v114_worker_readiness from public,anon,authenticated;
+grant all on public.notification_v114_worker_readiness to service_role;
+
+create or replace function public.mark_minuta_notification_worker_ready_v114(
+  p_component text,p_worker_version text
+)
+returns text language plpgsql security definer set search_path to '' as $$
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  if p_component<>'telegram_client_bridge' or p_worker_version<>'v114' then
+    raise exception using errcode='22023',message='invalid_notification_worker_readiness';
+  end if;
+  insert into public.notification_v114_worker_readiness(component,worker_version,checked_at)
+  values(p_component,p_worker_version,now())
+  on conflict(component) do update set worker_version=excluded.worker_version,checked_at=excluded.checked_at;
+  return 'ready';
+end
+$$;
+
+create or replace function public.is_minuta_notification_v114_cutover(p_booking uuid)
+returns boolean language sql stable security definer set search_path to '' as $$
+  select exists(
+    select 1 from public.bookings booking
+    join public.notification_v114_organization_cutovers cutover
+      on cutover.organization_id=booking.organization_id
+    where booking.id=p_booking
+  )
+$$;
+
+create or replace function public.is_minuta_legacy_client_notification_allowed_v114(p_booking uuid)
+returns boolean language sql stable security definer set search_path to '' as $$
+  select exists(select 1 from public.bookings booking where booking.id=p_booking)
+    and not public.is_minuta_notification_v114_cutover(p_booking)
+$$;
+
+-- Transitional legacy delivery is mirrored into the unified queue. This closes
+-- the migration-to-cutover window: an event accepted by the old Telegram path
+-- cannot be replayed by the dispatcher after organization activation.
+create or replace function public.record_minuta_legacy_notification_delivery_v114(
+  p_booking uuid,p_event text,p_booking_date date,p_booking_time time without time zone,
+  p_sent_at timestamptz default now()
+)
+returns integer language plpgsql security definer set search_path to '' as $$
+declare v_count integer:=0; v_queue record;
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  if p_event not in ('confirmation','rescheduled','cancelled','reminder') then
+    raise exception using errcode='22023',message='invalid_legacy_notification_event';
+  end if;
+  for v_queue in
+    select queue.id,queue.performer_id,queue.attempts
+    from public.notification_outbox queue
+    where queue.booking_id=p_booking and queue.dispatcher='unified'
+      and queue.audience='client' and queue.channel='telegram'
+      and queue.status in ('pending','failed')
+      and coalesce(queue.payload->>'booking_date','')=p_booking_date::text
+      and left(coalesce(queue.payload->>'booking_time',''),8)=left(p_booking_time::text,8)
+      and ((p_event='confirmation' and queue.kind in ('booking_created','booking_confirmed'))
+        or (p_event='rescheduled' and queue.kind='booking_rescheduled')
+        or (p_event='cancelled' and queue.kind='booking_cancelled')
+        or (p_event='reminder' and queue.kind='booking_reminder'))
+    for update
+  loop
+    insert into public.notification_delivery_attempts(
+      outbox_id,performer_id,attempt_no,outcome,started_at,finished_at
+    ) values(v_queue.id,v_queue.performer_id,v_queue.attempts+1,'sent',p_sent_at,p_sent_at)
+    on conflict(outbox_id,attempt_no) do nothing;
+    update public.notification_outbox set status='sent',attempts=v_queue.attempts+1,
+      sent_at=coalesce(sent_at,p_sent_at),locked_at=null,lock_token=null,
+      last_error_code=null,last_error=null,updated_at=now()
+    where id=v_queue.id and status in ('pending','failed');
+    if found then v_count:=v_count+1; end if;
+  end loop;
+  return v_count;
+end
+$$;
+
 -- Telegram opt-in is proven only after Telegram calls the secret-protected
 -- webhook with /start. Mirror that consent into the unified endpoint table.
 create or replace function public.sync_minuta_client_telegram_subscription_v114()
@@ -264,6 +364,10 @@ begin
     ) endpoint on true
     where queue.dispatcher='unified'
       and queue.channel=any(coalesce(p_channels,array[]::text[]))
+      and (queue.audience<>'client' or queue.channel<>'telegram' or exists(
+        select 1 from public.notification_v114_organization_cutovers cutover
+        where cutover.organization_id=queue.organization_id
+      ))
       and (queue.audience='provider' or endpoint.destination is not null)
       and ((queue.status='pending' and queue.next_attempt_at<=now())
         or (queue.status='sending' and queue.locked_at<now()-interval '15 minutes'))
@@ -295,6 +399,85 @@ begin
     order by recipient.updated_at desc limit 1
   ) endpoint on true
   order by claimed.created_at;
+end
+$$;
+
+-- Called by notification-dispatcher only after an authenticated dry run has
+-- verified its own v114 code and Telegram adapter. It never sends or queues a
+-- message. Existing organization switches must be enabled explicitly first.
+create or replace function public.activate_minuta_notification_v114_cutover(
+  p_organization uuid,p_worker_version text,p_configured_channels text[]
+)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare v_replacement_count integer:=0; v_legacy_job bigint; v_remaining integer:=0; v_legacy record;
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  if p_worker_version<>'v114' or not ('telegram'=any(coalesce(p_configured_channels,array[]::text[]))) then
+    raise exception using errcode='P0001',message='v114_dispatcher_not_ready';
+  end if;
+  if not exists(select 1 from public.notification_v114_worker_readiness readiness
+      where readiness.component='telegram_client_bridge' and readiness.worker_version='v114'
+        and readiness.checked_at>now()-interval '15 minutes') then
+    raise exception using errcode='P0001',message='v114_telegram_client_bridge_not_ready';
+  end if;
+  if not exists(select 1 from public.organization_notification_settings settings
+      where settings.organization_id=p_organization and settings.enabled)
+     or not exists(select 1 from public.organization_notification_channels channel_setting
+      where channel_setting.organization_id=p_organization and channel_setting.audience='client'
+        and channel_setting.channel='telegram' and channel_setting.enabled) then
+    raise exception using errcode='P0001',message='v114_organization_not_explicitly_enabled';
+  end if;
+  if not exists(select 1 from public.notification_recipient_endpoints endpoint
+      where endpoint.organization_id=p_organization and endpoint.audience='client'
+        and endpoint.channel='telegram' and endpoint.active) then
+    raise exception using errcode='P0001',message='v114_organization_has_no_active_telegram_endpoint';
+  end if;
+  if to_regclass('cron.job') is not null then
+    select count(*) into v_replacement_count from cron.job
+    where jobname='minuta-notification-dispatcher' and active and schedule='* * * * *'
+      and command ilike '%/functions/v1/notification-dispatcher%';
+    if v_replacement_count<>1 then
+      raise exception using errcode='P0001',message='v114_requires_active_notification_dispatcher_cron';
+    end if;
+  end if;
+
+  -- Repair any transitional send whose message/log succeeded but whose mirror
+  -- RPC was interrupted before cutover.
+  if to_regclass('public.telegram_notification_log') is not null then
+    for v_legacy in
+      select legacy.booking_id,legacy.event_type,legacy.booking_date,legacy.booking_time,legacy.sent_at
+      from public.telegram_notification_log legacy
+      join public.bookings booking on booking.id=legacy.booking_id
+      where booking.organization_id=p_organization
+    loop
+      perform public.record_minuta_legacy_notification_delivery_v114(
+        v_legacy.booking_id,v_legacy.event_type,v_legacy.booking_date,v_legacy.booking_time,v_legacy.sent_at
+      );
+    end loop;
+  end if;
+
+  insert into public.notification_v114_organization_cutovers(
+    organization_id,activated_by,worker_version
+  ) values(p_organization,auth.uid(),'v114')
+  on conflict(organization_id) do nothing;
+
+  select count(distinct booking.organization_id) into v_remaining
+  from public.client_telegram_subscriptions subscription
+  join public.bookings booking on booking.performer_id=subscription.performer_id
+    and regexp_replace(coalesce(booking.client_phone,''),'[^0-9]','','g')=subscription.client_phone
+  left join public.notification_v114_organization_cutovers cutover
+    on cutover.organization_id=booking.organization_id
+  where subscription.active and booking.organization_id is not null
+    and cutover.organization_id is null;
+
+  if v_remaining=0 and to_regclass('cron.job') is not null then
+    select jobid into v_legacy_job from cron.job where jobname='telegram-client-reminders-hourly';
+    if v_legacy_job is not null then perform cron.unschedule(v_legacy_job); end if;
+  end if;
+  return jsonb_build_object('activated',true,'organization_id',p_organization,
+    'remaining_legacy_organizations',v_remaining,'legacy_cron_disabled',v_remaining=0);
 end
 $$;
 
@@ -456,22 +639,16 @@ begin
 end
 $$;
 
--- The legacy public hourly endpoint bypassed the durable dispatcher. Remove its
--- cron job; notification-dispatcher queues reminders with an authenticated worker.
-do $$
-declare v_job bigint;
-begin
-  if to_regclass('cron.job') is not null then
-    select jobid into v_job from cron.job where jobname='telegram-client-reminders-hourly';
-    if v_job is not null then perform cron.unschedule(v_job); end if;
-  end if;
-end $$;
-
 revoke all on function public.sync_minuta_client_telegram_subscription_v114() from public,anon,authenticated,service_role;
 revoke all on function public.ack_minuta_notification_outbox_v114(uuid,uuid,text,text,timestamptz,text) from public,anon,authenticated,service_role;
 revoke all on function public.confirm_minuta_notification_delivery_v114(text,text,timestamptz,text) from public,anon,authenticated,service_role;
 revoke all on function public.deactivate_minuta_notification_endpoint_v114(uuid,text) from public,anon,authenticated,service_role;
 revoke all on function public.get_minuta_client_notification_state_v114(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.is_minuta_notification_v114_cutover(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.is_minuta_legacy_client_notification_allowed_v114(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.record_minuta_legacy_notification_delivery_v114(uuid,text,date,time without time zone,timestamptz) from public,anon,authenticated,service_role;
+revoke all on function public.activate_minuta_notification_v114_cutover(uuid,text,text[]) from public,anon,authenticated,service_role;
+revoke all on function public.mark_minuta_notification_worker_ready_v114(text,text) from public,anon,authenticated,service_role;
 revoke all on function public.claim_minuta_notification_outbox(text[],integer) from public,anon,authenticated,service_role;
 revoke all on function public.get_minuta_notification_workspace(uuid) from public,anon,authenticated,service_role;
 
@@ -479,6 +656,11 @@ grant execute on function public.ack_minuta_notification_outbox_v114(uuid,uuid,t
 grant execute on function public.confirm_minuta_notification_delivery_v114(text,text,timestamptz,text) to service_role;
 grant execute on function public.deactivate_minuta_notification_endpoint_v114(uuid,text) to service_role;
 grant execute on function public.get_minuta_client_notification_state_v114(uuid) to service_role;
+grant execute on function public.is_minuta_notification_v114_cutover(uuid) to service_role;
+grant execute on function public.is_minuta_legacy_client_notification_allowed_v114(uuid) to service_role;
+grant execute on function public.record_minuta_legacy_notification_delivery_v114(uuid,text,date,time without time zone,timestamptz) to service_role;
+grant execute on function public.activate_minuta_notification_v114_cutover(uuid,text,text[]) to service_role;
+grant execute on function public.mark_minuta_notification_worker_ready_v114(text,text) to service_role;
 grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role;
 grant execute on function public.get_minuta_notification_workspace(uuid) to authenticated;
 

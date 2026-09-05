@@ -18,8 +18,21 @@
 4. Старый маршрут `/connect` оставлен только для ранее закэшированных страниц. Он продолжает устанавливать webhook на адрес
    `https://cawexmmrqjvothcbgjxr.supabase.co/functions/v1/telegram-client-notify`
    с секретной проверкой запросов.
-5. Убедиться, что v114 удалила устаревшую задачу `telegram-client-reminders-hourly`, а защищённый планировщик вызывает `notification-dispatcher`.
-6. Опубликовать клиентские файлы одной актуальной версии кэша.
+5. Применить v114 без включения организаций, развернуть обе Edge Function и создать
+   одну активную задачу `minuta-notification-dispatcher` раз в минуту по инструкции
+   в `supabase/functions/notification-dispatcher/README.md`.
+6. Вызвать защищённый `/cutover-ready` переходной Telegram-функции, затем в течение
+   15 минут по одной организации явно включать client/telegram и общий переключатель
+   и выполнять защищённый dry-run activation. До успешной активации продолжает работать
+   legacy Telegram; после неё организация обслуживается только unified worker.
+   Последняя активация удаляет `telegram-client-reminders-hourly`, предварительно
+   подтвердив активный replacement.
+7. Опубликовать клиентские файлы одной актуальной версии кэша.
+
+Для безопасного отката использовать `supabase-migration-v114-rollback.sql`. Он
+сохраняет очередь, endpoints и routing-state и не переключает cron. Он проверяет, что
+для каждой уже активированной организации остаётся replacement, а для ещё не
+активированных — legacy cron.
 
 ## Проверка
 

@@ -109,13 +109,33 @@ Deno.serve(async request => {
     missing_channels: notificationChannels,
   }, 503);
 
-  let body: { limit?: unknown; channels?: unknown } = {};
+  let body: { limit?: unknown; channels?: unknown; dry_run?: unknown; activate_organization?: unknown } = {};
   try { body = await request.json(); } catch { /* safe defaults */ }
   const channels = requestedChannels(body.channels, available);
   if (!channels.length) return json({
     ok: false, error: "not_configured", component: "requested_channels",
     configured_channels: available,
   }, 503);
+  if (body.dry_run === true) {
+    const organization = typeof body.activate_organization === "string" ? body.activate_organization.trim() : "";
+    if (organization && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(organization)) {
+      return json({ ok:false,error:"invalid_organization" },400);
+    }
+    let cutover = null;
+    if (organization) {
+      try {
+        cutover = await rpc("activate_minuta_notification_v114_cutover",{
+          p_organization:organization,p_worker_version:"v114",p_configured_channels:channels,
+        },secretKey);
+      } catch {
+        return json({ ok:false,error:"organization_cutover_rejected" },409);
+      }
+    }
+    return json({
+      ok:true,dry_run:true,worker_version:"v114",configured_channels:channels,
+      reminders_queued:0,claimed:0,sent:0,retried:0,failed:0,cutover,
+    });
+  }
   const parsedLimit = Number(body.limit);
   const limit = Number.isInteger(parsedLimit) ? Math.max(1, Math.min(parsedLimit, 100)) : 20;
 

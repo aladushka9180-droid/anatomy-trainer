@@ -17,8 +17,10 @@ assert.match(migration, /revoke all on function public\.get_telegram_reminder_se
 assert.match(migration, /grant execute on function public\.get_telegram_reminder_secret_hash\(\) to service_role/);
 assert.match(v114, /telegram-client-reminders-hourly/);
 assert.match(v114, /cron\.unschedule/);
-assert.match(edge, /retired_use_notification_dispatcher/);
-assert.doesNotMatch(edge, /get_telegram_reminder_secret_hash/, 'Retired direct reminder route must not load a legacy secret');
+assert.match(edge, /get_telegram_reminder_secret_hash/);
+assert.match(edge, /x-reminder-secret/);
+assert.match(edge, /is_minuta_legacy_client_notification_allowed_v114/);
+assert.match(edge, /unified_skipped/);
 assert.match(edge, /MAX_JSON_BYTES/);
 assert.match(edge, /Deno\.serve\(/, 'Telegram client Edge Function должна использовать поддерживаемую точку входа Deno.serve');
 assert.doesNotMatch(edge, /export default\s*\{/, 'Cloudflare-style export default не должен использоваться в Supabase Edge Function');

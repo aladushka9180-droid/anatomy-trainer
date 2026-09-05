@@ -2,6 +2,7 @@ import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 import { PGlite } from "npm:@electric-sql/pglite@0.3.10";
 
 const migration = await Deno.readTextFile(new URL("./supabase-migration-v114.sql", import.meta.url));
+const rollback = await Deno.readTextFile(new URL("./supabase-migration-v114-rollback.sql", import.meta.url));
 const database = new PGlite();
 
 await database.exec(`
@@ -10,6 +11,12 @@ await database.exec(`
   create role service_role;
   create schema auth;
   create schema extensions;
+  create schema cron;
+  create table cron.job(
+    jobid bigint generated always as identity primary key,jobname text,schedule text,command text,active boolean default true
+  );
+  create function cron.unschedule(p_jobid bigint) returns boolean language plpgsql as $$
+  begin delete from cron.job where jobid=p_jobid;return found;end $$;
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
   $$;
@@ -94,6 +101,9 @@ await database.exec(`
     kind text,channel text,audience text,attempt_no integer,destination jsonb,message_payload jsonb)
     language sql as $$select null::uuid,null::uuid,null::text,null::uuid,null::uuid,null::uuid,null::text,null::text,null::text,0,null::jsonb,null::jsonb where false$$;
   create function public.get_minuta_notification_workspace(uuid) returns jsonb language sql as $$select '{}'::jsonb$$;
+  insert into cron.job(jobname,schedule,command) values
+    ('minuta-notification-dispatcher','* * * * *','select net.http_post(url := ''https://test.invalid/functions/v1/notification-dispatcher'')'),
+    ('telegram-client-reminders-hourly','15 * * * *','select net.http_post(url := ''https://test.invalid/functions/v1/telegram-client-notify/reminders'')');
 `);
 
 const organization = "00000000-0000-4000-8000-000000000001";
@@ -104,8 +114,8 @@ await database.exec(`
   insert into public.organizations values('${organization}','active');
   insert into public.performer_profiles values('${performer}','Мастер');
   insert into public.services values('${service}','Услуга');
-  insert into public.organization_notification_settings(organization_id,enabled) values('${organization}',true);
-  insert into public.organization_notification_channels values('${organization}','client','telegram',true,now());
+  insert into public.organization_notification_settings(organization_id,enabled) values('${organization}',false);
+  insert into public.organization_notification_channels values('${organization}','client','telegram',false,now());
   alter table public.bookings disable trigger bookings_enqueue_created_notification;
   insert into public.bookings values('${legacyBooking}','L1',gen_random_uuid(),'${performer}','${service}','Клиент','79990000001','2099-09-10','14:00','new','${organization}');
   alter table public.bookings enable trigger bookings_enqueue_created_notification;
@@ -118,6 +128,83 @@ await database.exec(`
 
 await database.exec(migration);
 await database.exec(`select set_config('request.jwt.claim.role','service_role',false)`);
+
+Deno.test("v114 keeps legacy cron beside the ready replacement before organization cutover", async () => {
+  const jobs = await database.query<{ jobname:string; active:boolean }>(
+    `select jobname,active from cron.job order by jobname`
+  );
+  assertEquals(jobs.rows, [
+    { jobname:"minuta-notification-dispatcher", active:true },
+    { jobname:"telegram-client-reminders-hourly", active:true },
+  ]);
+});
+
+Deno.test("old Telegram stays live while unified is off and unavailable worker cannot activate it", async () => {
+  const booking = "00000000-0000-4000-8000-000000000008";
+  await database.exec(`
+    insert into public.bookings values('${booking}','CUT1',gen_random_uuid(),'${performer}','${service}','Старый клиент','79990000008','2099-09-10','14:30','confirmed','${organization}');
+    insert into public.client_telegram_subscriptions(performer_id,client_phone,chat_id) values('${performer}','79990000008',220008);
+  `);
+  const before = await database.query<{ cutover:boolean; legacy_allowed:boolean }>(`
+    select public.is_minuta_notification_v114_cutover('${booking}') cutover,
+      public.is_minuta_legacy_client_notification_allowed_v114('${booking}') legacy_allowed
+  `);
+  assertEquals(before.rows, [{ cutover:false, legacy_allowed:true }]);
+  const blockedClaim = await database.query(`select * from public.claim_minuta_notification_outbox(array['telegram'],20)`);
+  assertEquals(blockedClaim.rows.length,0);
+  await database.exec(`
+    insert into public.telegram_notification_log(booking_id,event_type,booking_date,booking_time)
+      values('${booking}','confirmation','2099-09-10','14:30');
+    select public.record_minuta_legacy_notification_delivery_v114(
+      '${booking}','confirmation','2099-09-10','14:30',now()
+    );
+  `);
+  const mirrored = await database.query<{ status:string }>(`
+    select status from public.notification_outbox where booking_id='${booking}'
+  `);
+  assertEquals(mirrored.rows,[{ status:"sent" }]);
+
+  await database.exec(`
+    update public.organization_notification_settings set enabled=true where organization_id='${organization}';
+    update public.organization_notification_channels set enabled=true where organization_id='${organization}' and audience='client' and channel='telegram';
+    update cron.job set active=false where jobname='minuta-notification-dispatcher';
+  `);
+  await assertRejects(() => database.exec(`
+    select public.activate_minuta_notification_v114_cutover('${organization}','v114',array['telegram'])
+  `));
+  const rejected = await database.query<{ cutover:boolean; legacy_jobs:number }>(`
+    select public.is_minuta_notification_v114_cutover('${booking}') cutover,
+      (select count(*)::integer from cron.job where jobname='telegram-client-reminders-hourly') legacy_jobs
+  `);
+  assertEquals(rejected.rows,[{ cutover:false,legacy_jobs:1 }]);
+
+  await database.exec(`update cron.job set active=true where jobname='minuta-notification-dispatcher'`);
+  await assertRejects(() => database.exec(`
+    select public.activate_minuta_notification_v114_cutover('${organization}','v114',array['telegram'])
+  `));
+  await database.exec(`
+    select public.mark_minuta_notification_worker_ready_v114('telegram_client_bridge','v114')
+  `);
+  const activated = await database.query<{ result:{ activated:boolean; remaining_legacy_organizations:number; legacy_cron_disabled:boolean } }>(`
+    select public.activate_minuta_notification_v114_cutover('${organization}','v114',array['telegram']) result
+  `);
+  assertEquals(activated.rows[0].result.activated,true);
+  assertEquals(activated.rows[0].result.remaining_legacy_organizations,0);
+  assertEquals(activated.rows[0].result.legacy_cron_disabled,true);
+  const after = await database.query<{ cutover:boolean; legacy_allowed:boolean; legacy_jobs:number }>(`
+    select public.is_minuta_notification_v114_cutover('${booking}') cutover,
+      public.is_minuta_legacy_client_notification_allowed_v114('${booking}') legacy_allowed,
+      (select count(*)::integer from cron.job where jobname='telegram-client-reminders-hourly') legacy_jobs
+  `);
+  assertEquals(after.rows,[{ cutover:true,legacy_allowed:false,legacy_jobs:0 }]);
+  const newBooking = "00000000-0000-4000-8000-000000000009";
+  await database.exec(`
+    insert into public.bookings values('${newBooking}','CUT2',gen_random_uuid(),'${performer}','${service}','Старый клиент','79990000008','2099-09-10','14:45','confirmed','${organization}')
+  `);
+  const unifiedClaim = await database.query<{ booking_id:string }>(`select booking_id from public.claim_minuta_notification_outbox(array['telegram'],20)`);
+  assertEquals(unifiedClaim.rows.some(row => row.booking_id===booking),false);
+  assertEquals(unifiedClaim.rows.some(row => row.booking_id===newBooking),true);
+});
 
 Deno.test("v114 reconciles a legacy direct send without replay", async () => {
   const result = await database.query<{ status:string; attempts:number }>(
@@ -179,4 +266,55 @@ Deno.test("confirmation, reschedule, reminder and cancellation supersede stale r
   rows = await database.query<{ kind:string; status:string }>(`select kind,status from public.notification_outbox where booking_id='${booking}' order by created_at,event_key`);
   assertEquals(rows.rows.filter(row => row.kind !== 'booking_cancelled' && row.status === 'pending').length, 0);
   assertEquals(rows.rows.filter(row => row.kind === 'booking_cancelled' && row.status === 'pending').length, 1);
+});
+
+Deno.test("compatibility rollback preserves data and RPCs while keeping replacement cron", async () => {
+  const before = await database.query<{ outbox_count:number; attempt_count:number; endpoint_count:number; cutover_count:number }>(`
+    select
+      (select count(*)::integer from public.notification_outbox) outbox_count,
+      (select count(*)::integer from public.notification_delivery_attempts) attempt_count,
+      (select count(*)::integer from public.notification_recipient_endpoints) endpoint_count,
+      (select count(*)::integer from public.notification_v114_organization_cutovers) cutover_count
+  `);
+  await database.exec(rollback);
+  const after = await database.query<{ outbox_count:number; attempt_count:number; endpoint_count:number; cutover_count:number }>(`
+    select
+      (select count(*)::integer from public.notification_outbox) outbox_count,
+      (select count(*)::integer from public.notification_delivery_attempts) attempt_count,
+      (select count(*)::integer from public.notification_recipient_endpoints) endpoint_count,
+      (select count(*)::integer from public.notification_v114_organization_cutovers) cutover_count
+  `);
+  assertEquals(after.rows, before.rows);
+
+  const rpc = await database.query<{ claim_exists:boolean; ack_exists:boolean; state_exists:boolean; sync_trigger_exists:boolean }>(`
+    select
+      to_regprocedure('public.claim_minuta_notification_outbox(text[],integer)') is not null claim_exists,
+      to_regprocedure('public.ack_minuta_notification_outbox_v114(uuid,uuid,text,text,timestamptz,text)') is not null ack_exists,
+      to_regprocedure('public.get_minuta_client_notification_state_v114(uuid)') is not null state_exists,
+      exists(select 1 from pg_trigger where tgname='client_telegram_subscription_sync_v114' and not tgisinternal) sync_trigger_exists
+  `);
+  assertEquals(rpc.rows, [{ claim_exists:true, ack_exists:true, state_exists:true, sync_trigger_exists:false }]);
+  await assertRejects(() => database.exec(`
+    select public.activate_minuta_notification_v114_cutover('${organization}','v114',array['telegram'])
+  `));
+  const jobs = await database.query<{ jobname:string; active:boolean }>(`select jobname,active from cron.job order by jobname`);
+  assertEquals(jobs.rows, [{ jobname:"minuta-notification-dispatcher", active:true }]);
+});
+
+Deno.test("v114 reapplies after rollback without losing or duplicating data", async () => {
+  const before = await database.query<{ outbox_count:number; attempt_count:number }>(`
+    select (select count(*)::integer from public.notification_outbox) outbox_count,
+      (select count(*)::integer from public.notification_delivery_attempts) attempt_count
+  `);
+  await database.exec(migration);
+  const after = await database.query<{ outbox_count:number; attempt_count:number; sync_trigger_exists:boolean }>(`
+    select (select count(*)::integer from public.notification_outbox) outbox_count,
+      (select count(*)::integer from public.notification_delivery_attempts) attempt_count,
+      exists(select 1 from pg_trigger where tgname='client_telegram_subscription_sync_v114' and not tgisinternal) sync_trigger_exists
+  `);
+  assertEquals(after.rows[0].outbox_count, before.rows[0].outbox_count);
+  assertEquals(after.rows[0].attempt_count, before.rows[0].attempt_count);
+  assertEquals(after.rows[0].sync_trigger_exists, true);
+  const jobs = await database.query<{ jobname:string; active:boolean }>(`select jobname,active from cron.job order by jobname`);
+  assertEquals(jobs.rows, [{ jobname:"minuta-notification-dispatcher", active:true }]);
 });
