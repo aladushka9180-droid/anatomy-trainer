@@ -1604,8 +1604,8 @@ jobs:
             'client_fields_guard=t' \
             'client_import_guard=t' \
             'employee_history_guard=t' \
-            'feedback_guard=t' \
             'feature_defaults_safe=t' \
+            'feedback_guard=t' \
             'group_overlap_guard=t' \
             'historical_booking_guard=t' \
             'legacy_table_acl_guard=t' \
