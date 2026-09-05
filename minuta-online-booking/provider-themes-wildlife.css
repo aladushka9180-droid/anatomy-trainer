@@ -57,7 +57,7 @@
   .provider-body:is([data-provider-theme="golden-cheetah"],[data-provider-theme="pearl-zebra"])[data-provider-layout] {
         background-attachment:scroll!important;
     }
-  
+
   .provider-body:is([data-provider-theme="golden-cheetah"],[data-provider-theme="pearl-zebra"])[data-provider-layout] :is(.provider-view,.schedule-card) {
     background:transparent!important;
       border-color:transparent!important;
@@ -74,7 +74,7 @@
     background:transparent!important;
     gap:12px!important;
   }
-  
+
   .provider-body:is([data-provider-theme="golden-cheetah"],[data-provider-theme="pearl-zebra"])[data-provider-layout] :is(.date-navigation,.date-strip,.schedule-toolbar) {
     border:0!important;
     border-radius:var(--material-radius)!important;
