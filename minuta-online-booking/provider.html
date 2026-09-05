@@ -15,20 +15,20 @@
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <title>Кабинет исполнителя — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="manifest" href="provider.webmanifest?v=404" type="application/manifest+json">
+  <link rel="manifest" href="provider.webmanifest?v=405" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
-  <script src="pwa-install.js?v=404"></script>
+  <script src="pwa-install.js?v=405"></script>
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Минута">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="styles.css?v=404">
-  <link rel="stylesheet" href="utm-funnel.css?v=404">
-  <link rel="stylesheet" href="onboarding.css?v=404">
-  <link rel="stylesheet" href="visitor-presence.css?v=404">
-  <link rel="stylesheet" href="subscription-pricing.css?v=404">
-  <link rel="stylesheet" href="provider-theme-loft-modern.css?v=404">
-  <link rel="stylesheet" href="provider-themes-signature.css?v=404">
+  <link rel="stylesheet" href="styles.css?v=405">
+  <link rel="stylesheet" href="utm-funnel.css?v=405">
+  <link rel="stylesheet" href="onboarding.css?v=405">
+  <link rel="stylesheet" href="visitor-presence.css?v=405">
+  <link rel="stylesheet" href="subscription-pricing.css?v=405">
+  <link rel="stylesheet" href="provider-theme-loft-modern.css?v=405">
+  <link rel="stylesheet" href="provider-themes-signature.css?v=405">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -255,7 +255,7 @@
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
                     <label class="client-label-option label-favorite"><input id="clientLabelFavorite" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-heart"></use></svg></span><strong>Любимый</strong></label>
-                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=404#icon-crown"></use></svg></span><strong>VIP</strong></label>
+                    <label class="client-label-option label-vip"><input id="clientLabelVip" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg?v=405#icon-crown"></use></svg></span><strong>VIP</strong></label>
                     <label class="client-label-option label-attention"><input id="clientLabelAttention" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-shield-alert"></use></svg></span><strong>Внимание</strong></label>
                   </div>
                   <label class="client-attention-reason" id="clientFavoriteNoteField" hidden>Что нравится клиенту<textarea id="clientFavoriteNote" maxlength="500" rows="2" placeholder="Например, любимая музыка или привычный формат визита"></textarea></label>
@@ -995,21 +995,29 @@
                 </fieldset>
                 <fieldset class="provider-theme-picker">
                   <legend>Цвет и материал</legend>
+                  <div class="provider-theme-filter" role="group" aria-label="Категория тем">
+                    <button type="button" data-provider-theme-filter="featured" aria-pressed="true">Популярные</button>
+                    <button type="button" data-provider-theme-filter="light" aria-pressed="false">Светлые</button>
+                    <button type="button" data-provider-theme-filter="dark" aria-pressed="false">Тёмные</button>
+                    <button type="button" data-provider-theme-filter="natural" aria-pressed="false">Натуральные</button>
+                    <button type="button" data-provider-theme-filter="all" aria-pressed="false">Все темы</button>
+                  </div>
+                  <p class="provider-theme-filter-status" id="providerThemeFilterStatus" aria-live="polite"></p>
                   <div class="provider-theme-options">
-                    <label class="provider-theme-option theme-sage settings-recommended"><input type="radio" name="providerTheme" value="sage"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Sage Studio <em>Рекомендуем</em></strong><small>Спокойная зелёная</small></label>
-                    <label class="provider-theme-option theme-nordic"><input type="radio" name="providerTheme" value="nordic"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Nordic Light</strong><small>Холодный свет и воздух</small></label>
-                    <label class="provider-theme-option theme-warm settings-recommended"><input type="radio" name="providerTheme" value="warm"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Warm Beige <em>Рекомендуем</em></strong><small>Тёплая бежевая</small></label>
-                    <label class="provider-theme-option theme-graphite"><input type="radio" name="providerTheme" value="graphite"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Graphite Night</strong><small>Графит и ночное свечение</small></label>
-                    <label class="provider-theme-option theme-lavender"><input type="radio" name="providerTheme" value="lavender"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Soft Lavender</strong><small>Светлая лавандовая дымка</small></label>
-                    <label class="provider-theme-option theme-luxury"><input type="radio" name="providerTheme" value="luxury"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Люкс / Премиум</strong><small>Мрамор и золото</small></label>
-                    <label class="provider-theme-option theme-loft"><input type="radio" name="providerTheme" value="loft"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Лофт / Индастриал</strong><small>Графит, камень и приглушённая медь</small></label>
-                    <label class="provider-theme-option theme-eco"><input type="radio" name="providerTheme" value="eco"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Эко / Натуральный</strong><small>Травертин, бумага и шалфей</small></label>
-                    <label class="provider-theme-option theme-hitech"><input type="radio" name="providerTheme" value="hitech"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Хай-тек / Футуризм</strong><small>Холодное стекло и мягкий свет</small></label>
-                    <label class="provider-theme-option theme-japandi"><input type="radio" name="providerTheme" value="japandi"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Japandi / Wabi-Sabi</strong><small>Бумага, дерево и спокойный ритм</small></label>
-                    <label class="provider-theme-option theme-midnight"><input type="radio" name="providerTheme" value="midnight"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Midnight Navy</strong><small>Глубокий синий и холодный свет</small></label>
-                    <label class="provider-theme-option theme-mono"><input type="radio" name="providerTheme" value="mono"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Editorial Mono</strong><small>Контрастная журнальная сетка</small></label>
-                    <label class="provider-theme-option theme-desert"><input type="radio" name="providerTheme" value="desert"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Desert Clay</strong><small>Песок, глина и терракота</small></label>
-                    <label class="provider-theme-option theme-rose"><input type="radio" name="providerTheme" value="rose"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Rose Smoke</strong><small>Дымчатая роза и мягкий сливовый</small></label>
+                    <label class="provider-theme-option theme-sage settings-recommended" data-theme-groups="featured light natural"><input type="radio" name="providerTheme" value="sage"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Sage Studio <em>Рекомендуем</em></strong><small>Спокойная зелёная</small></label>
+                    <label class="provider-theme-option theme-nordic" data-theme-groups="light"><input type="radio" name="providerTheme" value="nordic"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Nordic Light</strong><small>Холодный свет и воздух</small></label>
+                    <label class="provider-theme-option theme-warm settings-recommended" data-theme-groups="featured light natural"><input type="radio" name="providerTheme" value="warm"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Warm Beige <em>Рекомендуем</em></strong><small>Тёплая бежевая</small></label>
+                    <label class="provider-theme-option theme-graphite" data-theme-groups="dark"><input type="radio" name="providerTheme" value="graphite"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Graphite Night</strong><small>Графит и ночное свечение</small></label>
+                    <label class="provider-theme-option theme-lavender" data-theme-groups="light"><input type="radio" name="providerTheme" value="lavender"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Soft Lavender</strong><small>Светлая лавандовая дымка</small></label>
+                    <label class="provider-theme-option theme-luxury" data-theme-groups="dark"><input type="radio" name="providerTheme" value="luxury"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Люкс / Премиум</strong><small>Мрамор и золото</small></label>
+                    <label class="provider-theme-option theme-loft" data-theme-groups="dark"><input type="radio" name="providerTheme" value="loft"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Лофт / Индастриал</strong><small>Графит, камень и приглушённая медь</small></label>
+                    <label class="provider-theme-option theme-eco" data-theme-groups="light natural"><input type="radio" name="providerTheme" value="eco"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Эко / Натуральный</strong><small>Травертин, бумага и шалфей</small></label>
+                    <label class="provider-theme-option theme-hitech" data-theme-groups="light"><input type="radio" name="providerTheme" value="hitech"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Хай-тек / Футуризм</strong><small>Холодное стекло и мягкий свет</small></label>
+                    <label class="provider-theme-option theme-japandi" data-theme-groups="featured light natural"><input type="radio" name="providerTheme" value="japandi"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Japandi / Wabi-Sabi</strong><small>Бумага, дерево и спокойный ритм</small></label>
+                    <label class="provider-theme-option theme-midnight" data-theme-groups="featured dark"><input type="radio" name="providerTheme" value="midnight"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Midnight Navy</strong><small>Глубокий синий и холодный свет</small></label>
+                    <label class="provider-theme-option theme-mono" data-theme-groups="featured light"><input type="radio" name="providerTheme" value="mono"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Editorial Mono</strong><small>Контрастная журнальная сетка</small></label>
+                    <label class="provider-theme-option theme-desert" data-theme-groups="featured light natural"><input type="radio" name="providerTheme" value="desert"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Desert Clay</strong><small>Песок, глина и терракота</small></label>
+                    <label class="provider-theme-option theme-rose" data-theme-groups="light"><input type="radio" name="providerTheme" value="rose"><span class="theme-swatch" aria-hidden="true"><i></i><i></i><i></i></span><strong>Rose Smoke</strong><small>Дымчатая роза и мягкий сливовый</small></label>
                   </div>
                 </fieldset>
                 <fieldset class="provider-text-scale-picker">
@@ -1414,32 +1422,32 @@
   </div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
   <script src="vendor/xlsx-0.20.3.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" defer></script>
-  <script src="config.js?v=404"></script>
-  <script src="site-update.js?v=404" defer></script>
-  <script src="reliability.js?v=404"></script>
-  <script src="phone-auth.js?v=404"></script>
-  <script src="social-auth.js?v=404"></script>
-  <script src="resource-management.js?v=404" defer></script>
-  <script src="shift-management.js?v=404" defer></script>
-  <script src="organization.js?v=404" defer></script>
-  <script src="payroll-management.js?v=404" defer></script>
-  <script src="benefit-management.js?v=404" defer></script>
-  <script src="loyalty-management.js?v=404" defer></script>
-  <script src="inventory-management.js?v=404" defer></script>
-  <script src="retention-management.js?v=404" defer></script>
-  <script src="payment-management.js?v=404" defer></script>
-  <script src="notification-center.js?v=404" defer></script>
-  <script src="client-fields.js?v=404" defer></script>
-  <script src="client-import.js?v=404" defer></script>
-  <script src="provider-feedback.js?v=404" defer></script>
-  <script src="batch-bookings.js?v=404" defer></script>
-  <script src="booking-policy-management.js?v=404" defer></script>
-  <script src="team-calendar.js?v=404" defer></script>
-  <script src="free-slots-share.js?v=404" defer></script>
-  <script src="group-bookings.js?v=404" defer></script>
-  <script src="onboarding.js?v=404" defer></script>
-  <script src="client-messaging.js?v=404" defer></script>
-  <script src="provider.js?v=404" defer></script>
-  <script src="voice-assistant.js?v=404" defer></script>
+  <script src="config.js?v=405"></script>
+  <script src="site-update.js?v=405" defer></script>
+  <script src="reliability.js?v=405"></script>
+  <script src="phone-auth.js?v=405"></script>
+  <script src="social-auth.js?v=405"></script>
+  <script src="resource-management.js?v=405" defer></script>
+  <script src="shift-management.js?v=405" defer></script>
+  <script src="organization.js?v=405" defer></script>
+  <script src="payroll-management.js?v=405" defer></script>
+  <script src="benefit-management.js?v=405" defer></script>
+  <script src="loyalty-management.js?v=405" defer></script>
+  <script src="inventory-management.js?v=405" defer></script>
+  <script src="retention-management.js?v=405" defer></script>
+  <script src="payment-management.js?v=405" defer></script>
+  <script src="notification-center.js?v=405" defer></script>
+  <script src="client-fields.js?v=405" defer></script>
+  <script src="client-import.js?v=405" defer></script>
+  <script src="provider-feedback.js?v=405" defer></script>
+  <script src="batch-bookings.js?v=405" defer></script>
+  <script src="booking-policy-management.js?v=405" defer></script>
+  <script src="team-calendar.js?v=405" defer></script>
+  <script src="free-slots-share.js?v=405" defer></script>
+  <script src="group-bookings.js?v=405" defer></script>
+  <script src="onboarding.js?v=405" defer></script>
+  <script src="client-messaging.js?v=405" defer></script>
+  <script src="provider.js?v=405" defer></script>
+  <script src="voice-assistant.js?v=405" defer></script>
 </body>
 </html>

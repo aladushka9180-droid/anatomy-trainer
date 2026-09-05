@@ -45,7 +45,7 @@ assert.match(script, /midnight:'#0b1420'|midnight:'#08111f'/, 'Нет систе
 assert.match(script, /mono:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
 assert.match(script, /desert:'#f3e8dc'|desert:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
 assert.match(script, /rose:'#f2e9ec'|rose:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
-assert.match(provider, /provider-themes-signature\.css\?v=404/, 'Кабинет не подключает Signature Collection v404');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=404/, 'Service Worker не кэширует Signature Collection v404');
+assert.match(provider, /provider-themes-signature\.css\?v=405/, 'Кабинет не подключает Signature Collection v405');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=405/, 'Service Worker не кэширует Signature Collection v405');
 
-console.log('Signature themes v404: 5 unified themes OK');
+console.log('Signature themes v405: 5 unified themes OK');

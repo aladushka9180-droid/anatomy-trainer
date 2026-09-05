@@ -90,6 +90,7 @@ const SERVICE_SYNC_INTERVAL_MS = 300000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose'];
+const PROVIDER_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'bookings', label:'Записи', icon:'grid' },
@@ -187,6 +188,7 @@ let displayPreferencesUpdatedAt = 0;
 let displayPreferencesPending = false;
 let displayPreferencesSaveTimer = null;
 let displayPreferencesSaveRevision = 0;
+let providerThemeFilter = '';
 let serverNotificationTemplates = {};
 let serverNotificationMarks = {};
 let notificationSettingsRemoteAvailable = false;
@@ -1346,6 +1348,28 @@ function setTeamCalendarEnabledPreference(nextEnabled) {
   persistLocalDisplayPreferences();
   queueDisplayPreferencesSync();
 }
+function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
+  const form = $('#providerDisplayForm');
+  if (!form) return;
+  const filter = PROVIDER_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'featured';
+  providerThemeFilter = filter;
+  const options = [...form.querySelectorAll('.provider-theme-option')];
+  let visibleCount = 0;
+  options.forEach(option => {
+    const groups = String(option.dataset.themeGroups || '').split(/\s+/).filter(Boolean);
+    const visible = filter === 'all' || groups.includes(filter);
+    option.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  form.querySelectorAll('[data-provider-theme-filter]').forEach(button => {
+    const active = button.dataset.providerThemeFilter === filter;
+    button.setAttribute('aria-pressed', String(active));
+    button.classList.toggle('active', active);
+    if (active && focus) button.focus();
+  });
+  const status = $('#providerThemeFilterStatus');
+  if (status) status.textContent = filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
+}
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
   if (!form) return;
@@ -1353,6 +1377,13 @@ function renderDisplayPreferencesForm() {
   if (layout) layout.checked = true;
   const theme = form.querySelector(`input[name="providerTheme"][value="${displayPreferences.theme}"]`);
   if (theme) theme.checked = true;
+  const selectedGroups = String(theme?.closest('.provider-theme-option')?.dataset.themeGroups || '').split(/\s+/);
+  if (!providerThemeFilter) {
+    providerThemeFilter = selectedGroups.includes('featured') ? 'featured' : 'all';
+  } else if (providerThemeFilter !== 'all' && !selectedGroups.includes(providerThemeFilter)) {
+    providerThemeFilter = 'all';
+  }
+  applyProviderThemeFilter(providerThemeFilter);
   const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
   if (textScale) textScale.checked = true;
   $('#showBookingPhone').checked = displayPreferences.show_phone;
@@ -1766,7 +1797,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=404#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=405#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3529,7 +3560,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=404');
+    worker = new Worker('./report-worker.js?v=405');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -10709,6 +10740,11 @@ $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemN
 $('#telegramClientSettingsForm').addEventListener('submit', saveTelegramClientSettings);
 document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); }, { passive:true });
 document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
+$('#providerDisplayForm').addEventListener('click', event => {
+  const button = event.target.closest('[data-provider-theme-filter]');
+  if (!button) return;
+  applyProviderThemeFilter(button.dataset.providerThemeFilter, { focus:true });
+});
 $('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
 $('.report-view-tabs')?.addEventListener('keydown', event => {
   const current = event.target.closest('[data-report-view]');

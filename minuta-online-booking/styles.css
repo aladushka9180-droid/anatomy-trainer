@@ -258,6 +258,12 @@
 .provider-layout-picker,.provider-theme-picker,.booking-card-settings { min-width:0; margin:0; padding:0; border:0; }
 .provider-layout-picker>legend,.provider-theme-picker>legend,.booking-card-settings>legend { margin-bottom:9px; color:var(--ink); font-size:11px; font-weight:900; }
 .provider-layout-options,.provider-theme-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; align-items:stretch; }
+.provider-theme-filter { display:flex; gap:6px; overflow-x:auto; margin-bottom:7px; padding:2px 1px; scrollbar-width:none; }
+.provider-theme-filter::-webkit-scrollbar { display:none; }
+.provider-theme-filter button { flex:0 0 auto; min-height:36px; padding:0 12px; border:1px solid var(--theme-line,var(--line)); border-radius:999px; background:var(--theme-surface,#fff); color:var(--theme-muted,var(--muted)); cursor:pointer; font:800 9px/1 inherit; white-space:nowrap; }
+.provider-theme-filter button.active { border-color:var(--theme-accent,var(--green)); background:var(--theme-accent,var(--green)); color:var(--theme-accent-contrast,#fff); }
+.provider-theme-filter-status { min-height:14px; margin:0 0 8px; color:var(--theme-muted,var(--muted)); font-size:8px; font-weight:750; }
+.provider-theme-option[hidden] { display:none!important; }
 :is(.provider-layout-option,.provider-theme-option) { position:relative; display:flex; min-width:0; min-height:116px; padding:8px; border:1px solid var(--line); border-radius:13px; background:#fff; cursor:pointer; flex-direction:column; transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease; }
 :is(.provider-layout-option,.provider-theme-option):hover { transform:translateY(-1px); }
 :is(.provider-layout-option,.provider-theme-option) input { position:absolute; width:1px!important; height:1px!important; margin:0!important; opacity:0; pointer-events:none; }
@@ -344,6 +350,7 @@
 
 @media (max-width:760px) {
   .provider-layout-options,.provider-theme-options { grid-template-columns:1fr 1fr; }
+  .provider-theme-filter button { min-height:44px; padding:0 14px; font-size:10px; }
   .booking-card-options { grid-template-columns:1fr; }
   :is(.provider-layout-option,.provider-theme-option) strong { font-size:10px; }
   :is(.provider-layout-option,.provider-theme-option) small { font-size:8px; }
