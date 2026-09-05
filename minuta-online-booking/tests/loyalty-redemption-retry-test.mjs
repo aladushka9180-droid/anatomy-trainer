@@ -6,6 +6,7 @@ import test from 'node:test';
 
 // TEST-ONLY: complete actual controller/bind/submit/change/load/render executes.
 // Fresh v452 baseline: 4 PASS / 8 RED; failures intentionally stay real exit 1.
+// Added same-client/non-first-booking regression: 4 PASS / 9 RED total.
 // DOM and sequential RPC transport are fixtures, NOT native browser/SDK/SQL.
 // Synthetic model is limited to v81:299-326 under static authorized/enabled,
 // completed-paid bookings with no other benefit. No RLS/locks/PG/concurrency,
@@ -141,6 +142,20 @@ test('RECOVERY original non-first client/visit must survive automatic reload bef
   const h=await harness();await h.choose(OTHER_CLIENT,OTHER_BOOKING);h.lose();await h.submit();
   const original=clone(h.calls[0].parameters);await h.submit();
   assert.equal(h.server.redemptions.length,1);assert.deepEqual(h.calls[1].parameters,original,'No user edit occurred, but actual render must not silently change replay target');
+});
+
+test('RECOVERY non-first booking of the SAME client survives reload without changing replay target',async t=>{
+  const h=await harness();await h.choose(CLIENT,NEXT_BOOKING);h.lose();await h.submit();
+  const original=clone(h.calls[0].parameters),committed=h.server.snapshot();
+  assert.equal(original.p_booking,NEXT_BOOKING);assert.equal(h.get('loyaltyRedeemClient').value,CLIENT);
+  // No input/change event between the lost response's actual load/render and retry.
+  await h.submit();
+  assert.deepEqual(h.server.snapshot(),committed,'Same-key changed-booking conflict is not a second debit');
+  assert.equal(h.calls[1].parameters.p_request_id,original.p_request_id);
+  t.diagnostic(JSON.stringify({originalBooking:original.p_booking,retryBooking:h.calls[1].parameters.p_booking,
+    retryError:h.calls[1].reply.error,redemptions:h.server.redemptions.length}));
+  assert.deepEqual(h.calls[1].parameters,original,'Actual render must preserve second visit even when client selection stays unchanged');
+  assert.equal(h.calls[1].reply.error,null);
 });
 
 test('CONTROL ACK followed by explicit new redemption on a different eligible visit is legal',async()=>{
