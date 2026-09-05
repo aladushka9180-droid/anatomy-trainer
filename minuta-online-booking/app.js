@@ -837,6 +837,8 @@ async function submitWaitlist(event) {
   } catch (error) {
     errorHolder.textContent = context.teamMode && /PGRST202|42883/.test(String(error?.code || ''))
       ? 'Лист ожидания этого филиала пока не подключён. Свяжитесь с мастером.'
+      : error?.message === 'waitlist_request_already_exists'
+      ? 'Заявка с этим телефоном на эту дату уже есть. Используйте сохранённую ссылку или свяжитесь с мастером.'
       : 'Не удалось добавить заявку. Проверьте соединение и попробуйте ещё раз.';
     errorHolder.hidden = false;
   } finally {

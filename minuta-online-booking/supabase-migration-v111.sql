@@ -75,10 +75,8 @@ begin
     where r.organization_id=v_org and r.location_id=p_location and r.service_id=p_service
       and r.desired_date=p_date and r.client_phone=v_phone and r.status in ('waiting','contacted');
   if v_existing.id is not null then
-    update public.organization_waitlist_requests set client_name=v_name,time_period=v_period,updated_at=now()
-      where id=v_existing.id;
-    return query select v_existing.request_code,v_existing.manage_token;
-    return;
+    -- A phone number is not proof of ownership: never disclose an existing token.
+    raise exception 'waitlist_request_already_exists';
   end if;
   insert into public.organization_waitlist_requests(organization_id,location_id,performer_id,service_id,
     request_code,client_name,client_phone,desired_date,time_period)

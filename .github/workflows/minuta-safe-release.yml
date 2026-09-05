@@ -278,6 +278,7 @@ jobs:
       - name: Применить миграции к отдельной тестовой базе
         env:
           MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
           MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
           MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
           MINUTA_MIGRATION_TARGET: ${{ inputs.migration_target }}
@@ -782,6 +783,9 @@ jobs:
             "select (select count(*)=3 from information_schema.columns where table_schema='public' and table_name='bookings' and column_name in ('booking_source','created_by_user_id','created_by_role')) and to_regprocedure('public.get_minuta_team_analytics(uuid,date,date)') is not null and to_regprocedure('public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)') is not null and has_function_privilege('authenticated','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and not has_function_privilege('anon','public.get_minuta_staff_report_bookings_v97(uuid,date,date,uuid,integer,integer)','EXECUTE') and to_regprocedure('public.get_minuta_booking_events_v97(uuid,date,date,integer,integer)') is not null and exists(select 1 from pg_constraint c where c.conname='booking_events_booking_id_fkey' and c.conrelid='public.booking_events'::regclass and c.confrelid='public.bookings'::regclass and c.contype='f' and c.confdeltype='n' and c.convalidated and array_length(c.conkey,1)=1 and array_length(c.confkey,1)=1 and (select a.attname from pg_attribute a where a.attrelid=c.conrelid and a.attnum=c.conkey[1])='booking_id' and (select a.attname from pg_attribute a where a.attrelid=c.confrelid and a.attnum=c.confkey[1])='id') and (select count(*)=3 from information_schema.columns where table_schema='public' and table_name='booking_events' and column_name in ('client_name_snapshot','service_name_snapshot','performer_name_snapshot')) and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='bookings_performer_date_time_v94_idx' and i.indisvalid and i.indisready) and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_events_scope_previous_date_v96_idx' and i.indisvalid and i.indisready) and exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace join pg_index i on i.indexrelid=c.oid where n.nspname='public' and c.relname='booking_outcomes_completed_performer_v97_idx' and i.indisvalid and i.indisready);" \
             | grep -qx t
           psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/analytics-v92-v97-integration.sql
+          if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
+            bash minuta-online-booking/tests/client-waitlist-v111-integration.sh
+          fi
           if [ "$MINUTA_MIGRATION_TARGET" = "latest" ]; then
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v110-rollback.sql
             psql "$MINUTA_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v109-rollback.sql

@@ -10,8 +10,10 @@ const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANN
 try {
   const page=await browser.newPage({viewport:{width:390,height:844}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const ids=['dates','moreDates','durationNote','timePeriods','timeHours','minutePicker','times','noTimes','waitlistCta'];
-  await page.route('https://example.test/**',route=>route.fulfill({contentType:'text/html',body:ids.map(id=>`<div id="${id}"></div>`).join('')+'<button id="continueBooking"></button>'+dialog}));
+  const ids=['dates','moreDates','durationNote','timePeriods','timeHours','minutePicker','times','noTimes'];
+  const cta=html.split(/\r?\n/).find(line=>line.includes('id="waitlistCta"'));
+  assert.ok(cta.includes('Встать в лист ожидания'));
+  await page.route('https://example.test/**',route=>route.fulfill({contentType:'text/html',body:ids.map(id=>`<div id="${id}"></div>`).join('')+cta+'<button id="continueBooking"></button>'+dialog}));
   await page.goto('https://example.test/');
   await page.addScriptTag({content:`
     const $=selector=>document.querySelector(selector);
@@ -33,8 +35,8 @@ try {
     $('[data-close-waitlist]').addEventListener('click',()=>$('#waitlistDialog').close());
   `});
   await page.evaluate(()=>window.render());
-  assert.equal(await page.locator('#waitlistCta').isVisible(),false); // Empty fixture node has no dimensions.
   assert.equal(await page.locator('#waitlistCta').evaluate(el=>el.hidden),false,'Available slots must not hide CTA');
+  await page.locator('#openWaitlist').waitFor({state:'visible'});
   await page.evaluate(()=>{state.availability.set(state.date,[]);window.render();});
   assert.equal(await page.locator('#waitlistCta').evaluate(el=>el.hidden),false,'Sold-out day remains eligible');
   assert.equal(await page.locator('[data-date]').isDisabled(),false,'No-slots dates can be selected for waiting');
