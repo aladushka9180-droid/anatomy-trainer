@@ -9,6 +9,9 @@ const corsHeaders = {
 
 const MAX_JSON_BYTES = 32 * 1024;
 const TELEGRAM_AUTH_MAX_AGE_SECONDS = 15 * 60;
+const REMINDER_SECRET_HASH_TTL = 5 * 60 * 1000;
+let cachedReminderSecretHash = "";
+let cachedReminderSecretHashExpiresAt = 0;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -60,9 +63,13 @@ async function sameSecret(actual: string, expected: string) {
 }
 
 async function reminderSecretHash() {
+  if (cachedReminderSecretHash && cachedReminderSecretHashExpiresAt > Date.now()) return cachedReminderSecretHash;
   const { data, error } = await admin.rpc("get_telegram_reminder_secret_hash");
-  if (error || !data) throw new Error("reminder_secret_unavailable");
-  return String(data);
+  const value = String(data || "");
+  if (error || !/^[0-9a-f]{64}$/i.test(value)) return "";
+  cachedReminderSecretHash = value.toLowerCase();
+  cachedReminderSecretHashExpiresAt = Date.now() + REMINDER_SECRET_HASH_TTL;
+  return cachedReminderSecretHash;
 }
 
 async function readJson(req: Request) {
@@ -86,7 +93,7 @@ function normalizePhone(value: unknown) {
 }
 
 function relation(value: unknown) {
-  return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? value[0] || {} : value || {};
 }
 
 function html(value: unknown) {
@@ -95,15 +102,24 @@ function html(value: unknown) {
   })[character] || character);
 }
 
-function normalizeTelegramClientSettings(source: any): TelegramClientSettings {
-  source = source && typeof source === "object" ? source : {};
-  const username = String(source.contact_username || "").replace(/^@/, "").trim();
+function telegramContactUsername(value: unknown) {
+  const username = String(value || "").trim()
+    .replace(/^https?:\/\/(?:www\.)?t\.me\//i, "")
+    .replace(/^@/, "")
+    .split(/[/?#]/, 1)[0];
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : "";
+}
+
+function normalizeTelegramClientSettings(value: unknown): TelegramClientSettings {
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
   return {
     confirmation: source.confirmation !== false,
     reminder: source.reminder !== false,
     rescheduled: source.rescheduled !== false,
     cancelled: source.cancelled !== false,
-    contactUsername: /^[A-Za-z0-9_]{5,32}$/.test(username) ? username : "",
+    contactUsername: telegramContactUsername(source.contact_username ?? source.contactUsername),
   };
 }
 
@@ -249,7 +265,7 @@ async function legacySendBookingEvent(booking: any, event: BookingEvent) {
   if (routeError || legacyAllowed !== true) return { delivered:false, reason:"unified_cutover" };
 
   const settings = await performerTelegramSettings(booking.performer_id);
-  if (!settings[event]) return { delivered:false, reason:"event_disabled" };
+  if (!settings[event]) return { delivered: false, reason: "event_disabled" };
   const phone = normalizePhone(booking.client_phone);
   const { data: subscription } = await admin.from("client_telegram_subscriptions")
     .select("id,chat_id").eq("performer_id",booking.performer_id)
@@ -262,7 +278,9 @@ async function legacySendBookingEvent(booking: any, event: BookingEvent) {
 
   const message = bookingMessage(booking,event);
   const inlineKeyboard = [];
-  if (settings.contactUsername) inlineKeyboard.push([{ text:"Написать мастеру",url:`https://t.me/${settings.contactUsername}` }]);
+  if (settings.contactUsername) {
+    inlineKeyboard.push([{ text: "Написать мастеру", url: `https://t.me/${settings.contactUsername}` }]);
+  }
   inlineKeyboard.push([{ text:event === "cancelled" ? "Выбрать другое время" : "Управлять записью",url:message.managementUrl }]);
   const { data:lease,error:leaseError } = await admin.rpc("begin_minuta_legacy_notification_delivery_v114",{
     p_booking:booking.id,p_event:event,p_booking_date:booking.booking_date,p_booking_time:booking.booking_time,
