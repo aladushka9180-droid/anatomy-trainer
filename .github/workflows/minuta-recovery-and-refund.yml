@@ -1,0 +1,52 @@
+name: Minuta booking and refund safety regression
+
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/app.js'
+      - 'minuta-online-booking/payment-management.js'
+      - 'minuta-online-booking/tests/public-booking-recovery-test.mjs'
+      - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
+      - '.github/workflows/minuta-recovery-and-refund.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/app.js'
+      - 'minuta-online-booking/payment-management.js'
+      - 'minuta-online-booking/tests/public-booking-recovery-test.mjs'
+      - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
+      - '.github/workflows/minuta-recovery-and-refund.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controllers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check minuta-online-booking/app.js
+      - run: node --check minuta-online-booking/payment-management.js
+      - run: node minuta-online-booking/tests/public-booking-recovery-test.mjs
+      - run: node minuta-online-booking/tests/refund-amount-ux-test.mjs
+      - run: node minuta-online-booking/yookassa-v87-static-test.mjs
+
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser dependencies
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/refund-browser" --no-save --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/refund-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/refund-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - run: node minuta-online-booking/tests/refund-amount-ux-browser-test.mjs

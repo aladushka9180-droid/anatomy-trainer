@@ -26,7 +26,7 @@
 
 .theme-snow-leopard { --theme-preview-bg:#f4f5f6; --theme-preview-surface:#ffffff; --theme-preview-line:#929ba1; --theme-preview-accent:#343b42; --theme-preview-radius:14px; }
 .theme-snow-leopard .theme-swatch {
-  background-image:linear-gradient(90deg,#f4f5f6 10%,rgba(244,245,246,.08)),url("provider-snow-leopard-natural-v2.webp?v=441");
+  background-image:linear-gradient(90deg,#f4f5f6 10%,rgba(244,245,246,.08)),url("provider-snow-leopard-natural-v2.webp?v=442");
   background-size:100% 100%,160px auto;
   background-position:right center;
   background-repeat:no-repeat;
@@ -857,7 +857,7 @@
   --snow-print-veil:rgba(255,255,255,.86);
   --snow-print-size:480px;
   background-color:#fff!important;
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),linear-gradient(90deg,#fff,rgba(255,255,255,0) 4% 96%,#fff),linear-gradient(#fff,rgba(255,255,255,0) 4% 96%,#fff),url("provider-snow-leopard-natural-v2.webp?v=441")!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),linear-gradient(90deg,#fff,rgba(255,255,255,0) 4% 96%,#fff),linear-gradient(#fff,rgba(255,255,255,0) 4% 96%,#fff),url("provider-snow-leopard-natural-v2.webp?v=442")!important;
   background-size:auto,var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size)!important;
   background-repeat:repeat!important;
   background-position:0 0!important;
