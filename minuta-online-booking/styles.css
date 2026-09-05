@@ -5549,6 +5549,15 @@ html.provider-booting .provider-main {
 .payment-provider-settings,.payment-refund-form,.client-field-definition-form,.client-custom-fields form { display:grid; gap:12px; }
 .payment-provider-settings { margin-bottom:20px; }
 .payment-provider-settings>.settings-check,.unified-notification-panel>.settings-check { margin-bottom:4px; }
+
+/* Keep the notification center readable and aligned with the selected theme. */
+.provider-body #unifiedNotificationPanel { background:var(--theme-surface,#fff); color:var(--theme-ink,#244535); border-color:var(--theme-line,#dce8df); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+.provider-body #unifiedNotificationPanel>summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; min-height:44px; color:var(--theme-ink,#244535); }
+.provider-body #unifiedNotificationPanel>summary strong { font-size:16px; line-height:1.4; }
+.provider-body #unifiedNotificationPanel strong { font-size:14px; line-height:1.45; }
+.provider-body #unifiedNotificationPanel small,.provider-body #unifiedNotificationPanel em,.provider-body #unifiedNotificationState { font-size:13px; line-height:1.5; }
+.provider-body #unifiedNotificationPanel .organization-audit-data-row>div { min-width:0; }
+.provider-body #unifiedNotificationPanel .organization-audit-data-row small { white-space:normal; overflow:visible; overflow-wrap:anywhere; text-overflow:clip; }
 .payment-fiscalization-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:14px; border:1px solid var(--theme-line,#dce7df); border-radius:15px; background:var(--theme-surface-alt,#f7faf8); }
 .payment-fiscalization-fields label,.payment-refund-form label,.client-field-definition-form label,.client-custom-fields form label { display:grid; gap:7px; color:var(--theme-muted,#62756a); font-size:10px; font-weight:800; }
 .payment-provider-settings input,.payment-provider-settings select,.payment-refund-form input,.payment-refund-form select,.client-field-definition-form input,.client-field-definition-form select,.client-custom-fields :is(input,select,textarea) { width:100%; min-height:44px; padding:9px 12px; border:1px solid var(--theme-line,#dce7df); border-radius:12px; background:var(--theme-surface,#fff); color:var(--theme-ink,#173b2c); font:650 12px/1.35 inherit; }
