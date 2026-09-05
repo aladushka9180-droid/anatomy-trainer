@@ -70,6 +70,8 @@ assert.match(profitability, /inventory\?\.costing_enabled === true/);
 assert.match(styles, /@media \(max-width:760px\)/);
 assert.match(styles, /profitability-opt-in/);
 assert.match(styles, /#reloadProfitability[\s\S]*width:auto[\s\S]*min-height:44px/, 'The refresh action must not inherit a full-width mobile rule and must remain touch-safe');
+assert.match(styles, /profitability-panel[^{]*\{[^}]*grid-template-columns:minmax\(0,1fr\)/, 'The panel track must shrink below its children intrinsic width');
+assert.match(styles, /profitability-toolbar input[\s\S]*width:100%[\s\S]*min-width:0/, 'Date and service controls must shrink without horizontal overflow');
 assert.match(styles, /profitability-service-card>\.text-button[\s\S]*min-height:44px/, 'Material-mode actions must be touch-safe');
 assert.match(styles, /profitability-commission-form button[\s\S]*min-height:44px/, 'Commission confirmation must be touch-safe');
 assert.match(profitability, /button\.disabled = wasDisabled[\s\S]*applyWriteAvailability\(\)/, 'Failed writes must restore their action state');
