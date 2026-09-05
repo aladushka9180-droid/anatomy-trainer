@@ -57,4 +57,4 @@ assert.match(styles, /\.telegram-event-settings \.settings-check span \{ display
 assert.match(sw, /'\.\/telegram-auth\.js\?v=390'/, 'Telegram authorization controller is not cached');
 assert.match(setup, /\/setdomain/, 'Required BotFather domain setup is not documented');
 
-console.log('Telegram web authorization v390 checks passed');
+console.log('Telegram web authorization v391 checks passed');
