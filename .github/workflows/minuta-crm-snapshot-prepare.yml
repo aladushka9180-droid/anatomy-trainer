@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare-offline:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/client-record-files'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

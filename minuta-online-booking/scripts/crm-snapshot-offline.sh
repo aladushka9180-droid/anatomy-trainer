@@ -40,9 +40,11 @@ node "$script_dir/crm-snapshot-toc.mjs" auth "$RUNNER_TEMP/public-post-data.sql"
 docker cp "$RUNNER_TEMP/auth-placeholders.sql" "$box:/tmp/auth-placeholders.sql" >/dev/null
 for phase in pre-data data auth-placeholders post-data; do
   stage="load-$phase"
-  if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f "/tmp/$phase.sql" >>"$private_log" 2>&1; then
+  if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f "/tmp/$phase.sql" >>"$private_log" 2>&1; then
     echo "Offline snapshot load failed at $phase; private SQL output not published" >&2
-    grep -E '^psql:/tmp/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}$' "$private_log" >&2 || true
+    # Whitelist structural diagnostics; never print arbitrary errors or rows.
+    sed -nE 's/^(psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}):.*$/\1/p' "$private_log" >&2
+    sed -nE 's/^psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}:  schema "([a-z_][a-z0-9_]*)" does not exist$/Missing schema: \1/p' "$private_log" >&2
     exit 1
   fi
 done
