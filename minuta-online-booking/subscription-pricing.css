@@ -512,7 +512,7 @@
   }
 }
 
-/* Balanced billing switch with discount v391 */
+/* Balanced billing switch with discount v392 */
 .subscription-cycle-switch {
   box-sizing: border-box !important;
   display: grid !important;
@@ -751,7 +751,7 @@
   }
 }
 
-/* Bonus-only offer strip v391 */
+/* Bonus-only offer strip v392 */
 .subscription-trial-note {
   grid-template-columns: 1fr !important;
 }
