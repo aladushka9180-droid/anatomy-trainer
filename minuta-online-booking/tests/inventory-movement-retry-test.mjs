@@ -21,6 +21,7 @@ const ids = {
   location:'55555555-5555-4555-8555-555555555555',
 };
 const otherIds = Object.fromEntries(Object.entries(ids).map(([key, value]) => [key, value.replace(/^[0-9]/, '9')]));
+const thirdIds = Object.fromEntries(Object.entries(ids).map(([key, value]) => [key, value.replace(/^[0-9]/, '8')]));
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const clone = value => JSON.parse(JSON.stringify(value));
 const payloadOf = ({ p_request_id, ...payload }) => payload;
@@ -72,6 +73,8 @@ function syntheticLedger(fixture = ids) {
 
 async function harness({ deferFirstReply = true, deferAllReplies = false, firstRefusal = null } = {}) {
   const ledger = syntheticLedger(), otherLedger = syntheticLedger(otherIds), calls = [], effects = [], listeners = new Map(), nodes = new Map();
+  const thirdLedger = syntheticLedger(thirdIds);
+  const ledgerFor = org => org === ids.org ? ledger : org === otherIds.org ? otherLedger : thirdLedger;
   const readResponses = [];
   const auth = { actor:ids.actor, generation:1 };
   let nonce = 0, releaseFirstReply, rejectFirstReply;
@@ -129,14 +132,14 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
     applyWriteAvailability() {},
     db:{ rpc:async (name, params) => {
       if (name === 'get_minuta_inventory_workspace') {
-        assert.ok([ids.org, otherIds.org].includes(params.p_organization)); effects.push(['workspaceRead']);
+        assert.ok([ids.org, otherIds.org, thirdIds.org].includes(params.p_organization)); effects.push(['workspaceRead']);
         if (readResponses.length) return readResponses.shift()();
-        return { data:(params.p_organization === ids.org ? ledger : otherLedger).workspace(), error:null };
+        return { data:ledgerFor(params.p_organization).workspace(), error:null };
       }
       assert.equal(name, 'apply_minuta_stock_movement');
       const call = { name, params:clone(params) }; calls.push(call);
       const committedReply = calls.length === 1 && firstRefusal ? { data:null, error:firstRefusal }
-        : (params.p_organization === ids.org ? ledger : otherLedger).apply(call.params);
+        : ledgerFor(params.p_organization).apply(call.params);
       call.committedReply = clone(committedReply);
       // Apply the synthetic server effect BEFORE waiting for client delivery.
       if (calls.length === 1 && deferFirstReply) { call.resolve = releaseFirstReply; call.reject = rejectFirstReply; return firstReply; }
@@ -168,7 +171,7 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
   }
   const restore = () => listeners.get('click')({ target:{ closest:selector => selector === '[data-inventory-restore-movement]' ? {} : null } });
   const reload = () => listeners.get('click')({ target:{ closest:selector => selector === '#reloadInventory' ? {} : null } });
-  return { ledger, otherLedger, readResponses, calls, effects, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
+  return { ledger, otherLedger, thirdLedger, readResponses, calls, effects, controller, node, fill, submit, event, loseFirstReply, auth, restore, reload,
     acknowledgeFirst:() => releaseFirstReply(calls[0].committedReply) };
 }
 
@@ -596,3 +599,52 @@ test('late queued B read rejection cannot change ready C after actor transition'
   assert.equal(h.node('inventoryMovementReason').value, 'Новый черновик C');
   assert.equal(h.calls.length, 1);
 });
+
+for (const outcome of ['success', 'error', 'throw']) {
+  test(`pending A to B to A uses latest organization after old ${outcome}`, async () => {
+    const h = await harness(), pending = h.submit(); await tick();
+    await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
+    await h.controller.setOrganization({ id:ids.org, current_role:'owner' });
+    if (outcome === 'throw') h.calls[0].reject(Error('old A response rejected'));
+    else h.calls[0].resolve(outcome === 'success' ? h.calls[0].committedReply : lostReply());
+    await pending;
+    assert.equal(h.controller.payload.organization_id, ids.org, 'latest organization A must replace queued B');
+    assert.equal(h.node('inventoryMovementWarehouse').value, ids.warehouse);
+    assert.equal(h.effects.some(e => e[0] === 'notify'), false, 'old completion cannot confirm in a new epoch');
+    await h.restore(); await h.submit();
+    assert.deepEqual(h.calls[1].params, h.calls[0].params);
+    assert.equal(h.ledger.rows.length, 1); assert.equal(h.otherLedger.rows.length, 0);
+  });
+}
+
+test('pending A to B to A to C keeps the final distinct C organization', async () => {
+  const h = await harness(), pending = h.submit(); await tick();
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
+  await h.controller.setOrganization({ id:ids.org, current_role:'owner' });
+  await h.controller.setOrganization({ id:thirdIds.org, current_role:'owner' });
+  h.calls[0].resolve(lostReply()); await pending;
+  assert.equal(h.controller.payload.organization_id, thirdIds.org);
+  assert.equal(h.node('inventoryMovementWarehouse').value, thirdIds.warehouse);
+  h.fill({ fixture:thirdIds }); await h.submit();
+  assert.equal(h.calls[1].params.p_organization, thirdIds.org); assert.equal(h.thirdLedger.rows.length, 1);
+});
+
+for (const field of ['inventoryMovementQuantity', 'inventoryMovementReason']) {
+  test(`unknown movement has an independent restore action with blank required ${field}, including after restore`, async () => {
+    const h = await harness(); await h.loseFirstReply();
+    const original = clone(h.calls[0].params);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await h.event('input', field, '');
+      const error = h.node('inventoryMovementError');
+      assert.equal(error.hidden, false);
+      assert.match(error.innerHTML, /<button\b[^>]*type="button"[^>]*data-inventory-restore-movement/);
+      // Browser validity is verified separately. Invoke only the actual click,
+      // never bypass required fields with a synthetic submit to restore them.
+      const before = JSON.stringify(h.effects), calls = h.calls.length;
+      await h.restore(); assert.equal(h.calls.length, calls); assert.equal(JSON.stringify(h.effects), before);
+      assert.equal(h.node('inventoryMovementQuantity').value, 2);
+      assert.equal(h.node('inventoryMovementReason').value, original.p_reason);
+    }
+    await h.submit(); assert.deepEqual(h.calls[1].params, original); assert.equal(h.ledger.rows.length, 1);
+  });
+}

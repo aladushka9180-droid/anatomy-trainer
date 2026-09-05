@@ -67,7 +67,8 @@
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
-      if (movementOperation && sessionIsCurrent(movementOperation.userId, movementOperation.generation)
+      // Returning to A after queued B is a new choice, not a same-scope no-op.
+      if (pendingOrganization === undefined && movementOperation && sessionIsCurrent(movementOperation.userId, movementOperation.generation)
         && normalized?.id === organization?.id && normalized?.current_role === organization?.current_role)
         return { ok:false, optional:true, pending:true };
       if (writing) { pendingOrganization = normalized; revision += 1; $('#inventoryPanel').hidden = !normalized; $('#inventoryWorkspace').hidden = true; return { ok:false, optional:true, pending:true }; }
@@ -237,7 +238,8 @@
     function sameMovement(left, right) {
       return Object.keys(left).every(key => key === 'p_request_id' || left[key] === right[key]);
     }
-    function movementError(message, intent = null) {
+    // Required blank fields must not make recovery depend on a form submit.
+    function movementError(message, intent = movementIntents.get(movementScope()) || null) {
       const holder = $('#inventoryMovementError');
       movementErrorScope = movementScope();
       holder.hidden = false;
