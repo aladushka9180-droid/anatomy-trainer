@@ -32,6 +32,32 @@
     let requestRevision = 0;
     let writePending = false;
     let pendingOrganization;
+    // Memory-only protection, not server idempotency. Keep unresolved attempts
+    // across this controller's reset/org switches, keyed by actor + organization.
+    // A full page reload/new controller loses this registry: reconcile manually;
+    // matching amount/reason or a similar workspace row cannot resolve an intent.
+    const adjustmentIntents = new Map();
+    let activeAdjustmentWrite = null;
+
+    function adjustmentKey(userId = getCurrentUser()?.id, organizationId = organization?.id) {
+      return JSON.stringify([userId || '', organizationId || '']);
+    }
+    function syncAdjustmentLock() {
+      const intent = adjustmentIntents.get(adjustmentKey());
+      const form = $('#payrollAdjustmentForm');
+      const button = $('#payrollAdjustmentForm button[type="submit"]');
+      if (!form || !button) return;
+      if (intent) {
+        form.dataset.adjustmentState = intent.state;
+        if (!button.dataset.adjustmentLabel) button.dataset.adjustmentLabel = button.textContent;
+        if (!button.disabled) { button.disabled = true; button.dataset.adjustmentLocked = 'true'; }
+        button.textContent = intent.state === 'pending' ? 'Сохраняем…' : 'Результат не подтверждён';
+      } else {
+        delete form.dataset.adjustmentState;
+        if (button.dataset.adjustmentLocked === 'true') { button.disabled = false; delete button.dataset.adjustmentLocked; }
+        if (button.dataset.adjustmentLabel) { button.textContent = button.dataset.adjustmentLabel; delete button.dataset.adjustmentLabel; }
+      }
+    }
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_payroll_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -55,6 +81,7 @@
       availability = null;
       writePending = false;
       pendingOrganization = undefined;
+      activeAdjustmentWrite = null;
       $('#payrollPanel').hidden = true;
       $('#payrollLoading').hidden = true;
       $('#payrollUnavailable').hidden = true;
@@ -210,13 +237,16 @@
       $('#payrollAuditCount').textContent = String(payload.audit.length);
       $('#payrollAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появятся планы, расчёты и статусы выплат.');
       setBusy(false);
+      syncAdjustmentLock();
       applyWriteAvailability();
+      syncAdjustmentLock();
     }
 
     function showError(selector, message) { const holder = $(selector); if (!holder) return; holder.textContent = message; holder.hidden = false; }
     function clearError(selector) { const holder = $(selector); if (!holder) return; holder.textContent = ''; holder.hidden = true; }
 
     async function mutate(rpc, parameters, button, success, errorSelector) {
+      if (rpc === 'add_minuta_payroll_adjustment') return mutateAdjustment(parameters, button, errorSelector);
       if (!requireWrites() || writePending || availability !== 'ready' || !payload || !organization?.id || String(payload.organization_id) !== String(organization.id)) return false;
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
@@ -264,6 +294,78 @@
       pendingOrganization = undefined;
       if (next !== undefined) await setOrganization(next);
       return true;
+    }
+
+    async function mutateAdjustment(parameters, button, errorSelector) {
+      if (!requireWrites() || writePending || availability !== 'ready' || !payload || !organization?.id
+        || String(payload.organization_id) !== String(organization.id)) return false;
+      const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
+      if (!userId) return false;
+      const key = adjustmentKey(userId, organizationId);
+      if (adjustmentIntents.has(key)) { syncAdjustmentLock(); return false; }
+      const intent = { state:'pending', parameters:Object.freeze({ ...parameters }) };
+      adjustmentIntents.set(key, intent);
+      activeAdjustmentWrite = intent;
+      const revision = ++requestRevision;
+      const contextIsCurrent = () => sessionIsCurrent(userId, generation) && organization?.id === organizationId;
+      writePending = true;
+      clearError(errorSelector);
+      syncAdjustmentLock();
+      setBusy(true);
+      let result, transportThrown = false;
+      try { result = await db.rpc('add_minuta_payroll_adjustment', intent.parameters); }
+      catch (error) { transportThrown = true; result = { error }; }
+      const data = result?.data, error = result?.error;
+      const confirmed = error === null && data && typeof data.id === 'string'
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(data.id)
+        && data.organization_id === organizationId && data.period_id === intent.parameters.p_period
+        && Number.isSafeInteger(data.total_payroll_rub);
+      const refusals = {
+        '42501':['authentication_required', 'organization_access_denied', 'payroll_manager_role_required'],
+        '55000':['payroll_disabled', 'payroll_period_not_draft'],
+        '22023':['invalid_payroll_adjustment'],
+        '23503':['payroll_performer_not_in_organization']
+      };
+      const refused = !transportThrown && !confirmed && refusals[String(error?.code || '')]?.includes(String(error?.message || ''));
+      if (confirmed || refused) adjustmentIntents.delete(key);
+      else intent.state = 'unknown';
+      // reset may already have admitted an independent operation in another
+      // context. An old completion must not clear that operation's busy state.
+      if (activeAdjustmentWrite !== intent) return false;
+      activeAdjustmentWrite = null;
+      writePending = false;
+      if (!contextIsCurrent() || revision !== requestRevision) {
+        const next = pendingOrganization;
+        pendingOrganization = undefined;
+        if (next !== undefined) await setOrganization(next);
+        return false;
+      }
+      setBusy(false);
+      syncAdjustmentLock();
+      applyWriteAvailability();
+      syncAdjustmentLock();
+      if (confirmed) notify('Корректировка добавлена');
+      else if (refused) {
+        const messages = {
+          payroll_disabled:'Сначала включите зарплаты в организации.',
+          payroll_period_not_draft:'Корректировать можно только черновик расчёта.',
+          invalid_payroll_adjustment:'Проверьте сумму и причину корректировки.',
+          payroll_performer_not_in_organization:'Выберите действующего сотрудника организации.'
+        };
+        showError(errorSelector, messages[error.message] || 'Недостаточно прав для этой корректировки.');
+      } else showError(errorSelector, 'Результат корректировки не подтверждён. Проверьте расчёт перед новой операцией. Повторная отправка заблокирована.');
+      const reloadRevision = requestRevision + 1;
+      try { await load(); }
+      catch {
+        if (contextIsCurrent() && requestRevision === reloadRevision && !writePending) {
+          availability = 'error';
+          $('#payrollLoading').hidden = true;
+          $('#payrollWorkspace').hidden = true;
+          $('#payrollUnavailable').hidden = false;
+          $('#payrollUnavailableText').textContent = 'Не удалось обновить расчёт. Проверьте данные перед новой корректировкой.';
+        }
+      }
+      return Boolean(confirmed);
     }
 
     function parseTiers(text) {
