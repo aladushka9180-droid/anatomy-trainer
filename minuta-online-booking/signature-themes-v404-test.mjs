@@ -13,6 +13,9 @@ const themes = [
   ['mono', 'Editorial Mono'],
   ['desert', 'Desert Clay'],
   ['rose', 'Rose Smoke'],
+  ['botanical', 'Botanical Night'],
+  ['burgundy', 'Burgundy Atelier'],
+  ['coastal', 'Coastal Porcelain'],
 ];
 
 for (const [key, label] of themes) {
@@ -53,4 +56,4 @@ assert.match(script, /rose:'#f2e9ec'|rose:'#f2eaed'/, 'Нет системног
 assert.match(provider, /provider-themes-signature\.css\?v=406/, 'Кабинет не подключает Signature Collection v406');
 assert.match(worker, /\.\/provider-themes-signature\.css\?v=406/, 'Service Worker не кэширует Signature Collection v406');
 
-console.log('Signature themes v406: 5 unified themes OK');
+console.log('Signature themes v406: 8 unified themes OK');

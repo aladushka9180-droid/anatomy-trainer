@@ -19,9 +19,9 @@ function sourceArray(name) {
 const themes = sourceArray('PROVIDER_THEME_KEYS');
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 84, 'the supported appearance matrix must contain 84 combinations');
+assert.equal(themes.length * layouts.length, 102, 'the supported appearance matrix must contain 102 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
@@ -119,4 +119,4 @@ assert.match(css, /\.unified-channel-card input\s*\{[^}]*width:20px!important[^}
 assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav :is\(button,a\):not\(\.active\)/);
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
-console.log('Provider theme matrix checks passed: 14 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 17 themes × 6 layouts.');
