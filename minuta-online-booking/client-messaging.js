@@ -36,10 +36,14 @@
 
   function setStatus(message) { status.textContent = message; }
 
-  function openExternal(url) {
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    if (opened) opened.opener = null;
-    else window.location.href = url;
+  function openWebLink(url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function selectPreset(kind) {
@@ -79,17 +83,24 @@
     const message = textArea.value.trim();
     const phone = recipient.phone;
     if (!phone) return;
-    if (channel === 'whatsapp') openExternal(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
-    if (channel === 'telegram') openExternal(`https://t.me/+${phone}`);
+    if (channel === 'whatsapp') openWebLink(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`);
+    if (channel === 'telegram') {
+      const telegramMessage = message.startsWith('@') ? ` ${message}` : message;
+      openWebLink(`https://t.me/+${phone}?text=${encodeURIComponent(telegramMessage)}`);
+    }
     if (channel === 'sms') {
       const separator = /iPad|iPhone|iPod/.test(navigator.userAgent) ? '&' : '?';
-      openExternal(`sms:+${phone}${separator}body=${encodeURIComponent(message)}`);
+      window.location.assign(`sms:+${phone}${separator}body=${encodeURIComponent(message)}`);
     }
-    if (channel === 'email' && recipient.email) openExternal(`mailto:${encodeURIComponent(recipient.email)}?subject=${encodeURIComponent('Сообщение о записи')}&body=${encodeURIComponent(message)}`);
+    if (channel === 'email' && recipient.email) openWebLink(`mailto:${encodeURIComponent(recipient.email)}?subject=${encodeURIComponent('Сообщение о записи')}&body=${encodeURIComponent(message)}`);
     if (channel === 'max' || channel === 'vk') {
-      const copied = await copyText(`+${phone}`);
-      openExternal(channel === 'max' ? 'https://max.ru/' : 'https://vk.com/im');
-      setStatus(copied ? `Номер скопирован. Найдите клиента в ${channel === 'max' ? 'MAX' : 'VK'}.` : 'Скопируйте номер клиента вручную.');
+      const copiedPhone = copyText(`+${phone}`);
+      if (channel === 'max') openWebLink(`https://max.ru/:share?text=${encodeURIComponent(message)}`);
+      else openWebLink('https://vk.com/im');
+      const copied = await copiedPhone;
+      setStatus(copied
+        ? `${channel === 'max' ? 'MAX открыт с готовым сообщением. ' : 'VK открыт. '}Номер клиента скопирован для поиска.`
+        : `${channel === 'max' ? 'MAX открыт с готовым сообщением. ' : 'VK открыт. '}Найдите клиента по номеру.`);
       return;
     }
     setStatus(`Открыто в ${channel === 'whatsapp' ? 'WhatsApp' : channel === 'telegram' ? 'Telegram' : channel === 'sms' ? 'SMS' : 'почте'}. Проверьте отправку.`);
