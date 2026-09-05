@@ -12,7 +12,7 @@ try {
   await page.getByRole('button',{name:'Проверить все сочетания'}).click();
   await page.waitForFunction(() => document.querySelector('#result').dataset.complete === 'true', undefined, {timeout:120000});
   const result = JSON.parse(await page.locator('#result').innerText());
-  assert.equal(result.combinations,252);
+  assert.equal(result.combinations,264);
   assert.deepEqual(result.failures,[]);
   // Actual :hover and keyboard :focus-visible, not synthetic class substitutes.
   for (const width of [390,1440]) for (const theme of themes) {
