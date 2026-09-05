@@ -4,6 +4,8 @@ const providerNavigation = window.performance?.getEntriesByType?.('navigation')?
 if (providerNavigation?.type === 'reload') document.documentElement.classList.add('provider-refresh-transition');
 
 const providerReadFetch = window.MinutaProviderReadFetch.create({ baseUrl:window.MINUTA_CONFIG.supabaseUrl });
+let freeSlotsController = null;
+window.addEventListener('minuta:provider-session-reset', () => freeSlotsController?.invalidateScope());
 window.addEventListener('minuta:provider-session-reset', () => providerReadFetch.cancelPendingReads());
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
@@ -10489,6 +10491,7 @@ const organizationController = window.MinutaOrganization.createController({
   sessionIsCurrent,
   applyWriteAvailability,
   onActiveOrganizationChange: organization => {
+    freeSlotsController?.invalidateScope();
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
     activeClientOrganizationId = nextClientOrganizationId;
@@ -10541,7 +10544,7 @@ providerFeedbackController = window.MinutaProviderFeedback?.createController ? w
   getOrganization:() => organizationController.getActiveOrganization()
 }) : providerFeedbackController;
 providerFeedbackController.bind();
-const freeSlotsController = window.MinutaFreeSlots.createController({
+freeSlotsController = window.MinutaFreeSlots.createController({
   root: $('#freeSlotsDialog'),
   notify,
   loadContext:getFreeSlotsServerContext,
@@ -10557,7 +10560,8 @@ const freeSlotsController = window.MinutaFreeSlots.createController({
       selectedDate,
       today: businessTodayIso(),
       bookingUrl: bookingUrl.href,
-      userId: currentUser?.id || ''
+      userId: currentUser?.id || '',
+      organizationId: organization?.id || '', sessionGeneration
     };
   }
 });

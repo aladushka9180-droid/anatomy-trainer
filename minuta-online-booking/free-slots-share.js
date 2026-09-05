@@ -372,11 +372,13 @@
     matrix.forEach((row, y) => row.forEach((value, x) => { if (value) context.fillRect((x + quiet) * scale, (y + quiet) * scale, scale, scale); }));
   }
 
-  async function copyText(value) {
+  async function copyText(value, isCurrent = () => true) {
+    if (!isCurrent()) return false;
     try {
       await navigator.clipboard.writeText(value);
       return true;
     } catch {}
+    if (!isCurrent()) return false;
     const input = document.createElement('textarea');
     input.value = value;
     input.setAttribute('readonly', '');
@@ -391,7 +393,7 @@
   }
 
   function createController({ root, getData, loadContext, loadSlots, loadWindows, notify }) {
-    if (!root) return { open() {}, refresh() {} };
+    if (!root) return { open() {}, refresh() {}, invalidateScope() {} };
     const dialog = root;
     const modeControls = [...dialog.querySelectorAll('[name="freeSlotsPeriod"]')];
     const bookingModeControls = [...dialog.querySelectorAll('[name="freeSlotsBookingMode"]')];
@@ -431,7 +433,32 @@
     let checkingPublication = false;
     let confirmedPublication = null;
     let clockKey = '';
+    let publicationScope = '';
+    let activePublicationCheck = null;
     const formatPreferences = new Map();
+
+    function scopeKey() {
+      const data = getData();
+      return JSON.stringify([data.userId || '', data.organizationId || '', data.sessionGeneration ?? '', data.bookingUrl || '']);
+    }
+    function invalidateScope() {
+      requestRevision += 1;
+      confirmedPublication = null;
+      activePublicationCheck = null;
+      checkingPublication = false;
+      publicationScope = '';
+      serverContext = null;
+      selectionContext = '';
+      selectedTimes.clear();
+      manualSelection = false;
+      serviceSelect.replaceChildren();
+      locationSelect.replaceChildren();
+      showUnavailable('Контекст изменился. Откройте публикацию заново, чтобы проверить свободное время.');
+    }
+    function publicationIsCurrent() {
+      if (publicationScope && publicationScope !== scopeKey()) invalidateScope();
+      return publicationReady && dialog.open && publicationScope === scopeKey();
+    }
 
     function timeFormat() { return formatControls.find(control => control.checked)?.value === 'hourly' ? 'hourly' : 'intervals'; }
     function preferenceKey() { return `minuta:free-slots-format:${getData().userId || 'local'}`; }
@@ -600,7 +627,7 @@
     }
 
     function renderPublication() {
-      if (!publicationReady) return;
+      if (!publicationIsCurrent()) return;
       const model = publicationModel();
       const chosenSlots = generalMode() ? serverSlots : serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
       publicationText = (generalMode() ? buildGeneralPublication : buildPublication)(model.from, model.to, model.publicationData, chosenSlots);
@@ -656,6 +683,9 @@
 
     async function refreshFromServer({ reloadContext = false } = {}) {
       const revision = ++requestRevision;
+      const scope = scopeKey();
+      if (publicationScope && publicationScope !== scope) serverContext = null;
+      const isCurrent = () => revision === requestRevision && dialog.open && scope === scopeKey();
       configureMode();
       publicationReady = false;
       copyButton.disabled = true;
@@ -675,10 +705,10 @@
         const preferredLocation = locationSelect.value;
         if (reloadContext || !serverContext) {
           const freshContext = await loadContext();
-          if (revision !== requestRevision || !dialog.open) return;
+          if (!isCurrent()) return;
           serverContext = freshContext;
         }
-        if (revision !== requestRevision || !dialog.open) return;
+        if (!isCurrent()) return;
         const services = configureTargets(preferredService, preferredLocation);
         if (!services.length) {
           showUnavailable(serverContext?.mode === 'organization' && locationSelect.value
@@ -697,17 +727,18 @@
           from,
           to
         });
-        if (revision !== requestRevision || !dialog.open) return;
+        if (!isCurrent()) return;
         if (result?.error) throw result.error;
         if (!Array.isArray(result?.data)) throw new Error('invalid_availability_response');
         serverSlots = currentRows(result.data);
         if (!generalMode()) renderTimeChoices(`${serviceSelect.value}|${locationSelect.value}|${from}|${to}`);
         publicationReady = true;
+        publicationScope = scope;
         dialog.removeAttribute('aria-busy');
         renderPublication();
         return true;
       } catch (error) {
-        if (revision !== requestRevision || !dialog.open) return;
+        if (!isCurrent()) return;
         showUnavailable(error?.message === 'own_services_unavailable'
           ? 'Для общей записи нужны ваши активные услуги в этом месте приёма. Для другого сотрудника выберите «Конкретная услуга».'
           : error?.message === 'schedule_not_configured' ? 'Сначала сохраните рабочий график в расписании.' : navigator.onLine
@@ -718,7 +749,7 @@
 
     function hasFreshConfirmation() {
       const clock = currentClock();
-      return confirmedPublication && publicationReady && dialog.open
+      return publicationIsCurrent() && confirmedPublication
         && clockKey === `${clock.today}|${clock.cutoff}`
         && confirmedPublication.revision === requestRevision
         && confirmedPublication.text === publicationText
@@ -726,7 +757,9 @@
     }
 
     async function confirmFreshPublication(actionLabel) {
-      if (checkingPublication || !publicationReady || !dialog.open) return false;
+      if (checkingPublication || !publicationIsCurrent()) return false;
+      const check = {};
+      activePublicationCheck = check;
       checkingPublication = true;
       confirmedPublication = null;
       const previousSelection = [...selectedTimes];
@@ -734,7 +767,7 @@
       const expectedRevision = requestRevision + 1;
       try {
         const refreshed = await refreshFromServer({ reloadContext:true });
-        if (refreshed !== true || requestRevision !== expectedRevision || !dialog.open || !publicationReady) return false;
+        if (activePublicationCheck !== check || refreshed !== true || requestRevision !== expectedRevision || !publicationIsCurrent()) return false;
         const removed = previousSelection.filter(key => !selectedTimes.has(key));
         if (generalMode() ? previousText !== publicationText : removed.length) {
           status.textContent = 'Часть выбранного времени уже недоступна и убрана из текста. Проверьте публикацию и нажмите кнопку ещё раз.';
@@ -751,7 +784,7 @@
         }
         return true;
       } finally {
-        checkingPublication = false;
+        if (activePublicationCheck === check) { checkingPublication = false; activePublicationCheck = null; }
       }
     }
 
@@ -769,8 +802,7 @@
     }
 
     const close = () => {
-      requestRevision += 1;
-      confirmedPublication = null;
+      invalidateScope();
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
     };
@@ -826,37 +858,52 @@
       void refreshFromServer();
     });
     copyButton.addEventListener('click', async () => {
-      if (!publicationReady || copyButton.disabled) return;
-      if (!hasFreshConfirmation() && !(await confirmFreshPublication('Скопировать текст'))) return;
+      if (!publicationIsCurrent() || copyButton.disabled) return;
+      const confirmed = hasFreshConfirmation();
+      const revision = requestRevision + (confirmed ? 0 : 1);
+      if (!confirmed && !(await confirmFreshPublication('Скопировать текст'))) return;
+      const isCurrent = () => revision === requestRevision && publicationIsCurrent();
+      if (!isCurrent()) return;
       confirmedPublication = null;
-      const copied = await copyText(publicationText);
+      const copied = await copyText(publicationText, isCurrent);
+      if (!isCurrent()) return;
       status.textContent = copied ? 'Текст скопирован.' : 'Не удалось скопировать автоматически. Выделите текст вручную.';
       notify(copied ? 'Свободные окна скопированы' : 'Выделите и скопируйте текст вручную');
     });
     shareButton.addEventListener('click', async () => {
-      if (!publicationReady || shareButton.disabled) return;
-      if (!hasFreshConfirmation() && !(await confirmFreshPublication('Поделиться'))) return;
+      if (!publicationIsCurrent() || shareButton.disabled) return;
+      const confirmed = hasFreshConfirmation();
+      const revision = requestRevision + (confirmed ? 0 : 1);
+      if (!confirmed && !(await confirmFreshPublication('Поделиться'))) return;
+      const isCurrent = () => revision === requestRevision && publicationIsCurrent();
+      if (!isCurrent()) return;
       confirmedPublication = null;
       if (navigator.share) {
         try {
           await navigator.share({ title:'Свободные окна для записи', text:publicationText });
+          if (!isCurrent()) return;
           status.textContent = 'Материал передан через системное меню.';
           return;
         } catch (error) {
           if (error?.name === 'AbortError') return;
         }
       }
-      const copied = await copyText(publicationText);
+      if (!isCurrent()) return;
+      const copied = await copyText(publicationText, isCurrent);
+      if (!isCurrent()) return;
       status.textContent = copied ? 'Системная отправка недоступна — текст скопирован.' : 'Системная отправка недоступна. Выделите текст вручную.';
       notify(copied ? 'Текст скопирован — вставьте его в нужное приложение' : 'Выделите и скопируйте текст вручную');
     });
     copyLinkButton.addEventListener('click', async () => {
-      if (!publicationReady) return;
-      const copied = await copyText(bookingLink.href);
+      if (!publicationIsCurrent()) return;
+      const revision = requestRevision;
+      const isCurrent = () => revision === requestRevision && publicationIsCurrent();
+      const copied = await copyText(bookingLink.href, isCurrent);
+      if (!isCurrent()) return;
       status.textContent = copied ? 'Ссылка скопирована.' : 'Не удалось скопировать. Откройте страницу записи и скопируйте адрес.';
     });
     downloadQrButton.addEventListener('click', () => {
-      if (!publicationReady || qrCanvas.hidden || qrWrap.hidden) return;
+      if (!publicationIsCurrent() || qrCanvas.hidden || qrWrap.hidden) return;
       const link = document.createElement('a');
       link.download = 'minuta-online-booking-qr.png';
       link.href = qrCanvas.toDataURL('image/png');
@@ -868,7 +915,7 @@
       const clock = currentClock();
       if (`${clock.today}|${clock.cutoff}` !== clockKey) void refreshFromServer({ reloadContext:true });
     }, 1000);
-    return { open, refresh:() => { if (dialog.open) void refreshFromServer({ reloadContext:true }); } };
+    return { open, invalidateScope, refresh:() => { if (dialog.open) void refreshFromServer({ reloadContext:true }); } };
   }
 
   window.MinutaFreeSlots = { createController, calculateFreeWindows };
