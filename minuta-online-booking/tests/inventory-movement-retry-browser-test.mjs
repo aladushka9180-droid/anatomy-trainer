@@ -36,7 +36,7 @@ async function fixture(){
   await page.evaluate(async({org,actor,warehouse,item,location})=>{
     const clone=value=>JSON.parse(JSON.stringify(value));
     window.calls=[];window.rows=[];window.notices=[];window.stock=10;
-    window.replyMode='success';window.deferReply=false;window.gates=[];
+    window.replyMode='success';window.deferReply=false;window.gates=[];window.nextRefusal=null;
     const workspace=()=>({organization_id:org,current_role:'owner',enabled:true,auto_deduct_completed_visits:false,
       locations:[{id:location,name:'Филиал',active:true}],services:[],usage:[],audit:[],
       items:[{id:item,name:'Материал',unit:'piece',low_stock_threshold:0,active:true}],
@@ -46,6 +46,9 @@ async function fixture(){
       calls.push({name,args:clone(args)});
       if(name==='get_minuta_inventory_workspace')return {data:workspace(),error:null};
       if(name!=='apply_minuta_stock_movement')throw Error('Unexpected write '+name);
+      // v82 enabled/target guards precede replay lookup, so a later refusal
+      // cannot disprove that an earlier unknown call already committed.
+      if(nextRefusal){const error=nextRefusal;nextRefusal=null;return {data:null,error};}
       if(args.p_organization!==org||args.p_warehouse!==warehouse||args.p_item!==item)throw Error('Unexpected fixture scope');
       if(!/^[0-9a-f-]{36}$/.test(args.p_request_id)||!['receipt','write_off'].includes(args.p_kind)
         ||!Number.isInteger(args.p_quantity)||args.p_quantity<=0)throw Error('Unsupported/invalid fixture payload');
@@ -69,8 +72,11 @@ async function fixture(){
       if(deferReply)return new Promise((resolve,reject)=>gates.push({resolve,reject,ack}));
       const mode=replyMode;replyMode='success';
       if(mode==='lost')return {data:null,error:{code:'',message:'TypeError: Failed to fetch'}};
+      if(mode==='throw')throw Error('Synthetic SDK rejection after commit');
       if(mode==='null')return {data:null,error:null};
       if(mode==='partial')return {data:{organization_id:org},error:null};
+      if(mode==='badId')return {data:{...ack.data,id:'not-a-movement-id'},error:null};
+      if(mode==='badQuantity')return {data:{...ack.data,quantity_after:'not-a-number'},error:null};
       return ack;
     }};
     const $=selector=>document.querySelector(selector);
@@ -113,6 +119,7 @@ const cases=[
   }],
   ['CONTROL acknowledged explicit new identical movement is allowed',async page=>{
     await fill(page);await submit(page);assert.equal((await state(page)).quantity,'');
+    assert.ok((await state(page)).notices.includes('Списание сохранён'),'Exact current success notice must actually be exercised');
     await fill(page);await submit(page);const s=await state(page);
     assert.equal(s.rows.length,2);assert.equal(s.stock,6);assert.notEqual(s.rows[0].request_id,s.rows[1].request_id);
   }],
@@ -127,7 +134,7 @@ const cases=[
   }],
   ['SAFETY organization-only acknowledgement is not success',async page=>{
     const s=await uncertain(page,'partial');assert.equal(s.quantity,'2');
-    assert.equal(s.notices.some(text=>/операция проведена/i.test(text)),false);
+    assert.equal(s.notices.includes('Списание сохранён'),false);
   }],
   ['SAFETY null acknowledgement followed by native input does not create a new movement',async page=>{
     await uncertain(page,'null');await page.locator('#inventoryMovementQuantity').fill('2.0');await submit(page);
@@ -140,7 +147,35 @@ const cases=[
     await page.evaluate(()=>{deferReply=false;gates[0].resolve(gates[0].ack);});await settle(page);
     assert.equal((await state(page)).rows.length,1);
   }],
+  ['SAFETY rejected SDK outcome remains recoverable with the same original intent',async page=>{
+    const first=await uncertain(page,'throw');await page.locator('#inventoryMovementQuantity').fill('2.0');await submit(page);
+    const s=await state(page);assert.equal(s.rows.length,1);assert.equal(s.stock,8);
+    for(const call of writes(s))assert.deepEqual(call.args,writes(first)[0].args);
+  }],
+  ['POLICY real edit after unknown cannot silently discard the unresolved operation',async page=>{
+    await uncertain(page);await page.locator('#inventoryMovementQuantity').fill('3');await submit(page);
+    const s=await state(page);assert.equal(s.rows.length,1);assert.equal(writes(s).length,1);
+    assert.match(s.error,/не подтвержд|исходн|результат|восстанов/i);
+  }],
+  ['SAFETY refusal of a replay cannot clear an earlier unknown intent',async page=>{
+    await uncertain(page);await page.evaluate(()=>{nextRefusal={code:'55000',message:'inventory_disabled'};});await submit(page);
+    assert.equal(writes(await state(page)).length,2);
+    await page.locator('#inventoryMovementQuantity').fill('3');await submit(page);
+    const s=await state(page);assert.equal(s.rows.length,1);assert.equal(writes(s).length,2);assert.equal(s.stock,8);
+  }],
+  ['CONTROL exact refusal before any commit permits a corrected new movement',async page=>{
+    await fill(page);await page.evaluate(()=>{nextRefusal={code:'55000',message:'insufficient_inventory_stock'};});await submit(page);
+    assert.equal((await state(page)).rows.length,0);
+    await page.locator('#inventoryMovementQuantity').fill('1');await submit(page);
+    const s=await state(page);assert.equal(s.rows.length,1);assert.equal(s.stock,9);
+  }],
 ];
+for(const mode of ['badId','badQuantity'])cases.push([`SAFETY ${mode} acknowledgement does not confirm a movement`,async page=>{
+  const s=await uncertain(page,mode);assert.equal(s.quantity,'2');
+  assert.equal(s.notices.includes('Списание сохранён'),false);
+  await page.locator('#inventoryMovementQuantity').fill('2.0');await submit(page);
+  assert.equal((await state(page)).rows.length,1);
+}]);
 for(const [label,selector,event,value] of [
   ['no-op input','#inventoryMovementQuantity','input','2'],
   ['no-op change','#inventoryMovementKind','change','write_off'],
