@@ -32,6 +32,7 @@
   <link rel="stylesheet" href="provider-themes-calm.css?v=422">
   <link rel="stylesheet" href="provider-layout-responsive.css?v=422">
   <link rel="stylesheet" href="provider-ux.css?v=422">
+  <link rel="stylesheet" href="free-slots-compact.css?v=422">
 </head>
 <body class="provider-body">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -1266,18 +1267,18 @@
   </dialog>
   <dialog class="free-slots-dialog" id="freeSlotsDialog" aria-labelledby="freeSlotsTitle">
     <div class="notification-template-dialog-head"><div><small>Публикация</small><h2 id="freeSlotsTitle">Свободные окна</h2></div><button type="button" data-close-free-slots aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
-    <p class="free-slots-help">Выберите услугу, филиал и период. В текст попадёт только время, которое сервер онлайн-записи подтвердил доступным прямо сейчас.</p>
+    <p class="free-slots-help">Выберите услугу и дату. Покажем несколько свободных вариантов, остальные будут доступны по ссылке.</p>
     <div class="free-slots-targets">
       <label>Услуга<select id="freeSlotsService" required aria-describedby="freeSlotsShareStatus"></select></label>
-      <label id="freeSlotsLocationField" hidden>Филиал<select id="freeSlotsLocation" aria-describedby="freeSlotsShareStatus"></select></label>
+      <label id="freeSlotsLocationField" hidden>Место приёма<select id="freeSlotsLocation" aria-describedby="freeSlotsShareStatus"></select></label>
     </div>
     <fieldset class="free-slots-mode"><legend class="sr-only">Период свободных окон</legend><label><input name="freeSlotsPeriod" type="radio" value="day" checked><span>Один день</span></label><label><input name="freeSlotsPeriod" type="radio" value="range"><span>Диапазон</span></label></fieldset>
-    <div class="free-slots-dates"><label>С даты<input id="freeSlotsFrom" type="date" required></label><label id="freeSlotsToField" hidden>По дату<input id="freeSlotsTo" type="date" required></label></div>
+    <div class="free-slots-dates"><label><span id="freeSlotsFromLabel">Дата</span><input id="freeSlotsFrom" type="date" required></label><label id="freeSlotsToField" hidden>По дату<input id="freeSlotsTo" type="date" required></label></div>
     <fieldset class="free-slots-source"><legend>Где разместите ссылку</legend><div><label><input name="freeSlotsSource" type="radio" value="master" checked><span>Обычная ссылка</span></label><label><input name="freeSlotsSource" type="radio" value="telegram"><span>Telegram</span></label><label><input name="freeSlotsSource" type="radio" value="whatsapp"><span>WhatsApp</span></label><label><input name="freeSlotsSource" type="radio" value="vk"><span>ВКонтакте</span></label><label><input name="freeSlotsSource" type="radio" value="qr"><span>QR-код</span></label></div><small>Метка добавится к ссылке автоматически и покажет владельцу источник перехода.</small></fieldset>
-    <label class="free-slots-text-label">Готовый текст<textarea id="freeSlotsText" rows="8" readonly aria-describedby="freeSlotsShareStatus"></textarea></label>
+    <label class="free-slots-text-label">Готовый текст<textarea id="freeSlotsText" rows="6" readonly aria-describedby="freeSlotsShareStatus"></textarea></label>
     <div class="free-slots-preview">
-      <div class="free-slots-link"><small>Ссылка на онлайн-запись</small><a id="freeSlotsBookingLink" href="index.html" target="_blank" rel="noopener noreferrer"></a></div>
-      <div class="free-slots-qr-wrap"><canvas id="freeSlotsQr" role="img" aria-label="QR-код ссылки на онлайн-запись"></canvas><p id="freeSlotsQrError" hidden>Для этой ссылки не удалось построить QR-код. Ссылка и готовый текст остаются доступны.</p><small>QR-код создаётся только на этом устройстве. Ссылка не отправляется внешним сервисам.</small></div>
+      <div class="free-slots-link"><a id="freeSlotsBookingLink" target="_blank" rel="noopener noreferrer">Открыть страницу записи</a><button class="secondary-button" id="copyFreeSlotsLink" type="button" disabled>Скопировать ссылку</button></div>
+      <div class="free-slots-qr-wrap" hidden><canvas id="freeSlotsQr" role="img" aria-label="QR-код ссылки на онлайн-запись"></canvas><p id="freeSlotsQrError" hidden>Для этой ссылки не удалось построить QR-код. Ссылка и готовый текст остаются доступны.</p><button class="secondary-button" id="downloadFreeSlotsQr" type="button" hidden>Скачать QR-код</button><small>QR-код создаётся на устройстве, без отправки ссылки сторонним сервисам.</small></div>
     </div>
     <div class="free-slots-actions"><button class="secondary-button" id="copyFreeSlots" type="button" disabled>Скопировать текст</button><button class="primary" id="shareFreeSlots" type="button" disabled>Поделиться</button></div>
     <p class="free-slots-status" id="freeSlotsShareStatus" role="status" aria-live="polite"></p>
@@ -1480,6 +1481,7 @@
   <script src="batch-bookings.js?v=422" defer></script>
   <script src="booking-policy-management.js?v=422" defer></script>
   <script src="team-calendar.js?v=422" defer></script>
+  <script src="vendor/qrcodegen.js?v=422" defer></script>
   <script src="free-slots-share.js?v=422" defer></script>
   <script src="group-bookings.js?v=422" defer></script>
   <script src="onboarding.js?v=422" defer></script>

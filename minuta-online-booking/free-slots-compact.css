@@ -1,0 +1,36 @@
+/* Scoped layout only; existing cabinet themes retain their colors. */
+#freeSlotsDialog { box-sizing:border-box; width:min(680px,calc(100vw - 24px)); max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px); margin:auto; padding:24px; overflow-x:hidden; overflow-y:auto; border-radius:20px; }
+#freeSlotsDialog *,#freeSlotsDialog *::before,#freeSlotsDialog *::after { box-sizing:border-box; min-width:0; }
+#freeSlotsDialog [hidden] { display:none!important; }
+#freeSlotsDialog .notification-template-dialog-head { gap:16px; align-items:flex-start; }
+#freeSlotsDialog .notification-template-dialog-head h2 { font-size:clamp(24px,5vw,32px); line-height:1.2; }
+#freeSlotsDialog .notification-template-dialog-head>button { flex:0 0 44px; width:44px; min-height:44px; }
+#freeSlotsDialog .free-slots-help { margin:10px 0 18px; font-size:13px; }
+#freeSlotsDialog .free-slots-targets,#freeSlotsDialog .free-slots-dates { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:0 0 16px; }
+#freeSlotsDialog[data-single-location="true"] .free-slots-targets,#freeSlotsDialog[data-date-range="false"] .free-slots-dates { grid-template-columns:minmax(0,1fr); }
+#freeSlotsDialog .free-slots-mode { margin:0 0 16px; }
+#freeSlotsDialog .free-slots-mode span { min-height:44px; font-size:13px; }
+#freeSlotsDialog .free-slots-mode input:checked+span { box-shadow:none; }
+#freeSlotsDialog label { font-size:13px; }
+#freeSlotsDialog select,#freeSlotsDialog input[type="date"] { width:100%; max-width:100%; min-height:46px; font-family:inherit; font-size:16px; font-weight:500; }
+#freeSlotsDialog .free-slots-source { margin:0; padding:0; border:0; }
+#freeSlotsDialog .free-slots-source legend { padding:0; margin-bottom:10px; font-size:13px; }
+#freeSlotsDialog .free-slots-source>div { display:flex; flex-wrap:wrap; gap:8px; }
+#freeSlotsDialog .free-slots-source label { position:relative; margin:0; cursor:pointer; }
+#freeSlotsDialog .free-slots-source input { position:absolute; width:1px; height:1px; opacity:0; }
+#freeSlotsDialog .free-slots-source span { display:flex; align-items:center; justify-content:center; min-height:44px; padding:8px 12px; border:1px solid var(--theme-line,#dce7df); border-radius:10px; font-size:12px; }
+#freeSlotsDialog .free-slots-source input:checked+span { background:var(--theme-accent,#245d41); color:var(--theme-on-accent,#fff); }
+#freeSlotsDialog .free-slots-source input:focus-visible+span { outline:2px solid var(--theme-accent,#245d41); outline-offset:2px; }
+#freeSlotsDialog .free-slots-source small { display:block; margin-top:8px; font-size:11px; color:var(--theme-muted,#6f8077); }
+#freeSlotsDialog .free-slots-text-label textarea { min-height:150px; max-width:100%; padding:12px; font-family:inherit; font-size:14px; font-weight:400; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
+#freeSlotsDialog .free-slots-preview { display:flex; flex-direction:column; align-items:stretch; margin-top:12px; padding:12px; gap:12px; border-radius:12px; }
+#freeSlotsDialog .free-slots-link { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+#freeSlotsDialog .free-slots-link a { display:inline-flex; align-items:center; min-height:44px; margin:0; font-size:13px; }
+#freeSlotsDialog .free-slots-link button { min-height:44px; margin:0; padding:8px 14px; font-size:13px; }
+#freeSlotsDialog .free-slots-qr-wrap canvas { width:min(300px,100%); height:auto; border-radius:0; }
+#freeSlotsDialog .free-slots-qr-wrap button { min-height:44px; margin:12px 0 0; }
+#freeSlotsDialog .free-slots-qr-wrap small { font-size:11px; }
+#freeSlotsDialog .free-slots-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+#freeSlotsDialog .free-slots-actions button { padding:10px; font-size:13px; white-space:normal; }
+#freeSlotsDialog .free-slots-status { font-size:12px; }
+@media(max-width:480px) { #freeSlotsDialog { padding:18px 14px max(18px,env(safe-area-inset-bottom)); }#freeSlotsDialog .free-slots-targets { grid-template-columns:minmax(0,1fr); }#freeSlotsDialog .free-slots-dates { gap:8px; } }
