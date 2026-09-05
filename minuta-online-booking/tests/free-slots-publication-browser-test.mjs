@@ -6,6 +6,12 @@ const html=readFileSync(new URL('../provider.html',import.meta.url),'utf8');
 const start=html.indexOf('<dialog class="free-slots-dialog"');
 const dialog=html.slice(start,html.indexOf('</dialog>',start)+9);
 const script=readFileSync(new URL('../free-slots-share.js',import.meta.url),'utf8');
+const providerSource=readFileSync(process.env.MINUTA_PROVIDER_SOURCE || new URL('../provider.js',import.meta.url),'utf8');
+const orgHookStart=providerSource.indexOf('  onActiveOrganizationChange: organization => {');
+const orgHookEnd=providerSource.indexOf('    if (clientOrganizationChanged) {',orgHookStart);
+assert.ok(orgHookStart>=0 && orgHookEnd>orgHookStart,'Actual organization callback must be available');
+const orgHook=providerSource.slice(orgHookStart,orgHookEnd)
+  .replace('  onActiveOrganizationChange: organization => {','window.emitTestOrganization = organization => {')+'\n};';
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
 try {
   const page=await browser.newPage({viewport:{width:390,height:844}});
@@ -39,6 +45,32 @@ try {
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   const text=()=>page.locator('#freeSlotsText').inputValue();
+  // Organization reloads emit the same ID on every background synchronization.
+  // Execute the production callback prefix, not a reimplementation of its guard.
+  await page.evaluate(`(() => {
+    const freeSlotsController=window.controller;
+    let activeClientOrganizationId='';
+    let bookingSeriesCancellationRevision=0, bookingEditorRevision=0, bookingMetadataRevision=0;
+    ${orgHook}
+  })()`);
+  const beforeSync=await text();
+  for(let i=0;i<3;i++) await page.evaluate(()=>window.emitTestOrganization(null));
+  assert.equal(await page.locator('#copyFreeSlots').isDisabled(),false,'Same personal context must survive background synchronization');
+  assert.equal(await text(),beforeSync,'Same-context synchronization must preserve preview');
+  await page.evaluate(()=>window.emitTestOrganization({id:'org-a'}));
+  assert.equal(await page.locator('#copyFreeSlots').isDisabled(),true,'Actual organization switch must invalidate old publication');
+  assert.equal(await page.locator('#copyFreeSlotsLink').isDisabled(),true);
+  await page.locator('[data-close-free-slots]').click();
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  for(let i=0;i<3;i++) await page.evaluate(()=>window.emitTestOrganization({id:'org-a',name:'Updated organization'}));
+  assert.equal(await page.locator('#copyFreeSlots').isDisabled(),false,'Reloaded organization objects with the same ID must preserve publication');
+  await page.evaluate(()=>window.emitTestOrganization({id:'org-b'}));
+  assert.equal(await page.locator('#shareFreeSlots').isDisabled(),true,'Different organization must remain protected');
+  await page.evaluate(()=>window.emitTestOrganization(null));
+  await page.locator('[data-close-free-slots]').click();
+  await page.locator('#open').click();
+  await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.ok((await text()).includes('10:00–20:00 · 10 часов'));
   assert.ok(!(await text()).includes('Массаж'));
   assert.ok(!(await text()).includes('Рамиль'));
