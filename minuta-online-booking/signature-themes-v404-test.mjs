@@ -83,6 +83,11 @@ assert.match(mobileTigerAsset, /<g fill="#98745d" opacity="\.22">/);
 assert.doesNotMatch(mobileTigerAsset, /fill-opacity=/, 'Mobile branches must not accumulate opacity at joins');
 assert.match(worker, /provider-apricot-tiger-mobile\.svg/, 'Mobile tiger asset is available offline');
 assert.match(mobileTiger, /rgba\(255,243,231,\.5\)/, 'Mobile tiger keeps its muted palette');
+const tigerTiles = css.match(/\.mobile-more-grid>:is\(button,a\) \{([^}]+)\}/)?.[1] || '';
+assert.match(tigerTiles, /provider-apricot-tiger-mobile\.svg/, 'Tiger section buttons and links carry the print');
+assert.match(tigerTiles, /background-size:auto,360px auto!important/);
+assert.match(tigerTiles, /rgba\(255,243,231,\.55\)/, 'Inset print remains muted');
+assert.doesNotMatch(tigerTiles, /(?:^|[;\n])\s*opacity:/, 'Text and icons must not fade with the pattern');
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
 assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);

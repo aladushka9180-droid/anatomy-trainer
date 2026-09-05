@@ -884,7 +884,7 @@
 }
 
 /* Muted, full-page textile: scale is independent of wide screens or page length. */
-/* The tiger print belongs to the canvas, never to a reading surface. */
+/* The tiger print belongs to the canvas; mobile section tiles use a softer inset print. */
 .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
   background-color:var(--theme-bg)!important;
   background-image:radial-gradient(ellipse 42% 95% at 56% 38%,#fff3e7 12%,rgba(255,243,231,.94) 40%,rgba(255,243,231,.12) 100%),url("provider-apricot-tiger.svg?v=451")!important;
@@ -911,6 +911,28 @@
     background-size:auto,480px auto!important;
     background-attachment:scroll!important;
     background-repeat:repeat!important;
+  }
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .provider-view[data-provider-panel="more"] {
+    background:transparent!important;
+    border-color:transparent!important;
+    box-shadow:none!important;
+  }
+  /* Keep the print inside the tiles without fading their text or icons. */
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .mobile-more-grid>:is(button,a) {
+    background-color:#fff3e7!important;
+    background-image:linear-gradient(rgba(255,243,231,.55),rgba(255,243,231,.55)),url("provider-apricot-tiger-mobile.svg?v=451")!important;
+    background-size:auto,360px auto!important;
+    background-position:0 0!important;
+    background-repeat:repeat!important;
+  }
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .mobile-more-grid>:is(button,a):nth-child(4n+2) {
+    background-position:0 0,-76px -128px!important;
+  }
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .mobile-more-grid>:is(button,a):nth-child(4n+3) {
+    background-position:0 0,-140px -264px!important;
+  }
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .mobile-more-grid>:is(button,a):nth-child(4n) {
+    background-position:0 0,-40px -360px!important;
   }
 }
 
