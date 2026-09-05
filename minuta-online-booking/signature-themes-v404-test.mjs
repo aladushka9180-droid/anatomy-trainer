@@ -71,7 +71,7 @@ for (const [key, color, group] of [
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=444/, 'Кабинет не подключает Signature Collection v444');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=444/, 'Service Worker не кэширует Signature Collection v444');
+assert.match(provider, /provider-themes-signature\.css\?v=445/, 'Кабинет не подключает Signature Collection v445');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=445/, 'Service Worker не кэширует Signature Collection v445');
 
-console.log('Signature themes v444: 13 unified themes OK');
+console.log('Signature themes v445: 13 unified themes OK');
