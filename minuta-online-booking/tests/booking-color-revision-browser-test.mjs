@@ -17,13 +17,15 @@ function declaration(name){
 const names=['saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey',
   'validBookingColor','bookingColor','bookingColorPicker','requireWrites','sessionIsCurrent'];
 if(/^function captureBookingMetadataContext\(/m.test(source))names.push('captureBookingMetadataContext');
+const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';
+if(operations)names.push('beginBookingColorOperation');
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(constants,'Actual color definitions');
 const revision=source.match(/^let bookingMetadataRevision = .*;$/m)?.[0]||'';
 const start=source.indexOf("document.addEventListener('change', async event => {");
 const end=source.indexOf('\n});',start);
 assert.ok(start>=0&&end>start,'Actual full change listener');
-const loader=[constants,revision,...names.map(declaration),source.slice(start,end+4)].join('\n');
+const loader=[constants,revision,operations,...names.map(declaration),source.slice(start,end+4)].join('\n');
 const ids={A:'11111111-1111-4111-8111-111111111111',B:'22222222-2222-4222-8222-222222222222'};
 const origin='https://booking-color-revision.test/';
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');

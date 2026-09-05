@@ -36,7 +36,9 @@ const functions=['openBookingSheet','closeBookingSheet','saveBookingBlockNote','
   'bookingDisplayNote','bookingClientNote','normalizePhone','isScheduleBlock','escapeHtml','uiIcon',
   'requireWrites','sessionIsCurrent'];
 if(/^function captureBookingMetadataContext\(/m.test(source))functions.push('captureBookingMetadataContext');
-const loader=[constants,revisions,resets,orgHook,...functions.map(declaration),
+const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';
+if(operations)functions.push('beginBookingColorOperation');
+const loader=[constants,revisions,resets,orgHook,operations,...functions.map(declaration),
   listener("document.addEventListener('change', async event => {"),
   listener("document.addEventListener('click', async event => {"),
   listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;")].join('\n');
