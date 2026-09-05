@@ -42,6 +42,6 @@ assert.throws(() => calculate({ ...base, daysOff:[{ off_date:base.from, start_ti
 const text = build(base.from, base.to, { bookingUrl:'https://example.test', performerLabel:'Рамиль' }, calculate(base));
 assert.ok(text.includes('10:00–20:00 · 10 часов'));
 assert.ok(text.includes('Выберите услугу'));
-assert.ok(text.includes('Рамиль'));
+assert.ok(!text.includes('Рамиль'), 'Publication must omit the master name');
 assert.equal(windows({ to:'2026-10-06' }).length, 31);
 console.log('PASS: general intervals, 15:32→16:00, midnight, breaks, overlapping bookings, buffers, blocks, days off, groups, shifts, cross-day events, malformed input, 31-day range');
