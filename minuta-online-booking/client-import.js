@@ -18,6 +18,31 @@
   const IMPORT_BATCH_SIZE = 500;
   const IMPORT_MAX_ROWS = 20000;
   const HISTORY_MAX_ROWS = 20000;
+  const XLSX_SOURCE = 'vendor/xlsx-0.20.3.full.min.js';
+  const XLSX_INTEGRITY = 'sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT';
+  let xlsxLoadPromise = null;
+
+  function loadXlsx() {
+    if (global.XLSX?.read && global.XLSX?.utils?.sheet_to_json) return Promise.resolve(global.XLSX);
+    if (xlsxLoadPromise) return xlsxLoadPromise;
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-minuta-xlsx]');
+      if (existing) existing.remove();
+      const script = document.createElement('script');
+      let settled = false;
+      const finish = callback => { if (settled) return; settled = true; clearTimeout(timeout); callback(); };
+      const fail = message => finish(() => { script.remove(); reject(new Error(message)); });
+      const complete = () => finish(() => global.XLSX?.read && global.XLSX?.utils?.sheet_to_json ? resolve(global.XLSX) : reject(new Error('Модуль чтения Excel не загрузился. Обновите страницу и попробуйте снова.')));
+      const timeout = setTimeout(() => fail('Модуль чтения Excel не ответил. Проверьте соединение и повторите попытку.'), 15000);
+      script.addEventListener('load', complete, { once:true });
+      script.addEventListener('error', () => fail('Не удалось загрузить модуль Excel. Проверьте соединение и повторите попытку.'), { once:true });
+      script.src = XLSX_SOURCE;
+      script.integrity = XLSX_INTEGRITY;
+      script.dataset.minutaXlsx = 'true';
+      document.head.append(script);
+    }).catch(error => { xlsxLoadPromise = null; throw error; });
+    return xlsxLoadPromise;
+  }
 
   function uuid() {
     if (global.crypto?.randomUUID) return global.crypto.randomUUID();
@@ -222,6 +247,7 @@
     if (!file || file.size < 1) throw new Error('Выберите непустой файл с клиентами.');
     if (file.size > 12 * 1024 * 1024) throw new Error('Файл должен быть не больше 12 МБ.');
     if (!/\.(csv|tsv|txt|xls|xlsx)$/i.test(file.name)) throw new Error('Поддерживаются XLS, XLSX, CSV, TSV и TXT.');
+    if (/\.xlsx?$/i.test(file.name)) await loadXlsx();
     const bytes = await file.arrayBuffer();
     if (/\.xlsx?$/i.test(file.name)) {
       const workbook = readWorkbook(new Uint8Array(bytes));
@@ -248,10 +274,13 @@
     let revision = 0;
 
     function supported() { return Boolean(workspace && workspace.can_import); }
+    function contactsSupported() { return Boolean(navigator.contacts?.select && navigator.contacts?.getProperties); }
     function render() {
       const panel = $('#clientImportPanel');
       if (!panel) return;
       panel.hidden = !supported();
+      const contactsButton = $('#clientContactsImport');
+      if (contactsButton) contactsButton.hidden = !supported() || !contactsSupported();
       const history = $('#clientImportHistory');
       if (history && supported()) {
         const batches = Array.isArray(workspace.recent_batches) ? workspace.recent_batches : [];
@@ -259,6 +288,43 @@
         history.textContent = Number(importedSummary?.visit_count || 0)
           ? `История загружена: ${Number(importedSummary.visit_count).toLocaleString('ru-RU')} записей · ${Number(importedSummary.total_price_rub || 0).toLocaleString('ru-RU')} ₽ по журналу`
           : batches.length ? `Последний импорт: ${new Date(batches[0].created_at).toLocaleString('ru-RU')} · ${batches[0].input_count} клиентов` : 'Импортов пока не было';
+      }
+    }
+
+    function contactsPreview(contacts) {
+      const existing = new Set((workspace?.clients || []).map(item => normalizePhone(item.phone)));
+      const rows = new Map();
+      let invalidCount = 0;
+      let existingCount = 0;
+      for (const contact of Array.isArray(contacts) ? contacts : []) {
+        const name = String(contact?.name?.[0] || '').trim().slice(0, 80);
+        const phones = Array.isArray(contact?.tel) ? contact.tel : [];
+        const rawPhone = phones.find(value => normalizePhone(value)) || '';
+        const phone = normalizePhone(rawPhone);
+        if (!name || !phone) { invalidCount += 1; continue; }
+        if (existing.has(phone)) { existingCount += 1; continue; }
+        rows.set(phone, { phone, display_phone:String(rawPhone).slice(0,24), name, email:'', note:'', birthday:'', visit_count:0,
+          total_spent_rub:0, last_visit_on:'', external_id:'', marketing_consent:null, personal_data_consent:null });
+      }
+      if (!rows.size) throw new Error(existingCount ? 'Все выбранные контакты уже есть в клиентской базе.' : 'В выбранных контактах нет полного имени и российского номера телефона.');
+      return { kind:'clients', rows:[...rows.values()], invalid:[], duplicateCount:invalidCount + existingCount, fileName:'phone-contacts' };
+    }
+
+    async function choosePhoneContacts() {
+      if (!supported() || !contactsSupported()) return;
+      const currentRevision = revision;
+      const organizationId = organization?.id || '';
+      const button = $('#clientContactsImport');
+      button.disabled = true;
+      try {
+        const contacts = await navigator.contacts.select(['name','tel'], { multiple:true });
+        if (currentRevision !== revision || organization?.id !== organizationId || !contacts?.length) return;
+        pendingTable = null;
+        renderPreview(contactsPreview(contacts));
+      } catch (error) {
+        if (currentRevision === revision && organization?.id === organizationId && error?.name !== 'AbortError') notify(error?.message || 'Не удалось открыть телефонную книгу');
+      } finally {
+        button.disabled = false;
       }
     }
 
@@ -435,6 +501,7 @@
       if (bound) return;
       bound = true;
       $('#clientImportFile')?.addEventListener('change', event => chooseFile(event.target.files?.[0]));
+      $('#clientContactsImport')?.addEventListener('click', choosePhoneContacts);
       $('#clientImportApplyMapping')?.addEventListener('click', applyManualMapping);
       $('#clientImportForm')?.addEventListener('submit', submit);
     }
@@ -449,11 +516,13 @@
         if (currentOrganizationId && currentOrganizationId === nextOrganizationId) return;
         workspace = null;
         onLoaded?.([], []);
+        const contactsButton = $('#clientContactsImport');
+        if (contactsButton) contactsButton.disabled = false;
         render();
         void load();
       }
     };
   }
 
-  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, parseSpreadsheet, parseBookingJournalWorkbook, mapRows, normalizePhone });
+  global.MinutaClientImport = Object.freeze({ createController, parseDelimited, parseSpreadsheet, parseBookingJournalWorkbook, mapRows, normalizePhone, loadXlsx });
 })(window);

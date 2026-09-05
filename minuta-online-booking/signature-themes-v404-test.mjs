@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=456/, 'Кабинет не подключает Signature Collection v456');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=456/, 'Service Worker не кэширует Signature Collection v456');
+assert.match(provider, /provider-themes-signature\.css\?v=457/, 'Кабинет не подключает Signature Collection v456');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=457/, 'Service Worker не кэширует Signature Collection v456');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';

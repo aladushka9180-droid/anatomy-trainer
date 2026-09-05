@@ -189,7 +189,7 @@
       $('#inventoryControls').hidden = !enabled;
       const activeItems = payload.items.filter(row => row.active), activeWarehouses = payload.warehouses.filter(row => row.active), activeServices = payload.services.filter(row => row.active !== false);
       $('#inventoryMovementWarehouse').innerHTML = optionRows(activeWarehouses, row => `${row.name} · ${location(row.location_id)?.name || 'Филиал'}`);
-      $('#inventoryMovementItem').innerHTML = optionRows(activeItems, row => `${row.name} · ${unitLabels[row.unit] || row.unit}`);
+      $('#inventoryMovementItem').innerHTML = activeItems.map(row => `<option value="${escapeHtml(row.id)}" data-code="${escapeHtml(row.sku || '')}" data-sku="${escapeHtml(row.sku || '')}">${escapeHtml(`${row.name} · ${unitLabels[row.unit] || row.unit}${row.sku ? ` · ${row.sku}` : ''}`)}</option>`).join('');
       $('#inventoryUsageService').innerHTML = optionRows(activeServices, row => row.name);
       $('#inventoryUsageItem').innerHTML = optionRows(activeItems, row => `${row.name} · ${unitLabels[row.unit] || row.unit}`);
       $('#inventoryWarehouseLocation').innerHTML = optionRows(payload.locations.filter(row => row.active), row => row.name);

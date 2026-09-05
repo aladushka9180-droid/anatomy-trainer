@@ -219,6 +219,12 @@ const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'settings', label:'Настройки', icon:'settings' }
 ]);
 const DEFAULT_MOBILE_NAV = Object.freeze(['bookings', 'notifications', 'analytics', 'schedule']);
+const PROVIDER_ROLE_KEYS = Object.freeze(['owner','admin','specialist']);
+const DEFAULT_MOBILE_NAV_BY_ROLE = Object.freeze({
+  owner:Object.freeze(['bookings','analytics','organization','notifications']),
+  admin:Object.freeze(['bookings','notifications','clients','schedule']),
+  specialist:Object.freeze(['bookings','schedule','clients','notifications'])
+});
 const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
@@ -243,6 +249,12 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   ios_transitions: true,
   team_calendar_enabled: false,
   mobile_nav: ['bookings', 'notifications', 'analytics', 'schedule'],
+  mobile_nav_by_role: DEFAULT_MOBILE_NAV_BY_ROLE,
+  view_order_by_role: Object.freeze({
+    owner:Object.freeze(['bookings','analytics','organization','notifications','clients','schedule','services','portfolio','waitlist','settings']),
+    admin:Object.freeze(['bookings','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings']),
+    specialist:Object.freeze(['bookings','schedule','clients','notifications','services','waitlist','analytics','portfolio','organization','settings'])
+  }),
   analytics_goals: Object.freeze({ revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 }),
   analytics_goals_by_scope: Object.freeze({})
 });
@@ -1284,6 +1296,24 @@ function normalizeMobileNavigation(value) {
   });
   return result;
 }
+function normalizeProviderRole(value) { return PROVIDER_ROLE_KEYS.includes(value) ? value : 'specialist'; }
+function normalizeProviderViewOrder(value) {
+  const allowed=PROVIDER_MOBILE_NAV_ITEMS.map(item=>item.key),result=[];
+  [...(Array.isArray(value)?value:[]),...allowed].forEach(key=>{if(allowed.includes(key)&&!result.includes(key))result.push(key);});
+  return result;
+}
+function normalizeRoleNavigation(value, legacy) {
+  const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  return Object.fromEntries(PROVIDER_ROLE_KEYS.map(role=>[role,normalizeMobileNavigation(source[role]??(Array.isArray(legacy)?legacy:DEFAULT_MOBILE_NAV_BY_ROLE[role]))]));
+}
+function normalizeRoleViewOrder(value) {
+  const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  return Object.fromEntries(PROVIDER_ROLE_KEYS.map(role=>[role,normalizeProviderViewOrder(source[role]??DEFAULT_DISPLAY_PREFERENCES.view_order_by_role[role])]));
+}
+function activeProviderRole() { return normalizeProviderRole(organizationController?.getActiveOrganization?.()?.current_role || 'specialist'); }
+function editedProviderRole() { return normalizeProviderRole($('#providerPreferenceRole')?.value || activeProviderRole()); }
+function navigationForRole(role=activeProviderRole()) { return normalizeMobileNavigation(displayPreferences.mobile_nav_by_role?.[normalizeProviderRole(role)] || displayPreferences.mobile_nav); }
+function viewOrderForRole(role=activeProviderRole()) { return normalizeProviderViewOrder(displayPreferences.view_order_by_role?.[normalizeProviderRole(role)]); }
 function normalizeAnalyticsGoals(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
   const bounded = (candidate, fallback, minimum, maximum) => {
@@ -1319,6 +1349,8 @@ function normalizeDisplayPreferences(value = {}) {
     ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
     team_calendar_enabled: source.team_calendar_enabled ?? source.teamCalendarEnabled ?? DEFAULT_DISPLAY_PREFERENCES.team_calendar_enabled,
     mobile_nav: normalizeMobileNavigation(source.mobile_nav ?? source.mobileNav),
+    mobile_nav_by_role:normalizeRoleNavigation(source.mobile_nav_by_role ?? source.mobileNavByRole, source.mobile_nav ?? source.mobileNav),
+    view_order_by_role:normalizeRoleViewOrder(source.view_order_by_role ?? source.viewOrderByRole),
     analytics_goals:normalizeAnalyticsGoals(source.analytics_goals ?? source.analyticsGoals),
     analytics_goals_by_scope:normalizeAnalyticsGoalsByScope(source.analytics_goals_by_scope ?? source.analyticsGoalsByScope)
   };
@@ -1337,6 +1369,8 @@ function displayPreferencesEqual(left, right) {
     && a.ios_transitions === b.ios_transitions
     && a.team_calendar_enabled === b.team_calendar_enabled
     && JSON.stringify(a.mobile_nav) === JSON.stringify(b.mobile_nav)
+    && JSON.stringify(a.mobile_nav_by_role) === JSON.stringify(b.mobile_nav_by_role)
+    && JSON.stringify(a.view_order_by_role) === JSON.stringify(b.view_order_by_role)
     && JSON.stringify(a.analytics_goals) === JSON.stringify(b.analytics_goals)
     && JSON.stringify(a.analytics_goals_by_scope) === JSON.stringify(b.analytics_goals_by_scope);
 }
@@ -1450,7 +1484,7 @@ function queueDisplayPreferencesSync(delay = 350) {
 function renderMobileNavigation() {
   const nav = $('.provider-mobile-nav');
   if (!nav) return;
-  const selected = normalizeMobileNavigation(displayPreferences.mobile_nav);
+  const selected = navigationForRole();
   const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
   nav.innerHTML = `${selected.map(key => {
     const item = PROVIDER_MOBILE_NAV_ITEMS.find(entry => entry.key === key);
@@ -1465,6 +1499,10 @@ function renderMobileNavigation() {
   $$('.mobile-more-grid [data-provider-view]').forEach(button => {
     button.hidden = selected.includes(button.dataset.providerView);
   });
+}
+function applyRoleViewOrder() {
+  const order=viewOrderForRole(),more=$('.mobile-more-grid');
+  if(more)order.forEach(key=>{const button=more.querySelector(`[data-provider-view="${key}"]`);if(button)more.append(button);});
 }
 function renderMobileNavigationPreview(selectedKeys = displayPreferences.mobile_nav) {
   const preview = $('#mobileNavigationPreview');
@@ -1483,6 +1521,7 @@ function applyDisplayPreferences() {
   const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa', japandi:'#f3efe7', midnight:'#08111f', mono:'#f3f3f0', desert:'#f5e9db', rose:'#f2eaed', botanical:'#101c18', burgundy:'#21131c', coastal:'#f1f6f7', pearl:'#f4f4f5', butter:'#faf9f3', celadon:'#f0f6f3', 'snow-leopard':'#f4f5f6', 'apricot-tiger':'#fff3e7' };
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
   renderMobileNavigation();
+  applyRoleViewOrder();
 }
 
 function setTeamCalendarEnabledPreference(nextEnabled) {
@@ -1538,7 +1577,12 @@ function renderDisplayPreferencesForm() {
   $('#showBookingClientLabels').checked = displayPreferences.show_client_labels;
   $('#showBookingNotes').checked = displayPreferences.show_notes;
   $('#iosTransitionsEnabled').checked = displayPreferences.ios_transitions;
-  const selected = normalizeMobileNavigation(displayPreferences.mobile_nav);
+  const roleSelect=$('#providerPreferenceRole');
+  const currentRole=activeProviderRole();
+  const roleScope=`${organizationController?.getActiveOrganization?.()?.id||''}:${currentRole}`;
+  if(roleSelect&&roleSelect.dataset.roleScope!==roleScope){roleSelect.value=currentRole;roleSelect.dataset.roleScope=roleScope;}
+  const role=editedProviderRole();
+  const selected = navigationForRole(role);
   $$('[data-mobile-nav-slot]').forEach((select, index) => {
     select.innerHTML = PROVIDER_MOBILE_NAV_ITEMS.map(item => `<option value="${item.key}">${item.label}</option>`).join('');
     select.value = selected[index];
@@ -1548,6 +1592,8 @@ function renderDisplayPreferencesForm() {
     select.querySelectorAll('option').forEach(option => { option.disabled = option.value !== current && selected.includes(option.value); });
   });
   renderMobileNavigationPreview(selected);
+  const orderHolder=$('#providerRoleViewOrder');
+  if(orderHolder)orderHolder.innerHTML=viewOrderForRole(role).map((key,index)=>{const item=PROVIDER_MOBILE_NAV_ITEMS.find(entry=>entry.key===key);return `<div data-role-view-order="${key}"><span>${uiIcon(item.icon)}<strong>${escapeHtml(item.label)}</strong></span><span><button type="button" data-move-role-view="up" aria-label="Поднять ${escapeHtml(item.label)}" ${index===0?'disabled':''}>↑</button><button type="button" data-move-role-view="down" aria-label="Опустить ${escapeHtml(item.label)}" ${index===PROVIDER_MOBILE_NAV_ITEMS.length-1?'disabled':''}>↓</button></span></div>`;}).join('');
 }
 function providerAppIsInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -1691,6 +1737,9 @@ async function toggleProviderFullscreen() {
   refreshInstallAppCard();
 }
 function displayPreferencesFromForm() {
+  const role=editedProviderRole();
+  const roleNavigation={...displayPreferences.mobile_nav_by_role,[role]:$$('[data-mobile-nav-slot]').map(select=>select.value)};
+  const roleOrder={...displayPreferences.view_order_by_role,[role]:[...($('#providerRoleViewOrder')?.querySelectorAll('[data-role-view-order]')||[])].map(row=>row.dataset.roleViewOrder)};
   return normalizeDisplayPreferences({
     layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
@@ -1701,7 +1750,9 @@ function displayPreferencesFromForm() {
     show_client_labels: $('#showBookingClientLabels').checked,
     show_notes: $('#showBookingNotes').checked,
     ios_transitions: $('#iosTransitionsEnabled').checked,
-    mobile_nav: $$('[data-mobile-nav-slot]').map(select => select.value),
+    mobile_nav: roleNavigation[activeProviderRole()] || displayPreferences.mobile_nav,
+    mobile_nav_by_role:roleNavigation,
+    view_order_by_role:roleOrder,
     analytics_goals:displayPreferences.analytics_goals,
     analytics_goals_by_scope:displayPreferences.analytics_goals_by_scope
   });
@@ -2092,7 +2143,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=456#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=457#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3875,7 +3926,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=456');
+    worker = new Worker('./report-worker.js?v=457');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4642,7 +4693,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  if (!normalizeMobileNavigation(displayPreferences.mobile_nav).includes(view)) {
+  if (!navigationForRole().includes(view)) {
     const moreButton = $('.provider-mobile-nav [data-provider-view="more"]');
     moreButton?.classList.add('active');
     moreButton?.setAttribute('aria-current', 'page');
@@ -10974,6 +11025,8 @@ const organizationController = window.MinutaOrganization.createController({
     clientRecordsController.setOrganization(organization);
     clientImportController.setOrganization(organization?.public_slug === REPORT_DEMO_SLUG ? null : organization);
     dataGovernanceController.setOrganization(organization);
+    applyDisplayPreferences();
+    renderDisplayPreferencesForm();
   }
 });
 organizationController.bind();
@@ -11515,11 +11568,21 @@ $('#telegramClientSettingsForm').addEventListener('submit', saveTelegramClientSe
 document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); }, { passive:true });
 document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
 $('#providerDisplayForm').addEventListener('click', event => {
+  const move = event.target.closest('[data-move-role-view]');
+  if (move) {
+    const row=move.closest('[data-role-view-order]');
+    const sibling=move.dataset.moveRoleView==='up'?row?.previousElementSibling:row?.nextElementSibling;
+    if(row&&sibling){if(move.dataset.moveRoleView==='up')row.parentElement.insertBefore(row,sibling);else row.parentElement.insertBefore(sibling,row);saveDisplayPreferences();}
+    return;
+  }
   const button = event.target.closest('[data-provider-theme-filter]');
   if (!button) return;
   applyProviderThemeFilter(button.dataset.providerThemeFilter, { focus:true });
 });
-$('#providerDisplayForm').addEventListener('change', saveDisplayPreferences);
+$('#providerDisplayForm').addEventListener('change', event => {
+  if(event.target.id==='providerPreferenceRole'){renderDisplayPreferencesForm();return;}
+  saveDisplayPreferences();
+});
 $('.report-view-tabs')?.addEventListener('keydown', event => {
   const current = event.target.closest('[data-report-view]');
   if (!current || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;

@@ -202,13 +202,14 @@ function bookingScopeKey() {
   return JSON.stringify([requestedOrganizationSlug, state.teamMode, state.organization?.id || '', state.serviceId, state.locationId, state.date, state.time]);
 }
 function lockBookingContacts(locked) {
-  for (const selector of ['#clientName', '#clientPhone']) { const field = $(selector); if (field) field.readOnly = locked; }
+  for (const selector of ['#clientName', '#clientPhone', '#bookingBenefitCode']) { const field = $(selector); if (field) field.readOnly = locked; }
 }
 function restoreBookingRequest() {
   const request = bookingAttempt?.request;
   if (!request || bookingAttempt.detached) return;
   $('#clientName').value = request.p_client_name;
   $('#clientPhone').value = request.p_client_phone;
+  $('#bookingBenefitCode').value = request.p_benefit_code || '';
   state.serviceId = request.p_service;
   state.date = request.p_date;
   state.time = request.p_time.slice(0, 5);
@@ -238,18 +239,21 @@ function bookingReplyIsValid(data) {
 function bookingDefiniteRejection(error) {
   return error?.code === 'P0001' && ['request_id_required', 'invalid_booking_data', 'invalid_client_data',
     'service_unavailable', 'organization_unavailable', 'location_unavailable', 'slot_unavailable',
-    'resource_unavailable', 'booking_buffer_conflict'].includes(error.message);
+    'resource_unavailable', 'booking_buffer_conflict', 'invalid_benefit_code', 'benefits_disabled',
+    'benefit_code_not_found', 'benefit_client_mismatch', 'benefit_not_available',
+    'insufficient_certificate_balance', 'package_service_exhausted', 'visit_pass_not_applicable',
+    'booking_already_has_benefit', 'booking_payment_already_started', 'benefit_request_conflict'].includes(error.message);
 }
 
-async function bookingFingerprint(service, name, phone) {
-  const value = JSON.stringify([service.id, state.teamMode ? state.locationId : '', state.date, state.time, name.trim(), phone.replace(/\D/g, '')]);
+async function bookingFingerprint(service, name, phone, benefitCode) {
+  const value = JSON.stringify([service.id, state.teamMode ? state.locationId : '', state.date, state.time, name.trim(), phone.replace(/\D/g, ''), String(benefitCode || '').trim().toUpperCase()]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function currentBookingAttempt(service, name, phone) {
+async function currentBookingAttempt(service, name, phone, benefitCode) {
   const scope = bookingScopeKey();
-  const fingerprint = await bookingFingerprint(service, name, phone);
+  const fingerprint = await bookingFingerprint(service, name, phone, benefitCode);
   if (scope !== bookingScopeKey()) throw new Error('stale_booking_selection');
   if (bookingAttempt && (bookingAttempt.fingerprint !== fingerprint || (bookingAttempt.scope && bookingAttempt.scope !== scope))) {
     throw new Error('booking_attempt_unresolved');
@@ -1208,12 +1212,14 @@ async function submitBooking(event) {
   if (selectionValidationBlocked && !bookingAttempt) { showError('Сначала обновите расписание и перепроверьте выбранное время.'); return; }
   const name = $('#clientName').value.trim();
   const phone = $('#clientPhone').value;
+  const benefitCode = ($('#bookingBenefitCode')?.value || '').trim();
   const service = selectedService();
   if (name.length < 2 || phone.replace(/\D/g, '').length !== 11) { showError('Укажите имя и полный номер телефона.'); return; }
   if (!$('#dataConsent').checked) { showError('Подтвердите согласие на обработку данных.'); return; }
   if (!service || !state.time) { showError('Выберите услугу и свободное время.'); return; }
   if (state.teamMode && !state.locations.length) { showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.'); return; }
   if (state.teamMode && !state.locationId) { showError('Выберите филиал для записи.'); return; }
+  if (benefitCode && !state.teamMode) { showError('Сертификаты и абонементы доступны только на странице организации. Уберите код или откройте ссылку организации.'); return; }
   if (!navigator.onLine) { showError(bookingAttempt ? 'Нет соединения. Исходный результат ещё не подтверждён — подключитесь к сети для проверки.' : 'Нет соединения с интернетом. Запись не создана — подключитесь к сети и повторите попытку.'); return; }
   const scope = bookingScopeKey(), revision = bookingFormRevision;
   const isCurrent = () => revision === bookingFormRevision && scope === bookingScopeKey();
@@ -1222,12 +1228,13 @@ async function submitBooking(event) {
   lockBookingContacts(true);
   updateSubmitAvailability();
   try {
-  const attempt = await currentBookingAttempt(service, name, phone);
+  const attempt = await currentBookingAttempt(service, name, phone, benefitCode);
   if (!isCurrent()) return;
   if (!attempt.request) {
-    attempt.rpc = state.teamMode ? 'book_minuta_appointment' : 'book_appointment';
+    attempt.rpc = benefitCode ? 'book_minuta_appointment_with_benefit_v115' : (state.teamMode ? 'book_minuta_appointment' : 'book_appointment');
     attempt.request = Object.freeze({ p_request_id: attempt.requestId, p_service:service.id, p_date:state.date, p_time:`${state.time}:00`,
-      p_client_name:name, p_client_phone:phone, ...(state.teamMode ? { p_slug:requestedOrganizationSlug, p_location:state.locationId } : {}) });
+      p_client_name:name, p_client_phone:phone, ...(state.teamMode ? { p_slug:requestedOrganizationSlug, p_location:state.locationId } : {}),
+      ...(benefitCode ? { p_benefit_code:benefitCode } : {}) });
   }
   bookingResultUncertain = true;
   const submit = $('#submitBooking');
@@ -1241,10 +1248,14 @@ async function submitBooking(event) {
   setSubmitLabel(bookingResultUncertain ? 'Проверить результат' : 'Подтвердить запись');
   updateSubmitAvailability();
   if (error) {
-    const missingTeamBookingRpc = state.teamMode && ['PGRST202', '42883'].includes(error.code) && isMissingRpc(error, 'book_minuta_appointment');
+    const missingTeamBookingRpc = state.teamMode && ['PGRST202', '42883'].includes(error.code) && isMissingRpc(error, attempt.rpc);
+    const benefitRejected = ['invalid_benefit_code', 'benefits_disabled', 'benefit_code_not_found', 'benefit_client_mismatch', 'benefit_not_available', 'insufficient_certificate_balance', 'package_service_exhausted', 'visit_pass_not_applicable', 'booking_already_has_benefit', 'booking_payment_already_started', 'benefit_request_conflict'].includes(error.message);
     if (!wasUncertain && missingTeamBookingRpc) {
       clearBookingAttempt();
-      showError('Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
+      showError(benefitCode ? 'Применение сертификата или абонемента пока не активировано. Запись не создана — уберите код или повторите позже.' : 'Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
+    } else if (benefitCode && bookingDefiniteRejection(error) && benefitRejected) {
+      clearBookingAttempt();
+      showError('Сертификат или абонемент не подходит: сервер проверил владельца, срок, услугу, оплату и остаток. Проверьте код; если нужна предоплата, обратитесь в организацию или запишитесь без кода.');
     } else if (!wasUncertain && bookingDefiniteRejection(error)) {
       clearBookingAttempt();
       const slotRejected = ['slot_unavailable', 'resource_unavailable', 'booking_buffer_conflict'].includes(error.message);
@@ -1396,6 +1407,7 @@ document.addEventListener('click', event => {
 });
 $('#clientName').addEventListener('input', bookingInputChanged);
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
+$('#bookingBenefitCode')?.addEventListener('input', bookingInputChanged);
 $('#dataConsent').addEventListener('change', bookingInputChanged);
 $('#bookingForm').addEventListener('submit', submitBooking);
 $('#locationSelect')?.addEventListener('change', async event => {

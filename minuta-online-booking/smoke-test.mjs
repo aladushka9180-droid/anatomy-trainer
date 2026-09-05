@@ -519,15 +519,19 @@ const appearanceSources = [
   provider.match(/const PROVIDER_TEXT_SCALE_KEYS = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_MOBILE_NAV_ITEMS = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/const DEFAULT_MOBILE_NAV = [^;]+;/)?.[0],
+  provider.match(/const PROVIDER_ROLE_KEYS = [^;]+;/)?.[0],
+  provider.match(/const DEFAULT_MOBILE_NAV_BY_ROLE = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/const LEGACY_PROVIDER_THEME_MAP = [^;]+;/)?.[0],
   provider.match(/const DEFAULT_DISPLAY_PREFERENCES = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/function normalizeMobileNavigation\([\s\S]*?(?=\nfunction normalizeDisplayPreferences)/)?.[0],
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
-assert.match(appearanceSources[6], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
+assert.match(appearanceSources[8], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
 const defaultMobileNav = ['bookings', 'notifications', 'analytics', 'schedule'];
+const defaultMobileNavByRole = { owner:['bookings','analytics','organization','notifications'], admin:['bookings','notifications','clients','schedule'], specialist:['bookings','schedule','clients','notifications'] };
+const defaultViewOrderByRole = { owner:['bookings','analytics','organization','notifications','clients','schedule','services','portfolio','waitlist','settings'], admin:['bookings','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings'], specialist:['bookings','schedule','clients','notifications','services','waitlist','analytics','portfolio','organization','settings'] };
 const defaultAnalyticsGoals = { revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 };
 const defaultAnalyticsGoalsByScope = {};
 for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']) {
@@ -536,10 +540,10 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
-const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');

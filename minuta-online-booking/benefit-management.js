@@ -82,7 +82,11 @@
       const snapshot=item.product_snapshot||{};
       const balance=snapshot.kind==='certificate'?rubles(item.remaining_amount_rub):`${item.remaining_visits} посещ.`;
       const actions=status==='active'?`<button class="secondary-button" type="button" data-benefit-status="frozen" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Заморозить</button>`:status==='frozen'?`<button class="secondary-button" type="button" data-benefit-status="active" data-benefit-instrument="${escapeHtml(item.id)}" data-benefit-write>Разморозить</button>`:'';
-      return `<article class="organization-row"><div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))} · ${escapeHtml(balance)}</strong><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
+      return `<article class="organization-row" data-benefit-code="${escapeHtml(item.public_code)}"><div class="organization-row-main"><strong>${escapeHtml(snapshot.name||productName(item.product_id))} · ${escapeHtml(balance)}</strong><small>${escapeHtml(clientName(item.client_account_id))} · код ${escapeHtml(item.public_code)} · до ${escapeHtml(dateLabel(item.expires_on))}</small></div><span class="organization-tags"><span class="organization-status ${status==='active'?'is-active':''}">${escapeHtml(statusLabels[status]||status)}</span>${actions}</span></article>`;
+    }
+    function filterInstruments() {
+      const query=String($('#benefitInstrumentSearch')?.value||'').trim().toLocaleLowerCase('ru-RU');
+      $('#benefitInstrumentsList')?.querySelectorAll('[data-benefit-code]').forEach(card=>{card.hidden=Boolean(query&&!String(card.dataset.benefitCode||'').toLocaleLowerCase('ru-RU').includes(query));});
     }
     function redemptionCard(item) {
       const booking=payload.bookings.find(row=>row.id===item.booking_id);
@@ -121,6 +125,7 @@
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
       $('#benefitProductsList').innerHTML=payload.products.length?payload.products.map(productCard).join(''):empty('Продуктов пока нет','Создайте абонемент, сертификат или пакет услуг.');
       $('#benefitInstrumentsList').innerHTML=payload.instruments.length?payload.instruments.map(item=>instrumentCard(item,today)).join(''):empty('Ничего не выдано','Выданные продукты появятся здесь.');
+      filterInstruments();
       $('#benefitRedemptionsList').innerHTML=payload.redemptions.length?payload.redemptions.map(redemptionCard).join(''):empty('Списаний пока нет','Примените продукт к записи клиента.');
       $('#benefitProductCreator').hidden=!payload.enabled; $('#benefitIssueCreator').hidden=!payload.enabled; $('#benefitApplyCreator').hidden=!payload.enabled;
       const activeProducts=payload.products.filter(item=>item.active);
@@ -183,7 +188,7 @@
       const messages={benefitProductName:'Введите название продукта. Серый текст является только примером.',benefitProductPrice:'Укажите цену продажи.',benefitProductValidity:'Укажите срок действия от 1 дня.',benefitProductVisits:'Укажите количество посещений.',benefitProductValue:'Укажите номинал сертификата.',benefitIssueProduct:'Сначала создайте продукт.',benefitIssueClient:'Выберите клиента, у которого уже есть запись.',benefitIssueExpiry:'Выберите будущую дату или оставьте поле пустым.',benefitApplyInstrument:'Сначала выдайте продукт клиенту.',benefitApplyBooking:'У выбранного клиента нет подходящей записи.',benefitApplyAmount:'Укажите положительную сумму сертификата или оставьте поле пустым для автоматического расчёта.'};
       showFormError(holder,messages[event.target.id]||'Заполните обязательное поле и проверьте введённое значение.');
     }
-    function input(event){const holder=event.target.form?.querySelector('.form-error');if(holder&&!holder.hidden){holder.hidden=true;holder.textContent='';}}
+    function input(event){if(event.target.id==='benefitInstrumentSearch')filterInstruments();const holder=event.target.form?.querySelector('.form-error');if(holder&&!holder.hidden){holder.hidden=true;holder.textContent='';}}
     function bind(){document.addEventListener('submit',submit);document.addEventListener('click',click);document.addEventListener('change',change);document.addEventListener('invalid',invalid,true);document.addEventListener('input',input);}
     return {bind,load,reset,setOrganization,get availability(){return availability;},get payload(){return payload;}};
   }
