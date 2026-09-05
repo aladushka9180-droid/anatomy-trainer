@@ -1,0 +1,54 @@
+name: Minuta isolated booking lifecycle audit
+
+on:
+  push:
+    branches: [codex/restore-client-messaging-20260905]
+    paths:
+      - 'minuta-online-booking/booking-lifecycle-audit.sql'
+      - '.github/workflows/minuta-lifecycle-audit.yml'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ROLLBACK_ONLY_TEST_DATABASE to run the isolated test'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Guard test-only connection
+        env:
+          TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+          TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          node <<'JS'
+          const assert = require('node:assert/strict');
+          assert.equal(process.env.TEST_PROJECT_REF, 'umazhvvxutnsyuphbhda');
+          if (process.env.GITHUB_EVENT_NAME === 'workflow_dispatch') assert.equal(process.env.CONFIRM, 'ROLLBACK_ONLY_TEST_DATABASE');
+          const url = new URL(process.env.TEST_DATABASE_URL);
+          assert.ok(['postgres:','postgresql:'].includes(url.protocol));
+          assert.ok(url.hostname === 'db.umazhvvxutnsyuphbhda.supabase.co' || (url.hostname.endsWith('.pooler.supabase.com') && decodeURIComponent(url.username) === 'postgres.umazhvvxutnsyuphbhda'));
+          console.log('Isolated test target confirmed; production credentials are not supplied.');
+          JS
+      - name: Exercise lifecycle inside a rollback transaction
+        env:
+          TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          command -v psql
+          export PGCONNECT_TIMEOUT=15
+          psql "${TEST_DATABASE_URL/:6543/:5432}" -X --set=ON_ERROR_STOP=1 --file=minuta-online-booking/booking-lifecycle-audit.sql

@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: 22
       - run: node minuta-online-booking/provider-ux-audit-test.mjs
+      - run: node minuta-online-booking/client-messaging-test.mjs
       - run: node --check minuta-online-booking/group-bookings.js && node --check minuta-online-booking/loyalty-management.js && node --check minuta-online-booking/inventory-management.js && node --check minuta-online-booking/retention-management.js && node --check minuta-online-booking/batch-bookings.js && node --check minuta-online-booking/client-import.js && node --check minuta-online-booking/report-worker.js
       - run: node --check minuta-online-booking/inventory-warehouse-v108-static-test.mjs
       - run: node --check minuta-online-booking/product-feedback-v109-static-test.mjs

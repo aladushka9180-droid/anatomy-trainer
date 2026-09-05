@@ -1560,7 +1560,8 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .client-messaging-head h2 { margin-top:5px; font-size:24px; letter-spacing:-.03em; }
 .client-messaging-head>button { display:grid; place-items:center; width:40px; height:40px; border:1px solid #dce7df; border-radius:12px; background:#f3f7f4; color:#426451; cursor:pointer; }
 .client-messaging-head .ui-icon { width:18px; height:18px; }
-.client-messaging-recipient { display:flex; align-items:baseline; gap:9px; margin-top:18px; padding:13px 14px; border:1px solid #e1e9e3; border-radius:14px; background:#f8faf8; }
+.client-messaging-recipient { display:flex; flex-wrap:wrap; align-items:baseline; gap:9px; margin-top:18px; padding:13px 14px; border:1px solid #e1e9e3; border-radius:14px; background:#f8faf8; }
+.client-messaging-recipient>* { min-width:0; overflow-wrap:anywhere; }
 .client-messaging-recipient strong { font-size:14px; }
 .client-messaging-recipient span { color:#667b70; font-size:11px; font-weight:750; }
 .client-message-presets { display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
