@@ -26,16 +26,19 @@
   function effectivePerformerId(item, outcome) {
     return String((completed(item, outcome) && outcome.completed_performer_id) || item.performer_id || '');
   }
+  function currentTeamRows(teamState = {}, expectedTeamKey = '') {
+    return typeof expectedTeamKey === 'string' && expectedTeamKey.length > 0 && teamState.status === 'ready'
+      && teamState.key === expectedTeamKey && Array.isArray(teamState.rows) ? teamState.rows : [];
+  }
   function teamRows(items, { outcomeFor, valueFor, durationFor, clientIdentityFor, teamState = {}, expectedTeamKey = '' }) {
-    const payrollCurrent = Boolean(expectedTeamKey) && teamState.status === 'ready' && teamState.key === expectedTeamKey;
-    const performerRows = payrollCurrent && Array.isArray(teamState.rows) ? teamState.rows : [];
+    const performerRows = currentTeamRows(teamState, expectedTeamKey);
     const groups = new Map();
     const rowFor = (id, name = 'Мастер', payroll = null) => ({
       performer_id:id, performer_name:name, completed_visits:0, unique_clients:0,
       worked_minutes:0, revenue_rub:0, payroll_rub:payroll, payment_known_visits:0, clients:new Set()
     });
     // Never carry salary or staff labels across a stale actor/org/period snapshot.
-    if (payrollCurrent) performerRows.forEach(row => {
+    performerRows.forEach(row => {
       const id = String(row.performer_id || '');
       const payroll = row.payroll_rub == null || !Number.isFinite(Number(row.payroll_rub)) ? null : Number(row.payroll_rub);
       groups.set(id, rowFor(id, row.performer_name || 'Мастер', payroll));
@@ -53,5 +56,5 @@
     });
     return [...groups.values()].map(({clients, ...row}) => ({...row, unique_clients:clients.size}));
   }
-  global.MinutaReportReconciliation = Object.freeze({ completed, paymentUnknown, amounts, serviceValue, effectivePerformerId, teamRows });
+  global.MinutaReportReconciliation = Object.freeze({ completed, paymentUnknown, amounts, serviceValue, effectivePerformerId, currentTeamRows, teamRows });
 })(globalThis);

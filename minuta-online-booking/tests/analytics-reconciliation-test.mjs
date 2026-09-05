@@ -13,9 +13,9 @@ function declaration(name){
   const lineEnd=source.indexOf('\n',start),end=source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2;
   return source.slice(start,end);
 }
-const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange'];
+const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange','reportExportPerformers','reportExportMaster','reportExportCreator','applyBookingQuery'];
 // New shared report helpers are loaded verbatim when implemented, not stubbed.
-const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId'];
+const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId','reportCurrentTeamRows'];
 const actual=[...optional.filter(name=>source.includes(`function ${name}(`)),...names].map(declaration).join('\n');
 const range={start:'2026-09-01',end:'2026-09-30',period:'month'};
 function booking(id, overrides={}){
@@ -99,4 +99,24 @@ test('actual per-minute display and export valuation agree with actual duration 
   const item={duration_minutes:60,outcome:{visit_status:'completed',actual_duration_minutes:30,calculated_amount_rub:0}};
   const displayed=context.reportServiceValue?context.reportServiceValue(item):context.bookingCalculatedValue(item);
   assert.equal(displayed,300);assert.equal(context.reportExportValue(item),300);
+});
+
+test('stale actor/org team snapshot cannot leak staff or creator names into export',()=>{
+  for (const key of ['1:other:org-A:2026-09-01:2026-09-30','1:master-A:org-B:2026-09-01:2026-09-30']) {
+    const {state,context}=fixture([booking('A',{created_by_user_id:'master-A',booking_source:'provider_manual'})],[],[{performer_id:'master-A',performer_name:'PRIVATE OLD ORG NAME',payroll_rub:321}]);
+    state.reportTeamAnalyticsState.key=key;
+    const data=context.reportExportData();
+    assert.equal(data.rows[0][6],'Мастер');assert.equal(data.rows[0][15],'Мастер');
+    assert.ok(!JSON.stringify(data).includes('PRIVATE OLD ORG NAME'));
+    assert.equal(data.team[0][6],'Не рассчитано');
+  }
+});
+
+test('actual analytics debt drilldown agrees with completed performer report scope',()=>{
+  const items=[booking('A',{booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:600,completed_performer_id:'master-B'}}),booking('B')];
+  const {state,context}=fixture(items);
+  Object.assign(state,{reportCanViewTeam:true,reportPerformerFilter:'master-B',currentFilter:'all',bookingSearchQuery:'',bookingStatusFilter:'all',bookingSourceFilter:'all',bookingAnalyticsFilter:'debt',bookingAnalyticsScope:{...range,performer:'master-B'}});
+  const expected=context.reportBookings(range).filter(item=>context.reportDebtAmount(item)>0).map(item=>item.id);
+  assert.equal(expected.length,1);
+  assert.deepEqual(Array.from(context.applyBookingQuery(items),item=>item.id),Array.from(expected));
 });

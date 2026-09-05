@@ -3795,7 +3795,11 @@ function reportExportVisit(item) {
   const status = bookingOutcome(item).visit_status;
   return item.status === 'cancelled' ? 'Отменён' : status === 'completed' ? 'Состоялся' : status === 'no_show' ? 'Не пришёл' : 'Запланирован';
 }
-function reportExportPerformers() { return new Map((reportTeamAnalyticsState.rows || []).map(row => [String(row.performer_id || ''), row.performer_name || 'Мастер'])); }
+function reportCurrentTeamRows() {
+  const query = reportDataQueryRange(reportRange());
+  return globalThis.MinutaReportReconciliation.currentTeamRows(reportTeamAnalyticsState, reportSessionKey(reportOrganizationId(), query.start, query.end));
+}
+function reportExportPerformers() { return new Map(reportCurrentTeamRows().map(row => [String(row.performer_id || ''), row.performer_name || 'Мастер'])); }
 function reportExportMaster(item, performers) { return performers.get(reportEffectivePerformerId(item)) || 'Мастер'; }
 function reportExportCreator(item, performers) {
   if (item.booking_source === 'client_online') return 'Клиент';
@@ -5034,7 +5038,7 @@ function applyBookingQuery(items) {
     if (bookingStatusFilter !== 'all' && bookingStatusClass(item) !== bookingStatusFilter) return false;
     if (bookingSourceFilter !== 'all' && reportBookingSource(item) !== bookingSourceFilter) return false;
     if (bookingAnalyticsScope && (item.booking_date < bookingAnalyticsScope.start || item.booking_date > bookingAnalyticsScope.end)) return false;
-    if (bookingAnalyticsScope?.performer && bookingAnalyticsScope.performer !== 'all' && String(item.performer_id || '') !== String(bookingAnalyticsScope.performer)) return false;
+    if (bookingAnalyticsScope?.performer && bookingAnalyticsScope.performer !== 'all' && reportEffectivePerformerId(item) !== String(bookingAnalyticsScope.performer)) return false;
     if (bookingAnalyticsFilter === 'debt' && !(reportDebtAmount(item) > 0)) return false;
     if (bookingAnalyticsFilter === 'lost' && !(item.status === 'cancelled' || bookingOutcome(item).visit_status === 'no_show')) return false;
     if (!query) return true;
