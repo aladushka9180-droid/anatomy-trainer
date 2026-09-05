@@ -246,7 +246,7 @@
       const data = result?.data, error = result?.error;
       const confirmed = error === null && data?.organization_id === organizationId
         && typeof data.account_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(data.account_id)
-        && Number.isInteger(data.balance_points) && data.balance_points >= 0 && data.balance_points <= 2147483647;
+        && Number.isInteger(data.balance_points) && data.balance_points >= 0 && data.balance_points <= 10000000;
       const refusals = {
         '42501':['authentication_required','loyalty_management_denied','loyalty_client_not_in_organization'],
         '22023':['invalid_loyalty_adjustment'], '55000':['loyalty_disabled','insufficient_loyalty_balance']

@@ -285,3 +285,16 @@ test('same-actor session reset while pending cannot start a second request; read
   assert.equal(f.notices.length,0);await f.controller.load();await f.submit();
   assert.deepEqual(f.mutations()[1].args,f.mutations()[0].args);assert.equal(f.ledger.rows.length,1);
 });
+
+test('v81 maximum balance ACK 10000000 is accepted',async()=>{
+  const f=fixture();await f.start();f.ledger.balances.set(`${ORG}:${CLIENT}`,9999900);await f.submit();
+  assert.equal(f.ledger.rows[0].balance_after,10000000);assert.deepEqual(f.notices,['Баланс скорректирован']);
+  assert.equal(f.get('loyaltyAdjustmentPoints').value,'');
+});
+
+test('impossible v81 balance ACK 10000001 remains unknown and replays the same key',async()=>{
+  const f=fixture();await f.start();
+  f.replyNext({data:{organization_id:ORG,account_id:ACCOUNT,balance_points:10000001},error:null});await f.submit();
+  assert.equal(f.notices.length,0);assert.equal(f.get('loyaltyAdjustmentForm').dataset.adjustmentState,'unknown');
+  await f.submit();assert.deepEqual(f.mutations()[1].args,f.mutations()[0].args);assert.equal(f.ledger.rows.length,1);
+});
