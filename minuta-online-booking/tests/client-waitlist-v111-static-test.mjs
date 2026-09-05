@@ -8,6 +8,8 @@ assert.match(sql,/foreign key \(location_id, organization_id\) references public
 assert.match(sql,/get_public_minuta_catalog_v4\(p_slug\)/);
 assert.match(sql,/s->'location_ids'/);
 assert.match(sql,/pg_advisory_xact_lock/);
+assert.match(sql,/raise exception 'waitlist_request_already_exists'/);
+assert.doesNotMatch(sql,/return query select v_existing.request_code,v_existing.manage_token;\s*return;/);
 assert.match(sql,/organization_id,location_id,service_id,desired_date,client_phone/);
 assert.match(sql,/performer_id=\(select auth.uid\(\)\) and public.is_organization_member/);
 assert.match(sql,/revoke all on public.organization_waitlist_requests from public,anon,authenticated/);

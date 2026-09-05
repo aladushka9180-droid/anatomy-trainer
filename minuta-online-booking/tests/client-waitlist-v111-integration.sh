@@ -8,6 +8,7 @@ node minuta-online-booking/scripts/migration-config-guard.mjs
   for pass in 1 2; do
     sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v111.sql
   done
+  cat minuta-online-booking/tests/client-waitlist-v111-schema-check.sql
   cat minuta-online-booking/tests/client-waitlist-v111-integration.sql
   sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v111-rollback.sql
   printf '\nselect pg_temp.check_waitlist_rollback();\n'

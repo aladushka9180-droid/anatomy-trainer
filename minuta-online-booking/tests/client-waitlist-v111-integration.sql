@@ -56,6 +56,16 @@ begin
       gen_random_uuid(),desired,'any','Waitlist test','79990000111');
     raise exception 'foreign_service_accepted';
   exception when raise_exception then if sqlerrm <> 'service_unavailable' then raise; end if; end;
+  begin
+    perform public.join_minuta_waitlist_v111(current_setting('waitlist.slug'),current_setting('waitlist.loc')::uuid,
+      current_setting('waitlist.service')::uuid,desired-2,'any','Waitlist test','79990000111');
+    raise exception 'past_date_accepted';
+  exception when raise_exception then if sqlerrm <> 'invalid_waitlist_date' then raise; end if; end;
+  begin
+    perform public.join_minuta_waitlist_v111(current_setting('waitlist.slug'),current_setting('waitlist.loc')::uuid,
+      current_setting('waitlist.service')::uuid,desired,'invalid','Waitlist test','79990000111');
+    raise exception 'invalid_period_accepted';
+  exception when raise_exception then if sqlerrm <> 'invalid_time_period' then raise; end if; end;
   begin perform count(*) from public.organization_waitlist_requests; raise exception 'anon_read_allowed';
   exception when insufficient_privilege then null; end;
 end $$;
@@ -88,6 +98,23 @@ do $$ begin
   perform public.set_minuta_waitlist_status_v111(current_setting('waitlist.request')::uuid,'booked');
   raise exception 'outsider_update';
 exception when raise_exception then if sqlerrm <> 'waitlist_request_unavailable' then raise; end if; end $$;
+reset role;
+
+update public.organization_memberships set is_bookable=false where organization_id=current_setting('waitlist.org')::uuid;
+set local role anon;
+do $$ begin
+  perform public.join_minuta_waitlist_v111(current_setting('waitlist.slug'),current_setting('waitlist.loc')::uuid,
+    current_setting('waitlist.service')::uuid,timezone('Europe/Samara',now())::date+2,'any','Waitlist test','79990000111');
+  raise exception 'non_bookable_performer_accepted';
+exception when raise_exception then if sqlerrm <> 'service_unavailable' then raise; end if; end $$;
+reset role;
+update public.organizations set public_booking_enabled=false where id=current_setting('waitlist.org')::uuid;
+set local role anon;
+do $$ begin
+  perform public.join_minuta_waitlist_v111(current_setting('waitlist.slug'),current_setting('waitlist.loc')::uuid,
+    current_setting('waitlist.service')::uuid,timezone('Europe/Samara',now())::date+2,'any','Waitlist test','79990000111');
+  raise exception 'private_organization_accepted';
+exception when raise_exception then if sqlerrm <> 'waitlist_location_unavailable' then raise; end if; end $$;
 reset role;
 
 -- Called after the rollback is applied: clients must still be able to cancel.
