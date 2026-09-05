@@ -6,7 +6,11 @@ if (providerNavigation?.type === 'reload') document.documentElement.classList.ad
 const providerReadFetch = window.MinutaProviderReadFetch.create({ baseUrl:window.MINUTA_CONFIG.supabaseUrl });
 let freeSlotsController = null;
 window.addEventListener('minuta:provider-session-reset', () => freeSlotsController?.invalidateScope());
-window.addEventListener('minuta:provider-session-reset', () => providerReadFetch.cancelPendingReads());
+let bookingSeriesCancellationRevision = 0;
+window.addEventListener('minuta:provider-session-reset', () => {
+  bookingSeriesCancellationRevision += 1;
+  providerReadFetch.cancelPendingReads();
+});
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -1926,7 +1930,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=443#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=444#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3709,7 +3713,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=443');
+    worker = new Worker('./report-worker.js?v=444');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5568,6 +5572,7 @@ function openBookingSeriesCancellation(id) {
     </form>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
+  $('#bookingSeriesCancelForm').dataset.cancellationRevision = String(++bookingSeriesCancellationRevision);
   $('#bookingSeriesCancelForm').addEventListener('submit', cancelBookingSeries);
   applyWriteAvailability();
 }
@@ -5575,32 +5580,89 @@ function openBookingSeriesCancellation(id) {
 async function cancelBookingSeries(event) {
   event.preventDefault();
   if (!requireWrites()) return;
+  const form = event.currentTarget;
+  const revision = bookingSeriesCancellationRevision;
+  if (form !== $('#bookingSeriesCancelForm') || $('#bookingSheet').hidden
+    || form.dataset.cancellationRevision !== String(revision) || form.dataset.cancellationPending) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
-  const id = event.currentTarget.dataset.bookingId;
-  const scope = event.currentTarget.elements.cancelBookingSeriesScope?.value || 'one';
+  const organizationId = activeClientOrganizationId;
+  const id = form.dataset.bookingId;
+  const seriesId = allBookings.find(item => item.id === id)?.series_id;
+  const scope = form.elements.cancelBookingSeriesScope?.value || 'one';
   const button = event.submitter;
+  const unconfirmedMessage = 'Не удалось подтвердить результат. Проверьте актуальные данные перед повтором.';
+  const contextIsCurrent = () => sessionIsCurrent(userId, generation) && activeClientOrganizationId === organizationId;
+  const formIsCurrent = () => contextIsCurrent() && bookingSeriesCancellationRevision === revision
+    && form === $('#bookingSeriesCancelForm') && !$('#bookingSheet').hidden;
+  let closedRevision = null;
+  const completionIsCurrent = () => contextIsCurrent() && closedRevision !== null
+    && bookingSeriesCancellationRevision === closedRevision
+    && form === $('#bookingSeriesCancelForm') && $('#bookingSheet').hidden;
+  form.dataset.cancellationPending = 'true';
   button.disabled = true;
   button.textContent = 'Отменяем…';
-  const { data, error } = await db.rpc('manage_minuta_booking_series', {
-    p_booking: id,
-    p_action: 'cancel',
-    p_scope: scope,
-    p_date: null,
-    p_time: null
-  });
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (error) {
-    button.disabled = false;
-    button.textContent = 'Отменить выбранные записи';
-    showFormError('#bookingSeriesCancelError', seriesRpcErrorMessage(error, 'cancel'));
-    return;
+  try {
+    const { data, error } = await db.rpc('manage_minuta_booking_series', {
+      p_booking: id,
+      p_action: 'cancel',
+      p_scope: scope,
+      p_date: null,
+      p_time: null
+    });
+    if (!formIsCurrent()) return;
+    if (error) {
+      // Only exact server rejections justify specific guidance. A fulfilled
+      // network error, like a rejected Promise, does not prove rollback.
+      const rejectionMessages = {
+        '42501:authentication_required':'Войдите в аккаунт снова и обновите журнал.',
+        '42501:booking_access_denied':'У вас нет доступа к отмене этой записи.',
+        '22023:invalid_series_action':'Параметры отмены устарели. Откройте форму заново.',
+        'P0001:booking_not_found':'Запись не найдена. Обновите журнал.',
+        'P0001:booking_not_in_series':'Эта запись не входит в серию. Обновите журнал.',
+        'P0001:series_booking_not_actionable':'Эту запись уже нельзя отменить. Обновите журнал.',
+        'P0001:series_has_no_actionable_bookings':'В выбранной части серии нет записей, доступных для отмены. Обновите журнал.',
+        'P0001:series_slot_unavailable':'Не удалось завершить отмену из-за конфликта данных. Обновите журнал.',
+        '55000:redeemed_benefit_cannot_cancel':'В серии есть запись с использованным сертификатом или абонементом. Сначала проверьте списание.'
+      };
+      const message = error.code === 'PGRST202'
+        ? 'Управление сериями пока недоступно. Обновите страницу или обратитесь в поддержку.'
+        : rejectionMessages[`${error.code}:${error.message}`] || unconfirmedMessage;
+      showFormError('#bookingSeriesCancelError', message);
+      return;
+    }
+    // v79 returns the requested series/action/scope and one occurrence per
+    // affected booking. Never turn an empty or partial envelope into success.
+    const affected = data?.affected;
+    const confirmed = typeof seriesId === 'string' && seriesId.length > 0
+      && data?.series_id === seriesId && data.action === 'cancel' && data.scope === scope
+      && Number.isSafeInteger(data.affected_count) && data.affected_count > 0 && data.affected_count <= 24
+      && Array.isArray(affected) && affected.length === data.affected_count
+      && affected.every(entry => entry && typeof entry.booking_id === 'string'
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(entry.booking_id)
+        && Number.isSafeInteger(entry.occurrence) && entry.occurrence > 0 && entry.occurrence <= 24)
+      && new Set(affected.map(entry => entry.booking_id)).size === affected.length
+      && new Set(affected.map(entry => entry.occurrence)).size === affected.length
+      && (scope !== 'one' || (affected.length === 1 && affected[0].booking_id === id));
+    if (!confirmed) {
+      showFormError('#bookingSeriesCancelError', unconfirmedMessage);
+      return;
+    }
+    affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'cancelled'));
+    closeBookingSheet();
+    closedRevision = bookingSeriesCancellationRevision;
+    await refreshAfterWrite();
+    if (completionIsCurrent()) notify(`Отменено: ${seriesBookingCountLabel(Number(data?.affected_count || affected.length))}`);
+  } catch {
+    if (completionIsCurrent()) notify('Записи отменены. Не удалось обновить журнал — обновите его перед следующим действием.');
+    else if (formIsCurrent()) showFormError('#bookingSeriesCancelError', unconfirmedMessage);
+  } finally {
+    if (formIsCurrent()) {
+      delete form.dataset.cancellationPending;
+      button.disabled = false;
+      button.textContent = 'Отменить выбранные записи';
+    }
   }
-  const affected = Array.isArray(data?.affected) ? data.affected : [];
-  affected.forEach(entry => notifyTelegramClient(entry.booking_id, 'cancelled'));
-  closeBookingSheet();
-  await refreshAfterWrite();
-  notify(`Отменено: ${seriesBookingCountLabel(Number(data?.affected_count || affected.length))}`);
 }
 
 async function saveBookingBlockNote(event) {
@@ -6917,6 +6979,7 @@ async function createNewBooking(event) {
 }
 
 function closeBookingSheet() {
+  bookingSeriesCancellationRevision += 1;
   editingOfflineBookingId = '';
   newBookingHistoricalMode = false;
   $('#bookingSheet').hidden = true;
@@ -10495,6 +10558,7 @@ const organizationController = window.MinutaOrganization.createController({
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
     activeClientOrganizationId = nextClientOrganizationId;
+    if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
     if (clientOrganizationChanged) {
       importedClients = [];
       importedBookingHistory = [];

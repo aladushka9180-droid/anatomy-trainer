@@ -9,10 +9,12 @@ on:
       - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/index.html'
       - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/ui-icons.svg'
       - 'minuta-online-booking/styles.css'
       - 'minuta-online-booking/vendor/supabase-*.min.js'
       - 'minuta-online-booking/tests/public-booking-recovery*.mjs'
       - 'minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs'
+      - 'minuta-online-booking/tests/series-cancellation-recovery*.mjs'
       - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   pull_request:
@@ -23,10 +25,12 @@ on:
       - 'minuta-online-booking/provider.js'
       - 'minuta-online-booking/index.html'
       - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/ui-icons.svg'
       - 'minuta-online-booking/styles.css'
       - 'minuta-online-booking/vendor/supabase-*.min.js'
       - 'minuta-online-booking/tests/public-booking-recovery*.mjs'
       - 'minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs'
+      - 'minuta-online-booking/tests/series-cancellation-recovery*.mjs'
       - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   workflow_dispatch:
@@ -46,6 +50,7 @@ jobs:
       - run: node --check minuta-online-booking/app.js
       - run: node --check minuta-online-booking/payment-management.js
       - run: node minuta-online-booking/tests/public-booking-recovery-test.mjs
+      - run: node minuta-online-booking/tests/series-cancellation-recovery-test.mjs
       - run: node minuta-online-booking/tests/refund-amount-ux-test.mjs
       - run: node minuta-online-booking/yookassa-v87-static-test.mjs
 
@@ -66,3 +71,4 @@ jobs:
       - run: node minuta-online-booking/tests/refund-amount-ux-browser-test.mjs
       - run: node minuta-online-booking/tests/public-booking-recovery-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs
+      - run: node minuta-online-booking/tests/series-cancellation-recovery-browser-test.mjs
