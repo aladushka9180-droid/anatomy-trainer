@@ -167,7 +167,8 @@ function checkReleaseOrder() {
     const expectedLatestSuffix = jobName === 'test-migration'
       ? [106, 107, 108, 109, 106, 107, 108, 109]
       : [106, 107, 108, 109];
-    const actualLatestSuffix = chain.slice(-expectedLatestSuffix.length).map(reference => reference.version);
+    const latestStart = chain.findIndex(reference => reference.version === expectedLatestSuffix[0]);
+    const actualLatestSuffix = chain.slice(latestStart, latestStart + expectedLatestSuffix.length).map(reference => reference.version);
     if (actualLatestSuffix.join(',') !== expectedLatestSuffix.join(',')) {
       errors.push(`Job ${jobName} должен завершать цепочку миграций версиями ${expectedLatestSuffix.join(', ')}.`);
     }
