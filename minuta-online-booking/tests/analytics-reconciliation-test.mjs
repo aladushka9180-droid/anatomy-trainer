@@ -12,9 +12,9 @@ function declaration(name){
   const lineEnd=source.indexOf('\n',start),end=source.slice(start,lineEnd).endsWith('}')?lineEnd:source.indexOf('\n}',start)+2;
   return source.slice(start,end);
 }
-const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit'];
+const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange'];
 // New shared report helpers are loaded verbatim when implemented, not stubbed.
-const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows'];
+const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId'];
 const actual=[...optional.filter(name=>source.includes(`function ${name}(`)),...names].map(declaration).join('\n');
 const range={start:'2026-09-01',end:'2026-09-30',period:'month'};
 function booking(id, overrides={}){
@@ -23,7 +23,7 @@ function booking(id, overrides={}){
 }
 function fixture(items=[],imports=[],team=[]){
   const state={allBookings:items,importedBookingHistory:imports,reportDataSource:'own',reportCanViewTeam:false,reportPerformerFilter:'all',
-    reportScopedBookingsState:{status:'ready',rows:items},reportTeamAnalyticsState:{status:'ready',rows:team},reportEventState:{rows:[]},
+    sessionGeneration:1,reportPeriod:'month',reportScopedBookingsState:{status:'ready',rows:items},reportTeamAnalyticsState:{status:'ready',key:'1:master-A:org-A:2026-09-01:2026-09-30',rows:team},reportEventState:{rows:[]},
     currentUser:{id:'master-A'},reportRange:()=>range,reportUsesScopedBookings:()=>false,reportOrganizationId:()=> 'org-A',
     isScheduleBlock:item=>Boolean(item.is_schedule_block),bookingOutcome:item=>item.booking_outcomes,
     normalizePhone:value=>String(value||'').replace(/\D/g,''),parseLocalIsoDate:value=>new Date(`${value}T00:00:00Z`),
@@ -71,4 +71,31 @@ test('team export reconciles with detail, without recomputing server payroll',()
 test('proposed money contract: imported price remains service value, not evidenced payment or debt',()=>{
   const {context}=fixture([], [booking('import',{is_imported_history:true,booking_outcomes:{visit_status:'completed',payment_method:'imported',amount_rub:1000}})]);
   const data=context.reportExportData();assert.equal(data.completedValue,1000);assert.equal(data.revenue,0);assert.equal(data.debt,0);
+});
+
+test('mixed report separates 600 recorded payment, 1000 imported value and unknown payment coverage',()=>{
+  const {context}=fixture([booking('A')],[booking('import',{is_imported_history:true,booking_outcomes:{visit_status:'completed',payment_method:'imported',amount_rub:1000}})]);
+  const data=context.reportExportData();assert.equal(data.revenue,600);assert.equal(data.completedValue,2000);
+  assert.equal(data.debt,400);assert.equal(data.importedValue,1000);assert.equal(data.unknownPaymentCount,1);
+});
+test('control: overpayment of another visit does not erase unpaid visit debt',()=>{
+  const {context}=fixture([booking('over',{booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:2000}}),booking('unpaid',{client_phone:'79990000001',booking_outcomes:{visit_status:'completed',payment_method:'unpaid',amount_rub:0}})]);
+  assert.equal(context.reportExportData().debt,1000);
+});
+test('stale team scope cannot supply payroll for another period',()=>{
+  const {state,context}=fixture([booking('A')],[],[{performer_id:'master-A',performer_name:'Мастер A',completed_visits:1,revenue_rub:600,payroll_rub:321}]);
+  state.reportTeamAnalyticsState.key='1:master-A:org-A:2026-08-01:2026-08-31';
+  assert.equal(context.reportExportData().team[0][6],'Не рассчитано');
+});
+test('completed performer snapshot takes precedence, with assigned performer fallback',()=>{
+  const {context}=fixture([booking('A',{booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:600,completed_performer_id:'master-B'}}),booking('B')],[],[{performer_id:'master-A',performer_name:'Мастер A',payroll_rub:0},{performer_id:'master-B',performer_name:'Мастер B',payroll_rub:0}]);
+  const rows=context.reportExportData().team;
+  assert.equal(rows.find(row=>row[0]==='Мастер B')?.[1],1);assert.equal(rows.find(row=>row[0]==='Мастер A')?.[1],1);
+});
+test('actual per-minute display and export valuation agree with actual duration fallback',()=>{
+  const context=vm.createContext({bookingOutcome:item=>item.outcome,isPerMinuteBooking:()=>true,bookingSessionTotal:()=>600,bookingMinuteRate:()=>10,bookingSession:()=>[],bookingSessionDuration:()=>60});
+  vm.runInContext(['bookingCalculatedValue','reportExportDuration','reportExportValue',...optional.filter(name=>source.includes(`function ${name}(`))].map(declaration).join('\n'),context);
+  const item={duration_minutes:60,outcome:{visit_status:'completed',actual_duration_minutes:30,calculated_amount_rub:0}};
+  const displayed=context.reportServiceValue?context.reportServiceValue(item):context.bookingCalculatedValue(item);
+  assert.equal(displayed,300);assert.equal(context.reportExportValue(item),300);
 });
