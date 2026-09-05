@@ -8238,6 +8238,7 @@ async function logout() {
   if (offlineBookingQueue.length && !confirm(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей. При выходе они будут удалены. Всё равно выйти?`)) return;
   ++sessionGeneration;
   clientRecordsController.reset();
+  notificationCenterController.reset();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
