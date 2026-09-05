@@ -8,6 +8,9 @@ on:
       - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
       - 'minuta-online-booking/benefit-management-controller-test.mjs'
+      - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/index.html'
       - '.github/workflows/minuta-booking-recovery.yml'
   pull_request:
     paths:
@@ -16,6 +19,9 @@ on:
       - 'minuta-online-booking/tests/group-bookings-recovery-test.mjs'
       - 'minuta-online-booking/tests/benefit-expiry-boundary-test.mjs'
       - 'minuta-online-booking/benefit-management-controller-test.mjs'
+      - 'minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/index.html'
       - '.github/workflows/minuta-booking-recovery.yml'
   workflow_dispatch:
 
@@ -36,3 +42,19 @@ jobs:
       - run: node minuta-online-booking/tests/group-bookings-recovery-test.mjs
       - run: node minuta-online-booking/tests/benefit-expiry-boundary-test.mjs
       - run: node minuta-online-booking/benefit-management-controller-test.mjs
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated browser dependencies
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/group-browser" --no-save --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/group-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/group-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - run: node minuta-online-booking/tests/group-bookings-recovery-browser-test.mjs
