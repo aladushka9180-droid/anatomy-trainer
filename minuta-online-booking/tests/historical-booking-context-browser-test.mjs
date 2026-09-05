@@ -28,7 +28,8 @@ const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bo
 }).join('\n');
 const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';if(operations)functions.push('beginBookingColorOperation');
 const opening=source.match(/^\$\('#newBookingButton'\)\.addEventListener\('click',[^\n]+/m)?.[0];assert.ok(opening,'Actual opening click handler');
-const loader=[constants,revisions,operations,...functions.map(declaration),opening,
+const metadataDependencies = source.includes('// Background replay') ? source.slice(source.indexOf('// Background replay'), source.indexOf('// Local completion ownership')) : '';
+const loader=[metadataDependencies,constants,revisions,operations,...functions.map(declaration),opening,
   listener("document.addEventListener('click', async event => {"),
   listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;")].join('\n');
 const ids={booking:'11111111-1111-4111-8111-111111111111',service:'22222222-2222-4222-8222-222222222222'};

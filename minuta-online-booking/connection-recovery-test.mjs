@@ -39,6 +39,7 @@ function harness() {
     freeSlotsController:{refresh(){}}, providerPerformance:{measure(){}},
     loadRemoteBookingColors:async()=>true, renderBookingData(){},
     applyAutomaticVisitOutcomes:async()=>{}, flushOfflineBookings:async()=>{},
+    metadataFlushes:0, flushPendingMetadata:async()=>{context.metadataFlushes++;return true;},
     canQueueOfflineBooking:()=>false, reliability:{savedAtLabel:()=>''},
     organizationController:{load:async()=>({ok:true})}, teamCalendarController:{load:async()=>({ok:true})},
     loads:0, loadNames:[],
@@ -153,6 +154,7 @@ function harness() {
   };
   const run = h.c.synchronizeProvider();
   await started;
+  assert.equal(h.c.metadataFlushes, 1, 'successful full synchronization replays pending metadata before outcomes');
   h.c.navigator.onLine = false;
   h.events.get('offline')();
   finishOutcomes();

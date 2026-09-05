@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import './provider-layout-responsive-test.mjs';
 import './connection-recovery-test.mjs';
 import './provider-read-fetch-test.mjs';
+import './tests/metadata-offline-recovery-test.mjs';
 import { readFileSync } from 'node:fs';
 
 const read = file => readFileSync(new URL(file, import.meta.url), 'utf8');

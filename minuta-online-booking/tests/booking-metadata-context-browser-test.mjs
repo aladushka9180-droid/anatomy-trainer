@@ -38,7 +38,8 @@ const functions=['openBookingSheet','closeBookingSheet','saveBookingBlockNote','
 if(/^function captureBookingMetadataContext\(/m.test(source))functions.push('captureBookingMetadataContext');
 const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';
 if(operations)functions.push('beginBookingColorOperation');
-const loader=[constants,revisions,resets,orgHook,operations,...functions.map(declaration),
+const metadataDependencies = source.includes('// Background replay') ? source.slice(source.indexOf('// Background replay'), source.indexOf('// Local completion ownership')) : '';
+const loader=[metadataDependencies,constants,revisions,resets,orgHook,operations,...functions.map(declaration),
   listener("document.addEventListener('change', async event => {"),
   listener("document.addEventListener('click', async event => {"),
   listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;")].join('\n');

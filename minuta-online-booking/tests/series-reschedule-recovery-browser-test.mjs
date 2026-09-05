@@ -47,7 +47,8 @@ assert.ok(orgStart>=0&&orgEnd>orgStart,'Actual organization identity/epoch prefi
 const orgHook = source.slice(orgStart,orgEnd).replace('  onActiveOrganizationChange: organization => {','function changeOrganization(organization) {')+'\n}';
 const colorOperationRegistry = source.match(/^const bookingColorOperations = .*;$/m)?.[0];
 assert.ok(colorOperationRegistry, 'Actual per-map operation registry declaration');
-const loader = [lifecycle, resetHooks, orgHook, colorConstants, colorOperationRegistry, ...names.map(declaration),
+const metadataDependencies = source.includes('// Background replay') ? source.slice(source.indexOf('// Background replay'), source.indexOf('// Local completion ownership')) : '';
+const loader = [metadataDependencies,lifecycle, resetHooks, orgHook, colorConstants, colorOperationRegistry, ...names.map(declaration),
   declaration('saveBookingColor').replace('function saveBookingColor(', 'function actualSaveBookingColor('),
   declaration('saveBookingNote').replace('function saveBookingNote(', 'function actualSaveBookingNote('),
   listener("document.addEventListener('click', async event => {"),

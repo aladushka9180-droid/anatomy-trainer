@@ -324,6 +324,7 @@ let portfolioDraggedId = '';
 let portfolioPhotoDrafts = { before: null, after: null };
 let portfolioPreviewUrls = [];
 let clientNotes = new Map();
+let pendingClientNotes = new Map();
 let clientLabels = new Map();
 let clientAvatars = new Map();
 let importedClients = [];
@@ -1010,6 +1011,11 @@ function compactSyncLabel(kind, text) {
   return 'Проверить связь';
 }
 function setSyncState(kind, text) {
+  const pendingMetadata = pendingBookingColors.size + pendingBookingNotes.size + pendingClientLabels.size + pendingClientNotes.size;
+  if (kind === 'online' && pendingMetadata) {
+    kind = 'warning';
+    text = `Есть несохранённое изменение: ${pendingMetadata} · повторим отправку при синхронизации`;
+  }
   const element = $('#syncState');
   if (!element) return;
   element.className = `sync-state is-${kind}`;
@@ -1031,7 +1037,8 @@ async function manualSynchronizeProvider() {
     if (synchronizationPromise) await synchronizationPromise;
     const complete = await synchronizeProvider();
     if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
-    notify(complete ? 'Все данные обновлены' : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
+    const pending = pendingBookingColors.size + pendingBookingNotes.size + pendingClientLabels.size + pendingClientNotes.size;
+    notify(complete ? (pending ? 'Данные обновлены · есть изменения, ожидающие отправки' : 'Все данные обновлены') : bookingCreationReady ? 'Записи и расписание обновлены' : 'Не удалось обновить данные · повторим автоматически');
     return complete;
   } catch {
     recordConnectionEvent('error', 'Ручное обновление завершилось ошибкой');
@@ -1224,7 +1231,8 @@ function persistClientLabels(userId = currentUser?.id) {
   try {
     localStorage.setItem(clientLabelStorageKey(userId), JSON.stringify(Object.fromEntries(clientLabels)));
     localStorage.setItem(clientLabelPendingStorageKey(userId), JSON.stringify([...pendingClientLabels]));
-  } catch {}
+    return true;
+  } catch { return false; }
 }
 function clientLabel(phone) { return normalizeClientLabel(clientLabels.get(normalizePhone(phone))); }
 function clientHighlightClasses(phone) {
@@ -1825,7 +1833,8 @@ function persistBookingColors(userId = currentUser?.id) {
   try {
     localStorage.setItem(bookingColorStorageKey(userId), JSON.stringify(Object.fromEntries(bookingColors)));
     localStorage.setItem(bookingColorPendingStorageKey(userId), JSON.stringify([...pendingBookingColors]));
-  } catch {}
+    return true;
+  } catch { return false; }
 }
 function bookingNoteStorageKey(userId = currentUser?.id) { return `massage-booking-notes-v1:${userId || 'anonymous'}`; }
 function bookingNotePendingStorageKey(userId = currentUser?.id) { return `massage-booking-notes-pending-v1:${userId || 'anonymous'}`; }
@@ -1842,9 +1851,10 @@ function persistBookingNotes(userId = currentUser?.id) {
   try {
     localStorage.setItem(bookingNoteStorageKey(userId), JSON.stringify(Object.fromEntries(bookingNotes)));
     localStorage.setItem(bookingNotePendingStorageKey(userId), JSON.stringify([...pendingBookingNotes]));
-  } catch {}
+    return true;
+  } catch { return false; }
 }
-function bookingColor(item) { return validBookingColor(item?.color_key || bookingColors.get(item?.id)); }
+function bookingColor(item) { return validBookingColor(pendingBookingColors.has(item?.id) ? bookingColors.get(item?.id) : item?.color_key || bookingColors.get(item?.id)); }
 function bookingColorPicker(name, selected, bookingId = '') {
   const current = validBookingColor(selected);
   return `<fieldset class="booking-color-picker"><legend>Цвет записи</legend><div class="booking-color-options">${BOOKING_COLOR_KEYS.map(color => `<label class="booking-color-option color-${color}" title="${BOOKING_COLOR_LABELS[color]}"><input type="radio" name="${name}" value="${color}" aria-label="${BOOKING_COLOR_LABELS[color]}" ${color === current ? 'checked' : ''} ${bookingId ? `data-booking-color-id="${bookingId}"` : ''}><span aria-hidden="true"></span><small>${BOOKING_COLOR_LABELS[color]}</small></label>`).join('')}</div></fieldset>`;
@@ -1892,6 +1902,81 @@ function captureBookingMetadataContext() {
   return () => Boolean(userId) && sessionIsCurrent(userId, generation)
     && activeClientOrganizationId === organizationId && bookingMetadataRevision === revision;
 }
+// Background replay waits for already dispatched writes. A new edit waits for
+// replay, but keeps its own immediate local draft and completion ownership.
+const metadataWriteStates = new WeakMap();
+function runMetadataWrite(store, id, canSend, write, replay = false, rethrow = false) {
+  let entries = metadataWriteStates.get(store);
+  if (!entries) { entries = new Map(); metadataWriteStates.set(store, entries); }
+  let state = entries.get(id);
+  if (!state) { state = { active:new Set(), replay:null }; entries.set(id, state); }
+  const barrier = state.replay;
+  const earlier = replay ? [...state.active] : [];
+  const operation = (async () => {
+    try {
+      if (barrier) await barrier;
+      if (earlier.length) await Promise.all(earlier.map(task => task.catch(() => false)));
+      if (!canSend() || (typeof navigator !== 'undefined' && navigator.onLine === false)) return false;
+      const response = await write();
+      return Boolean(response && response.error === null);
+    } catch (error) { if (rethrow) throw error; return false; }
+  })();
+  state.active.add(operation);
+  if (replay) state.replay = operation;
+  const cleanup = () => {
+    state.active.delete(operation);
+    if (state.replay === operation) state.replay = null;
+    if (!state.active.size) entries.delete(id);
+  };
+  operation.then(cleanup, cleanup);
+  return operation;
+}
+const bookingNoteOperations = new WeakMap();
+function beginBookingNoteOperation(id) {
+  const notes = bookingNotes;
+  let operations = bookingNoteOperations.get(notes);
+  if (!operations) { operations = new Map(); bookingNoteOperations.set(notes, operations); }
+  const token = {};
+  operations.set(id, token);
+  return () => bookingNotes === notes && operations.get(id) === token;
+}
+function pendingClientNoteStorageKey(userId = currentUser?.id) { return `massage-client-notes-pending-v1:${userId || 'anonymous'}`; }
+function loadPendingClientNotes(userId = currentUser?.id) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(pendingClientNoteStorageKey(userId)) || '{}');
+    pendingClientNotes = new Map(Object.entries(saved).filter(([phone, note]) => normalizePhone(phone) === phone && typeof note === 'string').map(([phone, note]) => [phone, note.slice(0, 1000)]));
+  } catch { pendingClientNotes = new Map(); }
+  clientNotes = new Map(pendingClientNotes);
+}
+function persistPendingClientNotes(userId = currentUser?.id) {
+  if (!userId) return false;
+  try { localStorage.setItem(pendingClientNoteStorageKey(userId), JSON.stringify(Object.fromEntries(pendingClientNotes))); return true; }
+  catch { return false; }
+}
+const clientNoteSaveQueues = new Map();
+async function saveClientNoteValue(phone, note, { replay = false, isCurrent = () => true } = {}) {
+  const contextIsCurrent = captureBookingMetadataContext(), userId = currentUser?.id;
+  const generation = sessionGeneration, pending = pendingClientNotes;
+  phone = normalizePhone(phone);
+  const value = String(note || '').trim().slice(0, 1000);
+  const canApply = () => contextIsCurrent() && pendingClientNotes === pending && isCurrent();
+  if (!userId || !phone || !canApply()) return false;
+  pendingClientNotes.set(phone, value); clientNotes.set(phone, value);
+  const locallySaved = persistPendingClientNotes(userId);
+  const key = JSON.stringify([userId, generation, phone]);
+  const previous = clientNoteSaveQueues.get(key) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(() => runMetadataWrite(pending, phone,
+    () => canApply() && pendingClientNotes.get(phone) === value,
+    () => db.from('client_notes').upsert({performer_id:userId,client_phone:phone,note:value,updated_at:new Date().toISOString()}), replay));
+  clientNoteSaveQueues.set(key, operation);
+  const saved = await operation;
+  if (clientNoteSaveQueues.get(key) === operation) clientNoteSaveQueues.delete(key);
+  if (!canApply() || pendingClientNotes.get(phone) !== value) return false;
+  if (saved) pendingClientNotes.delete(phone);
+  persistPendingClientNotes(userId);
+  if (!saved && !locallySaved && !replay) throw new Error('local_note_storage_unavailable');
+  return saved;
+}
 // Local completion ownership only: this does not order concurrent server writes.
 // Replacing the account's color map also releases its operation registry.
 const bookingColorOperations = new WeakMap();
@@ -1903,7 +1988,7 @@ function beginBookingColorOperation(id) {
   operations.set(id, token);
   return () => bookingColors === colors && operations.get(id) === token;
 }
-async function saveBookingColor(id, color, { rerender = true, isCurrent = () => true, onOperation = null } = {}) {
+async function saveBookingColor(id, color, { rerender = true, isCurrent = () => true, onOperation = null, replay = false } = {}) {
   const contextIsCurrent = captureBookingMetadataContext();
   const userId = currentUser?.id;
   const colors = bookingColors, pending = pendingBookingColors;
@@ -1915,34 +2000,70 @@ async function saveBookingColor(id, color, { rerender = true, isCurrent = () => 
   const selected = validBookingColor(color);
   bookingColors.set(id, selected);
   pendingBookingColors.add(id);
-  persistBookingColors(userId);
+  const locallySaved = persistBookingColors(userId);
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.color_key = selected;
   if (rerender) renderBookingData();
-  const { error } = await db.rpc('set_booking_color', { p_booking: id, p_color: selected });
+  const saved = await runMetadataWrite(colors, id, () => canApply() && isLatest(),
+    () => db.rpc('set_booking_color', { p_booking:id, p_color:selected }), replay, !replay);
   if (!canApply() || !isLatest()) return false;
-  if (!error) pendingBookingColors.delete(id);
+  if (saved) pendingBookingColors.delete(id);
   persistBookingColors(userId);
-  return !error;
+  if (!saved && !locallySaved && !replay) throw new Error('local_color_storage_unavailable');
+  return saved;
 }
-async function saveBookingNote(id, note, { rerender = true, isCurrent = () => true } = {}) {
+async function saveBookingNote(id, note, { rerender = true, isCurrent = () => true, replay = false } = {}) {
   const contextIsCurrent = captureBookingMetadataContext();
   const userId = currentUser?.id;
   const notes = bookingNotes, pending = pendingBookingNotes;
   const canApply = () => contextIsCurrent() && bookingNotes === notes && pendingBookingNotes === pending && isCurrent();
   if (!canApply()) return false;
+  const isLatest = beginBookingNoteOperation(id);
   const value = String(note || '').trim().slice(0, 1000);
   bookingNotes.set(id, value);
-  persistBookingNotes(userId);
+  pendingBookingNotes.add(id);
+  const locallySaved = persistBookingNotes(userId);
   const item = allBookings.find(booking => booking.id === id);
   if (item) item.provider_note = value;
   if (rerender) renderBookingData();
-  const { error } = await db.rpc('set_booking_note', { p_booking: id, p_note: value });
-  if (!canApply()) return false;
-  if (error) pendingBookingNotes.add(id);
-  else pendingBookingNotes.delete(id);
+  const saved = await runMetadataWrite(notes, id, () => canApply() && isLatest(),
+    () => db.rpc('set_booking_note', { p_booking:id, p_note:value }), replay);
+  if (!canApply() || !isLatest()) return false;
+  if (saved) pendingBookingNotes.delete(id);
   persistBookingNotes(userId);
-  return !error;
+  if (!saved && !locallySaved && !replay) throw new Error('local_note_storage_unavailable');
+  return saved;
+}
+let metadataFlush = null;
+async function flushPendingMetadata() {
+  if (!currentUser || !navigator.onLine || !writesAllowed) return false;
+  const contextIsCurrent = captureBookingMetadataContext();
+  if (metadataFlush?.isCurrent()) return metadataFlush.promise;
+  const canSend = () => contextIsCurrent() && navigator.onLine && writesAllowed;
+  const run = (async () => {
+    const bookings = new Set(allBookings.filter(item => !activeClientOrganizationId || item.organization_id === activeClientOrganizationId).map(item => item.id));
+    for (const id of [...pendingBookingColors]) {
+      if (!canSend()) return false;
+      if (bookings.has(id) && bookingColors.has(id)) await saveBookingColor(id, bookingColors.get(id), { rerender:false, isCurrent:canSend, replay:true });
+    }
+    for (const id of [...pendingBookingNotes]) {
+      if (!canSend()) return false;
+      if (bookings.has(id) && bookingNotes.has(id)) await saveBookingNote(id, bookingNotes.get(id), { rerender:false, isCurrent:canSend, replay:true });
+    }
+    for (const phone of [...pendingClientLabels]) {
+      if (!canSend()) return false;
+      if (clientLabels.has(phone)) await persistClientLabelValue(phone, clientLabels.get(phone), null, { replay:true, isCurrent:canSend });
+    }
+    for (const [phone, note] of [...pendingClientNotes]) {
+      if (!canSend()) return false;
+      await saveClientNoteValue(phone, note, { replay:true, isCurrent:canSend });
+    }
+    if (canSend()) renderBookingData();
+    return canSend() && !pendingBookingColors.size && !pendingBookingNotes.size && !pendingClientLabels.size && !pendingClientNotes.size;
+  })();
+  const flight = { isCurrent:contextIsCurrent, promise:run };
+  metadataFlush = flight;
+  try { return await run; } finally { if (metadataFlush === flight) metadataFlush = null; }
 }
 async function loadRemoteBookingColors(userId, generation) {
   const { data, error } = await db.from('bookings').select('id,color_key,provider_note').eq('performer_id', userId);
@@ -5233,7 +5354,7 @@ function bookingClientNote(item) {
 
 function bookingDisplayNote(item) {
   return isScheduleBlock(item)
-    ? String(item?.provider_note || bookingNotes.get(item?.id) || '').trim()
+    ? String(pendingBookingNotes.has(item?.id) ? bookingNotes.get(item?.id) ?? '' : item?.provider_note || bookingNotes.get(item?.id) || '').trim()
     : bookingClientNote(item);
 }
 
@@ -5738,22 +5859,25 @@ async function saveBookingBlockNote(event) {
 async function saveBookingSheetNote(event) {
   event.preventDefault();
   if (!requireWrites()) return;
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
+  const contextIsCurrent = captureBookingMetadataContext();
+  const form = event.currentTarget;
   const phone = normalizePhone(event.currentTarget.dataset.clientPhone);
+  const isCurrent = () => contextIsCurrent() && form.isConnected && normalizePhone(form.dataset.clientPhone) === phone && !$('#bookingSheet').hidden;
   const note = $('#bookingSheetClientNote').value.trim();
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const { error } = await db.from('client_notes').upsert({ performer_id: userId, client_phone: phone, note, updated_at: new Date().toISOString() });
-  if (!sessionIsCurrent(userId, generation)) return;
-  button.disabled = false;
-  button.textContent = 'Сохранить заметку';
-  if (error) { notify('Не удалось сохранить заметку'); return; }
-  clientNotes.set(phone, note);
-  const noteState = $('.booking-note-state');
-  if (noteState) noteState.textContent = note ? 'Добавлена' : 'Добавить';
-  notify('Заметка сохранена');
+  try {
+    const saved = await saveClientNoteValue(phone, note, { isCurrent });
+    if (!isCurrent()) return;
+    const noteState = $('.booking-note-state');
+    if (noteState) noteState.textContent = note ? 'Добавлена' : 'Добавить';
+    notify(saved ? 'Заметка сохранена' : 'Заметка сохранена на этом устройстве · отправим после восстановления связи');
+  } catch {
+    if (isCurrent()) notify('Не удалось сохранить заметку. Не закрывайте страницу и повторите сохранение.');
+  } finally {
+    if (isCurrent()) { button.disabled = false; button.textContent = 'Сохранить заметку'; }
+  }
 }
 
 function serviceOptions(selectedId, activeOnly = false) {
@@ -7596,6 +7720,7 @@ async function loadClientNotes() {
   if (!sessionIsCurrent(userId, generation)) return { ok: false, stale: true };
   if (error) return { ok: false };
   clientNotes = new Map((data || []).map(item => [normalizePhone(item.client_phone), item.note]));
+  for (const [phone, note] of pendingClientNotes) clientNotes.set(phone, note);
   renderBookings();
   renderClients();
   return { ok: true };
@@ -7753,26 +7878,36 @@ function refreshClientLabelPresentation(phone) {
   }
 }
 
-async function persistClientLabelValue(phone, value, statusElement) {
-  const userId = currentUser.id;
+async function persistClientLabelValue(phone, value, statusElement, { replay = false, isCurrent = () => true } = {}) {
+  const userId = currentUser?.id;
   const generation = sessionGeneration;
+  const contextIsCurrent = captureBookingMetadataContext();
+  const labels = clientLabels, pending = pendingClientLabels;
+  const canApply = () => contextIsCurrent() && clientLabels === labels && pendingClientLabels === pending && isCurrent();
+  if (!userId || !canApply()) return false;
+  value = normalizeClientLabel(value);
   clientLabels.set(phone, value);
   pendingClientLabels.add(phone);
-  persistClientLabels();
-  refreshClientLabelPresentation(phone);
+  const locallySaved = persistClientLabels();
+  if (!replay) refreshClientLabelPresentation(phone);
   if (statusElement) statusElement.textContent = 'Сохраняем…';
-  const previous = clientLabelSaveQueues.get(phone) || Promise.resolve();
-  const operation = previous.catch(() => {}).then(() => db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' }));
-  clientLabelSaveQueues.set(phone, operation);
-  const { error } = await operation;
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (clientLabelSaveQueues.get(phone) === operation) {
-    clientLabelSaveQueues.delete(phone);
-    if (!error) pendingClientLabels.delete(phone);
+  const key = JSON.stringify([userId, generation, phone]);
+  const previous = clientLabelSaveQueues.get(key) || Promise.resolve();
+  const operation = previous.catch(() => {}).then(() => runMetadataWrite(labels, phone,
+    () => canApply() && clientLabels.get(phone) === value,
+    () => db.from('client_labels').upsert({ performer_id:userId, client_phone:phone, ...value, updated_at:new Date().toISOString() }, { onConflict:'performer_id,client_phone' }), replay));
+  clientLabelSaveQueues.set(key, operation);
+  const saved = await operation;
+  if (clientLabelSaveQueues.get(key) === operation) clientLabelSaveQueues.delete(key);
+  if (!canApply() || clientLabels.get(phone) !== value) return false;
+  {
+    if (saved) pendingClientLabels.delete(phone);
     persistClientLabels();
-    if (statusElement?.isConnected) statusElement.textContent = error ? 'Сохранено на этом устройстве' : 'Сохранено';
-    if (error) notify('Метки сохранены на этом устройстве');
+    const message = saved ? 'Сохранено' : locallySaved ? 'Сохранено на этом устройстве' : 'Не сохранено · не закрывайте страницу';
+    if (statusElement?.isConnected) statusElement.textContent = message;
+    if (!saved && !replay) notify(locallySaved ? 'Метки сохранены на этом устройстве' : 'Не удалось сохранить метки. Не закрывайте страницу и повторите сохранение.');
   }
+  return saved;
 }
 
 async function saveClientLabels() {
@@ -8156,15 +8291,16 @@ async function saveBookingOutcome(event) {
 async function saveClientNote() {
   if (!requireWrites()) return;
   if (!selectedClientPhone) return;
-  const userId = currentUser.id;
-  const generation = sessionGeneration;
+  const contextIsCurrent = captureBookingMetadataContext();
   const clientPhone = selectedClientPhone;
   const note = $('#clientNote').value.trim();
-  const { error } = await db.from('client_notes').upsert({ performer_id: userId, client_phone: clientPhone, note, updated_at: new Date().toISOString() });
-  if (!sessionIsCurrent(userId, generation)) return;
-  if (error) { notify('Не удалось сохранить заметку'); return; }
-  clientNotes.set(clientPhone, note);
-  notify('Заметка сохранена');
+  const isCurrent = () => contextIsCurrent() && selectedClientPhone === clientPhone;
+  try {
+    const saved = await saveClientNoteValue(clientPhone, note, { isCurrent });
+    if (isCurrent()) notify(saved ? 'Заметка сохранена' : 'Заметка сохранена на этом устройстве · отправим после восстановления связи');
+  } catch {
+    if (isCurrent()) notify('Не удалось сохранить заметку. Не закрывайте страницу и повторите сохранение.');
+  }
 }
 
 async function createRepeatBooking(event) {
@@ -8406,6 +8542,8 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     if (complete) {
       clearTimeout(synchronizationRetryTimer);
       synchronizationRetryTimer = null;
+      await flushPendingMetadata();
+      if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
       await applyAutomaticVisitOutcomes();
       if (!sessionIsCurrent(userId, generation) || !navigator.onLine) return false;
       setSyncState(skipped || degraded ? 'warning' : 'online', skipped ? 'Есть несохранённое расписание · серверная сверка приостановлена' : degraded ? 'Основные данные синхронизированы · дополнительные данные сохранены на этом устройстве' : `Синхронизировано · ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
@@ -8583,6 +8721,7 @@ async function handleSession(session) {
     loadBookingColors(currentUser.id);
     loadBookingNotes(currentUser.id);
     loadLocalClientLabels(currentUser.id);
+    loadPendingClientNotes(currentUser.id);
     restoreServiceDurationDefaults(currentUser);
     displayPreferencesNeedSync = restoreDisplayPreferences(currentUser).pending;
     restoreTelegramClientSettings(currentUser);
@@ -8627,6 +8766,7 @@ async function handleSession(session) {
     scheduleRows = [];
     daysOff = [];
     clientNotes = new Map();
+    pendingClientNotes = new Map();
     clientLabels = new Map();
     clientAvatars = new Map();
     clientAvatarsRemoteAvailable = false;
