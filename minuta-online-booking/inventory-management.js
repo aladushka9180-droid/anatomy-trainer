@@ -46,6 +46,7 @@
     function quantity(value) { return new Intl.NumberFormat('ru-RU', { maximumFractionDigits:3 }).format(Number(value || 0)); }
     function moneyKopecks(value) { return value == null ? 'не указана' : new Intl.NumberFormat('ru-RU', { style:'currency', currency:'RUB', maximumFractionDigits:2 }).format(Number(value) / 100); }
     function rublesToKopecks(value) { const text = String(value ?? '').trim(); if (!text) return null; const amount = Number(text.replace(',', '.')); return Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) : null; }
+    function costingReady() { return Number(payload?.costing_version) === 113 && payload?.costing_enabled === true; }
     function item(id) { return payload?.items?.find(row => row.id === id); }
     function warehouse(id) { return payload?.warehouses?.find(row => row.id === id); }
     function location(id) { return payload?.locations?.find(row => row.id === id); }
@@ -76,7 +77,7 @@
       if (!profitabilityController) {
         const ready = await loadProfitabilityAssets();
         if (!ready || !window.MinutaProfitability?.createController) return;
-        profitabilityController = window.MinutaProfitability.createController({ db, $, escapeHtml, notify, requireWrites, applyWriteAvailability });
+        profitabilityController = window.MinutaProfitability.createController({ db, $, escapeHtml, notify, requireWrites, applyWriteAvailability, refreshInventory:load });
         profitabilityController.bind();
       }
       profitabilityController.setOrganization(organization, payload);
@@ -116,10 +117,10 @@
 
     function itemCard(row) {
       const total = totalFor(row.id), low = row.active && total <= Number(row.low_stock_threshold || 0);
-      const purchase = Number(payload?.costing_version) === 113
+      const purchase = costingReady()
         ? row.last_purchase_total_cost_kopecks == null ? 'закупочная стоимость не указана' : `последняя закупка ${escapeHtml(moneyKopecks(row.last_purchase_total_cost_kopecks))} за ${escapeHtml(quantity(row.last_purchase_quantity))} ${escapeHtml(unitLabels[row.unit] || row.unit)}`
         : '';
-      const stockValue = Number(payload?.costing_version) === 113 ? ` · ${row.stock_cost_complete ? `остаток по себестоимости ${escapeHtml(moneyKopecks(row.stock_value_kopecks))}` : 'стоимость остатка не указана'}` : '';
+      const stockValue = costingReady() ? ` · ${row.stock_cost_complete ? `остаток по себестоимости ${escapeHtml(moneyKopecks(row.stock_value_kopecks))}` : 'стоимость остатка не указана'}` : '';
       return `<article class="organization-row ${low ? 'inventory-low' : ''}"><div class="organization-row-main"><strong>${escapeHtml(row.name)} · ${escapeHtml(quantity(total))} ${escapeHtml(unitLabels[row.unit] || row.unit)}</strong><small>${row.sku ? `Артикул ${escapeHtml(row.sku)} · ` : ''}минимум ${escapeHtml(quantity(row.low_stock_threshold))} ${escapeHtml(unitLabels[row.unit] || row.unit)}${purchase ? ` · ${purchase}` : ''}${stockValue}</small></div><span class="organization-tags"><span class="organization-status ${row.active ? 'is-active' : ''}">${low ? 'Мало' : row.active ? 'Активен' : 'Скрыт'}</span><button class="secondary-button" type="button" data-inventory-edit-item="${escapeHtml(row.id)}" data-inventory-write>Изменить</button></span></article>`;
     }
 
@@ -141,7 +142,7 @@
     function movementCard(row) {
       const inventoryItem = item(row.inventory_item_id), delta = Number(row.quantity_delta || 0);
       const date = new Date(row.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-      const cost = Number(payload?.costing_version) !== 113 ? '' : row.movement_type === 'receipt'
+      const cost = !costingReady() ? '' : row.movement_type === 'receipt'
         ? ` · закупка ${escapeHtml(moneyKopecks(row.purchase_total_cost_kopecks))}`
         : delta < 0 ? ` · себестоимость ${escapeHtml(row.material_cost_complete ? moneyKopecks(row.material_cost_kopecks) : 'не указана')}` : '';
       return `<article class="organization-audit-row"><span></span><div><strong>${escapeHtml(movementLabels[row.movement_type] || row.movement_type)} · ${escapeHtml(inventoryItem?.name || 'Материал')}</strong><small>${escapeHtml(warehouse(row.warehouse_id)?.name || 'Склад')} · ${delta > 0 ? '+' : ''}${escapeHtml(quantity(delta))} ${escapeHtml(unitLabels[inventoryItem?.unit] || '')} · остаток ${escapeHtml(quantity(row.quantity_after))}${cost}${row.reason ? ` · ${escapeHtml(row.reason)}` : ''}</small></div><time>${escapeHtml(date)}</time></article>`;
@@ -212,7 +213,7 @@
       }
       if (event.target.id === 'inventoryMovementForm') {
         event.preventDefault(); movementRequestId = movementRequestId || requestId(); const kind = $('#inventoryMovementKind').value;
-        const costing = Number(payload?.costing_version) === 113;
+        const costing = costingReady();
         const parameters = { p_organization:organization.id,p_warehouse:$('#inventoryMovementWarehouse').value,p_item:$('#inventoryMovementItem').value,p_kind:kind,p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,p_reason:$('#inventoryMovementReason').value.trim(),p_request_id:movementRequestId };
         if (costing) parameters.p_purchase_total_cost_kopecks = kind === 'receipt' ? rublesToKopecks($('#inventoryPurchaseCost')?.value) : null;
         const ok = await mutate(costing ? 'apply_minuta_stock_movement_v113' : 'apply_minuta_stock_movement', parameters, event.submitter, movementLabels[kind] + ' сохранён', '#inventoryMovementError');

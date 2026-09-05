@@ -2,7 +2,7 @@
   'use strict';
 
   function createController(options) {
-    const { db, escapeHtml, notify, requireWrites, applyWriteAvailability } = options;
+    const { db, escapeHtml, notify, requireWrites, applyWriteAvailability, refreshInventory } = options;
     const select = typeof options.$ === 'function' ? options.$ : selector => document.querySelector(selector);
     const $ = selector => select(selector);
     let organization = null;
@@ -35,10 +35,13 @@
         section.innerHTML = `
           <div class="resource-subhead profitability-heading"><div><small>Фактические затраты без домыслов</small><strong>Доходность визитов</strong></div><button class="secondary-button" id="reloadProfitability" type="button">Обновить</button></div>
           <p class="profitability-note">Остаток считается только из фактической выручки, зафиксированной себестоимости, подтверждённых комиссий и выплаченной части зарплаты, привязанной к визиту. Общие корректировки выплат и другие общие расходы не распределяются по визитам.</p>
+          <div class="profitability-opt-in" id="profitabilityOptIn"><div><strong>Учёт себестоимости выключен</strong><small>До включения все движения склада работают как прежде. При включении текущий остаток один раз будет зафиксирован с неизвестной стоимостью; новые партии получат свою цену.</small></div><button class="primary" id="enableInventoryCosting" type="button" data-inventory-write>Включить себестоимость</button></div>
+          <div class="profitability-active" id="profitabilityActive" hidden>
           <div class="profitability-toolbar"><label>С даты<input id="profitabilityStart" type="date"></label><label>По дату<input id="profitabilityEnd" type="date"></label><label>Услуга<select id="profitabilityService"><option value="">Все услуги</option></select></label></div>
           <div class="loading-state compact" id="profitabilityLoading" hidden><i></i><span>Считаем по зафиксированным данным…</span></div>
           <div class="resource-inline-error" id="profitabilityUnavailable" role="status" hidden><div><strong>Расчёт временно недоступен</strong><small>Склад, записи и выплаты не изменены.</small></div></div>
           <div id="profitabilityWorkspace" hidden><div class="profitability-summary" id="profitabilitySummary"></div><div class="profitability-services" id="profitabilityServices"></div><details class="profitability-visits"><summary><span><small>Проверка каждого расчёта</small><strong>Отдельные визиты</strong></span><span id="profitabilityVisitsCount">0</span></summary><div class="profitability-visit-list" id="profitabilityVisits"></div></details></div>
+          </div>
         `;
         $('#inventoryMovementsPanel').before(section);
       }
@@ -53,8 +56,13 @@
     async function setOrganization(next, nextInventory) {
       ensureUi(); organization = next?.id ? { ...next } : null; inventory = nextInventory || null; payload = null;
       const supported = Boolean(organization && Number(inventory?.costing_version) === 113);
-      $('#profitabilityPanel').hidden = !supported; $('#inventoryPurchaseCostField').hidden = !supported || $('#inventoryMovementKind')?.value !== 'receipt';
+      const enabled = supported && inventory?.costing_enabled === true;
+      $('#profitabilityPanel').hidden = !supported; $('#profitabilityOptIn').hidden = enabled; $('#profitabilityActive').hidden = !enabled;
+      $('#reloadProfitability').hidden = !enabled; $('#inventoryPurchaseCostField').hidden = !enabled || $('#inventoryMovementKind')?.value !== 'receipt';
+      $('#enableInventoryCosting').disabled = inventory?.current_role !== 'owner';
+      $('#enableInventoryCosting').title = inventory?.current_role === 'owner' ? '' : 'Включить учёт себестоимости может только владелец';
       if (!supported) return;
+      if (!enabled) { $('#profitabilityLoading').hidden = true; $('#profitabilityWorkspace').hidden = true; applyWriteAvailability(); return; }
       const serviceSelect = $('#profitabilityService'), selected = serviceSelect.value;
       serviceSelect.innerHTML = `<option value="">Все услуги</option>${(inventory.services || []).filter(row => row.active !== false).map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.name)}</option>`).join('')}`;
       serviceSelect.value = (inventory.services || []).some(row => row.id === selected) ? selected : '';
@@ -65,7 +73,7 @@
 
     async function load() {
       const organizationId = organization?.id;
-      if (!organizationId || Number(inventory?.costing_version) !== 113 || writing) return;
+      if (!organizationId || Number(inventory?.costing_version) !== 113 || inventory?.costing_enabled !== true || writing) return;
       const current = ++revision;
       $('#profitabilityLoading').hidden = false; $('#profitabilityUnavailable').hidden = true; $('#profitabilityWorkspace').hidden = true;
       const { data, error } = await db.rpc('get_minuta_profitability_v113', {
@@ -122,7 +130,10 @@
         if (current) current.material_mode = data.material_mode;
         else rows.push({ service_id:data.service_id,material_mode:data.material_mode });
       }
-      notify(success); await load(); return true;
+      notify(success);
+      if (rpc === 'enable_minuta_inventory_costing_v113' && typeof refreshInventory === 'function') await refreshInventory();
+      else await load();
+      return true;
     }
 
     async function submit(event) {
@@ -134,6 +145,11 @@
 
     async function click(event) {
       if (event.target.closest('#reloadProfitability')) { await load(); return; }
+      const enable = event.target.closest('#enableInventoryCosting');
+      if (enable) {
+        if (!confirm('Включить учёт себестоимости? Текущий остаток будет один раз зафиксирован с неизвестной ценой.')) return;
+        await mutate('enable_minuta_inventory_costing_v113', { p_organization:organization.id }, enable, 'Учёт себестоимости включён'); return;
+      }
       const mode = event.target.closest('[data-service-material-mode]');
       if (mode) await mutate('set_minuta_service_material_mode_v113', { p_organization:organization.id,p_service:mode.dataset.serviceId,p_material_mode:mode.dataset.serviceMaterialMode }, mode, mode.dataset.serviceMaterialMode === 'none' ? 'Для услуги зафиксировано: материалы не используются' : 'Услуга снова считается по складским списаниям');
     }

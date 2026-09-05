@@ -1,10 +1,16 @@
 .provider-body .organization-inventory .organization-row-main strong,.provider-body .organization-inventory .organization-row-main small { overflow:visible; text-overflow:clip; white-space:normal; overflow-wrap:anywhere; }
 .provider-body #inventoryPurchaseCostField small { display:block; margin-top:5px; color:var(--theme-muted,#718078); font-size:8px; font-weight:650; line-height:1.45; }
 .provider-body .profitability-panel { display:grid; gap:12px; min-width:0; padding:15px; border:1px solid var(--theme-line,#dfe7e1); border-radius:14px; background:var(--theme-surface-alt,#fafcfb); }
-.provider-body .profitability-panel[hidden],.provider-body #profitabilityWorkspace[hidden] { display:none; }
+.provider-body .profitability-panel[hidden],.provider-body #profitabilityWorkspace[hidden],.provider-body .profitability-active[hidden],.provider-body .profitability-opt-in[hidden] { display:none; }
 .provider-body .profitability-heading { align-items:center; }
 .provider-body .profitability-heading button { min-height:36px; margin:0; }
 .provider-body .profitability-note { margin:0; color:var(--theme-muted,#65786d); font-size:9px; line-height:1.55; }
+.provider-body .profitability-active { display:grid; gap:12px; }
+.provider-body .profitability-opt-in { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px; border:1px solid color-mix(in srgb,var(--theme-accent,#377754) 30%,transparent); border-radius:12px; background:color-mix(in srgb,var(--theme-accent-soft,#e6f1ea) 66%,#fff); }
+.provider-body .profitability-opt-in strong,.provider-body .profitability-opt-in small { display:block; }
+.provider-body .profitability-opt-in strong { color:var(--theme-ink,#294d3a); font-size:11px; }
+.provider-body .profitability-opt-in small { margin-top:4px; color:var(--theme-muted,#65786d); font-size:8px; line-height:1.45; }
+.provider-body .profitability-opt-in button { flex:0 0 auto; margin:0; }
 .provider-body .profitability-toolbar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
 .provider-body .profitability-toolbar label { margin:0; color:var(--theme-muted,#65786d); font-size:8px; }
 .provider-body .profitability-toolbar input,.provider-body .profitability-toolbar select { min-height:40px; margin-top:5px; }
@@ -43,6 +49,8 @@
 .provider-body .profitability-commission-form>small { grid-column:1/-1; color:var(--theme-muted,#718078); font-size:7px; line-height:1.4; }
 @media (max-width:760px) {
   .provider-body .profitability-panel { padding:12px; }
+  .provider-body .profitability-opt-in { align-items:stretch; flex-direction:column; }
+  .provider-body .profitability-opt-in button { width:100%; }
   .provider-body .profitability-toolbar { grid-template-columns:1fr 1fr; }
   .provider-body .profitability-toolbar label:last-child { grid-column:1/-1; }
   .provider-body .profitability-summary,.provider-body .profitability-cost-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }

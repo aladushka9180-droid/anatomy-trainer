@@ -36,6 +36,16 @@ do $$ begin
   end if;
 end $$;
 
+create table if not exists public.organization_inventory_cost_settings (
+  organization_id uuid primary key references public.organizations(id) on delete restrict,
+  enabled boolean not null default false,
+  enabled_at timestamptz,
+  enabled_by uuid references auth.users(id) on delete set null,
+  initialized_at timestamptz,
+  initialized_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.inventory_cost_layers (
   id bigint generated always as identity primary key,
   organization_id uuid not null references public.organizations(id) on delete restrict,
@@ -92,8 +102,24 @@ create table if not exists public.inventory_service_cost_settings (
   material_mode text not null check(material_mode in ('tracked','none')),
   updated_by uuid references auth.users(id) on delete set null,
   updated_at timestamptz not null default now(),
-  unique(service_id,effective_from)
+  constraint inventory_service_cost_settings_org_service_date_key
+    unique(organization_id,service_id,effective_from)
 );
+-- Repair an early v113 draft if it was evaluated outside production: its
+-- uniqueness omitted organization_id and could make an upsert cross tenants.
+alter table public.inventory_service_cost_settings
+  drop constraint if exists inventory_service_cost_settings_service_id_effective_from_key;
+do $$ begin
+  if not exists(
+    select 1 from pg_constraint
+    where conrelid='public.inventory_service_cost_settings'::regclass
+      and conname='inventory_service_cost_settings_org_service_date_key'
+  ) then
+    alter table public.inventory_service_cost_settings
+      add constraint inventory_service_cost_settings_org_service_date_key
+      unique(organization_id,service_id,effective_from);
+  end if;
+end $$;
 create index if not exists inventory_service_cost_settings_history_idx
   on public.inventory_service_cost_settings(organization_id,service_id,effective_from desc,id desc);
 
@@ -108,31 +134,19 @@ create table if not exists public.booking_confirmed_commissions (
   foreign key(booking_id,organization_id) references public.bookings(id,organization_id) on delete restrict
 );
 
+alter table public.organization_inventory_cost_settings enable row level security;
 alter table public.inventory_cost_layers enable row level security;
 alter table public.inventory_movement_cost_snapshots enable row level security;
 alter table public.inventory_cost_allocations enable row level security;
 alter table public.inventory_service_cost_settings enable row level security;
 alter table public.booking_confirmed_commissions enable row level security;
 
-revoke all on public.inventory_cost_layers,public.inventory_movement_cost_snapshots,
+revoke all on public.organization_inventory_cost_settings,public.inventory_cost_layers,public.inventory_movement_cost_snapshots,
   public.inventory_cost_allocations,public.inventory_service_cost_settings,
   public.booking_confirmed_commissions from public,anon,authenticated;
-grant all on public.inventory_cost_layers,public.inventory_movement_cost_snapshots,
+grant all on public.organization_inventory_cost_settings,public.inventory_cost_layers,public.inventory_movement_cost_snapshots,
   public.inventory_cost_allocations,public.inventory_service_cost_settings,
   public.booking_confirmed_commissions to service_role;
-
--- Current stock predates cost accounting and is deliberately represented as
--- an unknown-cost opening layer. It must never be silently valued at zero.
-insert into public.inventory_cost_layers(
-  organization_id,warehouse_id,inventory_item_id,source_key,
-  original_quantity,remaining_quantity,unit_cost_kopecks,created_at
-)
-select balance.organization_id,balance.warehouse_id,balance.inventory_item_id,
-  'opening-v113:'||balance.warehouse_id::text||':'||balance.inventory_item_id::text,
-  balance.quantity,balance.quantity,null,balance.updated_at
-from public.inventory_stock_balances balance
-where balance.quantity>0
-on conflict(source_key) do nothing;
 
 create or replace function public.record_minuta_inventory_cost_v113()
 returns trigger language plpgsql security definer set search_path to '' as $$
@@ -144,6 +158,15 @@ declare
   v_layer record;
   v_unit numeric(20,6);
 begin
+  -- The global trigger must be a no-op until the owner explicitly activates
+  -- costing for this organization. The shared lock makes activation atomic
+  -- even for movements created by a legacy client during the baseline scan.
+  perform pg_advisory_xact_lock(hashtextextended(new.organization_id::text,11301));
+  if not coalesce((
+    select setting.enabled and setting.initialized_at is not null
+    from public.organization_inventory_cost_settings setting
+    where setting.organization_id=new.organization_id
+  ),false) then return new; end if;
   if new.quantity_delta>0 then
     v_unit:=case
       when new.movement_type='receipt' and new.purchase_total_cost_kopecks is not null
@@ -219,6 +242,56 @@ drop trigger if exists inventory_movement_cost_v113 on public.inventory_movement
 create trigger inventory_movement_cost_v113 after insert on public.inventory_movements
 for each row execute function public.record_minuta_inventory_cost_v113();
 
+create or replace function public.enable_minuta_inventory_costing_v113(p_organization uuid)
+returns jsonb language plpgsql security definer set search_path to '' as $$
+declare
+  v_role text; v_enabled boolean; v_initialized timestamptz;
+begin
+  v_role:=public.get_minuta_inventory_role(p_organization);
+  if v_role<>'owner' then raise exception using errcode='42501',message='inventory_costing_owner_required'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text,11301));
+  insert into public.organization_inventory_cost_settings(organization_id)
+    values(p_organization) on conflict(organization_id) do nothing;
+  select setting.enabled,setting.initialized_at into v_enabled,v_initialized
+    from public.organization_inventory_cost_settings setting
+    where setting.organization_id=p_organization for update;
+  if v_enabled and v_initialized is not null then
+    return jsonb_build_object('organization_id',p_organization,'enabled',true,'initialized_at',v_initialized);
+  end if;
+  if v_initialized is null then
+    -- Do not row-lock balances here: a legacy movement updates its balance
+    -- before its AFTER trigger reaches the organization lock. A plain MVCC
+    -- snapshot sees the last committed balance; the waiting trigger applies
+    -- the in-flight delta immediately after activation without deadlocking.
+    insert into public.inventory_cost_layers(
+      organization_id,warehouse_id,inventory_item_id,source_key,
+      original_quantity,remaining_quantity,unit_cost_kopecks,created_at
+    )
+    select balance.organization_id,balance.warehouse_id,balance.inventory_item_id,
+      'opening-v113:'||balance.organization_id::text||':'||balance.warehouse_id::text||':'||balance.inventory_item_id::text,
+      balance.quantity,balance.quantity,null,now()
+    from public.inventory_stock_balances balance
+    where balance.organization_id=p_organization and balance.quantity>0
+    on conflict(source_key) do nothing;
+    v_initialized:=now();
+  end if;
+  update public.organization_inventory_cost_settings set
+    enabled=true,enabled_at=coalesce(enabled_at,now()),enabled_by=coalesce(enabled_by,auth.uid()),
+    initialized_at=v_initialized,initialized_by=coalesce(initialized_by,auth.uid()),updated_at=now()
+  where organization_id=p_organization;
+  perform public.write_minuta_inventory_audit(
+    p_organization,'inventory_costing_enabled',p_organization,
+    jsonb_build_object('initialized_at',v_initialized,'opening_layers',(
+      select count(*) from public.inventory_cost_layers layer
+      where layer.organization_id=p_organization and layer.source_movement_id is null
+    ))
+  );
+  return jsonb_build_object('organization_id',p_organization,'enabled',true,'initialized_at',v_initialized);
+end $$;
+revoke all on function public.enable_minuta_inventory_costing_v113(uuid)
+  from public,anon,authenticated,service_role;
+grant execute on function public.enable_minuta_inventory_costing_v113(uuid) to authenticated;
+
 create or replace function public.apply_minuta_stock_movement_v113(
   p_organization uuid,p_warehouse uuid,p_item uuid,p_kind text,p_quantity numeric,
   p_counted_quantity numeric,p_reason text,p_request_id uuid,p_purchase_total_cost_kopecks bigint
@@ -236,6 +309,10 @@ begin
   if p_purchase_total_cost_kopecks is not null and (
     p_kind<>'receipt' or p_purchase_total_cost_kopecks<0 or p_purchase_total_cost_kopecks>1000000000000
   ) then raise exception using errcode='22023',message='invalid_inventory_purchase_cost'; end if;
+  if p_purchase_total_cost_kopecks is not null and not coalesce((
+    select setting.enabled and setting.initialized_at is not null
+    from public.organization_inventory_cost_settings setting where setting.organization_id=p_organization
+  ),false) then raise exception using errcode='55000',message='inventory_costing_disabled'; end if;
   if not exists(select 1 from public.inventory_warehouses where id=p_warehouse and organization_id=p_organization and active)
      or not exists(select 1 from public.inventory_items where id=p_item and organization_id=p_organization and active) then
     raise exception using errcode='55000',message='inventory_target_inactive';
@@ -301,6 +378,9 @@ create or replace function public.set_minuta_service_material_mode_v113(
 declare v_role text;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
+  if not coalesce((select enabled from public.organization_inventory_cost_settings where organization_id=p_organization),false) then
+    raise exception using errcode='55000',message='inventory_costing_disabled';
+  end if;
   if coalesce(p_material_mode,'') not in ('tracked','none') then
     raise exception using errcode='22023',message='invalid_material_cost_mode';
   end if;
@@ -313,7 +393,7 @@ begin
   ) then raise exception using errcode='23503',message='service_not_in_organization'; end if;
   insert into public.inventory_service_cost_settings(organization_id,service_id,effective_from,material_mode,updated_by)
     values(p_organization,p_service,timezone('Europe/Samara',now())::date,p_material_mode,auth.uid())
-    on conflict(service_id,effective_from) do update set
+    on conflict(organization_id,service_id,effective_from) do update set
       organization_id=excluded.organization_id,material_mode=excluded.material_mode,
       updated_by=excluded.updated_by,updated_at=now();
   perform public.write_minuta_inventory_audit(
@@ -332,6 +412,9 @@ create or replace function public.save_minuta_booking_commission_v113(
 declare v_role text; v_previous bigint;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
+  if not coalesce((select enabled from public.organization_inventory_cost_settings where organization_id=p_organization),false) then
+    raise exception using errcode='55000',message='inventory_costing_disabled';
+  end if;
   if p_amount_kopecks is null or p_amount_kopecks<0 or p_amount_kopecks>1000000000000
      or char_length(coalesce(p_note,''))>500 then
     raise exception using errcode='22023',message='invalid_confirmed_commission';
@@ -362,19 +445,23 @@ grant execute on function public.save_minuta_booking_commission_v113(uuid,uuid,b
 
 create or replace function public.get_minuta_inventory_workspace_v113(p_organization uuid)
 returns jsonb language plpgsql stable security definer set search_path to '' as $$
-declare v_base jsonb; v_items jsonb; v_movements jsonb;
+declare v_base jsonb; v_items jsonb; v_movements jsonb; v_costing_enabled boolean; v_initialized_at timestamptz;
 begin
   v_base:=public.get_minuta_inventory_workspace(p_organization);
+  select setting.enabled,setting.initialized_at into v_costing_enabled,v_initialized_at
+    from public.organization_inventory_cost_settings setting where setting.organization_id=p_organization;
+  v_costing_enabled:=coalesce(v_costing_enabled,false) and v_initialized_at is not null;
   select coalesce(jsonb_agg(jsonb_build_object(
     'id',item.id,'name',item.name,'sku',item.sku,'unit',item.unit,
     'low_stock_threshold',item.low_stock_threshold,'active',item.active,
     'last_purchase_total_cost_kopecks',last_receipt.purchase_total_cost_kopecks,
     'last_purchase_quantity',last_receipt.quantity_delta,
     'stock_value_kopecks',case
+      when not v_costing_enabled then null
       when coalesce(stock.quantity,0)=0 then 0
       when stock.unknown_quantity=0 then round(stock.known_value)::bigint
       else null end,
-    'stock_cost_complete',coalesce(stock.quantity,0)=0 or stock.unknown_quantity=0
+    'stock_cost_complete',v_costing_enabled and (coalesce(stock.quantity,0)=0 or stock.unknown_quantity=0)
   ) order by item.active desc,item.name,item.id),'[]'::jsonb)
   into v_items
   from public.inventory_items item
@@ -411,7 +498,8 @@ begin
   left join public.inventory_movement_cost_snapshots snapshot on snapshot.movement_id=movement.id;
 
   return v_base||jsonb_build_object(
-    'costing_version',113,'items',v_items,'movements',v_movements,
+    'costing_version',113,'costing_enabled',v_costing_enabled,'costing_initialized_at',v_initialized_at,
+    'items',v_items,'movements',v_movements,
     'service_cost_settings',coalesce((
       select jsonb_agg(jsonb_build_object('service_id',setting.service_id,'material_mode',setting.material_mode,
         'effective_from',setting.effective_from) order by setting.service_id)
@@ -434,6 +522,10 @@ create or replace function public.get_minuta_profitability_v113(
 declare v_role text; v_result jsonb;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
+  if not coalesce((
+    select setting.enabled and setting.initialized_at is not null
+    from public.organization_inventory_cost_settings setting where setting.organization_id=p_organization
+  ),false) then raise exception using errcode='55000',message='inventory_costing_disabled'; end if;
   if p_start is null or p_end is null or p_end<p_start or p_end-p_start>366 then
     raise exception using errcode='22023',message='invalid_profitability_range';
   end if;
@@ -540,9 +632,11 @@ revoke all on function public.get_minuta_profitability_v113(uuid,date,date,uuid,
 grant execute on function public.get_minuta_profitability_v113(uuid,date,date,uuid,uuid) to authenticated;
 
 do $$ begin
-  if to_regclass('public.inventory_cost_layers') is null
+  if to_regclass('public.organization_inventory_cost_settings') is null
+     or to_regclass('public.inventory_cost_layers') is null
      or to_regclass('public.inventory_movement_cost_snapshots') is null
      or to_regclass('public.booking_confirmed_commissions') is null
+     or to_regprocedure('public.enable_minuta_inventory_costing_v113(uuid)') is null
      or to_regprocedure('public.apply_minuta_stock_movement_v113(uuid,uuid,uuid,text,numeric,numeric,text,uuid,bigint)') is null
      or to_regprocedure('public.get_minuta_profitability_v113(uuid,date,date,uuid,uuid)') is null
      or has_function_privilege('anon','public.get_minuta_profitability_v113(uuid,date,date,uuid,uuid)','EXECUTE')
