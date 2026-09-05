@@ -18,6 +18,13 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 type BookingEvent = "confirmation" | "rescheduled" | "cancelled" | "reminder";
+type TelegramClientSettings = {
+  confirmation: boolean;
+  reminder: boolean;
+  rescheduled: boolean;
+  cancelled: boolean;
+  contactUsername: string;
+};
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { ...corsHeaders, "cache-control": "no-store" } });
@@ -52,6 +59,12 @@ async function sameSecret(actual: string, expected: string) {
   return sameHash(await sha256Hex(actual), await sha256Hex(expected));
 }
 
+async function reminderSecretHash() {
+  const { data, error } = await admin.rpc("get_telegram_reminder_secret_hash");
+  if (error || !data) throw new Error("reminder_secret_unavailable");
+  return String(data);
+}
+
 async function readJson(req: Request) {
   const contentType = (req.headers.get("content-type") || "").toLowerCase();
   if (!contentType.includes("application/json")) throw new Error("unsupported_media_type");
@@ -70,6 +83,34 @@ function normalizePhone(value: unknown) {
   let digits = String(value ?? "").replace(/\D/g, "");
   if (digits.startsWith("8") && digits.length === 11) digits = "7" + digits.slice(1);
   return digits;
+}
+
+function relation(value: unknown) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function html(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character] || character);
+}
+
+function normalizeTelegramClientSettings(source: any): TelegramClientSettings {
+  source = source && typeof source === "object" ? source : {};
+  const username = String(source.contact_username || "").replace(/^@/, "").trim();
+  return {
+    confirmation: source.confirmation !== false,
+    reminder: source.reminder !== false,
+    rescheduled: source.rescheduled !== false,
+    cancelled: source.cancelled !== false,
+    contactUsername: /^[A-Za-z0-9_]{5,32}$/.test(username) ? username : "",
+  };
+}
+
+async function performerTelegramSettings(performerId: string) {
+  const { data, error } = await admin.auth.admin.getUserById(performerId);
+  if (error) console.error("Telegram performer settings lookup failed", performerId, error);
+  return normalizeTelegramClientSettings(data?.user?.user_metadata?.telegram_client_settings);
 }
 
 function encodeStartToken(token: string) {
@@ -171,9 +212,94 @@ function normalizeBookingContext(booking: any) {
   };
 }
 
+function bookingDateText(value: string) {
+  const parts = String(value).split("-");
+  return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
+}
+
+function bookingMessage(booking: any, event: BookingEvent) {
+  const service = relation(booking.services) as any;
+  const performer = relation(booking.performer_profiles) as any;
+  const title = {
+    confirmation: "✅ <b>Запись подтверждена</b>",
+    rescheduled: "🔄 <b>Запись перенесена</b>",
+    cancelled: "❌ <b>Запись отменена</b>",
+    reminder: "⏰ <b>Напоминание о записи</b>",
+  }[event];
+  const managementUrl = `https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/booking.html#token=${encodeURIComponent(booking.manage_token)}`;
+  const lines = [
+    title, "", `<b>Услуга:</b> ${html(service.name || "Массаж")}`,
+    `<b>Дата:</b> ${html(bookingDateText(booking.booking_date))}`,
+    `<b>Время:</b> ${html(String(booking.booking_time).slice(0, 5))}`,
+    `<b>Исполнитель:</b> ${html(performer.display_name || "Рамиль")}`,
+    `<b>Адрес:</b> Ижевск, ул. Карла Маркса, 304б`,
+  ];
+  if (event === "reminder") lines.push("", "Ждём вас завтра. Если планы изменились, перенесите или отмените запись заранее.");
+  if (event === "cancelled") lines.push("", "Вы можете выбрать другое свободное время на сайте.");
+  return { text: lines.join("\n"), managementUrl };
+}
+
+async function legacySendBookingEvent(booking: any, event: BookingEvent) {
+  // Recheck the cutover immediately before every legacy send. During gradual
+  // rollout this keeps unactivated organizations on the old proven path and
+  // makes the per-organization marker the single routing decision.
+  const { data: legacyAllowed, error: routeError } = await admin.rpc(
+    "is_minuta_legacy_client_notification_allowed_v114", { p_booking: booking.id },
+  );
+  if (routeError || legacyAllowed !== true) return { delivered:false, reason:"unified_cutover" };
+
+  const settings = await performerTelegramSettings(booking.performer_id);
+  if (!settings[event]) return { delivered:false, reason:"event_disabled" };
+  const phone = normalizePhone(booking.client_phone);
+  const { data: subscription } = await admin.from("client_telegram_subscriptions")
+    .select("id,chat_id").eq("performer_id",booking.performer_id)
+    .eq("client_phone",phone).eq("active",true).maybeSingle();
+  if (!subscription) return { delivered:false, reason:"not_connected" };
+  const { data: duplicate } = await admin.from("telegram_notification_log")
+    .select("id").eq("booking_id",booking.id).eq("event_type",event)
+    .eq("booking_date",booking.booking_date).eq("booking_time",booking.booking_time).maybeSingle();
+  if (duplicate) return { delivered:false, reason:"already_sent" };
+
+  const message = bookingMessage(booking,event);
+  const inlineKeyboard = [];
+  if (settings.contactUsername) inlineKeyboard.push([{ text:"Написать мастеру",url:`https://t.me/${settings.contactUsername}` }]);
+  inlineKeyboard.push([{ text:event === "cancelled" ? "Выбрать другое время" : "Управлять записью",url:message.managementUrl }]);
+  try {
+    await telegram("sendMessage",{
+      chat_id:subscription.chat_id,text:message.text,parse_mode:"HTML",disable_web_page_preview:true,
+      reply_markup:{ inline_keyboard:inlineKeyboard },
+    });
+  } catch (error) {
+    if ((error as any).telegram?.error_code === 403) {
+      await admin.from("client_telegram_subscriptions").update({ active:false,updated_at:new Date().toISOString() }).eq("id",subscription.id);
+    }
+    throw error;
+  }
+  const sentAt = new Date().toISOString();
+  await admin.from("telegram_notification_log").insert({
+    booking_id:booking.id,event_type:event,booking_date:booking.booking_date,booking_time:booking.booking_time,
+    sent_at:sentAt,
+  });
+  const { error:mirrorError } = await admin.rpc("record_minuta_legacy_notification_delivery_v114",{
+    p_booking:booking.id,p_event:event,p_booking_date:booking.booking_date,
+    p_booking_time:booking.booking_time,p_sent_at:sentAt,
+  });
+  if (mirrorError) console.error("Legacy notification mirror failed",booking.id,event,mirrorError.code || mirrorError.message);
+  return { delivered:true, sent:true, queued:false, connected:true, reason:"legacy_delivered" };
+}
+
 async function sendBookingEvent(booking: any, event: BookingEvent) {
-  // v88/v114 booking triggers own event creation. This endpoint reports the
-  // durable queue state and must never perform a second direct delivery.
+  const { data: cutover, error: cutoverError } = await admin.rpc("is_minuta_notification_v114_cutover", {
+    p_booking: booking.id,
+  });
+  if (cutoverError) {
+    console.error("Notification cutover lookup failed", event, cutoverError.code || cutoverError.message);
+    return { delivered:false, sent:false, queued:false, connected:false, reason:"notification_route_unavailable" };
+  }
+  if (cutover !== true) return await legacySendBookingEvent(booking,event);
+
+  // After explicit organization cutover, v88/v114 triggers own event creation.
+  // This endpoint reports durable state and never performs a second direct send.
   const { data, error } = await admin.rpc("get_minuta_client_notification_state_v114", {
     p_booking: booking.id,
   });
@@ -336,8 +462,44 @@ async function eventRequest(req: Request) {
 }
 
 async function remindersRequest(req: Request) {
-  void req;
-  return json({ ok:false, error:"retired_use_notification_dispatcher" }, 410);
+  const expectedHash = await reminderSecretHash();
+  const actualHash = await sha256Hex(req.headers.get("x-reminder-secret") || "");
+  if (!sameHash(actualHash,expectedHash)) return json({ ok:false },401);
+  const now = Date.now();
+  const local = new Date(now + 4 * 60 * 60 * 1000);
+  const today = local.toISOString().slice(0,10);
+  const afterTomorrow = new Date(local.getTime()+2*24*60*60*1000).toISOString().slice(0,10);
+  const { data:bookings,error } = await admin.rpc("get_telegram_reminder_candidates",{
+    p_from:today,p_to:afterTomorrow,
+  });
+  if (error) return json({ ok:false,error:"booking_query_failed" },500);
+  let delivered = 0;
+  let unified = 0;
+  for (const item of bookings || []) {
+    const booking = normalizeBookingContext(item);
+    const start = new Date(`${booking.booking_date}T${String(booking.booking_time).slice(0,8)}+04:00`).getTime();
+    const hours = (start-now)/3600000;
+    if (hours<23 || hours>25) continue;
+    try {
+      const result = await sendBookingEvent(booking,"reminder");
+      if (result.delivered) delivered+=1;
+      if (result.reason === "queued" || result.reason === "sent" || result.reason === "delivered" || result.reason === "unified_cutover") unified+=1;
+    } catch (error) {
+      console.error("Reminder delivery failed",booking.id,error);
+    }
+  }
+  return json({ ok:true,delivered,unified_skipped:unified });
+}
+
+async function cutoverReadyRequest(req: Request) {
+  const expectedHash = await reminderSecretHash();
+  const actualHash = await sha256Hex(req.headers.get("x-reminder-secret") || "");
+  if (!sameHash(actualHash,expectedHash)) return json({ ok:false },401);
+  const { data,error } = await admin.rpc("mark_minuta_notification_worker_ready_v114",{
+    p_component:"telegram_client_bridge",p_worker_version:"v114",
+  });
+  if (error || data !== "ready") return json({ ok:false,error:"bridge_readiness_failed" },502);
+  return json({ ok:true,dry_run:true,worker_version:"v114",component:"telegram_client_bridge",sent:0 });
 }
 
 Deno.serve(async (req: Request) => {
@@ -349,6 +511,7 @@ Deno.serve(async (req: Request) => {
       if (req.method === "GET" && path.endsWith("/auth-config")) return await telegramAuthConfig(req);
       if (req.method === "POST" && path.endsWith("/authorize")) return await authorizeTelegram(req);
       if (req.method === "POST" && path.endsWith("/event")) return await eventRequest(req);
+      if (req.method === "POST" && path.endsWith("/cutover-ready")) return await cutoverReadyRequest(req);
       if (req.method === "POST" && path.endsWith("/reminders")) return await remindersRequest(req);
       if (req.method === "POST") return await telegramWebhook(req);
       return json({ ok: false, error: "not_found" }, 404);
