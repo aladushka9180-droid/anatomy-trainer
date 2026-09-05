@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const read = name => fs.readFileSync(new URL(name, import.meta.url), 'utf8');
 const migration = read('./supabase-migration-v113.sql');
 const rollback = read('./supabase-migration-v113-rollback.sql');
+const operationalRollback = read('./supabase-migration-v113-operational-rollback.sql');
 const inventory = read('./inventory-management.js');
 const profitability = read('./profitability-management.js');
 const styles = read('./profitability-management.css');
@@ -41,6 +42,19 @@ assert.match(migration, /commission\.amount_kopecks commission_kopecks/i, 'Only 
 assert.match(migration, /remainder_before_overhead_kopecks/i, 'The result must be named remainder before overhead');
 assert.doesNotMatch(`${migration}\n${profitability}`, /чистая прибыль/i, 'The feature must not claim net profit');
 assert.match(rollback, /v113_rollback_blocked_financial_history_exists/i, 'Rollback must preserve recorded financial history');
+assert.match(rollback, /supabase-migration-v113-operational-rollback\.sql/i, 'Destructive rollback must point activated ledgers to the safe path');
+assert.match(migration, /suspended_at timestamptz/i, 'Operational suspension must leave a persistent marker');
+assert.match(migration, /inventory_costing_reactivation_requires_reconciliation/i, 'An initialized suspended ledger must not silently resume after gaps');
+for (const rpc of ['enable_minuta_inventory_costing_v113','apply_minuta_stock_movement_v113','set_minuta_service_material_mode_v113','save_minuta_booking_commission_v113']) {
+  const definition = migration.match(new RegExp(`create or replace function public\\.${rpc}[\\s\\S]*?end \\$\\$;`, 'i'))?.[0] || '';
+  assert.match(definition, /pg_advisory_xact_lock_shared\(11300\)/i, `${rpc} must share the operational cutover lock without serializing tenants`);
+}
+assert.match(operationalRollback, /lock table public\.inventory_movements in share row exclusive mode/i, 'Operational rollback must drain movement triggers before removing them');
+assert.match(operationalRollback, /inventory_costing_operationally_suspended/i, 'Operational rollback must write an audit event');
+assert.match(operationalRollback, /suspension_reason='v113_operational_rollback'/i, 'Operational rollback must persist its release gate');
+for (const table of ['inventory_cost_layers','inventory_movement_cost_snapshots','inventory_cost_allocations','inventory_service_cost_settings','booking_confirmed_commissions']) {
+  assert.doesNotMatch(operationalRollback, new RegExp(`drop table(?: if exists)? public\\.${table}`, 'i'), `Operational rollback must preserve ${table}`);
+}
 
 assert.match(inventory, /get_minuta_inventory_workspace_v113/);
 assert.match(inventory, /costingReady\(\)[\s\S]*costing_enabled === true/);

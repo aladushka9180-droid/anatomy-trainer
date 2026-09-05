@@ -8,6 +8,11 @@ begin
      or to_regclass('public.inventory_cost_allocations') is null
      or to_regclass('public.inventory_service_cost_settings') is null
      or to_regclass('public.booking_confirmed_commissions') is null
+     or not exists(
+       select 1 from pg_attribute
+       where attrelid='public.organization_inventory_cost_settings'::regclass
+         and attname='suspended_at' and not attisdropped
+     )
      or to_regprocedure('public.record_minuta_inventory_cost_v113()') is null
      or to_regprocedure('public.enable_minuta_inventory_costing_v113(uuid)') is null
      or to_regprocedure('public.apply_minuta_stock_movement_v113(uuid,uuid,uuid,text,numeric,numeric,text,uuid,bigint)') is null
@@ -50,4 +55,9 @@ begin
       and constraint_row.contype='u'
       and columns.names=array['organization_id','service_id','effective_from']::name[]
   ) then raise exception 'v113_service_setting_tenant_unique_missing'; end if;
+  select lower(pg_get_functiondef('public.enable_minuta_inventory_costing_v113(uuid)'::regprocedure)) into v_definition;
+  if position('pg_advisory_xact_lock_shared(11300)' in regexp_replace(v_definition,'\s','','g'))=0
+     or position('inventory_costing_reactivation_requires_reconciliation' in v_definition)=0 then
+    raise exception 'v113_operational_rollback_gate_missing';
+  end if;
 end $$;
