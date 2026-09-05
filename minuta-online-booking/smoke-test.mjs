@@ -340,7 +340,7 @@ assert.match(provider, /const REGULAR_CLIENT_COMPLETED_VISITS = 10;/, 'Пост�
 assert.match(provider, /bookingOutcome\(item\)\.visit_status === 'completed'/, 'В визиты попадают незавершённые записи');
 assert.match(provider, /provider_display_preferences/, 'Оформление кабинета не сохраняется в аккаунте мастера');
 assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
-assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"[\s\S]*value="luxury"[\s\S]*value="loft"[\s\S]*value="eco"[\s\S]*value="hitech"[\s\S]*value="japandi"[\s\S]*value="midnight"[\s\S]*value="mono"[\s\S]*value="desert"[\s\S]*value="rose"/, 'В настройках доступны не все семнадцать тем');
+assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"[\s\S]*value="luxury"[\s\S]*value="loft"[\s\S]*value="eco"[\s\S]*value="hitech"[\s\S]*value="japandi"[\s\S]*value="midnight"[\s\S]*value="mono"[\s\S]*value="desert"[\s\S]*value="rose"/, 'В настройках доступны не все базовые темы');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
 const visitClassifierSource = provider.match(/function classifyVisitHistory\(referenceTimestamp, completedTimestamps, currentCompleted = false\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(visitClassifierSource, 'Не удалось извлечь расчёт номера визита для проверки');

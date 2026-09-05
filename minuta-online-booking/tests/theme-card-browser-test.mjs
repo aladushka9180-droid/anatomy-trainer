@@ -29,5 +29,5 @@ try {
     assert.equal(focus.outline,'solid'); assert.ok(focus.width >= 2);
   }
   assert.deepEqual(errors,[]);
-  console.log(`PASS: ${result.combinations} theme/layout/viewport combinations, ${result.assertions} colour checks, minimum ${result.minimumContrast}:1; 170 hover and 34 keyboard-focus checks.`);
+  console.log(`PASS: ${result.combinations} theme/layout/viewport combinations, ${result.assertions} colour checks, minimum ${result.minimumContrast}:1; ${themes.length * 10} hover and ${themes.length * 2} keyboard-focus checks.`);
 } finally { await browser.close(); server.close(); }
