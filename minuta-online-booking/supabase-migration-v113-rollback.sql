@@ -1,7 +1,8 @@
 begin;
 
--- Rollback is allowed only before v113 has accepted any new cost, commission,
--- mode or movement snapshot. Unknown opening layers are derived and disposable.
+-- Destructive rollback is allowed only before activation. After activation use
+-- supabase-migration-v113-operational-rollback.sql: it disables the feature but
+-- preserves financial history and leaves the legacy warehouse operational.
 do $$ begin
   if (to_regclass('public.booking_confirmed_commissions') is not null
       and exists(select 1 from public.booking_confirmed_commissions))

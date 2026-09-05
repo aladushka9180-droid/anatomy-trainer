@@ -43,8 +43,32 @@ create table if not exists public.organization_inventory_cost_settings (
   enabled_by uuid references auth.users(id) on delete set null,
   initialized_at timestamptz,
   initialized_by uuid references auth.users(id) on delete set null,
+  suspended_at timestamptz,
+  suspended_by uuid references auth.users(id) on delete set null,
+  suspension_reason text check(char_length(suspension_reason)<=500),
   updated_at timestamptz not null default now()
 );
+alter table public.organization_inventory_cost_settings
+  add column if not exists suspended_at timestamptz,
+  add column if not exists suspended_by uuid references auth.users(id) on delete set null,
+  add column if not exists suspension_reason text;
+do $$ begin
+  if not exists(
+    select 1 from pg_constraint
+    where conrelid='public.organization_inventory_cost_settings'::regclass
+      and conname='organization_inventory_cost_settings_suspension_reason_check'
+  ) then
+    alter table public.organization_inventory_cost_settings
+      add constraint organization_inventory_cost_settings_suspension_reason_check
+      check(char_length(suspension_reason)<=500);
+  end if;
+end $$;
+-- A forward reapply may safely make activation available again only to
+-- organizations that never had a cost baseline. Initialized ledgers remain
+-- suspended until a dedicated reconciliation release is performed.
+update public.organization_inventory_cost_settings set
+  suspended_at=null,suspended_by=null,suspension_reason=null,updated_at=now()
+where initialized_at is null and not enabled and suspension_reason='v113_operational_rollback';
 
 create table if not exists public.inventory_cost_layers (
   id bigint generated always as identity primary key,
@@ -245,16 +269,20 @@ for each row execute function public.record_minuta_inventory_cost_v113();
 create or replace function public.enable_minuta_inventory_costing_v113(p_organization uuid)
 returns jsonb language plpgsql security definer set search_path to '' as $$
 declare
-  v_role text; v_enabled boolean; v_initialized timestamptz;
+  v_role text; v_enabled boolean; v_initialized timestamptz; v_suspended timestamptz;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
   if v_role<>'owner' then raise exception using errcode='42501',message='inventory_costing_owner_required'; end if;
+  perform pg_advisory_xact_lock_shared(11300);
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text,11301));
   insert into public.organization_inventory_cost_settings(organization_id)
     values(p_organization) on conflict(organization_id) do nothing;
-  select setting.enabled,setting.initialized_at into v_enabled,v_initialized
+  select setting.enabled,setting.initialized_at,setting.suspended_at into v_enabled,v_initialized,v_suspended
     from public.organization_inventory_cost_settings setting
     where setting.organization_id=p_organization for update;
+  if v_suspended is not null then
+    raise exception using errcode='55000',message='inventory_costing_reactivation_requires_reconciliation';
+  end if;
   if v_enabled and v_initialized is not null then
     return jsonb_build_object('organization_id',p_organization,'enabled',true,'initialized_at',v_initialized);
   end if;
@@ -301,6 +329,7 @@ declare
   v_existing public.inventory_movements%rowtype; v_movement bigint;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
+  perform pg_advisory_xact_lock_shared(11300);
   if not coalesce((select enabled from public.organization_inventory_settings where organization_id=p_organization),false) then
     raise exception using errcode='55000',message='inventory_disabled';
   end if;
@@ -309,7 +338,7 @@ begin
   if p_purchase_total_cost_kopecks is not null and (
     p_kind<>'receipt' or p_purchase_total_cost_kopecks<0 or p_purchase_total_cost_kopecks>1000000000000
   ) then raise exception using errcode='22023',message='invalid_inventory_purchase_cost'; end if;
-  if p_purchase_total_cost_kopecks is not null and not coalesce((
+  if not coalesce((
     select setting.enabled and setting.initialized_at is not null
     from public.organization_inventory_cost_settings setting where setting.organization_id=p_organization
   ),false) then raise exception using errcode='55000',message='inventory_costing_disabled'; end if;
@@ -378,6 +407,7 @@ create or replace function public.set_minuta_service_material_mode_v113(
 declare v_role text;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
+  perform pg_advisory_xact_lock_shared(11300);
   if not coalesce((select enabled from public.organization_inventory_cost_settings where organization_id=p_organization),false) then
     raise exception using errcode='55000',message='inventory_costing_disabled';
   end if;
@@ -412,6 +442,7 @@ create or replace function public.save_minuta_booking_commission_v113(
 declare v_role text; v_previous bigint;
 begin
   v_role:=public.get_minuta_inventory_role(p_organization);
+  perform pg_advisory_xact_lock_shared(11300);
   if not coalesce((select enabled from public.organization_inventory_cost_settings where organization_id=p_organization),false) then
     raise exception using errcode='55000',message='inventory_costing_disabled';
   end if;
