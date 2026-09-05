@@ -23,7 +23,7 @@ function listener(prefix){
 }
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(constants,'Actual color definitions');
-const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision'].map(name=>
+const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision'].map(name=>
   source.match(new RegExp(`^let ${name} = .*;$`,'m'))?.[0]||'').join('\n');
 const resets=[...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)].map(m=>m[0]).join('\n');
 const orgStart=source.indexOf('  onActiveOrganizationChange: organization => {');
@@ -35,6 +35,7 @@ const functions=['openBookingSheet','closeBookingSheet','saveBookingBlockNote','
   'bookingNoteStorageKey','bookingNotePendingStorageKey','validBookingColor','bookingColor','bookingColorPicker',
   'bookingDisplayNote','bookingClientNote','normalizePhone','isScheduleBlock','escapeHtml','uiIcon',
   'requireWrites','sessionIsCurrent'];
+if(/^function captureBookingMetadataContext\(/m.test(source))functions.push('captureBookingMetadataContext');
 const loader=[constants,revisions,resets,orgHook,...functions.map(declaration),
   listener("document.addEventListener('change', async event => {"),
   listener("document.addEventListener('click', async event => {"),
@@ -172,6 +173,39 @@ for(const kind of ['color','note'])for(const transition of ['account','session-r
     await page.evaluate(()=>{window.currentForm=$('#bookingBlockNoteForm');});
     const before=await snapshot(page);await release(page,outcome);
     assert.deepEqual(await snapshot(page),before,'No stale notice, control change, pending-marker mutation or cross-account persistence');
+  }
+]);
+for(const kind of ['color','note'])for(const outcome of ['success','error','throw'])cases.push([
+  `late sheet ${kind} ${outcome} after native close/reopen B has no ownership`,async page=>{
+    await start(page,kind);await page.keyboard.press('Escape');await open(page,'B');
+    await page.locator('#bookingBlockNote').fill('Новый ввод B в той же сессии');
+    await page.evaluate(()=>{window.currentForm=$('#bookingBlockNoteForm');});
+    const before=await snapshot(page);await release(page,outcome);
+    assert.deepEqual(await snapshot(page),before,'Detached sheet control/form cannot mutate the new sheet or pending caches');
+  }
+]);
+for(const outcome of ['success','error','throw'])cases.push([
+  `current journal color ${outcome} survives its own list-render node replacement`,async page=>{
+    await open(page,'A');
+    await page.evaluate(()=>{
+      const holder=document.createElement('div');holder.id='journalColorFixture';document.body.append(holder);
+      holder.innerHTML=bookingColorPicker('journal-fixture',bookingColor(allBookings[0]),ids.A);
+      // Renderer boundary: actually detach the originating native node. This
+      // tests the documented lifecycle distinction, NOT renderBookingData itself.
+      renderBookingData=()=>{
+        effects.push({kind:'render-list'});
+        window.detachedJournalInput=holder.querySelector(':checked');
+        holder.innerHTML=bookingColorPicker('journal-fixture',bookingColor(allBookings[0]),ids.A);
+      };
+    });
+    await page.locator('#journalColorFixture input[value="mint"]').check();
+    await page.waitForFunction(()=>gates.length===1);
+    assert.equal(await page.evaluate(()=>detachedJournalInput.isConnected),false);
+    await release(page,outcome);
+    const state=await snapshot(page),notices=state.effects.filter(e=>e.kind==='notify');
+    assert.equal(notices.length,1,'Own journal rendering must not suppress the current operation result');
+    assert.equal(notices[0].text==='Цвет записи сохранён',outcome==='success');
+    assert.equal(state.effects.filter(e=>e.kind==='rpc').length,1);
   }
 ]);
 let failed=0;
