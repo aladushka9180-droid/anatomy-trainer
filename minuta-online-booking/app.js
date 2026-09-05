@@ -978,6 +978,26 @@ function openCalendarFile(file = successCalendarFile()) {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
+async function shareCalendarFile(file = successCalendarFile()) {
+  if (typeof navigator.share !== 'function') return false;
+  const payload = { files:[file], title:currentSuccessCalendarEvent?.title || 'Запись в календарь' };
+  if (typeof navigator.canShare === 'function' && !navigator.canShare(payload)) return false;
+  try {
+    await navigator.share(payload);
+    return true;
+  } catch (error) {
+    return error?.name === 'AbortError';
+  }
+}
+async function addAppleCalendar() {
+  const file = successCalendarFile();
+  if (!await shareCalendarFile(file)) openCalendarFile(file);
+}
+async function addAndroidCalendar(event) {
+  event?.preventDefault();
+  const file = successCalendarFile();
+  if (!await shareCalendarFile(file)) location.href = androidCalendarIntent(currentSuccessCalendarEvent);
+}
 function googleCalendarUrl(event) {
   const url = new URL('https://calendar.google.com/calendar/render');
   url.searchParams.set('action', 'TEMPLATE');
@@ -993,7 +1013,7 @@ function androidCalendarIntent(event) {
 function openSuccessCalendar() {
   if (!currentSuccessCalendarEvent) return;
   const dialog = $('#calendarDialog');
-  if (!dialog || typeof dialog.showModal !== 'function') { openCalendarFile(); return; }
+  if (!dialog || typeof dialog.showModal !== 'function') { void addAppleCalendar(); return; }
   $('#addAndroidCalendar').href = androidCalendarIntent(currentSuccessCalendarEvent);
   dialog.showModal();
 }
@@ -1257,8 +1277,8 @@ $('#waitlistPhone').addEventListener('input', event => { event.target.value = fo
 $('#waitlistForm').addEventListener('submit', submitWaitlist);
 $('#newBooking').addEventListener('click', resetFlow);
 $('#saveSuccessCalendar').addEventListener('click', openSuccessCalendar);
-$('#addAppleCalendar').addEventListener('click', () => { openCalendarFile(); $('#calendarDialog').close(); });
-$('#addAndroidCalendar').addEventListener('click', () => $('#calendarDialog').close());
+$('#addAppleCalendar').addEventListener('click', async () => { await addAppleCalendar(); $('#calendarDialog').close(); });
+$('#addAndroidCalendar').addEventListener('click', async event => { await addAndroidCalendar(event); $('#calendarDialog').close(); });
 $('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').close());
 $('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 window.addEventListener('offline', () => setBookingStatus('offline', 'Нет соединения с интернетом'));

@@ -1765,7 +1765,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=392#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=393#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3520,7 +3520,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=392');
+    worker = new Worker('./report-worker.js?v=393');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4084,10 +4084,6 @@ function restoreProviderSectionDisclosure(nav) {
 
 function refreshProviderSectionDisclosure(nav) {
   const buttons = [...nav.querySelectorAll('[data-section-target]')];
-  if (!providerSectionMobileQuery.matches) {
-    restoreProviderSectionDisclosure(nav);
-    return;
-  }
   const selected = preferredProviderSectionTarget(buttons, rememberedProviderSection(nav));
   buttons.forEach(button => {
     const active = button === selected;
@@ -4135,7 +4131,7 @@ function scrollToProviderSection(button) {
     if (active) item.setAttribute('aria-current', 'location');
     else item.removeAttribute('aria-current');
   });
-  if (nav && providerSectionMobileQuery.matches) refreshProviderSectionDisclosure(nav);
+  if (nav) refreshProviderSectionDisclosure(nav);
   const focusTarget = target.classList.contains('provider-section-marker')
     ? target.nextElementSibling?.querySelector('summary') || target.nextElementSibling
     : target;
@@ -4145,24 +4141,7 @@ function scrollToProviderSection(button) {
 }
 
 function updateActiveSectionNavigation() {
-  if (providerSectionMobileQuery.matches) return;
-  $$('.provider-section-nav').forEach(nav => {
-    if (!nav.offsetParent) return;
-    const buttons = [...nav.querySelectorAll('[data-section-target]')].filter(button => !button.hidden);
-    if (!buttons.length) return;
-    const threshold = nav.getBoundingClientRect().bottom + 20;
-    let activeButton = buttons[0];
-    buttons.forEach(button => {
-      const target = document.getElementById(button.dataset.sectionTarget);
-      if (target && !target.hidden && target.getBoundingClientRect().top <= threshold) activeButton = button;
-    });
-    buttons.forEach(button => {
-      const active = button === activeButton;
-      button.classList.toggle('active', active);
-      if (active) button.setAttribute('aria-current', 'location');
-      else button.removeAttribute('aria-current');
-    });
-  });
+  return;
 }
 
 function scheduleSectionNavigationUpdate() {

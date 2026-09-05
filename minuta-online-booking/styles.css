@@ -7431,3 +7431,60 @@ html.provider-booting .provider-main {
     box-sizing:border-box;
   }
 }
+/* v393: полная информация в списках записей при любой теме и компоновке. */
+.provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-open {
+  align-items:start;
+  height:auto;
+  min-height:0;
+  overflow:visible;
+}
+.provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-top {
+  align-items:flex-start;
+  flex-wrap:wrap;
+  overflow:visible;
+}
+.provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-top h3 {
+  display:block!important;
+  flex:1 1 220px;
+  max-height:none!important;
+  overflow:visible!important;
+  overflow-wrap:anywhere!important;
+  text-overflow:clip!important;
+  white-space:normal!important;
+  -webkit-box-orient:initial!important;
+  -webkit-line-clamp:unset!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .schedule-list :is(
+  .provider-booking-client-line,
+  .booking-client-name-row,
+  .booking-client-name-row>strong,
+  .provider-booking-phone,
+  .provider-booking-signals,
+  .provider-booking-note-full
+) {
+  max-width:100%;
+  overflow:visible!important;
+  overflow-wrap:anywhere!important;
+  text-overflow:clip!important;
+  white-space:normal!important;
+  -webkit-line-clamp:unset!important;
+}
+@media (max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-open {
+    align-items:start!important;
+    padding-block:12px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-top h3 {
+    flex-basis:100%;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .schedule-list .provider-booking-client-line {
+    align-items:flex-start!important;
+    flex-direction:column!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .schedule-list .booking-status {
+    max-width:100%!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+    white-space:normal!important;
+  }
+}

@@ -598,7 +598,8 @@ assert.match(provider, /function updateProviderClientLinks[\s\S]*public_booking_
 assert.match(providerHtml, /id="bookingSearch"[^>]*Имя, телефон или услуга/, 'В истории записей нет поиска');
 assert.match(providerHtml, /id="bookingStatusFilter"[\s\S]*value="needs-result"[\s\S]*value="cancelled"/, 'В истории записей нет фильтра по статусу');
 assert.match(provider, /function applyBookingQuery[\s\S]*bookingStatusClass\(item\)[\s\S]*client_phone[\s\S]*services\?\.name/, 'Поиск и фильтр записей не применяются к данным');
-assert.match(provider, /function updateActiveSectionNavigation[\s\S]*getBoundingClientRect\(\)\.top[\s\S]*aria-current/, 'Внутренняя навигация не следует за прокруткой');
+assert.match(provider, /function refreshProviderSectionDisclosure\(nav\)[\s\S]*setProviderSectionElementVisible\(element, active\)/, 'Внутренняя навигация не переключает минималистичные подразделы');
+assert.match(provider, /function updateActiveSectionNavigation\(\) \{\s*return;\s*\}/, 'Прокрутка самопроизвольно меняет выбранный подраздел');
 for (const parameter of ['date', 'range', 'records', 'journal']) assert.match(provider, new RegExp(`searchParams\\.set\\('${parameter}'`), `Контекст расписания не сохраняет параметр ${parameter}`);
 assert.match(providerHtml, /data-provider-view="schedule"[^>]*>[\s\S]*?<span>График<\/span>/, 'Подпись рабочего графика в нижней навигации слишком длинная');
 assert.doesNotMatch(providerHtml, /id="(?:newBookingsBadge|clientsBadge|servicesBadge|teamBadge|portfolioBadge)"/, 'В боковом меню остались неинформативные общие и нулевые счётчики');

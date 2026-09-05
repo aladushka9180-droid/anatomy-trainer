@@ -44,16 +44,15 @@ for (const target of [
 
 assert.match(source, /PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1'/, 'выбор подраздела должен сохраняться локально');
 assert.match(source, /rememberProviderSection[\s\S]*localStorage\.setItem\(providerSectionStorageKey\(nav\), target\)/, 'нажатие на подраздел должно запоминаться');
-assert.match(source, /providerSectionMobileQuery = window\.matchMedia\('\(max-width: 760px\)'\)/, 'скрытие должно включаться только на мобильной ширине');
+assert.match(source, /function refreshProviderSectionDisclosure\(nav\)[\s\S]*const selected = preferredProviderSectionTarget/, 'подраздел должен выбираться на любой ширине экрана');
 assert.match(source, /organizationPeopleSection:\['invitationsPanel', 'organizationAuditPanel'\]/, 'приглашения и журнал должны оставаться в подразделе команды');
 assert.match(source, /benefitsPanel:\['loyaltyPanel', 'retentionPanel'\]/, 'лояльность и возврат клиентов должны оставаться в клиентском подразделе');
 assert.match(source, /telegramClientSettingsCard:\['visitorAlertSettingsCard'\]/, 'Telegram и системные уведомления должны оставаться в одном подразделе');
 assert.match(source, /bookingRulesCard:\['teamCalendarSettingsCard', 'groupBookingSettingsCard'\]/, 'настройки команды и групповые записи должны оставаться рядом с правилами записи');
 assert.match(source, /element\.style\.display = 'none';[\s\S]*element\.setAttribute\('aria-hidden', 'true'\);[\s\S]*element\.setAttribute\('inert', ''\)/, 'неактивный мобильный подраздел должен быть скрыт и исключён из фокуса');
-assert.match(source, /if \(!providerSectionMobileQuery\.matches\) \{[\s\S]*restoreProviderSectionDisclosure\(nav\)/, 'на компьютере исходная длинная раскладка должна полностью восстанавливаться');
-assert.match(source, /if \(nav && providerSectionMobileQuery\.matches\) refreshProviderSectionDisclosure\(nav\)/, 'выбор кнопки должен сразу переключать мобильный подраздел');
-assert.match(source, /if \(providerSectionMobileQuery\.matches\) return;[\s\S]*\$\$\('\.provider-section-nav'\)/, 'прокрутка не должна самопроизвольно менять выбранный мобильный подраздел');
-assert.match(source, /providerSectionMobileQuery\.addEventListener\('change', refreshSectionNavigation\)/, 'смена ориентации должна переключать мобильный и компьютерный режимы');
+assert.doesNotMatch(source, /if \(!providerSectionMobileQuery\.matches\) \{[\s\S]*restoreProviderSectionDisclosure\(nav\)/, 'компьютер не должен возвращаться к длинной странице со всеми подразделами');
+assert.match(source, /if \(nav\) refreshProviderSectionDisclosure\(nav\)/, 'выбор кнопки должен сразу переключать подраздел на любой ширине');
+assert.match(source, /function updateActiveSectionNavigation\(\) \{\s*return;\s*\}/, 'прокрутка не должна самопроизвольно менять выбранный подраздел');
 
 const disclosureSource = source.slice(
   source.indexOf('function providerSectionViewKey'),
