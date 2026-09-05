@@ -121,7 +121,7 @@ assert.match(provider, /visitorNotificationTestButton'\)\.addEventListener\('cli
 assert.match(providerHtml, /id="connectionLogDialog"[\s\S]*id="connectionLogList"/, 'Журнал проблем со связью недоступен пользователю');
 assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDialog"[\s\S]*id="voiceListenButton"/, 'В кабинете нет голосового помощника');
 assert.match(providerHtml, /id="voiceAssistantSpeechSettings"[\s\S]*id="voiceAssistantVoice"[\s\S]*id="voiceAssistantRate"[\s\S]*id="voiceAssistantVoicePreview"/, 'В помощнике нет настроек голоса и скорости озвучки');
-assert.match(voiceAssistant, /minuta-assistant-speech-settings-v1[\s\S]*utterance\.rate = speechRate/, 'Выбор голоса и скорости не сохраняется или не применяется к озвучке');
+assert.match(voiceAssistant, /minuta-assistant-speech-settings-v1[\s\S]*const rate = speechRate[\s\S]*utterance\.rate = rate/, 'Выбор голоса и скорости не сохраняется или не применяется ко всем частям озвучки');
 assert.match(providerHtml, /data-voice-back[\s\S]*Вернуться к основному меню помощника/, 'В ответе помощника нет доступной кнопки возврата в основное меню');
 assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
