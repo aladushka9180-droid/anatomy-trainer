@@ -908,7 +908,7 @@
 @media (max-width:760px) {
   .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] {
     background-image:linear-gradient(rgba(255,243,231,.5),rgba(255,243,231,.5)),url("provider-apricot-tiger.svg?v=447")!important;
-    background-size:auto,760px auto!important;
+    background-size:auto,480px auto!important;
     background-attachment:scroll!important;
     background-repeat:repeat!important;
   }
