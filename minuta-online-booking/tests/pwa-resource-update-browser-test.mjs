@@ -19,7 +19,9 @@ const oldFile = path => execFileSync('git', ['show', `${baseline}:minuta-online-
 const newFile = path => readFileSync(resolve(appRoot, path));
 const prefix = '/minuta-online-booking/';
 const cachePrefix = 'massage-izhevsk-';
-const modules = ['group-bookings.js', 'benefit-management.js', 'retention-management.js'];
+const executableModules = ['group-bookings.js', 'benefit-management.js', 'retention-management.js'];
+// Verify full application bytes without running authenticated/bootstrap code in the inert shell.
+const modules = [...executableModules, 'app.js', 'free-slots-share.js', 'provider.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshot(read) {
@@ -46,7 +48,7 @@ assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have
 function shell(version) {
   return `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Isolated PWA update</title>
     <body data-release="${version}"><h1>Isolated resource update</h1>
-    ${modules.map(module => `<script src="./${module}?v=${version}"></script>`).join('\n')}</body></html>`;
+    ${executableModules.map(module => `<script src="./${module}?v=${version}"></script>`).join('\n')}</body></html>`;
 }
 const mime = { '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webmanifest':'application/manifest+json',
   '.html':'text/html', '.png':'image/png', '.webp':'image/webp', '.jpg':'image/jpeg' };
