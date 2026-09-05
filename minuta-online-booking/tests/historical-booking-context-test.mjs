@@ -259,3 +259,20 @@ test('post-close pending refresh cannot focus or toast after account replacement
   h.replaceForm(actorB); const before = h.snapshot(); h.resolveRefresh(true);
   assert.equal(await h.pending, null); assert.equal(h.snapshot(), before);
 });
+
+for (const phase of ['color', 'refresh']) {
+  test(`confirmed historical creation with fulfilled ${phase} false reports partial completion and remains latched`, async () => {
+    const h = harness({ deferRefresh:phase === 'refresh' }); await tick();
+    h.resolveColor(phase === 'refresh');
+    if (phase === 'refresh') { await tick(); h.resolveRefresh(false); }
+    assert.equal(await h.pending, null);
+    assert.equal(h.nodes.get('#newBookingForm').dataset.historicalCreateState, 'created');
+    h.context.updateNewBookingSubmitCaption();
+    assert.equal(h.nodes.get('#newBookingSubmit').disabled, true);
+    await h.resubmit(); assert.equal(h.calls.length, 1);
+    const message = h.effects.findLast(effect => ['notify', 'error'].includes(effect[0]));
+    assert.ok(message); assert.match(message[0] === 'notify' ? message[1] : message[2], /Запись в прошлом создана, но/);
+    assert.equal(h.effects.some(effect => effect[0] === 'focus'), false);
+    assert.equal(h.effects.some(effect => effect[0] === 'notify' && effect[1] === 'Запись в прошлом создана · отметьте результат и оплату'), false);
+  });
+}

@@ -7004,15 +7004,23 @@ async function createNewBooking(event) {
         if (!formIsCurrent()) return;
         clientNotes.set(normalizedPhone, note);
       }
-      await saveBookingColor(createdId, color, { rerender:false, isCurrent:formIsCurrent });
+      const colorSaved = await saveBookingColor(createdId, color, { rerender:false, isCurrent:formIsCurrent });
       if (!formIsCurrent()) return;
+      if (!colorSaved) {
+        showFormError('#newBookingError', 'Запись в прошлом создана, но сохранение цвета не подтверждено. Проверьте запись перед повтором.');
+        return;
+      }
       selectScheduleDate(date);
       clearNewBookingDraft(userId);
       closeBookingSheet();
       const closedRevision = bookingEditorRevision;
       closedIsCurrent = () => contextIsCurrent() && bookingEditorRevision === closedRevision && $('#bookingSheet').hidden;
-      await refreshAfterWrite();
+      const refreshed = await refreshAfterWrite();
       if (!closedIsCurrent()) return;
+      if (refreshed === false) {
+        notify('Запись в прошлом создана, но обновление расписания не подтверждено. Проверьте запись перед повтором.');
+        return;
+      }
       focusCreatedBooking(createdId);
       notify('Запись в прошлом создана · отметьте результат и оплату');
     } catch {
