@@ -35,14 +35,19 @@ for section in pre-data data post-data; do
     --section="$section" --file="/tmp/$section.sql" /tmp/source.dump >>"$private_log" 2>&1
 done
 docker cp "$box:/tmp/post-data.sql" "$RUNNER_TEMP/public-post-data.sql" >/dev/null
+stage=strip-outbound-webhooks
+node "$script_dir/crm-snapshot-postdata.mjs" "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/filtered-post-data.sql"
+docker cp "$RUNNER_TEMP/filtered-post-data.sql" "$box:/tmp/post-data.sql" >/dev/null
 stage=auth-placeholders
 node "$script_dir/crm-snapshot-toc.mjs" auth "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
 docker cp "$RUNNER_TEMP/auth-placeholders.sql" "$box:/tmp/auth-placeholders.sql" >/dev/null
 for phase in pre-data data auth-placeholders post-data; do
   stage="load-$phase"
-  if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f "/tmp/$phase.sql" >>"$private_log" 2>&1; then
+  if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f "/tmp/$phase.sql" >>"$private_log" 2>&1; then
     echo "Offline snapshot load failed at $phase; private SQL output not published" >&2
-    grep -E '^psql:/tmp/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}$' "$private_log" >&2 || true
+    # Whitelist structural diagnostics; never print arbitrary errors or rows.
+    sed -nE 's/^(psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}):.*$/\1/p' "$private_log" >&2
+    sed -nE 's/^psql:\/tmp\/[a-z-]+\.sql:[0-9]+: ERROR: +[0-9A-Z]{5}: +schema "([a-z_][a-z0-9_]*)" does not exist\r?$/Missing schema: \1/p' "$private_log" >&2
     exit 1
   fi
 done
@@ -53,9 +58,9 @@ docker exec "$box" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 -c \
 # No raw data/schema/log is uploaded. Sanitizer must fail closed on unknown data.
 docker cp "$script_dir/crm-snapshot-anonymize.sql" "$box:/tmp/anonymize.sql" >/dev/null
 stage=anonymize
-if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f /tmp/anonymize.sql >>"$private_log" 2>&1; then
+if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f /tmp/anonymize.sql >>"$private_log" 2>&1; then
   echo 'Offline anonymization refused the snapshot; no testDB changes' >&2
-  grep -E '^psql:/tmp/anonymize\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}$' "$private_log" >&2 || true
+  node "$script_dir/crm-snapshot-diagnostics.mjs" "$private_log"
   exit 1
 fi
 stage=export

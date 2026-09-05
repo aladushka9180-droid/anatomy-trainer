@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare-offline:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/client-record-files'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -78,6 +78,9 @@ jobs:
         run: |
           node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
           node minuta-online-booking/scripts/crm-snapshot-toc-review-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-target-sql-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-postdata-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-diagnostics-test.mjs
           npm install --prefix "$RUNNER_TEMP/snapshot-test-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
           export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/snapshot-test-deps/node_modules/@electric-sql/pglite/dist/index.js"
           node minuta-online-booking/scripts/crm-snapshot-anonymize-test.mjs
@@ -130,4 +133,4 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/crm-source.dump" "$RUNNER_TEMP/crm-anonymized.dump" \
             "$RUNNER_TEMP/crm-anonymized-verify.dump" "$RUNNER_TEMP/crm-offline-private.log" \
-            "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
+            "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/filtered-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
