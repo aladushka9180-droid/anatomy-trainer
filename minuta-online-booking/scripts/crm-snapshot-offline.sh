@@ -31,15 +31,20 @@ docker cp "$box:/tmp/post-data.sql" "$RUNNER_TEMP/public-post-data.sql" >/dev/nu
 node "$script_dir/crm-snapshot-toc.mjs" auth "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
 docker cp "$RUNNER_TEMP/auth-placeholders.sql" "$box:/tmp/auth-placeholders.sql" >/dev/null
 for phase in pre-data data auth-placeholders post-data; do
-  if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -f "/tmp/$phase.sql" >>"$private_log" 2>&1; then
+  if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f "/tmp/$phase.sql" >>"$private_log" 2>&1; then
     echo "Offline snapshot load failed at $phase; private SQL output not published" >&2
+    grep -E '^psql:/tmp/[a-z-]+\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}$' "$private_log" >&2 || true
     exit 1
   fi
 done
+docker exec "$box" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 -c \
+  "select jsonb_build_object('columns',(select jsonb_agg(jsonb_build_object('table',table_name,'column',column_name,'type',udt_name) order by table_name,ordinal_position) from information_schema.columns where table_schema='public'),'foreignKeys',(select jsonb_agg(jsonb_build_object('table',conrelid::regclass::text,'target',confrelid::regclass::text,'definition',pg_get_constraintdef(oid))) from pg_constraint where contype='f' and connamespace='public'::regnamespace));" \
+  > "$RUNNER_TEMP/crm-snapshot-structure.json" 2>>"$private_log"
 # No raw data/schema/log is uploaded. Sanitizer must fail closed on unknown data.
 docker cp "$script_dir/crm-snapshot-anonymize.sql" "$box:/tmp/anonymize.sql" >/dev/null
-if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -f /tmp/anonymize.sql >>"$private_log" 2>&1; then
+if ! docker exec "$box" psql -U postgres -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -f /tmp/anonymize.sql >>"$private_log" 2>&1; then
   echo 'Offline anonymization refused the snapshot; no testDB changes' >&2
+  grep -E '^psql:/tmp/anonymize\.sql:[0-9]+: ERROR:  [0-9A-Z]{5}$' "$private_log" >&2 || true
   exit 1
 fi
 if ! docker exec "$box" pg_dump -U postgres --schema=public --format=custom --no-owner --no-privileges \

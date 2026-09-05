@@ -104,6 +104,14 @@ jobs:
             --arg digest "$(cat "$encrypted.sha256")" \
             '{schemaVersion:1,status:"success",operation:"offline-anonymization",codeSha:$sha,sourceSha:$base,sourceBackupRunId:$run,encryptedSha256:$digest,networkMode:"none",testDatabaseWritten:false,productionWritten:false}' \
             > "$RUNNER_TEMP/crm-anonymized.json"
+      - name: Store structural metadata only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: crm-snapshot-structure-${{ github.run_id }}
+          path: ${{ runner.temp }}/crm-snapshot-structure.json
+          if-no-files-found: ignore
+          retention-days: 7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: crm-anonymized-${{ github.run_id }}
