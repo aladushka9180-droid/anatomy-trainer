@@ -10102,7 +10102,13 @@ document.addEventListener('click', async event => {
     await refreshAfterWrite();
   }
   if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
-    const { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
+    let { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
+    if (error?.code === '23503' && /organization_waitlist_requests/.test(`${error.message || ''} ${error.details || ''}`)) {
+      // Preserve scoped waitlist history instead of removing its service.
+      const hidden = await db.from('services').update({active:false}).eq('id',remove.dataset.deleteService).select('id').maybeSingle();
+      error = hidden.error || (hidden.data ? null : new Error('service_not_archived'));
+      data = 'archived';
+    }
     if (error) notify('Не удалось удалить услугу');
     else notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
     await refreshAfterWrite();
