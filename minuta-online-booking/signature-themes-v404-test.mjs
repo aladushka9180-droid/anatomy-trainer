@@ -77,6 +77,11 @@ assert.match(worker, /\.\/provider-themes-signature\.css\?v=448/, 'Service Worke
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
 assert.match(mobileTiger, /background-size:auto,480px auto!important/);
+assert.match(mobileTiger, /provider-apricot-tiger-mobile\.svg/);
+const mobileTigerAsset = fs.readFileSync(new URL('./provider-apricot-tiger-mobile.svg', import.meta.url), 'utf8');
+assert.match(mobileTigerAsset, /<g fill="#98745d" opacity="\.22">/);
+assert.doesNotMatch(mobileTigerAsset, /fill-opacity=/, 'Mobile branches must not accumulate opacity at joins');
+assert.match(worker, /provider-apricot-tiger-mobile\.svg/, 'Mobile tiger asset is available offline');
 assert.match(mobileTiger, /rgba\(255,243,231,\.5\)/, 'Mobile tiger keeps its muted palette');
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
