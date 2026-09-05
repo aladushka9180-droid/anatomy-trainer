@@ -10,7 +10,14 @@ cleanup() {
   local status=$?
   trap - EXIT
   if ((status != 0)); then
-    printf 'Test restore stopped safely in phase: %s\n' "$phase" >&2
+    if [[ "$phase" == commit-confirmed-journal ]]; then
+      printf 'Test restore committed, but journal creation failed; do not retry blindly.\n' >&2
+    else
+      printf 'Test restore stopped in phase: %s\n' "$phase" >&2
+    fi
+    if [[ -n "$private_dir" && -f "$private_dir/transform.log" ]]; then
+      sed -nE 's/^Target snapshot SQL preparation refused input; no database accessed (\{"code":"[A-Z_]+"(,"statementIndex":[0-9]+)?\})$/\1/p' "$private_dir/transform.log" >&2
+    fi
     # SQLSTATE only. Never print SQL text, server DETAIL, row values, or raw logs.
     if [[ -n "$private_dir" && -f "$private_dir/database.log" ]]; then
       sed -nE 's/^psql:[^:]+:[0-9]+: ERROR:  ([0-9A-Z]{5})$/SQLSTATE: \1/p' \
@@ -131,7 +138,7 @@ printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode lo
   --decrypt "$private_dir/snapshot/crm-anonymized.dump.gpg" >"$private_dir/gpg.log" 2>&1
 
 phase=offline-target-sql-preparation
-"$pg_bin/pg_restore" --clean --if-exists --no-owner --no-privileges \
+"$pg_bin/pg_restore" --clean --if-exists --no-owner --no-privileges --no-comments \
   --file="$private_dir/raw-restore.sql" "$private_dir/anonymized.dump" >"$private_dir/restore.log" 2>&1
 
 # Connection material never enters SQL, shell eval, command arguments, or logs.
@@ -166,6 +173,9 @@ if [[ "$RESTORE_MODE" == validate ]]; then
 fi
 
 phase=test-only-quiesce
+# Recheck freshness immediately before the first mutation, not only at job start.
+verify_run "$TEST_BACKUP_RUN_ID" "$BACKUP_SHA" .github/workflows/minuta-crm-test-backup.yml \
+  '["main"]' "$private_dir/test-backup-run.json"
 "$pg_bin/psql" -X -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
   -v "restore_confirm=$RESTORE_CONFIRM" -f "$script_dir/crm-test-restore-quiesce.sql" \
   >"$private_dir/database.log" 2>&1
