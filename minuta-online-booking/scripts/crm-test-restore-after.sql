@@ -1,4 +1,5 @@
 \set ON_ERROR_STOP on
+set local search_path=pg_catalog;
 do $transaction$ begin
   if current_setting('session_replication_role')<>'replica'
      or to_regclass('pg_temp.crm_preserved_auth_triggers') is null then

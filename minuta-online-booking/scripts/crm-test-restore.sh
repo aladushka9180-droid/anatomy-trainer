@@ -22,6 +22,8 @@ cleanup() {
     if [[ -n "$private_dir" && -f "$private_dir/database.log" ]]; then
       sed -nE 's/^psql:[^:]+:[0-9]+: ERROR:  ([0-9A-Z]{5})$/SQLSTATE: \1/p' \
         "$private_dir/database.log" | tail -n 1 >&2
+      sed -nE 's/^psql:[^:]+:([0-9]+): ERROR: +([0-9A-Z]{5}): ([a-z_]+)$/Guard line \1: \2 \3/p' \
+        "$private_dir/database.log" | tail -n 1 >&2
     fi
   fi
   if [[ -n "$private_dir" && "$private_dir" == "$(realpath "$RUNNER_TEMP")/minuta-crm-test-restore-private" ]]; then
@@ -207,7 +209,7 @@ verify_run "$TEST_BACKUP_RUN_ID" "$BACKUP_SHA" .github/workflows/minuta-crm-test
 phase=test-only-atomic-restore
 # -1 wraps all three files in one BEGIN/COMMIT. ON_ERROR_STOP causes rollback
 # on any failed assertion, DDL, COPY, dependency or ACL operation.
-"$pg_bin/psql" -X --single-transaction -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
+"$pg_bin/psql" -X --single-transaction -v ON_ERROR_STOP=1 -v VERBOSITY=verbose \
   -f "$script_dir/crm-test-restore-before.sql" -f "$private_dir/target-fragment.sql" \
   -f "$script_dir/crm-test-restore-after.sql" >"$private_dir/database.log" 2>&1
 

@@ -73,8 +73,11 @@ jobs:
           sudo apt-get install --yes postgresql-client-17
       - name: Validate target SQL transformer without a database
         run: |
+          npm install --prefix "$RUNNER_TEMP/restore-test-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8
+          export MINUTA_PGLITE_MODULE="$RUNNER_TEMP/restore-test-deps/node_modules/@electric-sql/pglite/dist/index.js"
           node minuta-online-booking/scripts/crm-snapshot-target-sql-test.mjs
           node minuta-online-booking/scripts/crm-test-restore-guards-test.mjs
+          node minuta-online-booking/scripts/crm-test-restore-workflow-test.mjs
       - name: Verify backups and restore only the authorized isolated test project
         env:
           GH_TOKEN: ${{ github.token }}
