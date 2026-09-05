@@ -18,4 +18,4 @@ assert.match(app, /async function addAndroidCalendar[\s\S]*androidCalendarIntent
 assert.match(app, /async function addAppleCalendar[\s\S]*openCalendarFile/, 'нет iOS fallback для ICS');
 assert.match(html, /id="saveSuccessCalendar"/, 'после создания записи отсутствует кнопка календаря');
 
-console.log('Responsive full details and native calendar v393: OK');
+console.log('Responsive full details and native calendar v394: OK');

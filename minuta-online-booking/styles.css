@@ -6850,6 +6850,7 @@ html.provider-booting .provider-main {
   /* Все периоды видны сразу, без неочевидного горизонтального свайпа. */
   .report-filters .report-periods { display:grid!important; grid-template-columns:repeat(3,minmax(0,1fr)); width:100%; overflow:visible; }
   .report-filters .report-periods button { min-width:0; padding-inline:6px; white-space:normal; }
+  .report-filters .report-periods [data-report-period="custom"] { grid-column:1/-1; }
 
   /* На первом экране статистики остаётся главное, подробности раскрываются по желанию. */
   .report-smart-actions .report-smart-action { display:none; min-height:52px; align-items:center; padding:8px 9px; }

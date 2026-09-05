@@ -27,4 +27,4 @@ const themeSource = provider.match(/const PROVIDER_THEME_KEYS = \[([^\]]+)\]/)?.
 const themes = [...themeSource.matchAll(/'([^']+)'/g)].map(match => match[1]);
 assert.equal(themes.length, 9, 'Проверка месяца должна охватывать все девять тем');
 
-console.log(`Calendar minimalism v393 checks passed across ${themes.length} themes.`);
+console.log(`Calendar minimalism v394 checks passed across ${themes.length} themes.`);

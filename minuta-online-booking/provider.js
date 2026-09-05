@@ -149,7 +149,7 @@ let providerLinkCodeRequested = false;
 let currentFilter = restoreScheduleFilter();
 let calendarView = currentFilter === 'day' ? restoreCalendarView() : 'day';
 let notificationFilter = 'pending';
-let reportPeriod = 'month';
+let reportPeriod = 'last30';
 let reportCustomStart = '';
 let reportCustomEnd = '';
 let reportSubview = 'overview';
@@ -1765,7 +1765,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=393#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=394#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2067,6 +2067,7 @@ function reportRange(period = reportPeriod) {
   let start = todayIso;
   let end = todayIso;
   if (period === 'week') start = localIsoDate(new Date(today.getTime() - 6 * 86400000));
+  if (period === 'last30') start = localIsoDate(new Date(today.getTime() - 29 * 86400000));
   if (period === 'month') start = localIsoDate(new Date(today.getFullYear(), today.getMonth(), 1));
   if (period === 'quarter') start = localIsoDate(new Date(today.getTime() - 89 * 86400000));
   if (period === 'year') start = localIsoDate(new Date(today.getFullYear(), 0, 1));
@@ -2311,7 +2312,7 @@ function reportPerformerName() {
 }
 
 function reportPeriodName(period = reportPeriod) {
-  return ({ week:'7 дней', month:'Месяц', quarter:'90 дней', year:'Год', all:'Всё время', custom:'Свои даты' })[period] || 'Период';
+  return ({ week:'7 дней', last30:'30 дней', month:'Этот месяц', quarter:'90 дней', year:'Год', all:'Всё время', custom:'Свои даты' })[period] || 'Период';
 }
 
 function setReportFiltersExpanded(expanded) {
@@ -3520,7 +3521,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=393');
+    worker = new Worker('./report-worker.js?v=394');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {

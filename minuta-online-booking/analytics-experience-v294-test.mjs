@@ -14,6 +14,9 @@ for (const id of ['reportHeroRevenue', 'reportPlanProgress', 'reportForecast', '
 for (const view of ['overview', 'money', 'clients', 'team']) {
   assert.match(html, new RegExp(`data-report-view="${view}"`), `Отсутствует представление статистики ${view}`);
 }
+assert.match(html, /data-report-period="week"[\s\S]*data-report-period="last30"[\s\S]*data-report-period="quarter"[\s\S]*data-report-period="month">Этот месяц/, 'Не разделены последние 30 дней и текущий календарный месяц');
+assert.match(provider, /let reportPeriod = 'last30'/, 'Последние 30 дней не выбраны периодом по умолчанию');
+assert.match(provider, /period === 'last30'[\s\S]*29 \* 86400000/, 'Период 30 дней должен включать сегодня и предыдущие 29 дней');
 assert.match(html, /id="reportGoalsDialog"[\s\S]*id="reportGoalRevenue"[\s\S]*id="reportGoalUtilization"[\s\S]*id="reportGoalRepeat"[\s\S]*id="reportGoalCancellation"/, 'Цели бизнеса собраны не полностью');
 assert.match(provider, /function normalizeAnalyticsGoals[\s\S]*revenue_rub[\s\S]*utilization_percent[\s\S]*repeat_percent[\s\S]*cancellation_percent/, 'Цели не нормализуются перед сохранением');
 assert.match(provider, /analytics_goals:displayPreferences\.analytics_goals/, 'Изменение оформления может стереть цели статистики');
@@ -40,11 +43,11 @@ assert.doesNotMatch(provider, /data-report-heatmap-date=/, 'Агрегирова
 assert.match(styles, /#analyticsView\[data-report-tab="overview"\][\s\S]*data-report-tab="money"[\s\S]*data-report-tab="clients"[\s\S]*data-report-tab="team"/, 'Минималистичные представления не переключаются стилями');
 assert.match(styles, /report-periods[\s\S]*overflow-x:auto[\s\S]*scroll-snap-type/, 'Периоды не помещаются безопасно на телефоне');
 assert.match(styles, /@media \(max-width:640px\)[\s\S]*report-command-metrics[\s\S]*grid-template-columns:1fr 1fr/, 'Ключевые показатели не адаптированы к телефону');
-assert.match(worker, /v393/, 'Кэш приложения не обновлён для новой статистики');
+assert.match(worker, /v394/, 'Кэш приложения не обновлён для новой статистики');
 
 assert.match(migration, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 must be atomic');
 assert.match(rollback, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 rollback must be atomic');
 assert.match(provider, /const importedSource = reportDataSource === 'demo' \? \[\] : importedBookingHistory\.filter/, 'demo analytics must not mix real imported history');
 assert.match(styles, /@media \(max-width:640px\)[\s\S]*\.report-view-tabs \{ position:sticky;[\s\S]*safe-area-inset-top/, 'mobile analytics tabs must remain reachable without covering the safe area');
 
-console.log('analytics experience v393 checks passed');
+console.log('analytics experience v394 checks passed');
