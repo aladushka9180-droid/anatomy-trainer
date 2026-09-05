@@ -27,8 +27,8 @@ assert.match(provider, /async function loadReportTeamAnalytics\(range\)[\s\S]*?r
 assert.ok(reportBookings, 'Не найдена выборка записей для статистики');
 assert.match(
   reportBookings,
-  /const source = \[\.\.\.liveSource,\s*\.\.\.importedBookingHistory\]/,
-  'Импортированная история должна участвовать в статистике'
+  /const source = \[\.\.\.liveSource,\s*\.\.\.\(reportDataSource === 'demo' \? \[\] : importedBookingHistory\)\]/,
+  'Импортированная история должна участвовать только в собственной статистике, не в демо'
 );
 assert.match(
   reportBookings,
