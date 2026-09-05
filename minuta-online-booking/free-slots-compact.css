@@ -40,8 +40,9 @@
 #freeSlotsDialog .free-slots-time-picker { margin-top:16px; padding:12px; border:1px solid var(--theme-line,#dce7df); border-radius:12px; }
 #freeSlotsDialog .free-slots-time-picker summary { min-height:44px; display:list-item; align-content:center; cursor:pointer; font-size:14px; font-weight:650; }
 #freeSlotsDialog .free-slots-time-picker p { margin:8px 0; color:var(--theme-muted,#6f8077); font-size:12px; }
-#freeSlotsDialog #freeSlotsFormatSettings { margin:0 0 16px; }
-#freeSlotsDialog #freeSlotsFormatSettings .free-slots-mode { margin:8px 0; }
+#freeSlotsDialog #freeSlotsFormatSettings { margin:16px 0 8px; }
+#freeSlotsDialog #freeSlotsFormatSettings .free-slots-mode { margin:0; }
+#freeSlotsDialog #freeSlotsFormatHint { margin:8px 0; font-size:12px; color:var(--theme-muted,#6f8077); }
 #freeSlotsDialog #freeSlotsTimeChoices { max-height:280px; overflow-y:auto; padding:4px; }
 #freeSlotsDialog .free-slots-time-picker h4 { margin:12px 0 8px; font-size:13px; }
 #freeSlotsDialog .free-slots-time-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(68px,1fr)); gap:6px; }

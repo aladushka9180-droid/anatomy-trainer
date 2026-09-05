@@ -397,7 +397,6 @@
     const bookingModeControls = [...dialog.querySelectorAll('[name="freeSlotsBookingMode"]')];
     const formatControls = [...dialog.querySelectorAll('[name="freeSlotsTimeFormat"]')];
     const formatSettings = dialog.querySelector('#freeSlotsFormatSettings');
-    const formatSummary = dialog.querySelector('#freeSlotsFormatSummary');
     const formatHint = dialog.querySelector('#freeSlotsFormatHint');
     const serviceSelect = dialog.querySelector('#freeSlotsService');
     const locationField = dialog.querySelector('#freeSlotsLocationField');
@@ -446,7 +445,6 @@
     function configureFormat() {
       if (!formatSettings) return;
       formatSettings.hidden = !generalMode();
-      formatSummary.textContent = `Формат времени · ${timeFormat() === 'hourly' ? 'По часам' : 'Промежутками'}`;
     }
 
     function generalMode() { return bookingModeControls.find(control => control.checked)?.value === 'general'; }
@@ -792,8 +790,10 @@
       formatPreferences.set(key, timeFormat());
       try {
         window.localStorage.setItem(key, timeFormat());
-        formatHint.textContent = 'Выбор запоминается для вашего аккаунта в этом браузере.';
+        formatHint.hidden = true;
+        formatHint.textContent = '';
       } catch {
+        formatHint.hidden = false;
         formatHint.textContent = 'Браузер не разрешил сохранение. Выбор действует до перезагрузки страницы.';
       }
       configureFormat();

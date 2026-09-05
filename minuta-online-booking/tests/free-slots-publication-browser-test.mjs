@@ -45,7 +45,9 @@ try {
   assert.equal(await page.locator('#freeSlotsService').isVisible(),false);
   const catalogUrl=new URL(await page.locator('#freeSlotsBookingLink').getAttribute('href'));
   for(const key of ['service','time','repeat']) assert.equal(catalogUrl.searchParams.has(key),false);
-  await page.locator('#freeSlotsFormatSummary').click();
+  assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').isVisible(),true,'Format is available without expanding settings');
+  assert.equal(await page.locator('#freeSlotsFormatSettings').evaluate(el=>el.nextElementSibling.classList.contains('free-slots-text-label')),true,'Format directly precedes ready text');
+  assert.equal(await page.locator('#freeSlotsFormatHint').isVisible(),false);
   await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').check();
   assert.ok((await text()).includes('\n10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00\n'));
   assert.ok(!(await text()).includes('20:00'));
@@ -151,7 +153,7 @@ try {
   await page.locator('#open').click();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
   assert.ok((await text()).includes('\n10:00, 11:00'));
-  await page.locator('#freeSlotsFormatSummary').click();
+  assert.equal(await page.locator('[name="freeSlotsTimeFormat"][value="hourly"]').isVisible(),true);
   await page.evaluate(()=>{Storage.prototype.setItem=()=>{throw Error('Storage denied');};});
   await page.locator('[name="freeSlotsTimeFormat"][value="intervals"]').check();
   assert.ok((await text()).includes('10:00–20:00 · 10 часов'));
