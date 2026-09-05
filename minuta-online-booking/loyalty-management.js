@@ -32,6 +32,16 @@
       $('#loyaltyAdjustmentPoints').value = fields.points;
       $('#loyaltyAdjustmentReason').value = fields.reason;
     }
+    function recoverableAdjustment() {
+      const key = adjustmentKey(), intent = adjustmentIntents.get(key);
+      return !writing && availability === 'ready' && renderedAdjustmentKey === key
+        && scopeMatches(payload, organization?.id) && intent?.state === 'unknown' ? intent : null;
+    }
+    function showAdjustmentRecovery(message = adjustmentUnknownMessage) {
+      const holder = $('#loyaltyAdjustmentError');
+      holder.hidden = false;
+      holder.innerHTML = `${escapeHtml(message)} <button type="button" data-loyalty-restore-adjustment>Вернуть исходные поля</button>`;
+    }
     function syncAdjustment() {
       const intent = adjustmentIntents.get(adjustmentKey());
       const form = $('#loyaltyAdjustmentForm'), button = form?.querySelector('button[type="submit"]');
@@ -157,7 +167,7 @@
       else { $('#loyaltyAdjustmentPoints').value = ''; $('#loyaltyAdjustmentReason').value = ''; }
       if (renderedAdjustmentKey !== key) {
         $('#loyaltyAdjustmentError').hidden = true; $('#loyaltyAdjustmentError').textContent = '';
-        if (adjustmentIntents.get(key)?.unknown) showFormError('#loyaltyAdjustmentError', adjustmentUnknownMessage);
+        if (adjustmentIntents.get(key)?.unknown) showAdjustmentRecovery();
       }
       renderedAdjustmentKey = key;
       $('#loyaltyRedeemClient').innerHTML = clientOptions;
@@ -228,7 +238,7 @@
         // Do not silently submit edited data, nor silently replay old data. Put
         // the original fields back for review; a separate submit retries them.
         restoreAdjustmentFields(intent.fields); rememberAdjustmentFields();
-        showFormError('#loyaltyAdjustmentError', 'Результат прежней корректировки не подтверждён. Возвращены исходные поля: проверьте их и повторите исходную корректировку.');
+        showAdjustmentRecovery('Результат прежней корректировки не подтверждён. Возвращены исходные поля: проверьте их и повторите исходную корректировку.');
         return;
       }
       if (!intent) {
@@ -266,7 +276,7 @@
       else if (refused) showFormError('#loyaltyAdjustmentError',
         error.message === 'authentication_required' || error.message === 'loyalty_management_denied'
           ? 'Недостаточно прав для корректировки бонусов.' : messageFor(error));
-      else showFormError('#loyaltyAdjustmentError', adjustmentUnknownMessage);
+      else showAdjustmentRecovery();
       // A workspace read is useful for reconciliation, but cannot acknowledge an
       // intent. Keep the key and form draft even if this read fails.
       await load();
@@ -297,6 +307,16 @@
       }
     }
     async function click(event) {
+      const restore = event.target.closest('[data-loyalty-restore-adjustment]');
+      if (restore) {
+        const intent = recoverableAdjustment();
+        if (!intent || restore.closest('#loyaltyAdjustmentForm') !== $('#loyaltyAdjustmentForm')) return;
+        restoreAdjustmentFields(intent.fields); rememberAdjustmentFields();
+        showAdjustmentRecovery($('#loyaltyAdjustmentClient').value === intent.fields.client
+          ? 'Исходные поля восстановлены. Проверьте их и отдельно повторите исходную корректировку.'
+          : 'Исходный клиент недоступен в списке. Проверьте журнал; новые данные не отправлены.');
+        return;
+      }
       if (event.target.closest('#reloadLoyalty')) { await load(); return; }
       const toggle = event.target.closest('[data-loyalty-promo-active]');
       if (toggle) await mutate('set_minuta_promotion_active', { p_organization:organization.id, p_promotion:toggle.dataset.loyaltyPromo, p_active:toggle.dataset.loyaltyPromoActive === 'true' }, toggle, 'Статус промокода обновлён');
@@ -319,6 +339,7 @@
     function invalid(event) {
       if (!event.target.closest('#loyaltyPanel')) return;
       const form = event.target.form;
+      if (form?.id === 'loyaltyAdjustmentForm' && recoverableAdjustment()) { showAdjustmentRecovery(); return; }
       const holders = { loyaltyRuleForm:'#loyaltyRuleError', loyaltyAdjustmentForm:'#loyaltyAdjustmentError', loyaltyRedeemForm:'#loyaltyRedeemError', loyaltyPromoForm:'#loyaltyPromoError', loyaltyPromoApplyForm:'#loyaltyPromoApplyError' };
       const holder = holders[form?.id];
       if (!holder) return;
@@ -332,6 +353,9 @@
       showFormError(holder, messages[event.target.id] || 'Заполните обязательное поле и проверьте введённое значение.');
     }
     function input(event) {
+      if (event.target.form?.id === 'loyaltyAdjustmentForm' && recoverableAdjustment()) {
+        rememberAdjustmentFields(); showAdjustmentRecovery(); return;
+      }
       if (['loyaltyPromoCode','loyaltyPromoApplyCode'].includes(event.target.id)) event.target.value = event.target.value.toUpperCase().replace(/[^A-ZА-ЯЁ0-9_-]/g, '');
       const holder = event.target.form?.querySelector('.form-error');
       if (holder && !holder.hidden) { holder.hidden = true; holder.textContent = ''; }

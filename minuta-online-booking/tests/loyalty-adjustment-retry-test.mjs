@@ -50,9 +50,10 @@ function fixture(sharedLedger) {
       querySelector:selector => selector === '.form-error' ? elements.get('loyaltyAdjustmentError') : null,
       querySelectorAll:() => [],closest:selector => selector === '#loyaltyPanel' ? elements.get('loyaltyPanel')
         : selector === '#loyaltyAdjustmentForm' && (id === 'loyaltyAdjustmentForm' || element.form?.id === 'loyaltyAdjustmentForm') ? elements.get('loyaltyAdjustmentForm') : null};
-    let innerHTML = '';
+    let innerHTML = '', textContent = '';
+    Object.defineProperty(element,'textContent',{get:()=>textContent,set:value=>{textContent=String(value);innerHTML='';}});
     Object.defineProperty(element,'innerHTML',{get:()=>innerHTML,set:value=>{
-      innerHTML=String(value);
+      innerHTML=String(value);textContent=innerHTML.replace(/<[^>]*>/g,'');
       // Native select replacement selects the first option, not the old identity.
       if (/Client$|Booking$/.test(id)) element.value=innerHTML.match(/<option value="([^"]*)"/)?.[1] || '';
     }});
@@ -103,6 +104,9 @@ function fixture(sharedLedger) {
     start:async()=>{await controller.setOrganization({id:ORG,current_role:'owner'});fill();},
     submit:()=>dispatch('submit',form,{submitter:button}),
     change:id=>dispatch('change',get(id)),input:id=>dispatch('input',get(id)),
+    invalid:id=>dispatch('invalid',get(id)),
+    restore:()=>dispatch('click',{closest:selector=>selector==='[data-loyalty-restore-adjustment]'?
+      {closest:selector=>selector==='#loyaltyAdjustmentForm'?form:null}:null}),
     replyNext:(reply,before=false)=>{nextDelivery={reply,before};},throwNext:()=>{nextDelivery={throws:true};},
     defer:()=>{nextDelivery={deferred:true};return nextDelivery;},failRead:()=>{failNextRead=true;},
     deferRead:()=>{nextRead={};return nextRead;},
@@ -297,4 +301,33 @@ test('impossible v81 balance ACK 10000001 remains unknown and replays the same k
   f.replyNext({data:{organization_id:ORG,account_id:ACCOUNT,balance_points:10000001},error:null});await f.submit();
   assert.equal(f.notices.length,0);assert.equal(f.get('loyaltyAdjustmentForm').dataset.adjustmentState,'unknown');
   await f.submit();assert.deepEqual(f.mutations()[1].args,f.mutations()[0].args);assert.equal(f.ledger.rows.length,1);
+});
+
+for(const field of ['loyaltyAdjustmentReason','loyaltyAdjustmentPoints'])test(`restore control survives blank required ${field} and invalid event, without submitting`,async()=>{
+  const f=await uncertain(),original=copy(f.mutations()[0].args);f.get(field).value='';await f.input(field);await f.invalid(field);
+  // This VM dispatches actual invalid/click handlers; native required validation
+  // itself belongs to the separate browser suite, not this VM assertion.
+  const error=f.get('loyaltyAdjustmentError');assert.equal(error.hidden,false);
+  assert.match(error.innerHTML,/<button\b[^>]*type="button"[^>]*data-loyalty-restore-adjustment/);
+  const before=f.calls.length;await f.restore();assert.equal(f.calls.length,before,'Restore performs zero RPC, including reads');
+  assert.equal(f.get('loyaltyAdjustmentReason').value,REASON);assert.equal(f.get('loyaltyAdjustmentPoints').value,'100');
+  await f.submit();assert.deepEqual(f.mutations()[1].args,original);assert.equal(f.ledger.rows.length,1);
+});
+
+test('blank unknown draft roundtrip restores a visible scoped action, not actor B fields',async()=>{
+  const f=await uncertain(),original=copy(f.mutations()[0].args);f.get('loyaltyAdjustmentReason').value='';await f.input('loyaltyAdjustmentReason');
+  await f.resetActor('owner-B');f.fill({reason:'Своя причина клиента B'});const before=f.calls.length;await f.restore();
+  assert.equal(f.calls.length,before);assert.equal(f.get('loyaltyAdjustmentReason').value,'Своя причина клиента B');
+  await f.submit();await f.resetActor('owner-A');
+  assert.equal(f.get('loyaltyAdjustmentReason').value,'');assert.equal(f.get('loyaltyAdjustmentError').hidden,false);
+  assert.match(f.get('loyaltyAdjustmentError').innerHTML,/data-loyalty-restore-adjustment/);
+  await f.restore();assert.equal(f.get('loyaltyAdjustmentReason').value,REASON);await f.submit();
+  assert.deepEqual(f.mutations()[2].args,original);assert.equal(f.ledger.rows.length,2);
+});
+
+test('restore click cannot modify fields while the original request is pending',async()=>{
+  const f=await uncertain(),op=f.defer(),pending=f.submit();f.get('loyaltyAdjustmentReason').value='Изменённый черновик пока ждём';
+  const before=f.calls.length;await f.restore();assert.equal(f.calls.length,before);
+  assert.equal(f.get('loyaltyAdjustmentReason').value,'Изменённый черновик пока ждём');
+  op.resolve(op.result);await pending;assert.equal(f.ledger.rows.length,1);
 });
