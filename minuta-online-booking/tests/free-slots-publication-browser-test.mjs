@@ -44,6 +44,7 @@ try {
   for(const key of ['service','time','repeat']) assert.equal(catalogUrl.searchParams.has(key),false);
   await page.locator('[name="freeSlotsBookingMode"][value="service"]').check();
   await page.waitForFunction(()=>!document.querySelector('#copyFreeSlots').disabled);
+  assert.ok(await page.evaluate(()=>Boolean(document.querySelector('#freeSlotsFrom').compareDocumentPosition(document.querySelector('#freeSlotsService')) & Node.DOCUMENT_POSITION_FOLLOWING)), 'Date must precede the secondary service choice');
   assert.ok((await text()).includes('10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 19:00'));
   assert.equal(await page.locator('#freeSlotsTimeChoices input:checked').count(),10);
   const calls=await page.evaluate(()=>window.serverCalls);

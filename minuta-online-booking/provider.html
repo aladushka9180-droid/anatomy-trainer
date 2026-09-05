@@ -1270,14 +1270,14 @@
   </dialog>
   <dialog class="free-slots-dialog" id="freeSlotsDialog" aria-labelledby="freeSlotsTitle">
     <div class="notification-template-dialog-head"><div><small>Публикация</small><h2 id="freeSlotsTitle">Свободные окна</h2></div><button type="button" data-close-free-slots aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+    <fieldset class="free-slots-mode"><legend class="sr-only">Период свободных окон</legend><label><input name="freeSlotsPeriod" type="radio" value="day" checked><span>Один день</span></label><label><input name="freeSlotsPeriod" type="radio" value="range"><span>Диапазон</span></label></fieldset>
+    <div class="free-slots-dates"><label><span id="freeSlotsFromLabel">Дата</span><input id="freeSlotsFrom" type="date" required></label><label id="freeSlotsToField" hidden>По дату<input id="freeSlotsTo" type="date" required></label></div>
     <fieldset class="free-slots-mode"><legend class="sr-only">Тип записи</legend><label><input name="freeSlotsBookingMode" type="radio" value="general" checked><span>Общая запись</span></label><label><input name="freeSlotsBookingMode" type="radio" value="service"><span>Конкретная услуга</span></label></fieldset>
     <p class="free-slots-help">Ваши свободные промежутки без привязки к услуге. Клиент выберет подходящую услугу по ссылке.</p>
     <div class="free-slots-targets">
       <label hidden>Услуга<select id="freeSlotsService" aria-describedby="freeSlotsShareStatus"></select></label>
       <label id="freeSlotsLocationField" hidden>Место приёма<select id="freeSlotsLocation" aria-describedby="freeSlotsShareStatus"></select></label>
     </div>
-    <fieldset class="free-slots-mode"><legend class="sr-only">Период свободных окон</legend><label><input name="freeSlotsPeriod" type="radio" value="day" checked><span>Один день</span></label><label><input name="freeSlotsPeriod" type="radio" value="range"><span>Диапазон</span></label></fieldset>
-    <div class="free-slots-dates"><label><span id="freeSlotsFromLabel">Дата</span><input id="freeSlotsFrom" type="date" required></label><label id="freeSlotsToField" hidden>По дату<input id="freeSlotsTo" type="date" required></label></div>
     <fieldset class="free-slots-source"><legend>Где разместите ссылку</legend><div><label><input name="freeSlotsSource" type="radio" value="master" checked><span>Обычная ссылка</span></label><label><input name="freeSlotsSource" type="radio" value="telegram"><span>Telegram</span></label><label><input name="freeSlotsSource" type="radio" value="whatsapp"><span>WhatsApp</span></label><label><input name="freeSlotsSource" type="radio" value="vk"><span>ВКонтакте</span></label><label><input name="freeSlotsSource" type="radio" value="qr"><span>QR-код</span></label></div><small>Метка добавится к ссылке автоматически и покажет владельцу источник перехода.</small></fieldset>
     <details class="free-slots-time-picker">
       <summary id="freeSlotsSelectionSummary">Выбрать время</summary>
