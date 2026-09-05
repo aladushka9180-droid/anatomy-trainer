@@ -39,11 +39,14 @@ const orgId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const createdDate = '2026-09-01', destinationDate = '2026-09-04';
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-function harness({ deferRpc = false, deferRefresh = false, hidden = false } = {}) {
+function harness({ deferRpc = false, deferRefresh = false, hidden = false, note = '', deferNote = false } = {}) {
   const effects = [], storage = new Map(), nodes = new Map(), calls = [];
+  const noteCalls = [];
   const resetListeners = [];
   const classList = { remove(){} };
   let resolveColor, rejectColor, resolveRpc, rejectRpc, resolveRefresh, rejectRefresh, colorGuard;
+  let resolveNote, rejectNote;
+  const noteReply = new Promise((resolve, reject) => { resolveNote = resolve; rejectNote = reject; });
   const color = new Promise((resolve, reject) => { resolveColor = resolve; rejectColor = reject; });
   const rpc = new Promise((resolve, reject) => { resolveRpc = resolve; rejectRpc = reject; });
   const refresh = new Promise((resolve, reject) => { resolveRefresh = resolve; rejectRefresh = reject; });
@@ -59,7 +62,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false } = {}
     nodes.get('#bookingSheet').dataset.assistantContext = 'new-booking';
     for (const [selector, value] of Object.entries({
       '#newBookingForm':'', '#newBookingName':label, '#newBookingPhone':'+79990000001',
-      '#newBookingService':serviceId, '#newBookingDate':date, '#newBookingNote':'',
+      '#newBookingService':serviceId, '#newBookingDate':date, '#newBookingNote':note,
       '#newBookingOccurrences':'1', '#newBookingInterval':'1', '#newBookingSubmit':'',
       '[name="newBookingColor"]:checked':'sky',
     })) nodes.set(selector, node(value));
@@ -67,6 +70,7 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false } = {}
   renderFixtureForm('Клиент A', createdDate);
   const state = {
     currentUser:{ id:actorA }, sessionGeneration:1, selectedDate:createdDate,
+    clientNotes:new Map([['79990000001', 'Ранее сохранённая заметка']]),
     activeClientOrganizationId:orgId,
     newBookingMode:'client', newBookingTime:'10:00', newBookingHistoricalMode:true,
     newBookingOutsideSchedule:false, editingOfflineBookingId:'',
@@ -95,7 +99,13 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false } = {}
       assert.equal(name, 'create_minuta_historical_booking'); calls.push({ name, params:{ ...params } });
       // Full v98:201-209 response shape; no simulated second creation or rollback.
       return deferRpc ? rpc : reply;
-    }, from:() => { throw Error('This fixture must not enter notes or ordinary creation'); } },
+    }, from:table => {
+      assert.equal(table, 'client_notes');
+      return { upsert:params => {
+        noteCalls.push({ ...params });
+        return deferNote ? noteReply : Promise.resolve({ data:null, error:null, status:204, statusText:'No Content' });
+      } };
+    } },
   };
   const context = vm.createContext(state);
   vm.runInContext(lifecycle + '\n' + resetHooks + '\n' + orgHook + '\n' + actual + '\n' + submitBinding, context);
@@ -106,7 +116,10 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false } = {}
     .then(() => null, error => ({ message:error.message }));
   function replaceForm(account = actorA) {
     context.closeBookingSheet(); // Actual close, then explicit replacement-render boundary.
-    if (account !== state.currentUser.id) { state.currentUser = { id:account }; state.sessionGeneration += 1; }
+    if (account !== state.currentUser.id) {
+      state.currentUser = { id:account }; state.sessionGeneration += 1;
+      state.clientNotes = new Map([['79990000001', 'Заметка аккаунта B']]);
+    }
     renderFixtureForm('Новый несохранённый черновик', destinationDate);
     state.selectedDate = destinationDate; state.newBookingTime = '12:00'; state.newBookingHistoricalMode = true;
     storage.set(context.bookingDraftKey(account), 'new destination draft');
@@ -115,12 +128,14 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false } = {}
   const snapshot = () => JSON.stringify({ selectedDate:state.selectedDate,
     sheetHidden:nodes.get('#bookingSheet').hidden, sheetDataset:nodes.get('#bookingSheet').dataset,
     buttonDisabled:nodes.get('#newBookingSubmit').disabled,
+    clientNotes:[...state.clientNotes],
     name:nodes.get('#newBookingName').value, date:nodes.get('#newBookingDate').value,
     storage:[...storage], historicalMode:state.newBookingHistoricalMode, effects });
   return { state, context, nodes, storage, effects, calls, pending, resolveColor, rejectColor,
     resolveRpc:(response = reply) => resolveRpc(response), reply, rejectRpc, resolveRefresh, rejectRefresh, replaceForm, snapshot,
     resubmit:() => nodes.get('#newBookingForm').handlers.get('submit')({ preventDefault(){},
       currentTarget:nodes.get('#newBookingForm'), submitter:nodes.get('#newBookingSubmit') }),
+    noteCalls, resolveNote, rejectNote,
     colorGuard:() => colorGuard, reset:() => resetListeners.forEach(callback => callback()) };
 }
 
@@ -275,4 +290,48 @@ for (const phase of ['color', 'refresh']) {
     assert.equal(h.effects.some(effect => effect[0] === 'focus'), false);
     assert.equal(h.effects.some(effect => effect[0] === 'notify' && effect[1] === 'Запись в прошлом создана · отметьте результат и оплату'), false);
   });
+}
+
+const noteSuccess = { data:null, error:null, status:204, statusText:'No Content' };
+const noteFailure = { data:null, error:{ code:'42501', message:'new row violates row-level security policy for table "client_notes"' }, status:403 };
+test('current notes upsert accepts actual empty successful PostgREST envelope', async () => {
+  const h = harness({ note:'Новая заметка', deferNote:true }); await tick();
+  assert.equal(h.noteCalls.length, 1);
+  assert.equal(h.noteCalls[0].performer_id, actorA);
+  assert.equal(h.noteCalls[0].client_phone, '79990000001');
+  h.resolveNote(noteSuccess); await tick(); h.resolveColor(true); assert.equal(await h.pending, null);
+  assert.equal(h.state.clientNotes.get('79990000001'), 'Новая заметка');
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.effects.at(-1)[0], 'notify');
+  assert.equal(h.effects.at(-1)[1], 'Запись в прошлом создана · отметьте результат и оплату');
+});
+
+for (const outcome of ['error', 'throw', 'malformed']) {
+  test(`current notes ${outcome} retains old cache and created latch without secondary work`, async () => {
+    const h = harness({ note:'Неподтверждённая заметка', deferNote:true }); await tick();
+    const before = JSON.stringify([...h.state.clientNotes]);
+    if (outcome === 'throw') h.rejectNote(Error('defensive notes rejection'));
+    else h.resolveNote(outcome === 'error' ? noteFailure : {});
+    assert.equal(await h.pending, null);
+    assert.equal(JSON.stringify([...h.state.clientNotes]), before);
+    assert.equal(h.nodes.get('#newBookingForm').dataset.historicalCreateState, 'created');
+    h.context.updateNewBookingSubmitCaption(); assert.equal(h.nodes.get('#newBookingSubmit').disabled, true);
+    await h.resubmit(); assert.equal(h.calls.length, 1); assert.equal(h.noteCalls.length, 1);
+    assert.equal(h.effects.some(effect => ['colorStarted', 'refresh', 'focus', 'notify'].includes(effect[0])), false);
+    const message = h.effects.findLast(effect => effect[0] === 'error');
+    assert.ok(message); assert.match(message[2], /Запись в прошлом создана, но/);
+  });
+}
+
+for (const account of [actorA, actorB]) {
+  for (const outcome of ['success', 'error', 'throw']) {
+    test(`pending notes ${outcome} cannot affect replacement ${account === actorA ? 'form' : 'account'}`, async () => {
+      const h = harness({ note:'Заметка A', deferNote:true }); await tick();
+      h.replaceForm(account); const before = h.snapshot();
+      if (outcome === 'throw') h.rejectNote(Error('old notes rejection'));
+      else h.resolveNote(outcome === 'error' ? noteFailure : noteSuccess);
+      assert.equal(await h.pending, null); assert.equal(h.snapshot(), before);
+      assert.equal(h.calls.length, 1); assert.equal(h.noteCalls.length, 1);
+    });
+  }
 }

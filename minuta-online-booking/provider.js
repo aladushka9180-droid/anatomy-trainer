@@ -7000,8 +7000,14 @@ async function createNewBooking(event) {
       form.dataset.historicalCreateState = 'created';
       const normalizedPhone = normalizePhone(phone);
       if (note) {
-        await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
+        const noteResult = await db.from('client_notes').upsert({ performer_id:userId, client_phone:normalizedPhone, note, updated_at:new Date().toISOString() });
         if (!formIsCurrent()) return;
+        // PostgREST upsert without select legitimately returns data:null. Its
+        // error envelope, not returned rows, confirms completion of this step.
+        if (noteResult?.error !== null) {
+          showFormError('#newBookingError', 'Запись в прошлом создана, но сохранение заметки не подтверждено. Проверьте запись перед повтором.');
+          return;
+        }
         clientNotes.set(normalizedPhone, note);
       }
       const colorSaved = await saveBookingColor(createdId, color, { rerender:false, isCurrent:formIsCurrent });
