@@ -69,6 +69,10 @@ assert.match(profitability, /enable_minuta_inventory_costing_v113/);
 assert.match(profitability, /inventory\?\.costing_enabled === true/);
 assert.match(styles, /@media \(max-width:760px\)/);
 assert.match(styles, /profitability-opt-in/);
+assert.match(styles, /#reloadProfitability[\s\S]*width:auto[\s\S]*min-height:44px/, 'The refresh action must not inherit a full-width mobile rule and must remain touch-safe');
+assert.match(styles, /profitability-service-card>\.text-button[\s\S]*min-height:44px/, 'Material-mode actions must be touch-safe');
+assert.match(styles, /profitability-commission-form button[\s\S]*min-height:44px/, 'Commission confirmation must be touch-safe');
+assert.match(profitability, /button\.disabled = wasDisabled[\s\S]*applyWriteAvailability\(\)/, 'Failed writes must restore their action state');
 assert.match(styles, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'Mobile cards must not keep five cramped columns');
 assert.match(styles, /organization-inventory \.organization-row-main[\s\S]*white-space:normal/, 'Inventory names and cost details must wrap instead of being truncated');
 

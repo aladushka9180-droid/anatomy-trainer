@@ -1,13 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const defaultModule = 'C:/Users/aladu/AppData/Local/Temp/minuta-client-records-v112-sql-test/node_modules/@electric-sql/pglite/dist/index.js';
-const modulePath = process.env.MINUTA_PGLITE_MODULE || defaultModule;
+const modulePath = process.env.MINUTA_PGLITE_MODULE;
 let PGlite;
 try {
-  ({ PGlite } = await import(pathToFileURL(modulePath).href));
+  ({ PGlite } = await import(modulePath ? pathToFileURL(modulePath).href : '@electric-sql/pglite'));
 } catch (error) {
-  throw new Error(`PGlite не найден. Укажите MINUTA_PGLITE_MODULE до dist/index.js. ${error.message}`);
+  throw new Error(`PGlite не найден. Установите @electric-sql/pglite@0.5.8 или укажите MINUTA_PGLITE_MODULE до dist/index.js. ${error.message}`);
 }
 
 const root = fileURLToPath(new URL('../', import.meta.url)).replaceAll('\\', '/');

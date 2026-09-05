@@ -52,6 +52,15 @@ node minuta-online-booking/voice-assistant-test.mjs
 node minuta-online-booking/assistant-ai-static-test.mjs
 ```
 
+Изолированная runtime-проверка миграции и обоих вариантов отката v113 использует закреплённую версию PGlite:
+
+```bash
+npm install --no-save --ignore-scripts @electric-sql/pglite@0.5.8
+node minuta-online-booking/tests/profitability-v113-pglite-runtime-test.mjs
+```
+
+Если пакет уже находится вне рабочего дерева, путь до его `dist/index.js` можно передать через `MINUTA_PGLITE_MODULE`; `node_modules` в репозиторий не добавляется.
+
 Проверка уже опубликованного сайта и публичных RPC:
 
 ```bash
