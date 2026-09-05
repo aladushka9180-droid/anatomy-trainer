@@ -28,6 +28,13 @@ test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
 [[ "${RESTORE_RUN_ID:-}" =~ ^[0-9]+$ && "${TEST_BACKUP_RUN_ID:-}" =~ ^[0-9]+$ ]]
 [[ "${RESTORE_SHA:-}" =~ ^[a-f0-9]{40}$ && "${BACKUP_SHA:-}" =~ ^[a-f0-9]{40}$ ]]
 [[ "${MIGRATION_MODE:-}" == validate || "${MIGRATION_MODE:-}" == exercise ]]
+resume_v112=false
+if [[ -n "${RESUME_V112_RUN_ID:-}" || -n "${RESUME_V112_SHA:-}" ]]; then
+  # This is a reviewed, one-off partial state, not a generic failed-run bypass.
+  [[ "${RESUME_V112_RUN_ID:-}" == 33983858607 ]]
+  [[ "${RESUME_V112_SHA:-}" == 678ada88563f200b804267bfe9d93195bbade4cf ]]
+  resume_v112=true
+fi
 if [[ "$MIGRATION_MODE" == exercise ]]; then
   [[ "${EXERCISE_CONFIRM:-}" == TEST_CRM_V112_V114_APPLY_ROLLBACK_REAPPLY ]]
 fi
@@ -131,6 +138,29 @@ jq -e --arg sha "$BACKUP_SHA" --arg hash "$backup_digest" '
 ' "$private_dir/backup/test-before.json" >/dev/null
 # No dump is ever decrypted by this gate.
 
+if [[ "$resume_v112" == true ]]; then
+  phase=reviewed-v112-resume-certificate
+  gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESUME_V112_RUN_ID" >"$private_dir/failed-run.json" 2>"$private_dir/gh.log"
+  jq -e --arg sha "$RESUME_V112_SHA" --arg repo "$GITHUB_REPOSITORY" '
+    .status=="completed" and .conclusion=="failure" and .head_sha==$sha
+    and .path==".github/workflows/minuta-crm-test-migrations.yml"
+    and .repository.full_name==$repo and .head_repository.full_name==$repo
+    and .head_branch=="codex/client-record-files" and .event=="workflow_dispatch" and .run_attempt==1
+  ' "$private_dir/failed-run.json" >/dev/null
+  test "$(date -u -d "$(jq -r '.created_at' "$private_dir/backup-run.json")" +%s)" \
+    -ge "$(date -u -d "$(jq -r '.updated_at' "$private_dir/failed-run.json")" +%s)"
+  gh run view "$RESUME_V112_RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed >"$private_dir/failed-run-private.log" 2>"$private_dir/gh.log"
+  grep -Fq 'Test CRM rehearsal stopped in phase: apply-v112-v114.' "$private_dir/failed-run-private.log"
+  grep -Fq 'SQLSTATE: 42830' "$private_dir/failed-run-private.log"
+  # Checkout may be shallow. Compare Git blob identities through the exact old
+  # commit API, never fetch or evaluate old source or reveal failed-run logs.
+  gh api "repos/$GITHUB_REPOSITORY/contents/minuta-online-booking/supabase-migration-v112.sql?ref=$RESUME_V112_SHA" \
+    >"$private_dir/old-v112-blob.json" 2>"$private_dir/gh.log"
+  old_v112_blob="$(jq -er 'select(.type=="file" and .path=="minuta-online-booking/supabase-migration-v112.sql")|.sha' "$private_dir/old-v112-blob.json")"
+  [[ "$old_v112_blob" =~ ^[a-f0-9]{40}$ ]]
+  test "$old_v112_blob" = "$(git rev-parse HEAD:minuta-online-booking/supabase-migration-v112.sql)"
+fi
+
 phase=named-file-contract
 files=(supabase-migration-v112.sql supabase-migration-v113.sql supabase-migration-v114.sql
   supabase-migration-v114-rollback.sql supabase-migration-v113-rollback.sql recovery/rollback-client-records-v112.sql
@@ -201,14 +231,99 @@ JS
 phase=read-only-baseline
 psql_file -f "$script_dir/crm-test-restore-preflight.sql"
 isolation
-"$pg_bin/psql" -X -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate >"$private_dir/database.log" 2>&1 <<'SQL'
+"$pg_bin/psql" -X -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate -v "resume_v112=$resume_v112" >"$private_dir/database.log" 2>&1 <<'BASELINE_SQL'
 begin read only;
-do $$ begin
+set local search_path='pg_catalog';
+select set_config('minuta.crm_resume_v112',:'resume_v112',true);
+do $$ declare rpc text; relation text; begin
   if to_regprocedure('public.join_minuta_waitlist_v111(text,uuid,uuid,date,text,text,text)') is null
-     or to_regclass('public.client_record_settings') is not null
      or to_regclass('public.organization_inventory_cost_settings') is not null
      or to_regclass('public.notification_v114_organization_cutovers') is not null
      or exists(select 1 from cron.job) then raise exception 'test_crm_requires_unmodified_restored_v111'; end if;
+  -- A failed statement is not proof that every partial object was rolled back.
+  if exists(select 1 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+            where n.nspname='public' and c.relname in (
+              'inventory_cost_layers','inventory_cost_allocations','inventory_movement_cost_snapshots',
+              'inventory_service_cost_settings','booking_confirmed_commissions',
+              'notification_v114_worker_readiness','notification_v114_legacy_send_leases'))
+     or exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+               where n.nspname='public' and (p.proname like '%v113%' or p.proname like '%v114%'))
+     or exists(select 1 from pg_attribute where not attisdropped and
+               ((attrelid='public.inventory_movements'::regclass and attname='purchase_total_cost_kopecks')
+                or (attrelid='public.notification_outbox'::regclass and attname='delivered_at')))
+     or exists(select 1 from pg_trigger where tgname in ('inventory_movement_cost_v113','client_telegram_subscription_sync_v114')) then
+    raise exception 'test_crm_unknown_partial_v113_v114_state';
+  end if;
+  if current_setting('minuta.crm_resume_v112')='true' then
+    if to_regclass('public.client_record_settings') is null or to_regclass('public.client_record_entries') is null then
+      raise exception 'test_crm_resume_requires_complete_v112_tables';
+    end if;
+    if exists(select 1 from public.client_record_settings) or exists(select 1 from public.client_record_entries)
+       or exists(select 1 from storage.objects where bucket_id='minuta-client-records')
+       or not exists(select 1 from storage.buckets where id='minuta-client-records' and name='minuta-client-records'
+         and public is false and file_size_limit=10485760
+         and allowed_mime_types=array['application/pdf','image/jpeg','image/png','image/webp']::text[]) then
+      raise exception 'test_crm_resume_v112_is_not_pristine';
+    end if;
+    foreach relation in array array['public.client_record_settings','public.client_record_entries'] loop
+      if not (select relrowsecurity from pg_class where oid=relation::regclass)
+         or has_table_privilege('anon',relation,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+         or has_table_privilege('authenticated',relation,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+         or not has_table_privilege('service_role',relation,'SELECT')
+         or not has_table_privilege('service_role',relation,'INSERT')
+         or not has_table_privilege('service_role',relation,'UPDATE')
+         or not has_table_privilege('service_role',relation,'DELETE') then
+        raise exception 'test_crm_resume_v112_table_acl_changed';
+      end if;
+    end loop;
+    foreach rpc in array array[
+      'public.set_minuta_client_records_enabled(uuid,boolean)','public.get_minuta_client_records(uuid,text,integer)',
+      'public.create_minuta_client_record(uuid,text,uuid,uuid,text,text,text,text,integer)',
+      'public.complete_minuta_client_file(uuid)','public.archive_minuta_client_record(uuid)',
+      'public.can_use_minuta_client_object(text,text)'] loop
+      if to_regprocedure(rpc) is null or not has_function_privilege('authenticated',rpc,'EXECUTE')
+         or has_function_privilege('anon',rpc,'EXECUTE') then raise exception 'test_crm_resume_v112_rpc_acl_changed'; end if;
+    end loop;
+    foreach rpc in array array['public.claim_expired_minuta_client_records(integer,boolean)',
+      'public.finish_expired_minuta_client_record(uuid)'] loop
+      if to_regprocedure(rpc) is null or not has_function_privilege('service_role',rpc,'EXECUTE')
+         or has_function_privilege('authenticated',rpc,'EXECUTE') or has_function_privilege('anon',rpc,'EXECUTE') then
+        raise exception 'test_crm_resume_v112_maintenance_acl_changed'; end if;
+    end loop;
+    if to_regprocedure('public.can_access_minuta_client_record(uuid,text,uuid)') is null
+       or has_function_privilege('authenticated','public.can_access_minuta_client_record(uuid,text,uuid)','EXECUTE')
+       or has_function_privilege('anon','public.can_access_minuta_client_record(uuid,text,uuid)','EXECUTE') then
+      raise exception 'test_crm_resume_v112_helper_acl_changed';
+    end if;
+    -- Exact policy expression, role, command and permissiveness contract. The
+    -- pg_catalog-only search_path makes helper qualification deterministic.
+    if (select count(*) from pg_policy where polrelid='storage.objects'::regclass and polname like 'client_record_object_%')<>7
+       or exists (
+      select 1 from (values
+        ('client_record_object_read_v112','r',true,'authenticated',
+         '((bucket_id = ''minuta-client-records''::text) AND public.can_use_minuta_client_object(name, ''read''::text))',null),
+        ('client_record_object_upload_v112','a',true,'authenticated',null,
+         '((bucket_id = ''minuta-client-records''::text) AND public.can_use_minuta_client_object(name, ''upload''::text))'),
+        ('client_record_object_guard_v112','r',false,'authenticated',
+         '((bucket_id <> ''minuta-client-records''::text) OR public.can_use_minuta_client_object(name, ''read''::text))',null),
+        ('client_record_object_insert_guard_v112','a',false,'authenticated',null,
+         '((bucket_id <> ''minuta-client-records''::text) OR public.can_use_minuta_client_object(name, ''upload''::text))'),
+        ('client_record_object_update_guard_v112','w',false,'authenticated',
+         '(bucket_id <> ''minuta-client-records''::text)','(bucket_id <> ''minuta-client-records''::text)'),
+        ('client_record_object_delete_guard_v112','d',false,'authenticated','(bucket_id <> ''minuta-client-records''::text)',null),
+        ('client_record_object_anon_guard_v112','*',false,'anon',
+         '(bucket_id <> ''minuta-client-records''::text)','(bucket_id <> ''minuta-client-records''::text)')
+      ) expected(name,command,permissive,role_name,using_expression,check_expression)
+      left join pg_policy p on p.polrelid='storage.objects'::regclass and p.polname=expected.name
+      where p.oid is null or p.polcmd::text<>expected.command or p.polpermissive<>expected.permissive
+        or p.polroles<>array[(select oid from pg_roles where rolname=expected.role_name)]::oid[]
+        or pg_get_expr(p.polqual,p.polrelid) is distinct from expected.using_expression
+        or pg_get_expr(p.polwithcheck,p.polrelid) is distinct from expected.check_expression
+    ) then raise exception 'test_crm_resume_v112_storage_policy_changed'; end if;
+  elsif to_regclass('public.client_record_settings') is not null or to_regclass('public.client_record_entries') is not null
+        or exists(select 1 from storage.buckets where id='minuta-client-records') then
+    raise exception 'test_crm_requires_unmodified_restored_v111';
+  end if;
   -- Exact eligibility predicate used by client-records-v112-integration.sql.
   -- Fail before applying anything if its initial \gset would have no fixture.
   if not exists(
@@ -219,7 +334,7 @@ do $$ begin
   ) then raise exception 'test_v112_active_owner_booking_fixture_missing'; end if;
 end $$;
 rollback;
-SQL
+BASELINE_SQL
 counts "$private_dir/counts-before.json"
 "$pg_bin/psql" -X -q -A -t -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate \
   -f "$private_dir/column-manifest.sql" >"$private_dir/column-manifest.json" 2>"$private_dir/database.log"
@@ -253,8 +368,10 @@ fingerprints "$private_dir/fingerprints-before.json"
 if [[ "$MIGRATION_MODE" == exercise ]]; then
   phase=backup-freshness-before-first-write
   verify_run "$TEST_BACKUP_RUN_ID" "$BACKUP_SHA" .github/workflows/minuta-crm-test-backup.yml '["main"]' "$private_dir/backup-run.json" 21600
-  phase=apply-v112-v114
-  for version in 112 113 114; do psql_file -f "$app_dir/supabase-migration-v$version.sql"; done
+  # Reapplying the byte-identical, pristine v112 is intentional and idempotent.
+  # All legacy fingerprints start at this freshly backed-up baseline; they do
+  # not retroactively prove the earlier failed run preserved old row values.
+  for version in 112 113 114; do phase="apply-v$version"; psql_file -f "$app_dir/supabase-migration-v$version.sql"; done
   psql_file -v expected_state=applied -f "$script_dir/crm-server-release-schema-check.sql"
   isolation
   phase=runtime-and-schema-contracts
@@ -289,8 +406,7 @@ SQL
   cmp --silent "$private_dir/counts-before.json" "$private_dir/counts-after-rollback.json"
   fingerprints "$private_dir/fingerprints-after-rollback.json"
   cmp --silent "$private_dir/fingerprints-before.json" "$private_dir/fingerprints-after-rollback.json"
-  phase=reapply-v112-v114
-  for version in 112 113 114; do psql_file -f "$app_dir/supabase-migration-v$version.sql"; done
+  for version in 112 113 114; do phase="reapply-v$version"; psql_file -f "$app_dir/supabase-migration-v$version.sql"; done
   psql_file -v expected_state=applied -f "$script_dir/crm-server-release-schema-check.sql"
   psql_file -f "$app_dir/tests/profitability-v113-schema-check.sql"
   isolation
@@ -317,6 +433,7 @@ jq -n --arg mode "$MIGRATION_MODE" --arg sha "$RELEASE_SHA" --arg run "$GITHUB_R
   --arg restoreRun "$RESTORE_RUN_ID" --arg restoreSha "$RESTORE_SHA" \
   --arg snapshotRun "$snapshot_run" --arg snapshotSha "$snapshot_sha" \
   --arg backupRun "$TEST_BACKUP_RUN_ID" --arg backupSha "$BACKUP_SHA" --arg backupDigest "$backup_digest" \
+  --arg resumeRun "${RESUME_V112_RUN_ID:-}" --arg resumeSha "${RESUME_V112_SHA:-}" \
   --arg completed "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '
   {schemaVersion:1,status:(if $mode=="exercise" then "success" else "validated" end),mode:$mode,
    operation:"test-only-crm-migration-rehearsal",releaseSha:$sha,runId:$run,completedAtUtc:$completed,
@@ -327,6 +444,9 @@ jq -n --arg mode "$MIGRATION_MODE" --arg sha "$RELEASE_SHA" --arg run "$GITHUB_R
    rollbackReverseVerified:($mode=="exercise"),reapplyVerified:($mode=="exercise"),
    coreTableCountsVerified:24,coreTableCountsUnchanged:true,oldColumnFingerprintsVerified:true,
    oldColumnFingerprintTables:24,featuresActivated:false,
+   resumedV112RunId:$resumeRun,resumedV112Sha:$resumeSha,
+   baselineScope:(if $resumeRun=="" then "restored-v111" else "fresh-backup-pristine-v112-after-reviewed-failure" end),
+   priorFailedRunLegacyFingerprintsVerified:false,
    storageHttpUsed:false,edgeFunctionsDeployed:false,notificationWorkersStarted:false}
 ' >"$RUNNER_TEMP/crm-test-migrations-result.json"
 printf 'Test CRM migration gate completed: %s. Core counts unchanged; production untouched.\n' "$MIGRATION_MODE"

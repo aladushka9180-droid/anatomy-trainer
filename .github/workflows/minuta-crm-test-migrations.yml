@@ -34,6 +34,16 @@ on:
         type: string
         default: VALIDATE_ONLY
         required: true
+      resume_v112_run_id:
+        description: Optional failed exact rehearsal run with only pristine v112 committed
+        type: string
+        default: ''
+        required: false
+      resume_v112_sha:
+        description: Exact code SHA of the failed v112-only rehearsal; requires a newer test backup
+        type: string
+        default: ''
+        required: false
 permissions:
   contents: read
   actions: read
@@ -98,6 +108,8 @@ jobs:
           TEST_BACKUP_RUN_ID: ${{ inputs.test_backup_run_id }}
           BACKUP_SHA: ${{ inputs.backup_sha }}
           EXERCISE_CONFIRM: ${{ inputs.exercise_confirm }}
+          RESUME_V112_RUN_ID: ${{ inputs.resume_v112_run_id }}
+          RESUME_V112_SHA: ${{ inputs.resume_v112_sha }}
         run: bash minuta-online-booking/scripts/crm-test-migrations.sh
       - name: Persist non-personal rehearsal result
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

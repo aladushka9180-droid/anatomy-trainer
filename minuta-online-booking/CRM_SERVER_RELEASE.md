@@ -19,6 +19,18 @@
   `pg_get_triggerdef` при разных `search_path`, с регрессией в PGlite.
 - После восстановления test backup `33983185716`: success, main
   `3a8d6b26223e5efb8dee8bae7ae3ff704f1da2d7`.
+- Rehearsal validate `33983795409`: success на `678ada88563f200b804267bfe9d93195bbade4cf`.
+- Первый exercise `33983858607` остановлен с SQLSTATE `42830`: v112 COMMIT,
+  v113 transaction rollback, v114 не применена. В реальной v69 есть только
+  `UNIQUE(id,organization_id,location_id)`; v113 теперь сама создаёт недостающую
+  пару `(id,organization_id)`. Исправление и правдивая PGlite fixture: `a34bcda`.
+- Read-only проверка testDB: новые v112 settings/entries и объекты бакета пусты;
+  cron, outbox и организации с включённой публичной записью — 0.
+- Новый backup после частичного применения: `33984056948`, success, main
+  `bd7d46e863b4076ecfd238c05d9bd0c36bbc3a91`.
+
+Продолжение допускается только через отдельный pinned v112-only resume guard
+после нового backup. Ошибка exercise не означает откат уже завершённой v112.
 
 Из копии исключены исходящие webhook definitions, очереди и подключения;
 персональные строки и UUID заменены с сохранением связей. Auth импортирует
