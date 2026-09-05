@@ -5,14 +5,28 @@ on:
     paths:
       - 'minuta-online-booking/app.js'
       - 'minuta-online-booking/payment-management.js'
-      - 'minuta-online-booking/tests/public-booking-recovery-test.mjs'
+      - 'minuta-online-booking/free-slots-share.js'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/index.html'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/styles.css'
+      - 'minuta-online-booking/vendor/supabase-*.min.js'
+      - 'minuta-online-booking/tests/public-booking-recovery*.mjs'
+      - 'minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs'
       - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   pull_request:
     paths:
       - 'minuta-online-booking/app.js'
       - 'minuta-online-booking/payment-management.js'
-      - 'minuta-online-booking/tests/public-booking-recovery-test.mjs'
+      - 'minuta-online-booking/free-slots-share.js'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/index.html'
+      - 'minuta-online-booking/provider.html'
+      - 'minuta-online-booking/styles.css'
+      - 'minuta-online-booking/vendor/supabase-*.min.js'
+      - 'minuta-online-booking/tests/public-booking-recovery*.mjs'
+      - 'minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs'
       - 'minuta-online-booking/tests/refund-amount-ux*.mjs'
       - '.github/workflows/minuta-recovery-and-refund.yml'
   workflow_dispatch:
@@ -50,3 +64,5 @@ jobs:
           node "$RUNNER_TEMP/refund-browser/node_modules/playwright/cli.js" install --with-deps chromium
           echo "MINUTA_PLAYWRIGHT_MODULE=$RUNNER_TEMP/refund-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - run: node minuta-online-booking/tests/refund-amount-ux-browser-test.mjs
+      - run: node minuta-online-booking/tests/public-booking-recovery-browser-test.mjs
+      - run: node minuta-online-booking/tests/free-slots-scope-recovery-browser-test.mjs
