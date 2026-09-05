@@ -531,3 +531,68 @@ for (const outcome of ['success', 'error', 'throw']) {
     h.calls[1].resolve(h.calls[1].committedReply); await b;
   });
 }
+
+for (const context of ['organization', 'actor']) {
+  test(`completed unknown ${context} A has its own visible recovery after B ACK and return`, async () => {
+    const h = await harness(); await h.loseFirstReply();
+    h.node('inventoryMovementQuantity').value = '3.0'; h.node('inventoryMovementReason').value = 'Черновик A';
+    if (context === 'actor') { h.controller.reset(); h.auth.actor = otherIds.actor; h.auth.generation += 1; }
+    await h.controller.setOrganization({ id:context === 'actor' ? ids.org : otherIds.org, current_role:'owner' });
+    assert.equal(h.node('inventoryMovementError').hidden, true);
+    h.fill({ fixture:context === 'actor' ? ids : otherIds, reason:'Подтверждённая операция B' }); await h.submit();
+    if (context === 'actor') { h.controller.reset(); h.auth.actor = ids.actor; h.auth.generation += 1; }
+    await h.controller.setOrganization({ id:ids.org, current_role:'owner' });
+    assert.equal(h.node('inventoryMovementError').hidden, false, 'A recovery must be visible before any submit');
+    assert.match(h.node('inventoryMovementError').innerHTML, /data-inventory-restore-movement/);
+    assert.equal(h.node('inventoryMovementWarehouse').value, ids.warehouse);
+    assert.equal(h.node('inventoryMovementItem').value, ids.item);
+    assert.equal(h.node('inventoryMovementQuantity').value, '3.0');
+    assert.equal(h.node('inventoryMovementReason').value, 'Черновик A');
+    assert.equal(h.calls.length, 2);
+    await h.restore(); await h.submit();
+    assert.deepEqual(h.calls[2].params, h.calls[0].params);
+    assert.equal(h.ledger.rows.length + h.otherLedger.rows.length, 2);
+  });
+}
+
+test('queued new actor B read rejection ends loading after old actor A unknown', async () => {
+  const h = await harness(), a = h.submit(); await tick();
+  h.auth.actor = otherIds.actor; h.auth.generation += 1;
+  await h.controller.setOrganization(null);
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
+  h.readResponses.push(() => Promise.reject(Error('B read transport')));
+  h.calls[0].resolve(lostReply()); await a;
+  assert.equal(h.controller.availability, 'error');
+  assert.equal(h.node('inventoryLoading').hidden, true);
+  assert.equal(h.node('inventoryUnavailable').hidden, false);
+  assert.match(h.node('inventoryUnavailableText').textContent, /Не удалось загрузить склад выбранной организации/);
+  assert.equal(h.calls.length, 1);
+  await h.reload(); h.fill({ fixture:otherIds }); await h.submit();
+  assert.equal(h.otherLedger.rows.length, 1);
+  h.controller.reset(); h.auth.actor = ids.actor; h.auth.generation += 1;
+  await h.controller.setOrganization({ id:ids.org, current_role:'owner' });
+  await h.restore(); await h.submit();
+  assert.deepEqual(h.calls[2].params, h.calls[0].params);
+  assert.equal(h.ledger.rows.length, 1);
+});
+
+test('late queued B read rejection cannot change ready C after actor transition', async () => {
+  const h = await harness(), a = h.submit(); await tick();
+  h.auth.actor = otherIds.actor; h.auth.generation += 1;
+  await h.controller.setOrganization(null);
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
+  let rejectRead;
+  h.readResponses.push(() => new Promise((resolve, reject) => { rejectRead = reject; }));
+  h.calls[0].resolve(lostReply()); await tick();
+  // C is the old org under the NEW actor: separate actor/org context from A.
+  await h.controller.setOrganization({ id:ids.org, current_role:'owner' });
+  h.fill({ reason:'Новый черновик C' });
+  const before = JSON.stringify(h.effects);
+  rejectRead(Error('late B read')); await a;
+  assert.equal(JSON.stringify(h.effects), before);
+  assert.equal(h.controller.availability, 'ready');
+  assert.equal(h.controller.payload.organization_id, ids.org);
+  assert.equal(h.node('inventoryUnavailable').hidden, true);
+  assert.equal(h.node('inventoryMovementReason').value, 'Новый черновик C');
+  assert.equal(h.calls.length, 1);
+});

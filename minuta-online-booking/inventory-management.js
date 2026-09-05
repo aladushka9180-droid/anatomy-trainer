@@ -20,6 +20,18 @@
     let movementOperation = null;
     let movementErrorScope = null;
     let movementReadRecovery = null;
+    let movementFormScope = null;
+    const movementFieldIds = ['inventoryMovementWarehouse', 'inventoryMovementItem', 'inventoryMovementKind',
+      'inventoryMovementQuantity', 'inventoryCountedQuantity', 'inventoryMovementReason'];
+    function movementDraft() { return movementFieldIds.map(id => [id, $('#' + id).value]); }
+    function restoreMovementDraft(draft) {
+      for (const [id, value] of draft) $('#' + id).value = value;
+      updateMovementKind();
+    }
+    function rememberMovementDraft() {
+      const intent = movementIntents.get(movementFormScope);
+      if (intent) intent.draft = movementDraft();
+    }
 
     function unsupported(error) { return /PGRST202|42883|get_minuta_inventory_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
     function scopeMatches(data, id) { return Boolean(data && String(data.organization_id || '') === String(id)); }
@@ -46,6 +58,7 @@
     }
 
     function reset() {
+      rememberMovementDraft(); movementFormScope = null;
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementOperation = null;
       movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
       movementReadRecovery = null;
@@ -68,6 +81,7 @@
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
       const scope = movementScope();
+      if (movementFormScope !== scope) rememberMovementDraft();
       if (movementReadRecovery?.scope !== scope) movementReadRecovery = null;
       if (movementRecovery) movementReadRecovery = { ...movementRecovery, scope };
       const recovery = movementReadRecovery || (movementIntents.has(scope) ? {
@@ -106,14 +120,25 @@
       for (const key of ['locations', 'services', 'items', 'warehouses', 'balances', 'usage', 'movements', 'audit']) if (!Array.isArray(payload[key])) payload[key] = [];
       // Read reconciliation must not change the pending intent or overwrite
       // edits made while this read was in flight. Capture immediately at render.
-      const fields = ['Warehouse', 'Item', 'Kind', 'Quantity', 'Reason'];
-      const draft = recovery?.preserve ? fields.map(name => [name, $('#inventoryMovement' + name).value]) : null;
-      const counted = draft ? $('#inventoryCountedQuantity').value : null;
+      const sameFormScope = movementFormScope === scope;
+      const intent = movementIntents.get(scope);
+      const original = intent?.parameters;
+      const draft = recovery?.preserve && sameFormScope ? movementDraft()
+        : intent?.draft || (original ? [
+          ['inventoryMovementWarehouse', original.p_warehouse], ['inventoryMovementItem', original.p_item],
+          ['inventoryMovementKind', original.p_kind], ['inventoryMovementQuantity', original.p_quantity ?? ''],
+          ['inventoryCountedQuantity', original.p_counted_quantity ?? '0'], ['inventoryMovementReason', original.p_reason]
+        ] : null);
       availability = 'ready'; render();
-      if (draft) {
-        for (const [name, value] of draft) $('#inventoryMovement' + name).value = value;
-        $('#inventoryCountedQuantity').value = counted; updateMovementKind();
+      if (draft) restoreMovementDraft(draft);
+      else if (!sameFormScope) {
+        // Fresh context must not inherit another actor/organization's form.
+        restoreMovementDraft([['inventoryMovementKind', 'receipt'], ['inventoryMovementQuantity', ''],
+          ['inventoryCountedQuantity', '0'], ['inventoryMovementReason', '']]);
       }
+      movementFormScope = scope;
+      if (intent && (!sameFormScope || $('#inventoryMovementError').hidden))
+        movementError('Результат исходной операции ещё не подтверждён. Проверьте журнал или восстановите исходные поля для проверки тем же запросом.', intent);
       movementReadRecovery = null;
       return { ok:true, optional:true };
     }
@@ -301,10 +326,10 @@
           const next = pendingOrganization; pendingOrganization = undefined;
           if (next !== undefined) {
             // The queued organization owns its load/error UI, not the old form.
-            const queuedRevision = revision;
+            const queuedRevision = revision, queuedUserId = getCurrentUser()?.id, queuedGeneration = getSessionGeneration();
             try { await setOrganization(next); }
             catch {
-              if (sessionIsCurrent(userId, generation) && organization?.id === next?.id && revision === queuedRevision + 1 && movementOperation === null) {
+              if (sessionIsCurrent(queuedUserId, queuedGeneration) && organization?.id === next?.id && revision === queuedRevision + 1 && movementOperation === null) {
                 availability = 'error'; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = false;
                 $('#inventoryUnavailableText').textContent = 'Не удалось загрузить склад выбранной организации. Обновите склад.';
               }
