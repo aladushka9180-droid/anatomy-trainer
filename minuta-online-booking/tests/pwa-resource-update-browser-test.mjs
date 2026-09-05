@@ -22,7 +22,7 @@ const cachePrefix = 'massage-izhevsk-';
 const executableModules = ['group-bookings.js', 'benefit-management.js', 'retention-management.js'];
 // Verify full application bytes without running authenticated/bootstrap code in the inert shell.
 const modules = [...executableModules, 'app.js', 'free-slots-share.js', 'provider.js', 'payment-management.js',
-  'payroll-management.js', 'inventory-management.js'];
+  'payroll-management.js', 'inventory-management.js', 'loyalty-management.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshot(read) {
