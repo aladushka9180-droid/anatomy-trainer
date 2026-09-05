@@ -1766,7 +1766,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=395#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=396#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2914,6 +2914,7 @@ function renderReportHeatmap(items, range) {
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'ru'))
     .slice(0, limit);
   const popularTimesText = entries => entries.map(([time, count]) => `${time} ×${count}`).join(' · ');
+  const popularTimesClockText = entries => entries.map(([time]) => time).join(' · ');
   let peak = { percent:-1, minutes:0, band:0, weekday:0 };
   bookedMinutes.forEach((row, band) => row.forEach((minutes, weekday) => {
     const percent = percentages[band][weekday];
@@ -2930,14 +2931,14 @@ function renderReportHeatmap(items, range) {
     const popular = popularTimes(bandIndex, weekdayIndex);
     const popularTitle = popular.length ? `; чаще начинали: ${popularTimesText(popular)}` : '';
     const title = (percent === null
-      ? `${weekday}, ${band.label}: ${counts[bandIndex][weekdayIndex]} записей; нет данных о доступном времени команды`
+      ? `${weekday}, ${band.label}: ${seriesBookingCountLabel(counts[bandIndex][weekdayIndex])}; нет данных о доступном времени команды`
       : `${weekday}, ${band.label}: занято ${reportHours(minutes)} из ${reportHours(available)}, ${percent}%`) + popularTitle;
     const popularLabel = popular[0] ? `<small class="report-heatmap-popular-time">${escapeHtml(popularTimesText(popular.slice(0, 1)))}</small>` : '';
     return `<span class="report-heatmap-cell${isPeak ? ' is-peak' : ''}" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i>${value}</i>${popularLabel}</span>`;
   }).join('')}`).join('');
   holder.innerHTML = header + cells;
   const peakPopular = peak.minutes ? popularTimes(peak.band, peak.weekday) : [];
-  const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : `${counts[peak.band][peak.weekday]} записей`}${peakPopular.length ? ` · чаще ${popularTimesText(peakPopular)}` : ''}` : 'Пиковое время появится после записей';
+  const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : seriesBookingCountLabel(counts[peak.band][peak.weekday])}${peakPopular.length ? ` · пик в ${popularTimesClockText(peakPopular)}` : ''}` : 'Пиковое время появится после записей';
   setReportText('#reportHeatmapPeak', peakText);
   holder.setAttribute('aria-label', peak.minutes ? `Пиковая загрузка: ${peakText}` : 'Записей для тепловой карты пока нет');
   const title = $('#reportHeatmapTitle');
@@ -3522,7 +3523,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=395');
+    worker = new Worker('./report-worker.js?v=396');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4589,8 +4590,13 @@ function renderDateStrip() {
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
   if (todayButton) todayButton.hidden = false;
+  const dateStrip = $('#dateStrip');
   const active = $('#dateStrip [data-booking-date].active');
-  if ($('#dateStrip').scrollWidth > $('#dateStrip').clientWidth) active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    dateStrip.scrollLeft = 0;
+  } else if (dateStrip.scrollWidth > dateStrip.clientWidth) {
+    active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
   updateCalendarViewControls();
 }
 

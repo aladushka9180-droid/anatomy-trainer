@@ -7523,3 +7523,121 @@ html.provider-booting .provider-main {
     white-space:normal!important;
   }
 }
+
+/* Mobile schedule and analytics: keep every control and value inside the viewport. */
+@media (max-width:760px) {
+  .provider-body .provider-workspace {
+    padding-bottom:max(112px, calc(100px + env(safe-area-inset-bottom)))!important;
+  }
+
+  .provider-body .provider-view[data-provider-panel="bookings"],
+  .provider-body .provider-view[data-provider-panel="analytics"] {
+    padding-bottom:16px!important;
+  }
+
+  .provider-body .date-strip {
+    display:grid!important;
+    grid-template-columns:repeat(7, minmax(0, 1fr))!important;
+    gap:2px!important;
+    overflow:visible!important;
+    padding:5px 4px!important;
+    scroll-snap-type:none!important;
+  }
+
+  .provider-body .date-strip button,
+  .provider-body .date-strip button.active {
+    width:auto!important;
+    min-width:0!important;
+    min-height:56px!important;
+    margin:0!important;
+    padding:6px 1px!important;
+    flex:none!important;
+  }
+
+  .provider-body .date-strip button span {
+    max-width:100%;
+    overflow:hidden;
+    font-size:8px!important;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .provider-body .date-strip button strong {
+    font-size:18px!important;
+  }
+
+  .provider-body .date-strip button small {
+    font-size:8px!important;
+  }
+
+  .provider-body .schedule-view-title {
+    display:grid!important;
+    grid-template-columns:minmax(0, 1fr)!important;
+    gap:8px!important;
+  }
+
+  .provider-body .schedule-view-title .view-title-actions {
+    display:block!important;
+    width:100%!important;
+    padding:0!important;
+  }
+
+  .provider-body .schedule-view-title #openFreeSlots {
+    display:none!important;
+  }
+
+  .provider-body .schedule-view-title #newBookingButton {
+    display:inline-flex!important;
+    width:100%!important;
+    min-height:44px!important;
+    justify-content:center!important;
+  }
+
+  .provider-body .provider-mobile-create {
+    display:none!important;
+  }
+
+  .provider-body .timeline-day-expand {
+    min-height:44px;
+    margin-bottom:12px;
+  }
+
+  .provider-body .report-heatmap-card {
+    overflow:visible!important;
+  }
+
+  .provider-body .report-heatmap-card .report-heatmap {
+    display:grid!important;
+    grid-template-columns:46px repeat(7, minmax(0, 1fr))!important;
+    gap:2px!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    padding-bottom:0!important;
+    overflow:visible!important;
+  }
+
+  .provider-body .report-heatmap-card .report-heatmap>b {
+    font-size:9px!important;
+  }
+
+  .provider-body .report-heatmap-card .report-heatmap>strong {
+    font-size:8px!important;
+    letter-spacing:-.04em;
+    white-space:nowrap;
+  }
+
+  .provider-body .report-heatmap-card .report-heatmap-cell {
+    min-height:44px!important;
+    padding:4px 1px!important;
+    border-radius:7px!important;
+  }
+
+  .provider-body .report-heatmap-card .report-heatmap-cell i {
+    font-size:12px!important;
+  }
+
+  .provider-body .report-heatmap-card .report-heatmap-popular-time {
+    display:none!important;
+  }
+}
