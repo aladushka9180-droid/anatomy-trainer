@@ -42,82 +42,31 @@
     return result;
   }
 
-  function minutes(value) {
-    const match = /^(\d{1,2}):(\d{2})/.exec(String(value || ''));
-    return match ? (Number(match[1]) * 60) + Number(match[2]) : 0;
-  }
-
-  function clock(value) {
-    return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
-  }
-
-  function samaraMinuteNow() {
-    const parts = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date());
-    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
-    return (Number(values.hour) * 60) + Number(values.minute);
-  }
-
-  function freeIntervalsForDate(dateIso, data) {
-    const date = parseDate(dateIso);
-    if (!date) return [];
-    const weekday = ((date.getDay() + 6) % 7) + 1;
-    const schedule = (data.scheduleRows || []).find(row => Number(row.weekday) === weekday);
-    if (!schedule || schedule.enabled === false) return [];
-    const step = Math.max(5, Number(schedule.slot_interval_minutes || 5));
-    let start = minutes(schedule.start_time || '10:00');
-    const end = minutes(schedule.end_time || '20:00');
-    if (dateIso === data.today) start = Math.max(start, Math.ceil(samaraMinuteNow() / step) * step);
-    if (end <= start) return [];
-
-    const busy = [];
-    if (schedule.break_start && schedule.break_end) busy.push([minutes(schedule.break_start), minutes(schedule.break_end)]);
-    for (const item of data.daysOff || []) {
-      if (item.off_date !== dateIso) continue;
-      if (item.all_day) return [];
-      busy.push([minutes(item.start_time), minutes(item.end_time)]);
-    }
-    for (const item of data.bookings || []) {
-      if (item.booking_date !== dateIso || item.status === 'cancelled') continue;
-      const itemStart = minutes(item.booking_time);
-      const duration = Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60));
-      busy.push([itemStart, itemStart + duration]);
-    }
-
-    const merged = busy
-      .map(([left, right]) => [Math.max(start, left), Math.min(end, right)])
-      .filter(([left, right]) => right > left)
-      .sort((left, right) => left[0] - right[0])
-      .reduce((result, interval) => {
-        const previous = result[result.length - 1];
-        if (previous && interval[0] <= previous[1]) previous[1] = Math.max(previous[1], interval[1]);
-        else result.push(interval);
-        return result;
-      }, []);
-    const serviceDurations = (data.services || []).filter(item => item.active !== false).map(item => Number(item.duration_minutes || 0)).filter(value => value > 0);
-    const minimumDuration = Math.max(step, serviceDurations.length ? Math.min(...serviceDurations) : step);
-    const free = [];
-    let cursor = start;
-    for (const [busyStart, busyEnd] of merged) {
-      if (busyStart - cursor >= minimumDuration) free.push([cursor, busyStart]);
-      cursor = Math.max(cursor, busyEnd);
-    }
-    if (end - cursor >= minimumDuration) free.push([cursor, end]);
-    return free;
-  }
-
   function formatDate(value) {
     return parseDate(value)?.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' }).replace('.', '') || value;
   }
 
-  function buildPublication(from, to, data) {
+  function slotTime(value) {
+    const match = /^(\d{2}):(\d{2})/.exec(String(value || ''));
+    return match ? `${match[1]}:${match[2]}` : '';
+  }
+
+  function buildPublication(from, to, data, slots) {
     const dates = dateSpan(from, to);
-    const rows = dates.map(date => ({ date, intervals:freeIntervalsForDate(date, data) })).filter(row => row.intervals.length);
-    const heading = dates.length === 1 ? `Свободные окна на ${formatDate(dates[0])}:` : 'Свободные окна для записи:';
+    const grouped = new Map(dates.map(date => [date, []]));
+    for (const slot of slots || []) {
+      const date = String(slot?.booking_date || '');
+      const time = slotTime(slot?.booking_time);
+      if (grouped.has(date) && time && !grouped.get(date).includes(time)) grouped.get(date).push(time);
+    }
+    const rows = dates.map(date => ({ date, times:grouped.get(date).sort() })).filter(row => row.times.length);
+    const target = [data.serviceLabel, data.locationLabel].filter(Boolean).join(' · ');
+    const heading = dates.length === 1 ? `Свободное время на ${formatDate(dates[0])}:` : 'Свободное время для записи:';
     const body = rows.length
-      ? rows.map(row => `${dates.length === 1 ? '' : `${formatDate(row.date)} — `}${row.intervals.map(([start, end]) => `${clock(start)}–${clock(end)}`).join(', ')}`).join('\n')
+      ? rows.map(row => `${dates.length === 1 ? '' : `${formatDate(row.date)} — `}${row.times.join(', ')}`).join('\n')
       : 'На выбранный период свободных окон пока нет.';
     const invitation = rows.length ? 'Выберите удобное время и запишитесь онлайн:' : 'Посмотрите другие даты онлайн:';
-    return `${heading}\n${body}\n\n${invitation}\n${data.bookingUrl}`;
+    return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${invitation}\n${data.bookingUrl}`;
   }
 
   function trackedBookingUrl(value, sourceKey) {
@@ -314,10 +263,13 @@
     return copied;
   }
 
-  function createController({ root, getData, notify }) {
+  function createController({ root, getData, loadContext, loadSlots, notify }) {
     if (!root) return { open() {}, refresh() {} };
     const dialog = root;
     const modeControls = [...dialog.querySelectorAll('[name="freeSlotsPeriod"]')];
+    const serviceSelect = dialog.querySelector('#freeSlotsService');
+    const locationField = dialog.querySelector('#freeSlotsLocationField');
+    const locationSelect = dialog.querySelector('#freeSlotsLocation');
     const fromInput = dialog.querySelector('#freeSlotsFrom');
     const toField = dialog.querySelector('#freeSlotsToField');
     const toInput = dialog.querySelector('#freeSlotsTo');
@@ -326,21 +278,89 @@
     const bookingLink = dialog.querySelector('#freeSlotsBookingLink');
     const status = dialog.querySelector('#freeSlotsShareStatus');
     const sourceControls = [...dialog.querySelectorAll('[name="freeSlotsSource"]')];
+    const copyButton = dialog.querySelector('#copyFreeSlots');
+    const shareButton = dialog.querySelector('#shareFreeSlots');
+    let serverContext = null;
+    let serverSlots = [];
+    let requestRevision = 0;
+    let publicationReady = false;
 
     function rangeMode() { return modeControls.find(control => control.checked)?.value === 'range'; }
-    function render() {
+
+    function replaceOptions(select, items, value, label) {
+      select.replaceChildren(...items.map(item => {
+        const option = document.createElement('option');
+        option.value = String(item.id || '');
+        option.textContent = label(item);
+        return option;
+      }));
+      if (items.some(item => String(item.id) === String(value))) select.value = String(value);
+      else select.value = String(items[0]?.id || '');
+    }
+
+    function selectedLocation() {
+      return (serverContext?.locations || []).find(item => String(item.id) === locationSelect.value) || null;
+    }
+
+    function eligibleServices() {
+      const services = serverContext?.services || [];
+      if (serverContext?.mode !== 'organization' || !serverContext.resourceScheduling || !locationSelect.value) return services;
+      return services.filter(item => Array.isArray(item.location_ids) && item.location_ids.includes(locationSelect.value));
+    }
+
+    function configureTargets(preferredService = serviceSelect.value, preferredLocation = locationSelect.value) {
+      const locations = serverContext?.mode === 'organization' ? (serverContext.locations || []) : [];
+      replaceOptions(locationSelect, locations, preferredLocation || locations.find(item => item.is_primary)?.id, item => {
+        const address = item.address ? ` · ${item.address}` : '';
+        return `${item.name || 'Филиал'}${address}`;
+      });
+      locationField.hidden = !locations.length;
+      const services = eligibleServices();
+      replaceOptions(serviceSelect, services, preferredService, item => {
+        const performer = item.performer_profiles?.display_name;
+        const duration = Number(item.duration_minutes || 0) > 0 ? ` · ${Number(item.duration_minutes)} мин` : '';
+        return `${item.name || 'Услуга'}${performer ? ` · ${performer}` : ''}${duration}`;
+      });
+      return services;
+    }
+
+    function currentRange() {
       const data = getData();
       const from = fromInput.value || data.today;
       const to = rangeMode() ? (toInput.value || from) : from;
-      const sourceKey = sourceControls.find(control => control.checked)?.value || 'master';
-      const trackingUrl = trackedBookingUrl(data.bookingUrl, sourceKey);
-      const publicationData = { ...data, bookingUrl:trackingUrl };
       toField.hidden = !rangeMode();
       toInput.min = from;
       toInput.max = addDays(from, MAX_RANGE_DAYS - 1);
       if (!parseDate(toInput.value) || toInput.value < from) toInput.value = from;
       if (toInput.value > toInput.max) toInput.value = toInput.max;
-      textArea.value = buildPublication(from, rangeMode() ? toInput.value : from, publicationData);
+      return { data, from, to:rangeMode() ? toInput.value : from };
+    }
+
+    function publicationModel() {
+      const { data, from, to } = currentRange();
+      const service = eligibleServices().find(item => String(item.id) === serviceSelect.value) || null;
+      const location = selectedLocation();
+      const sourceKey = sourceControls.find(control => control.checked)?.value || 'master';
+      const targetUrl = new URL(data.bookingUrl, window.location.href);
+      if (service?.id) targetUrl.searchParams.set('service', service.id);
+      if (serverContext?.mode === 'organization' && location?.id) targetUrl.searchParams.set('location', location.id);
+      const trackingUrl = trackedBookingUrl(targetUrl.href, sourceKey);
+      return {
+        from, to, service, location, trackingUrl,
+        publicationData:{
+          ...data,
+          bookingUrl:trackingUrl,
+          serviceLabel:service ? `${service.name || 'Услуга'}${service.performer_profiles?.display_name ? ` · ${service.performer_profiles.display_name}` : ''}` : '',
+          locationLabel:location?.name || ''
+        }
+      };
+    }
+
+    function renderPublication() {
+      if (!publicationReady) return;
+      const model = publicationModel();
+      textArea.value = buildPublication(model.from, model.to, model.publicationData, serverSlots);
+      const trackingUrl = model.trackingUrl;
       bookingLink.href = trackingUrl;
       bookingLink.textContent = trackingUrl;
       try {
@@ -352,31 +372,103 @@
         dialog.querySelector('#freeSlotsQrError').hidden = false;
       }
       status.textContent = '';
+      copyButton.disabled = false;
+      shareButton.disabled = false;
     }
 
-    function open() {
+    function showUnavailable(message) {
+      publicationReady = false;
+      serverSlots = [];
+      textArea.value = 'Свободное время не опубликовано: сервер не подтвердил доступные слоты.';
+      bookingLink.removeAttribute('href');
+      bookingLink.textContent = '';
+      qrCanvas.hidden = true;
+      dialog.querySelector('#freeSlotsQrError').hidden = true;
+      status.textContent = message;
+      copyButton.disabled = true;
+      shareButton.disabled = true;
+      dialog.removeAttribute('aria-busy');
+    }
+
+    async function refreshFromServer({ reloadContext = false } = {}) {
+      const revision = ++requestRevision;
+      publicationReady = false;
+      copyButton.disabled = true;
+      shareButton.disabled = true;
+      status.textContent = 'Проверяем свободное время на сервере…';
+      dialog.setAttribute('aria-busy', 'true');
+      try {
+        const { from, to } = currentRange();
+        const preferredService = serviceSelect.value;
+        const preferredLocation = locationSelect.value;
+        if (reloadContext || !serverContext) serverContext = await loadContext();
+        if (revision !== requestRevision || !dialog.open) return;
+        const services = configureTargets(preferredService, preferredLocation);
+        if (!services.length) {
+          showUnavailable(serverContext?.mode === 'organization' && locationSelect.value
+            ? 'В выбранном филиале нет доступных услуг.'
+            : 'Нет активных услуг для публикации.');
+          return;
+        }
+        if (serverContext?.mode === 'organization' && !(serverContext.locations || []).length) {
+          showUnavailable('У онлайн-записи организации нет активного филиала.');
+          return;
+        }
+        const result = await loadSlots({
+          context:serverContext,
+          serviceId:serviceSelect.value,
+          locationId:locationSelect.value || null,
+          from,
+          to
+        });
+        if (revision !== requestRevision || !dialog.open) return;
+        if (result?.error) throw result.error;
+        serverSlots = Array.isArray(result?.data) ? result.data : [];
+        publicationReady = true;
+        dialog.removeAttribute('aria-busy');
+        renderPublication();
+      } catch {
+        if (revision !== requestRevision || !dialog.open) return;
+        showUnavailable(navigator.onLine
+          ? 'Не удалось проверить свободное время. Повторите попытку позже.'
+          : 'Нет соединения. Для публикации нужна свежая проверка сервера.');
+      }
+    }
+
+    async function open() {
       const data = getData();
       fromInput.min = data.today;
       fromInput.value = data.selectedDate >= data.today ? data.selectedDate : data.today;
       toInput.value = addDays(fromInput.value, 6);
-      render();
       if (typeof dialog.showModal === 'function') dialog.showModal();
       else dialog.setAttribute('open', '');
+      await refreshFromServer({ reloadContext:true });
     }
 
-    const close = () => typeof dialog.close === 'function' ? dialog.close() : dialog.removeAttribute('open');
+    const close = () => {
+      requestRevision += 1;
+      if (typeof dialog.close === 'function') dialog.close();
+      else dialog.removeAttribute('open');
+    };
     dialog.querySelectorAll('[data-close-free-slots]').forEach(button => button.addEventListener('click', close));
     dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
-    modeControls.forEach(control => control.addEventListener('change', render));
-    sourceControls.forEach(control => control.addEventListener('change', render));
-    fromInput.addEventListener('change', render);
-    toInput.addEventListener('change', render);
-    dialog.querySelector('#copyFreeSlots').addEventListener('click', async () => {
+    modeControls.forEach(control => control.addEventListener('change', () => { void refreshFromServer(); }));
+    sourceControls.forEach(control => control.addEventListener('change', renderPublication));
+    fromInput.addEventListener('change', () => { void refreshFromServer(); });
+    toInput.addEventListener('change', () => { void refreshFromServer(); });
+    serviceSelect.addEventListener('change', () => { void refreshFromServer(); });
+    locationSelect.addEventListener('change', () => {
+      configureTargets('', locationSelect.value);
+      void refreshFromServer();
+    });
+    copyButton.addEventListener('click', async () => {
+      if (!publicationReady) return;
       const copied = await copyText(textArea.value);
       status.textContent = copied ? 'Текст скопирован.' : 'Не удалось скопировать автоматически. Выделите текст вручную.';
       notify(copied ? 'Свободные окна скопированы' : 'Выделите и скопируйте текст вручную');
     });
-    dialog.querySelector('#shareFreeSlots').addEventListener('click', async () => {
+    shareButton.addEventListener('click', async () => {
+      if (!publicationReady) return;
       if (navigator.share) {
         try {
           await navigator.share({ title:'Свободные окна для записи', text:textArea.value });
@@ -390,7 +482,7 @@
       status.textContent = copied ? 'Системная отправка недоступна — текст скопирован.' : 'Системная отправка недоступна. Выделите текст вручную.';
       notify(copied ? 'Текст скопирован — вставьте его в нужное приложение' : 'Выделите и скопируйте текст вручную');
     });
-    return { open, refresh:() => { if (dialog.open) render(); } };
+    return { open, refresh:() => { if (dialog.open) void refreshFromServer({ reloadContext:true }); } };
   }
 
   window.MinutaFreeSlots = { createController };

@@ -81,6 +81,50 @@ async function getProviderAvailableSlots({ p_service, p_start, p_end, p_ignore_b
   if (!isMissingRpc(protectedResult.error, 'get_available_slots_v101')) return protectedResult;
   return db.rpc('get_available_slots', parameters);
 }
+async function getFreeSlotsServerContext() {
+  const organization = organizationController?.getActiveOrganization?.() || null;
+  if (!organization?.public_booking_enabled || !organization.public_slug) {
+    return {
+      mode:'personal', organizationSlug:'', resourceScheduling:false, branchShiftScheduling:false,
+      locations:[], services:ownServices.filter(item => item.active)
+    };
+  }
+  let result = await db.rpc('get_public_minuta_catalog_v4', { p_slug:organization.public_slug });
+  let branchShiftScheduling = !result.error && result.data?.branch_shift_scheduling === true;
+  let resourceScheduling = !result.error && result.data?.resource_scheduling === true;
+  if (isMissingRpc(result.error, 'get_public_minuta_catalog_v4')) {
+    result = await db.rpc('get_public_minuta_catalog_v3', { p_slug:organization.public_slug });
+    branchShiftScheduling = false;
+    resourceScheduling = !result.error && result.data?.resource_scheduling === true;
+  }
+  if (isMissingRpc(result.error, 'get_public_minuta_catalog_v3')) {
+    result = await db.rpc('get_public_minuta_catalog_v2', { p_slug:organization.public_slug });
+    branchShiftScheduling = false;
+    resourceScheduling = false;
+  }
+  if (result.error) throw result.error;
+  if (!result.data?.organization) throw new Error('organization_unavailable');
+  return {
+    mode:'organization', organizationSlug:organization.public_slug, resourceScheduling, branchShiftScheduling,
+    locations:Array.isArray(result.data.locations) ? result.data.locations.filter(item => item?.id) : [],
+    services:Array.isArray(result.data.services) ? result.data.services.filter(item => item?.id) : []
+  };
+}
+async function getFreeSlotsServerAvailability({ context, serviceId, locationId, from, to }) {
+  if (context.mode === 'organization' && context.resourceScheduling) {
+    const parameters = { p_slug:context.organizationSlug, p_location:locationId, p_service:serviceId, p_start:from, p_end:to };
+    const bufferedResult = await db.rpc('get_public_minuta_available_slots_v101', parameters);
+    if (!isMissingRpc(bufferedResult.error, 'get_public_minuta_available_slots_v101')) return bufferedResult;
+    const groupSafeResult = await db.rpc('get_public_minuta_available_slots_group_safe', parameters);
+    if (!isMissingRpc(groupSafeResult.error, 'get_public_minuta_available_slots_group_safe')) return groupSafeResult;
+    if (context.branchShiftScheduling) {
+      const shiftResult = await db.rpc('get_public_minuta_available_slots_v4', parameters);
+      if (!isMissingRpc(shiftResult.error, 'get_public_minuta_available_slots_v4')) return shiftResult;
+    }
+    return db.rpc('get_public_minuta_available_slots_v3', parameters);
+  }
+  return getProviderAvailableSlots({ p_service:serviceId, p_start:from, p_end:to, p_ignore_booking:null });
+}
 const SCHEDULE_DATE_KEY = 'massage-schedule-selected-date';
 const SCHEDULE_FOLLOW_TODAY_KEY = 'massage-schedule-follow-today';
 const SCHEDULE_FILTER_KEY = 'massage-schedule-filter';
@@ -1797,7 +1841,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=409#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=410#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3580,7 +3624,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=409');
+    worker = new Worker('./report-worker.js?v=410');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -10247,6 +10291,8 @@ providerFeedbackController.bind();
 const freeSlotsController = window.MinutaFreeSlots.createController({
   root: $('#freeSlotsDialog'),
   notify,
+  loadContext:getFreeSlotsServerContext,
+  loadSlots:getFreeSlotsServerAvailability,
   getData: () => {
     const organization = organizationController.getActiveOrganization();
     const bookingUrl = new URL('index.html', window.location.href);
@@ -10254,10 +10300,6 @@ const freeSlotsController = window.MinutaFreeSlots.createController({
     bookingUrl.hash = '';
     if (organization?.public_booking_enabled && organization.public_slug) bookingUrl.searchParams.set('org', organization.public_slug);
     return {
-      bookings: allBookings,
-      scheduleRows,
-      daysOff,
-      services: ownServices,
       selectedDate,
       today: businessTodayIso(),
       bookingUrl: bookingUrl.href

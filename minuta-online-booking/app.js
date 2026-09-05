@@ -18,12 +18,14 @@ const VISITOR_PRESENCE_OPT_OUT_KEY = 'minuta-visitor-presence-opt-out-v1';
 const VISITOR_FIRST_SOURCE_TTL = 90 * 24 * 60 * 60 * 1000;
 const bookingQuery = new URLSearchParams(location.search);
 const requestedServiceId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('service') || '') ? bookingQuery.get('service') : '';
+const requestedLocationId = /^[0-9a-f-]{36}$/i.test(bookingQuery.get('location') || '') ? bookingQuery.get('location') : '';
 const organizationSlugFromQuery = bookingQuery.get('org') || '';
 const organizationSlugFromConfig = window.MINUTA_CONFIG.defaultOrganizationSlug || '';
 const requestedOrganizationSlug = /^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromQuery)
   ? organizationSlugFromQuery
   : (/^[a-z0-9][a-z0-9-]{2,62}$/.test(organizationSlugFromConfig) ? organizationSlugFromConfig : '');
 const isRepeatBooking = bookingQuery.get('repeat') === '1' && Boolean(requestedServiceId);
+const isFreeSlotsLink = bookingQuery.get('utm_campaign') === 'free_slots' && Boolean(requestedServiceId);
 let bookingAttempt = loadBookingAttempt();
 let visitorRegistrationPromise = null;
 let visitorHeartbeatTimer = null;
@@ -449,7 +451,8 @@ async function loadServices() {
       state.teamMode = Boolean(state.organization && branchAwareCatalog);
       state.resourceScheduling = Boolean(state.teamMode && resourceAwareCatalog);
       state.branchShiftScheduling = Boolean(state.resourceScheduling && shiftAwareCatalog && catalogResult.data?.branch_shift_scheduling === true);
-      if (state.locations.some(item => item.id === previousLocationId)) state.locationId = previousLocationId;
+      if (state.locations.some(item => item.id === requestedLocationId)) state.locationId = requestedLocationId;
+      else if (state.locations.some(item => item.id === previousLocationId)) state.locationId = previousLocationId;
       data = state.organization && Array.isArray(catalogResult.data?.services) ? catalogResult.data.services : [];
       error = null;
     } else if (/PGRST202|42883|get_public_minuta_catalog|function .* does not exist/i.test(`${catalogResult.error.code || ''} ${catalogResult.error.message || ''} ${catalogResult.error.details || ''}`)) {
@@ -479,6 +482,7 @@ async function loadServices() {
     state.serviceId = isRepeatBooking && requestedServiceId
       ? (locationServices.some(item => item.id === requestedServiceId) ? requestedServiceId : '')
       : '';
+    if (!state.serviceId && isFreeSlotsLink && locationServices.some(item => item.id === requestedServiceId)) state.serviceId = requestedServiceId;
   }
   else if (selectionWasRemoved) state.serviceId = '';
   else if (!locationServices.some(item => item.id === previousServiceId)) state.serviceId = '';
@@ -500,7 +504,7 @@ async function loadServices() {
     await showStep(1);
     return;
   }
-  if (isRepeatBooking && state.step === 1 && selectedService()) await showStep(2);
+  if ((isRepeatBooking || isFreeSlotsLink) && state.step === 1 && selectedService()) await showStep(2);
   else if (state.step === 2) await loadAvailability();
   if (state.step === 3 && selectedService()) await validateCurrentSelection();
 }
