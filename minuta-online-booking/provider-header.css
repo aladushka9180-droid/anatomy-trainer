@@ -1,0 +1,69 @@
+/* A workspace header, not another card. Theme accents and text scaling remain. */
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+  display:flex!important; flex-wrap:wrap; align-items:center!important; justify-content:space-between;
+  width:min(1160px,100%)!important; max-width:100%!important; min-height:80px!important;
+  margin:0 auto!important; padding:14px 0!important; gap:12px 24px!important; box-sizing:border-box;
+  border:0!important; border-bottom:1px solid var(--theme-line)!important; border-radius:0!important;
+  background:transparent!important; background-image:none!important; box-shadow:none!important;
+  backdrop-filter:none!important; color:var(--theme-ink);
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar::before,
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar::after { content:none!important; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar>div:first-child { flex:1 1 220px; min-width:0; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar h1 {
+  margin:4px 0 0!important; font-size:calc(21px + var(--provider-heading-step,0px))!important;
+  line-height:1.3!important; word-break:normal; overflow-wrap:anywhere;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar .provider-current-moment {
+  display:flex!important; flex-wrap:wrap; gap:4px 8px; font-size:calc(11px + var(--provider-text-step,0px))!important;
+  line-height:1.4; color:var(--workspace-secondary,var(--theme-muted));
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions {
+  display:flex!important; flex:0 1 auto; flex-wrap:wrap; align-items:center!important; justify-content:flex-start;
+  gap:6px!important; max-width:100%; min-width:0;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar :is(.voice-assistant-open,.topbar-client-link,.sync-tool-button,.desktop-app-install,.sync-state) {
+  height:auto!important; min-height:44px!important; width:auto; margin:0!important; padding:10px 12px!important;
+  box-sizing:border-box; font-family:inherit!important; font-size:calc(13px + var(--provider-text-step,0px))!important;
+  font-weight:650!important; line-height:1.35!important; text-shadow:none!important; box-shadow:none!important;
+  border:1px solid transparent!important; border-radius:var(--material-control-radius,12px)!important;
+  background:transparent!important; color:var(--theme-ink)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar .voice-assistant-open {
+  border-color:var(--theme-line)!important; background:var(--theme-accent-soft)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar :is(.topbar-client-link,.sync-tool-button,.desktop-app-install,.sync-state):hover {
+  background:var(--theme-surface-alt)!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar .sync-state {
+  max-width:240px; gap:8px; text-align:left; white-space:normal!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar #syncState span {
+  font-size:inherit!important; line-height:inherit!important; overflow:visible!important;
+  text-overflow:clip!important; white-space:normal!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar .sync-state i { flex:none; width:8px; height:8px; box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar .ui-icon { flex:none; width:18px; height:18px; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar :is(button,a):focus-visible {
+  outline:2px solid var(--theme-accent)!important; outline-offset:2px;
+}
+@media(max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+    display:grid!important; grid-template-columns:minmax(0,1fr) auto!important; align-items:start!important;
+    padding:12px 4px!important; gap:10px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar h1 { font-size:calc(18px + var(--provider-heading-step,0px))!important; }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions {
+    display:grid!important; grid-template-columns:repeat(3,48px)!important; grid-template-rows:auto auto!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar :is(.voice-assistant-open,.topbar-client-link,.sync-tool-button) {
+    width:48px!important; min-height:48px!important; padding:4px 2px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar [data-mobile-label]::after {
+    font-size:9px!important; line-height:1.2!important; overflow:visible; text-overflow:clip;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar #syncState {
+    min-height:44px!important; padding:6px 2px!important; overflow:visible!important;
+    font-size:calc(11px + var(--provider-text-step,0px))!important;
+  }
+}

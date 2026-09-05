@@ -930,11 +930,22 @@ async function notifyTelegramClient(bookingId, event) {
   const result = await deliverTelegramClientNotification(bookingId, event);
   return result.delivered;
 }
+function compactSyncLabel(kind, text) {
+  if (kind === 'offline') return 'Нет интернета';
+  if (kind === 'checking') return 'Обновляем данные…';
+  if (kind === 'online') return text.startsWith('Синхронизировано') ? 'Синхронизировано' : 'Обновляем данные…';
+  if (text.includes('несохранённое')) return 'Не всё сохранено';
+  if (text.includes('только чтение')) return 'Только просмотр';
+  if (text.includes('дополнительные')) return 'Обновлено частично';
+  return 'Проверить связь';
+}
 function setSyncState(kind, text) {
   const element = $('#syncState');
   if (!element) return;
   element.className = `sync-state is-${kind}`;
-  element.querySelector('span').textContent = text;
+  element.querySelector('span').textContent = compactSyncLabel(kind, text);
+  element.title = `${text}. Нажмите, чтобы открыть журнал связи`;
+  element.setAttribute('aria-label', `${text}. Открыть журнал связи`);
   recordConnectionEvent(kind, text);
   applyWriteAvailability();
 }

@@ -1,6 +1,7 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
 const CACHE = `${CACHE_PREFIX}v424`;
 const ASSETS = [
+  './provider-header.css?v=424',
   './free-slots-compact.css?v=424',
   './vendor/qrcodegen.js?v=424',
   './provider-layout-responsive.css?v=424',
