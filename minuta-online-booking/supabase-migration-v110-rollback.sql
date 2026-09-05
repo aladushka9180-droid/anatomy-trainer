@@ -11,4 +11,3 @@ drop table if exists public.minuta_personal_data_access_log;
 drop table if exists public.minuta_data_subject_requests;
 drop table if exists public.booking_legal_acceptances;
 drop table if exists public.organization_data_governance;
-
