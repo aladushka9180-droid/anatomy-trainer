@@ -45,6 +45,9 @@ create table if not exists public.client_record_entries (
 );
 create index if not exists client_record_entries_client_v112_idx
   on public.client_record_entries(organization_id,client_phone,created_at desc,id desc);
+alter table public.client_record_entries add column if not exists expired_at timestamptz;
+create index if not exists client_record_entries_pending_v112_idx
+  on public.client_record_entries(created_at,id) where kind='file' and not ready;
 alter table public.client_record_settings enable row level security;
 alter table public.client_record_entries enable row level security;
 revoke all on public.client_record_settings,public.client_record_entries from public,anon,authenticated;
@@ -129,6 +132,9 @@ begin
       or v_row.booking_id is distinct from p_booking or v_row.kind<>p_kind or v_row.body<>btrim(coalesce(p_body,''))
       or v_row.file_name<>coalesce(p_file_name,'') or v_row.mime_type is distinct from p_mime_type
       or v_row.byte_size is distinct from p_byte_size or v_row.archived then raise exception 'client_record_request_conflict'; end if;
+    if v_row.expired_at is not null or (not v_row.ready and v_row.created_at < now()-interval '7 days') then
+      raise exception 'client_record_upload_expired';
+    end if;
     return jsonb_build_object('id',v_row.id,'object_path',v_row.object_path,'ready',v_row.ready);
   end if;
   if p_booking is not null then
@@ -161,6 +167,9 @@ begin
     or not coalesce((select enabled from public.client_record_settings where organization_id=v_row.organization_id),false) then
     raise exception using errcode='42501',message='client_records_access_denied';
   end if;
+  if v_row.expired_at is not null or (not v_row.ready and v_row.created_at < now()-interval '7 days') then
+    raise exception 'client_record_upload_expired';
+  end if;
   if not exists(select 1 from storage.objects where bucket_id='minuta-client-records' and name=v_row.object_path
     and metadata->>'size'=v_row.byte_size::text and metadata->>'mimetype'=v_row.mime_type) then
     raise exception 'client_record_upload_incomplete';
@@ -190,8 +199,17 @@ values('minuta-client-records','minuta-client-records',false,10485760,array['app
 on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 
 create or replace function public.can_use_minuta_client_object(p_name text,p_action text)
-returns boolean language sql stable security definer set search_path='' as $$
-  select exists(select 1 from public.client_record_entries e
+returns boolean language plpgsql volatile security definer set search_path='' as $$
+declare v_upload public.client_record_entries%rowtype;
+begin
+  if p_action='upload' then
+    -- Keep a shared lock for the whole Storage INSERT transaction. Cleanup's
+    -- FOR UPDATE cannot claim this row while its upload INSERT is in flight.
+    select * into v_upload from public.client_record_entries where object_path=p_name for share;
+    if not found or v_upload.ready or v_upload.expired_at is not null
+      or v_upload.created_at < now()-interval '7 days' then return false; end if;
+  end if;
+  return exists(select 1 from public.client_record_entries e
     join public.client_record_settings s on s.organization_id=e.organization_id
     where e.object_path=p_name and e.kind='file'
       and public.can_access_minuta_client_record(e.organization_id,e.client_phone,e.booking_id)
@@ -201,7 +219,9 @@ returns boolean language sql stable security definer set search_path='' as $$
       and case p_action
         when 'read' then s.enabled and e.ready and not e.archived
         when 'upload' then s.enabled and not e.ready and not e.archived and e.created_by=auth.uid()
+          and e.expired_at is null and e.created_at >= now()-interval '7 days'
         else false end);
+end
 $$;
 drop policy if exists client_record_object_read_v112 on storage.objects;
 create policy client_record_object_read_v112 on storage.objects for select to authenticated
@@ -227,6 +247,50 @@ using(bucket_id<>'minuta-client-records');
 drop policy if exists client_record_object_anon_guard_v112 on storage.objects;
 create policy client_record_object_anon_guard_v112 on storage.objects as restrictive for all to anon
 using(bucket_id<>'minuta-client-records') with check(bucket_id<>'minuta-client-records');
+
+-- Only the maintenance worker can claim expired unfinished uploads. The same row
+-- lock as finalize prevents a completed file from becoming a cleanup target.
+-- Objects must be removed through Storage API, NEVER by deleting storage.objects.
+create or replace function public.claim_expired_minuta_client_records(p_limit integer default 100,p_execute boolean default false)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_row public.client_record_entries%rowtype; v_result jsonb:='[]'::jsonb;
+begin
+  for v_row in select * from public.client_record_entries
+    where kind='file' and not ready and created_at < now()-interval '7 days'
+    order by created_at,id limit least(100,greatest(1,coalesce(p_limit,100)))
+    for update skip locked
+  loop
+    if p_execute is true then
+      update public.client_record_entries set expired_at=coalesce(expired_at,now()) where id=v_row.id;
+    end if;
+    -- First mark the row, then let old Storage requests drain for one hour.
+    -- Already expired rows remain eligible after a failed Storage API call.
+    if p_execute is not true or v_row.expired_at < now()-interval '1 hour' then
+      v_result:=v_result||jsonb_build_array(jsonb_build_object('id',v_row.id,'object_path',v_row.object_path));
+    end if;
+  end loop;
+  return v_result;
+end $$;
+
+create or replace function public.finish_expired_minuta_client_record(p_id uuid)
+returns boolean language plpgsql security definer set search_path='' as $$
+declare v_row public.client_record_entries%rowtype;
+begin
+  select * into v_row from public.client_record_entries where id=p_id for update;
+  if not found then return true; end if;
+  if v_row.kind<>'file' or v_row.ready or v_row.expired_at is null
+    or v_row.created_at >= now()-interval '7 days'
+    or v_row.expired_at >= now()-interval '1 hour' then return false; end if;
+  if exists(select 1 from storage.objects where bucket_id='minuta-client-records' and name=v_row.object_path) then
+    return false;
+  end if;
+  delete from public.client_record_entries where id=p_id;
+  return true;
+end $$;
+revoke all on function public.claim_expired_minuta_client_records(integer,boolean),
+  public.finish_expired_minuta_client_record(uuid) from public,anon,authenticated,service_role;
+grant execute on function public.claim_expired_minuta_client_records(integer,boolean),
+  public.finish_expired_minuta_client_record(uuid) to service_role;
 
 revoke all on function public.can_access_minuta_client_record(uuid,text,uuid) from public,anon,authenticated;
 revoke all on function public.can_use_minuta_client_object(text,text) from public,anon;
