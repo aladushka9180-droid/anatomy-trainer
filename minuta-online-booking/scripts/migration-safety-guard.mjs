@@ -155,8 +155,8 @@ function checkReleaseOrder() {
     }
 
     const expectedCounts = jobName === 'test-migration'
-      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2], [96, 2], [97, 2], [100, 2], [101, 2], [102, 2], [103, 2], [104, 2], [105, 2], [106, 2], [107, 2], [108, 2], [109, 2]])
-      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1], [96, 1], [97, 1], [100, 1], [101, 1], [102, 1], [103, 1], [104, 1], [105, 1], [106, 1], [107, 1], [108, 1], [109, 1]]);
+      ? new Map([[49, 1], [87, 2], [88, 2], [89, 2], [90, 2], [91, 2], [92, 2], [93, 2], [94, 2], [95, 2], [96, 2], [97, 2], [100, 2], [101, 2], [102, 2], [103, 2], [104, 2], [105, 2], [106, 2], [107, 2], [108, 2], [109, 2], [110, 2]])
+      : new Map([[49, 1], [87, 1], [88, 1], [89, 1], [90, 1], [91, 1], [92, 1], [93, 1], [94, 1], [95, 1], [96, 1], [97, 1], [100, 1], [101, 1], [102, 1], [103, 1], [104, 1], [105, 1], [106, 1], [107, 1], [108, 1], [109, 1], [110, 1]]);
     for (const [version, expectedCount] of expectedCounts) {
       const actualCount = chain.filter(reference => reference.version === version).length;
       if (actualCount !== expectedCount) {
@@ -165,8 +165,8 @@ function checkReleaseOrder() {
     }
 
     const expectedLatestSuffix = jobName === 'test-migration'
-      ? [106, 107, 108, 109, 106, 107, 108, 109]
-      : [106, 107, 108, 109];
+      ? [106, 107, 108, 109, 110, 106, 107, 108, 109, 110]
+      : [106, 107, 108, 109, 110];
     const latestStart = chain.findIndex(reference => reference.version === expectedLatestSuffix[0]);
     const actualLatestSuffix = chain.slice(latestStart, latestStart + expectedLatestSuffix.length).map(reference => reference.version);
     if (actualLatestSuffix.join(',') !== expectedLatestSuffix.join(',')) {
