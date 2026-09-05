@@ -222,3 +222,54 @@ for (const kind of ['client-note','booking-note','booking-color']) test(`${kind}
     (call.params.client_phone ?? call.params.p_booking)===target
       && (call.params.note ?? call.params.p_note ?? call.params.p_color)===oldValue),false);
 });
+
+for (const kind of ['client-note','booking-note','booking-color']) {
+  const client=kind==='client-note', color=kind==='booking-color';
+  const target=client?'79990000001':'booking-A', other=client?'79990000002':'booking-other';
+  const oldValue=color?'sky':'OLD', newValue=color?'mint':'NEW', otherValue=color?'sky':'OTHER PENDING';
+  const method=client?'saveClientNoteValue':color?'saveBookingColor':'saveBookingNote';
+  const pendingName=client?'pendingClientNotes':color?'pendingBookingColors':'pendingBookingNotes';
+  async function setup() {
+    const h=fixture(); h.state.allBookings.push({id:other,organization_id:'org-A'});
+    h.state.navigator.onLine=false;
+    await h.context[method](target,oldValue); await h.context[method](other,otherValue);
+    h.state.navigator.onLine=true;
+    return h;
+  }
+  test(`${kind}: after refused durable write, restored storage permits latest intent and other pending recovery`,async () => {
+    const h=await setup(), originalSet=h.state.localStorage.setItem;
+    h.state.localStorage.setItem=() => {throw new Error('QuotaExceededError');};
+    const attempt=await settleAll(h,h.context[method](target,newValue));
+    assert.equal(h.calls.length,0,'Failed initial durable write must refuse dispatch, not just report an error afterwards');
+    assert.notEqual(attempt.value,true);
+    assert.equal(h.state[pendingName].has(target),true);
+    assert.equal(h.state[pendingName].has(other),true);
+    h.state.localStorage.setItem=originalSet;
+    await settleAll(h,h.context.flushPendingMetadata());
+    const remote=client?h.remoteClientNotes:h.remoteBookingValues;
+    assert.equal(remote.get(target),newValue,'Live recovery retains latest intent after storage becomes writable');
+    assert.equal(remote.get(other),otherValue);
+    assert.equal(h.state[pendingName].size,0);
+    const reopened=fixture(h.storage);
+    assert.equal(reopened.state[pendingName].size,0,'Confirmed recovery clears the durable queue too');
+  });
+  test(`${kind}: ACK cleanup quota cannot resurrect OLD persisted before the successful initial NEW write`,async () => {
+    const h=await setup();
+    const saving=h.context[method](target,newValue); await tick();
+    assert.equal(h.calls.length,1,'Initial durable write succeeds before dispatch');
+    h.state.localStorage.setItem=() => {throw new Error('QuotaExceededError');};
+    const outcome=await settleAll(h,saving);
+    assert.equal(outcome.value,true,'Actual remote ACK is still confirmed when only local cleanup fails');
+    const reopened=fixture(h.storage);
+    reopened.state.allBookings.push({id:other,organization_id:'org-A'});
+    const remote=client?reopened.remoteClientNotes:reopened.remoteBookingValues;
+    remote.set(target,newValue);
+    assert.equal(reopened.state[pendingName].has(other),true,'ACK cleanup cannot erase unrelated pending values');
+    await settleAll(reopened,reopened.context.flushPendingMetadata());
+    assert.equal(remote.get(target),newValue);
+    assert.equal(remote.get(other),otherValue);
+    assert.equal(reopened.calls.some(call => (call.params.client_phone ?? call.params.p_booking)===target
+      && (call.params.note ?? call.params.p_note ?? call.params.p_color)===oldValue),false);
+    assert.equal(reopened.state[pendingName].size,0);
+  });
+}
