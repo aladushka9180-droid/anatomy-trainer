@@ -25,7 +25,8 @@ const actual = between('async function createNewBooking(', 'function closeBookin
   + between('function closeBookingSheet(', 'function calendarRangeTitle(')
   + between('function updateNewBookingSubmitCaption(', 'function updateNewBookingConnectivity(')
   + ['sessionIsCurrent', 'bookingDraftKey', 'clearNewBookingDraft'].map(oneLine).join('\n')
-  + '\n' + source.match(/^function captureBookingMetadataContext\(\) \{[\s\S]*?^\}/m)[0];
+  + '\n' + source.match(/^function captureBookingMetadataContext\(\) \{[\s\S]*?^\}/m)[0]
+  + '\n' + between('// Background replay', '// Local completion ownership');
 const lifecycle = ['bookingMetadataRevision', 'bookingEditorRevision', 'bookingSeriesCancellationRevision']
   .map(name => source.match(new RegExp(`^let ${name} = .*;$`, 'm'))[0]).join('\n');
 const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
@@ -69,7 +70,8 @@ function harness({ deferRpc = false, deferRefresh = false, hidden = false, note 
   }
   renderFixtureForm('Клиент A', createdDate);
   const state = {
-    currentUser:{ id:actorA }, sessionGeneration:1, selectedDate:createdDate,
+    currentUser:{ id:actorA }, sessionGeneration:1, selectedDate:createdDate, writesAllowed:true,pendingClientNotes:new Map(),
+    localStorage:{setItem(){},getItem:()=>null},
     clientNotes:new Map([['79990000001', 'Ранее сохранённая заметка']]),
     activeClientOrganizationId:orgId,
     newBookingMode:'client', newBookingTime:'10:00', newBookingHistoricalMode:true,
