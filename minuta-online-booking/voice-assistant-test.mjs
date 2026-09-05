@@ -258,11 +258,18 @@ assert.equal(selectedVoice, russianVoice, 'озвучивание не долж�
 assert.equal(voice.selectRussianVoice([{ name:'Ting-Ting', lang:'zh-CN', default:true }]), null);
 assert.equal(voice.normalizedSpeechRate('1.3'), 1.3);
 assert.equal(voice.normalizedSpeechRate('9'), 2, 'скорость озвучки должна иметь безопасный верхний предел');
-for (const name of ['Microsoft Irina', 'Microsoft Ирина', 'Microsoft Pavel', 'Microsoft Павел']) {
-  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }]), null, `${name} не должен выбираться даже как единственный голос`);
+for (const name of ['Google русский', 'Microsoft Irina', 'Microsoft Ирина', 'Microsoft Pavel', 'Microsoft Павел']) {
+  assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }])?.name, name, `${name} должен быть доступен как русский голос устройства`);
   assert.equal(voice.selectRussianVoice([{ name, lang:'ru-RU', default:true, localService:true }, russianVoice]), russianVoice);
 }
 assert.equal(voice.selectRussianVoice([{ name:'Microsoft Дмитрий Online (Natural)', lang:'ru-RU' }])?.name, 'Microsoft Дмитрий Online (Natural)');
+const googleVoice = { name:'Google русский', lang:'ru_RU', default:true, localService:true };
+const dmitryVoice = { name:'Microsoft Dmitry', lang:'ru-RU' };
+assert.equal(voice.selectRussianVoice([googleVoice, dmitryVoice]), dmitryVoice, 'Дмитрий предпочтительнее системного голоса при автоматическом выборе');
+assert.equal(voice.selectRussianVoice([dmitryVoice, russianVoice, googleVoice]), russianVoice);
+assert.equal(voice.selectRussianVoice([googleVoice]), googleVoice, 'Android ru_RU также должен поддерживаться');
+assert.equal(voice.selectRussianVoice([{ name:'Svetlana', lang:'en-US' }]), null, 'имя само по себе не делает голос русским');
+assert.equal(voice.selectRussianVoice([]), null);
 assert.equal(voice.normalizedSpeechRate('0.1'), 0.6, 'скорость озвучки должна иметь безопасный нижний предел');
 assert.equal(voice.speechVoiceKey({ voiceURI:'ru-local', lang:'ru-RU', name:'Русский' }), 'ru-local');
 

@@ -115,6 +115,12 @@ const input = createElement();
 const status = createElement();
 const listenLabel = createElement();
 const listenButton = createElement({ querySelector:selector => selector === 'span' ? listenLabel : null });
+const voiceSelect = createElement({
+  children:[],
+  replaceChildren() { this.children = []; },
+  append(child) { this.children.push(child); }
+});
+const voicePreviewButton = createElement();
 const dialog = createElement({
   showModal() { this.open = true; },
   close() { this.open = false; }
@@ -155,8 +161,11 @@ const elements = new Map([
   ['#voiceAssistantStatus', status],
   ['#voiceAssistantResult', result]
 ]);
+elements.set('#voiceAssistantVoice', voiceSelect);
+elements.set('#voiceAssistantVoicePreview', voicePreviewButton);
 const documentListeners = new Map();
 const documentStub = {
+  createElement:() => createElement(),
   hidden:false,
   querySelector:selector => elements.get(selector) || null,
   querySelectorAll:() => [],
@@ -405,7 +414,55 @@ assert.equal(FakeRecognition.instances.length, recognitionCountAfterVisibilityAb
 listenButton.emit('pointerup', { pointerType:'touch', pointerId:11, isPrimary:true });
 listenButton.emit('click', { pointerType:'touch' });
 
+// Android can expose a newly installed Russian voice after initialization.
+controller.stopSpeech();
+speechSynthesis.voices = [];
+speechSynthesis.listeners.get('voiceschanged')();
+assert.equal(voiceSelect.disabled, true);
+assert.equal(voicePreviewButton.disabled, false, 'проверка должна позволять повторно запросить список голосов');
+const speakCountBeforeMissingVoice = speechSynthesis.speakCount;
+voicePreviewButton.emit('click');
+assert.equal(speechSynthesis.speakCount, speakCountBeforeMissingVoice);
+assert.match(status.textContent, /Браузер пока не передал русский голос/);
+const googleRussian = { name:'Google русский', lang:'ru_RU', voiceURI:'google-ru', default:true, localService:true };
+speechSynthesis.voices = [googleRussian, { name:'English', lang:'en-US', default:true }];
+speechSynthesis.listeners.get('voiceschanged')();
+assert.equal(voiceSelect.disabled, false);
+assert.deepEqual(voiceSelect.children.map(option => option.textContent), ['Google русский'], 'голос Google нельзя скрывать или переименовывать в Дмитрия');
+voicePreviewButton.emit('click');
+assert.equal(speechSynthesis.lastUtterance.voice, googleRussian);
+assert.equal(speechSynthesis.lastUtterance.lang, 'ru-RU');
+assert.equal(JSON.parse(savedSpeech).voiceKey, 'google-ru');
+controller.stopSpeech();
+speechSynthesis.voices.push({ name:'Microsoft Svetlana Online', lang:'ru-RU', voiceURI:'svetlana-ru' });
+speechSynthesis.listeners.get('voiceschanged')();
+voiceSelect.value = 'svetlana-ru';
+voiceSelect.emit('change');
+assert.equal(JSON.parse(savedSpeech).voiceKey, 'svetlana-ru');
+voiceSelect.value = 'google-ru';
+voiceSelect.emit('change');
+documentStub.emit('visibilitychange');
+assert.equal(voiceSelect.value, 'google-ru', 'обновление списка не должно сбрасывать выбранный голос');
+// Some browsers omit voiceschanged: opening and preview must retry too.
+speechSynthesis.voices = [];
+openButton.emit('click');
+assert.equal(voiceSelect.disabled, true);
+speechSynthesis.voices = [googleRussian];
+documentStub.emit('visibilitychange');
+assert.equal(voiceSelect.disabled, false, 'возвращение из настроек должно обновлять список');
+speechSynthesis.voices = [];
+speechSynthesis.listeners.get('voiceschanged')();
+speechSynthesis.voices = [googleRussian];
+voicePreviewButton.emit('click');
+assert.equal(speechSynthesis.lastUtterance.voice, googleRussian, 'нажатие проверки должно находить поздно загруженный голос без события');
+controller.stopSpeech();
 controller.destroy();
+assert.equal(speechSynthesis.listeners.has('voiceschanged'), false);
 assert.equal(globalListeners.get('minuta:provider-session-reset')?.size || 0, 0, 'destroy должен снять глобальный обработчик');
+speechSynthesis.voices.push({ name:'Microsoft Svetlana Online', lang:'ru-RU', voiceURI:'svetlana-ru' });
+const restoredController = voice.createController({ document:documentStub, bridge });
+restoredController.bind();
+assert.equal(voiceSelect.value, 'google-ru', 'новый контроллер должен восстановить сохранённый выбор Google, даже если доступна Светлана');
+restoredController.destroy();
 
 console.log('Voice assistant lifecycle security tests passed');

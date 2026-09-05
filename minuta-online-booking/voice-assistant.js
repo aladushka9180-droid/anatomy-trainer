@@ -1661,8 +1661,7 @@
   }
 
   function isSupportedAssistantVoice(voice) {
-    return /^ru(?:[-_]|$)/i.test(String(voice?.lang || ''))
-      && /(?:svetlana|светлана|dmitr(?:y|i)|дмитрий)/i.test(String(voice?.name || ''));
+    return /^ru(?:[-_]|$)/i.test(String(voice?.lang || ''));
   }
 
   function selectRussianVoice(voices = []) {
@@ -1670,7 +1669,7 @@
       const score = voice => {
         const name = String(voice?.name || '');
         return (/^ru-RU$/i.test(String(voice?.lang || '')) ? 8 : 0)
-          + (/svetlana|светлана/i.test(name) ? 4 : 0)
+          + (/svetlana|светлана/i.test(name) ? 100 : /dmitr(?:y|i)|дмитрий/i.test(name) ? 80 : 0)
           + (/natural|online/i.test(name) ? 3 : 0)
           + (voice?.default ? 1 : 0);
       };
@@ -1960,10 +1959,6 @@
         speechRate = normalizedSpeechRate(saved.rate);
         if (![1, 1.5, 2].includes(speechRate)) speechRate = DEFAULT_SPEECH_RATE;
         preferredVoiceKey = String(saved.voiceKey || '').slice(0, 300);
-        if (/irina|ирина|pavel|павел/i.test(preferredVoiceKey)) {
-          preferredVoiceKey = '';
-          saveSpeechSettings();
-        }
       } catch {
         speechRate = DEFAULT_SPEECH_RATE;
         preferredVoiceKey = '';
@@ -1989,16 +1984,17 @@
       if (!global.speechSynthesis || !global.SpeechSynthesisUtterance || !voices.length) {
         const option = doc.createElement('option');
         option.value = '';
-        option.textContent = global.speechSynthesis && global.SpeechSynthesisUtterance ? 'Светлана и Дмитрий недоступны' : 'Озвучка не поддерживается';
+        option.textContent = global.speechSynthesis && global.SpeechSynthesisUtterance ? 'Браузер пока не передал русский голос' : 'Озвучка не поддерживается';
         voiceSelect.append(option);
         voiceSelect.disabled = true;
-        if (voicePreviewButton) voicePreviewButton.disabled = true;
+        // Keep a user-initiated retry available when Android exposes voices late.
+        if (voicePreviewButton) voicePreviewButton.disabled = !global.speechSynthesis || !global.SpeechSynthesisUtterance;
         return;
       }
       voices.sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'ru')).forEach(voice => {
         const option = doc.createElement('option');
         option.value = speechVoiceKey(voice);
-        option.textContent = /svetlana|светлана/i.test(String(voice.name)) ? 'Светлана' : 'Дмитрий';
+        option.textContent = String(voice.name || 'Русский голос устройства');
         voiceSelect.append(option);
       });
       voiceSelect.disabled = false;
@@ -2143,7 +2139,7 @@
       const voice = refreshRussianVoice();
       if (!voice) {
         setSpeaking(false);
-        status.textContent = 'В этом браузере недоступны голоса Светланы и Дмитрия. Ответ можно прочитать на экране. Другой голос автоматически не включается.';
+        status.textContent = 'Браузер пока не передал русский голос. Если в настройках телефона голос уже работает, полностью закройте и снова откройте браузер, затем нажмите «Проверить голос». Ответ доступен текстом.';
         if (speechSettings) speechSettings.open = true;
         if (settings) settings.open = true;
         return false;
@@ -2793,6 +2789,7 @@
         } else status.textContent = 'Не удалось очистить привычки на этом устройстве.';
       });
       openButton.addEventListener('click', () => {
+        refreshRussianVoice();
         dialog.classList.remove('has-answer');
         requestEpoch += 1;
         abortRecognition();
@@ -2866,7 +2863,10 @@
         }
         startRecognition();
       });
-      doc.addEventListener?.('visibilitychange', () => { if (doc.hidden) abortRecognition({ preserveCompatibilityClick:true }); });
+      doc.addEventListener?.('visibilitychange', () => {
+        if (doc.hidden) abortRecognition({ preserveCompatibilityClick:true });
+        else refreshRussianVoice();
+      });
       doc.querySelectorAll('[data-voice-example]').forEach(button => button.addEventListener('click', () => { input.value = button.dataset.voiceExample || ''; understand(); }));
       if (!directRecognitionAvailable) listenButton.classList.add('is-unsupported');
       refreshRussianVoice();
