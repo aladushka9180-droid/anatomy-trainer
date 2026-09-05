@@ -5,7 +5,7 @@ import test from 'node:test';
 
 // Actual complete inventory controller, including bind/submit/input/change,
 // reload/render and request ID generation. DOM and RPC are explicit VM fixtures.
-// The synthetic ledger below models ONLY v82:304-341 receipt/write_off replay,
+// The synthetic ledger below models ONLY v82:304-341 movement replay,
 // quantity guards and response shape. It is NOT executed SQL, locking/RLS proof,
 // v113 costing, native browser evidence or a real inventory operation.
 // A committed write followed by a lost response is represented by an error
@@ -20,56 +20,62 @@ const ids = {
   item:'44444444-4444-4444-8444-444444444444',
   location:'55555555-5555-4555-8555-555555555555',
 };
+const otherIds = Object.fromEntries(Object.entries(ids).map(([key, value]) => [key, value.replace(/^[0-9]/, '9')]));
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const clone = value => JSON.parse(JSON.stringify(value));
 const payloadOf = ({ p_request_id, ...payload }) => payload;
 const lostReply = () => ({ data:null, error:{ code:'', message:'TypeError: Failed to fetch', details:'Synthetic response lost after commit' } });
 
-function syntheticLedger() {
+function syntheticLedger(fixture = ids) {
   const rows = [], byRequest = new Map();
   let balance = 10;
   function apply(params) {
-    assert.equal(params.p_organization, ids.org);
-    assert.equal(params.p_warehouse, ids.warehouse);
-    assert.equal(params.p_item, ids.item);
+    assert.equal(params.p_organization, fixture.org);
+    assert.equal(params.p_warehouse, fixture.warehouse);
+    assert.equal(params.p_item, fixture.item);
     assert.match(params.p_request_id, /^[0-9a-f-]{36}$/);
-    assert.ok(['receipt', 'write_off'].includes(params.p_kind), 'fixture intentionally excludes inventory counts');
-    assert.ok(Number.isInteger(params.p_quantity) && params.p_quantity > 0, 'small integral quantities isolate identity from numeric rounding');
+    assert.ok(['receipt', 'write_off', 'inventory'].includes(params.p_kind));
+    if (params.p_kind === 'inventory') assert.ok(Number.isInteger(params.p_counted_quantity) && params.p_counted_quantity >= 0);
+    else assert.ok(Number.isInteger(params.p_quantity) && params.p_quantity > 0, 'small integral quantities isolate identity from numeric rounding');
     const key = `${params.p_organization}:${params.p_request_id}`;
     const existing = byRequest.get(key);
-    const delta = params.p_kind === 'receipt' ? params.p_quantity : -params.p_quantity;
+    const delta = params.p_kind === 'inventory' ? params.p_counted_quantity - balance
+      : params.p_kind === 'receipt' ? params.p_quantity : -params.p_quantity;
     if (existing) {
       // Actual v82 compares warehouse/item/kind/quantity, but NOT reason on replay.
       if (existing.warehouse_id !== params.p_warehouse || existing.inventory_item_id !== params.p_item
-        || existing.movement_type !== params.p_kind || existing.quantity_delta !== delta) {
+        || existing.movement_type !== params.p_kind
+        || (params.p_kind === 'inventory' ? existing.quantity_after !== params.p_counted_quantity : existing.quantity_delta !== delta)) {
         return { data:null, error:{ code:'23505', message:'inventory_request_conflict' } };
       }
-      return { data:{ organization_id:ids.org, id:existing.id, quantity_after:existing.quantity_after }, error:null };
+      return { data:{ organization_id:fixture.org, id:existing.id, quantity_after:existing.quantity_after }, error:null };
     }
     if (balance + delta < 0) return { data:null, error:{ code:'55000', message:'insufficient_inventory_stock' } };
-    if (params.p_kind === 'write_off' && params.p_reason.trim().length < 2)
+    if (['write_off', 'inventory'].includes(params.p_kind) && params.p_reason.trim().length < 2)
       return { data:null, error:{ code:'22023', message:'inventory_reason_required' } };
     balance += delta;
-    const row = { id:rows.length + 1, organization_id:ids.org, warehouse_id:ids.warehouse,
-      inventory_item_id:ids.item, movement_type:params.p_kind, quantity_delta:delta, quantity_after:balance,
-      request_id:params.p_request_id, reason:params.p_reason.trim(), actor_id:ids.actor,
+    const row = { id:rows.length + 1, organization_id:fixture.org, warehouse_id:fixture.warehouse,
+      inventory_item_id:fixture.item, movement_type:params.p_kind, quantity_delta:delta, quantity_after:balance,
+      request_id:params.p_request_id, reason:params.p_reason.trim(), actor_id:fixture.actor,
       created_at:'2026-09-06T09:00:00Z' };
     rows.push(row); byRequest.set(key, row);
-    return { data:{ organization_id:ids.org, id:row.id, quantity_after:balance }, error:null };
+    return { data:{ organization_id:fixture.org, id:row.id, quantity_after:balance }, error:null };
   }
-  const workspace = () => ({ organization_id:ids.org, current_role:'owner', enabled:true,
+  const workspace = () => ({ organization_id:fixture.org, current_role:'owner', enabled:true,
     auto_deduct_completed_visits:false,
-    locations:[{ id:ids.location, name:'Синтетический филиал', active:true }], services:[], usage:[], audit:[],
-    items:[{ id:ids.item, name:'Материал', unit:'piece', low_stock_threshold:0, active:true }],
-    warehouses:[{ id:ids.warehouse, location_id:ids.location, name:'Склад', active:true }],
-    balances:[{ warehouse_id:ids.warehouse, inventory_item_id:ids.item, quantity:balance }], movements:clone(rows) });
+    locations:[{ id:fixture.location, name:'Синтетический филиал', active:true }], services:[], usage:[], audit:[],
+    items:[{ id:fixture.item, name:'Материал', unit:'piece', low_stock_threshold:0, active:true }],
+    warehouses:[{ id:fixture.warehouse, location_id:fixture.location, name:'Склад', active:true }],
+    balances:[{ warehouse_id:fixture.warehouse, inventory_item_id:fixture.item, quantity:balance }], movements:clone(rows) });
   return { apply, workspace, rows, get balance() { return balance; } };
 }
 
-async function harness({ deferFirstReply = true } = {}) {
-  const ledger = syntheticLedger(), calls = [], effects = [], listeners = new Map(), nodes = new Map();
-  let nonce = 0, releaseFirstReply;
-  const firstReply = new Promise(resolve => { releaseFirstReply = resolve; });
+async function harness({ deferFirstReply = true, deferAllReplies = false, firstRefusal = null } = {}) {
+  const ledger = syntheticLedger(), otherLedger = syntheticLedger(otherIds), calls = [], effects = [], listeners = new Map(), nodes = new Map();
+  const readResponses = [];
+  const auth = { actor:ids.actor, generation:1 };
+  let nonce = 0, releaseFirstReply, rejectFirstReply;
+  const firstReply = new Promise((resolve, reject) => { releaseFirstReply = resolve; rejectFirstReply = reject; });
   const movementFields = ['inventoryMovementWarehouse', 'inventoryMovementItem', 'inventoryMovementKind',
     'inventoryMovementQuantity', 'inventoryCountedQuantity', 'inventoryMovementReason'];
   const selectIds = new Set(['inventoryMovementWarehouse', 'inventoryMovementItem', 'inventoryUsageService',
@@ -97,6 +103,7 @@ async function harness({ deferFirstReply = true } = {}) {
     let html = '';
     Object.defineProperty(element, 'innerHTML', { get:() => html, set:value => {
       html = String(value);
+      element.textContent = html.replace(/<[^>]*>/g, '');
       // Actual render replaces select options; emulate first-option selection.
       // One warehouse/item deliberately avoids conflating target-switch defects.
       if (selectIds.has(id)) element.value = html.match(/<option value="([^"]*)"/)?.[1] || '';
@@ -110,26 +117,30 @@ async function harness({ deferFirstReply = true } = {}) {
   const controller = context.window.MinutaInventory.createController({
     $:selector => { assert.match(selector, /^#[A-Za-z]+$/); return node(selector.slice(1)); },
     escapeHtml:value => String(value ?? ''), notify:message => effects.push(['notify', message]),
-    requireWrites:() => true, getCurrentUser:() => ({ id:ids.actor }), getSessionGeneration:() => 1,
-    sessionIsCurrent:(actor, generation) => actor === ids.actor && generation === 1,
+    requireWrites:() => true, getCurrentUser:() => ({ id:auth.actor }), getSessionGeneration:() => auth.generation,
+    sessionIsCurrent:(actor, generation) => actor === auth.actor && generation === auth.generation,
     applyWriteAvailability() {},
     db:{ rpc:async (name, params) => {
       if (name === 'get_minuta_inventory_workspace') {
-        assert.equal(params.p_organization, ids.org); effects.push(['workspaceRead']);
-        return { data:ledger.workspace(), error:null };
+        assert.ok([ids.org, otherIds.org].includes(params.p_organization)); effects.push(['workspaceRead']);
+        if (readResponses.length) return readResponses.shift()();
+        return { data:(params.p_organization === ids.org ? ledger : otherLedger).workspace(), error:null };
       }
       assert.equal(name, 'apply_minuta_stock_movement');
       const call = { name, params:clone(params) }; calls.push(call);
-      const committedReply = ledger.apply(call.params); call.committedReply = clone(committedReply);
+      const committedReply = calls.length === 1 && firstRefusal ? { data:null, error:firstRefusal }
+        : (params.p_organization === ids.org ? ledger : otherLedger).apply(call.params);
+      call.committedReply = clone(committedReply);
       // Apply the synthetic server effect BEFORE waiting for client delivery.
-      if (calls.length === 1 && deferFirstReply) return firstReply;
+      if (calls.length === 1 && deferFirstReply) { call.resolve = releaseFirstReply; call.reject = rejectFirstReply; return firstReply; }
+      if (deferAllReplies) return new Promise((resolve, reject) => { call.resolve = resolve; call.reject = reject; });
       return committedReply;
     } },
   });
   controller.bind(); await controller.setOrganization({ id:ids.org, current_role:'owner' });
   assert.equal(controller.availability, 'ready');
-  function fill({ quantity = '2', reason = 'Списание испорченного материала', kind = 'write_off' } = {}) {
-    node('inventoryMovementWarehouse').value = ids.warehouse; node('inventoryMovementItem').value = ids.item;
+  function fill({ quantity = '2', reason = 'Списание испорченного материала', kind = 'write_off', fixture = ids } = {}) {
+    node('inventoryMovementWarehouse').value = fixture.warehouse; node('inventoryMovementItem').value = fixture.item;
     node('inventoryMovementKind').value = kind; node('inventoryMovementQuantity').value = quantity;
     node('inventoryMovementReason').value = reason; node('inventoryCountedQuantity').value = '0';
   }
@@ -139,7 +150,7 @@ async function harness({ deferFirstReply = true } = {}) {
   }
   async function event(type, id, value = node(id).value) {
     assert.ok(['input', 'change'].includes(type)); node(id).value = value;
-    await listeners.get(type)({ target:node(id) });
+    await listeners.get(type)?.({ target:node(id) });
   }
   async function loseFirstReply() {
     const pending = submit(); await tick(); assert.equal(calls.length, 1);
@@ -148,7 +159,8 @@ async function harness({ deferFirstReply = true } = {}) {
     assert.equal(effects.some(effect => effect[0] === 'formReset'), false, 'unknown did not acknowledge/reset the form');
     return pending;
   }
-  return { ledger, calls, effects, controller, node, fill, submit, event, loseFirstReply,
+  const restore = () => listeners.get('click')({ target:{ closest:selector => selector === '[data-inventory-restore-movement]' ? {} : null } });
+  return { ledger, otherLedger, readResponses, calls, effects, controller, node, fill, submit, event, loseFirstReply, auth, restore,
     acknowledgeFirst:() => releaseFirstReply(calls[0].committedReply) };
 }
 
@@ -228,4 +240,191 @@ test('synthetic SQL boundary: same-key changed quantity refuses, replay does not
   assert.equal(ledger.apply({ ...original, p_quantity:3 }).error.code, '23505');
   assert.deepEqual(ledger.apply({ ...original, p_reason:'different reason' }), first);
   assert.equal(ledger.rows[0].reason, 'first reason'); assert.equal(ledger.rows.length, 1); assert.equal(ledger.balance, 8);
+});
+
+test('changed unresolved payload is blocked; restore action permits exact-key replay', async () => {
+  const h = await harness(); await h.loseFirstReply();
+  await h.event('input', 'inventoryMovementQuantity', '3'); await h.submit();
+  assert.equal(h.calls.length, 1); assert.equal(h.node('inventoryMovementQuantity').value, '3');
+  assert.match(h.node('inventoryMovementError').textContent, /исходной операции.*Изменённые данные не отправлены/);
+  assert.match(h.node('inventoryMovementError').innerHTML, /data-inventory-restore-movement/);
+  await h.restore(); assert.equal(Number(h.node('inventoryMovementQuantity').value), 2);
+  await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+  assert.equal(h.ledger.rows.length, 1);
+});
+
+test('editing then reverting and explicit workspace reload keep the original request', async () => {
+  const h = await harness(); await h.loseFirstReply();
+  await h.event('input', 'inventoryMovementQuantity', '3');
+  await h.event('input', 'inventoryMovementQuantity', '2'); await h.controller.load();
+  await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+  assert.equal(h.ledger.balance, 8);
+});
+
+for (const [name, transform] of [
+  ['null envelope', () => null],
+  ['null data', () => ({ data:null, error:null })],
+  ['missing error field', reply => ({ data:reply.data })],
+  ['foreign organization', reply => ({ ...reply, data:{ ...reply.data, organization_id:ids.actor } })],
+  ['string movement id', reply => ({ ...reply, data:{ ...reply.data, id:'1' } })],
+  ['nonpositive movement id', reply => ({ ...reply, data:{ ...reply.data, id:0 } })],
+  ['unsafe movement id', reply => ({ ...reply, data:{ ...reply.data, id:Number.MAX_SAFE_INTEGER + 1 } })],
+  ['string quantity', reply => ({ ...reply, data:{ ...reply.data, quantity_after:'8' } })],
+  ['negative quantity', reply => ({ ...reply, data:{ ...reply.data, quantity_after:-1 } })],
+  ['excess scale quantity', reply => ({ ...reply, data:{ ...reply.data, quantity_after:0.0001 } })],
+]) {
+  test(`malformed ACK ${name} keeps original identity and reports unknown`, async () => {
+    const h = await harness(), pending = h.submit(); await tick();
+    h.calls[0].resolve(transform(h.calls[0].committedReply)); await pending;
+    assert.equal(h.effects.some(effect => effect[0] === 'formReset'), false);
+    assert.doesNotMatch(h.node('inventoryMovementError').textContent, /не изменены|не сохранено/);
+    assert.match(h.node('inventoryMovementError').textContent, /подтвержден|подтверждение/);
+    await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+    assert.equal(h.ledger.rows.length, 1);
+  });
+}
+
+test('defensive rejected RPC restores controls but not permission to change unresolved intent', async () => {
+  const h = await harness(), pending = h.submit(); await tick();
+  h.calls[0].reject(Error('defensive unexpected rejection')); await pending;
+  assert.equal(h.node('movementSubmit').disabled, false);
+  assert.match(h.node('inventoryMovementError').textContent, /Остаток мог измениться/);
+  await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+  assert.equal(h.ledger.rows.length, 1);
+});
+
+test('exact first-invocation v82 refusal permits corrected new intent', async () => {
+  const h = await harness({ firstRefusal:{ code:'55000', message:'insufficient_inventory_stock' } });
+  const pending = h.submit(); await tick(); h.calls[0].resolve(h.calls[0].committedReply); await pending;
+  assert.equal(h.ledger.rows.length, 0);
+  await h.event('input', 'inventoryMovementQuantity', '3'); await h.submit();
+  assert.notEqual(h.calls[1].params.p_request_id, h.calls[0].params.p_request_id);
+  assert.equal(h.ledger.rows.length, 1); assert.equal(h.ledger.balance, 7);
+});
+
+test('refusal text with wrong SQL code does not discard an unknown committed identity', async () => {
+  const h = await harness(), pending = h.submit(); await tick();
+  h.calls[0].resolve({ data:null, error:{ code:'08006', message:'insufficient_inventory_stock' } }); await pending;
+  await h.event('input', 'inventoryMovementQuantity', '3'); await h.submit();
+  assert.equal(h.calls.length, 1);
+  await h.restore(); await h.submit(); assert.deepEqual(h.calls[1].params, h.calls[0].params);
+});
+
+test('definite refusal on retry cannot disprove the previous unknown commit', async () => {
+  const h = await harness({ deferAllReplies:true }); await h.loseFirstReply();
+  const retry = h.submit(); await tick();
+  h.calls[1].resolve({ data:null, error:{ code:'55000', message:'inventory_disabled' } }); await retry;
+  await h.event('change', 'inventoryMovementQuantity', '3'); await h.submit();
+  assert.equal(h.calls.length, 2, 'changed payload still blocked after replay refusal');
+  await h.restore(); const recovered = h.submit(); await tick();
+  h.calls[2].resolve(h.calls[2].committedReply); await recovered;
+  for (const call of h.calls) assert.deepEqual(call.params, h.calls[0].params);
+  assert.equal(h.ledger.rows.length, 1);
+});
+
+for (const outcome of ['success', 'error', 'throw']) {
+  test(`reset/account replacement: late A ${outcome} cannot release B pending or reset its form`, async () => {
+    const h = await harness({ deferAllReplies:true }), a = h.submit(); await tick();
+    h.controller.reset(); h.auth.actor = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; h.auth.generation += 1;
+    await h.controller.setOrganization({ id:ids.org, current_role:'owner' }); h.fill({ quantity:'3' });
+    const b = h.submit(); await tick(); const before = JSON.stringify(h.effects);
+    if (outcome === 'throw') h.calls[0].reject(Error('old rejection'));
+    else h.calls[0].resolve(outcome === 'success' ? h.calls[0].committedReply : lostReply());
+    await a; assert.equal(JSON.stringify(h.effects), before);
+    assert.equal(h.node('movementSubmit').disabled, true);
+    await h.submit(); assert.equal(h.calls.length, 2, 'late A does not release B single-flight');
+    h.calls[1].resolve(h.calls[1].committedReply); await b;
+    assert.equal(h.ledger.rows.length, 2); assert.equal(h.ledger.balance, 5);
+    // A's unresolved snapshot is private to its actor scope and remains replayable.
+    h.controller.reset(); h.auth.actor = ids.actor; h.auth.generation += 1;
+    await h.controller.setOrganization({ id:ids.org, current_role:'owner' }); h.fill();
+    const aRecovery = h.submit(); await tick();
+    assert.deepEqual(h.calls[2].params, h.calls[0].params);
+    h.calls[2].resolve(h.calls[2].committedReply); await aRecovery;
+    assert.equal(h.ledger.rows.length, 2);
+  });
+}
+
+test('same organization refresh while movement pending does not invalidate its acknowledgement', async () => {
+  const h = await harness(), pending = h.submit(); await tick();
+  await h.controller.setOrganization({ id:ids.org, current_role:'owner' });
+  h.acknowledgeFirst(); await pending;
+  assert.equal(h.effects.filter(effect => effect[0] === 'formReset').length, 1);
+  h.fill(); await h.submit(); assert.equal(h.ledger.rows.length, 2);
+  assert.notEqual(h.calls[1].params.p_request_id, h.calls[0].params.p_request_id);
+});
+
+test('organization switch keeps unresolved snapshots separate and A roundtrip replays A key', async () => {
+  const h = await harness(); await h.loseFirstReply();
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' }); h.fill({ fixture:otherIds });
+  await h.submit(); assert.equal(h.otherLedger.rows.length, 1); assert.equal(h.ledger.rows.length, 1);
+  assert.notEqual(h.calls[1].params.p_request_id, h.calls[0].params.p_request_id);
+  await h.controller.setOrganization({ id:ids.org, current_role:'owner' }); h.fill(); await h.submit();
+  assert.deepEqual(h.calls[2].params, h.calls[0].params); assert.equal(h.ledger.rows.length, 1);
+});
+
+test('write role revoked while pending does not clear the unresolved operation', async () => {
+  const h = await harness(), pending = h.submit(); await tick();
+  await h.controller.setOrganization({ id:ids.org, current_role:'specialist' });
+  h.acknowledgeFirst(); await pending;
+  assert.equal(h.node('inventoryPanel').hidden, true); assert.equal(h.effects.some(e => e[0] === 'formReset'), false);
+  await h.controller.setOrganization({ id:ids.org, current_role:'owner' }); h.fill(); await h.submit();
+  assert.deepEqual(h.calls[1].params, h.calls[0].params); assert.equal(h.ledger.rows.length, 1);
+});
+
+test('confirmed movement then workspace rejection reports confirmed write and permits read recovery', async () => {
+  const h = await harness({ deferFirstReply:false });
+  h.readResponses.push(() => Promise.reject(Error('workspace unavailable'))); await h.submit();
+  assert.equal(h.ledger.rows.length, 1); assert.equal(h.node('inventoryLoading').hidden, true);
+  assert.equal(h.node('inventoryUnavailable').hidden, false); assert.equal(h.controller.availability, 'error');
+  assert.match(h.effects.at(-1)[1], /Движение сохранено, но обновление журнала/);
+  await h.controller.load(); h.fill(); await h.submit();
+  assert.equal(h.ledger.rows.length, 2, 'acknowledged write does not poison explicit new movement');
+});
+
+test('old confirmed-write refresh rejection cannot affect a new actor pending write', async () => {
+  const h = await harness({ deferAllReplies:true });
+  let rejectRead; h.readResponses.push(() => new Promise((resolve, reject) => { rejectRead = reject; }));
+  const a = h.submit(); await tick(); h.acknowledgeFirst(); await tick();
+  h.controller.reset(); h.auth.actor = otherIds.actor; h.auth.generation += 1;
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' }); h.fill({ fixture:otherIds });
+  const b = h.submit(); await tick(); const before = JSON.stringify(h.effects);
+  rejectRead(Error('late old load failure')); await a;
+  assert.equal(JSON.stringify(h.effects), before); assert.equal(h.node('movementSubmit').disabled, true);
+  await h.submit(); assert.equal(h.calls.length, 2);
+  h.calls[1].resolve(h.calls[1].committedReply); await b;
+  assert.equal(h.ledger.rows.length, 1); assert.equal(h.otherLedger.rows.length, 1);
+});
+
+test('queued organization load rejection does not leave an eternal loading state', async () => {
+  const h = await harness(), pending = h.submit(); await tick();
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
+  h.readResponses.push(() => Promise.reject(Error('queued workspace failure')));
+  h.calls[0].resolve(lostReply()); await pending;
+  assert.equal(h.controller.availability, 'error'); assert.equal(h.node('inventoryLoading').hidden, true);
+  await h.controller.load(); h.fill({ fixture:otherIds }); await h.submit();
+  assert.equal(h.otherLedger.rows.length, 1);
+});
+
+test('zero inventory-count acknowledgement is valid and replay keeps null quantity/original count', async () => {
+  const h = await harness(); h.fill({ kind:'inventory' });
+  const pending = h.submit(); await tick(); h.calls[0].resolve(lostReply()); await pending;
+  assert.equal(h.ledger.balance, 0); await h.submit();
+  assert.equal(h.calls[1].params.p_quantity, null); assert.equal(h.calls[1].params.p_counted_quantity, 0);
+  assert.deepEqual(h.calls[1].params, h.calls[0].params); assert.equal(h.ledger.rows.length, 1);
+  assert.equal(h.effects.filter(e => e[0] === 'formReset').length, 1);
+});
+
+test('receipt remains supported and acknowledged new receipt can use identical payload', async () => {
+  const h = await harness({ deferFirstReply:false }); h.fill({ kind:'receipt', reason:'' }); await h.submit();
+  h.fill({ kind:'receipt', reason:'' }); await h.submit();
+  assert.equal(h.ledger.balance, 14); assert.equal(h.ledger.rows.length, 2);
+});
+
+test('unresolved original-description message is not displayed in a different organization', async () => {
+  const h = await harness(); await h.loseFirstReply();
+  await h.event('input', 'inventoryMovementQuantity', '3'); await h.submit();
+  assert.match(h.node('inventoryMovementError').textContent, /Списание испорченного материала/);
+  await h.controller.setOrganization({ id:otherIds.org, current_role:'owner' });
+  assert.equal(h.node('inventoryMovementError').textContent, ''); assert.equal(h.node('inventoryMovementError').hidden, true);
 });

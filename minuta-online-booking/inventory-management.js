@@ -14,7 +14,11 @@
     let revision = 0;
     let writing = false;
     let pendingOrganization;
-    let movementRequestId = null;
+    // Private, controller-lifetime recovery only; not durable across page reload.
+    // Keep unresolved scopes separate, including across reset/org round trips.
+    const movementIntents = new Map();
+    let movementOperation = null;
+    let movementErrorScope = null;
 
     function unsupported(error) { return /PGRST202|42883|get_minuta_inventory_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
     function scopeMatches(data, id) { return Boolean(data && String(data.organization_id || '') === String(id)); }
@@ -41,12 +45,16 @@
     }
 
     function reset() {
-      revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementRequestId = null;
+      revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementOperation = null;
+      movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
       $('#inventoryPanel').hidden = true; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
     }
 
     async function setOrganization(next) {
       const normalized = next?.id ? { ...next } : null;
+      if (movementOperation && sessionIsCurrent(movementOperation.userId, movementOperation.generation)
+        && normalized?.id === organization?.id && normalized?.current_role === organization?.current_role)
+        return { ok:false, optional:true, pending:true };
       if (writing) { pendingOrganization = normalized; revision += 1; $('#inventoryPanel').hidden = !normalized; $('#inventoryWorkspace').hidden = true; return { ok:false, optional:true, pending:true }; }
       if (!normalized) { reset(); return { ok:false, optional:true }; }
       if (!['owner', 'admin'].includes(normalized.current_role)) { reset(); return { ok:false, optional:true, forbidden:true }; }
@@ -57,6 +65,9 @@
       if (writing) return { ok:false, optional:true, pending:true };
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
+      if (movementErrorScope && movementErrorScope !== movementScope()) {
+        movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
+      }
       availability = 'loading'; payload = null; $('#inventoryPanel').hidden = false; $('#inventoryLoading').hidden = false; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
       const { data, error } = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId });
       if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) return { ok:false, optional:true, stale:true };
@@ -155,6 +166,130 @@
     function clearItemForm() { $('#inventoryItemId').value = ''; $('#inventoryItemForm').reset(); $('#inventoryItemActive').checked = true; $('#inventoryItemCreator').open = false; }
     function clearWarehouseForm() { $('#inventoryWarehouseId').value = ''; $('#inventoryWarehouseForm').reset(); $('#inventoryWarehouseActive').checked = true; $('#inventoryWarehouseCreator').open = false; }
 
+    function movementScope() { return JSON.stringify([getCurrentUser()?.id || '', organization?.id || '']); }
+    function movementParameters() {
+      const kind = $('#inventoryMovementKind').value;
+      return { p_organization:organization?.id, p_warehouse:$('#inventoryMovementWarehouse').value,
+        p_item:$('#inventoryMovementItem').value, p_kind:kind,
+        p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),
+        p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,
+        p_reason:$('#inventoryMovementReason').value.trim() };
+    }
+    function sameMovement(left, right) {
+      return Object.keys(left).every(key => key === 'p_request_id' || left[key] === right[key]);
+    }
+    function movementError(message, intent = null) {
+      const holder = $('#inventoryMovementError');
+      movementErrorScope = movementScope();
+      holder.hidden = false;
+      if (!intent) { holder.textContent = message; return; }
+      const original = intent.parameters;
+      const summary = `${movementLabels[original.p_kind]} · ${intent.itemName} · ${intent.warehouseName} · ${quantity(original.p_kind === 'inventory' ? original.p_counted_quantity : original.p_quantity)} · ${original.p_reason}`;
+      holder.innerHTML = `${escapeHtml(message)} ${escapeHtml(summary)} <button type="button" data-inventory-restore-movement>Вернуть исходные поля</button>`;
+    }
+    function validMovementAcknowledgement(data, organizationId) {
+      return data && !Array.isArray(data) && typeof data === 'object' && data.organization_id === organizationId
+        && Number.isSafeInteger(data.id) && data.id > 0
+        && typeof data.quantity_after === 'number' && Number.isFinite(data.quantity_after)
+        && data.quantity_after >= 0 && data.quantity_after <= 99999999999.999
+        && /^\d+(?:\.\d{1,3})?$/.test(String(data.quantity_after));
+    }
+    function definiteMovementRefusal(error) {
+      const codes = {
+        '42501':['authentication_required', 'inventory_management_denied'],
+        '55000':['inventory_disabled', 'inventory_target_inactive', 'insufficient_inventory_stock'],
+        '22023':['inventory_request_id_required', 'invalid_inventory_movement', 'invalid_inventory_count', 'invalid_inventory_quantity', 'inventory_reason_required'],
+        '23505':['inventory_request_conflict']
+      };
+      return Boolean(error && codes[error.code]?.includes(error.message));
+    }
+    async function submitMovement(event) {
+      if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;
+      const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
+      if (!userId) return;
+      const scope = movementScope(), parameters = movementParameters();
+      let intent = movementIntents.get(scope);
+      if (intent && !sameMovement(intent.parameters, parameters)) {
+        movementError('Результат исходной операции ещё не подтверждён. Изменённые данные не отправлены. Восстановите поля для проверки тем же запросом.', intent);
+        return;
+      }
+      if (!intent) {
+        intent = { parameters:Object.freeze({ ...parameters, p_request_id:requestId() }), ambiguous:false,
+          itemName:item(parameters.p_item)?.name || parameters.p_item,
+          warehouseName:warehouse(parameters.p_warehouse)?.name || parameters.p_warehouse };
+        movementIntents.set(scope, intent);
+      }
+      const current = ++revision, token = { userId, generation };
+      movementOperation = token; writing = true; setBusy(true);
+      const button = event.submitter, oldText = button?.textContent;
+      if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
+      $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
+      const isCurrent = () => movementOperation === token && sessionIsCurrent(userId, generation)
+        && organization?.id === organizationId && revision === current && movementIntents.get(scope) === intent;
+      let acknowledged = false;
+      try {
+        const result = await db.rpc('apply_minuta_stock_movement', { ...intent.parameters });
+        if (!isCurrent()) { intent.ambiguous = true; return; }
+        if (result?.error) {
+          // A refusal of a replay cannot disprove an earlier unknown commit:
+          // v82 enabled/target checks run BEFORE its request-key lookup.
+          if (!intent.ambiguous && definiteMovementRefusal(result.error)) {
+            movementIntents.delete(scope);
+            movementError('Сервер отклонил эту операцию. ' + messageFor(result.error));
+          } else {
+            intent.ambiguous = true;
+            movementError('Не удалось подтвердить движение. Остаток мог измениться. Проверьте журнал; повтор исходных данных использует тот же запрос.');
+          }
+          return;
+        }
+        if (!result || result.error !== null || !validMovementAcknowledgement(result.data, organizationId)) {
+          intent.ambiguous = true;
+          movementError('Сервер не вернул подтверждение движения. Остаток мог измениться. Повтор исходных данных использует тот же запрос.');
+          return;
+        }
+        acknowledged = true;
+        movementIntents.delete(scope);
+        event.target.reset(); updateMovementKind();
+        notify(movementLabels[intent.parameters.p_kind] + ' сохранён');
+      } catch {
+        if (!isCurrent()) { intent.ambiguous = true; return; }
+        intent.ambiguous = true;
+        movementError('Не удалось подтвердить движение. Остаток мог измениться. Повтор исходных данных использует тот же запрос.');
+      } finally {
+        // Only this operation may release its busy state; reset/new context can
+        // already own a different write. Other inventory mutation paths unchanged.
+        if (movementOperation === token) {
+          movementOperation = null; writing = false;
+          if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current) {
+            if (button) button.textContent = oldText;
+            setBusy(false); applyWriteAvailability();
+          }
+          const next = pendingOrganization; pendingOrganization = undefined;
+          if (next !== undefined) {
+            // The queued organization owns its load/error UI, not the old form.
+            const queuedRevision = revision;
+            try { await setOrganization(next); }
+            catch {
+              if (sessionIsCurrent(userId, generation) && organization?.id === next?.id && revision === queuedRevision + 1 && movementOperation === null) {
+                availability = 'error'; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = false;
+                $('#inventoryUnavailableText').textContent = 'Не удалось загрузить склад выбранной организации. Обновите склад.';
+              }
+            }
+          }
+          else if (acknowledged) {
+            try { await load(); }
+            catch {
+              if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current + 1 && movementOperation === null) {
+                availability = 'error'; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = false;
+                $('#inventoryUnavailableText').textContent = 'Движение сохранено, но обновление журнала не подтверждено. Обновите склад.';
+                notify('Движение сохранено, но обновление журнала не подтверждено. Проверьте журнал.');
+              }
+            }
+          }
+        }
+      }
+    }
+
     async function submit(event) {
       if (!event.target.closest('#inventoryPanel')) return;
       if (event.target.id === 'inventoryItemForm') {
@@ -164,9 +299,7 @@
         event.preventDefault(); const ok = await mutate('upsert_minuta_inventory_warehouse', { p_organization:organization.id,p_warehouse:$('#inventoryWarehouseId').value || null,p_location:$('#inventoryWarehouseLocation').value,p_name:$('#inventoryWarehouseName').value.trim(),p_active:$('#inventoryWarehouseActive').checked }, event.submitter, 'Склад сохранён', '#inventoryWarehouseError'); if (ok) clearWarehouseForm(); return;
       }
       if (event.target.id === 'inventoryMovementForm') {
-        event.preventDefault(); movementRequestId = movementRequestId || requestId(); const kind = $('#inventoryMovementKind').value;
-        const ok = await mutate('apply_minuta_stock_movement', { p_organization:organization.id,p_warehouse:$('#inventoryMovementWarehouse').value,p_item:$('#inventoryMovementItem').value,p_kind:kind,p_quantity:kind === 'inventory' ? null : Number($('#inventoryMovementQuantity').value),p_counted_quantity:kind === 'inventory' ? Number($('#inventoryCountedQuantity').value) : null,p_reason:$('#inventoryMovementReason').value.trim(),p_request_id:movementRequestId }, event.submitter, movementLabels[kind] + ' сохранён', '#inventoryMovementError');
-        if (ok) { movementRequestId = null; event.target.reset(); updateMovementKind(); } return;
+        event.preventDefault(); await submitMovement(event); return;
       }
       if (event.target.id === 'inventoryUsageForm') {
         event.preventDefault(); const ok = await mutate('set_minuta_inventory_service_usage', { p_organization:organization.id,p_service:$('#inventoryUsageService').value,p_item:$('#inventoryUsageItem').value,p_quantity:Number($('#inventoryUsageQuantity').value) }, event.submitter, 'Норма расхода сохранена', '#inventoryUsageError'); if (ok) event.target.reset();
@@ -174,6 +307,19 @@
     }
 
     async function click(event) {
+      if (event.target.closest('[data-inventory-restore-movement]')) {
+        const intent = movementIntents.get(movementScope());
+        if (!intent || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;
+        const original = intent.parameters;
+        $('#inventoryMovementWarehouse').value = original.p_warehouse; $('#inventoryMovementItem').value = original.p_item;
+        $('#inventoryMovementKind').value = original.p_kind; $('#inventoryMovementQuantity').value = original.p_quantity ?? '';
+        $('#inventoryCountedQuantity').value = original.p_counted_quantity ?? '0'; $('#inventoryMovementReason').value = original.p_reason;
+        updateMovementKind();
+        movementError(sameMovement(original, movementParameters())
+          ? 'Исходные поля восстановлены. Повтор использует тот же запрос, без новой операции.'
+          : 'Исходный склад или материал недоступен. Проверьте журнал; изменённые данные не отправлены.');
+        return;
+      }
       if (event.target.closest('#reloadInventory')) { await load(); return; }
       const editItem = event.target.closest('[data-inventory-edit-item]');
       if (editItem) { const row = item(editItem.dataset.inventoryEditItem); if (!row) return; $('#inventoryItemId').value=row.id; $('#inventoryItemName').value=row.name; $('#inventoryItemSku').value=row.sku || ''; $('#inventoryItemUnit').value=row.unit; $('#inventoryItemLow').value=row.low_stock_threshold; $('#inventoryItemActive').checked=Boolean(row.active); $('#inventoryItemCreator').open=true; $('#inventoryItemName').focus(); return; }
@@ -192,10 +338,9 @@
         if (!ok && payload) { $('#inventoryEnabled').checked=Boolean(payload.enabled); $('#inventoryAutoDeduct').checked=Boolean(payload.auto_deduct_completed_visits); }
       }
       if (event.target.id === 'inventoryMovementKind') updateMovementKind();
-      if (event.target.closest('#inventoryMovementForm')) movementRequestId = null;
     }
 
-    function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); document.addEventListener('input', event => { if (event.target.closest('#inventoryMovementForm')) movementRequestId = null; }); }
+    function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); }
     return { bind, load, reset, setOrganization, get availability() { return availability; }, get payload() { return payload; } };
   }
 
