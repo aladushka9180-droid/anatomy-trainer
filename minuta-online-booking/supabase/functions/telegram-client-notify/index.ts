@@ -9,9 +9,6 @@ const corsHeaders = {
 
 const MAX_JSON_BYTES = 32 * 1024;
 const TELEGRAM_AUTH_MAX_AGE_SECONDS = 15 * 60;
-const REMINDER_SECRET_HASH_TTL = 5 * 60 * 1000;
-let cachedReminderSecretHash = "";
-let cachedReminderSecretHashExpiresAt = 0;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -21,13 +18,6 @@ const admin = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 type BookingEvent = "confirmation" | "rescheduled" | "cancelled" | "reminder";
-type TelegramClientSettings = {
-  contactUsername: string;
-  confirmation: boolean;
-  reminder: boolean;
-  rescheduled: boolean;
-  cancelled: boolean;
-};
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: { ...corsHeaders, "cache-control": "no-store" } });
@@ -76,58 +66,10 @@ async function readJson(req: Request) {
   }
 }
 
-async function reminderSecretHash() {
-  if (cachedReminderSecretHash && cachedReminderSecretHashExpiresAt > Date.now()) return cachedReminderSecretHash;
-  const { data, error } = await admin.rpc("get_telegram_reminder_secret_hash");
-  const value = String(data || "");
-  if (error || !/^[0-9a-f]{64}$/i.test(value)) return "";
-  cachedReminderSecretHash = value.toLowerCase();
-  cachedReminderSecretHashExpiresAt = Date.now() + REMINDER_SECRET_HASH_TTL;
-  return cachedReminderSecretHash;
-}
-
-function html(value: unknown) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
 function normalizePhone(value: unknown) {
   let digits = String(value ?? "").replace(/\D/g, "");
   if (digits.startsWith("8") && digits.length === 11) digits = "7" + digits.slice(1);
   return digits;
-}
-
-function relation(value: unknown) {
-  return Array.isArray(value) ? value[0] || {} : value || {};
-}
-
-function telegramContactUsername(value: unknown) {
-  const username = String(value || "").trim()
-    .replace(/^https?:\/\/(?:www\.)?t\.me\//i, "")
-    .replace(/^@/, "")
-    .split(/[/?#]/, 1)[0];
-  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username) ? username : "";
-}
-
-function normalizeTelegramClientSettings(value: unknown): TelegramClientSettings {
-  const source = value && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-  return {
-    contactUsername: telegramContactUsername(source.contact_username ?? source.contactUsername),
-    confirmation: source.confirmation !== false,
-    reminder: source.reminder !== false,
-    rescheduled: source.rescheduled !== false,
-    cancelled: source.cancelled !== false,
-  };
-}
-
-async function performerTelegramSettings(performerId: string) {
-  const { data, error } = await admin.auth.admin.getUserById(performerId);
-  if (error) console.error("Telegram performer settings lookup failed", performerId, error);
-  return normalizeTelegramClientSettings(data?.user?.user_metadata?.telegram_client_settings);
 }
 
 function encodeStartToken(token: string) {
@@ -175,37 +117,6 @@ async function verifyTelegramAuth(auth: unknown) {
 async function telegramWebhookSecret() {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`minuta-client-webhook:${botToken}`));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function bookingDateText(value: string) {
-  const parts = String(value).split("-");
-  return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value;
-}
-
-function bookingMessage(booking: any, event: BookingEvent) {
-  const service = relation(booking.services) as any;
-  const performer = relation(booking.performer_profiles) as any;
-  const date = bookingDateText(booking.booking_date);
-  const time = String(booking.booking_time).slice(0, 5);
-  const title = {
-    confirmation: "✅ <b>Запись подтверждена</b>",
-    rescheduled: "🔄 <b>Запись перенесена</b>",
-    cancelled: "❌ <b>Запись отменена</b>",
-    reminder: "⏰ <b>Напоминание о записи</b>",
-  }[event];
-  const managementUrl = `https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/booking.html#token=${encodeURIComponent(booking.manage_token)}`;
-  const lines = [
-    title,
-    "",
-    `<b>Услуга:</b> ${html(service.name || "Массаж")}`,
-    `<b>Дата:</b> ${html(date)}`,
-    `<b>Время:</b> ${html(time)}`,
-    `<b>Исполнитель:</b> ${html(performer.display_name || "Рамиль")}`,
-    `<b>Адрес:</b> Ижевск, ул. Карла Маркса, 304б`,
-  ];
-  if (event === "reminder") lines.push("", "Ждём вас завтра. Если планы изменились, перенесите или отмените запись заранее.");
-  if (event === "cancelled") lines.push("", "Вы можете выбрать другое свободное время на сайте.");
-  return { text: lines.join("\n"), managementUrl };
 }
 
 async function telegram(method: string, payload: Record<string, unknown>) {
@@ -261,56 +172,23 @@ function normalizeBookingContext(booking: any) {
 }
 
 async function sendBookingEvent(booking: any, event: BookingEvent) {
-  const settings = await performerTelegramSettings(booking.performer_id);
-  if (!settings[event]) return { delivered: false, reason: "event_disabled" };
-  const phone = normalizePhone(booking.client_phone);
-  const { data: subscription } = await admin.from("client_telegram_subscriptions")
-    .select("id,chat_id")
-    .eq("performer_id", booking.performer_id)
-    .eq("client_phone", phone)
-    .eq("active", true)
-    .maybeSingle();
-  if (!subscription) return { delivered: false, reason: "not_connected" };
-
-  const { data: duplicate } = await admin.from("telegram_notification_log")
-    .select("id")
-    .eq("booking_id", booking.id)
-    .eq("event_type", event)
-    .eq("booking_date", booking.booking_date)
-    .eq("booking_time", booking.booking_time)
-    .maybeSingle();
-  if (duplicate) return { delivered: false, reason: "already_sent" };
-
-  const message = bookingMessage(booking, event);
-  const inlineKeyboard = [];
-  if (settings.contactUsername) {
-    inlineKeyboard.push([{ text: "Написать мастеру", url: `https://t.me/${settings.contactUsername}` }]);
-  }
-  inlineKeyboard.push([{ text: event === "cancelled" ? "Выбрать другое время" : "Управлять записью", url: message.managementUrl }]);
-  try {
-    await telegram("sendMessage", {
-      chat_id: subscription.chat_id,
-      text: message.text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true,
-      reply_markup: {
-        inline_keyboard: inlineKeyboard,
-      },
-    });
-  } catch (error) {
-    if ((error as any).telegram?.error_code === 403) {
-      await admin.from("client_telegram_subscriptions").update({ active: false, updated_at: new Date().toISOString() }).eq("id", subscription.id);
-    }
-    throw error;
-  }
-
-  await admin.from("telegram_notification_log").insert({
-    booking_id: booking.id,
-    event_type: event,
-    booking_date: booking.booking_date,
-    booking_time: booking.booking_time,
+  // v88/v114 booking triggers own event creation. This endpoint reports the
+  // durable queue state and must never perform a second direct delivery.
+  const { data, error } = await admin.rpc("get_minuta_client_notification_state_v114", {
+    p_booking: booking.id,
   });
-  return { delivered: true };
+  if (error) {
+    console.error("Notification state lookup failed", event, error.code || error.message);
+    return { delivered:false, sent:false, queued:false, connected:false, reason:"notification_state_unavailable" };
+  }
+  const state = String(data?.state || "connected");
+  return {
+    delivered: state === "delivered",
+    sent: state === "sent" || state === "delivered",
+    queued: state === "queued" || state === "sending",
+    connected: data?.connected === true,
+    reason: state,
+  };
 }
 
 async function telegramAuthConfig(req: Request) {
@@ -342,6 +220,20 @@ async function authorizeTelegram(req: Request) {
   const auth = await verifyTelegramAuth(body.telegram_auth);
   if (!auth) return json({ ok: false, error: "invalid_telegram_auth" }, 401);
 
+  // Telegram Login proves identity, but not that the bot may write to the chat.
+  // Confirm access before persisting an active endpoint.
+  try {
+    await telegram("sendMessage", {
+      chat_id: auth.id,
+      text: "Проверка доступа к уведомлениям Minuta.",
+    });
+  } catch (error) {
+    if ((error as any).telegram?.error_code === 403) {
+      return json({ ok:false, connected:false, error:"telegram_write_access_required" }, 403);
+    }
+    return json({ ok:false, connected:false, error:"telegram_access_check_failed" }, 502);
+  }
+
   const phone = normalizePhone(booking.client_phone);
   const { error } = await admin.from("client_telegram_subscriptions").upsert({
     performer_id: booking.performer_id,
@@ -358,16 +250,8 @@ async function authorizeTelegram(req: Request) {
   }
 
   const event: BookingEvent = booking.status === "cancelled" ? "cancelled" : "confirmation";
-  try {
-    const delivery = await sendBookingEvent(booking, event);
-    return json({ ok: true, connected: true, ...delivery });
-  } catch (error) {
-    console.error("Telegram message after web authorization failed", error);
-    if ((error as any).telegram?.error_code === 403) {
-      return json({ ok: false, connected: false, error: "telegram_write_access_required" }, 403);
-    }
-    return json({ ok: true, connected: true, delivered: false, reason: "delivery_failed" });
-  }
+  const delivery = await sendBookingEvent(booking, event);
+  return json({ ok:true, ...delivery, connected:true, connection_status:"sent" });
 }
 
 async function connectRedirect(req: Request) {
@@ -401,7 +285,7 @@ async function telegramWebhook(req: Request) {
   }
 
   const phone = normalizePhone(booking.client_phone);
-  await admin.from("client_telegram_subscriptions").upsert({
+  const { error: subscriptionError } = await admin.from("client_telegram_subscriptions").upsert({
     performer_id: booking.performer_id,
     client_phone: phone,
     chat_id: message.chat.id,
@@ -410,12 +294,22 @@ async function telegramWebhook(req: Request) {
     active: true,
     updated_at: new Date().toISOString(),
   }, { onConflict: "performer_id,client_phone" });
+  if (subscriptionError) {
+    console.error("Telegram webhook subscription save failed", subscriptionError.code || subscriptionError.message);
+    await telegram("sendMessage", { chat_id:message.chat.id, text:"Не удалось сохранить подключение. Вернитесь на сайт и повторите позже." });
+    return json({ ok:false, error:"subscription_save_failed" }, 500);
+  }
 
   const event: BookingEvent = booking.status === "cancelled" ? "cancelled" : "confirmation";
   const result = await sendBookingEvent(booking, event);
-  if (!result.delivered && result.reason === "already_sent") {
-    await telegram("sendMessage", { chat_id: message.chat.id, text: "✅ Уведомления уже подключены. Следующее напоминание придёт сюда автоматически." });
-  }
+  const connectionText = result.reason === "connected_disabled"
+    ? "✅ Telegram подключён. Автоматические сообщения пока выключены мастером."
+    : result.queued
+      ? "✅ Telegram подключён. Статус сообщения: в очереди."
+      : result.sent
+        ? "✅ Telegram подключён. Последнее сообщение отправлено."
+        : "✅ Telegram подключён. Статус автоматических сообщений можно уточнить у мастера.";
+  await telegram("sendMessage", { chat_id:message.chat.id, text:connectionText });
   return json({ ok: true });
 }
 
@@ -442,33 +336,8 @@ async function eventRequest(req: Request) {
 }
 
 async function remindersRequest(req: Request) {
-  const expectedHash = await reminderSecretHash();
-  const actualHash = await sha256Hex(req.headers.get("x-reminder-secret") || "");
-  if (!sameHash(actualHash, expectedHash)) return json({ ok: false }, 401);
-  const now = Date.now();
-  const local = new Date(now + 4 * 60 * 60 * 1000);
-  const today = local.toISOString().slice(0, 10);
-  const afterTomorrow = new Date(local.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const { data: bookings, error } = await admin.rpc("get_telegram_reminder_candidates", {
-    p_from: today,
-    p_to: afterTomorrow,
-  });
-  if (error) return json({ ok: false, error: "booking_query_failed" }, 500);
-
-  let delivered = 0;
-  for (const item of bookings || []) {
-    const booking = normalizeBookingContext(item);
-    const start = new Date(`${booking.booking_date}T${String(booking.booking_time).slice(0, 8)}+04:00`).getTime();
-    const hours = (start - now) / 3600000;
-    if (hours < 23 || hours > 25) continue;
-    try {
-      const result = await sendBookingEvent(booking, "reminder");
-      if (result.delivered) delivered += 1;
-    } catch (error) {
-      console.error("Reminder delivery failed", booking.id, error);
-    }
-  }
-  return json({ ok: true, delivered });
+  void req;
+  return json({ ok:false, error:"retired_use_notification_dispatcher" }, 410);
 }
 
 Deno.serve(async (req: Request) => {

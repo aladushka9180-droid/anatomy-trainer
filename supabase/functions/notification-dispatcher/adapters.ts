@@ -19,6 +19,9 @@ export type NotificationJob = {
 export type DeliveryResult = {
   ok: boolean;
   providerMessageId?: string;
+  deliveryState?: "sent" | "delivered";
+  deliveredAt?: string;
+  receiptSource?: string;
   errorCode?: string;
   errorMessage?: string;
   retryable?: boolean;
@@ -163,7 +166,23 @@ async function telegram(job: NotificationJob, configuration: NonNullable<Adapter
     retryAfterSeconds: Number((body.parameters as Record<string, unknown> | undefined)?.retry_after || retryAfter(response)) || undefined,
   };
   const result = body.result as Record<string, unknown> | undefined;
-  return { ok: true, providerMessageId: result?.message_id == null ? undefined : String(result.message_id) };
+  // Telegram Bot API confirms that sendMessage was accepted, not that the
+  // recipient opened or even received it. Keep the state explicitly "sent".
+  return {
+    ok: true,
+    deliveryState: "sent",
+    providerMessageId: result?.message_id == null ? undefined : String(result.message_id),
+  };
+}
+
+function confirmedDelivery(body: Record<string, unknown>): { deliveredAt: string; receiptSource: string } | null {
+  const state = String(body.delivery_status ?? body.status ?? "").trim().toLowerCase();
+  if (state !== "delivered") return null;
+  const source = String(body.receipt_source ?? body.provider ?? "provider_response").trim().slice(0, 120);
+  const candidate = String(body.delivered_at ?? "").trim();
+  const instant = candidate ? new Date(candidate) : null;
+  if (!instant || Number.isNaN(instant.getTime()) || !source) return null;
+  return { deliveredAt: instant.toISOString(), receiptSource: source };
 }
 
 async function gatewayDelivery(job: NotificationJob, configuration: GatewayConfiguration): Promise<DeliveryResult> {
@@ -210,7 +229,14 @@ async function gatewayDelivery(job: NotificationJob, configuration: GatewayConfi
     retryable: retryableStatus(response.status), retryAfterSeconds: retryAfter(response),
   };
   const messageId = body.message_id ?? body.id ?? response.headers.get("x-message-id");
-  return { ok: true, providerMessageId: messageId == null ? undefined : String(messageId) };
+  const receipt = confirmedDelivery(body);
+  return {
+    ok: true,
+    providerMessageId: messageId == null ? undefined : String(messageId),
+    deliveryState: receipt ? "delivered" : "sent",
+    deliveredAt: receipt?.deliveredAt,
+    receiptSource: receipt?.receiptSource,
+  };
 }
 
 export async function deliverNotification(job: NotificationJob, configuration: AdapterConfiguration): Promise<DeliveryResult> {

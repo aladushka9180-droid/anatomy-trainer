@@ -8,7 +8,13 @@ import {
   type NotificationJob,
 } from "./adapters.ts";
 
-const jsonHeaders = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+const jsonHeaders = {
+  "content-type": "application/json; charset=utf-8",
+  "cache-control": "no-store",
+  "access-control-allow-origin": "*",
+  "access-control-allow-headers": "authorization, apikey, content-type, x-worker-secret",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
@@ -68,7 +74,24 @@ function requestedChannels(value: unknown, available: NotificationChannel[]): No
 }
 
 Deno.serve(async request => {
-  if (request.method === "OPTIONS") return new Response("ok");
+  if (request.method === "OPTIONS") return new Response("ok", { headers: jsonHeaders });
+
+  const configuration = loadAdapterConfiguration();
+  const available = configuredChannels(configuration);
+  if (request.method === "GET") {
+    const requestedPerformer = new URL(request.url).searchParams.get("performer_id") || "";
+    const providerTelegramFallback = Boolean(
+      configuration.telegram?.fallbackChatId
+      && configuration.telegram?.fallbackPerformerId
+      && requestedPerformer
+      && configuration.telegram.fallbackPerformerId === requestedPerformer
+    );
+    return json({
+      ok: true,
+      configured_channels: available,
+      provider_telegram_fallback: providerTelegramFallback,
+    });
+  }
   if (request.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
   const workerSecret = Deno.env.get("NOTIFICATION_DISPATCHER_SECRET")?.trim() || "";
@@ -81,8 +104,6 @@ Deno.serve(async request => {
   try { secretKey = supabaseSecretKey(); }
   catch { return json({ ok: false, error: "not_configured", component: "supabase" }, 503); }
 
-  const configuration = loadAdapterConfiguration();
-  const available = configuredChannels(configuration);
   if (!available.length) return json({
     ok: false, error: "not_configured", component: "delivery_channels",
     missing_channels: notificationChannels,
@@ -122,10 +143,13 @@ Deno.serve(async request => {
     const result = await deliverNotification(job, configuration);
     if (result.ok) {
       try {
-        await rpc("ack_notification_outbox", {
+        await rpc("ack_minuta_notification_outbox_v114", {
           p_outbox: job.outbox_id,
           p_lock_token: job.lock_token,
           p_provider_message_id: result.providerMessageId || null,
+          p_delivery_state: result.deliveryState || "sent",
+          p_delivered_at: result.deliveredAt || null,
+          p_receipt_source: result.receiptSource || null,
         }, secretKey);
         sent += 1;
       } catch {
@@ -144,6 +168,12 @@ Deno.serve(async request => {
         p_retryable: result.retryable === true,
         p_retry_after_seconds: result.retryAfterSeconds || null,
       }, secretKey);
+      if (result.errorCode === "telegram_403") {
+        await rpc("deactivate_minuta_notification_endpoint_v114", {
+          p_outbox: job.outbox_id,
+          p_reason: "telegram_recipient_blocked_bot",
+        }, secretKey);
+      }
       if (state === "pending") retried += 1;
       else failed += 1;
     } catch {

@@ -3,13 +3,20 @@
 
   const CHANNEL_LABELS = { telegram:'Telegram', email:'Email', sms:'SMS', max:'MAX', push:'Push' };
   const AUDIENCE_LABELS = { provider:'Команде', client:'Клиентам' };
-  const STATUS_LABELS = { pending:'в очереди', sending:'отправляется', sent:'доставлено', failed:'ошибка', cancelled:'отменено' };
+  const STATUS_LABELS = { pending:'в очереди', sending:'отправляется', sent:'отправлено', failed:'ошибка', cancelled:'отменено' };
+  const EVENT_LABELS = {
+    booking_created:'Запись создана', booking_confirmed:'Запись подтверждена',
+    booking_rescheduled:'Запись перенесена', booking_cancelled:'Запись отменена',
+    booking_reminder:'Напоминание'
+  };
 
   function createController(options) {
     const { db, $, escapeHtml, notify, requireWrites } = options;
     let organization = null;
     let payload = null;
     let available = null;
+    let deliveryHealth = null;
+    let currentUserId = '';
     let busy = false;
 
     function missing(error) {
@@ -19,6 +26,24 @@
     function endpointConfigured(audience, channel) {
       return (payload?.endpoints || []).some((item) => item.audience === audience && item.channel === channel && item.active && item.configured);
     }
+    function gatewayConfigured(channel) {
+      return deliveryHealth?.configured_channels?.includes(channel) === true;
+    }
+    function providerFallbackConfigured(audience, channel) {
+      return audience === 'provider' && channel === 'telegram' && deliveryHealth?.provider_telegram_fallback === true;
+    }
+    function channelState(item) {
+      const recipient = endpointConfigured(item.audience, item.channel) || providerFallbackConfigured(item.audience, item.channel);
+      const gateway = gatewayConfigured(item.channel);
+      if (deliveryHealth === null) return { recipient, gateway:false, ready:false, note:'Проверяем шлюз канала…' };
+      if (deliveryHealth.unavailable) return { recipient, gateway:false, ready:false, note:'Не удалось проверить шлюз канала' };
+      if (!gateway) return { recipient, gateway:false, ready:false, note:'Шлюз канала не настроен' };
+      if (!recipient) return {
+        recipient:false, gateway:true, ready:false,
+        note:item.audience === 'client' ? 'Клиент подключает канал сам после записи' : 'Получатель не подключён'
+      };
+      return { recipient:true, gateway:true, ready:true, note:item.enabled ? 'Подключён и включён' : 'Подключён · выключён' };
+    }
     function setBusy(value) {
       busy = value;
       $('#unifiedNotificationPanel')?.querySelectorAll('button,input').forEach((item) => {
@@ -26,12 +51,32 @@
       });
     }
     function reset() {
-      organization = null; payload = null; available = null; busy = false;
+      organization = null; payload = null; available = null; deliveryHealth = null; currentUserId = ''; busy = false;
       if ($('#unifiedNotificationPanel')) $('#unifiedNotificationPanel').hidden = true;
+    }
+    async function loadDeliveryHealth() {
+      try {
+        const { data } = await db.auth.getUser();
+        currentUserId = data?.user?.id || '';
+        const base = String(global.MINUTA_CONFIG?.supabaseUrl || '').replace(/\/$/, '');
+        if (!base) return null;
+        const url = new URL(`${base}/functions/v1/notification-dispatcher`);
+        if (currentUserId) url.searchParams.set('performer_id', currentUserId);
+        const response = await fetch(url, {
+          headers:{ apikey:String(global.MINUTA_CONFIG?.supabaseKey || '') },
+          cache:'no-store'
+        });
+        const result = await response.json().catch(() => null);
+        return response.ok && result?.ok ? result : null;
+      } catch { return null; }
     }
     async function load() {
       if (!organization) return;
-      const result = await db.rpc('get_minuta_notification_workspace', { p_organization:organization.id });
+      const [result, health] = await Promise.all([
+        db.rpc('get_minuta_notification_workspace', { p_organization:organization.id }),
+        loadDeliveryHealth()
+      ]);
+      deliveryHealth = health || { unavailable:true, configured_channels:[] };
       if (result.error) {
         available = missing(result.error) ? false : null;
         render(result.error);
@@ -63,15 +108,25 @@
       $('#unifiedNotificationsEnabled').checked = enabled;
       $('#unifiedNotificationsEnabled').dataset.managerOnly = 'true';
       $('#unifiedNotificationsEnabled').disabled = !manager() || busy;
-      $('#unifiedNotificationState').textContent = enabled ? 'Единая очередь включена' : 'Каналы подготовлены и выключены';
       const channels = Array.isArray(payload.channels) ? payload.channels : [];
+      const readyChannels = channels.filter(item => channelState(item).ready);
+      const activeChannels = readyChannels.filter(item => item.enabled);
+      $('#unifiedNotificationState').textContent = enabled
+        ? (activeChannels.length ? `Включено: ${activeChannels.length}` : 'Нет включённых каналов')
+        : 'Выключен';
       $('#unifiedNotificationChannels').innerHTML = channels.map((item) => {
-        const configured = endpointConfigured(item.audience, item.channel);
-        const canToggle = manager() && configured;
-        return `<label class="unified-channel-card"><input type="checkbox" data-manager-only="true" data-unified-audience="${escapeHtml(item.audience)}" data-unified-channel="${escapeHtml(item.channel)}" ${item.enabled ? 'checked' : ''} ${canToggle ? '' : 'disabled data-requires-endpoint="true"'}><span><strong>${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${configured ? (item.enabled ? 'Канал включён' : 'Адрес подтверждён, канал выключен') : 'Требуется подтверждённый адрес и ключ шлюза'}</small></span></label>`;
+        const state = channelState(item);
+        const canToggle = manager() && state.ready;
+        return `<label class="unified-channel-card"><input type="checkbox" data-manager-only="true" data-unified-audience="${escapeHtml(item.audience)}" data-unified-channel="${escapeHtml(item.channel)}" ${item.enabled ? 'checked' : ''} ${canToggle ? '' : 'disabled data-requires-endpoint="true"'}><span><strong>${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(state.note)}</small></span></label>`;
       }).join('');
       const outbox = Array.isArray(payload.outbox) ? payload.outbox : [];
-      $('#unifiedNotificationDeliveries').innerHTML = outbox.length ? outbox.map((item) => `<article class="organization-audit-data-row"><div><strong>${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(item.kind)} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span><em>${escapeHtml(STATUS_LABELS[item.status] || item.status)}</em>${item.status === 'failed' ? `<button class="secondary-button" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>` : ''}</span></article>`).join('')
+      $('#unifiedNotificationDeliveries').innerHTML = outbox.length ? outbox.map((item) => {
+        const status = item.delivered_at ? 'доставлено' : (STATUS_LABELS[item.status] || item.status);
+        const context = item.context || {};
+        const appointment = [context.client_name, context.service_name, context.booking_date, String(context.booking_time || '').slice(0,5)].filter(Boolean).join(' · ');
+        const error = item.status === 'failed' && item.last_error ? ` · ${item.last_error}` : '';
+        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(appointment || new Date(item.created_at).toLocaleString('ru-RU'))}${escapeHtml(error)}</small></div><span><em>${escapeHtml(status)}</em>${item.status === 'failed' ? `<button class="secondary-button" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>` : ''}</span></article>`;
+      }).join('')
         : '<div class="provider-empty compact-empty"><strong>Единая очередь пока пуста</strong><small>Сообщения появятся после подключения хотя бы одного канала.</small></div>';
       setBusy(busy);
       global.refreshSectionNavigation?.();
