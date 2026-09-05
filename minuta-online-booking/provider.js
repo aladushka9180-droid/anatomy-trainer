@@ -5622,7 +5622,8 @@ async function cancelBookingSeries(event) {
         'P0001:booking_not_in_series':'Эта запись не входит в серию. Обновите журнал.',
         'P0001:series_booking_not_actionable':'Эту запись уже нельзя отменить. Обновите журнал.',
         'P0001:series_has_no_actionable_bookings':'В выбранной части серии нет записей, доступных для отмены. Обновите журнал.',
-        'P0001:series_slot_unavailable':'Не удалось завершить отмену из-за конфликта данных. Обновите журнал.'
+        'P0001:series_slot_unavailable':'Не удалось завершить отмену из-за конфликта данных. Обновите журнал.',
+        '55000:redeemed_benefit_cannot_cancel':'В серии есть запись с использованным сертификатом или абонементом. Сначала проверьте списание.'
       };
       const message = error.code === 'PGRST202'
         ? 'Управление сериями пока недоступно. Обновите страницу или обратитесь в поддержку.'
@@ -5635,12 +5636,14 @@ async function cancelBookingSeries(event) {
     const affected = data?.affected;
     const confirmed = typeof seriesId === 'string' && seriesId.length > 0
       && data?.series_id === seriesId && data.action === 'cancel' && data.scope === scope
-      && Number.isSafeInteger(data.affected_count) && data.affected_count > 0
+      && Number.isSafeInteger(data.affected_count) && data.affected_count > 0 && data.affected_count <= 24
       && Array.isArray(affected) && affected.length === data.affected_count
-      && affected.every(entry => entry && typeof entry.booking_id === 'string' && entry.booking_id.trim()
-        && Number.isSafeInteger(entry.occurrence) && entry.occurrence > 0)
+      && affected.every(entry => entry && typeof entry.booking_id === 'string'
+        && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entry.booking_id)
+        && Number.isSafeInteger(entry.occurrence) && entry.occurrence > 0 && entry.occurrence <= 24)
       && new Set(affected.map(entry => entry.booking_id)).size === affected.length
-      && new Set(affected.map(entry => entry.occurrence)).size === affected.length;
+      && new Set(affected.map(entry => entry.occurrence)).size === affected.length
+      && (scope !== 'one' || (affected.length === 1 && affected[0].booking_id === id));
     if (!confirmed) {
       showFormError('#bookingSeriesCancelError', unconfirmedMessage);
       return;

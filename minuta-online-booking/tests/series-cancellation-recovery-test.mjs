@@ -27,8 +27,10 @@ const deferred = () => {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 };
-const success = { data:{ series_id:'series-A', action:'cancel', scope:'following',
-  affected:[{ booking_id:'A', occurrence:1 }], affected_count:1 }, error:null };
+const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222' };
+const seriesIds = { A:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', B:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' };
+const success = { data:{ series_id:seriesIds.A, action:'cancel', scope:'following',
+  affected:[{ booking_id:ids.A, occurrence:1 }], affected_count:1 }, error:null };
 const denied = { data:null, error:{ code:'42501', message:'booking_access_denied' } };
 
 function harness() {
@@ -50,7 +52,7 @@ function harness() {
   const context = vm.createContext({
     $:selector => nodes[selector], currentUser:{ id:'user-A' }, sessionGeneration:1,
     activeClientOrganizationId:'org-A', editingOfflineBookingId:'', newBookingHistoricalMode:false,
-    allBookings:['A', 'B'].map(id => ({ id, series_id:`series-${id}`, status:'confirmed' })),
+    allBookings:['A', 'B'].map(label => ({ id:ids[label], series_id:seriesIds[label], status:'confirmed' })),
     bookingOutcome:() => ({ visit_status:'scheduled' }), uiIcon:() => '', bookingSeriesScopeMarkup:() => '',
     window:{ addEventListener:(name, callback) => hooks.set(name, [...(hooks.get(name) || []), callback]) },
     document:{ body:{ classList:{ add(){}, remove(){} } } },
@@ -67,7 +69,7 @@ function harness() {
     notify:message => effects.push(['toast', message]), seriesBookingCountLabel:String
   });
   vm.runInContext(`${revisionDeclaration}\n${resetHook}\n${orgHook}\n${controller}`, context);
-  const open = (id = 'A') => { context.openBookingSeriesCancellation(id); return nodes['#bookingSeriesCancelForm']; };
+  const open = (id = 'A') => { context.openBookingSeriesCancellation(ids[id]); return nodes['#bookingSeriesCancelForm']; };
   const submit = (form = nodes['#bookingSeriesCancelForm']) => form.submit({
     preventDefault(){}, currentTarget:form, submitter:form.button
   });
@@ -79,11 +81,11 @@ function harness() {
 test('current success preserves exact RPC and closes only its form', async () => {
   const h = harness(); h.open(); const pending = h.submit();
   assert.deepEqual(h.effects[0], ['rpc', 'manage_minuta_booking_series', {
-    p_booking:'A', p_action:'cancel', p_scope:'following', p_date:null, p_time:null
+    p_booking:ids.A, p_action:'cancel', p_scope:'following', p_date:null, p_time:null
   }]);
   h.rpcQueue[0].resolve(success); await pending;
   assert.equal(h.sheet.hidden, true);
-  assert.deepEqual(h.effects.slice(1), [['clientNotification', 'A', 'cancelled'], ['refresh'], ['toast', 'Отменено: 1']]);
+  assert.deepEqual(h.effects.slice(1), [['clientNotification', ids.A, 'cancelled'], ['refresh'], ['toast', 'Отменено: 1']]);
 });
 
 for (const outcome of ['error', 'throw']) {
@@ -118,7 +120,7 @@ for (const outcome of ['success', 'error', 'throw']) {
       else h.rpcQueue[0].resolve(outcome === 'success' ? success : denied);
       await first;
       assert.equal(h.sheet.hidden, false);
-      assert.equal(h.sheet.dataset.bookingId, nextId);
+      assert.equal(h.sheet.dataset.bookingId, ids[nextId]);
       assert.equal(fresh.button.disabled, true, 'old finally must not unlock new pending form');
       assert.equal(h.effects.length, before, 'no old close, error, notification, refresh or toast');
       h.rpcQueue[1].resolve(denied); await second;
@@ -184,7 +186,7 @@ test('replacement by another booking sheet identity invalidates completion witho
 
 for (const [name, data] of [
   ['null', null], ['empty', {}], ['partial', { affected:success.data.affected, affected_count:1 }],
-  ['wrong series', { ...success.data, series_id:'series-B' }],
+  ['wrong series', { ...success.data, series_id:seriesIds.B }],
   ['wrong action', { ...success.data, action:'reschedule' }],
   ['wrong scope', { ...success.data, scope:'all' }],
   ['zero count', { ...success.data, affected_count:0, affected:[] }],
@@ -193,12 +195,14 @@ for (const [name, data] of [
   ['null row', { ...success.data, affected:[null] }],
   ['missing booking id', { ...success.data, affected:[{ occurrence:1 }] }],
   ['blank booking id', { ...success.data, affected:[{ booking_id:' ', occurrence:1 }] }],
-  ['missing occurrence', { ...success.data, affected:[{ booking_id:'A' }] }],
-  ['invalid occurrence', { ...success.data, affected:[{ booking_id:'A', occurrence:0 }] }],
+  ['invalid UUID', { ...success.data, affected:[{ booking_id:'not-a-uuid', occurrence:1 }] }],
+  ['missing occurrence', { ...success.data, affected:[{ booking_id:ids.A }] }],
+  ['invalid occurrence', { ...success.data, affected:[{ booking_id:ids.A, occurrence:0 }] }],
+  ['out-of-range occurrence', { ...success.data, affected:[{ booking_id:ids.A, occurrence:25 }] }],
   ['duplicate id', { ...success.data, affected_count:2,
-    affected:[{ booking_id:'A', occurrence:1 }, { booking_id:'A', occurrence:2 }] }],
+    affected:[{ booking_id:ids.A, occurrence:1 }, { booking_id:ids.A, occurrence:2 }] }],
   ['duplicate occurrence', { ...success.data, affected_count:2,
-    affected:[{ booking_id:'A', occurrence:1 }, { booking_id:'B', occurrence:1 }] }]
+    affected:[{ booking_id:ids.A, occurrence:1 }, { booking_id:ids.B, occurrence:1 }] }]
 ]) {
   test(`malformed ${name} cannot close, refresh or announce cancellation`, async () => {
     const h = harness(); const form = h.open();
@@ -236,3 +240,40 @@ test('exact business rejection uses actionable guidance, not a transport or slot
   h.rpcQueue[0].resolve(denied); await pending;
   assert.equal(h.effects.at(-1)[2], 'У вас нет доступа к отмене этой записи.');
 });
+
+for (const affected of [
+  [{ booking_id:ids.B, occurrence:2 }],
+  [{ booking_id:ids.A, occurrence:1 }, { booking_id:ids.B, occurrence:2 }]
+]) {
+  test(`one scope rejects non-anchor or extra booking (${affected.length} rows)`, async () => {
+    const h = harness(); const form = h.open(); form.elements.cancelBookingSeriesScope.value = 'one';
+    const pending = h.submit();
+    h.rpcQueue[0].resolve({ data:{ ...success.data, scope:'one', affected, affected_count:affected.length }, error:null });
+    await pending;
+    assert.equal(h.sheet.hidden, false);
+    assert.deepEqual(h.effects.map(e => e[0]), ['rpc', 'error']);
+    const retry = h.submit(); h.rpcQueue[1].resolve({ data:{ ...success.data, scope:'one' }, error:null }); await retry;
+    assert.equal(h.sheet.hidden, true);
+  });
+}
+
+test('following may confirm later occurrences without an already-cancelled anchor', async () => {
+  const h = harness(); h.open(); const pending = h.submit();
+  h.rpcQueue[0].resolve({ data:{ ...success.data, affected:[{ booking_id:ids.B, occurrence:2 }] }, error:null });
+  await pending;
+  assert.equal(h.sheet.hidden, true);
+  assert.deepEqual(h.effects.at(-1), ['toast', 'Отменено: 1']);
+});
+
+for (const count of [24, 25]) {
+  test(`v79 series size boundary: ${count}`, async () => {
+    const h = harness(); h.open(); const pending = h.submit();
+    const affected = Array.from({ length:count }, (_, index) => ({
+      booking_id:`${String(index + 1).padStart(8, '0')}-1111-4111-8111-111111111111`, occurrence:index + 1
+    }));
+    h.rpcQueue[0].resolve({ data:{ ...success.data, affected, affected_count:count }, error:null }); await pending;
+    assert.equal(h.sheet.hidden, count === 24);
+    if (count === 24) assert.deepEqual(h.effects.at(-1), ['toast', 'Отменено: 24']);
+    else assert.deepEqual(h.effects.map(e => e[0]), ['rpc', 'error']);
+  });
+}
