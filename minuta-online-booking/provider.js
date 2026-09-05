@@ -7955,7 +7955,7 @@ async function synchronizeProviderTables(tables, userId, generation) {
   const loaders = new Map([
     ['client_notes', loadClientNotes], ['client_labels', loadClientLabels],
     ['client_avatars', loadClientAvatars], ['booking_outcomes', loadBookingOutcomes],
-    ['booking_session_items', loadBookingSessionItems], ['booking_waitlist_requests', loadWaitlist]
+    ['booking_session_items', loadBookingSessionItems], ['booking_waitlist_requests', loadWaitlist], ['organization_waitlist_requests', loadWaitlist]
   ]);
   const tasks = tables.filter(table => loaders.has(table)).map(table => Promise.resolve().then(loaders.get(table)));
   if (tables.some(table => table === 'portfolio_items' || table === 'portfolio_photos')) {
@@ -8030,7 +8030,8 @@ function startLiveUpdates() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_session_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_items', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio_photos', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload);
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_waitlist_requests', filter: `performer_id=eq.${currentUser.id}` }, scheduleBookingsReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'organization_waitlist_requests' }, scheduleBookingsReload);
   if (visitorVisitsRemoteAvailable) channel = channel
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'booking_page_visits', filter: `performer_id=eq.${currentUser.id}` }, handleVisitorVisit);
@@ -8075,7 +8076,7 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
     const generation = sessionGeneration;
     if (!userId || !navigator.onLine) return false;
     setSyncState('checking', writesAllowed ? 'Проверяем обновления…' : 'Синхронизация…');
-    const independentTables = new Set(['client_notes', 'client_labels', 'client_avatars', 'booking_outcomes', 'booking_session_items', 'booking_waitlist_requests', 'portfolio_items', 'portfolio_photos']);
+    const independentTables = new Set(['client_notes', 'client_labels', 'client_avatars', 'booking_outcomes', 'booking_session_items', 'booking_waitlist_requests', 'organization_waitlist_requests', 'portfolio_items', 'portfolio_photos']);
     if (tables?.length && tables.every(table => independentTables.has(table)) && writesAllowed && bookingCreationReady) {
       return synchronizeProviderTables(tables, userId, generation);
     }
@@ -9685,13 +9686,15 @@ function renderWaitlist() {
     const date = new Date(`${item.desired_date}T12:00:00`).toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
     const phone = String(item.client_phone || '');
     const whatsapp = phone.replace(/\D/g, '') ? `https://wa.me/${phone.replace(/\D/g, '')}` : '';
-    return `<article class="waitlist-provider-card"><div class="waitlist-provider-date"><strong>${escapeHtml(date)}</strong><span>${escapeHtml(waitlistPeriodLabel(item.time_period))}</span></div><div class="waitlist-provider-client"><small>${escapeHtml(item.services?.name || 'Услуга')}</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:+${escapeHtml(phone)}">+${escapeHtml(phone)}</a></div><span class="waitlist-status status-${escapeHtml(item.status)}">${statusLabels[item.status] || escapeHtml(item.status)}</span><div class="waitlist-provider-actions">${whatsapp ? `<a class="secondary-button" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'waiting' ? `<button class="secondary-button" type="button" data-waitlist-status="contacted" data-waitlist-id="${item.id}">Связались</button>` : ''}<button class="primary compact-button" type="button" data-waitlist-status="booked" data-waitlist-id="${item.id}">Записан</button><button class="booking-cancel-action" type="button" data-waitlist-status="closed" data-waitlist-id="${item.id}">Закрыть</button></div></article>`;
+    return `<article class="waitlist-provider-card" data-waitlist-scope="${item.organization_id ? 'organization' : 'personal'}"><div class="waitlist-provider-date"><strong>${escapeHtml(date)}</strong><span>${escapeHtml(waitlistPeriodLabel(item.time_period))}</span></div><div class="waitlist-provider-client"><small>${escapeHtml([item.services?.name || 'Услуга',item.locations?.name,item.performer_profiles?.display_name].filter(Boolean).join(' · '))}</small><strong>${escapeHtml(item.client_name)}</strong><a href="tel:+${escapeHtml(phone)}">+${escapeHtml(phone)}</a></div><span class="waitlist-status status-${escapeHtml(item.status)}">${statusLabels[item.status] || escapeHtml(item.status)}</span><div class="waitlist-provider-actions">${whatsapp ? `<a class="secondary-button" href="${whatsapp}" target="_blank" rel="noopener noreferrer">WhatsApp</a>` : ''}${item.status === 'waiting' ? `<button class="secondary-button" type="button" data-waitlist-status="contacted" data-waitlist-id="${item.id}">Связались</button>` : ''}<button class="primary compact-button" type="button" data-waitlist-status="booked" data-waitlist-id="${item.id}">Записан</button><button class="booking-cancel-action" type="button" data-waitlist-status="closed" data-waitlist-id="${item.id}">Закрыть</button></div></article>`;
   }).join('');
   applyWriteAvailability();
 }
 
 async function loadWaitlist() {
   const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const organizationId = organizationController.getActiveOrganization()?.id || null;
   if (!userId) return { ok: false, optional: true };
   const { data, error } = await db.from('booking_waitlist_requests')
     .select('id,request_code,client_name,client_phone,desired_date,time_period,status,created_at,services(name)')
@@ -9699,11 +9702,19 @@ async function loadWaitlist() {
     .in('status', ['waiting', 'contacted'])
     .order('desired_date', { ascending: true })
     .order('created_at', { ascending: true });
-  if (currentUser?.id !== userId) return { ok: false, optional: true, stale: true };
-  waitlistRemoteAvailable = !error;
-  waitlistRequests = error ? [] : (data || []);
+  let scoped = { data:[],error:null };
+  if (organizationId && !bookingUsesDemoData()) {
+    scoped = await db.from('organization_waitlist_requests')
+      .select('id,organization_id,request_code,client_name,client_phone,desired_date,time_period,status,created_at,services(name),locations(name),performer_profiles(display_name)')
+      .eq('organization_id',organizationId).in('status',['waiting','contacted'])
+      .order('desired_date',{ascending:true}).order('created_at',{ascending:true});
+  }
+  if (!sessionIsCurrent(userId,generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return { ok:false,optional:true,stale:true };
+  waitlistRemoteAvailable = !error && !scoped.error;
+  waitlistRequests = waitlistRemoteAvailable ? [...(data || []),...(scoped.data || [])]
+    .sort((a,b)=>a.desired_date.localeCompare(b.desired_date) || a.created_at.localeCompare(b.created_at)) : [];
   renderWaitlist();
-  return { ok: !error, optional: true };
+  return { ok:waitlistRemoteAvailable,optional:true };
 }
 
 document.addEventListener('pointerdown', event => {
@@ -10155,7 +10166,8 @@ document.addEventListener('click', async event => {
   if (waitlistStatus) {
     const button = waitlistStatus;
     button.disabled = true;
-    const { error } = await db.rpc('set_waitlist_request_status', { p_request: button.dataset.waitlistId, p_status: button.dataset.waitlistStatus });
+    const scoped = button.closest('[data-waitlist-scope]')?.dataset.waitlistScope === 'organization';
+    const { error } = await db.rpc(scoped ? 'set_minuta_waitlist_status_v111' : 'set_waitlist_request_status', { p_request: button.dataset.waitlistId, p_status: button.dataset.waitlistStatus });
     button.disabled = false;
     if (error) { notify('Не удалось обновить заявку'); return; }
     notify(button.dataset.waitlistStatus === 'booked' ? 'Клиент отмечен записанным' : button.dataset.waitlistStatus === 'contacted' ? 'Контакт отмечен' : 'Заявка закрыта');
@@ -10489,6 +10501,11 @@ const organizationController = window.MinutaOrganization.createController({
     renderReportDataSourceControl();
     updateProviderClientLinks(organization);
     if (clientOrganizationChanged && currentUser && navigator.onLine) void loadBookingSettings();
+    if (clientOrganizationChanged) {
+      waitlistRequests = [];
+      renderWaitlist();
+      if (currentUser && navigator.onLine) void loadWaitlist();
+    }
     teamCalendarController.setOrganization(organization);
     resourceController.setOrganization(organization);
     shiftController.setOrganization(organization);
