@@ -29,12 +29,15 @@ const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots'
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
   'actionableSeriesBookings', 'seriesBookingCountLabel', 'bookingSeriesScopeMarkup', 'seriesRpcErrorMessage',
-  'showFormError', 'clearFormError', 'persistBookingColors', 'persistBookingNotes',
+  'showFormError', 'clearFormError', 'persistBookingColors', 'persistBookingNotes', 'captureBookingMetadataContext',
   'bookingColorStorageKey', 'bookingColorPendingStorageKey', 'bookingNoteStorageKey', 'bookingNotePendingStorageKey'];
 const colorConstants = source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(colorConstants, 'Use actual color-control definitions');
-const lifecycle = ['bookingSeriesCancellationRevision','bookingEditorRevision'].map(name =>
-  source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0] || `let ${name}=0;`).join('\n');
+const lifecycle = ['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision'].map(name => {
+  const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
+  assert.ok(declaration, `Actual lifecycle declaration: ${name}`);
+  return declaration;
+}).join('\n');
 const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
   .map(match=>match[0]).join('\n');
 const orgStart = source.indexOf('  onActiveOrganizationChange: organization => {');

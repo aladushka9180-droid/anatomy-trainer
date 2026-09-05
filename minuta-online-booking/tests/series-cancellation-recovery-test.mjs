@@ -21,7 +21,7 @@ const resetHook = [...source.matchAll(/^window\.addEventListener\('minuta:provid
 assert.ok(resetHook, 'Actual read-reset callback including series invalidation');
 const orgHook = between('  onActiveOrganizationChange: organization => {', '    if (clientOrganizationChanged) {')
   .replace('  onActiveOrganizationChange: organization => {', 'function changeOrganization(organization) {') + '\n}';
-const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditorRevision']
+const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditorRevision', 'bookingMetadataRevision']
   .map(name => {
     const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
     assert.ok(declaration, `Actual lifecycle declaration: ${name}`);

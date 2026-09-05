@@ -23,7 +23,7 @@ const construction = between('const paymentController = ', 'paymentController.bi
 const sessionFunction = between('async function handleSession(session) {', 'async function providerAccessAllowed(');
 const orgBlock = between('onActiveOrganizationChange: organization => {', '\n  }\n});\norganizationController.bind();');
 const orgCallback = `${orgBlock.slice('onActiveOrganizationChange: '.length)}\n  }`;
-const lifecycleDeclarations = ['bookingSeriesCancellationRevision', 'bookingEditorRevision'].map(name => {
+const lifecycleDeclarations = ['bookingSeriesCancellationRevision', 'bookingEditorRevision', 'bookingMetadataRevision'].map(name => {
   const declaration = providerSource.match(new RegExp(`^let ${name} = [^;]+;`, 'm'))?.[0];
   assert.ok(declaration, `Missing actual lifecycle declaration: ${name}`);
   return declaration;

@@ -68,6 +68,39 @@
 лучше конкретного сравниваемого сценария только при сопоставимых измерениях;
 нельзя обещать систему без каких-либо ошибок.
 
+## Контекст быстрых правок и платежей после v447, 5 сентября 2026 года
+
+Локальная приёмка для v448 поверх `8d4c1b5`: metadata runtime `114f303`,
+VM `b938fde` + `114f303`, native `2f122ab` + `9472f2d`; payment runtime
+`634adaf`, VM `ee6aaad` + `634adaf`, независимый native `b20bc04` с усилением
+snapshot видимости workspace/unavailable после review. На интеграции прошли:
+metadata 28 VM / 35 native, payment context 38 VM / 26 native и прежние
+amount 49 VM / 6 native. Shared lifecycle loaders используют actual declarations
+и новый capture helper; assertions переноса/отмены не ослаблены.
+
+Metadata defaults теперь проверяют actor/session/org/epoch и identity карт кэша;
+quick-color не сообщает remote success при ошибке, block-note ограничен своей
+формой и восстанавливает кнопку после исключения. Payment context/revision/role
+и operation/load tokens подавляют поздние эффекты, в том числе старый finally
+во время независимой операции другой организации. Actual provider lifecycle
+исполняется в VM; native использует прямые reset/setOrganization boundaries и
+подставные Edge/workspace, не реальный вход и не платёжную систему.
+
+Это НЕ исправление lost-reply refund deduplication: UUID/body/protocol не менялись,
+начатый серверный возврат не отменяется сменой экрана. SQL/Edge не публикуются.
+Existing recovery-disable отзывает read/ACK, а не является write kill-switch.
+Локальный legacy guard `b50fbd27` независимо прошёл PGlite 15/15; execution body,
+retry window, quiesce/reconciliation и реальные конкурентные соединения остаются
+обязательными отдельными gates перед финансовой интеграцией.
+
+Новая открытая находка вне v448: два быстрых цвета одной записи в одном аккаунте
+могут потерять pending marker нового неуспешного запроса после старого success
+и показать старое подтверждение. Native `d826796`: 3 safety RED / 2 controls PASS.
+Это локальный counterexample, не доказательство порядка commit на сервере.
+Historical/new-create pipeline после предшествующих awaits также ещё не принят:
+guard внутри helper не защищает старый pipeline, который начал helper уже в B.
+Факт публикации v448 проверяется отдельно по release SHA/CI/Pages/live health.
+
 ## Приёмка переноса после v445, 5 сентября 2026 года
 
 Изменение P02 принято локально поверх `82953954bb52c6b97e4ce67d0b37a7098f080516`:

@@ -17,8 +17,12 @@ function between(start, end) {
 const realController = between('function openBookingEditor(', 'function offlineCandidateSlots(')
   + between('function seriesRpcErrorMessage(', 'function stackMinuteTimelineItems(')
   + source.match(/^function sessionIsCurrent[^\n]+/m)[0];
-const lifecycleDeclarations = ['bookingEditorRevision', 'bookingSeriesCancellationRevision']
-  .map(name => source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0] || '').join('\n');
+const lifecycleDeclarations = ['bookingEditorRevision', 'bookingSeriesCancellationRevision', 'bookingMetadataRevision']
+  .map(name => {
+    const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
+    assert.ok(declaration, `Actual lifecycle declaration: ${name}`);
+    return declaration;
+  }).join('\n');
 const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
   .map(match => match[0]).join('\n');
 const orgHook = between('  onActiveOrganizationChange: organization => {', '    if (clientOrganizationChanged) {')
@@ -229,7 +233,7 @@ test('fulfilled unsuccessful refresh does not reopen a stale booking summary', a
 function helperHarness() {
   const gate = deferred(), effects = [];
   const state = {
-    currentUser:{ id:userId }, allBookings:[{ id:ids.A }],
+    currentUser:{ id:userId }, sessionGeneration:1, activeClientOrganizationId:'org-A', allBookings:[{ id:ids.A }],
     bookingColors:new Map(), pendingBookingColors:new Set(),
     bookingNotes:new Map(), pendingBookingNotes:new Set(),
     validBookingColor:value => value,
@@ -239,7 +243,8 @@ function helperHarness() {
     persistBookingNotes:() => effects.push(['persistNotes', state.currentUser.id, [...state.bookingNotes], [...state.pendingBookingNotes]])
   };
   const context = vm.createContext(state);
-  vm.runInContext(between('async function saveBookingColor(', 'async function loadRemoteBookingColors('), context);
+  vm.runInContext(lifecycleDeclarations + '\n' + source.match(/^function sessionIsCurrent[^\n]+/m)[0]
+    + '\n' + between('function captureBookingMetadataContext(', 'async function loadRemoteBookingColors('), context);
   const replaceAccount = () => Object.assign(state, {
     currentUser:{ id:'new-account' }, allBookings:[{ id:ids.A, color_key:'green', provider_note:'new note' }],
     bookingColors:new Map([[ids.A, 'green']]), pendingBookingColors:new Set([ids.A]),

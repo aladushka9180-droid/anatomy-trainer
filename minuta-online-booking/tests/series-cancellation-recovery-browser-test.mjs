@@ -37,7 +37,7 @@ const resetHooks = [...source.matchAll(/window\.addEventListener\('minuta:provid
   .map(match => listener(resetPrefix, match.index));
 assert.ok(resetHooks.length, 'All actual session reset hooks must be loaded');
 const reset = resetHooks.join('\n');
-const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditorRevision']
+const revisionDeclaration = ['bookingSeriesCancellationRevision', 'bookingEditorRevision', 'bookingMetadataRevision']
   .map(name => {
     const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
     assert.ok(declaration, `Actual lifecycle declaration: ${name}`);

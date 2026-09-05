@@ -84,6 +84,9 @@ async function snapshot(page) {
     values:['paymentRefundAttempt','paymentRefundAmount','paymentRefundReason'].map(id=>document.getElementById(id).value),
     disabled:[...document.querySelectorAll('#paymentProviderPanel button,input,select')].map(node=>node.disabled),
     hidden:document.getElementById('paymentProviderPanel').hidden,
+    workspaceHidden:document.getElementById('paymentProviderWorkspace').hidden,
+    unavailableHidden:document.getElementById('paymentProviderUnavailable').hidden,
+    unavailableText:document.getElementById('paymentProviderUnavailableText').textContent,
     workspace:document.getElementById('paymentAttemptsList').innerHTML,
     attemptOptions:document.getElementById('paymentRefundAttempt').innerHTML,
     loads:[...state.loads],notices:[...state.notices]
