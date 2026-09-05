@@ -4308,7 +4308,9 @@ function setProviderViewImmediate(view, focusHeading = false) {
   }
   renderBookingDataSourceNotice();
   refreshSectionNavigation();
-  window.scrollTo({ top: 0, behavior: 'auto' });
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  if (document.scrollingElement) document.scrollingElement.scrollLeft = 0;
+  document.body.scrollLeft = 0;
   if (focusHeading) focusProviderViewHeading(view);
 }
 function setProviderView(view, { historyMode = 'push', focusHeading = true } = {}) {
