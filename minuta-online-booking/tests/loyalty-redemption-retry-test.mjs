@@ -59,14 +59,15 @@ function model() {
 }
 
 async function harness() {
-  const nodes=new Map(),handlers=new Map(),calls=[],notices=[],server=model();let lost=false;
+  const nodes=new Map(),handlers=new Map(),calls=[],reads=[],notices=[],server=model();let lost=false, actor=ACTOR,generation=1,writeReply,readReply;
   const fieldIds=['loyaltyRedeemClient','loyaltyRedeemBooking','loyaltyRedeemPoints'];
   for(const [,nodeId] of html.matchAll(/id="((?:loyalty|reloadLoyalty)[^"]*)"/g)) {
-    let options=[],value='',markup='';
+    let options=[],value='',markup='',text='';
     const select=/Client$|Booking$/.test(nodeId);
-    const node={id:nodeId,dataset:{},hidden:false,disabled:false,textContent:'',checked:false,
+    const node={id:nodeId,dataset:{},hidden:false,disabled:false,checked:false,
+      get textContent(){return text;},set textContent(next){text=String(next);markup='';},
       get value(){return value;},set value(next){value=select&&!options.includes(String(next))?'':String(next);},
-      get innerHTML(){return markup;},set innerHTML(next){markup=String(next);if(select){options=[...markup.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);value=options[0]||'';}},
+      get innerHTML(){return markup;},set innerHTML(next){markup=String(next);text=markup.replace(/<[^>]*>/g,'');if(select){options=[...markup.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);value=options[0]||'';}},
       closest:selector=>selector==='#loyaltyPanel'?nodes.get('loyaltyPanel'):
         selector==='#loyaltyRedeemForm'&&(nodeId==='loyaltyRedeemForm'||fieldIds.includes(nodeId))?nodes.get('loyaltyRedeemForm'):null,
       querySelectorAll:()=>[],querySelector:()=>null};nodes.set(nodeId,node);
@@ -74,16 +75,20 @@ async function harness() {
   const get=nodeId=>{assert.ok(nodes.has(nodeId),`Unexpected fixture selector ${nodeId}`);return nodes.get(nodeId);};
   const button={textContent:'Списать',disabled:false,dataset:{}},form=get('loyaltyRedeemForm');
   form.reset=()=>{get('loyaltyRedeemClient').value=CLIENT;get('loyaltyRedeemBooking').value=BOOKING;get('loyaltyRedeemPoints').value='';};
-  fieldIds.forEach(nodeId=>{get(nodeId).form=form;});form.querySelector=selector=>selector==='.form-error'?get('loyaltyRedeemError'):null;
+  fieldIds.forEach(nodeId=>{get(nodeId).form=form;});form.querySelector=selector=>selector==='.form-error'?get('loyaltyRedeemError'):selector==='button[type="submit"]'?button:null;
   get('loyaltyPanel').querySelectorAll=()=>[button];
   const context=vm.createContext({window:{},crypto:{randomUUID},document:{addEventListener:(kind,callback)=>{assert.equal(handlers.has(kind),false);handlers.set(kind,callback);}}});
   vm.runInContext(source,context,{filename:'actual-loyalty-management.js'});
   const controller=context.window.MinutaLoyalty.createController({$:selector=>get(selector.slice(1)),escapeHtml:value=>String(value??''),
-    notify:message=>notices.push(message),requireWrites:()=>true,getCurrentUser:()=>({id:ACTOR}),getSessionGeneration:()=>1,
-    sessionIsCurrent:(actor,generation)=>actor===ACTOR&&generation===1,applyWriteAvailability(){},
+    notify:message=>notices.push(message),requireWrites:()=>true,getCurrentUser:()=>actor?({id:actor}):null,getSessionGeneration:()=>generation,
+    sessionIsCurrent:(who,epoch)=>who===actor&&epoch===generation,applyWriteAvailability(){},
     db:{rpc:async(name,parameters)=>{
-      if(name==='get_minuta_loyalty_workspace')return {data:server.workspace(),error:null};
+      if(name==='get_minuta_loyalty_workspace'){
+        reads.push(clone(parameters));if(readReply){const next=readReply;readReply=null;return next(parameters);}
+        return {data:{...server.workspace(),organization_id:parameters.p_organization},error:null};
+      }
       assert.equal(name,'redeem_minuta_loyalty','Only the assigned redemption RPC may mutate this fixture');
+      if(writeReply){const next=writeReply;writeReply=null;const call={parameters:clone(parameters)};calls.push(call);const reply=await next(parameters);call.reply=clone(reply);return reply;}
       const reply=server.apply(clone(parameters));calls.push({parameters:clone(parameters),reply:clone(reply)});
       if(lost&&!reply.error){lost=false;return {data:null,error:{code:'',message:'TypeError: Failed to fetch',details:'',hint:''}};}
       return reply;
@@ -92,7 +97,9 @@ async function harness() {
   const event=async(kind,target)=>{assert.ok(handlers.has(kind));return handlers.get(kind)({target,submitter:button,preventDefault(){}});};
   const choose=async(client=CLIENT,booking=BOOKING)=>{get('loyaltyRedeemClient').value=client;await event('change',get('loyaltyRedeemClient'));get('loyaltyRedeemBooking').value=booking;};
   await choose();get('loyaltyRedeemPoints').value='100';
-  return {server,calls,notices,get,controller,button,choose,submit:()=>event('submit',form),change:nodeId=>event('change',get(nodeId)),input:nodeId=>event('input',get(nodeId)),lose:()=>{lost=true;}};
+  const restore=()=>{assert.match(get('loyaltyRedeemError').innerHTML,/<button type="button" data-loyalty-restore-redemption>/);return event('click',{closest:selector=>selector==='[data-loyalty-restore-redemption]'?{closest:s=>s==='#loyaltyRedeemForm'?form:null}:null});};
+  return {server,calls,reads,notices,get,controller,button,choose,restore,submit:()=>event('submit',form),change:nodeId=>event('change',get(nodeId)),input:nodeId=>event('input',get(nodeId)),invalid:nodeId=>event('invalid',get(nodeId)),lose:()=>{lost=true;},
+    write:callback=>{writeReply=callback;},read:callback=>{readReply=callback;},actor:next=>{actor=next;generation++;}};
 }
 
 async function unknown() {
@@ -170,4 +177,158 @@ test('MODEL boundary same visit/new key is refused, same key/different visit con
   assert.deepEqual(server.apply({...p,p_request_id:randomUUID()}).error,{code:'23505',message:'loyalty_booking_already_redeemed'});
   assert.deepEqual(server.apply({...p,p_booking:NEXT_BOOKING}).error,{code:'23505',message:'loyalty_request_conflict'});
   assert.deepEqual(server.apply(p),{data:{organization_id:ORG,id:first.data.id,points:100},error:null});assert.deepEqual(server.snapshot(),before);
+});
+
+const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject};};
+const ack=(organization=ORG)=>({data:{organization_id:organization,id:id(100),points:100,balance_points:4900},error:null});
+const refusal=()=>({data:null,error:{code:'55000',message:'insufficient_loyalty_balance'}});
+const tick=()=>new Promise(resolve=>setImmediate(resolve));
+
+test('RECOVERY native-invalid fields have an independent repeatable restore action with zero RPC',async()=>{
+  const h=await unknown();
+  for(let i=0;i<2;i++){
+    h.get('loyaltyRedeemPoints').value='';await h.input('loyaltyRedeemPoints');await h.invalid('loyaltyRedeemPoints');
+    await h.restore();assert.equal(h.calls.length,1);assert.equal(h.get('loyaltyRedeemPoints').value,'100');assert.deepEqual(h.notices,[]);
+  }
+  await h.submit();assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);
+  assert.doesNotMatch(h.get('loyaltyRedeemError').innerHTML,/data-loyalty-restore-redemption/);
+});
+
+test('RECOVERY changed unresolved target restores visibly without RPC; separate submit replays exact snapshot',async()=>{
+  const h=await unknown();await h.choose(OTHER_CLIENT,OTHER_BOOKING);await h.submit();
+  assert.equal(h.calls.length,1);assert.equal(h.get('loyaltyRedeemClient').value,CLIENT);assert.equal(h.get('loyaltyRedeemBooking').value,BOOKING);
+  await h.submit();assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);
+});
+
+for(const [name,data] of [
+  ['null',null],['organization only',{organization_id:ORG}],['invalid UUID',{...ack().data,id:'invalid'}],
+  ['wrong organization',{...ack().data,organization_id:id(999)}],['different points',{...ack().data,points:101}],
+  ['string points',{...ack().data,points:'100'}],['negative balance',{...ack().data,balance_points:-1}],
+  ['impossible balance',{...ack().data,balance_points:10000001}],['null balance',{...ack().data,balance_points:null}]
+])test(`RECOVERY malformed ${name} ACK keeps the immutable key without success`,async()=>{
+  const h=await harness();h.write(()=>({data,error:null}));await h.submit();
+  assert.deepEqual(h.notices,[]);assert.match(h.get('loyaltyRedeemError').textContent,/Не удалось подтвердить/);
+  await h.submit();assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);assert.equal(h.server.redemptions.length,1);
+});
+
+test('CONTROL valid optional balance upper boundary is accepted',async()=>{
+  const h=await harness();h.write(()=>({data:{...ack().data,balance_points:10000000},error:null}));await h.submit();
+  assert.deepEqual(h.notices,['Бонусы списаны']);
+});
+
+for(const [name,reply] of [
+  ['transport envelope',()=>({data:null,error:{code:'08006',message:'insufficient_loyalty_balance'}})],
+  ['no-code business-looking error',()=>({data:null,error:{message:'insufficient_loyalty_balance'}})],
+  ['thrown business-looking error',()=>{throw Object.assign(new Error('insufficient_loyalty_balance'),{code:'55000'});}]
+])test(`RECOVERY ${name} stays unknown and can retry exact original`,async()=>{
+  const h=await harness();h.write(reply);await h.submit();assert.equal(h.button.disabled,false);
+  assert.match(h.get('loyaltyRedeemError').textContent,/Не удалось подтвердить/);assert.doesNotMatch(h.get('loyaltyRedeemError').textContent,/не сохранено/i);
+  await h.submit();assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);
+});
+
+test('CONTROL exact first SQL refusal permits corrected new intent',async()=>{
+  const h=await harness();h.write(refusal);await h.submit();assert.match(h.get('loyaltyRedeemError').textContent,/Недостаточно бонусов/);
+  h.get('loyaltyRedeemPoints').value='200';await h.submit();assert.notEqual(h.calls[1].parameters.p_request_id,h.calls[0].parameters.p_request_id);
+  assert.equal(h.calls[1].parameters.p_points,200);
+});
+test('RECOVERY exact refusal after unknown does not resolve a prior committed request',async()=>{
+  const h=await unknown();h.write(refusal);await h.submit();assert.match(h.get('loyaltyRedeemError').textContent,/Не удалось подтвердить/);
+  await h.submit();assert.deepEqual(h.calls[2].parameters,h.calls[0].parameters);assert.equal(h.server.redemptions.length,1);
+});
+
+for(const reject of [false,true])test(`RECOVERY workspace ${reject?'throw':'error'} retains choices/key and supports read-only retry`,async()=>{
+  const h=await harness();await h.choose(CLIENT,NEXT_BOOKING);h.lose();
+  h.read(()=>{if(reject)throw Error('read failed');return {data:null,error:{message:'read failed'}};});await h.submit();
+  assert.equal(h.controller.availability,'error');assert.equal(h.calls.length,1);
+  await h.controller.load();assert.equal(h.controller.availability,'ready');assert.equal(h.calls.length,1);
+  assert.equal(h.get('loyaltyRedeemBooking').value,NEXT_BOOKING);assert.equal(h.get('loyaltyRedeemPoints').value,'100');
+  await h.submit();assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);
+});
+
+test('RECOVERY pending input/change and direct duplicate submit remain single-flight',async()=>{
+  const h=await harness(),d=deferred();h.write(()=>d.promise);const first=h.submit();
+  h.get('loyaltyRedeemPoints').value='200';await h.input('loyaltyRedeemPoints');await h.change('loyaltyRedeemPoints');await h.submit();
+  assert.equal(h.calls.length,1);assert.equal(h.button.disabled,true);d.resolve({data:null,error:{message:'lost'}});await first;
+  assert.equal(h.get('loyaltyRedeemPoints').value,'200');await h.restore();await h.submit();
+  assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);
+});
+
+for(const outcome of ['success','error','throw'])for(const scope of ['organization','account','session'])test(`CONTEXT queued ${scope} switch suppresses late ${outcome} and loads latest scope`,async()=>{
+  const h=await harness(),d=deferred(),nextOrg=id(30);h.write(()=>d.promise);const first=h.submit();
+  if(scope!=='organization')h.actor(scope==='account'?id(40):ACTOR);
+  await h.controller.setOrganization({id:nextOrg,current_role:'owner'});
+  assert.equal(h.get('loyaltyWorkspace').hidden,true);
+  if(outcome==='throw')d.reject(Error('transport'));else d.resolve(outcome==='success'?ack():refusal());await first;
+  assert.equal(h.controller.payload.organization_id,nextOrg);assert.equal(h.controller.availability,'ready');assert.deepEqual(h.notices,[]);
+  assert.equal(h.get('loyaltyRedeemError').hidden,true);assert.equal(h.button.disabled,false);
+});
+
+test('CONTEXT A → B → A pending loads only the latest organization',async()=>{
+  const h=await harness(),d=deferred();h.write(()=>d.promise);const first=h.submit();
+  await h.controller.setOrganization({id:id(30),current_role:'owner'});await h.controller.setOrganization({id:ORG,current_role:'owner'});
+  d.resolve({data:null,error:{message:'lost'}});await first;
+  assert.equal(h.controller.payload.organization_id,ORG);assert.equal(h.reads.some(p=>p.p_organization===id(30)),false);
+  assert.match(h.get('loyaltyRedeemError').textContent,/Не удалось подтвердить/);
+});
+
+for(const outcome of ['success','error','throw'])test(`CONTEXT reset then independent B pending: late A ${outcome} cannot release B busy`,async()=>{
+  const h=await harness(),a=deferred(),b=deferred(),orgB=id(30);h.write(()=>a.promise);const old=h.submit();
+  h.controller.reset();h.actor(id(40));await h.controller.setOrganization({id:orgB,current_role:'owner'});
+  h.get('loyaltyRedeemPoints').value='100';h.write(()=>b.promise);const current=h.submit();
+  if(outcome==='throw')a.reject(Error('old'));else a.resolve(outcome==='success'?ack():refusal());await old;
+  assert.equal(h.button.disabled,true);assert.equal(h.button.textContent,'Сохраняем…');await h.submit();assert.equal(h.calls.length,2);
+  b.resolve(ack(orgB));await current;assert.deepEqual(h.notices,['Бонусы списаны']);
+});
+
+test('CONTEXT queued workspace throw recovers by read without another mutation',async()=>{
+  const h=await harness(),d=deferred(),orgB=id(30);h.write(()=>d.promise);const old=h.submit();
+  await h.controller.setOrganization({id:orgB,current_role:'owner'});h.read(()=>{throw Error('workspace');});d.resolve(refusal());await old;
+  assert.equal(h.controller.availability,'error');await h.controller.load();assert.equal(h.controller.payload.organization_id,orgB);assert.equal(h.calls.length,1);
+});
+test('CONTEXT stale queued B read failure cannot repaint C',async()=>{
+  const h=await harness(),d=deferred(),read=deferred(),orgC=id(31);h.write(()=>d.promise);const old=h.submit();
+  await h.controller.setOrganization({id:id(30),current_role:'owner'});h.read(()=>read.promise);d.resolve(refusal());await tick();
+  await h.controller.setOrganization({id:orgC,current_role:'owner'});read.reject(Error('old read'));await old;
+  assert.equal(h.controller.availability,'ready');assert.equal(h.controller.payload.organization_id,orgC);assert.equal(h.get('loyaltyUnavailable').hidden,true);
+});
+
+for(const scope of ['organization','account'])test(`CONTEXT unknown warning/blank draft restores only in original ${scope}`,async()=>{
+  const h=await unknown();h.get('loyaltyRedeemPoints').value='';await h.input('loyaltyRedeemPoints');
+  if(scope==='account')h.actor(id(40));await h.controller.setOrganization({id:id(30),current_role:'owner'});
+  assert.equal(h.get('loyaltyRedeemError').hidden,true);h.get('loyaltyRedeemPoints').value='100';h.write(()=>ack(id(30)));await h.submit();
+  if(scope==='account')h.actor(ACTOR);await h.controller.setOrganization({id:ORG,current_role:'owner'});
+  assert.equal(h.get('loyaltyRedeemPoints').value,'');assert.match(h.get('loyaltyRedeemError').textContent,/Не удалось подтвердить/);
+  await h.restore();assert.equal(h.calls.length,2);await h.submit();assert.deepEqual(h.calls[2].parameters,h.calls[0].parameters);
+});
+
+test('BOUNDARY full new controller has no durable unknown request registry',async()=>{
+  const first=await unknown(),second=await harness();await second.submit();
+  assert.notEqual(second.calls[0].parameters.p_request_id,first.calls[0].parameters.p_request_id);
+  // Separate model here proves only lost controller memory, not a second debit
+  // on the same SQL booking (which v81 independently forbids).
+});
+
+test('RECOVERY edits during a pending read are captured at actual render, not overwritten by an earlier draft',async()=>{
+  const h=await unknown(),read=deferred();h.read(()=>read.promise);const loading=h.controller.load();
+  h.get('loyaltyRedeemPoints').value='200';await h.input('loyaltyRedeemPoints');read.resolve({data:h.server.workspace(),error:null});await loading;
+  assert.equal(h.get('loyaltyRedeemPoints').value,'200');await h.restore();assert.equal(h.get('loyaltyRedeemPoints').value,'100');assert.equal(h.calls.length,1);
+});
+test('RECOVERY missing original visit remains blank and cannot silently target the first available visit',async()=>{
+  const h=await unknown();h.read(()=>{const data=h.server.workspace();data.bookings=data.bookings.filter(row=>row.id!==BOOKING);return {data,error:null};});
+  await h.controller.load();assert.equal(h.get('loyaltyRedeemBooking').value,'');await h.restore();
+  assert.equal(h.get('loyaltyRedeemBooking').value,'');assert.match(h.get('loyaltyRedeemError').textContent,/недоступен/);
+  await h.submit();assert.equal(h.calls.length,1);assert.equal(h.server.redemptions.length,1);
+});
+test('RECOVERY no-op client event preserves the non-first eligible visit and key',async()=>{
+  const h=await harness();await h.choose(CLIENT,NEXT_BOOKING);h.lose();await h.submit();await h.change('loyaltyRedeemClient');await h.submit();
+  assert.deepEqual(h.calls[1].parameters,h.calls[0].parameters);
+});
+for(const outcome of ['success','error','throw'])test(`CONTEXT queued logout ${outcome} keeps workspace hidden and no late notification`,async()=>{
+  const h=await harness(),d=deferred();h.write(()=>d.promise);const pending=h.submit();h.actor(null);await h.controller.setOrganization(null);
+  if(outcome==='throw')d.reject(Error('offline'));else d.resolve(outcome==='success'?ack():refusal());await pending;
+  assert.equal(h.get('loyaltyWorkspace').hidden,true);assert.equal(h.get('loyaltyPanel').hidden,true);assert.equal(h.controller.payload,null);assert.deepEqual(h.notices,[]);
+});
+test('CONTEXT queued revoked role cannot expose or submit old organization',async()=>{
+  const h=await harness(),d=deferred();h.write(()=>d.promise);const pending=h.submit();await h.controller.setOrganization({id:ORG,current_role:'specialist'});
+  d.resolve(ack());await pending;await h.submit();assert.equal(h.calls.length,1);assert.equal(h.controller.payload,null);assert.deepEqual(h.notices,[]);
 });

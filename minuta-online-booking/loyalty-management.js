@@ -17,7 +17,9 @@
     const adjustmentIntents = new Map(), adjustmentDrafts = new Map();
     const adjustmentUnknownMessage = 'Не удалось подтвердить результат. Проверьте обновлённый журнал; повторить можно только исходную корректировку.';
     let activeAdjustment = null, renderedAdjustmentKey = '';
-    let redemptionRequestId = '';
+    const redemptionIntents = new Map(), redemptionDrafts = new Map();
+    const redemptionUnknownMessage = 'Не удалось подтвердить списание. Проверьте обновлённый журнал; повторить можно только исходное списание.';
+    let activeRedemption = null, renderedRedemptionKey = '';
     let promoRequestId = '';
 
     function adjustmentKey() { return JSON.stringify([getCurrentUser()?.id || '', organization?.id || '']); }
@@ -100,8 +102,9 @@
     }
     function reset() {
       rememberAdjustmentFields(); renderedAdjustmentKey = ''; activeAdjustment = null;
+      rememberRedemptionFields(); renderedRedemptionKey = ''; activeRedemption = null;
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined;
-      redemptionRequestId = ''; promoRequestId = '';
+      promoRequestId = '';
       $('#loyaltyPanel').hidden = true; $('#loyaltyLoading').hidden = true; $('#loyaltyUnavailable').hidden = true; $('#loyaltyWorkspace').hidden = true;
     }
     async function setOrganization(next) {
@@ -114,6 +117,7 @@
     async function load() {
       if (writing) return { ok:false, optional:true, pending:true };
       rememberAdjustmentFields();
+      rememberRedemptionFields();
       const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization?.id, current = ++revision;
       if (!userId || !organizationId) { reset(); return { ok:false, optional:true }; }
       availability = 'loading'; payload = null; $('#loyaltyPanel').hidden = false; $('#loyaltyLoading').hidden = false; $('#loyaltyUnavailable').hidden = true; $('#loyaltyWorkspace').hidden = true;
@@ -149,6 +153,7 @@
     }
     function render() {
       if (availability !== 'ready' || !payload) return;
+      rememberRedemptionFields();
       const rule = payload.rule || {};
       $('#loyaltyWorkspace').hidden = false; $('#loyaltyUnavailable').hidden = true;
       $('#loyaltyEnabled').checked = Boolean(payload.enabled); $('#loyaltyEnabled').disabled = payload.current_role !== 'owner';
@@ -172,7 +177,14 @@
       renderedAdjustmentKey = key;
       $('#loyaltyRedeemClient').innerHTML = clientOptions;
       $('#loyaltyPromoClient').innerHTML = clientOptions;
-      renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking');
+      const redemptionDraft = redemptionDrafts.get(key);
+      if (redemptionDraft) restoreRedemptionFields(redemptionDraft);
+      else { renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking'); $('#loyaltyRedeemPoints').value = ''; }
+      if (renderedRedemptionKey !== key) {
+        $('#loyaltyRedeemError').hidden = true; $('#loyaltyRedeemError').textContent = '';
+      }
+      renderedRedemptionKey = key;
+      if (redemptionIntents.get(key)?.unknown) showRedemptionRecovery();
       renderBookingOptions('loyaltyPromoClient', 'loyaltyPromoBooking');
       ensurePromoDefaults();
       const workflow = $('#loyaltyWorkflowStatus');
@@ -189,6 +201,7 @@
       $('#loyaltyBonusExampleText').textContent = `При начислении ${number(earnRateBps / 100)}% клиент получает ${number(earnedPoints)} бонусов после оплаченного визита за ${money(exampleAmount)}.`;
       $('#loyaltyRedeemExampleText').textContent = `При лимите ${number(redeemRateBps / 100)}% клиент сможет списать до ${number(redeemPoints)} бонусов со следующего визита за ${money(exampleAmount)}.`;
       setBusy(false); syncAdjustment(); applyWriteAvailability(); syncAdjustment();
+      syncRedemption();
     }
     function renderBookingOptions(clientId, bookingId) {
       const client = $(`#${clientId}`).value;
@@ -281,6 +294,97 @@
       // intent. Keep the key and form draft even if this read fails.
       await load();
     }
+    function redemptionFields() {
+      return { client:$('#loyaltyRedeemClient').value, booking:$('#loyaltyRedeemBooking').value, points:$('#loyaltyRedeemPoints').value };
+    }
+    function rememberRedemptionFields() {
+      if (renderedRedemptionKey) redemptionDrafts.set(renderedRedemptionKey, redemptionFields());
+    }
+    function restoreRedemptionFields(fields) {
+      $('#loyaltyRedeemClient').value = fields.client;
+      renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking');
+      $('#loyaltyRedeemBooking').value = fields.booking;
+      $('#loyaltyRedeemPoints').value = fields.points;
+    }
+    function recoverableRedemption() {
+      const key = adjustmentKey(), intent = redemptionIntents.get(key);
+      return !writing && availability === 'ready' && renderedRedemptionKey === key
+        && scopeMatches(payload, organization?.id) && intent?.state === 'unknown' ? intent : null;
+    }
+    function showRedemptionRecovery(message = redemptionUnknownMessage) {
+      const holder = $('#loyaltyRedeemError'); holder.hidden = false;
+      holder.innerHTML = `${escapeHtml(message)} <button type="button" data-loyalty-restore-redemption>Вернуть исходные поля</button>`;
+    }
+    function syncRedemption() {
+      const intent = redemptionIntents.get(adjustmentKey());
+      const form = $('#loyaltyRedeemForm'), button = form?.querySelector('button[type="submit"]');
+      if (!button) return;
+      if (!button.dataset.redemptionLabel) button.dataset.redemptionLabel = button.textContent;
+      form.dataset.redemptionState = intent?.state || '';
+      if (intent?.state === 'pending') {
+        if (!button.disabled) { button.disabled = true; button.dataset.redemptionBusy = 'true'; }
+        button.textContent = 'Сохраняем…';
+      } else {
+        if (button.dataset.redemptionBusy === 'true') { button.disabled = false; delete button.dataset.redemptionBusy; }
+        button.textContent = intent ? 'Повторить исходное списание' : button.dataset.redemptionLabel;
+      }
+    }
+    async function redeemBooking(form) {
+      if (!requireWrites() || writing || availability !== 'ready' || !organization?.id
+        || !scopeMatches(payload, organization.id) || !getCurrentUser()?.id || renderedRedemptionKey !== adjustmentKey()) return;
+      const key = adjustmentKey(), fields = redemptionFields();
+      const tuple = { p_organization:organization.id, p_booking:fields.booking, p_points:Number(fields.points) };
+      let intent = redemptionIntents.get(key);
+      if (intent?.state === 'pending') return;
+      if (intent && (fields.client !== intent.fields.client || Object.keys(tuple).some(name => tuple[name] !== intent.parameters[name]))) {
+        restoreRedemptionFields(intent.fields); rememberRedemptionFields();
+        showRedemptionRecovery('Результат прежнего списания не подтверждён. Возвращены исходные поля: проверьте их и отдельно повторите исходное списание.');
+        return;
+      }
+      if (!intent) {
+        intent = { parameters:Object.freeze({ ...tuple, p_request_id:uuid() }), fields:Object.freeze({ ...fields }), unknown:false };
+        redemptionIntents.set(key, intent);
+      }
+      const wasUnknown = intent.unknown;
+      const userId = getCurrentUser().id, generation = getSessionGeneration(), organizationId = organization.id, current = ++revision;
+      const operation = {}; activeRedemption = operation; intent.state = 'pending';
+      writing = true; rememberRedemptionFields(); syncRedemption(); setBusy(true);
+      $('#loyaltyRedeemError').hidden = true; $('#loyaltyRedeemError').textContent = '';
+      let result, thrown = false;
+      try { result = await db.rpc('redeem_minuta_loyalty', intent.parameters); }
+      catch (error) { thrown = true; result = { error }; }
+      const data = result?.data, error = result?.error;
+      // v81 replay deliberately omits balance_points. Never infer success from
+      // a workspace ledger row: only this exact RPC acknowledgement resolves it.
+      const confirmed = error === null && data?.organization_id === organizationId
+        && typeof data.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(data.id)
+        && Number.isInteger(data.points) && data.points >= 1 && data.points <= 10000000 && data.points === intent.parameters.p_points
+        && (!Object.prototype.hasOwnProperty.call(data, 'balance_points')
+          || (Number.isInteger(data.balance_points) && data.balance_points >= 0 && data.balance_points <= 10000000));
+      const refusals = {
+        '42501':['authentication_required','loyalty_management_denied'],
+        '22023':['invalid_loyalty_redemption'],
+        '55000':['loyalty_disabled','loyalty_booking_not_paid','insufficient_loyalty_balance','loyalty_redemption_limit_exceeded'],
+        '23505':['loyalty_booking_already_redeemed']
+      };
+      const refused = !wasUnknown && !thrown && result?.data === null && refusals[error?.code]?.includes(error?.message);
+      if (confirmed || refused) redemptionIntents.delete(key);
+      else { intent.state = 'unknown'; intent.unknown = true; }
+      if (activeRedemption !== operation) return;
+      activeRedemption = null; writing = false;
+      if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) {
+        const next = pendingOrganization; pendingOrganization = undefined;
+        if (next !== undefined) await setOrganization(next);
+        return;
+      }
+      setBusy(false); syncRedemption(); applyWriteAvailability(); syncRedemption();
+      if (confirmed) { form.reset(); rememberRedemptionFields(); notify('Бонусы списаны'); }
+      else if (refused) showFormError('#loyaltyRedeemError',
+        ['authentication_required','loyalty_management_denied'].includes(error.message)
+          ? 'Недостаточно прав для списания бонусов.' : messageFor(error));
+      else showRedemptionRecovery();
+      await load();
+    }
     async function submit(event) {
       if (!event.target.closest('#loyaltyPanel')) return;
       if (event.target.id === 'loyaltyRuleForm') {
@@ -291,9 +395,7 @@
         event.preventDefault(); await adjustBalance(event.target); return;
       }
       if (event.target.id === 'loyaltyRedeemForm') {
-        event.preventDefault(); redemptionRequestId = redemptionRequestId || uuid();
-        const ok = await mutate('redeem_minuta_loyalty', { p_organization:organization.id, p_booking:$('#loyaltyRedeemBooking').value, p_points:Math.round(Number($('#loyaltyRedeemPoints').value)), p_request_id:redemptionRequestId }, event.submitter, 'Бонусы списаны', '#loyaltyRedeemError');
-        if (ok) { redemptionRequestId = ''; event.target.reset(); renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking'); } return;
+        event.preventDefault(); await redeemBooking(event.target); return;
       }
       if (event.target.id === 'loyaltyPromoForm') {
         event.preventDefault(); const kind = $('#loyaltyPromoKind').value;
@@ -307,6 +409,16 @@
       }
     }
     async function click(event) {
+      const redemptionRestore = event.target.closest('[data-loyalty-restore-redemption]');
+      if (redemptionRestore) {
+        const intent = recoverableRedemption();
+        if (!intent || redemptionRestore.closest('#loyaltyRedeemForm') !== $('#loyaltyRedeemForm')) return;
+        restoreRedemptionFields(intent.fields); rememberRedemptionFields();
+        showRedemptionRecovery($('#loyaltyRedeemClient').value === intent.fields.client && $('#loyaltyRedeemBooking').value === intent.fields.booking
+          ? 'Исходные поля восстановлены. Проверьте их и отдельно повторите исходное списание.'
+          : 'Исходный клиент или визит недоступен в списке. Проверьте журнал; новые данные не отправлены.');
+        return;
+      }
       const restore = event.target.closest('[data-loyalty-restore-adjustment]');
       if (restore) {
         const intent = recoverableAdjustment();
@@ -323,10 +435,14 @@
     }
     async function change(event) {
       if (event.target.id === 'loyaltyEnabled') { const desired = event.target.checked; const ok = await mutate('set_minuta_loyalty_enabled', { p_organization:organization.id, p_enabled:desired }, event.target, desired ? 'Бонусная программа включена' : 'Бонусная программа выключена'); if (!ok && payload) event.target.checked = Boolean(payload.enabled); }
-      if (event.target.id === 'loyaltyRedeemClient') { redemptionRequestId = ''; renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking'); }
+      if (event.target.id === 'loyaltyRedeemClient') {
+        const booking = $('#loyaltyRedeemBooking').value;
+        renderBookingOptions('loyaltyRedeemClient', 'loyaltyRedeemBooking');
+        if (payload?.bookings?.some(row => row.id === booking && row.client_account_id === event.target.value)) $('#loyaltyRedeemBooking').value = booking;
+      }
       if (event.target.id === 'loyaltyPromoClient') { promoRequestId = ''; renderBookingOptions('loyaltyPromoClient', 'loyaltyPromoBooking'); }
       if (event.target.closest('#loyaltyAdjustmentForm')) rememberAdjustmentFields();
-      if (event.target.closest('#loyaltyRedeemForm')) redemptionRequestId = '';
+      if (event.target.closest('#loyaltyRedeemForm')) { rememberRedemptionFields(); if (recoverableRedemption()) showRedemptionRecovery(); }
       if (event.target.closest('#loyaltyPromoApplyForm')) promoRequestId = '';
       if (event.target.id === 'loyaltyPromoKind') {
         const percent = event.target.value === 'percent';
@@ -340,6 +456,7 @@
       if (!event.target.closest('#loyaltyPanel')) return;
       const form = event.target.form;
       if (form?.id === 'loyaltyAdjustmentForm' && recoverableAdjustment()) { showAdjustmentRecovery(); return; }
+      if (form?.id === 'loyaltyRedeemForm' && recoverableRedemption()) { showRedemptionRecovery(); return; }
       const holders = { loyaltyRuleForm:'#loyaltyRuleError', loyaltyAdjustmentForm:'#loyaltyAdjustmentError', loyaltyRedeemForm:'#loyaltyRedeemError', loyaltyPromoForm:'#loyaltyPromoError', loyaltyPromoApplyForm:'#loyaltyPromoApplyError' };
       const holder = holders[form?.id];
       if (!holder) return;
@@ -353,6 +470,9 @@
       showFormError(holder, messages[event.target.id] || 'Заполните обязательное поле и проверьте введённое значение.');
     }
     function input(event) {
+      if (event.target.form?.id === 'loyaltyRedeemForm' && recoverableRedemption()) {
+        rememberRedemptionFields(); showRedemptionRecovery(); return;
+      }
       if (event.target.form?.id === 'loyaltyAdjustmentForm' && recoverableAdjustment()) {
         rememberAdjustmentFields(); showAdjustmentRecovery(); return;
       }
