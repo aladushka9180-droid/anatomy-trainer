@@ -31,7 +31,7 @@ assert.match(page, /data-open-product-feedback/);
 assert.match(page, /id="productFeedbackDialog"/);
 assert.match(page, /value="problem"/);
 assert.match(page, /value="suggestion"/);
-assert.match(page, /provider-feedback\.js\?v=405/);
+assert.match(page, /provider-feedback\.js\?v=406/);
 assert.match(page, /Номер обращения/);
 
 assert.match(feedback, /document\.createElement\('canvas'\)/);
@@ -41,8 +41,8 @@ assert.match(feedback, /db\.storage\.from\(BUCKET\)\.remove\(\[screenshotPath\]\
 assert.doesNotMatch(feedback, /navigator\.userAgent\b/);
 assert.doesNotMatch(feedback, /location\.(search|hash)/);
 
-assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v405`/);
-assert.match(worker, /'\.\/provider-feedback\.js\?v=405'/);
+assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v406`/);
+assert.match(worker, /'\.\/provider-feedback\.js\?v=406'/);
 
 for (const command of [
   'supabase-migration-v109.sql',
