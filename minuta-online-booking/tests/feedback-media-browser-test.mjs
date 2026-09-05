@@ -20,15 +20,21 @@ async function scenario(name,run){
   await page.addScriptTag({content:source});
   await page.evaluate(()=>{
     window.actor={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'};window.organization={id:'org-A'};window.calls=[];window.notifications=[];
-    window.mode='ok';window.lookup=null;window.deferResolve=null;window.counter=0;
+    window.mode='ok';window.lookup=null;window.deferResolve=null;window.counter=0;window.releaseMode='ok';
     window.createId=()=>`00000000-0000-4000-8000-${String(++counter).padStart(12,'0')}`;
     window.db={rpc:async(name,args)=>{
       calls.push({name,args:args?JSON.parse(JSON.stringify(args)):null});
-      if(name==='get_minuta_feedback_media_capability')return {data:{version:3,max_files:5,video_bytes:20*1048576,total_bytes:100*1048576}};
+      if(name==='get_minuta_feedback_media_capability')return {data:{version:3,max_files:5,video_bytes:20*1048576,total_bytes:40*1048576}};
       if(name==='get_my_minuta_feedback_request_v3')return {data:lookup};
       if(name==='reserve_minuta_feedback_upload_v3')return {data:{path:`${actor.id}/${args.p_request_id}/${args.p_attachment_id}.webp`,uploaded:false}};
+      if(name==='release_minuta_feedback_upload_v3'){
+        if(releaseMode==='throw')throw new TypeError('Failed to fetch');
+        if(releaseMode==='deferred')return new Promise(resolve=>{window.releaseResolve=resolve;});
+        return {data:releaseMode==='false'?false:releaseMode==='null'?null:true,error:null};
+      }
       if(name==='create_minuta_feedback_media_v3'){
         if(mode==='rejected')return {error:{code:'P0001',message:'feedback_daily_limit'}};
+        if(mode==='wrong-refusal-code')return {error:{code:'22023',message:'feedback_daily_limit'}};
         if(mode==='network')throw new TypeError('Failed to fetch');
         if(mode==='null')return {data:null};
         if(mode==='wrong')return {data:{request_id:'wrong',request_number:12,organization_id:'org-A'}};
@@ -36,7 +42,7 @@ async function scenario(name,run){
         return {data:{request_id:args.p_request_id,request_number:12,organization_id:args.p_organization}};
       }
       throw new Error('Unexpected RPC '+name);
-    },storage:{from:()=>({upload:async(path,blob)=>{calls.push({name:'upload',path,size:blob.size});return {data:{path}};}})}};
+    },storage:{from:()=>({upload:async(path,blob)=>{calls.push({name:'upload',path,size:blob.size});if(window.uploadThrows)throw new TypeError('Failed to fetch');return {data:{path}};}})}};
     window.writes=true;
     window.controller=MinutaFeedbackMediaV3.createController({db,$:s=>document.querySelector(s),notify:m=>notifications.push(m),requireWrites:()=>writes,getCurrentUser:()=>actor,getOrganization:()=>organization},
       {createId,prepareScreenshot:async()=>window.holdPhoto?new Promise(resolve=>{window.photoResolve=resolve;}):new Blob(['synthetic-webp'],{type:'image/webp'}),clientVersion:()=> 'test',deviceSummary:()=> 'synthetic browser'});
@@ -76,6 +82,63 @@ try{
     await page.evaluate(()=>{const args=calls.find(c=>c.name==='create_minuta_feedback_media_v3').args;lookup={request_id:args.p_request_id,request_number:17,organization_id:args.p_organization};});
     await send(page);assert.equal(await page.locator('#productFeedbackRequestNumber').textContent(),'17');
     assert.equal(await page.evaluate(()=>calls.filter(c=>c.name==='create_minuta_feedback_media_v3').length),1);
+  });
+  await scenario('refusal after unknown keeps immutable attachment and request',async page=>{
+    await withPhoto(page);await page.evaluate(()=>{mode='network';});await send(page);
+    await page.evaluate(()=>{mode='rejected';});await send(page);
+    assert.equal(await page.locator('#productFeedbackMessage').isEnabled(),false);
+    assert.equal(await page.locator('[data-feedback-remove]').isEnabled(),false);
+    assert.equal(await page.evaluate(()=>calls.filter(c=>c.name==='release_minuta_feedback_upload_v3').length),0);
+    const submitted=await page.evaluate(()=>calls.filter(c=>c.name==='create_minuta_feedback_media_v3').map(c=>c.args));
+    assert.deepEqual(submitted[0],submitted[1]);
+  });
+  await scenario('unreserved attachment removal is local and makes no release call',async page=>{
+    await withPhoto(page);await page.click('[data-feedback-remove]');
+    assert.equal(await page.locator('#productFeedbackAttachments figure').count(),0);
+    assert.equal(await page.evaluate(()=>calls.filter(c=>c.name==='release_minuta_feedback_upload_v3').length),0);
+  });
+  await scenario('unknown upload can release its known reservation without a create',async page=>{
+    await withPhoto(page);await page.evaluate(()=>{window.uploadThrows=true;});await send(page);
+    await page.click('[data-feedback-remove]');await page.waitForFunction(()=>!document.querySelector('#productFeedbackSubmit').disabled);
+    assert.equal(await page.locator('#productFeedbackAttachments figure').count(),0);
+    const calls=await page.evaluate(()=>window.calls);
+    assert.equal(calls.filter(c=>c.name==='create_minuta_feedback_media_v3').length,0);
+    assert.equal(calls.find(c=>c.name==='release_minuta_feedback_upload_v3').args.p_path,calls.find(c=>c.name==='upload').path);
+  });
+  await scenario('unmatched SQLSTATE/message pair is not a proven refusal',async page=>{
+    await page.evaluate(()=>{mode='wrong-refusal-code';});await send(page);
+    assert.equal(await page.locator('#productFeedbackMessage').isEnabled(),false);
+    assert.equal(await page.locator('#productFeedbackSuccess').isVisible(),false);
+  });
+  await scenario('reserved removal waits for true release ACK, then excludes file from create',async page=>{
+    await withPhoto(page);await page.evaluate(()=>{mode='rejected';});await send(page);
+    const original=await page.evaluate(()=>calls.find(c=>c.name==='create_minuta_feedback_media_v3').args);
+    await page.click('[data-feedback-remove]');await page.waitForFunction(()=>!document.querySelector('#productFeedbackSubmit').disabled);
+    assert.equal(await page.locator('#productFeedbackAttachments figure').count(),0);
+    assert.deepEqual(await page.evaluate(()=>calls.find(c=>c.name==='release_minuta_feedback_upload_v3').args),{p_request_id:original.p_request_id,p_path:original.p_attachments[0].path});
+    await page.evaluate(()=>{mode='ok';});await send(page);
+    assert.deepEqual(await page.evaluate(()=>calls.filter(c=>c.name==='create_minuta_feedback_media_v3').at(-1).args.p_attachments),[]);
+  });
+  for(const outcome of ['throw','false','null'])await scenario('unconfirmed release '+outcome+' retains attachment; retry uses same path',async page=>{
+    await withPhoto(page);await page.evaluate(()=>{mode='rejected';});await send(page);
+    await page.evaluate(outcome=>{releaseMode=outcome;},outcome);await page.click('[data-feedback-remove]');
+    await page.waitForFunction(()=>!document.querySelector('#productFeedbackSubmit').disabled);
+    assert.equal(await page.locator('#productFeedbackAttachments figure').count(),1);
+    assert.match(await page.locator('#productFeedbackError').textContent(),/Не удалось подтвердить снятие/);
+    await page.evaluate(()=>{releaseMode='ok';});await page.click('[data-feedback-remove]');
+    await page.waitForFunction(()=>!document.querySelector('#productFeedbackSubmit').disabled);
+    const calls=await page.evaluate(()=>window.calls.filter(c=>c.name==='release_minuta_feedback_upload_v3'));
+    assert.deepEqual(calls[0].args,calls[1].args);assert.equal(await page.locator('#productFeedbackAttachments figure').count(),0);
+  });
+  await scenario('late release does not remove a replacement organization attachment',async page=>{
+    await withPhoto(page);await page.evaluate(()=>{mode='rejected';});await send(page);
+    await page.evaluate(()=>{releaseMode='deferred';});await page.click('[data-feedback-remove]');await page.waitForFunction(()=>window.releaseResolve);
+    await page.evaluate(async()=>{organization={id:'org-B'};controller.reset();await controller.refreshAvailability();document.querySelector('[data-open-product-feedback]').click();});
+    await withPhoto(page);await page.fill('#productFeedbackMessage','Новая форма другой организации');
+    await page.evaluate(async()=>{releaseResolve({data:true,error:null});await new Promise(resolve=>setTimeout(resolve,0));});
+    assert.equal(await page.locator('#productFeedbackAttachments figure').count(),1);
+    assert.equal(await page.locator('#productFeedbackMessage').inputValue(),'Новая форма другой организации');
+    assert.equal(await page.locator('#productFeedbackSubmit').isEnabled(),true);
   });
   for(const mode of ['null','wrong'])await scenario(mode+' ACK cannot clear draft or claim success',async page=>{
     await page.evaluate(mode=>{window.mode=mode;},mode);await send(page);

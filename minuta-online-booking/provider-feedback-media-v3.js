@@ -141,6 +141,25 @@
       $('#productFeedbackForm').hidden = true; $('#productFeedbackSuccess').hidden = false;
       status(''); notify('Сообщение отправлено');
     }
+    async function removeFile(index) {
+      if (busy || pending || owner !== scope()) return;
+      const item = files[index]; if (!item) return;
+      const token = { epoch, owner }, path = item.uploaded?.path || item.reservedPath;
+      lock(true); error();
+      try {
+        if (path) {
+          requireCurrentWrite(token);
+          const result = await db.rpc('release_minuta_feedback_upload_v3', { p_request_id:requestId, p_path:path });
+          if (!current(token)) return;
+          if (result.error || result.data !== true) throw new Error('release_unconfirmed');
+        }
+        if (!current(token)) return;
+        if (item.url) URL.revokeObjectURL(item.url);
+        files.splice(files.indexOf(item),1); renderFiles(); saveDraft();
+      } catch {
+        if (current(token)) error('Не удалось подтвердить снятие вложения. Оно остаётся в форме; попробуйте ещё раз.');
+      } finally { if (current(token)) lock(false); }
+    }
     async function submit(event) {
       event.preventDefault();
       if (busy || !available || !getCurrentUser() || owner !== scope() || !requireWrites()) return;
@@ -148,6 +167,7 @@
       if (message.length < 10 || message.length > 4000) { error('Напишите от 10 до 4000 символов.'); return; }
       const token = { epoch, owner }, actor = getCurrentUser().id, organization = getOrganization?.()?.id || null;
       lock(true); error(); const progress = $('#productFeedbackUploadProgress'); progress.hidden = false; progress.removeAttribute('value');
+      const hadPending = Boolean(pending);
       let definiteRefusal = false;
       try {
         if (!saveDraft()) throw new Error('draft_unavailable');
@@ -174,6 +194,7 @@
               if (allocation.error) throw allocation.error;
               const path = allocation.data?.path;
               if (typeof path !== 'string' || !path.startsWith(`${actor}/${requestId}/`) || path.includes('..') || typeof allocation.data.uploaded !== 'boolean') throw new Error('invalid_upload_ack');
+              item.reservedPath = path;
               if (!allocation.data.uploaded) {
                 requireCurrentWrite(token);
                 const upload = await db.storage.from(BUCKET).upload(path, blob, { contentType:blob.type, upsert:false });
@@ -197,8 +218,9 @@
         if (!current(token)) return;
         if (result.error) {
           // Only an explicit atomic PostgreSQL refusal unlocks editing. Network errors remain uncertain.
-          definiteRefusal = ['22023','42501','P0001'].includes(result.error.code)
-            && /^(invalid_feedback|feedback_daily_limit|feedback_organization_denied|feedback_attachment_missing|feedback_attachments_too_large)$/.test(result.error.message || '');
+          definiteRefusal = !hadPending && new Set(['22023:invalid_feedback','42501:feedback_organization_denied',
+            'P0001:feedback_daily_limit','P0001:feedback_attachment_missing','P0001:feedback_attachments_too_large'])
+            .has(`${result.error.code}:${result.error.message}`);
           throw result.error;
         }
         if (!acknowledged(result.data)) throw new Error('invalid_ack');
@@ -219,11 +241,7 @@
         if (event.target.closest('[data-close-product-feedback]')) { if (!$('#productFeedbackForm').hidden) saveDraft(); $('#productFeedbackDialog').close(); }
         if (event.target.closest('[data-new-product-feedback]') && !busy && !pending) { clearDraft(); resetForm(); }
         const remove = event.target.closest('[data-feedback-remove]');
-        if (remove && !busy && !pending && owner === scope()) {
-          const index = Number(remove.dataset.feedbackRemove), item = files[index];
-          if (!item) return; if (item.url) URL.revokeObjectURL(item.url); files.splice(index,1); renderFiles();
-          // Unlinked reservations are reclaimed by the server's guarded Storage-API cleanup.
-        }
+        if (remove) void removeFile(Number(remove.dataset.feedbackRemove));
       });
       $('#productFeedbackForm').addEventListener('input', () => { if (!busy && !pending && owner === scope()) { updateType(); saveDraft(); } });
       $('#productFeedbackForm').addEventListener('submit', submit);

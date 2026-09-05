@@ -1,0 +1,42 @@
+name: Minuta feedback media isolated contracts
+on:
+  push:
+    paths:
+      - 'minuta-online-booking/provider-feedback-media-v3.js'
+      - 'minuta-online-booking/supabase-migration-v116*.sql'
+      - 'minuta-online-booking/tests/feedback-media-*.mjs'
+      - 'minuta-online-booking/scripts/feedback-media-cleanup.mjs'
+      - '.github/workflows/minuta-feedback-media.yml'
+  pull_request:
+    paths:
+      - 'minuta-online-booking/provider-feedback-media-v3.js'
+      - 'minuta-online-booking/supabase-migration-v116*.sql'
+      - 'minuta-online-booking/tests/feedback-media-*.mjs'
+      - 'minuta-online-booking/scripts/feedback-media-cleanup.mjs'
+      - '.github/workflows/minuta-feedback-media.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm install --prefix "$RUNNER_TEMP/feedback-deps" --no-save --ignore-scripts @electric-sql/pglite@0.5.8 playwright@1.58.2
+      - run: node "$RUNNER_TEMP/feedback-deps/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Isolated database and cleanup contracts, no external credentials
+        env:
+          MINUTA_PGLITE_MODULE: ${{ runner.temp }}/feedback-deps/node_modules/@electric-sql/pglite/dist/index.js
+        run: |
+          node minuta-online-booking/tests/feedback-media-v116-pglite-test.mjs
+          node --test minuta-online-booking/tests/feedback-media-cleanup-test.mjs
+      - name: Synthetic browser retry and context boundaries
+        env:
+          MINUTA_PLAYWRIGHT_MODULE: ${{ runner.temp }}/feedback-deps/node_modules/playwright/index.mjs
+        run: node minuta-online-booking/tests/feedback-media-browser-test.mjs
+      # Deliberately no production/test database URL, service key or capability activation.
+      # Real isolated Storage and concurrent-PostgreSQL rehearsals remain release gates.
