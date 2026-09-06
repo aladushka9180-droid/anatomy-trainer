@@ -8582,7 +8582,7 @@ html.provider-booting .provider-main {
 
 /* Minimal client profile: identity first, one primary action, details on demand. */
 .client-profile #clientProfileContent { min-width:0; }
-.client-custom-fields[hidden],.client-repeat-legacy[hidden] { display:none!important; }
+.client-custom-fields[hidden],.client-repeat-legacy[hidden],.client-favorite-services[hidden] { display:none!important; }
 .client-profile-head {
   display:grid;
   grid-template-columns:1fr;
@@ -8646,6 +8646,10 @@ html.provider-booting .provider-main {
 .client-profile .client-summary small { margin-top:5px; color:var(--theme-muted,var(--muted)); font-size:8px; line-height:1.3; }
 .client-debt-status { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0 0; padding:9px 11px; border-radius:11px; background:color-mix(in srgb,#c9654d 9%,var(--theme-surface,#fff)); color:var(--theme-ink,var(--ink)); font-size:9px; font-weight:750; }
 .client-debt-status strong { color:#a44937; font-size:11px; white-space:nowrap; }
+.client-favorite-services { display:grid; gap:8px; margin-top:15px; }
+.client-favorite-services>strong { color:var(--theme-muted,#718278); font-size:10px; font-weight:750; }
+.client-favorite-services>div { display:flex; flex-wrap:wrap; gap:7px; }
+.client-favorite-services span { display:inline-flex; align-items:center; min-height:30px; padding:0 12px; border-radius:999px; background:var(--theme-accent-soft,#edf4ef); color:var(--theme-ink,var(--ink)); font-size:10px; font-weight:750; }
 
 @media (max-width:760px) {
   .client-profile-head { grid-template-columns:1fr; align-items:center; }

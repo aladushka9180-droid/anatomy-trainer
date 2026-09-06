@@ -7720,6 +7720,26 @@ function updateClientPreferencesPreview(phone, noteValue = clientNotes.get(phone
   $('#clientPreferencesPreview').textContent = preferences.join(' · ') || 'Метки и заметка';
 }
 
+function renderClientFavoriteServices(bookings) {
+  const totals = new Map();
+  bookings.forEach(item => {
+    const rawName = String(item.services?.name || '').trim();
+    if (!rawName) return;
+    const name = serviceName(rawName);
+    const key = name.toLocaleLowerCase('ru-RU');
+    const current = totals.get(key) || { name, count:0, lastVisit:'' };
+    current.count += 1;
+    current.lastVisit = [current.lastVisit, `${item.booking_date || ''}${item.booking_time || ''}`].sort().at(-1);
+    totals.set(key, current);
+  });
+  const favorites = [...totals.values()]
+    .sort((left, right) => right.count - left.count || right.lastVisit.localeCompare(left.lastVisit) || left.name.localeCompare(right.name, 'ru'))
+    .slice(0, 3);
+  const section = $('#clientFavoriteServices');
+  $('#clientFavoriteServicesList').innerHTML = favorites.map(item => `<span>${escapeHtml(item.name)}</span>`).join('');
+  section.hidden = !favorites.length;
+}
+
 function renderClientDetail(phone) {
   const client = buildClients().find(item => item.phone === phone);
   if (!client) return;
@@ -7769,6 +7789,7 @@ function renderClientDetail(phone) {
     return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
   });
   const visits = completedVisits.length;
+  renderClientFavoriteServices(completedVisits);
   const upcoming = clientUpcoming(client);
   const messageButton = $('#clientMessageButton');
   const fallbackMessage = `Здравствуйте, ${client.name}!`;
