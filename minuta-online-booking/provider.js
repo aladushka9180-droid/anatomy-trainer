@@ -203,7 +203,7 @@ const SCHEDULE_BLOCK_PHONE = '0000000000';
 const SERVICE_SYNC_INTERVAL_MS = 300000;
 const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
-const PROVIDER_THEME_KEYS = ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'golden-cheetah', 'pearl-zebra', 'noir-safari'];
+const PROVIDER_THEME_KEYS = Object.freeze([...window.MinutaThemeCatalog.themeKeys]);
 const PROVIDER_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
@@ -315,6 +315,9 @@ let displayPreferencesPending = false;
 let displayPreferencesSaveTimer = null;
 let displayPreferencesSaveRevision = 0;
 let providerThemeFilter = '';
+let clientPageSettings = { theme_key:'sage', headline_key:'massage-time' };
+let clientPageSettingsOrganizationId = '';
+let clientPageSettingsSaveRevision = 0;
 let serverNotificationTemplates = {};
 let serverNotificationMarks = {};
 let notificationSettingsRemoteAvailable = false;
@@ -1524,8 +1527,7 @@ function applyDisplayPreferences() {
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
-  const themeColors = { sage:'#153c2c', nordic:'#3568e8', warm:'#a9664c', graphite:'#11171b', lavender:'#7660cc', luxury:'#0b0c0e', loft:'#292a28', eco:'#f1ece2', hitech:'#eef4fa', japandi:'#f3efe7', midnight:'#08111f', mono:'#f3f3f0', desert:'#f5e9db', rose:'#f2eaed', botanical:'#202623', burgundy:'#282326', coastal:'#f1f6f7', pearl:'#f4f4f5', butter:'#faf9f3', celadon:'#f0f6f3', 'snow-leopard':'#f4f5f6', 'apricot-tiger':'#fff3e7', 'golden-cheetah':'#fff7ec', 'pearl-zebra':'#f5f2ee', 'noir-safari':'#080705' };
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColors[displayPreferences.theme] || themeColors.sage);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', window.MinutaThemeCatalog.theme(displayPreferences.theme).palette.themeColor);
   renderMobileNavigation();
   applyRoleViewOrder();
 }
@@ -4426,12 +4428,89 @@ function syncScheduleContextHistory(mode = 'replace') {
   window.history[mode === 'push' ? 'pushState' : 'replaceState']({ ...(window.history.state || {}), scheduleContext:true }, '', nextUrl);
 }
 
-function updateProviderClientLinks(organization = null) {
+function normalizeClientPageSettings(value = {}) { return window.MinutaThemeCatalog.normalizeSettings(value); }
+function clientPageSettingsStorageKey(organizationId, userId = currentUser?.id) { return `minuta-provider-client-page-v1:${userId || 'guest'}:${organizationId || 'none'}`; }
+function clientPageSettingsFromMetadata(organizationId) {
+  const source = currentUser?.user_metadata?.provider_client_page_settings_v1;
+  return source?.by_organization?.[organizationId] || null;
+}
+function readLocalClientPageSettings(organizationId) {
+  try { const value = localStorage.getItem(clientPageSettingsStorageKey(organizationId)); return value ? JSON.parse(value) : null; } catch { return null; }
+}
+function writeLocalClientPageSettings(organizationId, settings) {
+  try { localStorage.setItem(clientPageSettingsStorageKey(organizationId), JSON.stringify(settings)); } catch {}
+}
+function settingsForClientLink(organization) {
+  if (organization?.id === clientPageSettingsOrganizationId) return clientPageSettings;
+  return normalizeClientPageSettings(clientPageSettingsFromMetadata(organization?.id) || readLocalClientPageSettings(organization?.id) || {});
+}
+function buildProviderClientUrl(organization = null) {
   const url = new URL('index.html', window.location.href);
   url.search = '';
   url.hash = '';
-  if (organization?.public_booking_enabled && organization.public_slug) url.searchParams.set('org', organization.public_slug);
+  if (organization?.public_booking_enabled && organization.public_slug) {
+    const settings = settingsForClientLink(organization);
+    url.searchParams.set('org', organization.public_slug);
+    url.searchParams.set('theme', settings.theme_key);
+    url.searchParams.set('headline', settings.headline_key);
+  }
+  return url;
+}
+function updateProviderClientLinks(organization = null) {
+  const url = buildProviderClientUrl(organization);
   $$('.provider-client-link').forEach(link => { link.href = url.href; });
+}
+
+function renderClientAppearanceForm() {
+  const form = $('#clientAppearanceForm');
+  const catalog = window.MinutaThemeCatalog;
+  if (!form || !catalog) return;
+  const themeHolder = $('#providerClientThemeOptions');
+  const headlineHolder = $('#clientHeadlineOptions');
+  const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
+  themeHolder.innerHTML = catalog.themes.map(item => `<label class="client-theme-option theme-${item.key}" style="--theme-preview:${preview(item)}"><input type="radio" name="providerClientTheme" value="${item.key}" ${item.key === clientPageSettings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
+  headlineHolder.innerHTML = catalog.headlines.map(item => `<label class="client-headline-option"><input type="radio" name="providerClientHeadline" value="${item.key}" ${item.key === clientPageSettings.headline_key ? 'checked' : ''}><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></label>`).join('');
+  const organization = organizationController?.getActiveOrganization?.() || null;
+  const canEdit = organization?.current_role === 'owner';
+  form.querySelectorAll('input,button[type="submit"]').forEach(control => { control.disabled = !canEdit; });
+  const status = $('#clientAppearanceStatus');
+  if (!status) return;
+  if (!organization) status.textContent = 'Сначала выберите организацию.';
+  else if (!canEdit) status.textContent = 'Изменить оформление может только владелец организации.';
+  else status.textContent = navigator.onLine ? 'Настройка сохранится в аккаунте владельца и добавится в ссылки для клиентов.' : 'Без интернета настройка сохранится на этом устройстве.';
+}
+function loadClientAppearanceSettings(organization = organizationController?.getActiveOrganization?.() || null) {
+  clientPageSettingsOrganizationId = organization?.id || '';
+  clientPageSettings = normalizeClientPageSettings(clientPageSettingsFromMetadata(clientPageSettingsOrganizationId) || readLocalClientPageSettings(clientPageSettingsOrganizationId) || {});
+  renderClientAppearanceForm();
+  updateProviderClientLinks(organization);
+}
+async function saveClientAppearanceSettings(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const organization = organizationController?.getActiveOrganization?.() || null;
+  if (!organization?.id || organization.current_role !== 'owner') { notify('Изменить оформление может только владелец организации'); return; }
+  const form = event.currentTarget;
+  const next = normalizeClientPageSettings({ theme_key:form.querySelector('[name="providerClientTheme"]:checked')?.value, headline_key:form.querySelector('[name="providerClientHeadline"]:checked')?.value });
+  const stored = { ...next, updated_at:Date.now() };
+  clientPageSettings = next;
+  clientPageSettingsOrganizationId = organization.id;
+  writeLocalClientPageSettings(organization.id, stored);
+  updateProviderClientLinks(organization);
+  const status = $('#clientAppearanceStatus');
+  if (!navigator.onLine) { if (status) status.textContent = 'Сохранено на этом устройстве. Синхронизация станет доступна после подключения.'; notify('Оформление сохранено на этом устройстве'); return; }
+  const revision = ++clientPageSettingsSaveRevision;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const previous = currentUser?.user_metadata?.provider_client_page_settings_v1;
+  const metadata = { version:1, by_organization:{ ...(previous?.by_organization || {}), [organization.id]:stored } };
+  if (status) status.textContent = 'Сохраняем в аккаунте…';
+  const { data, error } = await db.auth.updateUser({ data:{ provider_client_page_settings_v1:metadata } });
+  if (revision !== clientPageSettingsSaveRevision || !sessionIsCurrent(userId, generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
+  if (error) { if (status) status.textContent = 'Сохранено на этом устройстве, но не удалось синхронизировать аккаунт.'; notify('Не удалось синхронизировать оформление'); return; }
+  if (data?.user) currentUser = data.user;
+  if (status) status.textContent = 'Сохранено в аккаунте владельца. Новые ссылки откроются с этим оформлением.';
+  notify('Оформление страницы клиента сохранено');
 }
 
 function focusProviderViewHeading(view) {
@@ -11185,7 +11264,7 @@ const organizationController = window.MinutaOrganization.createController({
     }
     resetReportSessionState();
     renderReportDataSourceControl();
-    updateProviderClientLinks(organization);
+    loadClientAppearanceSettings(organization);
     if (clientOrganizationChanged && currentUser && navigator.onLine) void loadBookingSettings();
     if (clientOrganizationChanged) {
       waitlistRequests = [];
@@ -11232,10 +11311,7 @@ freeSlotsController = window.MinutaFreeSlots.createController({
   loadWindows:getFreeSlotsGeneralAvailability,
   getData: () => {
     const organization = organizationController.getActiveOrganization();
-    const bookingUrl = new URL('index.html', window.location.href);
-    bookingUrl.search = '';
-    bookingUrl.hash = '';
-    if (organization?.public_booking_enabled && organization.public_slug) bookingUrl.searchParams.set('org', organization.public_slug);
+    const bookingUrl = buildProviderClientUrl(organization);
     return {
       selectedDate,
       today: businessTodayIso(),
@@ -11740,6 +11816,7 @@ $('#providerPhoneLinkForm').addEventListener('submit', submitProviderPhoneLink);
 $('#providerPhoneLinkInput').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || event.target.value; });
 $('#providerPhoneLinkCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
+$('#clientAppearanceForm')?.addEventListener('submit', saveClientAppearanceSettings);
 $('#bookingBufferEnabled').addEventListener('change', event => { $('#bookingBufferDuration').hidden = !event.target.checked; });
 $$('[data-booking-buffer-minutes]').forEach(button => button.addEventListener('click', () => {
   $('#bookingBufferMinutes').value = button.dataset.bookingBufferMinutes;

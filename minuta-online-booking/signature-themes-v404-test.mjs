@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const css = fs.readFileSync(new URL('./provider-themes-signature.css', import.meta.url), 'utf8');
 const provider = fs.readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
-const script = fs.readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
+const script = fs.readFileSync(new URL('./theme-catalog.js', import.meta.url), 'utf8');
 const worker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 const subscription = fs.readFileSync(new URL('./subscription-pricing.css', import.meta.url), 'utf8');
 
@@ -53,11 +53,11 @@ assert.match(subscription, /\.subscription-plan-card[\s\S]*?border:\s*1px solid 
 assert.match(subscription, /\.subscription-plan-card[\s\S]*?border-radius:\s*var\(--material-radius/, 'Карточки тарифов не наследуют геометрию активного стиля');
 assert.match(subscription, /\.subscription-plan-label[\s\S]*?color:var\(--theme-accent-contrast/, 'Метка рекомендуемого тарифа не гарантирует контраст темы');
 
-assert.match(script, /japandi:'#f1eee6'|japandi:'#f3efe7'/, 'Нет системного theme-color Japandi');
-assert.match(script, /midnight:'#0b1420'|midnight:'#08111f'/, 'Нет системного theme-color Midnight Navy');
-assert.match(script, /mono:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
-assert.match(script, /desert:'#f3e8dc'|desert:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
-assert.match(script, /rose:'#f2e9ec'|rose:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
+assert.match(script, /defineTheme\('japandi'[\s\S]*?themeColor:'#f3efe7'/, 'Нет системного theme-color Japandi');
+assert.match(script, /defineTheme\('midnight'[\s\S]*?themeColor:'#08111f'/, 'Нет системного theme-color Midnight Navy');
+assert.match(script, /defineTheme\('mono'[\s\S]*?themeColor:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
+assert.match(script, /defineTheme\('desert'[\s\S]*?themeColor:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
+assert.match(script, /defineTheme\('rose'[\s\S]*?themeColor:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
 for (const [key, color, group] of [
   ['botanical', '#202623', 'dark natural'],
   ['burgundy', '#282326', 'dark'],
@@ -68,7 +68,7 @@ for (const [key, color, group] of [
   ['snow-leopard', '#f4f5f6', 'featured light'],
   ['apricot-tiger', '#fff3e7', 'featured light natural'],
 ]) {
-  assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
+  assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
 assert.match(provider, /provider-themes-signature\.css\?v=511/, 'Кабинет не подключает Signature Collection v511');
