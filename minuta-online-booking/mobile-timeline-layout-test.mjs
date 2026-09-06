@@ -17,14 +17,15 @@ assert.match(css, /timeline-booking:not\(\.compact\) \.timeline-booking-copy>str
 assert.match(css, /timeline-booking:not\(\.compact\) \.timeline-booking-client \{[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/, 'Данные клиента снова могут занять несколько пересекающихся строк');
 assert.ok(mobileTimeline.includes('.timeline-booking:not(.compact) :is(.timeline-client-visit-wrap,.timeline-client-duration) { display:none!important; }'), 'Базовая компактная раскладка должна уметь скрывать вторичные данные');
 assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{[^}]*display:none!important/, 'Итоговая мобильная раскладка снова показывает дублирующую длительность записи');
-assert.match(css, /Мобильная функциональная чётность:[\s\S]*?timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status\s*\{[^}]*display:inline-flex!important/, 'Итоговая мобильная раскладка не показывает статус записи');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:not\(\.compact\):not\(\.minute-only\) \.timeline-booking-status \{\s*display:none!important;/, 'Служебный статус снова занимает отдельную строку мобильной записи');
 assert.match(css, /timeline-booking:not\(:has\(\.client-badges\)\) \.timeline-booking-copy \{[^}]*padding-right:12px!important;/, 'Карточка без метки клиента теряет полезную ширину под пустой отступ');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-visit \{[^}]*overflow:hidden;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/, 'Подпись «Новый клиент» снова переносится на лишнюю строку');
-assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.client-badges,[\s\S]*?position:absolute!important;[\s\S]*?top:9px;[\s\S]*?right:9px;/, 'VIP и другие метки снова уходят под текст записи');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.client-badges,[\s\S]*?position:static!important;[\s\S]*?float:right;[\s\S]*?max-width:72px;/, 'Компактная метка не обтекается названием записи');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:not\(:has\(\.client-badges\)\) \.timeline-booking-copy>strong \{[^}]*width:100%!important;[^}]*padding-right:0!important;/, 'Запись без меток не использует всю доступную ширину');
-assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges:not\(\.with-labels\)\) \.timeline-booking-copy>strong \{ padding-right:42px!important; \}/, 'Одна компактная метка продолжает отнимать у названия 112 пикселей');
-assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges:not\(\.with-labels\) \.client-badge-more\) \.timeline-booking-copy>strong \{ padding-right:68px!important; \}/, 'Счётчик дополнительных меток не получает достаточный отступ');
-assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges\.with-labels\) \.timeline-booking-copy>strong \{ padding-right:112px!important; \}/, 'Полные текстовые метки потеряли безопасную область');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges\) \.timeline-booking-copy>strong \{ padding-right:0!important; \}/, 'Метка снова отнимает ширину у всех строк названия');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-booking-client-row,[\s\S]*?clear:both;/, 'Время и имя клиента не возвращаются на полную ширину под меткой');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-phone \{\s*display:none!important;/, 'Телефон снова перегружает мобильную ленту');
+assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-visit-wrap \{\s*display:none!important;/, 'Тип клиента снова торчит обрезанной плашкой снизу');
 assert.match(css, /timeline-booking \.timeline-booking-status-icon \{ display:none!important; \}/, 'Галочка завершённого визита снова занимает пустое место в карточке');
 assert.match(provider, /const serviceTitleMarkup = block \? serviceMarkup : `\$\{serviceMarkup\}<wbr><span class="timeline-service-duration"> · \$\{duration\} мин<\/span>`;/, 'Перед длительностью нет безопасной точки переноса, и длинное название переносится раньше свободной границы');
 assert.doesNotMatch(provider, /clientDetailsMarkup[\s\S]{0,700}timeline-client-duration/, 'Длительность записи снова попала в строку данных клиента');
@@ -39,7 +40,9 @@ assert.match(css, /В мобильной ленте высота записи в
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]\.timeline-tight\.compact:not\(\.minute-only\) \.timeline-booking-client-row \{\s*display:none!important;/, 'В записи до часа вторичный текст снова вытесняет временную шкалу');
 assert.match(provider, /const renderedNote = !mobileTimeline && visibleNote/, 'Текст заметки всё ещё попадает в мобильную карточку и обрезает название');
 assert.match(provider, /const timelineClientRow = compactMobile\s*\? ''/, 'В короткой мобильной записи остаётся лишняя строка под названием');
-assert.match(provider, /const renderedStatus = tightMobile \? '' : timelineStatus;/, 'Статус короткой записи всё ещё может вытеснить название');
+assert.match(provider, /const renderedStatus = mobileTimeline \? '' : timelineStatus;/, 'Статус мобильной записи всё ещё может вытеснить название');
+assert.match(provider, /mobileTimeline \? \{ limit:1, showLabels:true \}/, 'Длинная мобильная запись снова выводит несколько конкурирующих меток');
+assert.match(provider, /timeline-booking-copy">\$\{mobileBadgeMarkup\}<strong>/, 'Метка должна стоять перед названием, чтобы текст занял ширину под ней');
 assert.match(provider, /padding:5px 9px!important;overflow:hidden!important/, 'Критические размеры короткой карточки зависят от старого CSS в кэше');
 
 console.log('mobile timeline layout test: ok');

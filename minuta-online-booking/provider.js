@@ -5968,7 +5968,7 @@ function renderTimeline(sourceItems) {
     const badgeDetails = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
     const badgeMarkup = block || !displayPreferences.show_client_labels
       ? ''
-      : clientBadgeMarkup(item.client_phone, tightMobile ? { limit:1, showLabels:false } : mobileTimeline ? { limit:3, showLabels:true } : { limit:1 });
+      : clientBadgeMarkup(item.client_phone, tightMobile ? { limit:1, showLabels:false } : mobileTimeline ? { limit:1, showLabels:true } : { limit:1 });
     const imported = Boolean(item.is_imported_history);
     const timelineStatus = block
       ? ''
@@ -5980,11 +5980,13 @@ function renderTimeline(sourceItems) {
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
     const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup}<wbr><span class="timeline-service-duration"> · ${duration} мин</span>`;
     const renderedNote = !mobileTimeline && visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : '';
-    const renderedStatus = tightMobile ? '' : timelineStatus;
+    const renderedStatus = mobileTimeline ? '' : timelineStatus;
+    const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
+    const desktopBadgeMarkup = mobileTimeline ? '' : badgeMarkup;
     const cardContent = minuteOnly && !mobileTimeline
       ? `<span class="timeline-booking-copy timeline-booking-minute-copy"><strong><span class="timeline-booking-minute-time">${timeRange}</span><span aria-hidden="true"> · </span>${serviceTitleMarkup}</strong></span>`
       : `<span class="timeline-booking-time"><b>${startTime}</b><small>–${endTime}</small></span>
-      <span class="timeline-booking-copy"><strong>${serviceTitleMarkup}</strong>${timelineClientRow}${badgeMarkup}${renderedNote}</span>
+      <span class="timeline-booking-copy">${mobileBadgeMarkup}<strong>${serviceTitleMarkup}</strong>${timelineClientRow}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
     const tight = tightMobile ? ' timeline-tight' : '';
     const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
