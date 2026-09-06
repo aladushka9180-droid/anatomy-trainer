@@ -2813,6 +2813,7 @@
         recognitionStartTimer = null;
         recognitionError = String(event.error || 'unknown');
         const messages = { 'not-allowed':'Нет разрешения на микрофон. Разрешите доступ в настройках браузера или используйте микрофон клавиатуры.', 'service-not-allowed':'Браузер запретил службу распознавания. Используйте микрофон клавиатуры или текстовый ввод.', 'audio-capture':'Микрофон не найден или занят другим приложением.', 'no-speech':'Речь не услышана. Попробуйте ещё раз.', network:'Служба распознавания речи недоступна. Используйте микрофон клавиатуры или текстовый ввод.', 'language-not-supported':'Русский язык не установлен для распознавания на этом устройстве.' };
+        Object.keys(messages).forEach(key => { messages[key] += ` Код: ${key}.`; });
         if (event.error === 'no-speech' && touchDevice) {
           recognitionEpoch += 1;
           openKeyboardDictation('Речь не услышана. Прослушивание остановлено. Повторите попытку или используйте микрофон клавиатуры; проверьте, не выбран ли микрофон Bluetooth-гарнитуры.');
@@ -2824,7 +2825,7 @@
           openKeyboardDictation(`${messages[event.error]} Клавиатура открыта — нажмите её значок микрофона.`);
         } else {
           recordingRequested = false;
-          status.textContent = messages[event.error] || 'Не удалось распознать речь. Попробуйте ещё раз или используйте текст.';
+          status.textContent = messages[event.error] || `Не удалось распознать речь. Код: ${recognitionError}. Попробуйте ещё раз или используйте текст.`;
         }
       };
       currentRecognition.onend = () => {
