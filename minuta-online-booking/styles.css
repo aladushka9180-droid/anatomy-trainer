@@ -7090,7 +7090,13 @@ html.provider-booting .provider-main {
     margin:0;
     transform:none!important;
   }
-  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:has(.client-badges) .timeline-booking-copy>strong { padding-right:112px!important; }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:not(:has(.client-badges)) .timeline-booking-copy>strong {
+    width:100%!important;
+    padding-right:0!important;
+  }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:has(.client-badges:not(.with-labels)) .timeline-booking-copy>strong { padding-right:42px!important; }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:has(.client-badges:not(.with-labels) .client-badge-more) .timeline-booking-copy>strong { padding-right:68px!important; }
+  .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top]:has(.client-badges.with-labels) .timeline-booking-copy>strong { padding-right:112px!important; }
   .provider-body[data-provider-theme] .timeline-booking[data-mobile-timeline-top] .client-badges.with-labels .client-badge {
     width:auto!important;
     min-height:23px;
