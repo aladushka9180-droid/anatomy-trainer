@@ -139,6 +139,9 @@ try {
   const ownerErrors = [];
   owner.on('pageerror', error => ownerErrors.push(error.message));
   await owner.goto(`${baseUrl}/provider?org=alpha`);
+  assert.equal(await owner.locator('#providerClientThemeChooser').getAttribute('open'), null, 'Full theme catalog must be collapsed initially');
+  await owner.locator('#providerClientThemeChooser > summary').click();
+  assert.equal(await owner.locator('#providerClientThemeChooser').evaluate(element => element.open), true, 'Owner theme catalog must open on demand');
   await owner.locator('input[name="providerClientTheme"][value="noir-safari"]').check();
   await owner.locator('input[name="providerClientHeadline"][value="care"]').check();
   await owner.locator('#clientAppearanceForm button[type="submit"]').click();

@@ -205,6 +205,7 @@ const JOURNAL_MODE_KEY = 'massage-journal-mode-v6';
 const PROVIDER_LAYOUT_KEYS = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
 const PROVIDER_THEME_KEYS = Object.freeze([...window.MinutaThemeCatalog.themeKeys]);
 const PROVIDER_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
+const CLIENT_THEME_FILTER_KEYS = ['featured', 'light', 'dark', 'natural', 'all'];
 const PROVIDER_TEXT_SCALE_KEYS = ['default', 'comfortable', 'large'];
 const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'bookings', label:'Записи', icon:'grid' },
@@ -315,6 +316,7 @@ let displayPreferencesPending = false;
 let displayPreferencesSaveTimer = null;
 let displayPreferencesSaveRevision = 0;
 let providerThemeFilter = '';
+let clientThemeFilter = '';
 let clientPageSettings = { theme_key:'sage', headline_key:'massage-time' };
 let clientPageSettingsOrganizationId = '';
 let clientPageSettingsSaveRevision = 0;
@@ -2156,7 +2158,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=515#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=516#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3971,7 +3973,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=515');
+    worker = new Worker('./report-worker.js?v=516');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4465,6 +4467,62 @@ function updateProviderClientLinks(organization = null) {
   $$('.provider-client-link').forEach(link => { link.href = url.href; });
 }
 
+function clientAppearanceDraftFromForm() {
+  const form = $('#clientAppearanceForm');
+  if (!form) return clientPageSettings;
+  return normalizeClientPageSettings({
+    theme_key:form.querySelector('[name="providerClientTheme"]:checked')?.value || clientPageSettings.theme_key,
+    headline_key:form.querySelector('[name="providerClientHeadline"]:checked')?.value || clientPageSettings.headline_key
+  });
+}
+function renderClientAppearancePreview(settings = clientAppearanceDraftFromForm()) {
+  const catalog = window.MinutaThemeCatalog;
+  const preview = $('#clientAppearancePreview');
+  if (!catalog || !preview) return;
+  const normalized = normalizeClientPageSettings(settings);
+  const theme = catalog.theme(normalized.theme_key);
+  const headline = catalog.headline(normalized.headline_key);
+  if (!theme || !headline) return;
+  preview.dataset.previewTheme = theme.key;
+  Object.entries({
+    bg:theme.palette.bg,
+    surface:theme.palette.surface,
+    surfaceAlt:theme.palette.surfaceAlt,
+    ink:theme.palette.ink,
+    muted:theme.palette.muted,
+    line:theme.palette.line,
+    accent:theme.palette.accent,
+    accentSoft:theme.palette.accentSoft,
+    contrast:theme.palette.contrast,
+    pattern:theme.palette.pattern
+  }).forEach(([name,value]) => preview.style.setProperty(`--client-preview-${name}`, value));
+  $('#clientAppearanceThemeName').textContent = theme.label;
+  $('#clientAppearanceThemeDescription').textContent = theme.description;
+  $('#clientAppearancePreviewHeadline').textContent = headline.label;
+}
+function applyClientAppearanceThemeFilter(nextFilter, { focus=false } = {}) {
+  const holder = $('#providerClientThemeOptions');
+  if (!holder) return;
+  const filter = CLIENT_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'featured';
+  clientThemeFilter = filter;
+  let visibleCount = 0;
+  let featuredCount = 0;
+  holder.querySelectorAll('.client-theme-option').forEach(option => {
+    const groups = String(option.dataset.themeGroups || '').split(/\s+/).filter(Boolean);
+    const matches = filter === 'all' || groups.includes(filter);
+    const visible = matches && (filter !== 'featured' || featuredCount++ < 8);
+    option.hidden = !visible;
+    if (visible) visibleCount += 1;
+  });
+  $('#clientAppearanceForm')?.querySelectorAll('[data-client-theme-filter]').forEach(button => {
+    const active = button.dataset.clientThemeFilter === filter;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+    if (active && focus) button.focus();
+  });
+  const status = $('#clientThemeFilterStatus');
+  if (status) status.textContent = filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
+}
 function renderClientAppearanceForm() {
   const form = $('#clientAppearanceForm');
   const catalog = window.MinutaThemeCatalog;
@@ -4472,8 +4530,13 @@ function renderClientAppearanceForm() {
   const themeHolder = $('#providerClientThemeOptions');
   const headlineHolder = $('#clientHeadlineOptions');
   const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
-  themeHolder.innerHTML = catalog.themes.map(item => `<label class="client-theme-option theme-${item.key}" style="--theme-preview:${preview(item)}"><input type="radio" name="providerClientTheme" value="${item.key}" ${item.key === clientPageSettings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
+  themeHolder.innerHTML = catalog.themes.map(item => `<label class="client-theme-option theme-${item.key}" data-theme-groups="${item.groups.join(' ')}" style="--theme-preview:${preview(item)}"><input type="radio" name="providerClientTheme" value="${item.key}" ${item.key === clientPageSettings.theme_key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('');
   headlineHolder.innerHTML = catalog.headlines.map(item => `<label class="client-headline-option"><input type="radio" name="providerClientHeadline" value="${item.key}" ${item.key === clientPageSettings.headline_key ? 'checked' : ''}><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></label>`).join('');
+  const selectedTheme = catalog.theme(clientPageSettings.theme_key);
+  if (!clientThemeFilter) clientThemeFilter = selectedTheme?.groups.includes('featured') ? 'featured' : 'all';
+  else if (clientThemeFilter !== 'all' && !selectedTheme?.groups.includes(clientThemeFilter)) clientThemeFilter = 'all';
+  applyClientAppearanceThemeFilter(clientThemeFilter);
+  renderClientAppearancePreview(clientPageSettings);
   const organization = organizationController?.getActiveOrganization?.() || null;
   const canEdit = organization?.current_role === 'owner';
   form.querySelectorAll('input,button[type="submit"]').forEach(control => { control.disabled = !canEdit; });
@@ -11977,7 +12040,17 @@ $('#providerPhoneLinkForm').addEventListener('submit', submitProviderPhoneLink);
 $('#providerPhoneLinkInput').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || event.target.value; });
 $('#providerPhoneLinkCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#bookingPolicyForm').addEventListener('submit', saveBookingPolicy);
-$('#clientAppearanceForm')?.addEventListener('submit', saveClientAppearanceSettings);
+const clientAppearanceForm = $('#clientAppearanceForm');
+clientAppearanceForm?.addEventListener('submit', saveClientAppearanceSettings);
+clientAppearanceForm?.addEventListener('click', event => {
+  const filter = event.target.closest('[data-client-theme-filter]');
+  if (!filter) return;
+  applyClientAppearanceThemeFilter(filter.dataset.clientThemeFilter, { focus:true });
+});
+clientAppearanceForm?.addEventListener('change', event => {
+  if (!event.target.matches('[name="providerClientTheme"],[name="providerClientHeadline"]')) return;
+  renderClientAppearancePreview(clientAppearanceDraftFromForm());
+});
 $('#bookingBufferEnabled').addEventListener('change', event => { $('#bookingBufferDuration').hidden = !event.target.checked; });
 $$('[data-booking-buffer-minutes]').forEach(button => button.addEventListener('click', () => {
   $('#bookingBufferMinutes').value = button.dataset.bookingBufferMinutes;
