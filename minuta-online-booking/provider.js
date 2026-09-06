@@ -1302,6 +1302,12 @@ function normalizeProviderViewOrder(value) {
   [...(Array.isArray(value)?value:[]),...allowed].forEach(key=>{if(allowed.includes(key)&&!result.includes(key))result.push(key);});
   return result;
 }
+function mergeVisibleRoleViewOrder(baseOrder, selectedKeys, visibleOrder) {
+  const base=normalizeProviderViewOrder(baseOrder),selected=new Set(normalizeMobileNavigation(selectedKeys)),visible=[];
+  (Array.isArray(visibleOrder)?visibleOrder:[]).forEach(key=>{if(base.includes(key)&&!selected.has(key)&&!visible.includes(key))visible.push(key);});
+  const movable=new Set(visible),queue=[...visible];
+  return base.map(key=>movable.has(key)?queue.shift():key);
+}
 function normalizeRoleNavigation(value, legacy) {
   const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
   return Object.fromEntries(PROVIDER_ROLE_KEYS.map(role=>[role,normalizeMobileNavigation(source[role]??(Array.isArray(legacy)?legacy:DEFAULT_MOBILE_NAV_BY_ROLE[role]))]));
@@ -1593,7 +1599,8 @@ function renderDisplayPreferencesForm() {
   });
   renderMobileNavigationPreview(selected);
   const orderHolder=$('#providerRoleViewOrder');
-  if(orderHolder)orderHolder.innerHTML=viewOrderForRole(role).map((key,index)=>{const item=PROVIDER_MOBILE_NAV_ITEMS.find(entry=>entry.key===key);return `<div data-role-view-order="${key}"><span>${uiIcon(item.icon)}<strong>${escapeHtml(item.label)}</strong></span><span><button type="button" data-move-role-view="up" aria-label="Поднять ${escapeHtml(item.label)}" ${index===0?'disabled':''}>↑</button><button type="button" data-move-role-view="down" aria-label="Опустить ${escapeHtml(item.label)}" ${index===PROVIDER_MOBILE_NAV_ITEMS.length-1?'disabled':''}>↓</button></span></div>`;}).join('');
+  const moreOrder=viewOrderForRole(role).filter(key=>!selected.includes(key));
+  if(orderHolder)orderHolder.innerHTML=moreOrder.map((key,index)=>{const item=PROVIDER_MOBILE_NAV_ITEMS.find(entry=>entry.key===key);return `<div data-role-view-order="${key}"><span>${uiIcon(item.icon)}<strong>${escapeHtml(item.label)}</strong></span><span><button type="button" data-move-role-view="up" aria-label="Поднять ${escapeHtml(item.label)}" ${index===0?'disabled':''}>↑</button><button type="button" data-move-role-view="down" aria-label="Опустить ${escapeHtml(item.label)}" ${index===moreOrder.length-1?'disabled':''}>↓</button></span></div>`;}).join('');
 }
 function providerAppIsInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -1739,7 +1746,8 @@ async function toggleProviderFullscreen() {
 function displayPreferencesFromForm() {
   const role=editedProviderRole();
   const roleNavigation={...displayPreferences.mobile_nav_by_role,[role]:$$('[data-mobile-nav-slot]').map(select=>select.value)};
-  const roleOrder={...displayPreferences.view_order_by_role,[role]:[...($('#providerRoleViewOrder')?.querySelectorAll('[data-role-view-order]')||[])].map(row=>row.dataset.roleViewOrder)};
+  const visibleOrder=[...($('#providerRoleViewOrder')?.querySelectorAll('[data-role-view-order]')||[])].map(row=>row.dataset.roleViewOrder);
+  const roleOrder={...displayPreferences.view_order_by_role,[role]:mergeVisibleRoleViewOrder(viewOrderForRole(role),roleNavigation[role],visibleOrder)};
   return normalizeDisplayPreferences({
     layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
@@ -2143,7 +2151,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=503#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=504#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3958,7 +3966,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=503');
+    worker = new Worker('./report-worker.js?v=504');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {

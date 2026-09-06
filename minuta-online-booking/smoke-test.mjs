@@ -360,6 +360,20 @@ assert.match(provider, /provider_display_preferences/, 'Оформление к�
 assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
 assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"[\s\S]*value="luxury"[\s\S]*value="loft"[\s\S]*value="eco"[\s\S]*value="hitech"[\s\S]*value="japandi"[\s\S]*value="midnight"[\s\S]*value="mono"[\s\S]*value="desert"[\s\S]*value="rose"/, 'В настройках доступны не все базовые темы');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
+assert.match(providerHtml, /id="showBookingClientType"[\s\S]{0,400}Постоянный — после 10 завершённых сеансов за 30 дней; отмены и неявки не учитываются\./, 'Правило постоянного клиента находится вне настройки «Тип клиента»');
+assert.doesNotMatch(providerHtml, /class="provider-display-hint"[^>]*>«Постоянный клиент»/, 'Подсказка о постоянном клиенте осталась отдельным несвязанным блоком');
+assert.match(providerHtml, /class="provider-display-save-state"[\s\S]{0,240}id="providerDisplayStatus"/, 'Статус автосохранения оформления не находится в шапке формы');
+assert.match(provider, /const moreOrder=viewOrderForRole\(role\)\.filter\(key=>!selected\.includes\(key\)\)/, 'Редактор меню «Разделы» показывает пункты нижней панели');
+assert.match(provider, /function mergeVisibleRoleViewOrder\(baseOrder, selectedKeys, visibleOrder\)/, 'Сохранение порядка скрытых пунктов нижней панели не защищено');
+const navigationFunctionSource = ['normalizeMobileNavigation', 'normalizeProviderViewOrder', 'mergeVisibleRoleViewOrder'].map(name => {
+  const source = provider.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`))?.[0];
+  assert.ok(source, `Не удалось извлечь ${name} для проверки`);
+  return source;
+}).join('\n');
+const navigationKeys = ['bookings', 'notifications', 'analytics', 'schedule', 'clients', 'services', 'organization', 'portfolio', 'waitlist', 'settings'];
+const mergeVisibleRoleViewOrder = Function(`const PROVIDER_MOBILE_NAV_ITEMS=${JSON.stringify(navigationKeys.map(key => ({ key })))}; const DEFAULT_MOBILE_NAV=${JSON.stringify(navigationKeys.slice(0, 4))}; ${navigationFunctionSource}; return mergeVisibleRoleViewOrder;`)();
+assert.deepEqual(mergeVisibleRoleViewOrder(navigationKeys, navigationKeys.slice(0, 4), ['clients', 'organization', 'services', 'portfolio', 'waitlist', 'settings']), ['bookings', 'notifications', 'analytics', 'schedule', 'clients', 'organization', 'services', 'portfolio', 'waitlist', 'settings'], 'Стрелки не меняют порядок только пунктов меню «Разделы»');
+assert.deepEqual(mergeVisibleRoleViewOrder(navigationKeys, ['bookings', 'notifications', 'analytics', 'clients'], ['services', 'organization', 'portfolio', 'waitlist', 'settings']), navigationKeys, 'Смена быстрой вкладки повреждает полный порядок разделов');
 const visitClassifierSource = provider.match(/function classifyVisitHistory\(referenceTimestamp, completedTimestamps, currentCompleted = false\) \{[\s\S]*?\n\}/)?.[0];
 assert.ok(visitClassifierSource, 'Не удалось извлечь расчёт номера визита для проверки');
 const classifyVisitHistory = Function(`const VISIT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; const REGULAR_CLIENT_COMPLETED_VISITS = 10; ${visitClassifierSource}; return classifyVisitHistory;`)();
