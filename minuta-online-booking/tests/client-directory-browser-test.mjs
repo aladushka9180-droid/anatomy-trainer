@@ -7,7 +7,8 @@ try {
   for(const width of [390,1280]) {
     const page=await browser.newPage({viewport:{width,height:850}});
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-    await page.setContent('<div id="tools"></div>');
+    await page.setContent('<body class="provider-body" data-provider-theme="snow-leopard" data-provider-layout="linear"><section class="panel clients-directory"><div id="tools"></div></section></body>');
+    for (const file of ['styles.css','provider-themes-signature.css']) await page.addStyleTag({content:readFileSync(new URL(`../${file}`,import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../client-directory.css',import.meta.url),'utf8')});
     await page.addScriptTag({content:readFileSync(new URL('../client-directory.js',import.meta.url),'utf8')});
     await page.evaluate(()=>{
