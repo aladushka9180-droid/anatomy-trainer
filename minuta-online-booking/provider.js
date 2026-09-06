@@ -5947,21 +5947,41 @@ function clientCompletedVisits(client, now = new Date()) {
   });
 }
 
-function bookingClientOverviewMarkup(item) {
+function clientNextBookingAfter(client, currentItem, now = new Date()) {
+  const currentStart = new Date(`${currentItem?.booking_date || ''}T${String(currentItem?.booking_time || '').slice(0,8)}`);
+  const threshold = Number.isNaN(currentStart.getTime()) || currentStart < now ? now : currentStart;
+  return (client?.bookings || [])
+    .filter(candidate => {
+      if (String(candidate.id || '') === String(currentItem?.id || '')) return false;
+      if (candidate.status === 'cancelled' || bookingOutcome(candidate).visit_status !== 'scheduled') return false;
+      const candidateStart = new Date(`${candidate.booking_date}T${String(candidate.booking_time).slice(0,8)}`);
+      return !Number.isNaN(candidateStart.getTime()) && candidateStart > threshold;
+    })
+    .sort((left, right) => `${left.booking_date}T${left.booking_time}`.localeCompare(`${right.booking_date}T${right.booking_time}`))[0] || null;
+}
+
+function bookingClientOverviewMarkup(item, now = new Date()) {
   const phone = normalizePhone(item?.client_phone);
   const client = buildClients().find(entry => entry.phone === phone);
   if (!client) return '';
-  const completedVisits = clientCompletedVisits(client);
+  const completedVisits = clientCompletedVisits(client, now);
   const visits = Math.max(completedVisits.length, Number(client.imported?.visit_count || 0));
   const spent = completedVisits.reduce((sum, booking) => sum + Math.max(0, Number(bookingOutcome(booking).amount_rub || 0)), 0);
-  const upcoming = clientUpcoming(client);
+  const upcoming = clientNextBookingAfter(client, item, now);
   const lastVisit = [...completedVisits].sort((left, right) => `${right.booking_date}${right.booking_time}`.localeCompare(`${left.booking_date}${left.booking_time}`))[0];
   const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
-  const lastVisitText = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' }) : 'Нет';
-  const upcomingText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
+  const lastVisitText = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' }) : '';
+  const upcomingText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })} · ${String(upcoming.booking_time).slice(0,5)}` : '';
   const favorites = clientFavoriteServiceFacts(completedVisits).map(service => service.name);
-  return `<section class="booking-client-overview" aria-label="Сведения о клиенте">
-    <div class="booking-client-overview-stats"><article><small>Ближайшая запись</small><strong>${escapeHtml(upcomingText)}</strong><span>${escapeHtml(upcoming ? serviceName(upcoming.services?.name || 'Услуга') : 'Будущих записей нет')}</span></article><article><small>Визитов</small><strong>${visits}</strong></article><article><small>Получено</small><strong>${money(spent)}</strong></article><article><small>Последний визит</small><strong>${escapeHtml(lastVisitText)}</strong></article></div>
+  const hasHistory = visits > 0 || spent > 0 || Boolean(lastVisitDate);
+  const historyMarkup = hasHistory
+    ? `<article class="booking-client-history"><small>История клиента</small><strong>${visits} ${reportVisitWord(visits)} · ${money(spent)}</strong><span>Последний визит: ${escapeHtml(lastVisitText || 'дата неизвестна')}</span></article>`
+    : '<article class="booking-client-history is-empty"><small>О клиенте</small><strong>Первый визит</strong><span>Истории посещений пока нет</span></article>';
+  const upcomingMarkup = upcoming
+    ? `<article class="booking-client-next"><small>Следующая запись</small><strong>${escapeHtml(upcomingText)}</strong><span>${escapeHtml(serviceName(upcoming.services?.name || 'Услуга'))}</span></article>`
+    : '<article class="booking-client-next is-empty"><small>Следующая запись</small><strong>Не запланирована</strong><span>После этой записи новых визитов нет</span></article>';
+  return `<section class="booking-client-overview${hasHistory ? '' : ' is-first-visit'}" aria-label="Сведения о клиенте">
+    <div class="booking-client-overview-stats">${historyMarkup}${upcomingMarkup}</div>
     ${favorites.length ? `<div class="booking-client-overview-favorites"><small>Любимые услуги</small><span>${favorites.map(name => `<b>${escapeHtml(name)}</b>`).join('')}</span></div>` : ''}
   </section>`;
 }
