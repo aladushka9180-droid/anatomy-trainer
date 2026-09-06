@@ -8775,7 +8775,6 @@ async function handleSession(session) {
   groupBookingsController.reset();
   paymentController.reset();
   notificationCenterController.reset();
-  providerFeedbackController.reset();
   clientFieldsController.setOrganization(null);
   clientImportController.setOrganization(null);
   organizationController.reset();
@@ -11015,6 +11014,10 @@ const organizationController = window.MinutaOrganization.createController({
   onActiveOrganizationChange: organization => {
     const nextClientOrganizationId = organization?.id || '';
     const clientOrganizationChanged = nextClientOrganizationId !== activeClientOrganizationId;
+    if (clientOrganizationChanged) {
+      providerFeedbackController.reset();
+      if (currentUser) void providerFeedbackController.refreshAvailability();
+    }
     if (clientOrganizationChanged) freeSlotsController?.invalidateScope();
     activeClientOrganizationId = nextClientOrganizationId;
     if (clientOrganizationChanged) bookingSeriesCancellationRevision += 1;
@@ -11072,6 +11075,7 @@ providerFeedbackController = window.MinutaProviderFeedback?.createController ? w
   getOrganization:() => organizationController.getActiveOrganization()
 }) : providerFeedbackController;
 providerFeedbackController.bind();
+window.addEventListener('minuta:provider-session-reset', () => providerFeedbackController.reset());
 freeSlotsController = window.MinutaFreeSlots.createController({
   root: $('#freeSlotsDialog'),
   notify,

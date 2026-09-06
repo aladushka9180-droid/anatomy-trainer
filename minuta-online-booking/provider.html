@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#153c2c">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: blob: https:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
   <meta name="description" content="Кабинет исполнителя онлайн-записи «Массаж в Ижевске».">
   <meta property="og:title" content="Кабинет исполнителя — Массаж в Ижевске">
   <meta property="og:description" content="Управляйте услугами, расписанием и записями клиентов.">
@@ -1278,8 +1278,12 @@
       <fieldset class="product-feedback-kind"><legend class="sr-only">Тип сообщения</legend><label><input id="productFeedbackKindProblem" name="productFeedbackKind" type="radio" value="problem" checked><span>Проблема</span></label><label><input name="productFeedbackKind" type="radio" value="suggestion"><span>Предложение</span></label></fieldset>
       <label><span id="productFeedbackMessageLabel">Что произошло?</span><textarea id="productFeedbackMessage" rows="5" minlength="10" maxlength="4000" placeholder="Коротко опишите действие и что пошло не так" required></textarea></label>
       <label id="productFeedbackExpectedField"><span>Что вы ожидали?</span><textarea id="productFeedbackExpected" rows="3" maxlength="2000" placeholder="Необязательно, но поможет быстрее разобраться"></textarea></label>
-      <label class="product-feedback-file"><span>Снимок экрана</span><input id="productFeedbackScreenshot" type="file" accept="image/jpeg,image/png,image/webp"><small id="productFeedbackFileStatus">Необязательно · PNG, JPEG или WebP до 12 МБ</small></label>
-      <p class="product-feedback-privacy">Перед отправкой закройте на снимке телефоны и другие личные данные клиентов. Мы автоматически добавим только страницу, версию сайта и общий тип устройства — без записей, паролей и токенов.</p>
+      <label class="product-feedback-file" id="productFeedbackFileField"><span id="productFeedbackAttachmentLabel">Фото или видео</span><input id="productFeedbackScreenshot" type="file" accept="image/jpeg,image/png,image/webp"><small id="productFeedbackFileStatus">Необязательно. Доступные форматы и размеры определяются сервером.</small></label>
+      <div class="product-feedback-attachments" id="productFeedbackAttachments"></div>
+      <small class="product-feedback-draft" id="productFeedbackDraftStatus" aria-live="polite"></small>
+      <progress id="productFeedbackUploadProgress" aria-label="Отправка вложений" hidden></progress>
+      <p class="product-feedback-upload-status" id="productFeedbackUploadStatus" role="status"></p>
+      <p class="product-feedback-privacy">Перед отправкой скройте на фото и видео телефоны и другие личные данные клиентов. Мы автоматически добавим только страницу, версию сайта и общий тип устройства — без записей, паролей и токенов.</p>
       <p class="form-error" id="productFeedbackError" role="alert" hidden></p>
       <div class="product-feedback-actions"><button class="secondary-button" type="button" data-close-product-feedback>Отмена</button><button class="primary" id="productFeedbackSubmit" type="submit">Отправить</button></div>
     </form>
@@ -1511,6 +1515,7 @@
   <script src="notification-center.js?v=461" defer></script>
   <script src="client-fields.js?v=461" defer></script>
   <script src="client-import.js?v=461" defer></script>
+  <script src="provider-feedback-media-v3.js?v=461" defer></script>
   <script src="provider-feedback.js?v=461" defer></script>
   <script src="batch-bookings.js?v=461" defer></script>
   <script src="booking-policy-management.js?v=461" defer></script>

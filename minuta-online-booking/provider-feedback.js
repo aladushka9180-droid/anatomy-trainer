@@ -1,8 +1,6 @@
 (function (global) {
   'use strict';
 
-  const BUCKET = 'product-feedback';
-  const INPUT_LIMIT = 12 * 1024 * 1024;
   const OUTPUT_LIMIT = 4 * 1024 * 1024;
   const MAX_EDGE = 1600;
 
@@ -57,144 +55,157 @@
     return `${device}; ${String(platform).slice(0, 80)}; ${innerWidth}x${innerHeight}`.slice(0, 300);
   }
 
-  function createController({ db, $, notify, requireWrites, getCurrentUser, getOrganization }) {
-    let available = false;
-    let bound = false;
-    let availabilityRevision = 0;
-
+  function createTextController({ db, $, notify, requireWrites, getCurrentUser, getOrganization }) {
+    let available = false, bound = false, busy = false, epoch = 0, revision = 0, owner = '';
+    const unresolved = new Set();
+    const scope = () => `${getCurrentUser()?.id || ''}:${getOrganization?.()?.id || 'personal'}`;
+    const storageKey = value => `minuta-feedback-text-unconfirmed:${value}`;
+    const current = token => token.epoch === epoch && token.owner === owner && owner === scope();
     function setAvailable(value) {
       available = Boolean(value);
       document.querySelectorAll('[data-open-product-feedback]').forEach(button => { button.hidden = !available; });
     }
-
     function setError(message = '') {
-      const error = $('#productFeedbackError');
-      error.textContent = message;
-      error.hidden = !message;
+      $('#productFeedbackError').textContent = message;
+      $('#productFeedbackError').hidden = !message;
     }
-
+    function isUnresolved() {
+      try { if (sessionStorage.getItem(storageKey(owner))) unresolved.add(owner); } catch { unresolved.add(owner); }
+      return unresolved.has(owner);
+    }
+    function syncLock() {
+      const blocked = busy || isUnresolved();
+      $('#productFeedbackForm').querySelectorAll('input,textarea').forEach(node => { node.disabled = blocked; });
+      $('#productFeedbackSubmit').disabled = blocked;
+      $('#productFeedbackSubmit').textContent = busy ? 'Отправляем…' : 'Отправить';
+    }
     function updateType() {
-      const problem = $('#productFeedbackKindProblem').checked;
-      $('#productFeedbackExpectedField').hidden = !problem;
-      $('#productFeedbackMessageLabel').textContent = problem ? 'Что произошло?' : 'Что хотите предложить?';
-      $('#productFeedbackMessage').placeholder = problem
-        ? 'Коротко опишите действие и что пошло не так'
-        : 'Расскажите, что сделало бы работу удобнее';
+      $('#productFeedbackExpectedField').hidden = true;
+      $('#productFeedbackMessageLabel').textContent = 'Расскажите подробнее';
+      $('#productFeedbackMessage').placeholder = 'Что произошло или что хотите улучшить?';
     }
-
     function resetForm() {
+      ++epoch; owner = scope(); busy = false;
       $('#productFeedbackForm').reset();
-      $('#productFeedbackKindProblem').checked = true;
-      $('#productFeedbackForm').hidden = false;
-      $('#productFeedbackSuccess').hidden = true;
-      $('#productFeedbackFileStatus').textContent = 'Необязательно · PNG, JPEG или WebP до 12 МБ';
-      setError();
-      updateType();
+      $('#productFeedbackForm').hidden = false; $('#productFeedbackSuccess').hidden = true;
+      $('#productFeedbackFileField').hidden = true;
+      $('#productFeedbackAttachments').replaceChildren();
+      $('#productFeedbackUploadProgress').hidden = true;
+      $('#productFeedbackUploadStatus').textContent = '';
+      $('#productFeedbackDraftStatus').textContent = 'Сейчас доступно текстовое обращение без вложений.';
+      setError(isUnresolved() ? 'Результат предыдущей отправки не подтверждён. Повтор заблокирован: проверьте обращение перед новой отправкой.' : '');
+      updateType(); syncLock();
     }
-
     function open() {
       if (!available || !getCurrentUser()) return;
-      resetForm();
+      if (owner !== scope() || !owner) resetForm();
       $('#productFeedbackDialog').showModal();
-      setTimeout(() => $('#productFeedbackMessage').focus(), 0);
     }
-
-    function close() {
-      $('#productFeedbackDialog').close();
-    }
-
     async function refreshAvailability() {
-      const revision = ++availabilityRevision;
+      const token = ++revision, actorScope = scope();
       if (!getCurrentUser() || !navigator.onLine) { setAvailable(false); return; }
-      const { data, error } = await db.rpc('get_minuta_feedback_capability');
-      if (revision !== availabilityRevision) return;
-      setAvailable(!error && data === true);
+      try {
+        const result = await db.rpc('get_minuta_feedback_capability');
+        if (token === revision && actorScope === scope()) setAvailable(!result.error && result.data === true);
+      } catch { if (token === revision && actorScope === scope()) setAvailable(false); }
     }
-
     async function submit(event) {
       event.preventDefault();
-      if (!available || !getCurrentUser() || !requireWrites()) return;
-      const kind = $('#productFeedbackKindProblem').checked ? 'problem' : 'suggestion';
+      if (busy || isUnresolved() || !available || !getCurrentUser() || owner !== scope() || !navigator.onLine || !requireWrites()) return;
       const message = $('#productFeedbackMessage').value.trim();
-      const expected = kind === 'problem' ? $('#productFeedbackExpected').value.trim() : '';
-      const file = $('#productFeedbackScreenshot').files?.[0] || null;
-      if (message.length < 10) { setError('Добавьте немного подробностей — хотя бы 10 символов.'); return; }
-      if (file && (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > INPUT_LIMIT)) {
-        setError('Выберите PNG, JPEG или WebP размером до 12 МБ.');
-        return;
+      if (message.length < 10 || message.length > 4000) { setError('Напишите от 10 до 4000 символов.'); return; }
+      const token = { epoch, owner }, key = storageKey(owner);
+      const payload = { p_organization:getOrganization?.()?.id || null,
+        p_kind:$('#productFeedbackKindProblem').checked ? 'problem' : 'suggestion', p_message:message,
+        p_expected_result:null, p_page_path:location.pathname, p_client_version:clientVersion(),
+        p_device_summary:deviceSummary(), p_screenshot_path:null };
+      // v109 has no request key: a lost reply must not silently become a second INSERT.
+      try { sessionStorage.setItem(key,'1'); } catch {
+        setError('Браузер не разрешил сохранить состояние отправки. Обращение не отправлено.'); return;
       }
-
-      const button = $('#productFeedbackSubmit');
-      const original = button.textContent;
-      let screenshotPath = '';
-      button.disabled = true;
-      button.textContent = 'Отправляем…';
-      setError();
+      unresolved.add(token.owner); busy = true; setError(); syncLock();
       try {
-        if (file) {
-          const blob = await prepareScreenshot(file);
-          screenshotPath = `${getCurrentUser().id}/${createId()}.webp`;
-          const { error } = await db.storage.from(BUCKET).upload(screenshotPath, blob, { contentType:'image/webp', cacheControl:'31536000', upsert:false });
-          if (error) throw error;
+        const result = await db.rpc('create_minuta_feedback', payload);
+        const refused = result.error && new Set(['42501:authentication_required','42501:feedback_organization_denied',
+          '22023:invalid_feedback','P0001:feedback_daily_limit']).has(`${result.error.code}:${result.error.message}`);
+        const number = result.data?.request_number;
+        const ack = !result.error && result.data && !Array.isArray(result.data)
+          && (typeof number === 'string' || (typeof number === 'number' && Number.isSafeInteger(number)))
+          && /^[1-9][0-9]*$/.test(String(number)) && BigInt(number) <= 9223372036854775807n;
+        if (refused || ack) {
+          try { sessionStorage.removeItem(key); unresolved.delete(token.owner); } catch {}
         }
-        const organization = getOrganization?.();
-        const { data, error } = await db.rpc('create_minuta_feedback', {
-          p_organization:organization?.id || null,
-          p_kind:kind,
-          p_message:message,
-          p_expected_result:expected || null,
-          p_page_path:location.pathname,
-          p_client_version:clientVersion(),
-          p_device_summary:deviceSummary(),
-          p_screenshot_path:screenshotPath || null
-        });
-        if (error) throw error;
-        $('#productFeedbackRequestNumber').textContent = String(data?.request_number || '—');
-        $('#productFeedbackForm').hidden = true;
-        $('#productFeedbackSuccess').hidden = false;
+        if (!current(token)) return;
+        if (refused) { setError('Сервер отклонил обращение. Текст сохранён — исправьте его и отправьте снова.'); return; }
+        if (!ack) throw new Error('unconfirmed');
+        $('#productFeedbackRequestNumber').textContent = String(result.data.request_number);
+        $('#productFeedbackForm').hidden = true; $('#productFeedbackSuccess').hidden = false;
         notify('Сообщение отправлено');
-      } catch (error) {
-        if (screenshotPath) await db.storage.from(BUCKET).remove([screenshotPath]);
-        const code = `${error?.code || ''} ${error?.message || ''}`;
-        setError(/image_too_large/.test(code)
-          ? 'Снимок не удалось уменьшить до 4 МБ. Выберите другое изображение.'
-          : 'Не удалось отправить сообщение. Проверьте интернет и попробуйте ещё раз.');
-      } finally {
-        button.disabled = false;
-        button.textContent = original;
-      }
+      } catch {
+        if (current(token)) setError('Результат не подтверждён. Не отправляйте повторно: проверьте обращение перед новой отправкой.');
+      } finally { if (current(token)) { busy = false; syncLock(); } }
     }
-
     function bind() {
-      if (bound) return;
-      bound = true;
+      if (bound) return; bound = true;
       document.addEventListener('click', event => {
         if (event.target.closest('[data-open-product-feedback]')) open();
-        if (event.target.closest('[data-close-product-feedback]')) close();
-        if (event.target.closest('[data-new-product-feedback]')) resetForm();
+        if (event.target.closest('[data-close-product-feedback]')) $('#productFeedbackDialog').close();
+        if (event.target.closest('[data-new-product-feedback]') && !busy && !isUnresolved()) resetForm();
       });
       document.querySelectorAll('input[name="productFeedbackKind"]').forEach(input => input.addEventListener('change', updateType));
-      $('#productFeedbackScreenshot').addEventListener('change', event => {
-        const file = event.target.files?.[0];
-        $('#productFeedbackFileStatus').textContent = file ? file.name : 'Необязательно · PNG, JPEG или WebP до 12 МБ';
-        setError();
-      });
       $('#productFeedbackForm').addEventListener('submit', submit);
-      $('#productFeedbackDialog').addEventListener('click', event => {
-        if (event.target === $('#productFeedbackDialog')) close();
-      });
       global.addEventListener('online', refreshAvailability);
       global.addEventListener('offline', () => setAvailable(false));
     }
+    return { bind, refreshAvailability, reset() {
+      ++epoch; ++revision; setAvailable(false); busy = false; owner = '';
+      $('#productFeedbackForm').reset(); $('#productFeedbackDialog').close();
+    } };
+  }
 
-    return {
-      bind,
+  function createController(options) {
+    // One engine per page lifetime: never attach both sets of form listeners,
+    // and never turn an uncertain media request into a legacy INSERT.
+    let engine = null, selecting = null, selectionRevision = 0, bound = false;
+    const scope = () => `${options.getCurrentUser()?.id || ''}:${options.getOrganization?.()?.id || 'personal'}`;
+    const hide = () => document.querySelectorAll('[data-open-product-feedback]').forEach(node => { node.hidden = true; });
+    async function refreshAvailability() {
+      if (engine) return engine.refreshAvailability();
+      if (!options.getCurrentUser() || !navigator.onLine) { hide(); return; }
+      if (selecting) return selecting;
+      const revision = selectionRevision, actorScope = scope();
+      const selection = (async () => {
+        let capability = null;
+        try {
+          const result = await options.db.rpc('get_minuta_feedback_media_capability');
+          if (!result.error) capability = result.data;
+        } catch {}
+        if (revision !== selectionRevision || actorScope !== scope()) return;
+        const confirmed = capability?.version === 3 && Number.isInteger(capability.max_files) && capability.max_files >= 1 && capability.max_files <= 5
+          && Number.isSafeInteger(capability.video_bytes) && capability.video_bytes > 0 && capability.video_bytes <= 50 * 1048576
+          && Number.isSafeInteger(capability.total_bytes) && capability.total_bytes >= capability.video_bytes && capability.total_bytes <= 250 * 1048576;
+        // Reload must not convert a durable unknown media request into a fresh legacy INSERT.
+        let hasMediaIntent = true, hasLegacyIntent = true;
+        try {
+          hasMediaIntent = Boolean(JSON.parse(sessionStorage.getItem(`minuta-feedback-v3:${actorScope}`) || 'null')?.pending);
+          hasLegacyIntent = Boolean(sessionStorage.getItem(`minuta-feedback-text-unconfirmed:${actorScope}`));
+        } catch {}
+        if (hasMediaIntent && (!confirmed || !global.MinutaFeedbackMediaV3?.createController)) { hide(); return; }
+        engine = confirmed && !hasLegacyIntent && global.MinutaFeedbackMediaV3?.createController
+          ? global.MinutaFeedbackMediaV3.createController(options, { createId, prepareScreenshot, clientVersion, deviceSummary })
+          : createTextController(options);
+        if (bound) engine.bind();
+        await engine.refreshAvailability();
+      })();
+      selecting = selection;
+      try { await selection; } finally { if (selecting === selection) selecting = null; }
+    }
+    return { bind() {
+      if (bound) return; bound = true; engine?.bind();
+      global.addEventListener('online', () => { if (!engine) void refreshAvailability(); });
+    },
       refreshAvailability,
-      reset() {
-        ++availabilityRevision;
-        setAvailable(false);
-        if ($('#productFeedbackDialog').open) close();
-      }
+      reset() { ++selectionRevision; selecting = null; engine?.reset(); hide(); }
     };
   }
 
