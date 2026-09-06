@@ -25,7 +25,7 @@ try{
     var later={id:'booking-2',booking_date:'2026-09-20',booking_time:'12:00',client_phone:item.client_phone,status:'confirmed',services:{name:'Массаж спины'}};
     var completed={id:'past-1',booking_date:'2026-09-04',booking_time:'11:00',client_phone:item.client_phone,status:'confirmed',services:{name:'Массаж спины'},outcome:{visit_status:'completed',amount_rub:2000}};
     var effects=[];
-    var normalizePhone=value=>String(value||'').replace(/\\D/g,'');
+    var normalizePhone=value=>String(value||'').replace(/\\D/g,''),closeClientProfileDialogs=()=>{};
     var bookingSourceItems=()=>[item],isScheduleBlock=()=>false,buildClients=()=>[{phone:'79990000001',imported:{visit_count:4},bookings:[completed,later,item]}];
     var bookingOutcome=booking=>booking.outcome||{visit_status:'scheduled',amount_rub:0};
     var clientFavoriteServiceFacts=()=>[{name:'Массаж спины'}];

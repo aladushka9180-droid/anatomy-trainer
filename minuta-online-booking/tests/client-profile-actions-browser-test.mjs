@@ -15,6 +15,7 @@ try{
   await page.setContent(`
     <main class="provider-main"><section class="provider-dashboard" data-provider-panel="clients">
       <h2 class="view-title">Клиенты</h2><p class="view-description">История посещений</p>
+      <div class="clients-search-tools">Поиск и импорт</div><div id="clientDirectoryFilters">Сортировка и фильтры</div>
       <div class="clients-layout is-detail" id="clientsLayout">
         <aside class="clients-directory">Список клиентов</aside>
         <section class="client-profile"><div id="clientProfileContent">
@@ -36,12 +37,14 @@ try{
     const layout=await page.evaluate(()=>{
       const profile=document.querySelector('.client-profile').getBoundingClientRect();
       const actions=[...document.querySelectorAll('.client-profile-primary-actions button')].map(node=>node.getBoundingClientRect());
-      return {scrollWidth:document.documentElement.scrollWidth,profile:{left:profile.left,right:profile.right,width:profile.width},actions:actions.map(({height,width})=>({height,width})),directory:getComputedStyle(document.querySelector('.clients-directory')).display,title:getComputedStyle(document.querySelector('.view-title')).display};
+      return {scrollWidth:document.documentElement.scrollWidth,profile:{left:profile.left,right:profile.right,width:profile.width},actions:actions.map(({height,width})=>({height,width})),directory:getComputedStyle(document.querySelector('.clients-directory')).display,title:getComputedStyle(document.querySelector('.view-title')).display,tools:getComputedStyle(document.querySelector('.clients-search-tools')).display,filters:getComputedStyle(document.querySelector('#clientDirectoryFilters')).display};
     });
     assert.ok(layout.scrollWidth<=width,`Profile must not overflow at ${width}px`);
     assert.ok(layout.profile.left>=0&&layout.profile.right<=width+0.5,`Profile must stay inside ${width}px`);
     assert.equal(layout.directory,'none',`Directory must be hidden in detail at ${width}px`);
     assert.equal(layout.title,'none',`List title must be hidden in detail at ${width}px`);
+    assert.equal(layout.tools,'none',`Search and import must be hidden in detail at ${width}px`);
+    assert.equal(layout.filters,'none',`Sort and filters must be hidden in detail at ${width}px`);
     assert.ok(layout.actions.every(item=>item.height>=44),`All actions must be at least 44px at ${width}px`);
   }
 
