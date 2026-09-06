@@ -44,16 +44,28 @@
   const theme = key => themes.find(item => item.key === normalizeTheme(key));
   const headline = key => headlines.find(item => item.key === normalizeHeadline(key));
   const normalizeSettings = value => Object.freeze({ theme_key:normalizeTheme(value?.theme_key), headline_key:normalizeHeadline(value?.headline_key) });
-  const clientStorageKey = slug => `minuta-client-theme-v1:${String(slug || 'default').toLowerCase()}`;
-  const readClientOverride = slug => {
+  const legacyClientStorageKey = slug => `minuta-client-theme-v1:${String(slug || 'default').toLowerCase()}`;
+  const clientStorageKey = organizationId => `minuta-client-theme-v2:organization:${String(organizationId || 'unknown').toLowerCase()}`;
+  const validOverride = value => value === 'follow' || themeKeys.includes(value) ? value : '';
+  const migrateClientOverride = (organizationId, slug) => {
+    if (!organizationId || !slug) return '';
     try {
-      const value = localStorage.getItem(clientStorageKey(slug));
-      return value === 'follow' || themeKeys.includes(value) ? value : 'follow';
+      const current = validOverride(localStorage.getItem(clientStorageKey(organizationId)));
+      if (current) return current;
+      const legacy = validOverride(localStorage.getItem(legacyClientStorageKey(slug)));
+      if (legacy) localStorage.setItem(clientStorageKey(organizationId), legacy);
+      return legacy;
+    } catch { return ''; }
+  };
+  const readClientOverride = (organizationId, fallbackSlug = '') => {
+    try {
+      if (organizationId) return validOverride(localStorage.getItem(clientStorageKey(organizationId))) || migrateClientOverride(organizationId, fallbackSlug) || 'follow';
+      return validOverride(localStorage.getItem(legacyClientStorageKey(fallbackSlug))) || 'follow';
     } catch { return 'follow'; }
   };
-  const writeClientOverride = (slug, value) => {
+  const writeClientOverride = (organizationId, value, fallbackSlug = '') => {
     const normalized = value === 'follow' ? 'follow' : normalizeTheme(value);
-    try { localStorage.setItem(clientStorageKey(slug), normalized); } catch {}
+    try { localStorage.setItem(organizationId ? clientStorageKey(organizationId) : legacyClientStorageKey(fallbackSlug), normalized); } catch {}
     return normalized;
   };
   const settingsFromSearch = search => {
@@ -71,5 +83,5 @@
     return selected;
   };
 
-  window.MinutaThemeCatalog = Object.freeze({ themes, headlines, themeKeys, headlineKeys, normalizeTheme, normalizeHeadline, normalizeSettings, theme, headline, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
+  window.MinutaThemeCatalog = Object.freeze({ themes, headlines, themeKeys, headlineKeys, normalizeTheme, normalizeHeadline, normalizeSettings, theme, headline, clientStorageKey, legacyClientStorageKey, migrateClientOverride, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
 })();
