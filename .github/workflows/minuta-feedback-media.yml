@@ -3,6 +3,9 @@ on:
   push:
     paths:
       - 'minuta-online-booking/provider-feedback-media-v3.js'
+      - 'minuta-online-booking/provider-feedback.js'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/supabase-migration-v116*.sql'
       - 'minuta-online-booking/tests/feedback-media-*.mjs'
       - 'minuta-online-booking/scripts/feedback-media-cleanup.mjs'
@@ -10,6 +13,9 @@ on:
   pull_request:
     paths:
       - 'minuta-online-booking/provider-feedback-media-v3.js'
+      - 'minuta-online-booking/provider-feedback.js'
+      - 'minuta-online-booking/provider.js'
+      - 'minuta-online-booking/provider.html'
       - 'minuta-online-booking/supabase-migration-v116*.sql'
       - 'minuta-online-booking/tests/feedback-media-*.mjs'
       - 'minuta-online-booking/scripts/feedback-media-cleanup.mjs'
@@ -37,6 +43,8 @@ jobs:
       - name: Synthetic browser retry and context boundaries
         env:
           MINUTA_PLAYWRIGHT_MODULE: ${{ runner.temp }}/feedback-deps/node_modules/playwright/index.mjs
-        run: node minuta-online-booking/tests/feedback-media-browser-test.mjs
+        run: |
+          node minuta-online-booking/tests/feedback-media-browser-test.mjs
+          node minuta-online-booking/tests/feedback-media-wiring-browser-test.mjs
       # Deliberately no production/test database URL, service key or capability activation.
       # Real isolated Storage and concurrent-PostgreSQL rehearsals remain release gates.
