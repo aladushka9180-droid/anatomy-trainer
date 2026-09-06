@@ -28,19 +28,6 @@ select pg_temp.client_page_assert(
 );
 reset role;
 
-update public.organization_memberships set role='admin'
-where organization_id=current_setting('client_page.org')::uuid and user_id=current_setting('client_page.actor')::uuid;
-set local role authenticated;
-do $$ begin
-  perform public.set_minuta_client_page_settings_v118(current_setting('client_page.org')::uuid,'sage','booking');
-  raise exception 'admin_update_allowed';
-exception when insufficient_privilege then
-  perform pg_temp.client_page_assert(sqlerrm='organization_owner_required','wrong_admin_error');
-end $$;
-reset role;
-
-update public.organization_memberships set role='owner'
-where organization_id=current_setting('client_page.org')::uuid and user_id=current_setting('client_page.actor')::uuid;
 select set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);
 set local role authenticated;
 do $$ begin

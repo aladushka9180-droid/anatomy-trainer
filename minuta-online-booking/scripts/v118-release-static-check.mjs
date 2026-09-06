@@ -56,6 +56,7 @@ for (const token of [
   'get_minuta_client_page_settings_v118',
   'set_minuta_client_page_settings_v118',
   'get_public_minuta_catalog_v5',
+  "has_organization_role(p_organization,array['owner']::text[])",
   'enable row level security',
 ]) requireText(migration.toLowerCase(), token.toLowerCase(), `migration is missing ${token}`);
 
