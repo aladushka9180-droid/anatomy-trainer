@@ -5,6 +5,9 @@ const migration=read('supabase-migration-v120.sql');
 const rollback=read('supabase-migration-v120-rollback.sql');
 const integration=read('tests/client-results-v120-integration.sql');
 const workflow=read('../.github/workflows/minuta-v120-safe-release.yml');
+const providerHtml=read('provider.html');
+const providerJs=read('provider.js');
+const serviceWorker=read('sw.js');
 
 for(const table of ['client_result_series','client_result_assets','client_result_consents']){
   assert.match(migration,new RegExp(`create table if not exists public\\.${table}`,'i'));
@@ -38,4 +41,11 @@ assert.match(workflow,/minuta-supabase-backup\.yml/);
 assert.match(workflow,/supabase-migration-v120-rollback\.sql/);
 assert.match(workflow,/client-results-v120-integration\.sql/);
 assert.match(workflow,/client-results-v120-pglite-test\.mjs/);
+assert.match(providerHtml,/client-results\.css\?v=531/);
+assert.match(providerHtml,/client-results\.js\?v=531[\s\S]*provider\.js\?v=531/);
+for(const call of ['mount','save','setClient','setOrganization','reset']) assert.match(providerJs,new RegExp(`clientResultsController\\.${call}\\(`));
+assert.match(providerJs,/clientResultsVisitActive/);
+assert.match(serviceWorker,/client-results\.css\?v=531/);
+assert.match(serviceWorker,/client-results\.js\?v=531/);
+assert.match(serviceWorker,/CACHE_PREFIX}v531/);
 console.log('Client results v120 static contract: PASS');

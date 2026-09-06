@@ -409,6 +409,11 @@
 
     async function loadBookingResult() {
       if (!editor?.bookingId || !organization?.id) return;
+      if (!UUID.test(editor.bookingId)) {
+        remote = { enabled: false, can_enable: false, unavailable: true };
+        renderEditor(editor.result);
+        return;
+      }
       const revision = editor.revision;
       try {
         const data = await rpc('get_minuta_client_result_v120', { p_organization: organization.id, p_booking: editor.bookingId });
@@ -555,7 +560,7 @@
       }
       const bookingId = String(input.bookingId || editor.bookingId || editor.form.dataset.bookingId || '');
       const phone = normalizePhone(input.phone || editor.phone || client?.phone);
-      if (!UUID.test(bookingId) || !phone) return { ok: false, reason: 'invalid_context' };
+      if (!UUID.test(bookingId) || !phone) return { ok: true, skipped: true, reason: 'unsupported_booking' };
       const resultId = UUID.test(editor.result?.id) ? editor.result.id : UUID.test(pendingSubmit?.resultId) ? pendingSubmit.resultId : uuid();
       const submitKey = JSON.stringify([bookingId, phone, resultId, ...FIELD_DEFINITIONS.map(([key]) => values[key]), values.private_storage_consent, values.external_share_consent,
         [...pendingFiles].map(([purpose, pending]) => [purpose, pending.id, pending.key])]);

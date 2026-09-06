@@ -24,6 +24,7 @@ assert.match(css, /repeat\(2,minmax\(0,1fr\)\)/);
 assert.match(css, /@media \(max-width:760px\)/);
 assert.match(css, /@media \(max-width:520px\)/);
 assert.match(css, /data-client-results-visit-active="false"/);
+assert.match(source, /unsupported_booking/);
 
 const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
 const RESULT_ID = '00000000-0120-4000-8000-000000000001';

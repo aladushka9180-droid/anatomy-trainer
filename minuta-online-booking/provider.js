@@ -2161,7 +2161,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=530#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=531#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3976,7 +3976,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=530');
+    worker = new Worker('./report-worker.js?v=531');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6086,6 +6086,7 @@ function openBookingSheet(id) {
     return;
   }
   if (outcome.completion_source === 'auto' && outcome.payment_method === 'cash') $('#outcomePaymentMethod option[value="cash"]').textContent = 'Оплачено';
+  clientResultsController.mount({ form:$('#bookingOutcomeForm'), booking:item });
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
   $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
   $('#bookingSheetNoteForm')?.addEventListener('submit', saveBookingSheetNote);
@@ -8476,6 +8477,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
     .reduce((sum,item) => sum + Math.max(0,bookingCalculatedValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0);
   $('#clientDebt').textContent = money(clientDebt);
   $('#clientDebtStatus').hidden = clientDebt <= 0;
+  clientResultsController.setClient({phone:client.phone,bookings:history});
   clientRecordsController.setClient({phone:client.phone,bookings:history.map(item => {
     const outcome = bookingOutcome(item);
     const received = Number(outcome.amount_rub || 0);
@@ -9038,6 +9040,7 @@ function toggleOutcomePaymentFields() {
   const form = $('#bookingOutcomeForm');
   if (!form) return;
   const completed = $('#outcomeVisitStatus').value === 'completed';
+  form.dataset.clientResultsVisitActive = completed ? 'true' : 'false';
   $('#outcomePaymentFields').hidden = !completed;
   $('#outcomePaymentMethod').disabled = !completed;
   $('#outcomeAmount').disabled = !completed;
@@ -9070,6 +9073,15 @@ async function saveBookingOutcome(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
+  if (completed) {
+    const clientResult = await clientResultsController.save({bookingId:item.id,phone:item.client_phone});
+    if (!sessionIsCurrent(userId, generation)) return;
+    if (!clientResult.ok && !clientResult.optional) {
+      button.disabled = false;
+      button.textContent = 'Сохранить результат';
+      return;
+    }
+  }
   const result = await persistBookingOutcome(record);
   if (!sessionIsCurrent(userId, generation)) return;
   bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
@@ -9425,6 +9437,7 @@ async function logout() {
   const userId = currentUser?.id;
   if (offlineBookingQueue.length && !confirm(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей. При выходе они будут удалены. Всё равно выйти?`)) return;
   ++sessionGeneration;
+  clientResultsController.reset();
   clientRecordsController.reset();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
@@ -9458,6 +9471,7 @@ async function handleSession(session) {
   portfolioSyncDirty = true;
   renderProviderVerification();
   const generation = ++sessionGeneration;
+  clientResultsController.reset();
   clientRecordsController.reset();
   resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
@@ -11706,6 +11720,12 @@ const clientRecordsController = window.MinutaClientRecords?.createController({
 }) || {bind() {},reset() {},setOrganization() {},setClient() {}};
 clientRecordsController.bind();
 
+const clientResultsController = window.MinutaClientResults?.createController({
+  db, requireWrites, notify,
+  getContext:() => ({userId:currentUser?.id,sessionGeneration}),
+  openBooking:id => openBookingSheet(id)
+}) || {mount() {},save() { return Promise.resolve({ok:true,skipped:true}); },reset() {},setOrganization() {},setClient() {}};
+
 const clientImportController = window.MinutaClientImport?.createController ? window.MinutaClientImport.createController({
   db, $, escapeHtml, notify, requireWrites,
   onLoaded: (clients, historyRows) => {
@@ -11793,6 +11813,7 @@ const organizationController = window.MinutaOrganization.createController({
     paymentController.setOrganization(organization);
     notificationCenterController.setOrganization(organization);
     clientFieldsController.setOrganization(organization);
+    clientResultsController.setOrganization(organization);
     clientRecordsController.setOrganization(organization);
     clientImportController.setOrganization(organization?.public_slug === REPORT_DEMO_SLUG ? null : organization);
     dataGovernanceController.setOrganization(organization);
