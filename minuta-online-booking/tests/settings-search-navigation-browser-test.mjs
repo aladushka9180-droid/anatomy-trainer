@@ -16,6 +16,8 @@ async function startFixture() {
     if (url.pathname === '/') {
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
       response.end(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+        <link rel="stylesheet" href="/settings-smart-search.css">
+        <style>*{box-sizing:border-box}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}label{display:block;margin-top:16px}input{height:49px;margin-top:8px}</style>
         <body class="provider-body" data-provider-theme="sage" data-provider-layout="soft" data-opened-view="" data-tab-clicks="0">
           <section data-provider-panel="settings" hidden>
             <nav class="provider-section-nav" aria-label="Навигация по настройкам">
@@ -47,7 +49,7 @@ async function startFixture() {
       return;
     }
     const name = decodeURIComponent(url.pathname.slice(1));
-    if (!['settings-smart-search.js', 'settings-nav-scroll.js', 'settings-nav-scroll.css'].includes(name)) {
+    if (!['settings-smart-search.js', 'settings-smart-search.css', 'settings-nav-scroll.js', 'settings-nav-scroll.css'].includes(name)) {
       response.writeHead(404).end();
       return;
     }
@@ -64,11 +66,29 @@ const browser = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {})
 });
 try {
-  const page = await browser.newPage({ viewport:{ width:390, height:844 } });
+  const page = await browser.newPage({ viewport:{ width:1600, height:900 } });
   await page.goto(fixture.url);
 
   const search = page.locator('#cabinetSectionsSearchInput');
   await assert.doesNotReject(() => search.waitFor({ state:'visible' }));
+
+  const alignment = await page.locator('.cabinet-sections-search .settings-search-field').evaluate(field => {
+    const center = element => { const box = element.getBoundingClientRect(); return box.top + box.height / 2; };
+    const label = field.querySelector('label');
+    const input = field.querySelector('input');
+    return {
+      field:center(field),
+      label:center(label),
+      input:center(input),
+      searchIcon:center(field.querySelector(':scope > .ui-icon')),
+      voice:center(field.querySelector('.settings-search-voice')),
+      labelMargin:getComputedStyle(label).margin,
+      inputMargin:getComputedStyle(input).margin
+    };
+  });
+  assert.ok(Math.abs(alignment.input - alignment.field) <= 1, `Поле поиска смещено относительно центра контейнера: ${JSON.stringify(alignment)}`);
+  assert.ok(Math.abs(alignment.searchIcon - alignment.field) <= 1, `Иконка поиска смещена относительно центра контейнера: ${JSON.stringify(alignment)}`);
+  assert.ok(Math.abs(alignment.voice - alignment.field) <= 1, `Иконка микрофона смещена относительно центра контейнера: ${JSON.stringify(alignment)}`);
 
   await search.fill('клиетны');
   assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Клиенты/);
@@ -81,6 +101,7 @@ try {
   await page.locator('#cabinetSectionsSearchResults button', { hasText:'Статистика' }).click();
   assert.equal(await page.locator('body').getAttribute('data-opened-view'), 'analytics');
 
+  await page.setViewportSize({ width:390, height:844 });
   await page.setContent(`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${fixture.url}settings-nav-scroll.css"><style>.provider-section-nav{display:flex;width:260px;overflow-x:auto;gap:8px}.provider-section-nav button{flex:0 0 112px}</style><body class="provider-body" data-tab-clicks="0"><main data-provider-panel="settings"><nav class="provider-section-nav"><button class="active" data-section-target="one">Оформление</button><button data-section-target="two">Уведомления</button><button data-section-target="three">Приложение</button><button data-section-target="four">Безопасность</button></nav></main><script>document.addEventListener('click',event=>{if(event.target.closest('[data-section-target]'))document.body.dataset.tabClicks=String(Number(document.body.dataset.tabClicks)+1)})</script><script src="${fixture.url}settings-nav-scroll.js"></script>`);
   await page.waitForFunction(() => {
     const next = document.querySelector('.settings-nav-scroll-arrow.is-next');
