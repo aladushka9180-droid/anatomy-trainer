@@ -5868,7 +5868,7 @@ function renderTimeline(sourceItems) {
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
-    const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup}<span class="timeline-service-duration"> · ${duration} мин</span>`;
+    const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup}<wbr><span class="timeline-service-duration"> · ${duration} мин</span>`;
     const renderedNote = !mobileTimeline && visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : '';
     const renderedStatus = tightMobile ? '' : timelineStatus;
     const cardContent = minuteOnly && !mobileTimeline

@@ -22,12 +22,11 @@ assert.match(css, /timeline-booking:not\(:has\(\.client-badges\)\) \.timeline-bo
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-client-visit \{[^}]*overflow:hidden;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/, 'Подпись «Новый клиент» снова переносится на лишнюю строку');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.client-badges,[\s\S]*?position:absolute!important;[\s\S]*?top:9px;[\s\S]*?right:9px;/, 'VIP и другие метки снова уходят под текст записи');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:not\(:has\(\.client-badges\)\) \.timeline-booking-copy>strong \{[^}]*width:100%!important;[^}]*padding-right:0!important;/, 'Запись без меток не использует всю доступную ширину');
-assert.match(css, /timeline-booking\[data-mobile-timeline-top\] \.timeline-booking-copy>strong \{[^}]*font-size:clamp\(11px,3\.2vw,12px\);/, 'Длинное название услуги снова переносится раньше доступной границы на узком экране');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges:not\(\.with-labels\)\) \.timeline-booking-copy>strong \{ padding-right:42px!important; \}/, 'Одна компактная метка продолжает отнимать у названия 112 пикселей');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges:not\(\.with-labels\) \.client-badge-more\) \.timeline-booking-copy>strong \{ padding-right:68px!important; \}/, 'Счётчик дополнительных меток не получает достаточный отступ');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]:has\(\.client-badges\.with-labels\) \.timeline-booking-copy>strong \{ padding-right:112px!important; \}/, 'Полные текстовые метки потеряли безопасную область');
 assert.match(css, /timeline-booking \.timeline-booking-status-icon \{ display:none!important; \}/, 'Галочка завершённого визита снова занимает пустое место в карточке');
-assert.match(provider, /const serviceTitleMarkup = block \? serviceMarkup : `\$\{serviceMarkup\}<span class="timeline-service-duration"> · \$\{duration\} мин<\/span>`;/, 'Длительность записи должна стоять сразу после названия услуги');
+assert.match(provider, /const serviceTitleMarkup = block \? serviceMarkup : `\$\{serviceMarkup\}<wbr><span class="timeline-service-duration"> · \$\{duration\} мин<\/span>`;/, 'Перед длительностью нет безопасной точки переноса, и длинное название переносится раньше свободной границы');
 assert.doesNotMatch(provider, /clientDetailsMarkup[\s\S]{0,700}timeline-client-duration/, 'Длительность записи снова попала в строку данных клиента');
 assert.match(css, /\.provider-body \.timeline-service-duration \{[^}]*font-size:\.78em;[^}]*white-space:nowrap;/, 'Длительность рядом с услугой не защищена от отрыва на новую строку');
 
