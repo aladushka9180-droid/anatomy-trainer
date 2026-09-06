@@ -54,12 +54,15 @@
         const invalid = (next.min !== '' && next.max !== '' && Number(next.min) > Number(next.max)) || (next.from && next.to && next.from > next.to);
         form.querySelector('[name="max"]').setCustomValidity(next.min !== '' && next.max !== '' && Number(next.min) > Number(next.max) ? 'Максимум должен быть не меньше минимума' : '');
         form.querySelector('[name="to"]').setCustomValidity(next.from && next.to && next.from > next.to ? 'Конец периода должен быть не раньше начала' : '');
-        root.querySelector('[data-client-apply]').textContent = invalid ? 'Проверьте диапазон' : `Показать клиентов: ${filtered(next).length}`;
+        const count = filtered(next).length;
+        const noun = count % 10 === 1 && count % 100 !== 11 ? 'клиента' : 'клиентов';
+        root.querySelector('[data-client-apply]').textContent = invalid ? 'Проверьте диапазон' : `Показать ${count} ${noun}`;
+        root.querySelector('[data-service-count]').textContent = next.services.length ? `Выбрано: ${next.services.length}` : 'Любую';
       }
       function open() {
         const options = new Map(rows.flatMap(row => [...row.visited]));
         const checks = (name, values, selected) => [...values].map(([key,label]) => `<label class="client-directory-check"><input type="checkbox" name="${name}" value="${escape(key)}" ${selected.includes(key) ? 'checked' : ''}><span>${escape(label)}</span></label>`).join('');
-        root.querySelector('.client-directory-fields').innerHTML = `<fieldset><legend>Посещал услугу — любую из выбранных</legend><div class="client-directory-options">${checks('services', [...options].sort((a,b)=>a[1].localeCompare(b[1],'ru')), state.services) || '<p>Пока нет состоявшихся посещений</p>'}</div></fieldset><fieldset><legend>Метки — все выбранные</legend>${checks('labels',Object.entries(labels),state.labels)}</fieldset><fieldset><legend>Количество состоявшихся сеансов</legend><div class="client-directory-range"><label>От<input type="number" min="0" step="1" name="min" value="${escape(state.min)}"></label><label>До<input type="number" min="0" step="1" name="max" value="${escape(state.max)}"></label></div><small>Включая импортированную историю; без отмен и пропусков.</small></fieldset><fieldset><legend>Были в период</legend><div class="client-directory-range"><label>С<input type="date" name="from" value="${escape(state.from)}"></label><label>По<input type="date" name="to" value="${escape(state.to)}"></label></div></fieldset><label>Не приходили, дней<input type="number" name="absent" min="1" step="1" placeholder="Например, 60" value="${escape(state.absent)}"><small>Только клиенты с известной датой посещения.</small></label><label>Будущая запись<select name="upcoming"><option value="">Любая</option><option value="yes" ${state.upcoming==='yes'?'selected':''}>Есть</option><option value="no" ${state.upcoming==='no'?'selected':''}>Нет</option></select></label>`;
+        root.querySelector('.client-directory-fields').innerHTML = `<details class="client-service-picker"><summary>Посещал услугу <span data-service-count>Любую</span></summary><label><span class="sr-only">Найти услугу</span><input type="search" data-service-search placeholder="Найти услугу" autocomplete="off"></label><small>Любая из выбранных услуг</small><div class="client-directory-options">${checks('services', [...options].sort((a,b)=>a[1].localeCompare(b[1],'ru')), state.services) || '<p>Пока нет состоявшихся посещений</p>'}</div><p data-service-empty hidden>Услуги не найдены</p></details><fieldset><legend>Метки <small>Все выбранные</small></legend><div class="client-label-options">${checks('labels',Object.entries(labels),state.labels)}</div></fieldset><fieldset><legend>Сеансы</legend><div class="client-directory-range"><label>От<input type="number" min="0" step="1" name="min" value="${escape(state.min)}"></label><label>До<input type="number" min="0" step="1" name="max" value="${escape(state.max)}"></label></div><small>Состоявшиеся, включая импорт.</small></fieldset><fieldset><legend>Дата посещения</legend><div class="client-directory-range"><label>С<input type="date" name="from" value="${escape(state.from)}"></label><label>По<input type="date" name="to" value="${escape(state.to)}"></label></div></fieldset><label>Не приходили, дней<input type="number" name="absent" min="1" step="1" placeholder="Например, 60" value="${escape(state.absent)}"><small>Только клиенты с известной датой посещения.</small></label><label>Будущая запись<select name="upcoming"><option value="">Любая</option><option value="yes" ${state.upcoming==='yes'?'selected':''}>Есть</option><option value="no" ${state.upcoming==='no'?'selected':''}>Нет</option></select></label>`;
         preview();
         if (!dialog.open) dialog.showModal();
       }
@@ -67,7 +70,18 @@
       root.querySelector('[data-client-filters]').addEventListener('click',open);
       root.querySelector('[data-client-close]').addEventListener('click',()=>dialog.close());
       root.querySelector('[data-client-reset]').addEventListener('click',()=>{ state={...defaults(),sort:state.sort}; open(); refresh(); });
-      form.addEventListener('input',preview);
+      form.addEventListener('input',event=>{
+        if (event.target.matches('[data-service-search]')) {
+          const search = nameKey(event.target.value);
+          let visible = 0;
+          root.querySelectorAll('.client-directory-options label').forEach(label=>{
+            label.hidden = !nameKey(label.textContent).includes(search);
+            if (!label.hidden) visible++;
+          });
+          root.querySelector('[data-service-empty]').hidden = visible > 0;
+        }
+        preview();
+      });
       form.addEventListener('change',preview);
       form.addEventListener('submit',event=>{event.preventDefault();state=draft();dialog.close();refresh();});
       root.querySelector('.client-directory-chips').addEventListener('click',event=>{

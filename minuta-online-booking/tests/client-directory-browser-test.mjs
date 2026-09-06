@@ -43,10 +43,16 @@ try {
     await page.selectOption('[data-client-sort]','next');
     assert.equal(await page.evaluate(()=>result[0].name),'Анна');
     await page.click('[data-client-filters]');
+    assert.ok((await page.locator('[data-client-close]').boundingBox()).width <= 48);
+    assert.ok((await page.locator('[data-client-apply]').boundingBox()).width > (await page.locator('[data-client-reset]').boundingBox()).width);
+    await page.click('.client-service-picker summary');
+    await page.fill('[data-service-search]','несуществующая');
+    assert.equal(await page.locator('[data-service-empty]').isVisible(),true);
+    await page.fill('[data-service-search]','Массаж');
     await page.check('[name=services]'); await page.check('[value=vip]');
     await page.fill('[name=min]','5'); await page.fill('[name=absent]','60');
     await page.selectOption('[name=upcoming]','no');
-    assert.match(await page.textContent('[data-client-apply]'),/1$/);
+    assert.match(await page.textContent('[data-client-apply]'),/Показать 1 клиента/);
     await page.click('[data-client-apply]');
     assert.deepEqual(await page.evaluate(()=>result.map(c=>c.name)),['Борис']);
     await page.click('[data-clear-client-filter=all]');
@@ -65,6 +71,7 @@ try {
     await page.keyboard.press('Escape');
     assert.equal(await page.$eval('.client-directory-dialog',d=>d.open),false);
     assert.deepEqual(errors,[]);
+    if(process.env.MINUTA_FILTER_SCREENSHOT){await page.click('[data-client-filters]');await page.screenshot({path:`${process.env.MINUTA_FILTER_SCREENSHOT}-${width}.png`});}
     await page.close();
   }
   console.log('Client directory: counts, combined filters, dates, sorting, scope reset and mobile dialog PASS (synthetic data)');
