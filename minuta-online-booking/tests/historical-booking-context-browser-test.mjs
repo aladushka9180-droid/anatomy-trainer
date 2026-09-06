@@ -17,6 +17,7 @@ function declaration(name){
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
 const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','loadNewBookingSlots','renderNewBookingTimePicker',
+  'renderNewBookingOutsideSchedulePrompt','enableNewBookingOutsideSchedule','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
   'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',
   'bookingDraftKey','readNewBookingDraft','saveNewBookingDraft','clearNewBookingDraft','bookingColorPicker','compactBookingColorPicker','bookingColor','validBookingColor',
@@ -62,7 +63,11 @@ async function fixture(){
     var ownServices=[{id:ids.service,active:true,name:'Тестовая услуга',duration_minutes:60,price_rub:1000}],scheduleRows=[];
     var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set();
     var businessTodayIso=()=> '2026-09-06',bookingUsesDemoData=()=>false;
-    var placementCalls=[],bookingPlacementIssue=(...args)=>{placementCalls.push(args);return null;};
+    var placementCalls=[],bookingPlacementIssue=(item,date,start,options={})=>{
+      placementCalls.push([item,date,start,options]);
+      const duration=Number(item?.duration_minutes||60);
+      return !options.ignoreSchedule&&(start<600||start+duration>1200)?'Вне рабочего графика':null;
+    };
     var applyClientHighlightClasses=()=>{},scheduleNewBookingClientSuggestions=()=>{},hideNewBookingClientSuggestions=()=>{};
     var organizationController={getActiveOrganization:()=>({id:activeClientOrganizationId})};
     var effects=[],gates=[],hold='color',refreshOutcome='success';
@@ -89,6 +94,10 @@ async function fixture(){
 }
 async function openAndFill(page,label){
   await page.locator('#newBookingButton').click();
+  assert.equal(await page.locator('[data-new-booking-hour="00"]').count(),0,'Historical picker must start with provider working hours');
+  assert.equal(await page.locator('[data-new-booking-hour="10"]').count(),1,'Provider opening hour must remain available');
+  assert.equal(await page.locator('[data-new-booking-hour="19"]').count(),1,'Last valid start hour must remain available');
+  assert.equal(await page.locator('#newBookingOutsideScheduleButton').count(),1,'Outside-schedule time must remain a separate action');
   await page.locator('#newBookingName').fill(`Клиент ${label}`);
   await page.locator('#newBookingPhone').fill(label==='A'?'+79990000001':'+79990000002');
   await page.locator('[data-new-booking-time="10:15"]').click();

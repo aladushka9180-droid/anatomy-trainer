@@ -2143,7 +2143,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=491#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=492#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3958,7 +3958,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=491');
+    worker = new Worker('./report-worker.js?v=492');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6495,11 +6495,11 @@ function newBookingOutsideScheduleLabel(dateIso) {
   return 'Свободных окон по рабочему графику не осталось.';
 }
 
-function renderNewBookingOutsideSchedulePrompt() {
+function renderNewBookingOutsideSchedulePrompt({ historical = false } = {}) {
   const holder = $('#newBookingTimes');
   const date = $('#newBookingDate')?.value;
   if (!holder || !date) return;
-  holder.innerHTML = `<div class="booking-outside-schedule-prompt"><span aria-hidden="true">!</span><div><strong>${escapeHtml(newBookingOutsideScheduleLabel(date))}</strong><small>Можно создать ручную запись. День останется закрытым для онлайн-записи клиентов.</small></div><button class="secondary-button" id="newBookingOutsideScheduleButton" type="button">Выбрать время вне графика</button></div>`;
+  holder.innerHTML = `<div class="booking-outside-schedule-prompt"><span aria-hidden="true">!</span><div><strong>${escapeHtml(newBookingOutsideScheduleLabel(date))}</strong><small>${historical ? 'Если визит состоялся вне рабочих часов, его можно добавить отдельно.' : 'Можно создать ручную запись. День останется закрытым для онлайн-записи клиентов.'}</small></div><button class="secondary-button" id="newBookingOutsideScheduleButton" type="button">Выбрать время вне графика</button></div>`;
   $('#newBookingOutsideScheduleButton')?.addEventListener('click', enableNewBookingOutsideSchedule);
 }
 
@@ -6507,25 +6507,33 @@ function enableNewBookingOutsideSchedule() {
   const date = $('#newBookingDate')?.value;
   const duration = newBookingDurationMinutes();
   if (!date || !duration) return;
+  const historical = newBookingHistoricalMode || date < businessTodayIso();
   newBookingOutsideSchedule = true;
   newBookingSlots = [];
   const now = new Date();
   const earliestToday = now.getHours() * 60 + now.getMinutes();
   for (let minute = 0; minute + duration <= 1440; minute += 5) {
-    if (date === businessTodayIso() && minute <= earliestToday) continue;
+    if (date === businessTodayIso() && (historical ? minute + duration > earliestToday : minute <= earliestToday)) continue;
     const issue = bookingPlacementIssue(
       { id:'new-outside-schedule-candidate', duration_minutes:duration },
       date,
       minute,
-      { ignoreSchedule:true }
+      { allowPast:historical, ignoreSchedule:true }
     );
-    if (!issue) newBookingSlots.push(timeFromMinutes(minute));
+    if (issue) continue;
+    if (historical && !bookingPlacementIssue(
+      { id:'new-outside-schedule-candidate', duration_minutes:duration },
+      date,
+      minute,
+      { allowPast:true }
+    )) continue;
+    newBookingSlots.push(timeFromMinutes(minute));
   }
   const preferred = newBookingPreferredTime;
   newBookingTime = preferred && newBookingSlots.includes(preferred) ? preferred : '';
   newBookingHour = String(newBookingTime || preferred || newBookingSlots[0] || '').slice(0, 2);
   if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0]?.slice(0, 2) || '';
-  if (newBookingSlots.length) renderNewBookingTimePicker({ outsideSchedule:true });
+  if (newBookingSlots.length) renderNewBookingTimePicker({ historical, outsideSchedule:true });
   else $('#newBookingTimes').innerHTML = '<div class="booking-time-warning">На эту дату нет свободного времени нужной длительности: существующие записи занимают весь доступный интервал.</div>';
   updateNewBookingConnectivity();
   saveNewBookingDraft();
@@ -6544,6 +6552,10 @@ async function loadNewBookingSlots() {
   const historical = newBookingHistoricalMode || date < businessTodayIso();
   if (historical) {
     newBookingHistoricalMode = true;
+    if (newBookingOutsideSchedule) {
+      enableNewBookingOutsideSchedule();
+      return;
+    }
     const step = 5;
     const now = new Date();
     const latestMinute = date === businessTodayIso() ? now.getHours() * 60 + now.getMinutes() : 1440;
@@ -6553,7 +6565,7 @@ async function loadNewBookingSlots() {
         { id:'new-historical-booking-candidate', duration_minutes:duration },
         date,
         minute,
-        { allowPast:true, ignoreSchedule:true }
+        { allowPast:true }
       );
       if (!issue) newBookingSlots.push(timeFromMinutes(minute));
     }
@@ -6566,7 +6578,7 @@ async function loadNewBookingSlots() {
     } else if (newBookingSlots.length) {
       renderNewBookingTimePicker({ historical:true });
     } else {
-      holder.innerHTML = '<span>На эту дату нет свободного времени нужной длительности</span>';
+      renderNewBookingOutsideSchedulePrompt({ historical:true });
     }
     updateNewBookingConnectivity();
     updateNewBookingDurationControl();
@@ -6643,10 +6655,14 @@ function renderNewBookingTimePicker({ offline = false, historical = false, outsi
   if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
   const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
-  holder.innerHTML = `${outsideSchedule ? '<div class="booking-time-warning booking-time-outside"><strong>Запись вне графика</strong><br>Онлайн-запись на этот день останется закрытой.</div>' : historical ? '<div class="booking-time-warning"><strong>Запись в прошлом</strong><br>Укажите фактическое время визита. После создания отметьте результат и оплату.</div>' : offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} пересекается с другой записью. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${historical || outsideSchedule ? `${outsideSchedule ? 'Вне графика' : 'Фактическое время'} · шаг 5 минут` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
+  const historicalOutsideScheduleAction = historical && !outsideSchedule
+    ? '<div class="booking-outside-schedule-prompt"><span aria-hidden="true">!</span><div><strong>Визит был вне рабочего графика?</strong><small>Основной список показывает только рабочие часы мастера.</small></div><button class="secondary-button" id="newBookingOutsideScheduleButton" type="button">Выбрать время вне графика</button></div>'
+    : '';
+  holder.innerHTML = `${outsideSchedule ? `<div class="booking-time-warning booking-time-outside"><strong>Запись вне графика</strong><br>${historical ? 'Показываем только время вне рабочих часов мастера.' : 'Онлайн-запись на этот день останется закрытой.'}</div>` : historical ? '<div class="booking-time-warning"><strong>Запись в прошлом</strong><br>Укажите фактическое время визита. После создания отметьте результат и оплату.</div>' : offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} пересекается с другой записью. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${historical || outsideSchedule ? `${outsideSchedule ? 'Вне графика' : 'По графику мастера'} · шаг 5 минут` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
     <div class="booking-time-guide"><strong>2. Точное время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${hourSlots.length} свободных вариантов`}</span></div>
-    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
+    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>${historicalOutsideScheduleAction}`;
+  $('#newBookingOutsideScheduleButton')?.addEventListener('click', enableNewBookingOutsideSchedule);
 }
 
 function updateNewBookingSubmitCaption() {
@@ -7060,7 +7076,7 @@ async function createNewBooking(event) {
     { id:'new-booking-validation', duration_minutes:durationMinutes, client_phone:phone },
     date,
     minutesFromTime(newBookingTime),
-    historical ? { allowPast:true, ignoreSchedule:true } : newBookingOutsideSchedule ? { ignoreSchedule:true } : undefined
+    historical ? { allowPast:true, ignoreSchedule:newBookingOutsideSchedule } : newBookingOutsideSchedule ? { ignoreSchedule:true } : undefined
   );
   if (placementIssue) {
     showFormError('#newBookingError', `${placementIssue}. Выберите другое время или длительность.`);
