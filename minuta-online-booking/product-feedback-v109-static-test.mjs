@@ -37,7 +37,14 @@ assert.match(page, /Номер обращения/);
 assert.match(feedback, /document\.createElement\('canvas'\)/);
 assert.match(feedback, /canvas\.toBlob\(resolve, 'image\/webp'/);
 assert.match(feedback, /p_page_path:location\.pathname/);
-assert.match(feedback, /db\.storage\.from\(BUCKET\)\.remove\(\[screenshotPath\]\)/);
+// v109 is now a text-only fallback; private attachments use the v116 engine
+// and its release/cleanup protocol, never a legacy client-side delete.
+const textFallback = feedback.split('function createTextController(')[1]?.split('function createController(')[0] || '';
+assert.ok(textFallback, 'The legacy text-only fallback must remain available');
+assert.match(textFallback, /p_screenshot_path:null/);
+assert.doesNotMatch(textFallback, /db\.storage/);
+assert.match(textFallback, /sessionStorage\.setItem\(key,'1'\)/);
+assert.match(textFallback, /isUnresolved\(\)/);
 assert.doesNotMatch(feedback, /navigator\.userAgent\b/);
 assert.doesNotMatch(feedback, /location\.(search|hash)/);
 

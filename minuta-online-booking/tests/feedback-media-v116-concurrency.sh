@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Synthetic-only PostgreSQL 17 concurrency gate. Never a remote DB client.
-# Reviewed API baseline: operations 4b42654b282e575b39b33058d50825bd903d5625.
-# v116 git-blob SHA256: 74d4fc5237eff7b42c1a15854788a27ff556e2232faff7ae7673388201736495.
+# Reviewed API baseline: scoped cleanup d17465051280dea6f6300166f1fbfa087f01759d.
+# v116 git-blob SHA256: 2d7b8dd1a756089e5f567c449c81d61d7e1544d9a241915f6b804d418b033b03.
 # Runtime execution remains pending until the frozen SQL and this gate are integrated
 # at one reviewed SHA and an owner dispatches or pushes the sole integration branch.
 set -Eeuo pipefail
@@ -11,7 +11,7 @@ case ${GITHUB_EVENT_NAME:-} in
   workflow_dispatch) ;;
   push)
     [[ ${GITHUB_REF:-} == refs/heads/codex/feedback-media-integration ]]
-    [[ ${REVIEWED_SQL_SHA256:-} == 74d4fc5237eff7b42c1a15854788a27ff556e2232faff7ae7673388201736495 ]]
+    [[ ${REVIEWED_SQL_SHA256:-} == 2d7b8dd1a756089e5f567c449c81d61d7e1544d9a241915f6b804d418b033b03 ]]
     ;;
   *) exit 1;;
 esac
