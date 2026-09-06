@@ -173,6 +173,7 @@
               </div>
               <span class="team-calendar-status" id="teamCalendarStatus" role="status" aria-live="polite"></span>
             </div>
+            <div class="schedule-context">
             <div class="date-navigation" aria-label="Навигация по расписанию">
               <div class="calendar-view-toggle" role="group" aria-label="Период календаря">
                 <button class="active" type="button" data-calendar-view="day" aria-pressed="true">День</button>
@@ -192,6 +193,8 @@
                 <div class="booking-filters" role="group" aria-label="Какие записи показать"><button class="active" type="button" data-filter="day" aria-pressed="true">Выбранный день</button><button type="button" data-filter="upcoming" aria-pressed="false">Будущие</button><button type="button" data-filter="all" aria-pressed="false">Все записи</button></div>
               </div>
             </div>
+            </div>
+            <div class="schedule-workspace">
             <div class="booking-query-tools" id="bookingQueryTools" hidden>
               <label class="booking-search"><span class="sr-only">Найти запись</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><input id="bookingSearch" type="search" autocomplete="off" placeholder="Имя, телефон или услуга"></label>
               <label class="booking-status-filter"><span>Статус</span><select id="bookingStatusFilter" aria-label="Фильтр записей по статусу"><option value="all">Все статусы</option><option value="new">Новые</option><option value="confirmed">Подтверждённые</option><option value="needs-result">Ожидают отметки</option><option value="visited">Состоявшиеся</option><option value="no-show">Не пришли</option><option value="cancelled">Отменённые</option><option value="block">Занятое время</option></select></label>
@@ -199,6 +202,7 @@
               <button class="booking-query-reset" id="bookingQueryReset" type="button" hidden>Сбросить</button>
             </div>
             <div class="provider-bookings schedule-list" id="providerBookings"></div>
+            </div>
           </section>
           <section class="panel group-events-panel" id="groupEventsPanel" hidden>
             <div class="group-events-panel-head"><div><small>События с местами</small><h2>Групповые сеансы</h2><p>Занятия и события у выбранного специалиста и филиала. Комментарий участника виден только команде.</p></div><button class="primary" id="newGroupEvent" type="button" data-group-booking-write><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Создать событие</span></button></div>

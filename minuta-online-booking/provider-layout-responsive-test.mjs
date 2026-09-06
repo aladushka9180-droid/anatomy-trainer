@@ -10,6 +10,16 @@ assert.match(css, /\.schedule-settings-layout\s*\{[^}]*grid-template-columns:min
 assert.match(css, /data-provider-layout="bento"\] \.schedule-card\s*\{[^}]*grid-template-columns:minmax\(0,1fr\)/s);
 assert.match(css, /\.provider-layout-option,\.provider-theme-option\) strong\s*\{[^}]*font-size:calc\(14px/s);
 assert.match(css, /#providerBookings\.schedule-list\s*\{[^}]*min-height:0/s);
-assert.doesNotMatch(css, /#providerBookings(?:\s|\{)/, 'Timeline height must not be reset together with lists');
+assert.match(page, /<div class="schedule-context">[\s\S]*<div class="schedule-workspace">/);
+assert.match(css, /@media \(min-width:1100px\)[\s\S]*data-provider-layout="split"\][\s\S]*grid-template-areas:"team team" "context workspace";[\s\S]*column-gap:18px;[\s\S]*row-gap:16px;/);
+assert.match(css, /\.schedule-context\s*\{[^}]*display:flex;[^}]*grid-area:context;[^}]*overflow:hidden;[^}]*border-radius:16px;/s);
+assert.match(css, /\.schedule-workspace\s*\{[^}]*display:flex;[^}]*grid-area:workspace;/s);
+assert.match(css, /data-provider-panel="clients"\][^}]*\.clients-layout\s*\{[^}]*grid-template-columns:minmax\(300px,360px\) minmax\(0,1fr\);[^}]*gap:18px;/s);
+assert.match(css, /data-provider-panel="settings"\][^}]*\.settings-layout\s*\{[^}]*grid-template-columns:minmax\(0,1fr\);[^}]*max-width:960px;/s);
+assert.match(css, /data-provider-layout="split"\][^}]*\.date-navigation\s*\{[^}]*grid-template-columns:44px minmax\(0,1fr\) 44px;[^}]*box-shadow:none;/s);
+assert.match(css, /data-provider-layout="split"\][^}]*\.booking-filters button:first-child\s*\{[^}]*grid-column:1\/-1;/s);
+assert.match(css, /@media \(max-width:760px\)[\s\S]*data-provider-layout="split"\][\s\S]*grid-template-areas:"team" "navigation" "dates" "toolbar" "bookings";[\s\S]*box-shadow:none;/);
+assert.match(css, /data-provider-layout="split"\][^}]*:is\(\.team-calendar-toolbar,\.date-navigation,\.date-strip,\.schedule-toolbar\)\s*\{[^}]*border-radius:0;[^}]*box-shadow:none;/s);
+assert.doesNotMatch(css, /\.schedule-list\s*,\s*#providerBookings/, 'Timeline height must not be reset together with lists');
 assert.doesNotMatch(css, /(?:background|(?:^|;)\s*color)\s*:/m, 'Layout fixes must not change theme or status colours');
 console.log('Provider responsive layout contract passed');
