@@ -73,4 +73,3 @@
 
   window.MinutaThemeCatalog = Object.freeze({ themes, headlines, themeKeys, headlineKeys, normalizeTheme, normalizeHeadline, normalizeSettings, theme, headline, readClientOverride, writeClientOverride, settingsFromSearch, applyClientTheme });
 })();
-
