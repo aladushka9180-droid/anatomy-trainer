@@ -279,8 +279,8 @@
                 </section>
                 <div class="client-summary"><article><strong id="clientVisits">0</strong><small>визитов</small></article><article><strong id="clientSpent">0 ₽</strong><small>получено</small></article><article><strong id="clientLastVisit">—</strong><small>последний визит</small></article></div>
                 <p class="client-debt-status" id="clientDebtStatus" hidden>Долг по завершённым визитам <strong id="clientDebt">0 ₽</strong></p>
-                <details class="client-disclosure client-preferences-disclosure">
-                  <summary><span>Предпочтения и метки</span><small>Важное к следующему визиту</small></summary>
+                <details class="client-disclosure client-preferences-disclosure" id="clientPreferencesDisclosure">
+                  <summary><span>Предпочтения и метки</span><small id="clientPreferencesPreview">Метки и заметка</small></summary>
                 <section class="client-labels-panel" aria-labelledby="clientLabelsTitle">
                   <div class="client-labels-heading"><div><small>Видно только вам</small><strong id="clientLabelsTitle">Метки клиента</strong></div><span id="clientAutomaticLabel"></span></div>
                   <div class="client-label-options">
@@ -302,7 +302,7 @@
                   <div><small>Карточка организации</small><strong>Дополнительные данные</strong></div>
                   <form id="clientCustomFieldsForm"></form>
                 </section>
-                <details class="client-disclosure">
+                <details class="client-disclosure client-repeat-legacy" hidden aria-hidden="true">
                   <summary><span>Записать снова</span><small>Создать новую запись</small></summary>
                   <section class="repeat-booking">
                     <form id="repeatBookingForm">
@@ -327,8 +327,8 @@
                     <button class="primary" id="createBatchBookings" type="submit" data-batch-booking-write>Создать весь пакет</button>
                   </form>
                 </details>
-                <details class="client-disclosure">
-                  <summary><span>История записей</span><small>Все визиты клиента</small></summary>
+                <details class="client-disclosure" id="clientHistoryDisclosure">
+                  <summary><span>История записей</span><small id="clientHistorySummary">Все визиты клиента</small></summary>
                   <section class="client-history"><div id="clientHistory"></div></section>
                 </details>
               </div>

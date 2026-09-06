@@ -7708,9 +7708,22 @@ function openQuickRepeatForClient(phone = selectedClientPhone) {
   });
 }
 
+function updateClientPreferencesPreview(phone, noteValue = clientNotes.get(phone) || '') {
+  if (selectedClientPhone !== phone) return;
+  const labels = clientLabel(phone);
+  const preferences = [
+    labels.favorite ? 'Любимый' : '',
+    labels.vip ? 'VIP' : '',
+    labels.attention ? 'Внимание' : '',
+    noteValue ? 'Есть заметка' : ''
+  ].filter(Boolean);
+  $('#clientPreferencesPreview').textContent = preferences.join(' · ') || 'Метки и заметка';
+}
+
 function renderClientDetail(phone) {
   const client = buildClients().find(item => item.phone === phone);
   if (!client) return;
+  const clientChanged = selectedClientPhone !== phone;
   selectedClientPhone = phone;
   renderClients();
   $('#clientProfileEmpty').hidden = true;
@@ -7741,6 +7754,12 @@ function renderClientDetail(phone) {
   $('#clientVipNoteField').hidden = !labels.vip;
   $('#clientAttentionReasonField').hidden = !labels.attention;
   $('#clientAutomaticLabel').textContent = clientIsNew(client.phone) ? 'Новый клиент' : '';
+  const noteValue = clientNotes.get(phone) || client.imported?.note || '';
+  updateClientPreferencesPreview(phone, noteValue);
+  if (clientChanged) {
+    $('#clientPreferencesDisclosure').open = false;
+    $('#clientHistoryDisclosure').open = false;
+  }
   clearFormError('#clientLabelsError');
   const now = new Date();
   const completedVisits = client.bookings.filter(item => {
@@ -7769,13 +7788,14 @@ function renderClientDetail(phone) {
   $('#clientLastVisit').textContent = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric',month:'short',year:'numeric' }) : '—';
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
-  $('#clientNote').value = clientNotes.get(phone) || client.imported?.note || '';
+  $('#clientNote').value = noteValue;
   $('#repeatDate').value = businessTodayIso();
   $('#repeatDate').min = businessTodayIso();
   repeatTime = '';
   populateRepeatServices();
   loadRepeatSlots();
   const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
+  $('#clientHistorySummary').textContent = history.length ? `Визитов: ${history.length}` : 'История пока пуста';
   $('#clientHistory').innerHTML = history.map(item => {
     const status = bookingStatus(item);
     return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
@@ -7971,6 +7991,7 @@ function refreshClientLabelPresentation(phone) {
   if (selectedClientPhone === phone) {
     $('#clientProfileBadges').innerHTML = clientBadgeMarkup(phone, { limit:4, showLabels:true });
     applyClientHighlightClasses($('#clientProfileContent').closest('.client-profile'), phone, 'client-profile-');
+    updateClientPreferencesPreview(phone, $('#clientNote').value);
   }
   const editor = $('[data-booking-client-labels]');
   if (editor && normalizePhone(editor.dataset.bookingClientLabels) === phone) {
@@ -8399,7 +8420,10 @@ async function saveClientNote() {
   const isCurrent = () => contextIsCurrent() && selectedClientPhone === clientPhone;
   try {
     const saved = await saveClientNoteValue(clientPhone, note, { isCurrent });
-    if (isCurrent()) notify(saved ? 'Заметка сохранена' : 'Заметка сохранена на этом устройстве · отправим после восстановления связи');
+    if (isCurrent()) {
+      updateClientPreferencesPreview(clientPhone, note);
+      notify(saved ? 'Заметка сохранена' : 'Заметка сохранена на этом устройстве · отправим после восстановления связи');
+    }
   } catch {
     if (isCurrent()) notify('Не удалось сохранить заметку. Не закрывайте страницу и повторите сохранение.');
   }

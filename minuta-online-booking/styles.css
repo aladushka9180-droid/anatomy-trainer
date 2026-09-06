@@ -8582,6 +8582,7 @@ html.provider-booting .provider-main {
 
 /* Minimal client profile: identity first, one primary action, details on demand. */
 .client-profile #clientProfileContent { min-width:0; }
+.client-custom-fields[hidden],.client-repeat-legacy[hidden] { display:none!important; }
 .client-profile-head {
   display:grid;
   grid-template-columns:1fr;

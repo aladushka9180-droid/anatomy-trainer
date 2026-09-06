@@ -119,10 +119,11 @@
       const values = $('#clientCustomFields');
       if (!settings || !values) return;
       const enabled = Boolean(workspace?.enabled);
-      settings.hidden = !organization || !api?.available || !isManager();
-      values.hidden = !organization || !api?.available || !enabled || !selectedPhone;
-      if ($('#clientFieldsEnabled')) $('#clientFieldsEnabled').checked = enabled;
       const definitions = Array.isArray(workspace?.definitions) ? workspace.definitions : [];
+      const activeDefinitions = definitions.filter((item) => item.active);
+      settings.hidden = !organization || !api?.available || !isManager();
+      values.hidden = !organization || !api?.available || !enabled || !selectedPhone || !activeDefinitions.length;
+      if ($('#clientFieldsEnabled')) $('#clientFieldsEnabled').checked = enabled;
       const list = $('#clientFieldDefinitionsList');
       if (list) list.innerHTML = definitions.length
         ? definitions.map((item) => `<article><div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.field_key)} · ${escapeHtml(item.field_type)}${item.required ? ' · обязательно' : ''}${item.active ? '' : ' · выключено'}</small></div></article>`).join('')
@@ -135,10 +136,9 @@
       if (addButton) addButton.hidden = definitionEditorOpen;
       const form = $('#clientCustomFieldsForm');
       if (form) {
-        const active = definitions.filter((item) => item.active);
-        form.innerHTML = active.length
-          ? `${active.map((item) => `<label><span>${escapeHtml(item.label)}${item.required ? ' *' : ''}</span>${fieldMarkup(item)}</label>`).join('')}<p class="form-error" id="clientCustomFieldsError" hidden></p><button class="secondary-button" type="submit">Сохранить дополнительные данные</button>`
-          : '<small>Владелец организации ещё не настроил дополнительные поля.</small>';
+        form.innerHTML = activeDefinitions.length
+          ? `${activeDefinitions.map((item) => `<label><span>${escapeHtml(item.label)}${item.required ? ' *' : ''}</span>${fieldMarkup(item)}</label>`).join('')}<p class="form-error" id="clientCustomFieldsError" hidden></p><button class="secondary-button" type="submit">Сохранить дополнительные данные</button>`
+          : '';
       }
       global.refreshSectionNavigation?.();
     }
