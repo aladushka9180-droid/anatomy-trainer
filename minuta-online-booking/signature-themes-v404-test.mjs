@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=478/, 'Кабинет не подключает Signature Collection v478');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=478/, 'Service Worker не кэширует Signature Collection v478');
+assert.match(provider, /provider-themes-signature\.css\?v=479/, 'Кабинет не подключает Signature Collection v479');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=479/, 'Service Worker не кэширует Signature Collection v479');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -104,4 +104,4 @@ assert.match(snowCanvas, /background-repeat:no-repeat!important/);
 assert.doesNotMatch(snowCanvas, /--snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must use one uncropped full-page canvas without repeated edge masks');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must reveal the page canvas around reading surfaces');
 
-console.log('Signature themes v478: 13 unified themes OK');
+console.log('Signature themes v479: 13 unified themes OK');
