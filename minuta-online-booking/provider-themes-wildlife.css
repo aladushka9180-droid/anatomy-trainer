@@ -191,8 +191,8 @@
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f5f2ee!important;
   background-image:linear-gradient(rgba(245,242,238,.92),rgba(245,242,238,.92)),repeating-radial-gradient(ellipse at -12% 16%,transparent 0 24px,#5d5752 25px 36px,transparent 38px 67px),repeating-radial-gradient(ellipse at 106% 74%,transparent 0 31px,#716861 32px 45px,transparent 48px 82px)!important;
-  background-size:100% 100%,340px 340px,340px 340px!important;
-  background-position:center top!important;background-repeat:repeat!important;background-attachment:fixed!important;
+  background-size:100% 100%,100% 100%,100% 100%!important;
+  background-position:center top!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
 }
 .provider-body:is([data-provider-theme="golden-cheetah"],[data-provider-theme="pearl-zebra"])[data-provider-layout] :is(.provider-view,.schedule-card) { background:transparent!important;border-color:transparent!important;box-shadow:none!important; }
 .provider-body:is([data-provider-theme="golden-cheetah"],[data-provider-theme="pearl-zebra"])[data-provider-layout] :is(.provider-booking,.timeline-stage,.date-navigation,.date-strip,.schedule-toolbar) { background:var(--theme-surface)!important; }
@@ -204,7 +204,6 @@
     background-image:radial-gradient(ellipse 95% 520px at 27% 40px,#fffdf8 10%,rgba(255,253,248,.96) 34%,rgba(255,250,241,.55) 74%,transparent 100%),linear-gradient(rgba(249,226,193,.79),rgba(249,226,193,.79)),var(--wildlife-spots)!important;
     background-attachment:scroll!important;
   }
-  .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] { background-attachment:scroll!important; }
 }
 .theme-golden-cheetah { --theme-preview-bg:#f7e4c9;--theme-preview-surface:#fffdf8;--theme-preview-line:#ae9785;--theme-preview-accent:#805033;--theme-preview-radius:14px; }
 .theme-golden-cheetah .theme-swatch { background:radial-gradient(ellipse 3px 4px at 70% 30%,#aa8b67 70%,transparent 80%) 0 0/22px 24px,linear-gradient(100deg,#fffdf8,#eab878)!important; }
