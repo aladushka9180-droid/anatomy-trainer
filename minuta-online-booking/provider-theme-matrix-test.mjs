@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset] = await Promise.all([
+const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
+  readFile(path.join(directory, 'theme-catalog.js'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
   readFile(path.join(directory, 'provider-theme-noir-safari.css'), 'utf8'),
@@ -20,7 +22,10 @@ function sourceArray(name) {
   return [...source.matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]);
 }
 
-const themes = sourceArray('PROVIDER_THEME_KEYS');
+const catalogContext = { window:{} };
+vm.createContext(catalogContext);
+vm.runInContext(catalogSource, catalogContext);
+const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
 assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'golden-cheetah', 'pearl-zebra', 'noir-safari']);
@@ -124,7 +129,7 @@ assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav 
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=511"\)/);
+assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=512"\)/);
 assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);

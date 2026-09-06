@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const css = fs.readFileSync(new URL('./provider-themes-signature.css', import.meta.url), 'utf8');
 const provider = fs.readFileSync(new URL('./provider.html', import.meta.url), 'utf8');
-const script = fs.readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
+const script = fs.readFileSync(new URL('./theme-catalog.js', import.meta.url), 'utf8');
 const worker = fs.readFileSync(new URL('./sw.js', import.meta.url), 'utf8');
 const subscription = fs.readFileSync(new URL('./subscription-pricing.css', import.meta.url), 'utf8');
 
@@ -53,11 +53,11 @@ assert.match(subscription, /\.subscription-plan-card[\s\S]*?border:\s*1px solid 
 assert.match(subscription, /\.subscription-plan-card[\s\S]*?border-radius:\s*var\(--material-radius/, 'Карточки тарифов не наследуют геометрию активного стиля');
 assert.match(subscription, /\.subscription-plan-label[\s\S]*?color:var\(--theme-accent-contrast/, 'Метка рекомендуемого тарифа не гарантирует контраст темы');
 
-assert.match(script, /japandi:'#f1eee6'|japandi:'#f3efe7'/, 'Нет системного theme-color Japandi');
-assert.match(script, /midnight:'#0b1420'|midnight:'#08111f'/, 'Нет системного theme-color Midnight Navy');
-assert.match(script, /mono:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
-assert.match(script, /desert:'#f3e8dc'|desert:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
-assert.match(script, /rose:'#f2e9ec'|rose:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
+assert.match(script, /defineTheme\('japandi'[\s\S]*?themeColor:'#f3efe7'/, 'Нет системного theme-color Japandi');
+assert.match(script, /defineTheme\('midnight'[\s\S]*?themeColor:'#08111f'/, 'Нет системного theme-color Midnight Navy');
+assert.match(script, /defineTheme\('mono'[\s\S]*?themeColor:'#f3f3f0'/, 'Нет системного theme-color Editorial Mono');
+assert.match(script, /defineTheme\('desert'[\s\S]*?themeColor:'#f5e9db'/, 'Нет системного theme-color Desert Clay');
+assert.match(script, /defineTheme\('rose'[\s\S]*?themeColor:'#f2eaed'/, 'Нет системного theme-color Rose Smoke');
 for (const [key, color, group] of [
   ['botanical', '#202623', 'dark natural'],
   ['burgundy', '#282326', 'dark'],
@@ -68,11 +68,11 @@ for (const [key, color, group] of [
   ['snow-leopard', '#f4f5f6', 'featured light'],
   ['apricot-tiger', '#fff3e7', 'featured light natural'],
 ]) {
-  assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
+  assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=511/, 'Кабинет не подключает Signature Collection v511');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=511/, 'Service Worker не кэширует Signature Collection v511');
+assert.match(provider, /provider-themes-signature\.css\?v=512/, 'Кабинет не подключает Signature Collection v512');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=512/, 'Service Worker не кэширует Signature Collection v512');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -99,7 +99,7 @@ assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--the
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /provider-snow-leopard-unified-landscape-v5\.png\?v=511/);
+assert.match(snowCanvas, /provider-snow-leopard-unified-landscape-v5\.png\?v=512/);
 assert.match(snowCanvas, /--snow-print-veil:rgba\(255,255,255,\.86\)/);
 assert.match(snowCanvas, /background-size:auto,cover!important/);
 assert.match(snowCanvas, /background-repeat:no-repeat!important/);
@@ -108,15 +108,15 @@ assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard 
 assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must not restore visible tiles or edge-masking rectangles');
 assert.doesNotMatch(snowCanvas, /crisp-seamless-4k-v4/, 'Snow Leopard still loads the internally tiled canvas');
 const portraitSnow = css.match(/@media \(orientation:portrait\) \{\s*\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\] \{([^}]*)\}/)?.[1] || '';
-assert.match(portraitSnow, /provider-snow-leopard-unified-portrait-v6\.png\?v=511/, 'Portrait screens must use the native dense portrait canvas instead of zooming the landscape image');
+assert.match(portraitSnow, /provider-snow-leopard-unified-portrait-v6\.png\?v=512/, 'Portrait screens must use the native dense portrait canvas instead of zooming the landscape image');
 assert.doesNotMatch(portraitSnow, /portrait-v5/, 'Portrait screens must not restore the oversized Snow Leopard motifs');
 for (const [asset, dimensions] of [['provider-snow-leopard-unified-landscape-v5.png', [1672, 941]], ['provider-snow-leopard-unified-portrait-v6.png', [941, 1672]]]) {
   const bytes = fs.readFileSync(new URL(`./${asset}`, import.meta.url));
   assert.ok(bytes.length > 1_000_000, `${asset} is missing or unexpectedly small`);
   assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], dimensions, `${asset} has the wrong orientation`);
-  assert.match(worker, new RegExp(`${asset.replace('.', '\\.') }\\?v=511`), `${asset} is not available offline`);
+  assert.match(worker, new RegExp(`${asset.replace('.', '\\.') }\\?v=512`), `${asset} is not available offline`);
 }
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v511: 13 unified themes OK');
+console.log('Signature themes v512: 13 unified themes OK');

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 const provider = readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+const catalogSource = readFileSync(new URL('./theme-catalog.js', import.meta.url), 'utf8');
 
 assert.match(provider, /const limit = view === 'month' \? 2 : items\.length/, 'Месяц показывает слишком много записей внутри одной даты');
 assert.match(provider, /\+ ещё \$\{seriesBookingCountLabel\(hiddenCount\)\}/, 'Скрытые записи месяца подписаны непонятно');
@@ -23,8 +25,10 @@ assert.match(styles, /schedule-card:has\(#providerBookings\.calendar-overview-mo
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.calendar-overview-month \.calendar-overview-day \{[^}]*border-color:var\(--theme-line\);[^}]*background:var\(--theme-surface\);[^}]*color:var\(--theme-ink\);/, 'Месяц не наследует палитру выбранной темы');
 assert.doesNotMatch(styles, /\.provider-body\[data-provider-theme="[^"]+"\][^{}]*\.calendar-overview-month/, 'Отдельная тема переопределяет структуру месяца');
 
-const themeSource = provider.match(/const PROVIDER_THEME_KEYS = \[([^\]]+)\]/)?.[1] || '';
-const themes = [...themeSource.matchAll(/'([^']+)'/g)].map(match => match[1]);
+const catalogContext = { window:{} };
+vm.createContext(catalogContext);
+vm.runInContext(catalogSource, catalogContext);
+const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 assert.equal(themes.length, 25, 'Проверка месяца должна охватывать все 25 тем');
 
 console.log(`Calendar minimalism v400 checks passed across ${themes.length} themes.`);

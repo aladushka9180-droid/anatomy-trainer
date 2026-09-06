@@ -1,7 +1,7 @@
 const db = window.supabase.createClient(window.MINUTA_CONFIG.supabaseUrl, window.MINUTA_CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 const telegramClientEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/telegram-client-notify`;
 const yookassaPaymentEndpoint = `${window.MINUTA_CONFIG.supabaseUrl}/functions/v1/yookassa-create-payment`;
-const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
+const state = { step: 1, services: [], serviceId: '', performerId: '', locationId: '', locations: [], teamMode: false, resourceScheduling: false, branchShiftScheduling: false, groupBookingSafety: true, organization: null, clientPage: { theme_key:'sage', headline_key:'massage-time' }, date: '', time: '', hour: '', period: 'all', moreDates: false, availability: new Map(), availabilityServiceId: '', availabilityLocationId: '', loadingAvailability: false, availabilityError: false };
 let servicesLoadRevision = 0;
 let availabilityLoadRevision = 0;
 let selectionValidationPending = false;
@@ -452,6 +452,28 @@ function updateSubmitAvailability() {
   hint.classList.toggle('valid', valid);
 }
 function escapeHtml(value) { return String(value || '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
+function renderClientThemeOptions() {
+  const holder = $('#clientThemeOptions');
+  const catalog = window.MinutaThemeCatalog;
+  if (!holder || !catalog) return;
+  const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
+  const organizationTheme = catalog.theme(state.clientPage.theme_key);
+  const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
+  holder.innerHTML = `<label class="client-theme-option theme-follow"><input type="radio" name="clientTheme" value="follow" ${selected === 'follow' ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>Как у организации</strong><small>${escapeHtml(organizationTheme.label)}</small></span></label>${catalog.themes.map(item => `<label class="client-theme-option theme-${item.key}" style="--theme-preview:${preview(item)}"><input type="radio" name="clientTheme" value="${item.key}" ${selected === item.key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('')}`;
+}
+function applyClientPagePresentation(settings = null) {
+  const catalog = window.MinutaThemeCatalog;
+  if (!catalog) return;
+  if (settings) state.clientPage = catalog.normalizeSettings(settings);
+  else if (!state.organization) state.clientPage = catalog.settingsFromSearch(window.location.search);
+  const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
+  const effectiveTheme = selected === 'follow' ? state.clientPage.theme_key : selected;
+  const theme = catalog.applyClientTheme(document.body, effectiveTheme);
+  const headline = catalog.headline(state.clientPage.headline_key);
+  if ($('#clientHeroTitle')) $('#clientHeroTitle').textContent = headline.label;
+  if ($('#clientThemeButtonLabel')) $('#clientThemeButtonLabel').textContent = theme.label;
+  renderClientThemeOptions();
+}
 function isMissingRpc(error, name) {
   const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
   return /(?:PGRST202|42883)/i.test(text) || new RegExp(`function\\s+[^\\n]*${name}[^\\n]*does not exist`, 'i').test(text);
@@ -487,8 +509,14 @@ async function loadServices() {
   state.locations = [];
   state.locationId = '';
   if (requestedOrganizationSlug) {
-    let catalogResult = await db.rpc('get_public_minuta_catalog_v4', { p_slug: requestedOrganizationSlug });
+    let catalogResult = await db.rpc('get_public_minuta_catalog_v5', { p_slug: requestedOrganizationSlug });
+    let appearanceAwareCatalog = !catalogResult.error;
     let shiftAwareCatalog = !catalogResult.error;
+    if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v5')) {
+      catalogResult = await db.rpc('get_public_minuta_catalog_v4', { p_slug: requestedOrganizationSlug });
+      appearanceAwareCatalog = false;
+      shiftAwareCatalog = !catalogResult.error;
+    }
     if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v4')) {
       catalogResult = await db.rpc('get_public_minuta_catalog_v3', { p_slug: requestedOrganizationSlug });
       shiftAwareCatalog = false;
@@ -507,6 +535,8 @@ async function loadServices() {
     }
     if (!catalogResult.error) {
       state.organization = catalogResult.data?.organization || null;
+      state.clientPage = window.MinutaThemeCatalog.normalizeSettings(appearanceAwareCatalog ? catalogResult.data?.client_page : window.MinutaThemeCatalog.settingsFromSearch(window.location.search));
+      applyClientPagePresentation(state.clientPage);
       state.locations = branchAwareCatalog && Array.isArray(catalogResult.data?.locations) ? catalogResult.data.locations.filter(item => item?.id) : [];
       // Once the branch-aware catalog answers for an organization, fail closed:
       // an empty location list means booking is unavailable, never legacy fallback.
@@ -1356,6 +1386,8 @@ document.addEventListener('click', event => {
   const openWaitlist = event.target.closest('#openWaitlist');
   const closeWaitlist = event.target.closest('[data-close-waitlist]');
   const paymentLink = event.target.closest('#successPaymentLink[data-payment-token]');
+  const openClientTheme = event.target.closest('#openClientTheme');
+  if (openClientTheme) { renderClientThemeOptions(); $('#clientThemeDialog')?.showModal(); return; }
   if (paymentLink) { event.preventDefault(); void startOnlinePayment(paymentLink); return; }
   if (performer) {
     const nextPerformer = performer.dataset.performer || '';
@@ -1405,6 +1437,12 @@ document.addEventListener('click', event => {
   if (openWaitlist) openWaitlistDialog();
   if (closeWaitlist) $('#waitlistDialog').close();
 });
+$('#clientThemeOptions')?.addEventListener('change', event => {
+  if (!event.target.matches('input[name="clientTheme"]')) return;
+  window.MinutaThemeCatalog?.writeClientOverride(state.organization?.id, event.target.value, requestedOrganizationSlug);
+  applyClientPagePresentation();
+});
+$('#clientThemeDialog')?.addEventListener('click', event => { if (event.target === $('#clientThemeDialog')) $('#clientThemeDialog').close(); });
 $('#clientName').addEventListener('input', bookingInputChanged);
 $('#clientPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); bookingInputChanged(); });
 $('#bookingBenefitCode')?.addEventListener('input', bookingInputChanged);
@@ -1448,6 +1486,7 @@ const publicGroupBookingsController = window.MinutaGroupBookings?.createPublicCo
 }) : { bind() {}, load() {} };
 publicGroupBookingsController.bind();
 restoreClientContact();
+applyClientPagePresentation();
 renderDates();
 renderTimes();
 loadServices();

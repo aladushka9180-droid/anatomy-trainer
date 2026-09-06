@@ -438,8 +438,11 @@ assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-dialog \{[
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-entry \{[\s\S]*background:linear-gradient/, 'Записи журнала связи не оформлены для Luxury');
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-actions \{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/, 'Действия журнала связи не выровнены в Luxury');
 assert.match(styles, /\.schedule-empty-create/, 'Кнопка пустого расписания не оформлена');
-const providerThemes = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
-assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger', 'golden-cheetah', 'pearl-zebra', 'noir-safari'], 'Набор тем кабинета неожиданно изменился');
+const themeCatalog = readFileSync(join(root, 'theme-catalog.js'), 'utf8');
+const providerThemes = [...themeCatalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
+const providerThemeCards = [...providerHtml.matchAll(/name="providerTheme" value="([^"]+)"/g)].map(match => match[1]);
+assert.deepEqual(providerThemes, ['sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi','midnight','mono','desert','rose','botanical','burgundy','coastal','pearl','butter','celadon','snow-leopard', 'apricot-tiger', 'golden-cheetah', 'pearl-zebra', 'noir-safari'], 'Набор тем единого каталога неожиданно изменился');
+assert.deepEqual(providerThemeCards, providerThemes, 'Карточки тем кабинета разошлись с единым каталогом');
 const allProviderThemeStyles = `${styles}\n${signatureStyles}\n${readFileSync(join(root, 'provider-themes-wildlife.css'), 'utf8')}\n${readFileSync(join(root, 'provider-theme-noir-safari.css'), 'utf8')}`;
 for (const theme of providerThemes) assert.match(allProviderThemeStyles, new RegExp(`\\.provider-body\\[data-provider-theme="${theme}"\\] \\{[^}]*--theme-bg:`), `У темы ${theme} нет полной палитры`);
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.booking-sheet-panel \{[^}]*background:var\(--theme-surface\)[^}]*color:var\(--theme-ink\)/, 'Окно записи не использует поверхность активной темы');
@@ -536,7 +539,7 @@ assert.match(styles, /data-provider-theme="luxury"\] :is\(\s*\.booking-sheet-cli
 assert.match(provider, /LEGACY_PROVIDER_THEME_MAP/, 'Прежний выбор оформления не переносится в раздельные настройки');
 const appearanceSources = [
   provider.match(/const PROVIDER_LAYOUT_KEYS = [^;]+;/)?.[0],
-  provider.match(/const PROVIDER_THEME_KEYS = [^;]+;/)?.[0],
+  `const PROVIDER_THEME_KEYS = ${JSON.stringify(providerThemes)};`,
   provider.match(/const PROVIDER_TEXT_SCALE_KEYS = [^;]+;/)?.[0],
   provider.match(/const PROVIDER_MOBILE_NAV_ITEMS = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/const DEFAULT_MOBILE_NAV = [^;]+;/)?.[0],
@@ -646,7 +649,7 @@ assert.match(providerHtml, /class="provider-section-nav" aria-label="Разде�
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
 assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 2, 'Ссылки на страницу клиента не объединены общей логикой');
 assert.match(providerHtml, /provider-client-link[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'Страница клиента не открывается безопасно в новой вкладке');
-assert.match(provider, /function updateProviderClientLinks[\s\S]*public_booking_enabled[\s\S]*searchParams\.set\('org', organization\.public_slug\)/, 'Ссылка на страницу клиента не учитывает выбранную организацию');
+assert.match(provider, /function buildProviderClientUrl[\s\S]*public_booking_enabled[\s\S]*searchParams\.set\('org', organization\.public_slug\)/, 'Ссылка на страницу клиента не учитывает выбранную организацию');
 assert.match(providerHtml, /id="bookingSearch"[^>]*Имя, телефон или услуга/, 'В истории записей нет поиска');
 assert.match(providerHtml, /id="bookingStatusFilter"[\s\S]*value="needs-result"[\s\S]*value="cancelled"/, 'В истории записей нет фильтра по статусу');
 assert.match(provider, /function applyBookingQuery[\s\S]*bookingStatusClass\(item\)[\s\S]*client_phone[\s\S]*services\?\.name/, 'Поиск и фильтр записей не применяются к данным');

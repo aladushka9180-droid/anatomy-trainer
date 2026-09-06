@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: 22
       - run: node minuta-online-booking/provider-ux-audit-test.mjs
+      - run: node minuta-online-booking/client-theme-selection-v511-test.mjs
+      - run: node minuta-online-booking/client-page-settings-v118-static-test.mjs
       - run: node minuta-online-booking/tests/free-slots-default-times-test.mjs
       - run: node minuta-online-booking/tests/free-slots-format-test.mjs
       - run: node minuta-online-booking/tests/free-slots-general-windows-test.mjs
