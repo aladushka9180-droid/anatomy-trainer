@@ -9,10 +9,11 @@
 }
 
 .provider-body .date-strip-frame>.date-strip {
+  box-sizing:border-box;
   width:100%;
   min-width:0;
-  padding-right:48px;
-  padding-left:48px;
+  padding-right:54px!important;
+  padding-left:54px!important;
 }
 
 .provider-body .date-strip-shift {
@@ -21,23 +22,23 @@
   top:50%;
   display:grid;
   place-items:center;
-  width:36px;
-  height:36px;
+  width:30px;
+  height:30px;
   padding:0;
-  border:1px solid color-mix(in srgb,var(--theme-line) 78%,transparent);
+  border:1px solid color-mix(in srgb,var(--theme-line) 58%,transparent);
   border-radius:50%;
-  background:color-mix(in srgb,var(--theme-surface) 88%,transparent);
+  background:color-mix(in srgb,var(--theme-surface) 74%,transparent);
   color:var(--theme-ink);
-  box-shadow:0 4px 14px color-mix(in srgb,var(--theme-shadow) 22%,transparent);
-  opacity:.68;
+  box-shadow:none;
+  opacity:.58;
   transform:translateY(-50%);
   cursor:pointer;
   backdrop-filter:blur(8px);
 }
 
-.provider-body .date-strip-shift[data-date-shift="-7"] { left:8px; }
-.provider-body .date-strip-shift[data-date-shift="7"] { right:8px; }
-.provider-body .date-strip-shift .ui-icon { width:17px; height:17px; }
+.provider-body .date-strip-shift[data-date-shift="-7"] { left:10px; }
+.provider-body .date-strip-shift[data-date-shift="7"] { right:10px; }
+.provider-body .date-strip-shift .ui-icon { width:15px; height:15px; }
 .provider-body .date-strip-shift:hover { opacity:1; }
 .provider-body .date-strip-shift:focus-visible {
   outline:3px solid color-mix(in srgb,var(--theme-accent) 24%,transparent);
@@ -47,7 +48,53 @@
 
 .provider-body .date-strip-frame:has(>.date-strip[hidden]) { display:none; }
 
+/* In the daily journal, the schedule is one surface with quiet separators. */
+.provider-body[data-provider-layout]:not([data-provider-layout="split"])
+  .schedule-card:has(#dateStrip:not([hidden])) {
+  overflow:hidden;
+}
+
+.provider-body[data-provider-layout]:not([data-provider-layout="split"])
+  .schedule-card:has(#dateStrip:not([hidden])) :is(.date-navigation,.date-strip,.schedule-toolbar) {
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+
+.provider-body[data-provider-layout]:not([data-provider-layout="split"])
+  .schedule-card:has(#dateStrip:not([hidden])) .date-strip-frame {
+  border-top:1px solid color-mix(in srgb,var(--theme-line) 62%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--theme-line) 62%,transparent);
+}
+
+.provider-body[data-provider-layout]:not([data-provider-layout="split"])
+  .schedule-card:has(#dateStrip:not([hidden])) #providerBookings {
+  margin:0!important;
+  border:0!important;
+  border-top:1px solid color-mix(in srgb,var(--theme-line) 62%,transparent)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+
 @media (min-width:761px) {
+  .provider-body[data-provider-layout="split"] .schedule-card:has(#dateStrip:not([hidden])) {
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  .provider-body[data-provider-layout="split"] .schedule-card:has(#dateStrip:not([hidden]))
+    :is(.date-navigation,.date-strip,.schedule-toolbar) {
+    border-right:0!important;
+    border-left:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+  .provider-body[data-provider-layout="split"] .schedule-card:has(#dateStrip:not([hidden]))
+    .date-strip-frame {
+    border-top:1px solid color-mix(in srgb,var(--theme-line) 62%,transparent);
+    border-bottom:1px solid color-mix(in srgb,var(--theme-line) 62%,transparent);
+  }
   .provider-body .booking-sheet {
     place-items:center;
   }
@@ -58,16 +105,16 @@
 
 @media (max-width:760px) {
   .provider-body .date-strip-frame>.date-strip {
-    padding-right:42px;
-    padding-left:42px;
+    padding-right:50px!important;
+    padding-left:50px!important;
     scroll-behavior:smooth;
     overscroll-behavior-x:contain;
   }
   .provider-body .date-strip-shift {
     width:34px;
     height:34px;
-    opacity:.82;
+    opacity:.72;
   }
-  .provider-body .date-strip-shift[data-date-shift="-7"] { left:5px; }
-  .provider-body .date-strip-shift[data-date-shift="7"] { right:5px; }
+  .provider-body .date-strip-shift[data-date-shift="-7"] { left:8px; }
+  .provider-body .date-strip-shift[data-date-shift="7"] { right:8px; }
 }

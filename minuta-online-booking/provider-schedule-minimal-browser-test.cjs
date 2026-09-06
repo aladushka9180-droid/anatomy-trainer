@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
 const root = __dirname;
+const output = process.env.MINUTA_SCHEDULE_OUTPUT;
+if (output) fs.mkdirSync(output, { recursive:true });
 const server = http.createServer((request, response) => {
   const file = path.resolve(root, '.' + decodeURIComponent(new URL(request.url, 'http://localhost').pathname));
   if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
@@ -56,19 +58,32 @@ const server = http.createServer((request, response) => {
         const frame = box('.date-strip-frame');
         const previous = box('.date-strip-shift[data-date-shift="-7"]');
         const next = box('.date-strip-shift[data-date-shift="7"]');
+        const dates = [...document.querySelectorAll('#dateStrip>button')].map(button => button.getBoundingClientRect());
+        const navigationStyle = getComputedStyle(document.querySelector('.date-navigation'));
+        const stripStyle = getComputedStyle(document.querySelector('#dateStrip'));
+        const toolbarStyle = getComputedStyle(document.querySelector('.schedule-toolbar'));
+        const bookingsStyle = getComputedStyle(document.querySelector('#providerBookings'));
         return {
           panelCenterDelta:Math.abs(panel.top + panel.height / 2 - innerHeight / 2),
           panelBottomDelta:Math.abs(innerHeight - panel.bottom),
           previousInside:previous.left >= frame.left && previous.right <= frame.right,
           nextInside:next.left >= frame.left && next.right <= frame.right,
+          previousGap:dates[0].left - previous.right,
+          nextGap:next.left - dates.at(-1).right,
           oldControlsHidden:[...document.querySelectorAll('.date-navigation>.date-nav-button')].every(button => getComputedStyle(button).display === 'none'),
-          overflow:document.documentElement.scrollWidth > innerWidth + 2
+          overflow:document.documentElement.scrollWidth > innerWidth + 2,
+          quietSurfaces:[navigationStyle,stripStyle,toolbarStyle].every(style => style.borderRadius === '0px' && style.boxShadow === 'none'),
+          bookingsRadius:bookingsStyle.borderRadius
         };
       });
       assert.equal(result.previousInside, true, `${width}px: левая стрелка вышла за ленту`);
       assert.equal(result.nextInside, true, `${width}px: правая стрелка вышла за ленту`);
+      assert.ok(result.previousGap >= 0, `${width}px: левая стрелка перекрывает первую дату (${result.previousGap}px)`);
+      assert.ok(result.nextGap >= 0, `${width}px: правая стрелка перекрывает последнюю дату (${result.nextGap}px)`);
       assert.equal(result.oldControlsHidden, true, `${width}px: старые стрелки остались видимы`);
       assert.equal(result.overflow, false, `${width}px: появился горизонтальный overflow`);
+      assert.equal(result.quietSurfaces, true, `${width}px: у внутренних поверхностей остались тяжёлые рамки`);
+      assert.equal(result.bookingsRadius, '0px', `${width}px: рабочая область осталась вложенной карточкой`);
       if (width > 760) assert.ok(result.panelCenterDelta <= 2, 'На ПК карточка записи не центрирована');
       else assert.ok(result.panelBottomDelta <= 2, 'На телефоне карточка должна оставаться у нижнего края');
     }
@@ -84,6 +99,30 @@ const server = http.createServer((request, response) => {
     });
     assert.equal(alternateView.topControlsVisible, true, 'В режимах недели и месяца нужны верхние стрелки');
     assert.equal(alternateView.stripControlsHidden, true, 'Стрелки скрытой дневной ленты не должны оставаться на экране');
+
+    await page.setViewportSize({ width:1440, height:900 });
+    const splitView = await page.evaluate(() => {
+      document.body.dataset.providerLayout = 'split';
+      document.querySelector('[data-calendar-view="week"]')?.classList.remove('active');
+      document.querySelector('[data-calendar-view="day"]')?.classList.add('active');
+      document.querySelector('#dateStrip').hidden = false;
+      const schedule = getComputedStyle(document.querySelector('.schedule-card'));
+      const context = getComputedStyle(document.querySelector('.schedule-context'));
+      return { scheduleBorder:schedule.borderTopWidth, contextBorder:context.borderTopWidth };
+    });
+    assert.equal(splitView.scheduleBorder, '0px', 'Разделённой компоновке не нужна третья внешняя рамка');
+    assert.notEqual(splitView.contextBorder, '0px', 'Контекст разделённой компоновки должен остаться отдельной панелью');
+    if (output) {
+      await page.evaluate(() => {
+        document.body.dataset.providerTheme = 'midnight';
+        document.body.dataset.providerLayout = 'soft';
+        document.querySelector('#bookingSheet').hidden = true;
+      });
+      for (const width of [390, 1440]) {
+        await page.setViewportSize({ width, height:900 });
+        await page.screenshot({ path:path.join(output, `midnight-soft-${width}.png`), fullPage:false });
+      }
+    }
     console.log('Provider schedule minimal browser geometry: 390px + 1440px OK');
   } finally {
     await browser?.close();

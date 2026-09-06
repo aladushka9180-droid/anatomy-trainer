@@ -13,6 +13,8 @@ assert.match(html, /class="date-strip-frame"[\s\S]*data-date-shift="-7"[\s\S]*id
 assert.match(styles, /\.date-navigation:has\(\[data-calendar-view="day"\]\.active\)>\.date-nav-button\s*\{[^}]*display:none!important;/s);
 assert.match(styles, /\.date-strip-shift\[data-date-shift="-7"\]\s*\{[^}]*left:8px;/s);
 assert.match(styles, /\.date-strip-shift\[data-date-shift="7"\]\s*\{[^}]*right:8px;/s);
+assert.match(styles, /\.date-strip-frame>\.date-strip\s*\{[^}]*box-sizing:border-box;/s);
+assert.match(styles, /not\(\[data-provider-layout="split"\]\)[\s\S]*\.schedule-card:has\(#dateStrip:not\(\[hidden\]\)\)[\s\S]*border-radius:0!important;/s);
 assert.match(styles, /@media \(min-width:761px\)[\s\S]*\.booking-sheet\s*\{[^}]*place-items:center;[\s\S]*\.booking-sheet-panel\s*\{[^}]*margin-bottom:0;/s);
 assert.match(styles, /@media \(max-width:760px\)[\s\S]*scroll-behavior:smooth;[\s\S]*overscroll-behavior-x:contain;/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings,#dateStrip'\)/);
