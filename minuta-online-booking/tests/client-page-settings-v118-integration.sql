@@ -44,6 +44,9 @@ exception when insufficient_privilege then
 end $$;
 reset role;
 
+-- The isolated test snapshot deliberately revokes anon schema usage. Restore the
+-- Supabase runtime baseline inside this transaction before checking the public RPC.
+grant usage on schema public to anon;
 set local role anon;
 do $$
 declare catalog jsonb; appearance jsonb;
