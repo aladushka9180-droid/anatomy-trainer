@@ -8649,7 +8649,11 @@ html.provider-booting .provider-main {
 .client-favorite-services { display:grid; gap:8px; margin-top:15px; }
 .client-favorite-services>strong { color:var(--theme-muted,#718278); font-size:10px; font-weight:750; }
 .client-favorite-services>div { display:flex; flex-wrap:wrap; gap:7px; }
-.client-favorite-services span { display:inline-flex; align-items:center; min-height:30px; padding:0 12px; border-radius:999px; background:var(--theme-accent-soft,#edf4ef); color:var(--theme-ink,var(--ink)); font-size:10px; font-weight:750; }
+.client-favorite-services button { display:inline-flex; align-items:center; gap:6px; max-width:min(100%,320px); min-height:32px; padding:0 12px; border:0; border-radius:999px; background:var(--theme-accent-soft,#edf4ef); color:var(--theme-ink,var(--ink)); cursor:pointer; font:750 10px/1.2 inherit; }
+.client-favorite-services button:hover { color:var(--theme-accent,#286849); }
+.client-favorite-services button:focus-visible { outline:2px solid var(--theme-accent,#286849); outline-offset:2px; }
+.client-favorite-services button .ui-icon { flex:0 0 auto; width:13px; height:13px; }
+.client-favorite-services button span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 @media (max-width:760px) {
   .client-profile-head { grid-template-columns:1fr; align-items:center; }

@@ -938,9 +938,9 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
   finally { if (offlineBookingFlushPromise === run) offlineBookingFlushPromise = null; }
 }
 const offlineBookingCreateSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"]';
-const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client]';
+const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client], [data-client-favorite-service]';
 const writeSelectors = [
-  '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
+  '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '[data-client-favorite-service]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
   '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
@@ -7708,6 +7708,21 @@ function openQuickRepeatForClient(phone = selectedClientPhone) {
   });
 }
 
+function openFavoriteServiceBooking(serviceId, phone = selectedClientPhone) {
+  if (!requireBookingWrites()) return;
+  const client = buildClients().find(item => item.phone === normalizePhone(phone));
+  const service = ownServices.find(item => item.active && String(item.id) === String(serviceId));
+  if (!client || !service) {
+    notify('Эта услуга больше недоступна для записи');
+    return;
+  }
+  openNewBookingSheet('', {
+    clientName:client.name,
+    clientPhone:client.displayPhone,
+    serviceId:service.id
+  });
+}
+
 function updateClientPreferencesPreview(phone, noteValue = clientNotes.get(phone) || '') {
   if (selectedClientPhone !== phone) return;
   const labels = clientLabel(phone);
@@ -7721,22 +7736,26 @@ function updateClientPreferencesPreview(phone, noteValue = clientNotes.get(phone
 }
 
 function renderClientFavoriteServices(bookings) {
+  const activeServices = ownServices.filter(item => item.active);
+  const servicesById = new Map(activeServices.map(item => [String(item.id), item]));
+  const servicesByName = new Map(activeServices.map(item => [serviceName(String(item.name || '').trim()).toLocaleLowerCase('ru-RU'), item]));
   const totals = new Map();
   bookings.forEach(item => {
     const rawName = String(item.services?.name || '').trim();
     if (!rawName) return;
-    const name = serviceName(rawName);
-    const key = name.toLocaleLowerCase('ru-RU');
-    const current = totals.get(key) || { name, count:0, lastVisit:'' };
+    const service = servicesById.get(String(item.service_id || '')) || servicesByName.get(serviceName(rawName).toLocaleLowerCase('ru-RU'));
+    if (!service) return;
+    const key = String(service.id);
+    const current = totals.get(key) || { id:service.id, name:serviceName(service.name), count:0, lastVisit:'' };
     current.count += 1;
     current.lastVisit = [current.lastVisit, `${item.booking_date || ''}${item.booking_time || ''}`].sort().at(-1);
     totals.set(key, current);
   });
   const favorites = [...totals.values()]
     .sort((left, right) => right.count - left.count || right.lastVisit.localeCompare(left.lastVisit) || left.name.localeCompare(right.name, 'ru'))
-    .slice(0, 3);
+    .slice(0, 2);
   const section = $('#clientFavoriteServices');
-  $('#clientFavoriteServicesList').innerHTML = favorites.map(item => `<span>${escapeHtml(item.name)}</span>`).join('');
+  $('#clientFavoriteServicesList').innerHTML = favorites.map(item => `<button type="button" data-client-favorite-service="${escapeHtml(item.id)}" title="Записать клиента на услугу «${escapeHtml(item.name)}»" aria-label="Записать клиента на услугу «${escapeHtml(item.name)}»"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>${escapeHtml(item.name)}</span></button>`).join('');
   section.hidden = !favorites.length;
 }
 
@@ -10422,6 +10441,7 @@ document.addEventListener('click', async event => {
   const openBooking = event.target.closest('[data-open-booking]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
+  const favoriteServiceButton = event.target.closest('[data-client-favorite-service]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
   const timelineStage = event.target.closest('[data-create-booking-at]');
   const expandTimeline = event.target.closest('[data-expand-timeline]');
@@ -10603,6 +10623,7 @@ document.addEventListener('click', async event => {
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickRepeatClient) openQuickRepeatForClient(quickRepeatClient.dataset.quickRepeatClient);
+  if (favoriteServiceButton) openFavoriteServiceBooking(favoriteServiceButton.dataset.clientFavoriteService);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (createEmptyBooking && requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() });
   if (timelineStage && !openBooking) openTimelineBooking(timelineStage, event);
