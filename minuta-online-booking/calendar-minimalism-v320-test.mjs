@@ -25,6 +25,6 @@ assert.doesNotMatch(styles, /\.provider-body\[data-provider-theme="[^"]+"\][^{}]
 
 const themeSource = provider.match(/const PROVIDER_THEME_KEYS = \[([^\]]+)\]/)?.[1] || '';
 const themes = [...themeSource.matchAll(/'([^']+)'/g)].map(match => match[1]);
-assert.equal(themes.length, 24, 'Проверка месяца должна охватывать все 24 темы');
+assert.equal(themes.length, 25, 'Проверка месяца должна охватывать все 25 тем');
 
 console.log(`Calendar minimalism v400 checks passed across ${themes.length} themes.`);
