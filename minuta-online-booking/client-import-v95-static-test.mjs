@@ -61,7 +61,7 @@ assert.ok((clientImport.match(/if \(!requestIsCurrent\(\)\) return;/g) || []).le
 assert.match(clientImport, /await load\(\);\s*if \(organization\?\.id !== organizationId\) return;\s*renderPreview\(retryPreview\)/, 'Остаток частичного импорта нельзя переносить в другую организацию');
 assert.match(clientImport, /if \(currentOrganizationId && currentOrganizationId === nextOrganizationId\) return;/, 'Повторная синхронизация той же организации не должна прерывать импорт');
 assert.match(provider, /importedClients\.forEach/);
-const favoriteServices = provider.match(/function favoriteServiceNameKey\(value\)[\s\S]*?function renderClientDetail\(phone\)/)?.[0] || '';
+const favoriteServices = provider.match(/function favoriteServiceNameKey\(value\)[\s\S]*?function renderClientDetail\(/)?.[0] || '';
 assert.match(favoriteServices, /replace\(\/\[\^a-zа-я0-9\]\+\/giu, ' '\)/, 'Названия услуг из импорта не нормализуются перед сопоставлением');
 assert.match(favoriteServices, /servicesByName\.set\(nameKey, servicesByName\.has\(nameKey\) \? null : service\)/, 'Неоднозначные названия услуг нельзя автоматически связывать с каталогом');
 assert.match(favoriteServices, /if \(!service && !item\.is_imported_history\) return;/, 'Несвязанные услуги импортированной истории снова скрываются');
