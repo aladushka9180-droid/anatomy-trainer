@@ -166,11 +166,35 @@
   function createController(options) {
     // One engine per page lifetime: never attach both sets of form listeners,
     // and never turn an uncertain media request into a legacy INSERT.
-    let engine = null, selecting = null, selectionRevision = 0, bound = false;
+    let engine = null, engineMode = '', selecting = null, selectionRevision = 0, bound = false;
     const scope = () => `${options.getCurrentUser()?.id || ''}:${options.getOrganization?.()?.id || 'personal'}`;
     const hide = () => document.querySelectorAll('[data-open-product-feedback]').forEach(node => { node.hidden = true; });
+    function crossUnresolved(mode) {
+      try {
+        return mode === 'media'
+          ? Boolean(sessionStorage.getItem(`minuta-feedback-text-unconfirmed:${scope()}`))
+          : Boolean(JSON.parse(sessionStorage.getItem(`minuta-feedback-v3:${scope()}`) || 'null')?.pending);
+      } catch { return true; }
+    }
+    function guardedOptions(mode) {
+      return { ...options,
+        requireWrites:() => !crossUnresolved(mode) && options.requireWrites(),
+        db:{ storage:options.db.storage, async rpc(name, args) {
+          const capability = name === 'get_minuta_feedback_media_capability' || name === 'get_minuta_feedback_capability';
+          if (crossUnresolved(mode)) return { data:null, error:capability ? null : { code:'CLIENT_CONTEXT_BLOCKED',message:'feedback_previous_request_unconfirmed' } };
+          const result = await options.db.rpc(name,args);
+          // The engine also refreshes on native online events, outside this gateway.
+          // Never let a late capability enable a context with the opposite durable intent.
+          if (capability && crossUnresolved(mode)) return { data:null,error:null };
+          return result;
+        } }
+      };
+    }
     async function refreshAvailability() {
-      if (engine) return engine.refreshAvailability();
+      if (engine) {
+        if (crossUnresolved(engineMode)) { engine.reset(); hide(); return; }
+        return engine.refreshAvailability();
+      }
       if (!options.getCurrentUser() || !navigator.onLine) { hide(); return; }
       if (selecting) return selecting;
       const revision = selectionRevision, actorScope = scope();
@@ -191,9 +215,10 @@
           hasLegacyIntent = Boolean(sessionStorage.getItem(`minuta-feedback-text-unconfirmed:${actorScope}`));
         } catch {}
         if (hasMediaIntent && (!confirmed || !global.MinutaFeedbackMediaV3?.createController)) { hide(); return; }
-        engine = confirmed && !hasLegacyIntent && global.MinutaFeedbackMediaV3?.createController
-          ? global.MinutaFeedbackMediaV3.createController(options, { createId, prepareScreenshot, clientVersion, deviceSummary })
-          : createTextController(options);
+        engineMode = confirmed && !hasLegacyIntent && global.MinutaFeedbackMediaV3?.createController ? 'media' : 'text';
+        engine = engineMode === 'media'
+          ? global.MinutaFeedbackMediaV3.createController(guardedOptions(engineMode), { createId, prepareScreenshot, clientVersion, deviceSummary })
+          : createTextController(guardedOptions(engineMode));
         if (bound) engine.bind();
         await engine.refreshAvailability();
       })();

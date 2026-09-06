@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
-const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
+const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const html=read('provider.html'),provider=read('provider.js');
 const version=html.match(/src="provider-feedback.js\?v=(\d+)"/)[1];
 const dialog=html.match(/  <dialog class="product-feedback-dialog"[\s\S]*?<\/dialog>/)[0];
@@ -18,7 +18,7 @@ let passed=0;
 async function scenario(name,capability,run){
   const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  const boot=`window.currentUser={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}; window.organization={id:'00000000-0000-4000-8000-000000000010'};
+  const boot=`window.currentUser={id:window.fixtureActor??'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}; window.organization={id:window.fixtureOrg??'00000000-0000-4000-8000-000000000010'};
     window.capability=window.fixtureCapability??${JSON.stringify(capability)};window.outcome='ok';window.calls=[];window.notifications=[];window.writes=true;
     window.organizationController={getActiveOrganization:()=>organization};window.$=selector=>document.querySelector(selector);
     window.notify=message=>notifications.push(message);window.requireWrites=()=>writes;
@@ -66,6 +66,36 @@ const send=async page=>{await page.click('#productFeedbackSubmit');await page.wa
 const tick=page=>page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));
 const createCalls=page=>page.evaluate(()=>calls.filter(c=>c.name.startsWith('create_minuta_feedback')));
 try{
+  for(const initial of ['disabled','media'])for(const change of ['organization','actor'])await scenario(`${initial} unknown survives reload in another ${change} and opposite-engine return`,initial,async page=>{
+    await page.evaluate(()=>{outcome='throw';});await send(page);
+    const original=await page.evaluate(()=>({actor:currentUser.id,org:organization.id}));
+    await page.addInitScript(({initial,change})=>{
+      window.fixtureCapability=initial==='media'?'disabled':'media';
+      if(change==='organization')window.fixtureOrg='00000000-0000-4000-8000-000000000011';
+      else window.fixtureActor='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    },{initial,change});
+    await page.reload();await page.evaluate(()=>ready);await page.click('[data-open-product-feedback]');
+    await page.fill('#productFeedbackMessage','Разрешённое обращение другого контекста');await send(page);
+    assert.equal((await createCalls(page)).length,1);
+    await page.evaluate(async({original,change})=>{
+      if(change==='organization')await switchOrg(original.org);
+      else {currentUser={id:original.actor};window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));await controller.refreshAvailability();}
+    },{original,change});await tick(page);
+    assert.equal(await page.locator('[data-open-product-feedback]').isVisible(),false);
+    // Defense in depth: native direct submit cannot bypass the context gate.
+    await page.evaluate(()=>{document.querySelector('#productFeedbackMessage').value='Валидный текст для прямой проверки';document.querySelector('#productFeedbackForm').requestSubmit();});await tick(page);
+    assert.equal((await createCalls(page)).length,1);
+  });
+  for(const mode of ['media','disabled'])await scenario(mode+' submit rechecks opposite durable marker even without refresh',mode,async page=>{
+    await page.evaluate(mode=>{
+      const scope=currentUser.id+':'+organization.id;
+      if(mode==='media')sessionStorage.setItem('minuta-feedback-text-unconfirmed:'+scope,'1');
+      else sessionStorage.setItem('minuta-feedback-v3:'+scope,JSON.stringify({pending:{p_request_id:'00000000-0000-4000-8000-000000000030'}}));
+    },mode);
+    assert.equal(await page.locator('#productFeedbackForm').evaluate(form=>form.checkValidity()),true);
+    await page.click('#productFeedbackSubmit');await tick(page);
+    assert.equal((await createCalls(page)).length,0);
+  });
   await scenario('initial offline controller selects one engine when browser reconnects','offline-start',async(page,context)=>{
     await context.setOffline(true);await page.evaluate(()=>controller.refreshAvailability());
     assert.equal(await page.locator('[data-open-product-feedback]').isVisible(),false);assert.equal(await page.evaluate(()=>calls.length),0);
