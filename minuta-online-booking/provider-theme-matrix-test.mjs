@@ -11,7 +11,7 @@ const [baseCss, signatureCss, provider, calmCss, wildlifeCss, noirSafariCss, pea
   readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
   readFile(path.join(directory, 'provider-theme-noir-safari.css'), 'utf8'),
-  readFile(path.join(directory, 'provider-pearl-zebra-natural-4k-v3.png')),
+  readFile(path.join(directory, 'provider-pearl-zebra-smooth-4k-v4.webp')),
 ]);
 const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}`;
 
@@ -124,7 +124,7 @@ assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav 
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-natural-4k-v3\.png\?v=489"\)/);
+assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=490"\)/);
 assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
@@ -135,8 +135,9 @@ const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider
 assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);
 assert.doesNotMatch(noirSafariBackground, /linear-gradient\(90deg/, 'Noir Safari must preserve the approved leopard artwork without directional recoloring');
 assert.match(noirSafariCss, /:is\(\s*\.provider-main,\.provider-app,\.provider-workspace,\.provider-view,\.schedule-card\s*\)\s*\{[^}]*background:transparent!important/s, 'Noir Safari must continue the same wallpaper behind the interface instead of exposing a white stage');
-assert.equal(pearlZebraAsset.readUInt32BE(16), 3840, 'Pearl Zebra must retain its 4K width');
-assert.equal(pearlZebraAsset.readUInt32BE(20), 2160, 'Pearl Zebra must retain its 4K height');
+assert.equal(pearlZebraAsset.toString('ascii', 0, 4), 'RIFF', 'Pearl Zebra must remain a WebP asset');
+assert.equal(pearlZebraAsset.readUInt16LE(26) & 0x3fff, 3840, 'Pearl Zebra must retain its 4K width');
+assert.equal(pearlZebraAsset.readUInt16LE(28) & 0x3fff, 2160, 'Pearl Zebra must retain its 4K height');
 
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.
