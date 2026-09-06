@@ -1,4 +1,4 @@
-/* Progressive enhancement: swipe stays available; arrows switch real sections. */
+/* Progressive enhancement: arrows reveal tabs without changing the active section. */
 (() => {
   const nav = document.querySelector('[data-provider-panel="settings"] .provider-section-nav');
   if (!nav || nav.parentElement.classList.contains('settings-nav-scroll-shell')) return;
@@ -8,12 +8,6 @@
   shell.append(nav);
   nav.tabIndex = -1;
   const visibleTabs = () => [...nav.querySelectorAll('[data-section-target]')].filter(item => !item.hidden);
-  const activeTab = tabs => tabs.find(item => item.classList.contains('active')) || tabs[0] || null;
-  const centerTab = tab => {
-    if (!tab || !nav.clientWidth) return;
-    const left = tab.offsetLeft - (nav.clientWidth - tab.offsetWidth) / 2;
-    nav.scrollTo({ left:Math.max(0, left), behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  };
   const makeArrow = (direction, label, glyph) => {
     const button = document.createElement('button');
     button.type = 'button';
@@ -23,17 +17,21 @@
     button.hidden = true;
     shell.append(button);
     button.addEventListener('click', () => {
-      const tabs = visibleTabs();
-      const current = activeTab(tabs);
-      const target = tabs[tabs.indexOf(current) + direction];
-      if (!target) return;
-      target.click();
-      requestAnimationFrame(() => centerTab(target));
+      const rect = nav.getBoundingClientRect();
+      const buttons = visibleTabs();
+      const hidden = direction > 0
+        ? buttons.find(item => item.getBoundingClientRect().right > rect.right - 44 + 1)
+        : buttons.reverse().find(item => item.getBoundingClientRect().left < rect.left + 44 - 1);
+      const itemRect = hidden?.getBoundingClientRect();
+      const distance = itemRect
+        ? direction > 0 ? itemRect.right - (rect.right - 44) : itemRect.left - (rect.left + 44)
+        : direction * Math.max(44, nav.clientWidth - 88);
+      nav.scrollBy({ left:distance, behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     });
     return button;
   };
-  const prev = makeArrow(-1, 'Открыть предыдущий раздел настроек', '‹');
-  const next = makeArrow(1, 'Открыть следующий раздел настроек', '›');
+  const prev = makeArrow(-1, 'Показать предыдущие вкладки настроек', '‹');
+  const next = makeArrow(1, 'Показать следующие вкладки настроек', '›');
   let frame = 0;
   const refresh = () => {
     cancelAnimationFrame(frame);
@@ -45,8 +43,8 @@
       const contentWidth = items.reduce((sum, item) => sum + item.getBoundingClientRect().width, 0) + Math.max(0, items.length - 1) * gap;
       const overflow = nav.clientWidth > 0 && contentWidth > nav.clientWidth - 16;
       shell.classList.toggle('has-overflow', mobile && overflow);
-      const currentIndex = items.indexOf(activeTab(items));
-      for (const [button, visible] of [[prev, mobile && overflow && currentIndex > 0], [next, mobile && overflow && currentIndex >= 0 && currentIndex < items.length - 1]]) {
+      const max = nav.scrollWidth - nav.clientWidth;
+      for (const [button, visible] of [[prev, mobile && overflow && nav.scrollLeft > 1], [next, mobile && overflow && nav.scrollLeft < max - 1]]) {
         if (!visible && document.activeElement === button) nav.focus({ preventScroll:true });
         button.hidden = !visible;
       }

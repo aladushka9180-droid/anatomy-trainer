@@ -14,7 +14,7 @@
     dataGovernanceCard:{ aliases:'данные документы хранение скачать экспорт выгрузка удалить удаление очистка конфиденциальность политика резервная копия восстановление', companions:[] },
     accountSettingsCard:{ aliases:'безопасность аккаунт профиль пароль логин вход телефон sms код telegram vk вконтакте яндекс привязать восстановить доступ', companions:[] }
   });
-  const STOP_WORDS = new Set('а без бы в вам вас весь где для до его ее ещё же за и из или как кабинет кабинета ли мне мой на не но о от по при про с со что чтобы это я хочу хотим нужно надо можно найти покажи открыть перейти поменять изменить включить выключить отключить убрать добавить сделать настройка настройки параметр параметры'.split(' '));
+  const STOP_WORDS = new Set('а без бы в вам вас весь где для до его ее ещё же за и из или как кабинет кабинета ли мне мой на не но о от по при про с со что чтобы это я хочу хотим нужно надо можно найти покажи показать посмотреть смотреть открыть перейти поменять изменить настроить включить выключить отключить убрать добавить создать сделать настройка настройки параметр параметры'.split(' '));
   const EN_LAYOUT = '`qwertyuiop[]asdfghjkl;\'zxcvbnm,.';
   const RU_LAYOUT = 'ёйцукенгшщзхъфывапролджэячсмитьбю';
   const search = document.createElement('section');
@@ -343,5 +343,207 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden && recognition) { try { recognition.abort(); } catch {} } });
   new MutationObserver(() => { if (panel.hidden && recognition) { try { recognition.abort(); } catch {} } }).observe(panel, { attributes:true, attributeFilter:['hidden'] });
 
-  window.MinutaSettingsSearch = Object.freeze({ normalize, swapKeyboardLayout, findSettings });
+  function initializeSectionsSearch() {
+    const sectionsPanel = document.querySelector('[data-provider-panel="more"]');
+    const grid = sectionsPanel?.querySelector('.mobile-more-grid');
+    const intro = sectionsPanel?.querySelector('.mobile-more-intro');
+    if (!sectionsPanel || !grid || !intro || sectionsPanel.querySelector('.cabinet-sections-search')) return null;
+
+    const VIEW_ALIASES = Object.freeze({
+      settings:'настройки кабинет тема стиль оформление интерфейс правила предоплата пароль подписка безопасность приложение',
+      bookings:'записи запись визит календарь расписание создать прием сеанс клиент сегодня завтра',
+      clients:'клиенты клиент карточка история контакты телефон заметки метки база',
+      notifications:'уведомления сообщение сообщения шаблон whatsapp telegram телеграм рассылка напоминание',
+      schedule:'график расписание рабочие часы время доступность перерыв выходной смена',
+      services:'услуги услуга прайс цена стоимость длительность процедура сеанс',
+      organization:'организация команда сотрудник специалист филиал ресурсы роли доступ выплаты зарплата склад товар',
+      portfolio:'портфолио фото фотографии работа работы галерея примеры',
+      analytics:'статистика отчет отчеты аналитика доход выручка визиты показатели экспорт',
+      waitlist:'лист ожидания ожидание свободное окно занята дата заявка очередь',
+      help:'база знаний помощь инструкция инструкции подсказка как сделать',
+      feedback:'обратная связь помощь проблема ошибка баг предложение улучшение написать'
+    });
+    const search = document.createElement('section');
+    search.className = 'settings-smart-search cabinet-sections-search';
+    search.setAttribute('aria-label', 'Поиск по разделам кабинета');
+    search.innerHTML = `<div class="settings-search-field"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><label><span class="sr-only">Найти раздел кабинета</span><input id="cabinetSectionsSearchInput" type="search" inputmode="search" autocomplete="off" maxlength="160" placeholder="Например: клиенты или рабочие часы" role="combobox" aria-autocomplete="list" aria-controls="cabinetSectionsSearchResults" aria-expanded="false"></label><button class="settings-search-clear" type="button" aria-label="Очистить поиск" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button><button class="settings-search-voice" type="button" aria-label="Найти раздел голосом" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg></button></div><div class="settings-search-results" id="cabinetSectionsSearchResults" role="listbox" hidden></div><p class="settings-search-status" role="status" aria-live="polite">Можно искать по названию или описать, что вы хотите сделать.</p>`;
+    intro.after(search);
+
+    const sectionsInput = search.querySelector('input');
+    const sectionsResults = search.querySelector('.settings-search-results');
+    const sectionsStatus = search.querySelector('.settings-search-status');
+    const sectionsClearButton = search.querySelector('.settings-search-clear');
+    const sectionsVoiceButton = search.querySelector('.settings-search-voice');
+    let sectionMatches = [];
+    let selectedSection = -1;
+    let sectionsRecognition = null;
+    let sectionsRecognitionTimer = null;
+    let sectionsTranscript = '';
+    let sectionsVoiceRendered = false;
+
+    function buildSectionsIndex() {
+      return [...grid.querySelectorAll(':scope > button, :scope > a')].flatMap(element => {
+        const view = element.dataset.providerView || (element.matches('.mobile-help-shortcut') ? 'help' : element.matches('[data-open-product-feedback]') ? 'feedback' : '');
+        if (!view || (view === 'feedback' && element.hidden)) return [];
+        const label = element.querySelector('strong')?.textContent.replace(/\s+/g, ' ').trim() || element.textContent.replace(/\s+/g, ' ').trim();
+        const description = element.querySelector('small')?.textContent.replace(/\s+/g, ' ').trim() || 'Открыть раздел';
+        return [{ view, label, description, element, type:'section', corpus:normalize(`${label} ${description} ${VIEW_ALIASES[view] || ''}`) }];
+      });
+    }
+
+    function findSections(value) {
+      const variants = queryVariants(value);
+      return buildSectionsIndex().map(record => ({ ...record, score:Math.max(...variants.map(query => recordScore(record, query))) }))
+        .filter(record => record.score > 0)
+        .sort((left, right) => right.score - left.score || left.label.localeCompare(right.label, 'ru'))
+        .slice(0, 6);
+    }
+
+    function closeSectionsResults() {
+      sectionsResults.hidden = true;
+      sectionsInput.setAttribute('aria-expanded', 'false');
+      sectionsInput.removeAttribute('aria-activedescendant');
+      selectedSection = -1;
+    }
+
+    function setSelectedSection(index) {
+      if (!sectionMatches.length) return;
+      selectedSection = (index + sectionMatches.length) % sectionMatches.length;
+      [...sectionsResults.querySelectorAll('button')].forEach((button, buttonIndex) => {
+        const selected = buttonIndex === selectedSection;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-selected', String(selected));
+        if (selected) sectionsInput.setAttribute('aria-activedescendant', button.id);
+      });
+    }
+
+    function openSectionResult(record) {
+      closeSectionsResults();
+      sectionsStatus.textContent = `Открываем: ${record.label}.`;
+      record.element.click();
+    }
+
+    function renderSectionsSearch(value = sectionsInput.value) {
+      const query = value.trim();
+      sectionsClearButton.hidden = !query;
+      sectionsResults.replaceChildren();
+      sectionMatches = [];
+      selectedSection = -1;
+      if (query.length < 2) {
+        closeSectionsResults();
+        sectionsStatus.textContent = query ? 'Введите ещё один символ.' : 'Можно искать по названию или описать, что вы хотите сделать.';
+        return 0;
+      }
+      sectionMatches = findSections(query);
+      if (!sectionMatches.length) {
+        closeSectionsResults();
+        sectionsStatus.textContent = 'Ничего похожего не найдено. Попробуйте назвать действие, например «посмотреть доход» или «добавить услугу».';
+        return 0;
+      }
+      sectionMatches.forEach((record, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.id = `cabinetSectionsSearchResult${index}`;
+        button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', 'false');
+        const path = document.createElement('small');
+        path.textContent = 'Разделы';
+        const title = document.createElement('strong');
+        title.textContent = record.label;
+        const description = document.createElement('span');
+        description.textContent = record.description;
+        button.append(path, title, description);
+        button.addEventListener('click', () => openSectionResult(record));
+        sectionsResults.append(button);
+      });
+      sectionsResults.hidden = false;
+      sectionsInput.setAttribute('aria-expanded', 'true');
+      sectionsStatus.textContent = `Найдено разделов: ${sectionMatches.length}.`;
+      return sectionMatches.length;
+    }
+
+    function setSectionsListening(listening) {
+      sectionsVoiceButton.classList.toggle('is-listening', listening);
+      sectionsVoiceButton.setAttribute('aria-pressed', String(listening));
+      sectionsVoiceButton.setAttribute('aria-label', listening ? 'Остановить голосовой поиск' : 'Найти раздел голосом');
+    }
+
+    function stopSectionsRecognition() {
+      clearTimeout(sectionsRecognitionTimer);
+      sectionsRecognitionTimer = null;
+      try { sectionsRecognition?.stop(); } catch {}
+    }
+
+    function startSectionsVoiceSearch() {
+      if (sectionsRecognition) { stopSectionsRecognition(); return; }
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const touchDevice = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+      const supported = window.MinutaVoiceAssistant?.supportsDirectRecognition
+        ? window.MinutaVoiceAssistant.supportsDirectRecognition(Recognition, navigator, matchMedia('(display-mode: standalone)').matches)
+        : directRecognitionSupported(Recognition);
+      if (!supported) {
+        sectionsStatus.textContent = touchDevice ? 'Открыта клавиатура. Нажмите значок микрофона на ней и продиктуйте запрос.' : 'Этот браузер не поддерживает голосовой поиск. Введите запрос текстом.';
+        sectionsInput.focus();
+        return;
+      }
+      try { sectionsRecognition = new Recognition(); }
+      catch { sectionsStatus.textContent = 'Не удалось запустить микрофон. Введите запрос текстом.'; return; }
+      sectionsRecognition.lang = 'ru-RU';
+      sectionsRecognition.continuous = false;
+      sectionsRecognition.interimResults = true;
+      sectionsRecognition.maxAlternatives = 3;
+      sectionsTranscript = '';
+      sectionsVoiceRendered = false;
+      sectionsRecognition.onstart = () => {
+        setSectionsListening(true);
+        sectionsStatus.textContent = 'Слушаю… Назовите раздел или действие.';
+        sectionsRecognitionTimer = setTimeout(() => { stopSectionsRecognition(); sectionsStatus.textContent = 'Речь не получена. Попробуйте ещё раз или введите запрос текстом.'; }, 15000);
+      };
+      sectionsRecognition.onresult = event => {
+        const transcript = Array.from(event.results || []).map(result => result[0]?.transcript || '').join(' ').replace(/\s+/g, ' ').trim();
+        if (!transcript) return;
+        sectionsTranscript = transcript.slice(0, 160);
+        sectionsInput.value = sectionsTranscript;
+        if (Array.from(event.results || []).every(result => result.isFinal)) {
+          const count = renderSectionsSearch();
+          sectionsVoiceRendered = true;
+          sectionsStatus.textContent = count ? `Распознано: «${sectionsInput.value}». Найдено разделов: ${count}.` : `Распознано: «${sectionsInput.value}», но совпадений нет.`;
+        }
+      };
+      sectionsRecognition.onerror = event => {
+        const messages = { 'not-allowed':'Нет доступа к микрофону. Разрешите его в настройках браузера.', 'service-not-allowed':'Браузер запретил службу распознавания.', 'audio-capture':'Микрофон не найден или занят.', 'no-speech':'Речь не услышана. Попробуйте ещё раз.', network:'Служба распознавания сейчас недоступна.' };
+        sectionsStatus.textContent = messages[event.error] || 'Не удалось распознать речь. Используйте текстовый поиск.';
+      };
+      sectionsRecognition.onend = () => {
+        clearTimeout(sectionsRecognitionTimer);
+        sectionsRecognitionTimer = null;
+        sectionsRecognition = null;
+        setSectionsListening(false);
+        if (sectionsTranscript && !sectionsVoiceRendered) {
+          sectionsInput.value = sectionsTranscript;
+          const count = renderSectionsSearch();
+          sectionsStatus.textContent = count ? `Распознано: «${sectionsInput.value}». Найдено разделов: ${count}.` : `Распознано: «${sectionsInput.value}», но совпадений нет.`;
+        }
+      };
+      try { sectionsRecognition.start(); }
+      catch { sectionsRecognition = null; setSectionsListening(false); sectionsStatus.textContent = 'Микрофон уже используется. Попробуйте ещё раз.'; }
+    }
+
+    sectionsInput.addEventListener('input', () => renderSectionsSearch());
+    sectionsInput.addEventListener('focus', () => { if (sectionsInput.value.trim().length >= 2) renderSectionsSearch(); });
+    sectionsInput.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown') { event.preventDefault(); setSelectedSection(selectedSection + 1); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); setSelectedSection(selectedSection - 1); }
+      else if (event.key === 'Enter' && sectionMatches.length) { event.preventDefault(); openSectionResult(sectionMatches[selectedSection >= 0 ? selectedSection : 0]); }
+      else if (event.key === 'Escape') { event.preventDefault(); closeSectionsResults(); }
+    });
+    sectionsClearButton.addEventListener('click', () => { sectionsInput.value = ''; renderSectionsSearch(); sectionsInput.focus(); });
+    sectionsVoiceButton.addEventListener('click', startSectionsVoiceSearch);
+    document.addEventListener('pointerdown', event => { if (!search.contains(event.target)) closeSectionsResults(); });
+    new MutationObserver(() => { if (sectionsPanel.hidden && sectionsRecognition) { try { sectionsRecognition.abort(); } catch {} } }).observe(sectionsPanel, { attributes:true, attributeFilter:['hidden'] });
+    return { findSections };
+  }
+
+  const sectionsSearch = initializeSectionsSearch();
+  window.MinutaSettingsSearch = Object.freeze({ normalize, swapKeyboardLayout, findSettings, findSections:sectionsSearch?.findSections || (() => []) });
 })();

@@ -24,3 +24,4 @@ jobs:
       - run: node minuta-online-booking/tests/waitlist-management-browser-test.mjs
       - run: node minuta-online-booking/provider-header-test.mjs
       - run: node minuta-online-booking/tests/header-browser-test.mjs
+      - run: node minuta-online-booking/tests/settings-search-navigation-browser-test.mjs
