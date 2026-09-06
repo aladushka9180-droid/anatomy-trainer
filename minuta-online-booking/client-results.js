@@ -230,7 +230,7 @@
         profileHost = document.createElement('details');
         profileHost.className = 'client-disclosure client-results-disclosure';
         profileHost.id = 'clientResultsDisclosure';
-        profileHost.innerHTML = '<summary><span>Результаты</span><small id="clientResultsSummary">Проверяем доступ…</small></summary><div class="client-results-body"><div class="client-results-status" role="status" aria-live="polite"></div><div class="client-results-list" id="clientResultsList"></div><button class="client-results-more" type="button" data-client-results-more hidden>Все результаты</button></div>';
+        profileHost.innerHTML = '<summary><span>Результаты</span><small id="clientResultsSummary">Проверяем доступ…</small></summary><div class="client-results-body"><button class="client-results-add" type="button" data-client-results-add hidden>+ Добавить результат</button><div class="client-results-status" role="status" aria-live="polite"></div><div class="client-results-list" id="clientResultsList"></div><button class="client-results-more" type="button" data-client-results-more hidden>Все результаты</button></div>';
         if (anchor) anchor.insertAdjacentElement('afterend', profileHost);
         else fallback.insertAdjacentElement('beforebegin', profileHost);
       }
@@ -290,6 +290,27 @@
       }
     }
 
+    function preferredBooking() {
+      const bookings = (Array.isArray(client?.bookings) ? client.bookings : []).filter(item => UUID.test(String(item?.id || '')) && item?.status !== 'cancelled');
+      if (!bookings.length) return null;
+      const timestamp = item => {
+        const value = new Date(`${item.booking_date || ''}T${String(item.booking_time || '00:00').slice(0, 8)}`).getTime();
+        return Number.isFinite(value) ? value : 0;
+      };
+      const now = Date.now();
+      const upcoming = bookings.filter(item => timestamp(item) >= now).sort((left, right) => timestamp(left) - timestamp(right));
+      return upcoming[0] || [...bookings].sort((left, right) => timestamp(right) - timestamp(left))[0] || null;
+    }
+
+    function openPreferredBooking() {
+      const booking = preferredBooking();
+      if (!booking) return;
+      openBooking(booking.id);
+      const disclosure = document.querySelector('#bookingClientResultDisclosure');
+      if (disclosure) disclosure.open = true;
+      document.querySelector('#bookingVisitResultForm')?.scrollIntoView({ block: 'nearest' });
+    }
+
     function renderProfile(reveal = profileHost?.open === true) {
       const host = ensureProfileHost();
       if (!host || !client) return;
@@ -298,6 +319,8 @@
       const status = host.querySelector('.client-results-status');
       const list = host.querySelector('#clientResultsList');
       const moreButton = host.querySelector('[data-client-results-more]');
+      const addButton = host.querySelector('[data-client-results-add]');
+      if (addButton) addButton.hidden = !reveal || remote?.enabled !== true || !preferredBooking();
       if (!reveal) {
         list.replaceChildren();
         status.textContent = '';
@@ -345,6 +368,8 @@
       const pending = pendingFiles.size;
       const summary = details.querySelector('[data-client-result-editor-summary]');
       if (summary) summary.textContent = `${filled ? `Заполнено ${filled} из 4` : 'Не заполнено'}${pending ? ` · фото: ${pending}` : ''} · Приватно`;
+      const quickSummary = editor.form.closest('.booking-client-result-disclosure')?.querySelector('[data-booking-result-summary]');
+      if (quickSummary) quickSummary.textContent = pending ? `Фото: ${pending} · сохранить` : filled ? `Заполнено ${filled} из 4` : editor.result?.media?.length ? `Фото: ${editor.result.media.length}` : 'Добавить';
       const privateConsent = details.querySelector('[name="client_result_private_consent"]');
       if (privateConsent) privateConsent.required = filled > 0 || pending > 0 || Boolean(editor?.result?.media?.length);
     }
@@ -362,7 +387,7 @@
         if (submit) submit.insertAdjacentElement('beforebegin', replacement);
         else editor.form.append(replacement);
       }
-      replacement.open = wasOpen;
+      replacement.open = wasOpen || editor.expandEditor === true;
       editor.result = normalizeResult(result) || normalizeResult({});
       indexMedia();
       refreshEditorSummary();
@@ -635,6 +660,7 @@
         phone,
         result: normalizeResult(context.result) || normalizeResult({ booking_id: bookingId }),
         dirty: false,
+        expandEditor: context.expandEditor === true,
         revision: (editor?.revision || 0) + 1
       };
       renderEditor(editor.result);
@@ -666,6 +692,7 @@
         const close = event.target.closest?.('[data-client-result-preview-close]');
         const enable = event.target.closest?.('[data-client-results-enable]');
         const moreButton = event.target.closest?.('[data-client-results-more]');
+        const addButton = event.target.closest?.('[data-client-results-add]');
         const bookingButton = event.target.closest?.('[data-client-result-open-booking]');
         if (preview) void openPrivatePreview(preview.dataset.clientResultPreview);
         if (close) closePreview();
@@ -674,6 +701,7 @@
           visibleLimit += 10;
           if (visibleLimit >= rows.length && more) void loadResults(true); else renderProfile(true);
         }
+        if (addButton) openPreferredBooking();
         if (bookingButton) openBooking(bookingButton.dataset.clientResultOpenBooking);
       });
     }

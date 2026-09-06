@@ -23,8 +23,9 @@ assert.doesNotMatch(source, /create_minuta_client_record/);
 assert.match(css, /repeat\(2,minmax\(0,1fr\)\)/);
 assert.match(css, /@media \(max-width:760px\)/);
 assert.match(css, /@media \(max-width:520px\)/);
-assert.match(css, /data-client-results-visit-active="false"/);
+assert.doesNotMatch(css, /data-client-results-visit-active="false"/);
 assert.match(source, /unsupported_booking/);
+assert.match(source, /data-client-results-add/);
 
 const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
 const RESULT_ID = '00000000-0120-4000-8000-000000000001';
@@ -39,6 +40,10 @@ try {
       <section id="clientFavoriteServices"></section>
       <details class="client-disclosure client-preferences-disclosure"><summary><span>Предпочтения и метки</span></summary></details>
     </div></main>
+    <details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure">
+      <summary><strong>Фото и результат</strong><span data-booking-result-summary>Добавить</span></summary>
+      <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${BOOKING_ID}"><button class="primary" type="submit">Сохранить фото и описание</button></form>
+    </details>
     <form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${BOOKING_ID}">
       <label>Результат визита<select><option>Состоялся</option></select></label>
       <button class="primary" type="submit">Сохранить результат</button>
@@ -46,7 +51,7 @@ try {
   </body></html>`);
   await page.addStyleTag({ content: `
     *{box-sizing:border-box}html,body{margin:0;max-width:100%;background:#0f1e2f;color:#f4f7fb;--theme-surface:#0f1e2f;--theme-surface-alt:#182a40;--theme-ink:#f4f7fb;--theme-muted:#aeb9c8;--theme-line:#5e7189;--theme-accent:#4c91c2;--theme-accent-contrast:#fff}
-    .client-profile{width:min(720px,100%);margin:0 auto;padding:16px;min-width:0}.client-disclosure{border-top:1px solid var(--theme-line)}.client-disclosure>summary{min-height:56px;padding:12px 0;cursor:pointer}.booking-outcome-form{width:min(680px,100%);margin:20px auto;padding:16px;min-width:0}.booking-outcome-form>.primary{width:100%;min-height:44px;margin-top:14px}
+    .client-profile{width:min(720px,100%);margin:0 auto;padding:16px;min-width:0}.client-disclosure{border-top:1px solid var(--theme-line)}.client-disclosure>summary{min-height:56px;padding:12px 0;cursor:pointer}.booking-sheet-disclosure,.booking-outcome-form{width:min(680px,100%);margin:20px auto;padding:16px;min-width:0}.booking-outcome-form>.primary{width:100%;min-height:44px;margin-top:14px}
   ${css}` });
   await page.addScriptTag({ content: source });
   await page.evaluate(({ resultId, bookingId, mediaId, organizationId }) => {
@@ -111,11 +116,12 @@ try {
       openBooking: value => { window.__openedBooking = value; }
     });
     window.__controller.setOrganization({ id: organizationId });
-    window.__controller.setClient({ phone: '+7 999 000-00-00' });
+    window.__controller.setClient({ phone: '+7 999 000-00-00', bookings: [{ id: bookingId, booking_date: '2099-09-04', booking_time: '10:00', status: 'confirmed' }] });
     window.__controller.mount({
-      form: document.querySelector('#bookingOutcomeForm'),
+      form: document.querySelector('#bookingVisitResultForm'),
       booking: { id: bookingId, client_phone: '+7 999 000-00-00' },
-      result: privateResult
+      result: privateResult,
+      expandEditor: true
     });
   }, { resultId: RESULT_ID, bookingId: BOOKING_ID, mediaId: MEDIA_ID, organizationId: ORGANIZATION_ID });
 
@@ -124,9 +130,8 @@ try {
   assert.equal(await page.evaluate(() => window.__storageDownloads), 0, 'Private media is not downloaded during profile load');
   assert.equal(await page.locator('[name="client_result_external_consent"]').isChecked(), false, 'External sharing is opt-in');
   assert.equal(await page.locator('[name="client_result_private_consent"]').isChecked(), true, 'Existing private consent is restored');
-  await page.locator('#bookingOutcomeForm').evaluate(form => { form.dataset.clientResultsVisitActive = 'false'; });
-  assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => getComputedStyle(element).display), 'none', 'Editor stays hidden for a non-visit outcome');
-  await page.locator('#bookingOutcomeForm').evaluate(form => { form.dataset.clientResultsVisitActive = 'true'; });
+  assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => getComputedStyle(element).display), 'block', 'Draft editor is available before the visit is completed');
+  assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => element.open), true, 'Photo editor opens with the dedicated result section');
 
   const disabledMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ enabled: false, can_enable: true }));
   assert.match(disabledMarkup, /Подключить/);
@@ -143,11 +148,14 @@ try {
   await page.locator('#clientResultsDisclosure>summary').click();
   await page.waitForFunction(() => document.querySelector('#clientResultsList')?.textContent.includes('Напряжение перед началом'));
   assert.equal(await page.evaluate(() => window.__storageDownloads), 0, 'Opening text results still does not download photos');
+  await page.locator('[data-client-results-add]').click();
+  assert.equal(await page.evaluate(() => window.__openedBooking), BOOKING_ID, 'Profile action opens the nearest suitable booking');
+  assert.equal(await page.locator('#bookingClientResultDisclosure').evaluate(element => element.open), true, 'Profile action opens the photo editor directly');
 
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     const metrics = await page.evaluate(() => {
-      const selectors = ['#clientResultsDisclosure', '.client-result-card', '.client-result-grid', '.client-result-field', '#bookingVisitResultFields', '.booking-visit-result-grid', '.booking-visit-result-field', '.booking-visit-result-field textarea'];
+      const selectors = ['#clientResultsDisclosure', '.client-result-card', '.client-result-grid', '.client-result-field', '#bookingClientResultDisclosure', '#bookingVisitResultForm', '#bookingVisitResultFields', '.booking-visit-result-grid', '.booking-visit-result-field', '.booking-visit-result-field textarea'];
       const boxes = selectors.flatMap(selector => [...document.querySelectorAll(selector)].map(element => {
         const box = element.getBoundingClientRect();
         return { selector, left: box.left, right: box.right, width: box.width };
@@ -205,7 +213,6 @@ try {
   const requests = await page.evaluate(() => window.__rpcCalls.filter(call => call.name === 'save_minuta_client_result_v120').slice(-2).map(call => call.payload.p_request));
   assert.equal(requests[0], requests[1], 'Lost/failed save retries reuse the same request UUID');
 
-  await page.locator('#bookingVisitResultFields>summary').click();
   const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 1]);
   await page.locator('[data-visit-result-media-input="after"]').setInputFiles({ name: 'after.png', mimeType: 'image/png', buffer: png });
   await page.waitForFunction(() => document.querySelector('[data-client-result-save-status]')?.textContent.includes('подготовлено'));

@@ -2161,7 +2161,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=531#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=532#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3976,7 +3976,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=531');
+    worker = new Worker('./report-worker.js?v=532');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5988,6 +5988,16 @@ function bookingClientOverviewMarkup(item, now = new Date()) {
   </section>`;
 }
 
+function bookingClientResultMarkup(item) {
+  if (!item || item.status === 'cancelled') return '';
+  return `<details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure">
+    <summary><div><small>До и после сеанса</small><strong>Фото и результат</strong></div><span>${uiIcon('image')}<span data-booking-result-summary>Добавить</span></span></summary>
+    <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${escapeHtml(item.id)}">
+      <button class="primary" type="submit">Сохранить фото и описание</button>
+    </form>
+  </details>`;
+}
+
 function focusCreatedBooking(id) {
   recentlyCreatedBookingId = String(id || '');
   if (!recentlyCreatedBookingId) return;
@@ -6074,6 +6084,7 @@ function openBookingSheet(id) {
       </form>
     </details>
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
+    ${bookingClientResultMarkup(item)}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     </div>
     ${messageButton ? `<div class="booking-sheet-actions booking-message-actions">${messageButton}</div>` : ''}
@@ -6086,7 +6097,8 @@ function openBookingSheet(id) {
     return;
   }
   if (outcome.completion_source === 'auto' && outcome.payment_method === 'cash') $('#outcomePaymentMethod option[value="cash"]').textContent = 'Оплачено';
-  clientResultsController.mount({ form:$('#bookingOutcomeForm'), booking:item });
+  clientResultsController.mount({ form:$('#bookingVisitResultForm'), booking:item, expandEditor:true });
+  $('#bookingVisitResultForm')?.addEventListener('submit', saveBookingVisitResult);
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
   $('#bookingPrepaymentForm')?.addEventListener('submit', savePrepaymentStatus);
   $('#bookingSheetNoteForm')?.addEventListener('submit', saveBookingSheetNote);
@@ -9040,11 +9052,29 @@ function toggleOutcomePaymentFields() {
   const form = $('#bookingOutcomeForm');
   if (!form) return;
   const completed = $('#outcomeVisitStatus').value === 'completed';
-  form.dataset.clientResultsVisitActive = completed ? 'true' : 'false';
   $('#outcomePaymentFields').hidden = !completed;
   $('#outcomePaymentMethod').disabled = !completed;
   $('#outcomeAmount').disabled = !completed;
   if ($('#outcomeActualMinutes')) $('#outcomeActualMinutes').disabled = !completed;
+}
+
+async function saveBookingVisitResult(event) {
+  event.preventDefault();
+  if (!requireWrites()) return;
+  const form = event.currentTarget;
+  const item = allBookings.find(booking => booking.id === form.dataset.bookingId);
+  if (!item) return;
+  const button = event.submitter;
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Сохраняем…';
+  }
+  const result = await clientResultsController.save({ bookingId:item.id, phone:item.client_phone });
+  if (button?.isConnected) {
+    button.disabled = false;
+    button.textContent = 'Сохранить фото и описание';
+  }
+  if (result.ok && result.skipped) notify('Добавьте фото или описание результата');
 }
 
 async function saveBookingOutcome(event) {
@@ -9073,15 +9103,6 @@ async function saveBookingOutcome(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  if (completed) {
-    const clientResult = await clientResultsController.save({bookingId:item.id,phone:item.client_phone});
-    if (!sessionIsCurrent(userId, generation)) return;
-    if (!clientResult.ok && !clientResult.optional) {
-      button.disabled = false;
-      button.textContent = 'Сохранить результат';
-      return;
-    }
-  }
   const result = await persistBookingOutcome(record);
   if (!sessionIsCurrent(userId, generation)) return;
   bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
