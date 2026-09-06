@@ -6007,7 +6007,7 @@ function bookingClientOverviewMarkup(item, now = new Date()) {
 function bookingClientResultMarkup(item) {
   if (!item || item.status === 'cancelled') return '';
   return `<details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure">
-    <summary><div><small>До и после сеанса</small><strong>Фото и результат</strong></div><span>${uiIcon('image')}<span data-booking-result-summary>Добавить</span></span></summary>
+    <summary><div><small>До и после сеанса</small><strong>Фото и результат</strong></div><span>${uiIcon('image')}<span data-booking-result-summary>Не заполнено</span></span></summary>
     <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${escapeHtml(item.id)}">
       <button class="primary" type="submit">Сохранить фото и описание</button>
     </form>

@@ -26,6 +26,9 @@ assert.match(css, /@media \(max-width:520px\)/);
 assert.doesNotMatch(css, /data-client-results-visit-active="false"/);
 assert.match(source, /unsupported_booking/);
 assert.match(source, /data-client-results-add/);
+assert.match(source, /booking-result-media-grid[\s\S]*booking-result-description/);
+assert.match(source, /data-client-result-description-summary/);
+assert.match(source, /data-client-result-external-summary/);
 
 const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_CHANNEL ? { channel: process.env.BROWSER_CHANNEL } : {}) });
 const RESULT_ID = '00000000-0120-4000-8000-000000000001';
@@ -40,8 +43,8 @@ try {
       <section id="clientFavoriteServices"></section>
       <details class="client-disclosure client-preferences-disclosure"><summary><span>Предпочтения и метки</span></summary></details>
     </div></main>
-    <details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure">
-      <summary><strong>Фото и результат</strong><span data-booking-result-summary>Добавить</span></summary>
+    <details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure" open>
+      <summary><strong>Фото и результат</strong><span data-booking-result-summary>Не заполнено</span></summary>
       <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${BOOKING_ID}"><button class="primary" type="submit">Сохранить фото и описание</button></form>
     </details>
     <form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${BOOKING_ID}">
@@ -132,6 +135,20 @@ try {
   assert.equal(await page.locator('[name="client_result_private_consent"]').isChecked(), true, 'Existing private consent is restored');
   assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => getComputedStyle(element).display), 'block', 'Draft editor is available before the visit is completed');
   assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => element.open), true, 'Photo editor opens with the dedicated result section');
+  assert.equal(await page.locator('.booking-result-description').evaluate(element => element.open), false, 'Optional description stays collapsed by default');
+  assert.equal(await page.locator('[name="client_result_before_session"]').isVisible(), false, 'Large text fields do not dominate the typical photo flow');
+  assert.equal(await page.locator('.booking-result-media-grid').isVisible(), true, 'Photo actions are visible first');
+  assert.equal(await page.locator('.booking-result-more').evaluate(element => element.open), false, 'Rare external-use consent stays in Additional');
+  assert.equal(await page.locator('[name="client_result_external_consent"]').isVisible(), false, 'External-use consent is hidden until requested');
+  assert.equal(await page.locator('[data-booking-result-summary]').innerText(), 'Готово', 'Outer status reflects saved content');
+  const compactHeight = await page.locator('#bookingVisitResultForm').evaluate(element => element.getBoundingClientRect().height);
+  assert.ok(compactHeight < 430, `Collapsed typical flow stays compact (${compactHeight}px)`);
+  const mediaBeforeDescription = await page.evaluate(() => {
+    const media = document.querySelector('.booking-result-media-grid');
+    const description = document.querySelector('.booking-result-description');
+    return Boolean(media && description && (media.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING));
+  });
+  assert.equal(mediaBeforeDescription, true, 'Photo actions precede optional descriptions in the DOM');
 
   const disabledMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ enabled: false, can_enable: true }));
   assert.match(disabledMarkup, /Подключить/);
@@ -151,6 +168,9 @@ try {
   await page.locator('[data-client-results-add]').click();
   assert.equal(await page.evaluate(() => window.__openedBooking), BOOKING_ID, 'Profile action opens the nearest suitable booking');
   assert.equal(await page.locator('#bookingClientResultDisclosure').evaluate(element => element.open), true, 'Profile action opens the photo editor directly');
+
+  await page.locator('.booking-result-description>summary').click();
+  assert.equal(await page.locator('[name="client_result_before_session"]').isVisible(), true, 'Descriptions expand on demand');
 
   for (const width of [390, 760, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
@@ -198,6 +218,7 @@ try {
 
   await page.locator('#bookingVisitResultFields').evaluate(element => { element.open = true; });
   await page.locator('[name="client_result_before_session"]').fill('Обновлённое состояние до сеанса');
+  assert.equal(await page.locator('[data-booking-result-summary]').innerText(), 'Черновик', 'Editing marks the result as a draft');
   await page.locator('[name="client_result_private_consent"]').uncheck();
   const denied = await page.evaluate(() => window.__controller.save());
   assert.equal(denied.reason, 'private_consent_required', 'Private-storage consent is mandatory when data exists');
@@ -210,6 +231,7 @@ try {
   assert.equal(firstSave.ok, false);
   const secondSave = await page.evaluate(() => window.__controller.save());
   assert.equal(secondSave.ok, true);
+  assert.equal(await page.locator('[data-booking-result-summary]').innerText(), 'Готово', 'Successful save restores ready state');
   const requests = await page.evaluate(() => window.__rpcCalls.filter(call => call.name === 'save_minuta_client_result_v120').slice(-2).map(call => call.payload.p_request));
   assert.equal(requests[0], requests[1], 'Lost/failed save retries reuse the same request UUID');
 

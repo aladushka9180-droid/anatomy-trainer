@@ -121,16 +121,20 @@
       <summary><span>Описание сеанса</span><small data-client-result-editor-summary>${filled ? `Заполнено ${filled} из 4` : 'Не заполнено'} · Приватно</small></summary>
       <fieldset class="booking-visit-result-body">
         <legend class="sr-only">Приватное описание результата визита</legend>
-        <div class="booking-visit-result-grid">
-          ${FIELD_DEFINITIONS.map(([key, label, placeholder]) => `<label class="booking-visit-result-field"><span>${label}</span><textarea name="client_result_${key}" rows="3" maxlength="${MAX_TEXT}" placeholder="${escapeHtml(placeholder)}">${escapeHtml(result[key])}</textarea></label>`).join('')}
-        </div>
         <div class="booking-result-media-grid" aria-label="Фотографии результата">
           ${mediaMarkup(result, 'before')}${mediaMarkup(result, 'after')}
         </div>
-        <div class="booking-result-consents">
-          <label><input type="checkbox" name="client_result_private_consent" ${result.private_storage_consent ? 'checked' : ''} ${hasPrivatePayload ? 'required' : ''}><span><strong>Клиент согласен на приватное хранение</strong><small>Обязательно для сохранения описания и фотографий.</small></span></label>
-          <label><input type="checkbox" name="client_result_external_consent" ${result.external_share_consent ? 'checked' : ''}><span><strong>Разрешено внешнее использование</strong><small>Необязательно. Само по себе ничего не публикует.</small></span></label>
-        </div>
+        <details class="booking-result-description">
+          <summary><span>${filled ? 'Описание сеанса' : 'Добавить описание'}</span><small data-client-result-description-summary>${filled ? `${filled} из 4` : 'Необязательно'}</small></summary>
+          <div class="booking-visit-result-grid">
+            ${FIELD_DEFINITIONS.map(([key, label, placeholder]) => `<label class="booking-visit-result-field"><span>${label}</span><textarea name="client_result_${key}" rows="2" maxlength="${MAX_TEXT}" placeholder="${escapeHtml(placeholder)}">${escapeHtml(result[key])}</textarea></label>`).join('')}
+          </div>
+        </details>
+        <label class="booking-result-private-consent"><input type="checkbox" name="client_result_private_consent" ${result.private_storage_consent ? 'checked' : ''} ${hasPrivatePayload ? 'required' : ''}><span><strong>Согласие на приватное хранение</strong><small>Нужно для сохранения фото и описания.</small></span></label>
+        <details class="booking-result-more">
+          <summary><span>Дополнительно</span><small data-client-result-external-summary>${result.external_share_consent ? 'Внешнее использование разрешено' : 'Внешнее использование'}</small></summary>
+          <label><input type="checkbox" name="client_result_external_consent" ${result.external_share_consent ? 'checked' : ''}><span><strong>Разрешить внешнее использование</strong><small>Необязательно. Ничего не публикуется автоматически.</small></span></label>
+        </details>
         <p class="client-result-save-status" data-client-result-save-status role="status" aria-live="polite"></p>
       </fieldset>
     </details>`;
@@ -368,8 +372,13 @@
       const pending = pendingFiles.size;
       const summary = details.querySelector('[data-client-result-editor-summary]');
       if (summary) summary.textContent = `${filled ? `Заполнено ${filled} из 4` : 'Не заполнено'}${pending ? ` · фото: ${pending}` : ''} · Приватно`;
+      const descriptionSummary = details.querySelector('[data-client-result-description-summary]');
+      if (descriptionSummary) descriptionSummary.textContent = filled ? `${filled} из 4` : 'Необязательно';
+      const externalConsent = details.querySelector('[name="client_result_external_consent"]');
+      const externalSummary = details.querySelector('[data-client-result-external-summary]');
+      if (externalSummary) externalSummary.textContent = externalConsent?.checked ? 'Внешнее использование разрешено' : 'Внешнее использование';
       const quickSummary = editor.form.closest('.booking-client-result-disclosure')?.querySelector('[data-booking-result-summary]');
-      if (quickSummary) quickSummary.textContent = pending ? `Фото: ${pending} · сохранить` : filled ? `Заполнено ${filled} из 4` : editor.result?.media?.length ? `Фото: ${editor.result.media.length}` : 'Добавить';
+      if (quickSummary) quickSummary.textContent = pending || editor.dirty ? 'Черновик' : filled || editor.result?.media?.length ? 'Готово' : 'Не заполнено';
       const privateConsent = details.querySelector('[name="client_result_private_consent"]');
       if (privateConsent) privateConsent.required = filled > 0 || pending > 0 || Boolean(editor?.result?.media?.length);
     }
