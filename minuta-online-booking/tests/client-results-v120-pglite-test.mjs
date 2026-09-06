@@ -1,0 +1,50 @@
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {readFileSync} from 'node:fs';
+const {PGlite}=await import(process.env.MINUTA_PGLITE_MODULE
+  ? pathToFileURL(process.env.MINUTA_PGLITE_MODULE).href:'@electric-sql/pglite');
+const root=fileURLToPath(new URL('../',import.meta.url));
+const read=name=>readFileSync(root+name,'utf8').replace(/^\\set.*$/mg,'');
+const db=new PGlite();
+await db.exec(`
+create role anon; create role authenticated; create role service_role bypassrls;
+create schema auth; create schema storage; create schema extensions;
+create function extensions.digest(data bytea,kind text) returns bytea language sql immutable as $$
+  select decode(md5(encode(data,'hex'))||md5(encode(data,'hex')||kind),'hex')
+$$;
+create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+grant usage on schema auth,storage,public to authenticated,anon,service_role;
+create table auth.users(id uuid primary key);
+create table public.organizations(id uuid primary key,status text not null default 'active');
+create table public.organization_memberships(organization_id uuid,user_id uuid,role text,is_bookable boolean default true,active boolean,primary key(organization_id,user_id));
+create table public.services(id uuid primary key,name text);
+create table public.bookings(id uuid primary key,organization_id uuid,performer_id uuid,client_phone text,service_id uuid,booking_date date,booking_time time,status text not null default 'confirmed');
+create table public.organization_imported_clients(organization_id uuid,normalized_phone text);
+create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text references storage.buckets(id),name text,metadata jsonb,unique(bucket_id,name));
+alter table storage.objects enable row level security;
+grant select,insert,update,delete on storage.objects to authenticated,anon;
+insert into auth.users values('00000000-0000-4000-8000-000000000001');
+insert into public.organizations values('00000000-0000-4000-8000-000000000010','active');
+insert into public.organization_memberships values('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000001','owner',true,true);
+insert into public.services values('00000000-0000-4000-8000-000000000100','Fixture service');
+insert into public.bookings values('00000000-0000-4000-8000-000000001000','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000001','79990000112','00000000-0000-4000-8000-000000000100','2026-09-07','10:00','confirmed');
+`);
+const normalize=read('supabase-migration-v54.sql').match(/create or replace function public\.normalize_client_phone[\s\S]*?\$\$;/)[0];
+const role=read('supabase-migration-v89.sql').match(/create or replace function public\.get_minuta_client_field_role[\s\S]*?\$\$;/)[0];
+await db.exec(normalize); await db.exec(role);
+await db.exec(read('supabase-migration-v112.sql'));
+const migration=read('supabase-migration-v120.sql');
+await db.exec(migration); await db.exec(migration);
+console.log('PASS: v120 applies twice over v112');
+let integration=read('tests/client-results-v120-integration.sql');
+integration=integration.replace(/select booking\.id::text booking[\s\S]*?\\gset cr120_\s*/,'');
+const values={org:'00000000-0000-4000-8000-000000000010',owner:'00000000-0000-4000-8000-000000000001',phone:'79990000112',booking:'00000000-0000-4000-8000-000000001000'};
+integration=integration.replace(/:'cr120_(\w+)'/g,(_,key)=>`'${values[key]}'`);
+await db.exec(integration);
+console.log('PASS: v120 RPC, isolation, idempotency, Storage and generic-list scenarios');
+await db.exec(read('supabase-migration-v120-rollback.sql'));
+await db.exec('select pg_temp.check_client_results_v120_rollback()');
+await db.exec(migration);
+await db.exec('select pg_temp.check_client_results_v120_reapply()');
+console.log('PASS: v120 non-destructive rollback and reapply');
+await db.close();
