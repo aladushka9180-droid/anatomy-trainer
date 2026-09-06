@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="provider-themes-wildlife.css?v=470">
   <link rel="stylesheet" href="settings-nav-scroll.css?v=470">
   <link rel="stylesheet" href="settings-smart-search.css?v=470">
+  <link rel="stylesheet" href="contextual-help.css?v=470">
   <link rel="stylesheet" href="free-slots-compact.css?v=470">
   <link rel="stylesheet" href="client-records.css?v=470">
   <link rel="stylesheet" href="code-scanner.css?v=470">
@@ -678,12 +679,14 @@
             <section class="panel organization-overview provider-section-anchor" id="organizationOverviewSection">
               <div class="organization-overview-copy"><span class="organization-avatar" id="organizationAvatar">М</span><div><small id="organizationPublicState">Онлайн-запись команды пока выключена</small><h3 id="organizationTitle">Организация</h3><span id="organizationSlug"></span></div></div>
               <form id="organizationForm" class="organization-name-form"><label>Название<input id="organizationName" maxlength="120" required></label><button class="primary compact-button" type="submit">Сохранить</button></form>
+              <div data-contextual-help data-help-slug="organization-structure" data-help-question="Объясни порядок настройки организации, филиалов, сотрудников, услуг, смен, ресурсов и склада."></div>
               <p class="form-error" id="organizationError" hidden></p>
             </section>
 
             <div class="organization-grid provider-section-anchor" id="organizationPeopleSection">
               <section class="panel organization-section">
                 <div class="panel-head"><div><small>Адреса и часовые пояса</small><h3>Филиалы</h3></div><span class="panel-count" id="locationsCount">0</span></div>
+                <div data-contextual-help data-help-slug="branches-and-employees" data-help-question="Объясни, как связаны филиалы, сотрудники, услуги и смены и что проверить перед изменением."></div>
                 <div class="organization-list" id="locationsList"></div>
                 <details class="organization-create" id="locationCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Добавить филиал</span></summary>
@@ -693,6 +696,7 @@
 
               <section class="panel organization-section">
                 <div class="panel-head"><div><small>Роли и онлайн-запись</small><h3>Сотрудники</h3></div><span class="panel-count" id="membersCount">0</span></div>
+                <div data-contextual-help data-help-slug="roles-access-safety" data-help-question="Объясни роли сотрудников и как безопасно проверить права и доступ к онлайн-записи."></div>
                 <div class="organization-list" id="membersList"></div>
                 <details class="organization-create" id="memberCreator">
                   <summary><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Пригласить сотрудника</span></summary>
@@ -705,6 +709,7 @@
             <section class="panel organization-section organization-resources" id="resourcesPanel" hidden>
               <div class="panel-head"><div><small>Кабинеты и оборудование</small><h3>Ресурсы</h3></div><span class="panel-count" id="resourcesCount">0</span></div>
               <p class="organization-invite-help">Система сама назначает свободный кабинет, стол или оборудование и не позволяет занять один ресурс дважды.</p>
+              <div data-contextual-help data-help-slug="service-resources" data-help-question="Объясни группы ресурсов, конкретные кабинеты и требования услуг и почему время может быть недоступно."></div>
               <div class="loading-state compact" id="resourcesLoading" hidden><i></i><span>Загружаем ресурсы…</span></div>
               <div class="resource-inline-error" id="resourcesUnavailable" role="status" hidden><div><strong>Ресурсы временно недоступны</strong><small id="resourcesUnavailableText"></small></div><button class="secondary-button" id="reloadResources" type="button">Повторить</button></div>
               <div class="resource-workspace" id="resourceWorkspace" hidden>
@@ -784,6 +789,7 @@
             <section class="panel organization-section payment-provider-panel" id="paymentProviderPanel" hidden>
               <div class="panel-head"><div><small>Интернет-эквайринг</small><h3>ЮKassa</h3></div><span class="panel-count" id="paymentProviderState">Выключена</span></div>
               <p class="organization-invite-help">Ключи хранятся только в Supabase Secrets. Браузер получает ссылку на оплату, но никогда не видит Shop ID или Secret Key.</p>
+              <div data-contextual-help data-help-slug="setup-yookassa" data-help-question="Объясни безопасное подключение ЮKassa, тестовый режим, чеки и последствия включения предоплаты."></div>
               <div class="resource-inline-error" id="paymentProviderUnavailable" hidden><div><strong>Платёжный модуль временно недоступен</strong><small id="paymentProviderUnavailableText"></small></div><button class="secondary-button" id="reloadPaymentProvider" type="button">Повторить</button></div>
               <div id="paymentProviderWorkspace" hidden>
                 <form id="paymentProviderSettingsForm" class="payment-provider-settings">
@@ -870,6 +876,7 @@
             <section class="panel organization-section organization-inventory" id="inventoryPanel" hidden>
               <div class="panel-head"><div><small>Товары, материалы и расходники</small><h3>Складской учёт</h3></div><span class="panel-count" id="inventoryItemsCount">0</span></div>
               <p class="organization-invite-help">Остатки разделены по филиалам. Все движения остаются в неизменяемом журнале, а нормы списываются только после завершённого визита.</p>
+              <div data-contextual-help data-help-slug="inventory-setup" data-help-question="Объясни безопасный порядок настройки каталога, складов филиалов, остатков и автоматического списания."></div>
               <div class="loading-state compact" id="inventoryLoading" hidden><i></i><span>Загружаем склад…</span></div>
               <div class="resource-inline-error" id="inventoryUnavailable" role="status" hidden><div><strong>Склад временно недоступен</strong><small id="inventoryUnavailableText"></small></div><button class="secondary-button" id="reloadInventory" type="button">Повторить</button></div>
               <div class="inventory-workspace" id="inventoryWorkspace" hidden>
@@ -888,7 +895,7 @@
                     </section>
                   </div>
                   <div class="inventory-management-grid">
-                    <section class="inventory-operation"><div class="resource-subhead"><div><small>Приход, списание, продажа или пересчёт</small><strong>Операция с остатком</strong></div></div><form id="inventoryMovementForm"><div class="form-row"><label>Склад<select id="inventoryMovementWarehouse" required></select></label><div class="scan-field"><label>Позиция<select id="inventoryMovementItem" required></select></label><button class="secondary-button" type="button" data-code-scan-target="inventoryMovementItem" data-code-scan-match="option" data-code-scan-preset="sale" data-code-scan-mode="sale" data-code-scan-title="Товар для продажи">Сканировать продажу</button></div></div><label>Операция<select id="inventoryMovementKind"><option value="receipt">Приход</option><option value="write_off">Списание</option><option value="inventory">Инвентаризация</option></select></label><label id="inventoryMovementQuantityField">Количество<input id="inventoryMovementQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label><label id="inventoryCountedQuantityField" hidden>Фактический остаток<input id="inventoryCountedQuantity" type="number" min="0" max="99999999999" step="0.001" value="0"></label><label>Причина<input id="inventoryMovementReason" maxlength="500" placeholder="Обязательна для списания и пересчёта"></label><p class="form-error" id="inventoryMovementError" hidden></p><button class="primary" type="submit" data-inventory-write>Провести операцию</button></form></section>
+                    <section class="inventory-operation"><div class="resource-subhead"><div><small>Приход, списание, продажа или пересчёт</small><strong>Операция с остатком</strong></div></div><div data-contextual-help data-help-slug="inventory-movement" data-help-danger="true" data-help-question="Объясни разницу между приходом, списанием, продажей и инвентаризацией. Ничего не проводи."></div><form id="inventoryMovementForm"><div class="form-row"><label>Склад<select id="inventoryMovementWarehouse" required></select></label><div class="scan-field"><label>Позиция<select id="inventoryMovementItem" required></select></label><button class="secondary-button" type="button" data-code-scan-target="inventoryMovementItem" data-code-scan-match="option" data-code-scan-preset="sale" data-code-scan-mode="sale" data-code-scan-title="Товар для продажи">Сканировать продажу</button></div></div><label>Операция<select id="inventoryMovementKind"><option value="receipt">Приход</option><option value="write_off">Списание</option><option value="inventory">Инвентаризация</option></select></label><label id="inventoryMovementQuantityField">Количество<input id="inventoryMovementQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label><label id="inventoryCountedQuantityField" hidden>Фактический остаток<input id="inventoryCountedQuantity" type="number" min="0" max="99999999999" step="0.001" value="0"></label><label>Причина<input id="inventoryMovementReason" maxlength="500" placeholder="Обязательна для списания и пересчёта"></label><p class="form-error" id="inventoryMovementError" hidden></p><button class="primary" type="submit" data-inventory-write>Провести операцию</button></form></section>
                     <section class="inventory-usage"><div class="resource-subhead"><div><small>Автосписание за визит</small><strong>Нормы расхода</strong></div></div><div class="organization-list" id="inventoryUsageList"></div><form id="inventoryUsageForm"><label>Услуга<select id="inventoryUsageService" required></select></label><div class="form-row"><label>Материал<select id="inventoryUsageItem" required></select></label><label>Количество<input id="inventoryUsageQuantity" type="number" min="0.001" max="99999999999" step="0.001" required></label></div><p class="form-error" id="inventoryUsageError" hidden></p><button class="secondary-button" type="submit" data-inventory-write>Сохранить норму</button></form></section>
                   </div>
                   <details class="resource-audit" id="inventoryMovementsPanel"><summary><span><small>Неизменяемая история остатков</small><strong>Журнал движений</strong></span><span id="inventoryMovementsCount">0</span></summary><div class="organization-audit-list" id="inventoryMovementsList"></div></details>
@@ -967,6 +974,7 @@
                 <div class="settings-heading"><small>Тариф и подписка</small><h3 id="subscriptionTitle">Полный доступ без скрытых ограничений</h3><p>Во всех тарифах доступны функции Minuta. Стоимость зависит только от числа принимающих специалистов и филиалов.</p></div>
                 <span class="subscription-trial-badge">14 дней бесплатно</span>
               </div>
+              <div data-contextual-help data-help-slug="subscription-plans" data-help-question="Объясни, какой тариф подходит, кто считается принимающим специалистом, как учитываются филиалы и что оплачивается отдельно."></div>
               <div class="subscription-trial-note"><div class="subscription-start-bonus"><strong>+500 ₽ бонусом</strong><span>При пополнении на 1 000 ₽ в первые 24 часа</span></div></div>
               <div class="subscription-pricing">
                 <input class="subscription-cycle-input" id="subscriptionMonthly" name="subscriptionCycle" type="radio" checked>
@@ -986,6 +994,7 @@
             <section class="panel settings-card batch-booking-settings-card" id="batchBookingSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></div>
               <div class="settings-heading"><small>Несколько произвольных дат</small><h3>Пакетные записи</h3><p id="batchBookingSettingNote">Функция выключена. Обычные записи не изменяются.</p><a class="settings-help-link" href="help/article.html?slug=settings-batch-bookings" target="_blank" rel="noopener noreferrer">Как работают пакеты <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="settings-batch-bookings" data-help-question="Объясни разницу между пакетными, обычными и повторяющимися записями и что изменится после включения."></div>
               <form id="batchBookingSettingsForm" class="batch-booking-settings-form">
                 <label class="settings-check batch-booking-toggle"><input id="batchBookingsEnabled" type="checkbox" data-batch-booking-write><span><strong>Пакетные записи</strong><small>Несколько визитов клиента на выбранные даты</small></span></label>
                 <label class="batch-booking-limit"><span><strong>Максимум записей</strong><small>От 2 до 24 в одном пакете</small></span><input id="batchBookingsMaxItems" type="number" min="2" max="24" step="1" value="12" aria-label="Максимум записей в пакете" required></label>
@@ -996,6 +1005,7 @@
             <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
               <div class="settings-heading"><small>Внешний вид кабинета</small><h3>Структура, тема и карточки</h3><p>Сначала выберите компоновку интерфейса, затем независимо примените к ней цветную или фактурную тему. Оформление меняется сразу.</p><a class="settings-help-link" href="help/article.html?slug=cabinet-layout-theme" target="_blank" rel="noopener noreferrer">Как выбрать оформление <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="cabinet-layout-theme" data-help-question="Объясни разницу между компоновкой, темой, размером текста и отображением данных в карточке записи."></div>
               <form id="providerDisplayForm" class="provider-display-form">
                 <fieldset class="provider-layout-picker">
                   <legend>Структура интерфейса</legend>
@@ -1096,6 +1106,7 @@
             <section class="panel settings-card telegram-client-settings-card provider-section-anchor" id="telegramClientSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"></use></svg></div>
               <div class="settings-heading"><small>Telegram клиентам</small><h3>Уведомления и связь с мастером</h3><p>Сообщения отправляет бот Minuta, а кнопка «Написать мастеру» открывает ваш личный Telegram.</p><a class="settings-help-link" href="help/article.html?slug=telegram" target="_blank" rel="noopener noreferrer">Инструкция по Telegram <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="telegram" data-help-question="Объясни подключение Telegram, виды сообщений клиентам, username мастера и причины недоставки."></div>
               <form id="telegramClientSettingsForm" class="telegram-client-settings-form" novalidate>
                 <p class="telegram-client-explainer"><strong>Как это работает</strong><span>Бот пишет только клиентам, которые сами подключили Telegram после записи. Ваш номер телефона клиентам не показывается.</span></p>
                 <label class="telegram-contact-field">Ваш Telegram<input id="telegramContactUsername" type="text" inputmode="text" autocomplete="off" maxlength="33" placeholder="@username" aria-describedby="telegramContactHint"><small id="telegramContactHint">Нужен только для кнопки «Написать мастеру». Если оставить поле пустым, выбранные уведомления продолжат работать без кнопки связи.</small></label>
@@ -1116,6 +1127,7 @@
             <section class="panel settings-card visitor-alert-settings-card provider-section-anchor" id="visitorAlertSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-bell"></use></svg></div>
               <div class="settings-heading"><small>Посетители страницы записи</small><h3>Показывать, кто сейчас на сайте</h3><p>Владелец увидит источник перехода и текущий шаг. Имя и телефон появятся только у клиента, который уже оставлял эти данные при записи.</p><a class="settings-help-link" href="help/article.html?slug=visitor-alerts" target="_blank" rel="noopener noreferrer">Как разрешить уведомления <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="visitor-alerts" data-help-question="Объясни уведомления о посетителях, разрешения браузера, частоту сигналов и какие данные показываются."></div>
               <form id="visitorNotificationForm" class="visitor-notification-form">
                 <label class="settings-check visitor-notification-toggle"><input id="visitorNotificationsEnabled" type="checkbox"><span><strong>Посетители онлайн и уведомления</strong><small>Присутствие исчезает примерно через полторы минуты после ухода</small></span></label>
                 <button class="secondary-button visitor-notification-test" id="visitorNotificationTestButton" type="button">Проверить уведомление и звук</button>
@@ -1128,6 +1140,7 @@
             <section class="panel settings-card install-app-card provider-section-anchor" id="installAppCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-download"></use></svg></div>
               <div class="settings-heading"><small>Быстрый доступ</small><h3>Установить приложение</h3><p>Кабинет появится на главном экране и будет открываться как отдельное приложение.</p><a class="settings-help-link" href="help/article.html?slug=install-app" target="_blank" rel="noopener noreferrer">Инструкция для устройства <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="install-app" data-help-question="Объясни установку Minuta на это устройство и почему кнопка установки может быть недоступна."></div>
               <div class="install-app-content">
                 <div class="install-app-actions"><button class="primary install-app-button" id="installAppButton" type="button" aria-expanded="false" aria-controls="desktopInstallGuide androidInstallGuide iosInstallGuide browserInstallGuide"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-download"></use></svg><span>Установить приложение</span></button><button class="secondary-button install-fullscreen-button" id="providerFullscreenButton" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-external"></use></svg><span>На весь экран</span></button></div>
                 <p class="install-app-status" id="installAppStatus" role="status" aria-live="polite">Определяем устройство и способ установки…</p>
@@ -1155,6 +1168,7 @@
             <section class="panel settings-card booking-rules-card provider-section-anchor" id="bookingRulesCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></div>
               <div class="settings-heading"><small>Правила онлайн-записи</small><h3>Записи, перерывы и предоплата</h3><p>Правила применяются к новым записям. Перед сохранением проверьте примеры ниже — они показывают последствия для клиента и расписания.</p><div class="settings-heading-actions"><a class="settings-help-link" href="help/article.html?slug=booking-rules" target="_blank" rel="noopener noreferrer">Подробная инструкция <span aria-hidden="true">↗</span></a><a class="settings-client-preview-link" href="index.html" target="_blank" rel="noopener noreferrer">Посмотреть глазами клиента <span aria-hidden="true">↗</span></a></div></div>
+              <div data-contextual-help data-help-slug="organization-booking-rules" data-help-question="Объясни область действия правил организации, филиала и специалиста и что изменится для новых и старых записей."></div>
               <details class="settings-example booking-rules-example"><summary>Примеры: отмена, предоплата и перерыв</summary><div><p><strong>Отмена за 12 часов.</strong> Запись на 14:00 клиент сможет самостоятельно отменить до 02:00 этого дня.</p><p><strong>Предоплата.</strong> После записи клиент увидит платёжную ссылку. Если автоматическая проверка оплаты не подключена, оплату нужно отметить вручную.</p><p><strong>Перерыв 30 минут.</strong> Визит с 14:00 до 15:00 закроет для новых записей время с 13:30 до 15:30.</p></div></details>
               <div id="organizationBookingPolicyPanel" hidden>
                 <div class="loading-state compact" id="organizationBookingPolicyLoading"><i></i><span>Загружаем правила организации…</span></div>
@@ -1203,17 +1217,20 @@
             <section class="panel settings-card team-calendar-settings-card" id="teamCalendarSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-users"></use></svg></div>
               <div class="settings-heading"><small>Дополнительные возможности</small><h3>Расписание команды</h3><p>Общий календарь нескольких специалистов. Для одного принимающего мастера функция автоматически скрыта.</p><p id="teamCalendarSettingNote" role="status" aria-live="polite">Проверяем состав команды…</p><details class="settings-example"><summary>Что нужно перед включением</summary><p>Создайте организацию, добавьте филиал и пригласите хотя бы ещё одного специалиста, который принимает клиентов. У сотрудника должны быть назначены услуги и рабочие часы.</p></details><a class="settings-help-link" href="help/article.html?slug=view-team-calendar" target="_blank" rel="noopener noreferrer">Настройка календаря команды <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="view-team-calendar" data-help-question="Объясни, что нужно подготовить перед включением расписания команды и почему функция может быть недоступна."></div>
               <label class="settings-check team-calendar-toggle"><input id="teamCalendarEnabled" type="checkbox"><span><strong>Включить расписание команды</strong><small>Добавляет переключатель между личным и общим расписанием.</small></span></label>
             </section>
             <section class="panel settings-card group-booking-settings-card" id="groupBookingSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></div>
               <div class="settings-heading"><small>Дополнительные возможности</small><h3>Групповые сеансы</h3><p class="group-booking-purpose" id="groupBookingPurpose">Занятия и мероприятия, на которые одновременно записываются несколько клиентов. Если функция не нужна, её элементы полностью скрываются из расписания.</p><p class="group-booking-status" id="groupBookingsSettingNote">Функция выключена. Обычные записи продолжают работать без изменений.</p><details class="settings-example"><summary>Когда использовать</summary><p>Например, создайте одно занятие на 18:00 с 8 местами. Каждый клиент занимает отдельное место, а в расписании остаётся одно групповое событие.</p></details><a class="settings-help-link" href="help/article.html?slug=settings-group-sessions" target="_blank" rel="noopener noreferrer">Как работают групповые сеансы <span aria-hidden="true">↗</span></a></div>
+              <div data-contextual-help data-help-slug="settings-group-sessions" data-help-question="Объясни разницу между групповым сеансом, пакетной записью и серией и что изменится после включения."></div>
               <label class="settings-check group-booking-toggle"><input id="groupBookingsEnabled" type="checkbox" data-group-booking-write aria-describedby="groupBookingPurpose groupBookingsSettingNote"><span><strong>Включить групповые сеансы</strong><small>После включения появятся управление событиями и запись клиентов по количеству мест.</small></span></label>
             </section>
-            <section class="panel settings-card data-governance-card" id="dataGovernanceCard"><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Данные и документы</small><h3>Управление данными</h3><p>Сроки хранения, выгрузка и запросы на удаление в одном месте.</p></div><div class="data-governance-grid"><label>Отменённые записи, месяцев<input id="bookingRetentionMonths" type="number" min="1" max="120" value="36"></label><label>События посещений, дней<input id="visitorRetentionDays" type="number" min="1" max="90" value="7"></label><label>Журнал доступа, месяцев<input id="auditRetentionMonths" type="number" min="1" max="60" value="12"></label><label>Срок отмены удаления, дней<input id="deletionGraceDays" type="number" min="1" max="30" value="7"></label></div><div class="data-governance-actions owner-only-data-action"><button type="button" class="primary" id="saveDataGovernanceBtn">Сохранить сроки</button><button type="button" class="secondary-button" id="exportOrganizationDataBtn">Скачать данные</button><button type="button" class="secondary-button" id="previewPrivacyCleanupBtn">Проверить очистку</button><button type="button" class="secondary-button" id="runPrivacyCleanupBtn">Очистить по срокам</button></div><p id="dataGovernanceStatus" class="settings-hint" aria-live="polite">Настройки загружаются после выбора организации.</p><details class="data-governance-details"><summary>Запросы на удаление</summary><p>Запрос можно отменить до даты исполнения. Это защищает от случайной потери данных.</p><div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" data-data-request="account_deletion">Удалить мой аккаунт</button><button type="button" class="danger-button" data-data-request="organization_deletion">Удалить организацию</button></div><div id="dataGovernanceRequests"></div></details><p class="settings-hint">Документы: <a href="privacy.html" target="_blank" rel="noopener">политика конфиденциальности</a> и <a href="terms.html" target="_blank" rel="noopener">условия использования</a>.</p></section>
+            <section class="panel settings-card data-governance-card" id="dataGovernanceCard"><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Данные и документы</small><h3>Управление данными</h3><p>Сроки хранения, выгрузка и запросы на удаление в одном месте.</p></div><div data-contextual-help data-help-slug="data-governance" data-help-danger="true" data-help-question="Объясни сроки хранения, предварительную проверку очистки, выгрузку и последствия удаления данных. Ничего не удаляй."></div><div class="data-governance-grid"><label>Отменённые записи, месяцев<input id="bookingRetentionMonths" type="number" min="1" max="120" value="36"></label><label>События посещений, дней<input id="visitorRetentionDays" type="number" min="1" max="90" value="7"></label><label>Журнал доступа, месяцев<input id="auditRetentionMonths" type="number" min="1" max="60" value="12"></label><label>Срок отмены удаления, дней<input id="deletionGraceDays" type="number" min="1" max="30" value="7"></label></div><div class="data-governance-actions owner-only-data-action"><button type="button" class="primary" id="saveDataGovernanceBtn">Сохранить сроки</button><button type="button" class="secondary-button" id="exportOrganizationDataBtn">Скачать данные</button><button type="button" class="secondary-button" id="previewPrivacyCleanupBtn">Проверить очистку</button><button type="button" class="secondary-button" id="runPrivacyCleanupBtn">Очистить по срокам</button></div><p id="dataGovernanceStatus" class="settings-hint" aria-live="polite">Настройки загружаются после выбора организации.</p><details class="data-governance-details"><summary>Запросы на удаление</summary><p>Запрос можно отменить до даты исполнения. Это защищает от случайной потери данных.</p><div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" data-data-request="account_deletion">Удалить мой аккаунт</button><button type="button" class="danger-button" data-data-request="organization_deletion">Удалить организацию</button></div><div id="dataGovernanceRequests"></div></details><p class="settings-hint">Документы: <a href="privacy.html" target="_blank" rel="noopener">политика конфиденциальности</a> и <a href="terms.html" target="_blank" rel="noopener">условия использования</a>.</p></section>
             <span class="provider-section-marker" id="accountSettingsCard" aria-hidden="true"></span>
             <details class="panel settings-card account-settings-card">
               <summary><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Аккаунт исполнителя</small><h3>Способы входа</h3><p>Пароль и подтверждённый телефон для резервного входа.</p></div></summary>
+              <div data-contextual-help data-help-slug="account-security" data-help-question="Объясни безопасную смену пароля, резервный вход по телефону и что делать при потере доступа."></div>
               <div class="security-recommendation"><strong>Рекомендуемая защита</strong><p>Сохраните рабочий пароль и привяжите телефон. Тогда у вас будет второй способ входа, если один из них окажется недоступен.</p><a class="settings-help-link" href="help/article.html?slug=account-security" target="_blank" rel="noopener noreferrer">Инструкция по безопасности <span aria-hidden="true">↗</span></a></div>
               <section class="provider-social-link" aria-labelledby="providerSocialLinkTitle">
                 <div><strong id="providerSocialLinkTitle">Внешние аккаунты</strong><p>Привяжите их один раз, чтобы затем входить без пароля. Недоступная кнопка означает, что этот способ входа ещё не подключён администратором Minuta.</p></div>
@@ -1426,7 +1443,7 @@
         </div>
       </div>
       <div class="voice-assistant-scroll">
-        <p class="voice-assistant-lead" id="voiceAssistantLead">Расписание, клиенты и свободное время. Что хотите узнать?</p>
+        <p class="voice-assistant-lead" id="voiceAssistantLead">Расписание, клиенты, настройки, организация и склад. Что хотите узнать?</p>
         <button class="voice-assistant-proactive" id="voiceAssistantProactive" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg><span><small>Актуально сейчас</small><strong id="voiceAssistantProactiveTitle"></strong><span id="voiceAssistantProactiveMessage"></span></span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>
         <div class="voice-assistant-starters" id="voiceAssistantStarters" aria-label="Быстрые вопросы">
           <button type="button" data-voice-example="Какие записи сегодня?"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"></use></svg><span><strong>Сегодня</strong></span></button>
@@ -1443,9 +1460,11 @@
             <button type="button" data-voice-example="Как включить бонусы?">Бонусы и промокоды</button>
             <button type="button" data-voice-example="Почему упала выручка на этой неделе?">Почему упала выручка?</button>
             <button type="button" data-voice-example="Какие материалы заканчиваются?">Что заканчивается?</button>
+            <button type="button" data-voice-example="Чем списание отличается от инвентаризации?">Складские операции</button>
             <button type="button" data-voice-example="Сколько новых клиентов в этом месяце?">Новые клиенты</button>
             <button type="button" data-voice-example="Какие услуги принесли больше денег в этом месяце?">Лучшие услуги</button>
             <button type="button" data-voice-example="Кто работает в команде?">Команда</button>
+            <button type="button" data-voice-example="Почему сотрудник не виден клиенту?">Почему сотрудник не виден?</button>
             <button type="button" data-voice-example="Запиши Анну завтра в 10:30 на массаж">Создать запись</button>
             <button type="button" data-voice-example="Перенеси Анну на завтра в 15:00">Подготовить перенос</button>
             <button type="button" data-voice-example="Отмени запись Анны завтра">Проверить отмену</button>
@@ -1533,6 +1552,8 @@
   <script src="provider.js?v=470" defer></script>
   <script src="settings-nav-scroll.js?v=470" defer></script>
   <script src="settings-smart-search.js?v=470" defer></script>
+  <script src="help/help-data.js?v=470" defer></script>
+  <script src="contextual-help.js?v=470" defer></script>
   <script src="voice-assistant.js?v=470" defer></script>
   <script src="client-records.js?v=470" defer></script>
   <script src="code-scanner.js?v=470" defer></script>

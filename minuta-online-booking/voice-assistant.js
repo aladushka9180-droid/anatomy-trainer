@@ -64,6 +64,8 @@
     'забронируй', 'забронировать', 'создай', 'создать', 'найди', 'покажи', 'подбери', 'предложи', 'свободное', 'свободный', 'окно', 'окошко', 'слот',
     'расписание', 'график', 'запись', 'записи', 'визит', 'прием', 'сеанс', 'новую', 'новый', 'клиент', 'клиента', 'клиентку', 'выручка', 'доход', 'оплата', 'материал', 'остаток', 'склад', 'цена', 'стоимость',
     'уведомление', 'уведомления', 'напоминание', 'подтверждение', 'сообщение', 'отзыв', 'экспорт', 'настройки', 'настроить', 'тариф',
+    'организация', 'филиал', 'сотрудник', 'специалист', 'роль', 'доступ', 'ресурс', 'кабинет', 'смена', 'услуга', 'видно', 'отображается',
+    'приход', 'списание', 'инвентаризация', 'перемещение', 'корректировка', 'автосписание', 'товар', 'позиция', 'остатки',
     'напиши', 'придумай', 'составь', 'подготовь', 'описание', 'публикация', 'пост', 'соцсети', 'продвижение', 'реклама', 'акция', 'цена', 'пожалуйста', 'помоги', 'помощник'
   ])]);
   const REMOTE_INTENTS = new Set([
@@ -1077,27 +1079,163 @@
     };
   }
 
-  function workspaceHelpModel(command) {
+  function inventoryGuidanceModel(text, snapshot = {}) {
+    if (!/(?:склад|остат|товар|материал|приход|поступлен|оприход|списан|инвентаризац|пересчет|пересчёт|перемещ|автосписан|норм[а-я]*\s+расход)/.test(text)) return null;
+    const wantsTransfer = /(?:перемещ|перенес[а-я]*\s+(?:товар|материал)|между\s+склад)/.test(text);
+    const wantsDifference = /(?:чем\s+отлич|в\s+чем\s+отлич|разниц|какую\s+операц|что\s+выбрать|как\s+правильно)/.test(text);
+    const wantsOperation = /(?:приход|поступлен|оприход|списан|инвентаризац|пересчет|пересчёт|корректир|исправ[а-я]*\s+остат|автосписан|норм[а-я]*\s+расход)/.test(text);
+    if (!wantsTransfer && !wantsDifference && !wantsOperation) return null;
+    const inventory = snapshot.inventory;
+    const points = [];
+    if (!inventory) points.push('Склад выбранной организации не загружен: сначала откройте раздел и дождитесь актуальных данных.');
+    else if (!inventory.enabled) points.push('Складской учёт сейчас выключен. Включить его может владелец; старые визиты при включении не списываются.');
+    if (wantsTransfer) return {
+      kind:'workspace_help',
+      title:'Перемещение между складами',
+      message:'Отдельной операции «Перемещение» в Minuta сейчас нет. Я не буду незаметно заменять её списанием и приходом: это два самостоятельных движения, которые нужно проверить вручную.',
+      points:[...points, 'В разделе склада доступны приход, списание и инвентаризация.', 'Перед любым движением проверьте исходный склад, позицию, количество и причину.'],
+      openSection:'organization',
+      sectionTarget:'inventoryPanel',
+      openLabel:'Открыть склад',
+      helpSlug:'inventory-movement'
+    };
+    return {
+      kind:'workspace_help',
+      title:'Как выбрать складскую операцию',
+      message:'Помощник объяснит выбор, но не проведёт движение и не изменит остаток.',
+      points:[
+        ...points,
+        'Приход увеличивает остаток после поставки или возврата товара на склад.',
+        'Списание уменьшает остаток из-за использования, порчи, продажи или потери; причина обязательна.',
+        'Инвентаризация записывает фактически пересчитанный остаток, а система сама фиксирует разницу с учётом.',
+        'Автосписание — отдельное правило: норма расхода применяется один раз только после завершения визита.'
+      ],
+      openSection:'organization',
+      sectionTarget:'inventoryPanel',
+      openLabel:'Открыть склад',
+      helpSlug:/(?:автосписан|норм[а-я]*\s+расход)/.test(text) ? 'inventory-auto-deduct' : 'inventory-movement'
+    };
+  }
+
+  function visibilityGuidanceModel(text, snapshot = {}) {
+    const invisible = /(?:почему|не\s+вид|не\s+виж|не\s+показыва|не\s+отобража|не\s+появля|пропал|куда\s+дел|нельзя|недоступ)/.test(text);
+    if (!invisible) return null;
+    if (/(?:сотрудник|специалист|мастер|исполнитель)/.test(text)) {
+      const team = Array.isArray(snapshot.team) ? snapshot.team : [];
+      return {
+        kind:'workspace_help',
+        title:'Почему специалист не виден клиенту',
+        message:team.length ? `В загруженной команде есть активные сотрудники: ${team.length}. Проверьте остальные связи по порядку.` : 'В загруженном контексте активных сотрудников нет. Начните с состава организации и доступа сотрудника.',
+        points:['Сотрудник должен быть активен и отмечен как принимающий клиентов.', 'Ему нужны нужный филиал, назначенная услуга и рабочие часы или смена.', 'Отсутствие, закрытый филиал или недоступный ресурс могут убрать время из онлайн-записи.', 'Помощник видит только безопасную сводку и не меняет роли или доступ.'],
+        openSection:'organization',
+        sectionTarget:'organizationPeopleSection',
+        openLabel:'Проверить организацию',
+        helpSlug:'employee-rights'
+      };
+    }
+    if (/(?:услуг|процедур)/.test(text)) {
+      const services = Array.isArray(snapshot.services) ? snapshot.services : [];
+      return {
+        kind:'workspace_help',
+        title:'Почему услуга не видна клиенту',
+        message:services.length ? `Активных услуг в доступной сводке: ${services.length}. Проверьте привязки выбранной услуги.` : 'В доступной сводке нет активных услуг. Сначала проверьте каталог услуг.',
+        points:['Услуга должна быть активна, иметь длительность и цену.', 'Она должна быть доступна у принимающего специалиста и в нужном филиале.', 'Для услуги с обязательным ресурсом нужен активный кабинет или оборудование.', 'Даже активная услуга не покажет время, если для неё нет подходящего рабочего интервала.'],
+        openSection:'services',
+        openLabel:'Проверить услуги',
+        helpSlug:'add-service'
+      };
+    }
+    if (/(?:врем|окн|слот|расписан|записат)/.test(text)) return {
+      kind:'workspace_help',
+      title:'Почему время не доступно для записи',
+      message:'Свободное время появляется только когда одновременно выполнены настройки услуги, специалиста, филиала и расписания.',
+      points:['Проверьте активную услугу и принимающего специалиста.', 'Проверьте обычную неделю, смену нужного филиала и исключения выбранной даты.', 'Учтите перерывы, отсутствия, существующие записи и занятые ресурсы.', 'Правила ранней записи и перерывы до или после услуги тоже могут закрыть окно.'],
+      openSection:'schedule',
+      openLabel:'Проверить рабочие часы',
+      helpSlug:'first-booking'
+    };
+    return null;
+  }
+
+  function protectedManagementActionModel(text) {
+    const inventoryTarget = /(?:склад|остат|товар|материал|инвентаризац|автосписан)/.test(text);
+    const inventoryWrite = /(?:^|\s)(?:спиши|списать|оприходуй|прими\s+товар|добавь|внеси|оформи|проведи|зафиксируй|продай|перемести|скорректируй|исправь|установи\s+остаток|включи|выключи|удали)(?=\s|$)/.test(text);
+    if (inventoryTarget && inventoryWrite) return {
+      kind:'workspace_help',
+      title:'Складские изменения — только вручную',
+      message:'Я могу объяснить операцию и показать нужный раздел, но не провожу приход, списание, инвентаризацию, перемещение и изменение складских правил.',
+      points:['Перед сохранением проверьте склад, позицию, количество, будущий остаток и причину.', 'Операцию выполните в штатной форме; она попадёт в неизменяемый журнал движений.'],
+      openSection:'organization',
+      sectionTarget:'inventoryPanel',
+      openLabel:'Открыть склад',
+      helpSlug:'inventory-movement'
+    };
+    const accessTarget = /(?:роль|прав[а-я]*\s+доступ|администратор|владелец|сотрудник|филиал|организац)/.test(text);
+    const accessWrite = /(?:^|\s)(?:назначь|сделай|создай|добавь|выдай|забери|измени|поменяй|отключи|удали|пригласи)(?=\s|$)/.test(text);
+    if (accessTarget && accessWrite) return {
+      kind:'workspace_help',
+      title:'Права и организация — только после вашей проверки',
+      message:'Я не меняю роли, доступ сотрудников, филиалы или организацию. Могу объяснить последствия и открыть штатную форму.',
+      points:['Проверьте, какие данные и разделы станут доступны сотруднику.', 'Удаление или отключение может затронуть расписание и онлайн-запись; сначала изучите зависимости.'],
+      openSection:'organization',
+      sectionTarget:'organizationPeopleSection',
+      openLabel:'Открыть организацию',
+      helpSlug:'employee-rights'
+    };
+    const financialTarget = /(?:зарплат|выплат|возврат|деньг|оплат|бонус)/.test(text);
+    const financialWrite = /(?:^|\s)(?:сделай|оформи|выплати|оплати|начисли|удержи|верни|спиши|скорректируй|закрой\s+расчет|закрой\s+расчёт)(?=\s|$)/.test(text);
+    if (financialTarget && financialWrite) return {
+      kind:'workspace_help',
+      title:'Финансовые действия помощник не выполняет',
+      message:'Я могу показать инструкцию и нужный раздел, но выплата, возврат, удержание или списание требуют ручной проверки и подтверждения в штатной форме.',
+      points:['Сверьте организацию, сотрудника или клиента, период, сумму и основание.', 'После открытия раздела данные не изменятся, пока вы сами не подтвердите действие.'],
+      openSection:'organization',
+      openLabel:'Открыть организацию',
+      helpSlug:/(?:возврат|верни|деньг)/.test(text) ? 'yookassa-refund' : 'calculate-payroll'
+    };
+    return null;
+  }
+
+  function workspaceHelpModel(command, snapshot = {}) {
     const text = repairCommand(command).text;
+    const protectedAction = protectedManagementActionModel(text);
+    if (protectedAction) return protectedAction;
+    const visibility = visibilityGuidanceModel(text, snapshot);
+    if (visibility) return visibility;
+    const inventoryGuidance = inventoryGuidanceModel(text, snapshot);
+    if (inventoryGuidance) return inventoryGuidance;
     let section = 'settings';
     let label = 'настройки кабинета';
-    if (/(?:бонус|промокод|лояльност)/.test(text)) { section = 'organization'; label = 'организацию → Лояльность'; }
-    else if (/(?:лист\s+ожидан|ожидающ[а-я]*\s+клиент)/.test(text)) { section = 'waitlist'; label = 'лист ожидания'; }
-    else if (/(?:портфолио|фото\s+работ)/.test(text)) { section = 'portfolio'; label = 'портфолио'; }
-    else if (/(?:организац|команд|филиал)/.test(text)) { section = 'organization'; label = 'организацию'; }
-    else if (/(?:уведом|напоминан|сообщен)/.test(text)) { section = 'notifications'; label = 'уведомления'; }
-    else if (/(?:экспорт|выгруз|отчет|статист)/.test(text)) { section = 'analytics'; label = 'статистику и экспорт'; }
-    else if (/(?:расписан|рабоч|выходн|перерыв)/.test(text)) { section = 'schedule'; label = 'рабочие часы'; }
-    else if (/(?:цен|стоимост|услуг)/.test(text)) { section = 'services'; label = 'услуги и цены'; }
-    else if (/(?:клиент|баз)/.test(text)) { section = 'clients'; label = 'клиентскую базу'; }
-    else if (/(?:склад|материал|остат)/.test(text)) { section = 'organization'; label = 'склад организации'; }
+    let helpSlug = 'settings-quick-start';
+    let sectionTarget = '';
+    if (/(?:бонус|промокод|лояльност)/.test(text)) { section = 'organization'; label = 'организацию → Лояльность'; helpSlug = /промокод/.test(text) ? 'create-apply-promo' : 'loyalty-rules'; }
+    else if (/(?:лист\s+ожидан|ожидающ[а-я]*\s+клиент)/.test(text)) { section = 'waitlist'; label = 'лист ожидания'; helpSlug = ''; }
+    else if (/(?:портфолио|фото\s+работ)/.test(text)) { section = 'portfolio'; label = 'портфолио'; helpSlug = 'manage-portfolio'; }
+    else if (/(?:склад|материал|остат|товар)/.test(text)) { section = 'organization'; sectionTarget = 'inventoryPanel'; label = 'склад организации'; helpSlug = 'inventory-setup'; }
+    else if (/(?:роль|прав[а-я]*\s+доступ)/.test(text)) { section = 'organization'; sectionTarget = 'organizationPeopleSection'; label = 'права сотрудников'; helpSlug = 'employee-rights'; }
+    else if (/(?:ресурс|кабинет|оборудован)/.test(text)) { section = 'organization'; sectionTarget = 'resourcesPanel'; label = 'ресурсы организации'; helpSlug = 'service-resources'; }
+    else if (/(?:смен|отпуск|больнич|отсутств)/.test(text)) { section = 'organization'; sectionTarget = 'shiftsPanel'; label = 'смены сотрудников'; helpSlug = /(?:отпуск|больнич|отсутств)/.test(text) ? 'add-staff-absence' : 'add-staff-shift'; }
+    else if (/(?:сотрудник|специалист|мастер|команд)/.test(text)) { section = 'organization'; sectionTarget = 'organizationPeopleSection'; label = 'команду'; helpSlug = 'invite-employee'; }
+    else if (/(?:организац|филиал)/.test(text)) { section = 'organization'; label = 'организацию'; helpSlug = /филиал/.test(text) ? 'add-branch' : 'organization-name'; }
+    else if (/(?:уведом|напоминан|сообщен)/.test(text)) { section = 'notifications'; label = 'уведомления'; helpSlug = /telegram/.test(text) ? 'telegram' : 'notification-templates'; }
+    else if (/(?:экспорт|выгруз|отчет|статист)/.test(text)) { section = 'analytics'; label = 'статистику и экспорт'; helpSlug = /(?:экспорт|выгруз|отчет)/.test(text) ? 'export-report' : 'statistics-overview'; }
+    else if (/(?:расписан|рабоч|выходн|перерыв)/.test(text)) { section = 'schedule'; label = 'рабочие часы'; helpSlug = 'set-regular-workweek'; }
+    else if (/(?:цен|стоимост|услуг)/.test(text)) { section = 'services'; label = 'услуги и цены'; helpSlug = 'add-service'; }
+    else if (/(?:клиент|баз)/.test(text)) { section = 'clients'; label = 'клиентскую базу'; helpSlug = 'client-card-notes-and-labels'; }
+    const points = section === 'analytics' ? ['В разделе статистики доступна выгрузка записей.']
+      : section === 'schedule' ? ['Там можно настроить рабочие дни, перерывы и выходные.']
+        : section === 'notifications' ? ['Там находятся очередь и шаблоны сообщений клиентам.']
+          : section === 'organization' && /(?:склад|материал|остат|товар)/.test(text) ? ['Сначала нужны активные организация и филиал, затем склад филиала и складская позиция.', 'Начальный остаток оформляется приходом; фактическое расхождение — инвентаризацией.', 'Помощник ничего не проводит: каждое движение проверяется и сохраняется вами в штатной форме.']
+            : section === 'organization' ? ['Порядок связей: организация → филиал → сотрудник → услуга → рабочие часы или смена → ресурс.', 'В онлайн-записи появляются только одновременно активные и правильно связанные элементы.', 'Роли, доступ и важные изменения остаются под вашим ручным подтверждением.'] : [];
     return {
       kind:'workspace_help',
       title:`Открыть ${label}`,
       message:'Помощник переведёт в нужный раздел, но ничего не изменит без вашего действия.',
-      points:section === 'analytics' ? ['В разделе статистики доступна выгрузка записей.'] : section === 'schedule' ? ['Там можно настроить рабочие дни, перерывы и выходные.'] : section === 'notifications' ? ['Там находятся очередь и шаблоны сообщений клиентам.'] : [],
+      points,
       openSection:section,
-      openLabel:`Открыть ${label}`
+      ...(sectionTarget ? { sectionTarget } : {}),
+      openLabel:`Открыть ${label}`,
+      ...(helpSlug ? { helpSlug } : {})
     };
   }
 
@@ -1109,7 +1247,8 @@
     const destinations = [
       { pattern:/^(?:лист\s+ожидания|ожидающие\s+клиенты)$/, section:'waitlist', label:'лист ожидания' },
       { pattern:/^(?:портфолио|фото\s+работ)$/, section:'portfolio', label:'портфолио' },
-      { pattern:/^(?:организацию|организация|организации|команду|команда|команды|филиалы?|филиалов|склад)$/, section:'organization', label:'организацию' },
+      { pattern:/^(?:склад|склады|склада|складской\s+учет|складской\s+учёт)$/, section:'organization', sectionTarget:'inventoryPanel', label:'склад', helpSlug:'inventory-setup' },
+      { pattern:/^(?:организацию|организация|организации|команду|команда|команды|филиалы?|филиалов)$/, section:'organization', label:'организацию', helpSlug:'organization-name' },
       { pattern:/^(?:статистику|статистика|статистики|аналитику|аналитика|аналитики|отчеты?|отчёты?|выручку)$/, section:'analytics', label:'статистику' },
       { pattern:/^(?:уведомления|уведомление|уведомлений|напоминания|сообщения)$/, section:'notifications', label:'уведомления' },
       { pattern:/^(?:рабочие\s+часы|рабочих\s+часов|график\s+работы|настройки\s+расписания|выходные|перерывы)$/, section:'schedule', label:'рабочие часы' },
@@ -1125,7 +1264,9 @@
       title:`Открыть ${destination.label}`,
       message:'Переход подготовлен. В выбранном разделе ничего не изменится без вашего действия.',
       openSection:destination.section,
-      openLabel:`Открыть ${destination.label}`
+      ...(destination.sectionTarget ? { sectionTarget:destination.sectionTarget } : {}),
+      openLabel:`Открыть ${destination.label}`,
+      ...(destination.helpSlug ? { helpSlug:destination.helpSlug } : {})
     };
   }
 
@@ -1210,6 +1351,12 @@
       title:'Цена или продвижение?',
       message:'Могу предложить безопасный сценарий цены по вашим данным или идеи продвижения без внешней рыночной информации.',
       examples:['Какую цену поставить на массаж?', 'Дай идеи для продвижения']
+    };
+    if (fuzzyRoot(text, ['склад', 'остат', 'приход', 'списан', 'инвентаризац', 'организац', 'филиал', 'сотрудник', 'роль', 'ресурс'])) return {
+      kind:'help',
+      title:'Что объяснить в организации или на складе?',
+      message:'Могу объяснить связи между филиалом, сотрудником, услугой, графиком и ресурсом, а также помочь выбрать складскую операцию. Изменения останутся за вами.',
+      examples:['Почему специалист не виден клиенту?', 'Чем списание отличается от инвентаризации?', 'Что нужно настроить для нового филиала?']
     };
     if (fuzzyRoot(text, ['настройк', 'уведомлен', 'тариф', 'экспорт', 'расписан'])) return {
       kind:'help',
@@ -1491,7 +1638,7 @@
     // Preserve dictated message content before interpreting its numbers as booking times.
     if (/^(?:напиши|сообщи)\s+.+\s+что\s+/.test(text)) return finish(messageDraftModel(raw, snapshot, now));
     if (/(?:почему|сравни).*(?:меньше|больше|количеств|число).*(?:запис|визит)/.test(text)) return finish(bookingChangeModel(text, snapshot, now));
-    if (/(?:как|где|открой|включи|настрой).*?(?:бонус|промокод|лояльност)/.test(text)) return finish(workspaceHelpModel(text));
+    if (/(?:как|где|открой|включи|настрой).*?(?:бонус|промокод|лояльност)/.test(text)) return finish(workspaceHelpModel(text, snapshot));
     if (/(?:кто.*следующ|следующ.*(?:клиент|запис)|ближайш.*запис)/.test(text)) {
       const next = upcomingBookings(snapshot, now)[0];
       return finish({ kind:'schedule_summary', title:'Следующая запись',
@@ -1517,6 +1664,11 @@
     const compound = allowCompound ? compoundCommandModel(raw, snapshot, now, conversationContext) : null;
     if (compound) return finish(compound);
 
+    const protectedManagementAction = protectedManagementActionModel(text);
+    if (protectedManagementAction) return finish(protectedManagementAction);
+    const contextualGuidance = visibilityGuidanceModel(text, snapshot) || inventoryGuidanceModel(text, snapshot);
+    if (contextualGuidance) return finish(contextualGuidance);
+
     const bookingRequest = bookingSignal(text);
     const writingAction = /(?:^|\s)(?:напиш[а-я]*|придум[а-я]*|состав[а-я]*|подготов[а-я]*|ответ[а-я]*)(?=\s|$)/.test(text);
     const messageRequest = writingAction
@@ -1532,7 +1684,7 @@
     if (contentRequest && /(?:пост|публикац|описан|карточк\s+услуг|текст\s+(?:для\s+)?соц)/.test(text)) return finish(contentDraftModel(text, snapshot));
     if (fuzzyRoot(text, ['цен', 'стоимост']) && fuzzyRoot(text, ['какую', 'какой', 'сколько', 'посоветуй', 'рекомендуй', 'подбери', 'поставить', 'изменить', 'поднять'])) return finish(roleAllowsFinancialData(snapshot) ? priceAdviceModel(text, snapshot) : permissionNoticeModel());
     if (/(?:иде[а-я]*\s+(?:для\s+)?продвижен|как\s+продвиг|чем\s+привлеч|что\s+рекламир|рекламн[а-я]*\s+иде|акци[а-я]*\s+предлож)/.test(text)) return finish(promotionIdeasModel(snapshot, now));
-    if ((/(?:^|\s)(?:как|где|куда|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*|поменя[а-я]*)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|отчет|статист|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад|лист\s+ожидан|портфолио|организац|команд|филиал)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text));
+    if ((/(?:^|\s)(?:как|где|куда|откро[а-я]*|перейд[а-я]*|настро[а-я]*|измен[а-я]*|поменя[а-я]*|объясн[а-я]*|расскаж[а-я]*|подскаж[а-я]*|зачем|для\s+чего|что\s+значит|что\s+нужн[а-я]*|непонятно|не\s+совсем\s+понятно)(?=\s|$)/.test(text) && /(?:настройк|уведомлен|тариф|экспорт|выгруз|отчет|статист|расписан|рабоч|выходн|перерыв|цен|услуг|клиент|баз|склад|товар|материал|остат|приход|списан|инвентаризац|автосписан|лист\s+ожидан|портфолио|организац|команд|филиал|сотрудник|специалист|роль|доступ|ресурс|кабинет|смен)/.test(text)) || /(?:^|\s)(?:экспортируй|выгрузи)(?=\s|$)/.test(text)) return finish(workspaceHelpModel(text, snapshot));
 
     if (!bookingRequest && (/(?:выручк|заработ|доход|средн[а-я]* чек|оплат)/.test(text) || fuzzyRoot(text, ['выручк', 'доход', 'оплат']))) return finish(roleAllowsFinancialData(snapshot) ? revenueModel(text, snapshot, now) : permissionNoticeModel());
     if (/(?:материал|остат|остал[а-я]*|склад|заканчива|закуп)/.test(text) || fuzzyRoot(text, ['материал', 'остаток', 'склад']) || /(?:на сколько|сколько\s+дн|до\s+.+\s+хватит|хватит\s+ли|хватит\s+на).*(?:масл|крем|шампун|краск|перчат|полотен|салфет)/.test(text)) return finish(inventoryModel(text, snapshot, now));
@@ -2472,13 +2624,15 @@
       const copyAction = model.draftText && !model.needsDetail ? `<button class="primary" type="button" data-voice-copy>${escapeHtml(model.copyLabel || 'Скопировать')}</button>` : '';
       const clientAction = model.kind === 'client_search' && model.clientKey ? '<button class="primary" type="button" data-voice-open-client>Открыть карточку клиента</button>' : '';
       const openAction = model.openSection ? `<button class="secondary-button" type="button" data-voice-open-section="${escapeHtml(model.openSection)}">${escapeHtml(model.openLabel || 'Открыть раздел')}</button>` : '';
+      const helpSlug = /^[a-z0-9-]{1,80}$/.test(String(model.helpSlug || '')) ? String(model.helpSlug) : '';
+      const helpAction = helpSlug ? `<a class="secondary-button" href="help/article.html?slug=${encodeURIComponent(helpSlug)}" target="_blank" rel="noopener noreferrer">Подробнее в базе знаний</a>` : '';
       const operationAction = model.kind === 'operation_preview' && model.plan?.bookingId && !model.needsDetail ? `<button class="primary" type="button" data-voice-operation>${model.operation === 'cancel' ? 'Открыть отмену' : 'Открыть перенос'}</button>` : '';
       const undoAction = model.kind === 'undo_preview' && model.canUndo ? '<button class="primary" type="button" data-voice-undo>Вернуть предыдущий экран</button>' : '';
       const planStartAction = model.kind === 'compound_plan' && model.steps?.length ? '<button class="primary" type="button" data-voice-plan-start>Начать план</button>' : '';
       const planNextAction = activePlan && model.kind !== 'compound_plan' && activePlan.index + 1 < activePlan.steps.length ? '<button class="primary" type="button" data-voice-plan-next>Следующий шаг</button>' : '';
       const speakAction = global.speechSynthesis && global.SpeechSynthesisUtterance && refreshRussianVoice() ? '<button class="secondary-button voice-speak-action" type="button" data-voice-speak aria-pressed="false">Озвучить ответ</button>' : '';
       const speechSettingsAction = speakAction ? '<button class="secondary-button voice-speech-settings-action" type="button" data-voice-speech-settings>Голос и скорость</button>' : '';
-      const actions = prepareAction || copyAction || clientAction || openAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${clientAction}${operationAction}${undoAction}${openAction}${speakAction}${speechSettingsAction}</div>` : '';
+      const actions = prepareAction || copyAction || clientAction || openAction || helpAction || operationAction || undoAction || planStartAction || planNextAction || speakAction ? `<div class="voice-result-actions">${planStartAction}${planNextAction}${prepareAction}${copyAction}${clientAction}${operationAction}${undoAction}${openAction}${helpAction}${speakAction}${speechSettingsAction}</div>` : '';
       const planProgress = activePlan && model.kind !== 'compound_plan' ? `<p class="voice-source-note">План · шаг ${activePlan.index + 1} из ${activePlan.steps.length}</p>` : '';
       const offlineNotice = model.offline ? '<p class="voice-offline-notice">Офлайн · сведения могут быть устаревшими</p>' : '';
       const sourceNote = model.sourceLabel ? `<p class="voice-source-note">${escapeHtml(model.sourceLabel)}</p>` : '';
@@ -2550,7 +2704,13 @@
       result.querySelector('[data-voice-open-section]')?.addEventListener('click', event => {
         const section = event.currentTarget?.dataset?.voiceOpenSection || '';
         const response = bridge.openSection?.(section);
-        if (response?.ok) { pendingCommand = ''; close(); }
+        if (response?.ok) {
+          const safeSection = /^[a-z][a-z0-9_-]{0,39}$/.test(section) ? section : '';
+          const target = /^[A-Za-z][A-Za-z0-9_-]{0,79}$/.test(String(lastModel?.sectionTarget || '')) ? String(lastModel.sectionTarget) : '';
+          if (safeSection && target) global.setTimeout(() => doc.querySelector(`[data-provider-panel="${safeSection}"] [data-section-target="${target}"]`)?.click(), 0);
+          pendingCommand = '';
+          close();
+        }
         else status.textContent = 'Не удалось открыть раздел. Повторите после входа в кабинет.';
       });
       result.querySelector('[data-voice-open-client]')?.addEventListener('click', () => {
@@ -3050,7 +3210,7 @@
     return { bind, destroy, understand, reset, stopSpeech };
   }
 
-  const api = Object.freeze({ assistantSpeechText, splitSpeechText, normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, workspaceNavigationModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
+  const api = Object.freeze({ assistantSpeechText, splitSpeechText, normalizeText, repairCommand, normalizedLexiconRules, applyLearnedCorrections, learnedCorrectionRules, parseRussianDate, parseRussianTime, parseTimePreference, applySlotPreferences, parseDuration, parseClientName, findServices, reportingPeriod, revenueStats, revenueModel, inventoryModel, inventoryGuidanceModel, visibilityGuidanceModel, protectedManagementActionModel, attentionModel, messageDraftModel, contentDraftModel, priceAdviceModel, promotionIdeasModel, operationalBriefingModel, proactiveBriefingModel, understoodAs, workspaceHelpModel, workspaceNavigationModel, clientBookingMatches, contextualFollowUpCommand, updateConversationContext, conversationContextFromSnapshot, screenAwareCommand, screenContextModel, undoPreviewModel, contextualMemoryCommand, shortenDraft, reviseDraftModel, compoundCommandModel, guidedHelpModel, smallTalkModel, interpretCommand, commandUnderstandingScore, chooseRecognitionTranscript, supportsDirectRecognition, selectRussianVoice, normalizedSpeechRate, speechVoiceKey, applyOfflineContext, needsClarification, canContinueCommand, continueCommand, buildAssistantContext, shouldUseRemoteUnderstanding, assistantAnalysisModel, createController });
   if (global) global.MinutaVoiceAssistant = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
