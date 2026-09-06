@@ -33,8 +33,8 @@ for (const target of ['benefitInstrumentSearch','inventoryItemSku','inventoryMov
   assert.match(providerHtml, new RegExp(`data-code-scan-target="${target}"`));
 }
 assert.match(indexHtml, /data-code-scan-target="bookingBenefitCode"/);
-assert.match(sw, /\.\/code-scanner\.js\?v=490/);
-assert.match(sw, /\.\/code-scanner\.css\?v=490/);
+assert.match(sw, /\.\/code-scanner\.js\?v=491/);
+assert.match(sw, /\.\/code-scanner\.css\?v=491/);
 assert.ok(scannerCss.length > 500);
 assert.match(scanner, /codes\.length \? codes\.includes\(needle\)/);
 assert.doesNotMatch(scanner, /value\.includes\(`· \$\{needle\}`\)/);
@@ -55,8 +55,8 @@ assert.match(provider, /source\.mobile_nav_by_role \?\? source\.mobileNavByRole/
 assert.match(clientMigration, /client_records_enabled/i);
 assert.match(clientMigration, /organization_id/i);
 assert.match(clientMigration, /security definer/i);
-assert.match(providerHtml, /client-records\.js\?v=490/);
-assert.match(sw, /\.\/client-records\.js\?v=490/);
+assert.match(providerHtml, /client-records\.js\?v=491/);
+assert.match(sw, /\.\/client-records\.js\?v=491/);
 
 // Benefit use is one transaction: booking + locked server validation + reservation.
 assert.match(migration, /v115_requires_v68_v73_v76_and_v87/i);
@@ -92,7 +92,7 @@ assert.match(app, /book_minuta_appointment_with_benefit_v115/);
 assert.match(app, /p_benefit_code:benefitCode/);
 assert.match(app, /Сертификат или абонемент не подходит/);
 assert.match(indexHtml, /id="bookingBenefitCode"[^>]+maxlength="40"/);
-assert.match(sw, /CACHE_PREFIX}v490/);
+assert.match(sw, /CACHE_PREFIX}v491/);
 
 // Industry expansion is explicitly gated; no accidental medical-product claim.
 assert.match(readiness, /Статус: проектирование/);
