@@ -18,7 +18,7 @@
   --signature-stage:rgba(10,8,7,.92);
   --signature-nav-active:linear-gradient(90deg,rgba(122,66,31,.72),rgba(25,17,12,.93));
   --signature-card-shadow:0 16px 42px rgba(0,0,0,.34);
-  --atmosphere-background:url("provider-noir-safari-bg.webp?v=474");
+  --atmosphere-background:url("provider-noir-safari-bg.webp?v=475");
   --atmosphere-panel:rgba(10,8,7,.91);
   --atmosphere-panel-strong:rgba(17,14,12,.97);
   color-scheme:dark;
@@ -72,7 +72,7 @@
   .booking-rules-card,.client-history-item,.client-disclosure,.voice-assistant-dialog,.booking-sheet
 ) {
   border-color:rgba(113,78,48,.55)!important;
-  background:linear-gradient(145deg,rgba(20,17,14,.97),rgba(11,9,8,.96))!important;
+  background:rgba(16,13,11,.97)!important;
   color:var(--theme-ink)!important;
   box-shadow:0 14px 34px rgba(0,0,0,.28)!important;
 }
@@ -227,7 +227,7 @@
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .client-list-item.active {
   border-color:#7f4927!important;
-  background:linear-gradient(90deg,#3a2115,#21150f)!important;
+  background:#2e1c12!important;
   box-shadow:inset 4px 0 0 #d27b2d!important;
 }
 
@@ -268,7 +268,7 @@
 }
 
 .theme-noir-safari .theme-swatch {
-  background-image:linear-gradient(90deg,rgba(5,4,3,.18),rgba(5,4,3,.52)),url("provider-noir-safari-bg.webp?v=474")!important;
+  background-image:linear-gradient(90deg,rgba(5,4,3,.18),rgba(5,4,3,.52)),url("provider-noir-safari-bg.webp?v=475")!important;
   background-position:center!important;
   background-size:cover!important;
 }
