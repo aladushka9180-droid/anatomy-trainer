@@ -972,9 +972,9 @@
 }
 
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-  --snow-print-veil:rgba(255,255,255,.80);
-  background-color:#f7f8f9!important;
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-continuous-v1.webp?v=494")!important;
+  --snow-print-veil:rgba(255,255,255,.86);
+  background-color:#fff!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-mosaic-4k-v2.webp?v=494")!important;
   background-size:auto,cover!important;
   background-repeat:no-repeat!important;
   background-position:center!important;
@@ -998,7 +998,7 @@
 }
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-    --snow-print-veil:rgba(255,255,255,.84);
+    --snow-print-veil:rgba(255,255,255,.80);
   }
   /* Reveal the canvas between sections; keep each reading surface opaque. */
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-view,.schedule-card) {
