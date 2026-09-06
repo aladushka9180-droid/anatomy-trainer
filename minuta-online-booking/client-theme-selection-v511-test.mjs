@@ -52,11 +52,11 @@ assert.match(providerHtml, /id="clientAppearancePreview"/);
 assert.match(providerHtml, /id="providerClientThemeChooser"/);
 assert.match(providerHtml, /data-client-theme-filter="featured"/);
 assert.match(providerHtml, /Личный выбор клиента меняет оформление только на его устройстве/);
-assert.match(providerHtml, /theme-catalog\.js\?v=532/);
+assert.match(providerHtml, /theme-catalog\.js\?v=535/);
 assert.match(indexHtml, /id="clientThemeDialog"/);
 assert.match(indexHtml, /id="clientHeroTitle"/);
-assert.match(indexHtml, /client-themes\.css\?v=532/);
-assert.match(indexHtml, /theme-catalog\.js\?v=532/);
+assert.match(indexHtml, /client-themes\.css\?v=535/);
+assert.match(indexHtml, /theme-catalog\.js\?v=535/);
 assert.match(providerJs, /current_role !== 'owner'/);
 assert.match(providerJs, /set_minuta_client_page_settings_v118/);
 assert.match(providerJs, /get_minuta_client_page_settings_v118/);
@@ -76,8 +76,8 @@ assert.match(clientThemesCss, /\.availability-suggestion[\s\S]*var\(--client-sur
 assert.match(clientThemesCss, /\.waitlist-cta[\s\S]*var\(--client-surface-alt\)/);
 assert.match(clientThemesCss, /\.booking-faq details\[open\][\s\S]*var\(--client-surface\)/);
 assert.match(clientThemesCss, /\.booking-faq summary[\s\S]*var\(--client-ink\)/);
-assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v532`/);
-assert.match(sw, /theme-catalog\.js\?v=532/);
-assert.match(providerHtml, /voice-assistant\.js\?v=532/);
+assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v535`/);
+assert.match(sw, /theme-catalog\.js\?v=535/);
+assert.match(providerHtml, /voice-assistant\.js\?v=535/);
 
-console.log('client theme selection v532 tests passed');
+console.log('client theme selection v535 tests passed');

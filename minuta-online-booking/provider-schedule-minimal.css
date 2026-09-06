@@ -139,31 +139,74 @@
   .provider-body .date-strip-shift[data-date-shift="7"] { right:8px; }
 }
 
-/* Midnight Navy: appointments echo the selected date without competing with it. */
-.provider-body[data-provider-theme="midnight"] :is(
+/* Appointments echo the selected date in every theme without competing with it. */
+.provider-body[data-provider-theme] {
+  --schedule-entry-fill-weight:18%;
+  --schedule-entry-hover-fill-weight:24%;
+  --schedule-entry-border-weight:46%;
+  --schedule-entry-hover-border-weight:58%;
+  --schedule-entry-marker-weight:76%;
+  --schedule-entry-shadow-weight:28%;
+  --schedule-break-surface-weight:78%;
+}
+
+.provider-body:is(
+  [data-provider-theme="graphite"],
+  [data-provider-theme="luxury"],
+  [data-provider-theme="loft"],
+  [data-provider-theme="midnight"],
+  [data-provider-theme="botanical"],
+  [data-provider-theme="burgundy"],
+  [data-provider-theme="noir-safari"]
+) {
+  --schedule-entry-fill-weight:30%;
+  --schedule-entry-hover-fill-weight:36%;
+  --schedule-entry-border-weight:64%;
+  --schedule-entry-hover-border-weight:76%;
+  --schedule-entry-marker-weight:86%;
+  --schedule-entry-shadow-weight:46%;
+  --schedule-break-surface-weight:68%;
+}
+
+.provider-body[data-provider-theme] :is(
   .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
   .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
   .calendar-overview-booking:not(.status-block),
   .calendar-week-booking:not(.is-block)
 ) {
-  border-color:color-mix(in srgb,var(--theme-accent) 58%,var(--theme-line))!important;
-  background:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-surface))!important;
+  --schedule-entry-tone:var(--booking-tone,var(--calendar-week-marker,var(--theme-accent)));
+  border-color:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-border-weight),var(--theme-line))!important;
+  background:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-fill-weight),var(--theme-surface))!important;
   background-image:none!important;
   color:var(--theme-ink)!important;
-  box-shadow:inset 3px 0 0 color-mix(in srgb,var(--theme-accent) 82%,transparent),0 4px 12px color-mix(in srgb,var(--theme-shadow) 42%,transparent)!important;
+  box-shadow:inset 3px 0 0 color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-marker-weight),transparent),0 4px 12px color-mix(in srgb,var(--theme-shadow) var(--schedule-entry-shadow-weight),transparent)!important;
 }
 
-.provider-body[data-provider-theme="midnight"] :is(
+.provider-body[data-provider-theme] :is(
   .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
   .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
   .calendar-overview-booking:not(.status-block),
   .calendar-week-booking:not(.is-block)
 ):hover {
-  border-color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-line))!important;
-  background:color-mix(in srgb,var(--theme-accent) 30%,var(--theme-surface))!important;
+  border-color:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-hover-border-weight),var(--theme-line))!important;
+  background:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-hover-fill-weight),var(--theme-surface))!important;
 }
 
-.provider-body[data-provider-theme="midnight"] :is(
+/* Keep the same semantic accent in the compact month grid, whose layout rules are intentionally more specific. */
+.provider-body[data-provider-theme] #providerBookings.calendar-overview-month .calendar-overview-booking:not(.status-block) {
+  --schedule-entry-tone:var(--booking-tone,var(--calendar-week-marker,var(--theme-accent)));
+  background:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-fill-weight),var(--theme-surface))!important;
+  background-image:none!important;
+  color:var(--theme-ink)!important;
+  box-shadow:inset 2px 0 0 color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-marker-weight),transparent)!important;
+}
+
+.provider-body[data-provider-theme] #providerBookings.calendar-overview-month .calendar-overview-booking:not(.status-block):hover {
+  background:color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-hover-fill-weight),var(--theme-surface))!important;
+  box-shadow:inset 2px 0 0 color-mix(in srgb,var(--schedule-entry-tone) var(--schedule-entry-marker-weight),transparent)!important;
+}
+
+.provider-body[data-provider-theme] :is(
   .timeline-view .timeline-booking.status-block,
   .timeline-view .timeline-booking.automatic-break,
   .schedule-list .provider-booking.status-block,
@@ -172,21 +215,28 @@
   .calendar-week-booking.is-block
 ) {
   border-color:color-mix(in srgb,var(--theme-line) 68%,var(--theme-surface))!important;
-  background:color-mix(in srgb,var(--theme-surface-alt) 68%,var(--theme-surface))!important;
+  background:color-mix(in srgb,var(--theme-surface-alt) var(--schedule-break-surface-weight),var(--theme-surface))!important;
   background-image:none!important;
-  color:var(--theme-muted)!important;
+  color:color-mix(in srgb,var(--theme-muted) 72%,var(--theme-ink))!important;
   box-shadow:none!important;
 }
 
-.provider-body[data-provider-theme="midnight"] :is(
+.provider-body[data-provider-theme] #providerBookings.calendar-overview-month .calendar-overview-booking.status-block {
+  background:color-mix(in srgb,var(--theme-surface-alt) var(--schedule-break-surface-weight),var(--theme-surface))!important;
+  background-image:none!important;
+  color:color-mix(in srgb,var(--theme-muted) 72%,var(--theme-ink))!important;
+  box-shadow:none!important;
+}
+
+.provider-body[data-provider-theme] :is(
   .timeline-booking.status-block,
   .timeline-booking.automatic-break
 ) .timeline-booking-copy>strong::before,
-.provider-body[data-provider-theme="midnight"] :is(
+.provider-body[data-provider-theme] :is(
   .provider-booking.status-block,
   .provider-booking.automatic-break
 ) h3::before,
-.provider-body[data-provider-theme="midnight"] :is(
+.provider-body[data-provider-theme] :is(
   .calendar-overview-booking.status-block,
   .calendar-week-booking.is-block
 ) strong::before {
