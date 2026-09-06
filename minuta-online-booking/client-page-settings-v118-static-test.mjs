@@ -12,6 +12,9 @@ const [migration,rollback,integration,catalog,app,provider] = await Promise.all(
 ]);
 
 assert.match(migration,/create table if not exists public\.organization_client_page_settings/i);
+assert.match(migration,/set local search_path\s*=\s*pg_catalog,\s*public,\s*extensions/i);
+assert.match(migration,/updated_at timestamptz not null default pg_catalog\.now\(\)/i);
+assert.doesNotMatch(migration,/default\s+(?:public\.)?now\(\)/i);
 assert.match(migration,/enable row level security/i);
 assert.match(migration,/revoke all on public\.organization_client_page_settings from public,anon,authenticated,service_role/i);
 assert.match(migration,/grant select on public\.organization_client_page_settings to authenticated/i);
@@ -40,6 +43,10 @@ assert.match(provider,/set_minuta_client_page_settings_v118/);
 assert.match(provider,/sync_status:'pending'/);
 assert.match(provider,/clientPageSettingsSaveQueue/);
 assert.match(provider,/clientPageSettingsQueuedRevisions/);
+assert.match(provider,/initializeClientPageSettingsSaveRevision\(JSON\.parse\(value\)\)/);
+assert.match(provider,/storedRevision > clientPageSettingsSaveRevision/);
+assert.match(provider,/currentUser\?\.id === userId[\s\S]*?sessionIsCurrent\(userId,generation\)[\s\S]*?organization\.current_role === 'owner'[\s\S]*?activeOrganization\?\.id === organization\.id[\s\S]*?activeOrganization\.current_role === 'owner'/);
+assert.ok(provider.indexOf('if (!contextIsCurrent)') < provider.indexOf("await db.rpc('set_minuta_client_page_settings_v118'"));
 assert.match(provider,/addEventListener\('online'/);
 assert.doesNotMatch(provider,/provider_client_page_settings_v1/);
 const appearanceRuntime = provider.slice(provider.indexOf('function normalizeClientPageSettings'),provider.indexOf('function focusProviderViewHeading'));

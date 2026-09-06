@@ -4433,8 +4433,13 @@ function syncScheduleContextHistory(mode = 'replace') {
 
 function normalizeClientPageSettings(value = {}) { return window.MinutaThemeCatalog.normalizeSettings(value); }
 function clientPageSettingsStorageKey(organizationId, userId = currentUser?.id) { return `minuta-provider-client-page-v1:${userId || 'guest'}:${organizationId || 'none'}`; }
+function initializeClientPageSettingsSaveRevision(value) {
+  const storedRevision = Number(value?.local_revision);
+  if (Number.isSafeInteger(storedRevision) && storedRevision > clientPageSettingsSaveRevision) clientPageSettingsSaveRevision = storedRevision;
+  return value;
+}
 function readLocalClientPageSettings(organizationId) {
-  try { const value = localStorage.getItem(clientPageSettingsStorageKey(organizationId)); return value ? JSON.parse(value) : null; } catch { return null; }
+  try { const value = localStorage.getItem(clientPageSettingsStorageKey(organizationId)); return value ? initializeClientPageSettingsSaveRevision(JSON.parse(value)) : null; } catch { return null; }
 }
 function writeLocalClientPageSettings(organizationId, settings) {
   try { localStorage.setItem(clientPageSettingsStorageKey(organizationId), JSON.stringify(settings)); } catch {}
@@ -4519,6 +4524,16 @@ function enqueueClientAppearanceServerSave(organization, stored, { silent=false 
   const queueKey = `${organization.id}:${localRevision}`;
   if (clientPageSettingsQueuedRevisions.has(queueKey)) return clientPageSettingsQueuedRevisions.get(queueKey);
   const operation = clientPageSettingsSaveQueue.catch(() => null).then(async () => {
+    const activeOrganization = organizationController?.getActiveOrganization?.() || null;
+    const contextIsCurrent = Boolean(
+      userId
+      && currentUser?.id === userId
+      && sessionIsCurrent(userId,generation)
+      && organization.current_role === 'owner'
+      && activeOrganization?.id === organization.id
+      && activeOrganization.current_role === 'owner'
+    );
+    if (!contextIsCurrent) return { ok:false,pending:true,reason:'context_changed' };
     let data;
     let error;
     try {

@@ -1,6 +1,6 @@
 begin;
 
-set local search_path = public, extensions, pg_catalog;
+set local search_path = pg_catalog, public, extensions;
 
 do $$ begin
   if to_regprocedure('public.get_public_minuta_catalog_v4(text)') is null
@@ -14,7 +14,7 @@ create table if not exists public.organization_client_page_settings (
   organization_id uuid primary key references public.organizations(id) on delete cascade,
   theme_key text not null default 'sage',
   headline_key text not null default 'massage-time',
-  updated_at timestamptz not null default now(),
+  updated_at timestamptz not null default pg_catalog.now(),
   updated_by uuid references auth.users(id) on delete set null,
   constraint organization_client_page_theme_key_check check (theme_key in (
     'sage','nordic','warm','graphite','lavender','luxury','loft','eco','hitech','japandi',
