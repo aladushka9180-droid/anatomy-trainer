@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#153c2c">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' https://cawexmmrqjvothcbgjxr.supabase.co wss://cawexmmrqjvothcbgjxr.supabase.co; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self'; upgrade-insecure-requests">
-  <meta name="description" content="Кабинет исполнителя онлайн-записи «Массаж в Ижевске».">
-  <meta property="og:title" content="Кабинет исполнителя — Массаж в Ижевске">
+  <meta name="description" content="Кабинет исполнителя онлайн-записи «Минута».">
+  <meta property="og:title" content="Кабинет исполнителя — Минута">
   <meta property="og:description" content="Управляйте услугами, расписанием и записями клиентов.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://aladushka9180-droid.github.io/anatomy-trainer/minuta-online-booking/og.png">
-  <title>Кабинет исполнителя — Массаж в Ижевске</title>
+  <title>Кабинет исполнителя — Минута</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="provider.webmanifest?v=472" type="application/manifest+json">
   <link rel="apple-touch-icon" href="provider-icon-192.png">
@@ -53,7 +53,7 @@
 
   <main class="provider-main">
     <section class="auth-card" id="authCard" hidden>
-      <a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>кабинет исполнителя</small></span></a>
+      <a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Минута</strong><small>кабинет исполнителя</small></span></a>
       <span class="status" id="authBadge"><i></i> Личный кабинет</span>
       <h1 id="authTitle">Все записи под рукой.</h1>
       <p id="authDescription">Войдите или зарегистрируйтесь, чтобы управлять расписанием и услугами.</p>
@@ -109,7 +109,8 @@
 
     <section class="provider-app" id="dashboard" hidden>
       <aside class="provider-sidebar">
-        <a class="brand provider-brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>для исполнителя</small></span></a>
+        <a class="brand provider-brand" href="index.html"><span class="brand-mark">М</span><span><strong id="providerBusinessName">Ваш бизнес</strong><small>для исполнителя</small></span></a>
+        <button class="provider-brand-edit" id="editProviderBusinessName" type="button" data-provider-view="organization" data-edit-provider-business aria-label="Указать название бизнеса" title="Указать название бизнеса" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-edit"></use></svg></button>
         <nav class="provider-nav" aria-label="Разделы кабинета">
           <span class="provider-nav-group-label">Работа</span>
           <button class="active" type="button" data-provider-view="bookings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></span><span>Записи</span></button>

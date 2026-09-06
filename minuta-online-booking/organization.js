@@ -55,8 +55,27 @@
       }));
     }
 
+    function configuredBusinessName(organization) {
+      const name = String(organization?.name || '').replace(/\s+/g, ' ').trim();
+      return /\s[—-]\sорганизация$/iu.test(name) ? '' : name;
+    }
+
+    function renderProviderBrand(organization) {
+      const configuredName = configuredBusinessName(organization);
+      const visibleName = configuredName || 'Ваш бизнес';
+      const name = $('#providerBusinessName');
+      const edit = $('#editProviderBusinessName');
+      if (name) name.textContent = visibleName;
+      if (!edit) return;
+      edit.hidden = !organization?.id || !organization.can_manage;
+      edit.setAttribute('aria-label', configuredName ? `Изменить название «${configuredName}»` : 'Указать название бизнеса');
+      edit.title = configuredName ? 'Изменить название бизнеса' : 'Указать название бизнеса';
+    }
+
     function emitActiveOrganization() {
-      onActiveOrganizationChange?.(getActiveOrganization());
+      const organization = getActiveOrganization();
+      renderProviderBrand(organization);
+      onActiveOrganizationChange?.(organization);
     }
 
     function reset() {

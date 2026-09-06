@@ -10396,7 +10396,21 @@ document.addEventListener('click', async event => {
   const slotIntervalButton = event.target.closest('[data-slot-interval]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
-  if (view) setProviderView(view.dataset.providerView);
+  if (view) {
+    const transition = setProviderView(view.dataset.providerView);
+    if (view.matches('[data-edit-provider-business]')) {
+      Promise.resolve(transition).then(() => requestAnimationFrame(() => {
+        const overviewButton = $('[data-provider-panel="organization"] .provider-section-nav [data-section-target="organizationOverviewSection"]');
+        if (overviewButton) scrollToProviderSection(overviewButton);
+        requestAnimationFrame(() => {
+          const input = $('#organizationName');
+          if (!input || input.disabled) return;
+          input.focus({ preventScroll:true });
+          input.select();
+        });
+      }));
+    }
+  }
   if (sectionTarget) {
     event.preventDefault();
     scrollToProviderSection(sectionTarget);
