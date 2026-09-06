@@ -287,13 +287,65 @@ for(const transition of ['account','close-reopen'])for(const outcome of ['succes
     assert.deepEqual(await snapshot(page),before,'Old note result must not add unsaved cache data, start color, close B, clear draft or notify');
   }
 ]);
+for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [390,1280]) cases.push([
+  `UI booking and month grid ${theme} ${width}`,async page=>{
+    await page.setViewportSize({width,height:850});
+    await page.evaluate(theme=>{document.body.className='provider-body';document.body.dataset.providerTheme=theme;document.body.dataset.providerLayout='linear';},theme);
+    for(const match of html.matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^" ]*)?"/g)) {
+      // Theme textures/fonts are not needed for geometry; no external traffic.
+      const css=readFileSync(new URL(`../${match[1]}`,import.meta.url),'utf8').replace(/url\([^)]*\)/g,'none');
+      await page.addStyleTag({content:css});
+    }
+    await page.evaluate(()=>openNewBookingSheet());
+    assert.ok(await page.locator('.new-booking-section-title>div').first().evaluate(el=>el.getBoundingClientRect().width>200),'Heading must occupy full width after removing step badge');
+    await page.locator('#newBookingAdvanced > summary').click();
+    assert.equal(await page.locator('#newBookingInterval').isVisible(),false,'Single occurrence has no repeat interval');
+    await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-07';updateNewBookingConnectivity();});
+    assert.equal(await page.locator('#newBookingHistoricalToggle').isVisible(),false,'Future date cannot be a completed visit');
+    await page.selectOption('#newBookingOccurrences','3');
+    assert.equal(await page.locator('#newBookingInterval').isVisible(),true);
+    await page.selectOption('#newBookingOccurrences','1');
+    assert.equal(await page.locator('#newBookingInterval').isVisible(),false);
+    await page.evaluate(()=>{document.querySelector('#newBookingDate').value='2026-09-06';updateNewBookingConnectivity();renderNewBookingTimePicker();});
+    assert.equal(await page.locator('#newBookingHistoricalToggle').isVisible(),true);
+    const geometry=await page.evaluate(()=>{
+      const sections=[...document.querySelectorAll('.new-booking-section')].map(el=>({rect:el.getBoundingClientRect().toJSON(),background:getComputedStyle(el).backgroundColor}));
+      return {sections,scroll:document.documentElement.scrollWidth,width:innerWidth,repeat:getComputedStyle(document.querySelector('.new-booking-recurrence')).backgroundColor};
+    });
+    assert.ok(geometry.scroll<=width,'Booking must not overflow horizontally');
+    assert.equal(geometry.repeat,'rgba(0, 0, 0, 0)','Series panel must not retain unrelated green fill');
+    if(width>760)assert.equal(await page.locator('.new-booking-layout').evaluate(el=>getComputedStyle(el).alignItems),'start','Columns must size to their contents');
+    await page.locator('#bookingSheetTitle').scrollIntoViewIfNeeded();
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-booking-${theme}-${width}.png`});
+    await page.evaluate(()=>closeBookingSheet());
+    await page.addScriptTag({content:['renderCalendarOverview','calendarOverviewBookingMarkup','calendarMonthMobileAgendaMarkup'].map(declaration).join('\n')});
+    await page.evaluate(()=>{
+      document.body.insertAdjacentHTML('beforeend','<div id="selectedDateTitle"></div><div id="selectedDateSummary"></div><div id="providerBookings"></div>');
+      window.calendarRange=()=>({start:'2026-09-01',end:'2026-09-30'});
+      window.calendarRangeTitle=()=> 'Сентябрь 2026';window.calendarView='month';selectedDate='2026-09-08';
+      window.displayPreferences={};window.recentlyCreatedBookingId='';window.isScheduleBlock=()=>false;
+      window.bookingStatusClass=()=> 'confirmed';window.bookingVisitSummaryText=()=>'';window.seriesBookingCountLabel=n=>`${n} записи`;
+      window.bookingSourceItems=()=>[1,2,3].map((n)=>({id:`fixture-${n}`,booking_date:'2026-09-08',booking_time:`${9+n}:00`,services:{name:'Общий массаж с обеих сторон'},client_name:'Тестовый клиент'}));
+      renderCalendarOverview('month');
+    });
+    const day=page.locator('[data-calendar-date="2026-09-08"]');
+    assert.equal(await day.locator('[data-open-booking]').count(),2);
+    assert.equal(await day.locator('.calendar-overview-more').count(),1);
+    assert.equal(await day.evaluate(el=>getComputedStyle(el).borderRadius),'0px');
+    assert.equal(await day.evaluate(el=>getComputedStyle(el).boxShadow),'none');
+    assert.ok(await page.locator('.is-today .calendar-overview-date').getAttribute('aria-current')==='date');
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Month must fit mobile viewport');
+    if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-month-${theme}-${width}.png`});
+  }
+]);
 let failed=0;
 try{
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
-  for(const[name,run]of cases){let f;try{
+  for(const[name,run]of cases.filter(([name])=>!process.env.MINUTA_TEST_FILTER||name.includes(process.env.MINUTA_TEST_FILTER))){let f;try{
     f=await fixture();await run(f.page);assert.deepEqual(f.errors,[]);assert.deepEqual(f.traffic,[]);console.log(`PASS ${name}`);
   }catch(error){failed++;console.error(`FAIL ${name}\n${error.stack}`);if(f?.errors.length)console.error('Browser errors:',f.errors);}
   finally{await f?.context.close();}}
 }finally{await browser?.close();}
-console.log(`${cases.length-failed}/${cases.length} native historical context cases passed; mocked create/color, no server booking`);
+const total=cases.filter(([name])=>!process.env.MINUTA_TEST_FILTER||name.includes(process.env.MINUTA_TEST_FILTER)).length;
+console.log(`${total-failed}/${total} native historical context cases passed; mocked create/color, no server booking`);
 if(failed)process.exitCode=1;

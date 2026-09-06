@@ -1,0 +1,65 @@
+/* Scoped refinements use the active theme, including dark themes. */
+#providerBookings.calendar-overview-month .calendar-overview-grid {
+  gap:0; border:1px solid var(--theme-line); border-radius:0; box-shadow:none;
+}
+#providerBookings.calendar-overview-month .calendar-overview-day {
+  min-height:118px; padding:8px; border:0!important;
+  border-right:1px solid var(--theme-line)!important;
+  border-bottom:1px solid var(--theme-line)!important;
+  border-radius:0!important; box-shadow:none!important;
+  background:var(--theme-surface)!important;
+}
+#providerBookings.calendar-overview-month .calendar-overview-day:nth-child(7n) { border-right:0!important; }
+#providerBookings.calendar-overview-month .calendar-overview-day.is-placeholder { visibility:visible; }
+#providerBookings.calendar-overview-month .calendar-overview-day.is-selected { background:var(--theme-accent-soft)!important; }
+#providerBookings.calendar-overview-month .calendar-overview-date strong { border-radius:50%!important; box-shadow:none!important; }
+#providerBookings.calendar-overview-month .is-today .calendar-overview-date strong {
+  background:var(--theme-accent)!important; color:var(--theme-accent-contrast,#fff)!important;
+}
+#providerBookings.calendar-overview-month .calendar-overview-booking {
+  border:0!important; border-radius:4px!important; box-shadow:none!important;
+  grid-template-columns:36px minmax(0,1fr); padding:6px 4px; text-align:left;
+}
+#providerBookings.calendar-overview-month .calendar-overview-booking time { font-size:10px; font-weight:600; }
+#providerBookings.calendar-overview-month .calendar-overview-booking strong { font-size:10px; line-height:1.35; font-weight:500; }
+#providerBookings.calendar-overview-month .calendar-overview-more {
+  min-height:30px; border:0!important; border-radius:4px!important;
+  background:transparent!important; color:var(--theme-accent)!important; font-size:11px; font-weight:500;
+}
+.provider-body .date-navigation .date-nav-button { width:44px; min-width:44px; padding:10px; }
+.provider-body .date-navigation .date-nav-button span { display:none; }
+.provider-body .date-navigation .date-nav-button[data-date-shift="1"] { order:0; }
+.provider-body .date-navigation .schedule-date-picker { order:1; margin-left:auto; }
+
+#bookingSheet.new-booking-sheet .new-booking-layout { align-items:start; gap:24px; }
+#bookingSheet.new-booking-sheet .new-booking-section {
+  min-width:0; padding:0; border:0!important; border-radius:0!important;
+  background:transparent!important; box-shadow:none!important;
+}
+#bookingSheet.new-booking-sheet .new-booking-section-title>span { display:none; }
+#bookingSheet.new-booking-sheet .new-booking-section-title { grid-template-columns:minmax(0,1fr); }
+#bookingSheet.new-booking-sheet .new-booking-section-title strong { font-size:17px; font-weight:600; }
+#bookingSheet.new-booking-sheet :is(label,summary,.booking-time-hours button,.booking-time-slots button) { font-weight:500; }
+#bookingSheet.new-booking-sheet :is(.new-booking-advanced,.new-booking-recurrence,.booking-time-picker,.booking-color-compact) {
+  background:transparent!important; box-shadow:none!important; border:0!important; border-radius:0!important;
+}
+#bookingSheet.new-booking-sheet .new-booking-advanced { border-top:1px solid var(--theme-line)!important; }
+#bookingSheet.new-booking-sheet .new-booking-advanced>summary { padding:14px 0; }
+#bookingSheet.new-booking-sheet .new-booking-advanced-content { padding:0; gap:16px; }
+#bookingSheet.new-booking-sheet .new-booking-recurrence { padding:0; }
+#bookingSheet.new-booking-sheet .new-booking-recurrence>div { border:0; padding-bottom:0; }
+#bookingSheet.new-booking-sheet .new-booking-recurrence strong { color:var(--theme-ink); font-weight:600; }
+#bookingSheet.new-booking-sheet .new-booking-recurrence small { color:var(--theme-muted); }
+#bookingSheet.new-booking-sheet .booking-time-picker { padding:0; }
+#bookingSheet.new-booking-sheet :is(input,select,textarea,.booking-time-hours button,.booking-time-slots button,.new-booking-mode-toggle,.new-booking-mode-toggle button) { border-radius:var(--material-control-radius,10px)!important; }
+#bookingSheet.new-booking-sheet .booking-color-compact>summary { min-height:44px; padding:0; font-weight:500; }
+#bookingSheet.new-booking-sheet .new-booking-history-option { border-radius:var(--material-control-radius,10px)!important; }
+#bookingSheet.new-booking-sheet [hidden] { display:none!important; }
+@media(max-width:760px) {
+  #providerBookings.calendar-overview-month .calendar-overview-day { min-height:66px; padding:2px; }
+  #providerBookings.calendar-overview-month .calendar-overview-booking { grid-template-columns:1fr; min-height:24px; padding:3px 1px; }
+  #providerBookings.calendar-overview-month .calendar-overview-booking time { font-size:9px; }
+  #providerBookings.calendar-overview-month .calendar-overview-more { font-size:9px; }
+  .provider-body .date-navigation .schedule-date-picker { margin-left:0; }
+  #bookingSheet.new-booking-sheet .new-booking-layout { gap:22px; }
+}

@@ -21,7 +21,7 @@ try {
     },readFileSync(new URL('../provider.html',import.meta.url),'utf8'));
     await page.addScriptTag({content:`var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];${initialize};initializeProviderUx();`});
     await page.evaluate(selector=>{window.filterRoot=document.querySelector(selector);},filterSelector);
-    for (const file of ['styles.css','provider-themes-signature.css']) await page.addStyleTag({content:readFileSync(new URL(`../${file}`,import.meta.url),'utf8')});
+    for (const file of [...readFileSync(new URL('../provider.html',import.meta.url),'utf8').matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^" ]*)?"/g)].map(m=>m[1])) await page.addStyleTag({content:readFileSync(new URL(`../${file}`,import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../client-directory.css',import.meta.url),'utf8')});
     await page.addScriptTag({content:readFileSync(new URL('../client-directory.js',import.meta.url),'utf8')});
     await page.evaluate(()=>{
@@ -68,6 +68,23 @@ try {
     await page.click('[data-client-filters]');
     const box=await page.locator('.client-directory-dialog').boundingBox();
     assert.ok(box.x>=0 && box.x+box.width<=width+1,'Dialog must fit viewport');
+    // Regression: long service lists must never shrink the final field rows.
+    await page.click('.client-service-picker summary');
+    await page.evaluate(()=>{
+      const list=document.querySelector('.client-directory-options');
+      for(let i=0;i<24;i++){const row=list.firstElementChild.cloneNode(true);row.querySelector('input').value=`extra-${i}`;list.append(row);}
+    });
+    await page.setViewportSize({width,height:600});
+    await page.fill('[name=absent]','60');
+    const absent=await page.locator('[name=absent]').evaluate(el=>el.closest('label').getBoundingClientRect().toJSON());
+    const upcoming=await page.locator('[name=upcoming]').evaluate(el=>el.closest('label').getBoundingClientRect().toJSON());
+    assert.ok(upcoming.y>=absent.bottom+10,'Absent label, input and hint must not overlap next field');
+    await page.selectOption('[name=upcoming]','no');
+    await page.locator('[name=upcoming]').focus();
+    const footer=await page.locator('.client-directory-dialog footer').boundingBox();
+    const input=await page.locator('[name=upcoming]').boundingBox();
+    assert.ok(input.y+input.height<=footer.y+1,'Focused last field must remain above fixed footer');
+    assert.ok(footer.y+footer.height<=600,`Actions must remain in viewport: ${JSON.stringify(footer)}`);
     await page.keyboard.press('Escape');
     assert.equal(await page.$eval('.client-directory-dialog',d=>d.open),false);
     assert.deepEqual(errors,[]);

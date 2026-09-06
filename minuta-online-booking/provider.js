@@ -2143,7 +2143,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=502#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=503#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3958,7 +3958,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=502');
+    worker = new Worker('./report-worker.js?v=503');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6674,6 +6674,8 @@ function updateNewBookingSubmitCaption() {
     return;
   }
   const occurrenceCount = Math.max(1, Number($('#newBookingOccurrences')?.value || 1));
+  const intervalField = $('#newBookingIntervalField');
+  if (intervalField) intervalField.hidden = occurrenceCount <= 1;
   const historicalOffline = newBookingHistoricalMode && !navigator.onLine;
   submit.textContent = editingOfflineBookingId ? 'Сохранить исправление' : newBookingHistoricalMode ? 'Добавить прошедший визит' : !navigator.onLine && newBookingMode === 'client' ? 'Сохранить до подключения' : newBookingOutsideSchedule ? (newBookingMode === 'block' ? 'Занять вне графика' : 'Создать вне графика') : newBookingMode === 'block' ? 'Занять время' : occurrenceCount > 1 ? `Создать серию из ${occurrenceCount}` : 'Создать запись';
   submit.disabled = Boolean(!navigator.onLine && newBookingMode === 'client' && !newBookingTime);
@@ -6690,6 +6692,7 @@ function updateNewBookingConnectivity() {
   newBookingHistoricalMode = historical;
   const historicalToggle = $('#newBookingHistoricalToggle');
   if (historicalToggle) {
+    historicalToggle.hidden = bookingDate > today;
     historicalToggle.setAttribute('aria-pressed', String(historical));
     historicalToggle.classList.toggle('active', historical);
     historicalToggle.disabled = bookingDate < today || bookingDate > today;
@@ -6866,7 +6869,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
             <section class="new-booking-recurrence" id="newBookingRecurrence">
               <div><strong>Курс или серия</strong><small>Все окна должны быть свободны, а последний визит — не дальше двух лет.</small></div>
               <label>Количество<select id="newBookingOccurrences"><option value="1">Одна запись</option><option value="2">2 визита</option><option value="3">3 визита</option><option value="4">4 визита</option><option value="6">6 визитов</option><option value="8">8 визитов</option><option value="10">10 визитов</option><option value="12">12 визитов</option><option value="16">16 визитов</option><option value="20">20 визитов</option><option value="24">24 визита</option></select></label>
-              <label>Повторять<select id="newBookingInterval"><option value="1">Каждую неделю</option><option value="2">Раз в 2 недели</option><option value="3">Раз в 3 недели</option><option value="4">Раз в 4 недели</option><option value="6">Раз в 6 недель</option><option value="8">Раз в 8 недель</option><option value="12">Раз в 12 недель</option></select></label>
+              <label id="newBookingIntervalField" hidden>Повторять<select id="newBookingInterval"><option value="1">Каждую неделю</option><option value="2">Раз в 2 недели</option><option value="3">Раз в 3 недели</option><option value="4">Раз в 4 недели</option><option value="6">Раз в 6 недель</option><option value="8">Раз в 8 недель</option><option value="12">Раз в 12 недель</option></select></label>
             </section>
           </div></details>
         </section>
