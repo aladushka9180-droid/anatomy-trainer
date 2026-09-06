@@ -33,7 +33,8 @@ assert.match(source, /state\.card\.closest\('#providerBookings'\)[\s\S]*schedule
 assert.match(source, /event\.target\.closest\('#providerBookings'\)/, 'свайп расписания должен оставаться на ленте записей');
 assert.doesNotMatch(source, /event\.target\.closest\('#providerBookings,#dateStrip'\)/, 'лента дат должна использовать нативную прокрутку без JS-перехвата');
 assert.match(source, /classList\.toggle\('is-today', isToday\)/, 'сегодняшняя дата должна подсвечиваться независимо от выбранной');
-assert.match(source, /mobileDateStrip[\s\S]*rangeStart\.setDate\(rangeStart\.getDate\(\) - 28\)[\s\S]*rangeEnd\.setDate\(rangeEnd\.getDate\(\) \+ 62\)/, 'на телефоне лента должна показывать даты дальше одной недели');
+assert.match(source, /rangeStart\.setDate\(rangeStart\.getDate\(\) - 28\)[\s\S]*rangeEnd\.setDate\(rangeEnd\.getDate\(\) \+ 62\)/, 'лента должна показывать даты дальше одной недели');
+assert.match(source, /dateStrip\.addEventListener\('wheel',[\s\S]*event\.preventDefault\(\)[\s\S]*passive:false/, 'на компьютере колесо мыши должно прокручивать даты по горизонтали');
 assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
 assert.match(source, /bookingPlacementIssue\(item, state\.date, state\.targetMinute\)/);
 assert.match(source, /p_ignore_booking: item\.id/);

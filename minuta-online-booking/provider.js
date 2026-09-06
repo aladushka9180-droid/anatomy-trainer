@@ -5261,22 +5261,17 @@ function renderDateStrip() {
   const today = parseLocalIsoDate(todayIso);
   const selected = parseLocalIsoDate(selectedDate) || today;
   const weekStart = weekStartFor(selected);
-  const mobileDateStrip = window.matchMedia('(max-width: 760px)').matches;
   const todayWeekStart = weekStartFor(today);
-  const rangeStart = new Date(mobileDateStrip && todayWeekStart < weekStart ? todayWeekStart : weekStart);
-  const rangeEnd = new Date(mobileDateStrip && todayWeekStart > weekStart ? todayWeekStart : weekStart);
-  if (mobileDateStrip) {
-    rangeStart.setDate(rangeStart.getDate() - 28);
-    rangeEnd.setDate(rangeEnd.getDate() + 62);
-  } else {
-    rangeEnd.setDate(rangeEnd.getDate() + 6);
-  }
+  const rangeStart = new Date(todayWeekStart < weekStart ? todayWeekStart : weekStart);
+  const rangeEnd = new Date(todayWeekStart > weekStart ? todayWeekStart : weekStart);
+  rangeStart.setDate(rangeStart.getDate() - 28);
+  rangeEnd.setDate(rangeEnd.getDate() + 62);
   const rangeStartIso = localIsoDate(rangeStart);
   const rangeEndIso = localIsoDate(rangeEnd);
   const rangeDays = Math.round((Date.UTC(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()) - Date.UTC(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())) / 86400000) + 1;
   const currentRangeContainsSelection = dateStrip.dataset.rangeStart <= selectedDate && selectedDate <= dateStrip.dataset.rangeEnd;
   const currentRangeContainsToday = dateStrip.dataset.rangeStart <= todayIso && todayIso <= dateStrip.dataset.rangeEnd;
-  const rebuildStrip = dateStrip.dataset.rangeMode !== (mobileDateStrip ? 'mobile' : 'desktop') || !currentRangeContainsSelection || !currentRangeContainsToday || dateStrip.dataset.today !== todayIso;
+  const rebuildStrip = dateStrip.dataset.rangeMode !== 'extended' || !currentRangeContainsSelection || !currentRangeContainsToday || dateStrip.dataset.today !== todayIso;
   const selectionChanged = dateStrip.dataset.selectedDate !== selectedDate;
   if (rebuildStrip) {
     const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
@@ -5288,7 +5283,7 @@ function renderDateStrip() {
       const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       return `<button type="button" data-booking-date="${iso}" aria-label="${fullDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
     }).join('');
-    dateStrip.dataset.rangeMode = mobileDateStrip ? 'mobile' : 'desktop';
+    dateStrip.dataset.rangeMode = 'extended';
     dateStrip.dataset.rangeStart = rangeStartIso;
     dateStrip.dataset.rangeEnd = rangeEndIso;
     dateStrip.dataset.today = todayIso;
@@ -5310,6 +5305,17 @@ function renderDateStrip() {
   const active = $('#dateStrip [data-booking-date].active');
   if ((rebuildStrip || selectionChanged) && dateStrip.scrollWidth > dateStrip.clientWidth) {
     requestAnimationFrame(() => active?.scrollIntoView({ behavior:'auto', block:'nearest', inline:'center' }));
+  }
+  if (!dateStrip.dataset.wheelScrollBound) {
+    dateStrip.addEventListener('wheel', event => {
+      if (window.matchMedia('(max-width: 760px)').matches) return;
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      const maxScroll = dateStrip.scrollWidth - dateStrip.clientWidth;
+      if (!delta || (delta < 0 && dateStrip.scrollLeft <= 0) || (delta > 0 && dateStrip.scrollLeft >= maxScroll)) return;
+      event.preventDefault();
+      dateStrip.scrollLeft += delta;
+    }, { passive:false });
+    dateStrip.dataset.wheelScrollBound = 'true';
   }
   updateCalendarViewControls();
 }
