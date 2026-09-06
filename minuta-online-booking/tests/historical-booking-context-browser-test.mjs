@@ -68,7 +68,7 @@ async function fixture(){
       const duration=Number(item?.duration_minutes||60);
       return !options.ignoreSchedule&&(start<600||start+duration>1200)?'Вне рабочего графика':null;
     };
-    var applyClientHighlightClasses=()=>{},scheduleNewBookingClientSuggestions=()=>{},hideNewBookingClientSuggestions=()=>{},restoreNewBookingClientLookupStatus=()=>{},handleNewBookingPhoneInput=()=>{};
+    var applyClientHighlightClasses=()=>{},scheduleNewBookingClientSuggestions=()=>{},hideNewBookingClientSuggestions=()=>{},restoreNewBookingClientLookupStatus=()=>{},handleNewBookingPhoneInput=()=>{},newBookingClientCandidates=()=>[];
     var organizationController={getActiveOrganization:()=>({id:activeClientOrganizationId})};
     var effects=[],gates=[],hold='color',refreshOutcome='success';
     var renderBookingData=()=>effects.push({kind:'render-list'}),notify=text=>effects.push({kind:'notify',text});
