@@ -2143,7 +2143,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=499#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=500#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3958,7 +3958,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=499');
+    worker = new Worker('./report-worker.js?v=500');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5482,10 +5482,12 @@ function bookingSeriesScopeMarkup(item, name, actionLabel) {
   if (!item?.series_id) return '';
   const following = actionableSeriesBookings(item, 'following').length;
   const all = actionableSeriesBookings(item, 'all').length;
+  const sameFutureScope = following === all && all > 1;
   return `<fieldset class="booking-series-scope"><legend>${escapeHtml(actionLabel)}</legend>
     <label><input type="radio" name="${name}" value="one" checked><span><strong>Только эту запись</strong><small>Остальные визиты не изменятся</small></span></label>
-    <label><input type="radio" name="${name}" value="following"><span><strong>Эту и последующие</strong><small>${seriesBookingCountLabel(following)}</small></span></label>
-    <label><input type="radio" name="${name}" value="all"><span><strong>Все будущие записи</strong><small>${seriesBookingCountLabel(all)}; прошедшие визиты сохранятся</small></span></label>
+    <label><input type="radio" name="${name}" value="following"><span><strong>Эту и последующие</strong><small>Выбранная и все после неё · ${seriesBookingCountLabel(following)}</small></span></label>
+    <label><input type="radio" name="${name}" value="all"><span><strong>Все будущие записи</strong><small>Все предстоящие в серии · ${seriesBookingCountLabel(all)}; прошедшие сохранятся</small></span></label>
+    ${sameFutureScope ? '<small class="booking-series-same-result">Сейчас результат одинаковый: перед выбранной записью нет других предстоящих визитов серии.</small>' : ''}
   </fieldset>`;
 }
 
