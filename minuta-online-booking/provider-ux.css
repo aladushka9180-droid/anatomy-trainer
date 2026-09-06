@@ -1,4 +1,150 @@
 /* Shared workspace hierarchy. Theme colours and the user's text scale stay authoritative. */
+/* Keep secondary navigation settings and the waiting list compact in every theme. */
+.provider-body[data-provider-theme][data-provider-layout] .navigation-order-disclosure {
+  min-width:0;
+  margin-top:12px;
+  color:var(--theme-ink);
+}
+.provider-body[data-provider-theme][data-provider-layout] .navigation-order-disclosure > summary {
+  padding:12px 0;
+  min-height:44px;
+  cursor:pointer;
+  font-size:1rem;
+  font-weight:600;
+}
+.provider-body[data-provider-theme][data-provider-layout] .navigation-order-disclosure > p {
+  margin:0 0 12px;
+  color:var(--theme-muted);
+  font-size:.875rem;
+  line-height:1.5;
+}
+.provider-body[data-provider-theme][data-provider-layout] .navigation-order-disclosure .role-view-order > div {
+  padding:8px 0;
+  border:0;
+  border-bottom:1px solid var(--theme-line);
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.provider-body[data-provider-theme][data-provider-layout] .navigation-order-disclosure .role-view-order strong {
+  font-size:1rem;
+  font-weight:500;
+}
+.provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="waitlist"] .waitlist-panel {
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList {
+  display:grid;
+  gap:12px;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-card {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px 16px;
+  padding:16px !important;
+  border:1px solid var(--theme-line) !important;
+  border-radius:18px !important;
+  background:var(--theme-surface) !important;
+  color:var(--theme-ink) !important;
+  box-shadow:none !important;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-date {
+  grid-column:1;
+  grid-row:1;
+  min-width:0;
+  gap:3px;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-client {
+  grid-column:1 / -1;
+  grid-row:2;
+  min-width:0;
+  gap:5px;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-date strong,
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-client strong {
+  font-size:1rem !important;
+  line-height:1.4;
+  font-weight:600;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-date span,
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-client small {
+  font-size:.875rem !important;
+  color:var(--theme-muted) !important;
+  line-height:1.5;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-client > * {
+  white-space:normal;
+  overflow:visible;
+  overflow-wrap:anywhere;
+  -webkit-line-clamp:unset;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-client a {
+  font-size:1rem !important;
+  color:var(--theme-accent) !important;
+  font-weight:500;
+  text-decoration:none;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-status {
+  grid-column:2;
+  grid-row:1;
+  align-self:start;
+  padding:5px 9px;
+  border-radius:8px;
+  font-size:.75rem !important;
+  font-weight:500;
+  background:var(--theme-accent-soft) !important;
+  color:var(--theme-ink) !important;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-actions {
+  grid-column:1 / -1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding-top:12px;
+  border-top:1px solid var(--theme-line);
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-actions > * {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 1 auto;
+  min-width:0;
+  min-height:44px;
+  height:auto !important;
+  padding:10px 14px !important;
+  border:1px solid var(--theme-line) !important;
+  border-radius:12px !important;
+  background:transparent !important;
+  color:var(--theme-ink) !important;
+  font-size:.875rem !important;
+  font-weight:500;
+  line-height:1.35;
+  text-decoration:none !important;
+  box-shadow:none !important;
+  white-space:normal;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-actions > .primary {
+  background:var(--theme-accent-soft) !important;
+}
+.provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-actions > .booking-cancel-action {
+  color:var(--theme-muted) !important;
+}
+@media (max-width:600px) {
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="waitlist"] .view-title h2 {
+    font-size:1.65rem !important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="waitlist"] .view-description {
+    margin:8px 0 16px;
+    font-size:.875rem !important;
+    line-height:1.5;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] #waitlistList .waitlist-provider-actions > * {
+    flex:1 1 calc(50% - 8px);
+  }
+}
 /* Client marks describe the person, not a separate light colour scheme. Keep
    icons/labels as the distinction and let every theme own the card surface. */
 .provider-body[data-provider-theme][data-provider-layout] {

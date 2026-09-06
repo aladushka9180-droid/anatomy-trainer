@@ -1080,7 +1080,11 @@
                     <label><span>Четвёртая вкладка</span><select id="mobileNavSlot4" data-mobile-nav-slot></select></label>
                   </div>
                   <div class="mobile-navigation-preview" id="mobileNavigationPreview" aria-label="Предварительный вид нижней панели"></div>
-                  <div class="role-view-order" id="providerRoleViewOrder" aria-label="Порядок блоков"></div>
+                  <details class="navigation-order-disclosure">
+                    <summary>Порядок в меню «Разделы»</summary>
+                    <p>Стрелки меняют порядок пунктов только в меню «Разделы». Нижняя панель настраивается выше. Пункты, выбранные для нижней панели, в этом меню скрыты. Изменения сохраняются автоматически для выбранной роли.</p>
+                    <div class="role-view-order" id="providerRoleViewOrder" aria-label="Порядок пунктов меню Разделы"></div>
+                  </details>
                   <a class="settings-help-link" href="help/article.html?slug=mobile-navigation" target="_blank" rel="noopener noreferrer">Как настроить панель <span aria-hidden="true">↗</span></a>
                 </fieldset>
                 <p class="provider-display-hint">«Постоянный клиент» — после 10 завершённых сеансов за последние 30 дней. Отмены и неявки не учитываются.</p>
