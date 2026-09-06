@@ -36,11 +36,13 @@ const server = http.createServer((request, response) => {
       document.querySelector('[data-calendar-view="day"]')?.classList.add('active');
       const strip = document.querySelector('#dateStrip');
       strip.innerHTML = Array.from({ length:7 }, (_, index) => `<button type="button"><span>день</span><strong>${index + 1}</strong><small>сент</small></button>`).join('');
-      const frame = document.createElement('div');
-      frame.className = 'date-strip-frame';
-      frame.innerHTML = '<button class="date-strip-shift" type="button" data-date-shift="-7" aria-label="Предыдущая неделя">‹</button><button class="date-strip-shift" type="button" data-date-shift="7" aria-label="Следующая неделя">›</button>';
-      strip.before(frame);
-      frame.insertBefore(strip, frame.lastElementChild);
+      if (!strip.closest('.date-strip-frame')) {
+        const frame = document.createElement('div');
+        frame.className = 'date-strip-frame';
+        frame.innerHTML = '<button class="date-strip-shift" type="button" data-date-shift="-7" aria-label="Предыдущая неделя">‹</button><button class="date-strip-shift" type="button" data-date-shift="7" aria-label="Следующая неделя">›</button>';
+        strip.before(frame);
+        frame.insertBefore(strip, frame.lastElementChild);
+      }
       document.querySelector('#bookingSheet').hidden = false;
       document.body.classList.add('booking-sheet-open');
     });
