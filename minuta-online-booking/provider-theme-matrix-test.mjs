@@ -4,13 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider, calmCss, wildlifeCss, noirSafariCss] = await Promise.all([
+const [baseCss, signatureCss, provider, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-calm.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
   readFile(path.join(directory, 'provider-theme-noir-safari.css'), 'utf8'),
+  readFile(path.join(directory, 'provider-pearl-zebra-natural-4k-v3.png')),
 ]);
 const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}`;
 
@@ -123,12 +124,14 @@ assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav 
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-natural-v2\.webp\?v=479"\)/);
+assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-natural-4k-v3\.png\?v=480"\)/);
 assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
 assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not split into repeated background tiles');
 assert.doesNotMatch(pearlZebraBackground, /repeating-radial-gradient/, 'Pearl Zebra must use the approved natural stripe artwork');
+assert.equal(pearlZebraAsset.readUInt32BE(16), 3840, 'Pearl Zebra must retain its 4K width');
+assert.equal(pearlZebraAsset.readUInt32BE(20), 2160, 'Pearl Zebra must retain its 4K height');
 
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.
