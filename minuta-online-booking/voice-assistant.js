@@ -2767,7 +2767,11 @@
       currentRecognition.onstart = () => {
         if (epoch !== recognitionEpoch || !dialog.open) return;
         clearTimeout(recognitionStartTimer);
-        recognitionStartTimer = null;
+        recognitionStartTimer = setTimeout(() => {
+          if (epoch !== recognitionEpoch || !dialog.open || !recordingRequested) return;
+          recognitionEpoch += 1;
+          openKeyboardDictation('Распознавание не получило текст за 15 секунд. Прослушивание остановлено. Повторите попытку или нажмите микрофон на клавиатуре. Проверьте доступ приложения к микрофону и подключение к интернету.');
+        }, 15000);
         setListening(true);
         status.textContent = continuation
           ? 'Микрофон продолжает слушать. Коснитесь ещё раз, чтобы завершить.'
@@ -2810,7 +2814,8 @@
         recognitionError = String(event.error || 'unknown');
         const messages = { 'not-allowed':'Нет разрешения на микрофон. Разрешите доступ в настройках браузера или используйте микрофон клавиатуры.', 'service-not-allowed':'Браузер запретил службу распознавания. Используйте микрофон клавиатуры или текстовый ввод.', 'audio-capture':'Микрофон не найден или занят другим приложением.', 'no-speech':'Речь не услышана. Попробуйте ещё раз.', network:'Служба распознавания речи недоступна. Используйте микрофон клавиатуры или текстовый ввод.', 'language-not-supported':'Русский язык не установлен для распознавания на этом устройстве.' };
         if (event.error === 'no-speech' && touchDevice) {
-          status.textContent = 'Пока не слышу речь. Микрофон остаётся включённым до повторного касания.';
+          recognitionEpoch += 1;
+          openKeyboardDictation('Речь не услышана. Прослушивание остановлено. Повторите попытку или используйте микрофон клавиатуры; проверьте, не выбран ли микрофон Bluetooth-гарнитуры.');
           return;
         }
         if (touchDevice && ['not-allowed', 'service-not-allowed', 'network', 'language-not-supported'].includes(event.error)) {
@@ -2832,6 +2837,7 @@
           && recordingRequested
           && dialog.open
           && !doc.hidden
+          && Boolean(latestTranscript.trim())
           && (!recognitionError || recognitionError === 'no-speech');
         if (restartAllowed) {
           accumulatedTranscript = joinRecognitionText(accumulatedTranscript, latestTranscript).slice(0, 500);
@@ -2848,6 +2854,7 @@
           return;
         }
         setListening(false);
+        recordingRequested = false;
         if (!resultHandled && input.value.trim() && dialog.open) {
           resultHandled = true;
           receivedFinal = true;
