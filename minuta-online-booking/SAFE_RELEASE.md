@@ -80,3 +80,15 @@ set allow_migrations = excluded.allow_migrations;
 Телефонный вход v90 активируется только после применения миграции, настройки SMS-провайдера и CAPTCHA в Supabase Auth. До этого кнопки остаются отключёнными, а email/пароль и личный код клиента продолжают работать. Откат v90 блокируется после появления связей `client_accounts.auth_user_id`; в таком состоянии выпускать только совместимое исправление вперёд.
 
 Внешний вход v91 активируется отдельно для каждого Custom OAuth/OIDC-провайдера только после регистрации приложения, сохранения Client Secret в Supabase Auth и проверки связывания на тестовом аккаунте. Публичные флаги в `config.js` включаются последними; до этого кнопки показывают состояние «Не подключён» и не перенаправляют пользователя.
+
+## Узкий выпуск оформления клиентской страницы v118
+
+Workflow `.github/workflows/minuta-v118-safe-release.yml` запускается только вручную и работает только с `supabase-migration-v118.sql`. Старые миграции он не применяет и не изменяет. Все фазы требуют точный 40-символьный SHA, совпадающий с SHA выбранного запуска.
+
+1. `test-v118`: на изолированной test DB выполняет `apply -> integration -> rollback -> reapply`, проверяет защитный маркер базы и сохраняет attestation.
+2. `validate-production-v118`: на `main` выполняет только read-only проверку prerequisites, чистого pre-apply состояния и безопасного rollback-файла.
+3. После этого создать свежую зашифрованную production-копию на том же SHA.
+4. `apply-production-v118`: вручную требует `APPLY_V118_TO_PRODUCTION`, точные IDs успешных test/validation/backup запусков, совпадение SHA и `main`, свежесть доказательств, наличие attestation и проверенный checksum backup-артефакта.
+5. `observe-production-v118`: требует ID успешного apply-запуска и выполняет только read-only проверку схемы и публичный health check.
+
+До отдельного ручного запуска `apply-production-v118` workflow ничего в production не изменяет. Для test используется environment `minuta-test`; validation, apply и observation используют защищённый environment `minuta-production`. Любое несовпадение SHA, ветки, project ref, run ID, возраста или артефакта останавливает выпуск.
