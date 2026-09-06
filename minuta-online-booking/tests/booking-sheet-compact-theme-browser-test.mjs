@@ -15,10 +15,11 @@ try {
       <main style="width:min(100% - 32px,800px);margin:24px auto">
         <div class="booking-sheet-summary">
           <div class="booking-sheet-client">
-            <small class="booking-sheet-client-label">Клиент</small>
             <span class="client-avatar-control booking-client-avatar-control" style="width:48px;height:48px"></span>
-            <div class="booking-sheet-client-name"><strong>Марина</strong></div>
-            <a href="tel:+79090509525">+7 (909) 050-95-25</a>
+            <div class="booking-sheet-client-copy">
+              <div class="booking-sheet-client-name"><strong>Марина</strong></div>
+              <a href="tel:+79090509525">+7 (909) 050-95-25</a>
+            </div>
           </div>
           <div class="booking-sheet-price"><small>Стоимость</small><strong>3 000 ₽</strong></div>
         </div>
@@ -37,17 +38,17 @@ try {
     const result=await page.evaluate(() => {
       const box=selector => document.querySelector(selector).getBoundingClientRect();
       const cssOf=selector => getComputedStyle(document.querySelector(selector));
-      const label=box('.booking-sheet-client-label');
       const name=box('.booking-sheet-client-name');
-      const phone=box('.booking-sheet-client>a');
+      const phone=box('.booking-sheet-client-copy>a');
       const avatar=box('.booking-client-avatar-control');
-      const groupTop=label.top;
+      const client=box('.booking-sheet-client');
+      const groupTop=name.top;
       const groupBottom=phone.bottom;
       return {
-        labelNameGap:name.top-label.bottom,
         namePhoneGap:phone.top-name.bottom,
         groupHeight:groupBottom-groupTop,
         avatarCenterDelta:Math.abs((avatar.top+avatar.height/2)-(groupTop+(groupBottom-groupTop)/2)),
+        avatarInside:avatar.top>=client.top&&avatar.bottom<=client.bottom,
         bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
         addBackground:cssOf('.session-add-button').backgroundColor,
         addColor:cssOf('.session-add-button').color,
@@ -56,10 +57,10 @@ try {
         summaryMuted:cssOf('.session-composer-summary small').color
       };
     });
-    assert.ok(result.labelNameGap>=1&&result.labelNameGap<=3,`${width}px: подпись и имя разошлись (${result.labelNameGap}px)`);
     assert.ok(result.namePhoneGap>=1&&result.namePhoneGap<=3,`${width}px: имя и телефон разошлись (${result.namePhoneGap}px)`);
-    assert.ok(result.groupHeight<=50,`${width}px: текстовая группа клиента слишком высокая (${result.groupHeight}px)`);
+    assert.ok(result.groupHeight<=34,`${width}px: текстовая группа клиента слишком высокая (${result.groupHeight}px)`);
     assert.ok(result.avatarCenterDelta<=1,`${width}px: аватар не отцентрирован по данным клиента (${result.avatarCenterDelta}px)`);
+    assert.ok(result.avatarInside,`${width}px: аватар вышел за границы клиентского блока`);
     assert.ok(result.bodyOverflow<=0,`${width}px: появился горизонтальный выход за экран (${result.bodyOverflow}px)`);
     assert.equal(result.addBackground,'rgb(22, 38, 60)',`${width}px: кнопка дополнительной услуги не использует поверхность темы`);
     assert.equal(result.summaryBackground,'rgb(22, 38, 60)',`${width}px: итоги не используют поверхность темы`);
