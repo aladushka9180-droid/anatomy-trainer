@@ -19,13 +19,14 @@ assert.ok(clientButton && clientDialog && providerCard, 'Production theme contro
 const clientHarness = `
   const catalog = window.MinutaThemeCatalog;
   const query = new URLSearchParams(location.search);
-  const organization = query.get('org') || 'default';
+  const organizationSlug = query.get('org') || 'default';
+  const organizationId = 'org-' + organizationSlug;
   const organizationSettings = catalog.settingsFromSearch(location.search);
   const options = document.querySelector('#clientThemeOptions');
   const dialog = document.querySelector('#clientThemeDialog');
   const label = document.querySelector('#clientThemeButtonLabel');
   function render() {
-    const selected = catalog.readClientOverride(organization);
+    const selected = catalog.readClientOverride(organizationId, organizationSlug);
     options.innerHTML = '<label><input type="radio" name="clientTheme" value="follow" ' + (selected === 'follow' ? 'checked' : '') + '>Как у организации</label>'
       + catalog.themes.map(item => '<label><input type="radio" name="clientTheme" value="' + item.key + '" ' + (selected === item.key ? 'checked' : '') + '>' + item.label + '</label>').join('');
     const effective = selected === 'follow' ? organizationSettings.theme_key : selected;
@@ -35,7 +36,7 @@ const clientHarness = `
   document.querySelector('#openClientTheme').addEventListener('click', () => { render(); dialog.showModal(); });
   options.addEventListener('change', event => {
     if (!event.target.matches('input[name="clientTheme"]')) return;
-    catalog.writeClientOverride(organization, event.target.value);
+    catalog.writeClientOverride(organizationId, event.target.value, organizationSlug);
     render();
   });
   render();
@@ -119,12 +120,17 @@ try {
   assert.equal(await client.locator('body').getAttribute('data-client-theme'), 'midnight', 'Selected theme must be applied immediately');
   const alphaStorage = await client.evaluate(() => Object.fromEntries(Object.entries(localStorage)));
   assert.equal(Object.values(alphaStorage).some(value => value === 'midnight'), true, 'Client choice must be stored locally');
+  assert.equal(Object.keys(alphaStorage).some(key => key.includes('organization:org-alpha')), true, 'Client choice must be scoped by immutable organization id');
   await client.reload();
   assert.equal(await client.locator('body').getAttribute('data-client-theme'), 'midnight', 'Client choice must survive reload');
   await client.goto(`${baseUrl}/client?org=beta&theme=warm&headline=care`);
   assert.equal(await client.locator('body').getAttribute('data-client-theme'), 'warm', 'Another organization must keep its own default');
   await client.goto(`${baseUrl}/client?org=alpha&theme=sage&headline=care`);
   assert.equal(await client.locator('body').getAttribute('data-client-theme'), 'midnight', 'Organization-scoped client choice must remain isolated');
+  await client.evaluate(() => { localStorage.clear(); localStorage.setItem('minuta-client-theme-v1:alpha','graphite'); });
+  await client.reload();
+  assert.equal(await client.locator('body').getAttribute('data-client-theme'), 'graphite', 'Legacy slug override must migrate');
+  assert.equal(await client.evaluate(() => localStorage.getItem('minuta-client-theme-v2:organization:org-alpha')), 'graphite', 'Migrated override must be stored by organization id');
   assert.deepEqual(clientErrors, []);
   await clientContext.close();
 

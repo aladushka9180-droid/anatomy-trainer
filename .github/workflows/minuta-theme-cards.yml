@@ -15,10 +15,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install --no-save --ignore-scripts playwright@1.58.2
+      - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - run: npx playwright install --with-deps chromium
       - run: node minuta-online-booking/tests/theme-card-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-selection-browser-test.mjs
+      - run: node minuta-online-booking/tests/client-page-settings-v118-pglite-test.mjs
       - run: node minuta-online-booking/tests/analytics-reconciliation-browser-test.mjs
       - run: node minuta-online-booking/tests/free-slots-publication-browser-test.mjs
       - run: node minuta-online-booking/tests/client-waitlist-browser-test.mjs

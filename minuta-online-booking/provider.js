@@ -318,6 +318,9 @@ let providerThemeFilter = '';
 let clientPageSettings = { theme_key:'sage', headline_key:'massage-time' };
 let clientPageSettingsOrganizationId = '';
 let clientPageSettingsSaveRevision = 0;
+let clientPageSettingsLoadRevision = 0;
+let clientPageSettingsSaveQueue = Promise.resolve();
+const clientPageSettingsQueuedRevisions = new Map();
 let serverNotificationTemplates = {};
 let serverNotificationMarks = {};
 let notificationSettingsRemoteAvailable = false;
@@ -4430,10 +4433,6 @@ function syncScheduleContextHistory(mode = 'replace') {
 
 function normalizeClientPageSettings(value = {}) { return window.MinutaThemeCatalog.normalizeSettings(value); }
 function clientPageSettingsStorageKey(organizationId, userId = currentUser?.id) { return `minuta-provider-client-page-v1:${userId || 'guest'}:${organizationId || 'none'}`; }
-function clientPageSettingsFromMetadata(organizationId) {
-  const source = currentUser?.user_metadata?.provider_client_page_settings_v1;
-  return source?.by_organization?.[organizationId] || null;
-}
 function readLocalClientPageSettings(organizationId) {
   try { const value = localStorage.getItem(clientPageSettingsStorageKey(organizationId)); return value ? JSON.parse(value) : null; } catch { return null; }
 }
@@ -4442,7 +4441,7 @@ function writeLocalClientPageSettings(organizationId, settings) {
 }
 function settingsForClientLink(organization) {
   if (organization?.id === clientPageSettingsOrganizationId) return clientPageSettings;
-  return normalizeClientPageSettings(clientPageSettingsFromMetadata(organization?.id) || readLocalClientPageSettings(organization?.id) || {});
+  return normalizeClientPageSettings(readLocalClientPageSettings(organization?.id) || {});
 }
 function buildProviderClientUrl(organization = null) {
   const url = new URL('index.html', window.location.href);
@@ -4477,13 +4476,81 @@ function renderClientAppearanceForm() {
   if (!status) return;
   if (!organization) status.textContent = 'Сначала выберите организацию.';
   else if (!canEdit) status.textContent = 'Изменить оформление может только владелец организации.';
-  else status.textContent = navigator.onLine ? 'Настройка сохранится в аккаунте владельца и добавится в ссылки для клиентов.' : 'Без интернета настройка сохранится на этом устройстве.';
+  else {
+    const local = readLocalClientPageSettings(organization.id);
+    if (local?.sync_status === 'pending') status.textContent = navigator.onLine ? 'Изменение ожидает сохранения для организации.' : 'Сохранено только на этом устройстве. Синхронизация ожидает интернет.';
+    else status.textContent = navigator.onLine ? 'Настройка сохранится для всей организации и старых ссылок.' : 'Без интернета изменение останется ожидающим синхронизации.';
+  }
 }
-function loadClientAppearanceSettings(organization = organizationController?.getActiveOrganization?.() || null) {
+async function loadClientAppearanceSettings(organization = organizationController?.getActiveOrganization?.() || null) {
+  const loadRevision = ++clientPageSettingsLoadRevision;
   clientPageSettingsOrganizationId = organization?.id || '';
-  clientPageSettings = normalizeClientPageSettings(clientPageSettingsFromMetadata(clientPageSettingsOrganizationId) || readLocalClientPageSettings(clientPageSettingsOrganizationId) || {});
+  const local = readLocalClientPageSettings(clientPageSettingsOrganizationId);
+  clientPageSettings = normalizeClientPageSettings(local || {});
   renderClientAppearanceForm();
   updateProviderClientLinks(organization);
+  if (!organization?.id || !currentUser) return;
+  if (local && local.sync_status !== 'confirmed') {
+    if (navigator.onLine && organization.current_role === 'owner') void enqueueClientAppearanceServerSave(organization, local, { silent:true });
+    return;
+  }
+  if (!navigator.onLine) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const { data, error } = await db.rpc('get_minuta_client_page_settings_v118', { p_organization:organization.id });
+  if (loadRevision !== clientPageSettingsLoadRevision || !sessionIsCurrent(userId,generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
+  const status = $('#clientAppearanceStatus');
+  if (error) {
+    if (status) status.textContent = isMissingRpc(error,'get_minuta_client_page_settings_v118') ? 'Серверное хранение оформления ещё не подключено.' : 'Не удалось загрузить оформление организации. Локальный вариант сохранён.';
+    return;
+  }
+  const server = { ...normalizeClientPageSettings(data || {}), updated_at:data?.updated_at || null, sync_status:'confirmed' };
+  const latestLocal = readLocalClientPageSettings(organization.id);
+  if (latestLocal && latestLocal.sync_status !== 'confirmed') return;
+  clientPageSettings = normalizeClientPageSettings(server);
+  writeLocalClientPageSettings(organization.id,server);
+  renderClientAppearanceForm();
+  updateProviderClientLinks(organization);
+}
+function enqueueClientAppearanceServerSave(organization, stored, { silent=false } = {}) {
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const localRevision = stored.local_revision;
+  const queueKey = `${organization.id}:${localRevision}`;
+  if (clientPageSettingsQueuedRevisions.has(queueKey)) return clientPageSettingsQueuedRevisions.get(queueKey);
+  const operation = clientPageSettingsSaveQueue.catch(() => null).then(async () => {
+    let data;
+    let error;
+    try {
+      ({ data,error } = await db.rpc('set_minuta_client_page_settings_v118', {
+        p_organization:organization.id,p_theme_key:stored.theme_key,p_headline_key:stored.headline_key
+      }));
+    } catch (cause) { error = cause; }
+    const stillVisible = sessionIsCurrent(userId,generation) && organizationController.getActiveOrganization()?.id === organization.id;
+    const status = stillVisible ? $('#clientAppearanceStatus') : null;
+    if (error) {
+      if (status) status.textContent = isMissingRpc(error,'set_minuta_client_page_settings_v118') ? 'Сохранено только на устройстве: серверное хранение ещё не подключено.' : 'Сохранено только на устройстве. Синхронизация не удалась.';
+      if (!silent && stillVisible) notify('Не удалось синхронизировать оформление');
+      return { ok:false,error };
+    }
+    const latest = readLocalClientPageSettings(organization.id);
+    if (latest?.local_revision === localRevision) {
+      const confirmed = { ...normalizeClientPageSettings(data || stored), updated_at:data?.updated_at || stored.updated_at, local_revision:localRevision, sync_status:'confirmed' };
+      writeLocalClientPageSettings(organization.id,confirmed);
+      if (stillVisible) {
+        clientPageSettings = normalizeClientPageSettings(confirmed);
+        if (status) status.textContent = 'Сохранено для всей организации. Прямые и старые ссылки используют это оформление.';
+        updateProviderClientLinks(organization);
+        if (!silent) notify('Оформление страницы клиента сохранено');
+      }
+    }
+    return { ok:true,data };
+  });
+  clientPageSettingsSaveQueue = operation;
+  clientPageSettingsQueuedRevisions.set(queueKey,operation);
+  const cleanup = () => { if (clientPageSettingsQueuedRevisions.get(queueKey) === operation) clientPageSettingsQueuedRevisions.delete(queueKey); };
+  void operation.then(cleanup,cleanup);
+  return operation;
 }
 async function saveClientAppearanceSettings(event) {
   event.preventDefault();
@@ -4492,26 +4559,23 @@ async function saveClientAppearanceSettings(event) {
   if (!organization?.id || organization.current_role !== 'owner') { notify('Изменить оформление может только владелец организации'); return; }
   const form = event.currentTarget;
   const next = normalizeClientPageSettings({ theme_key:form.querySelector('[name="providerClientTheme"]:checked')?.value, headline_key:form.querySelector('[name="providerClientHeadline"]:checked')?.value });
-  const stored = { ...next, updated_at:Date.now() };
+  const stored = { ...next, updated_at:Date.now(), local_revision:++clientPageSettingsSaveRevision, sync_status:'pending' };
   clientPageSettings = next;
   clientPageSettingsOrganizationId = organization.id;
   writeLocalClientPageSettings(organization.id, stored);
   updateProviderClientLinks(organization);
   const status = $('#clientAppearanceStatus');
-  if (!navigator.onLine) { if (status) status.textContent = 'Сохранено на этом устройстве. Синхронизация станет доступна после подключения.'; notify('Оформление сохранено на этом устройстве'); return; }
-  const revision = ++clientPageSettingsSaveRevision;
-  const userId = currentUser?.id;
-  const generation = sessionGeneration;
-  const previous = currentUser?.user_metadata?.provider_client_page_settings_v1;
-  const metadata = { version:1, by_organization:{ ...(previous?.by_organization || {}), [organization.id]:stored } };
-  if (status) status.textContent = 'Сохраняем в аккаунте…';
-  const { data, error } = await db.auth.updateUser({ data:{ provider_client_page_settings_v1:metadata } });
-  if (revision !== clientPageSettingsSaveRevision || !sessionIsCurrent(userId, generation) || organizationController.getActiveOrganization()?.id !== organization.id) return;
-  if (error) { if (status) status.textContent = 'Сохранено на этом устройстве, но не удалось синхронизировать аккаунт.'; notify('Не удалось синхронизировать оформление'); return; }
-  if (data?.user) currentUser = data.user;
-  if (status) status.textContent = 'Сохранено в аккаунте владельца. Новые ссылки откроются с этим оформлением.';
-  notify('Оформление страницы клиента сохранено');
+  if (!navigator.onLine) { if (status) status.textContent = 'Сохранено только на этом устройстве. Отправим владельческую настройку после подключения.'; notify('Оформление ожидает синхронизации'); return; }
+  if (status) status.textContent = 'Сохраняем для организации…';
+  await enqueueClientAppearanceServerSave(organization,stored);
 }
+window.addEventListener('online', () => {
+  const organization = organizationController?.getActiveOrganization?.() || null;
+  const pending = organization?.id ? readLocalClientPageSettings(organization.id) : null;
+  if (organization?.current_role === 'owner' && pending && pending.sync_status !== 'confirmed') {
+    void enqueueClientAppearanceServerSave(organization,pending,{ silent:true });
+  }
+});
 
 function focusProviderViewHeading(view) {
   const panel = $(`[data-provider-panel="${view}"]`);
@@ -11264,7 +11328,7 @@ const organizationController = window.MinutaOrganization.createController({
     }
     resetReportSessionState();
     renderReportDataSourceControl();
-    loadClientAppearanceSettings(organization);
+    void loadClientAppearanceSettings(organization);
     if (clientOrganizationChanged && currentUser && navigator.onLine) void loadBookingSettings();
     if (clientOrganizationChanged) {
       waitlistRequests = [];

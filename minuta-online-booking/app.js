@@ -456,16 +456,17 @@ function renderClientThemeOptions() {
   const holder = $('#clientThemeOptions');
   const catalog = window.MinutaThemeCatalog;
   if (!holder || !catalog) return;
-  const selected = catalog.readClientOverride(requestedOrganizationSlug);
+  const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
   const organizationTheme = catalog.theme(state.clientPage.theme_key);
   const preview = item => `linear-gradient(135deg,${item.palette.surface},${item.palette.accentSoft} 62%,${item.palette.accent})`;
   holder.innerHTML = `<label class="client-theme-option theme-follow"><input type="radio" name="clientTheme" value="follow" ${selected === 'follow' ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>Как у организации</strong><small>${escapeHtml(organizationTheme.label)}</small></span></label>${catalog.themes.map(item => `<label class="client-theme-option theme-${item.key}" style="--theme-preview:${preview(item)}"><input type="radio" name="clientTheme" value="${item.key}" ${selected === item.key ? 'checked' : ''}><i aria-hidden="true"></i><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.description)}</small></span></label>`).join('')}`;
 }
-function applyClientPagePresentation() {
+function applyClientPagePresentation(settings = null) {
   const catalog = window.MinutaThemeCatalog;
   if (!catalog) return;
-  state.clientPage = catalog.settingsFromSearch(window.location.search);
-  const selected = catalog.readClientOverride(requestedOrganizationSlug);
+  if (settings) state.clientPage = catalog.normalizeSettings(settings);
+  else if (!state.organization) state.clientPage = catalog.settingsFromSearch(window.location.search);
+  const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
   const effectiveTheme = selected === 'follow' ? state.clientPage.theme_key : selected;
   const theme = catalog.applyClientTheme(document.body, effectiveTheme);
   const headline = catalog.headline(state.clientPage.headline_key);
@@ -508,8 +509,14 @@ async function loadServices() {
   state.locations = [];
   state.locationId = '';
   if (requestedOrganizationSlug) {
-    let catalogResult = await db.rpc('get_public_minuta_catalog_v4', { p_slug: requestedOrganizationSlug });
+    let catalogResult = await db.rpc('get_public_minuta_catalog_v5', { p_slug: requestedOrganizationSlug });
+    let appearanceAwareCatalog = !catalogResult.error;
     let shiftAwareCatalog = !catalogResult.error;
+    if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v5')) {
+      catalogResult = await db.rpc('get_public_minuta_catalog_v4', { p_slug: requestedOrganizationSlug });
+      appearanceAwareCatalog = false;
+      shiftAwareCatalog = !catalogResult.error;
+    }
     if (isMissingRpc(catalogResult.error, 'get_public_minuta_catalog_v4')) {
       catalogResult = await db.rpc('get_public_minuta_catalog_v3', { p_slug: requestedOrganizationSlug });
       shiftAwareCatalog = false;
@@ -528,6 +535,8 @@ async function loadServices() {
     }
     if (!catalogResult.error) {
       state.organization = catalogResult.data?.organization || null;
+      state.clientPage = window.MinutaThemeCatalog.normalizeSettings(appearanceAwareCatalog ? catalogResult.data?.client_page : window.MinutaThemeCatalog.settingsFromSearch(window.location.search));
+      applyClientPagePresentation(state.clientPage);
       state.locations = branchAwareCatalog && Array.isArray(catalogResult.data?.locations) ? catalogResult.data.locations.filter(item => item?.id) : [];
       // Once the branch-aware catalog answers for an organization, fail closed:
       // an empty location list means booking is unavailable, never legacy fallback.
@@ -1430,7 +1439,7 @@ document.addEventListener('click', event => {
 });
 $('#clientThemeOptions')?.addEventListener('change', event => {
   if (!event.target.matches('input[name="clientTheme"]')) return;
-  window.MinutaThemeCatalog?.writeClientOverride(requestedOrganizationSlug, event.target.value);
+  window.MinutaThemeCatalog?.writeClientOverride(state.organization?.id, event.target.value, requestedOrganizationSlug);
   applyClientPagePresentation();
 });
 $('#clientThemeDialog')?.addEventListener('click', event => { if (event.target === $('#clientThemeDialog')) $('#clientThemeDialog').close(); });
