@@ -7023,7 +7023,7 @@ html.provider-booting .provider-main {
     display:block!important;
     padding:0!important;
     overflow:visible!important;
-    font-size:12px;
+    font-size:clamp(11px,3.2vw,12px);
     line-height:1.25;
     overflow-wrap:anywhere;
     text-overflow:clip!important;
