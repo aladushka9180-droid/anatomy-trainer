@@ -12,12 +12,16 @@ const assets = new Map(await Promise.all(['styles.css', 'client-themes.css', 'th
 
 const fixture = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="theme-color" content="#fff"><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/client-themes.css"><style>*{transition:none!important}</style></head>
 <body class="booking-client-page" data-client-theme="sage">
+  <header class="site-header"><a class="brand"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>Массажист</small></span></a></header>
   <main class="booking-card">
+    <div class="card-heading"><div><small>Время</small><h2>Выберите дату и время</h2></div><span class="step-label">2 из 3</span></div>
+    <label class="location-filter"><span>Филиал</span><select><option>Основной филиал</option></select></label>
     <p class="duration-note">Сеанс длится <strong>1 час</strong>.</p>
     <div class="availability-suggestion"><div class="availability-suggestion-icon">+</div><div><strong>Сегодня мест нет</strong><span>Ближайшее окно - завтра, 10:00</span></div><button>Показать это время</button></div>
     <div class="waitlist-cta"><div><strong>Не подходит время?</strong><span>Оставьте заявку, и мастер свяжется с вами.</span></div><button class="secondary-button">Встать в лист ожидания</button></div>
     <div class="actions"><button class="back">Назад</button><button class="primary">Ввести контакты</button></div>
   </main>
+  <section class="public-reviews"><div class="reviews-summary"><strong>5,0</strong><span>★</span><small id="reviewsCount">1 отзыв после реальных визитов</small></div><article class="public-review-card"><p>Отзыв клиента</p><small>Спортивный массаж - Рамиль</small></article></section>
   <section class="booking-faq"><div class="booking-faq-heading"><small><span></span>Полезно знать</small><h2>Частые вопросы</h2><p>Ответы перед записью</p></div><div class="booking-faq-list"><details open><summary><span>Можно ли перенести запись?</span><i></i></summary><p>Да, запись можно перенести.</p></details></div></section>
   <script src="/theme-catalog.js"></script>
 </body></html>`;
@@ -67,7 +71,8 @@ try {
       const behind = luminance(background(element));
       return (Math.max(foreground, behind) + .05) / (Math.min(foreground, behind) + .05);
     };
-    const textSelectors = ['.booking-faq-heading h2', '.booking-faq summary span', '.booking-faq details p', '.availability-suggestion strong', '.availability-suggestion span', '.waitlist-cta strong', '.waitlist-cta span'];
+    const textSelectors = ['.step-label', '.location-filter>span', '#reviewsCount', '.public-review-card>small', '.booking-faq-heading h2', '.booking-faq summary span', '.booking-faq details p', '.availability-suggestion strong', '.availability-suggestion span', '.waitlist-cta strong', '.waitlist-cta span'];
+    const controlSelectors = ['.brand-mark', '.availability-suggestion button', '.primary'];
     const surfaceSelectors = ['.booking-card', '.duration-note', '.availability-suggestion', '.waitlist-cta', '.booking-faq', '.booking-faq details'];
     const results = [];
     for (const theme of window.MinutaThemeCatalog.themes) {
@@ -79,6 +84,7 @@ try {
         matchedDetailsTheme:document.querySelector('.booking-faq details').matches('.booking-client-page[data-client-theme] .booking-faq details[open]'),
         hasThemeRule:[...document.styleSheets].some(sheet => [...sheet.cssRules].some(rule => rule.selectorText?.includes('.booking-faq details[open]') && rule.selectorText?.includes('[data-client-theme]'))),
         text:textSelectors.map(selector => ({ selector, ratio:contrast(document.querySelector(selector)), color:getComputedStyle(document.querySelector(selector)).color, background:background(document.querySelector(selector)) })),
+        controls:controlSelectors.map(selector => ({ selector, ratio:contrast(document.querySelector(selector)) })),
         surfaces:surfaceSelectors.map(selector => ({ selector, background:background(document.querySelector(selector)), luminance:luminance(background(document.querySelector(selector))) })),
       });
     }
@@ -91,6 +97,7 @@ try {
       assert.ok(item.ratio >= 4.5, `${theme.key} ${item.selector}: contrast ${item.ratio.toFixed(2)} is below 4.5 (${item.color} on ${item.background}); matched=${theme.matchedDetailsTheme}; rule=${theme.hasThemeRule}; surfaces=${JSON.stringify(theme.surfaces)}`);
       if (theme.dark) assert.equal(forbiddenLegacyColors.has(item.color), false, `${theme.key} ${item.selector}: legacy green leaked into dark theme`);
     }
+    for (const item of theme.controls) assert.ok(item.ratio >= 3, `${theme.key} ${item.selector}: control contrast ${item.ratio.toFixed(2)} is below 3`);
     if (theme.dark) {
       assert.equal(theme.matchedDetailsTheme, true, `${theme.key}: themed FAQ selector must match`);
       assert.equal(theme.hasThemeRule, true, `${theme.key}: themed FAQ rule must load`);

@@ -4,7 +4,8 @@
   --client-ink:#183427; --client-muted:#62766c; --client-line:#dce7df;
   --client-accent:#347258; --client-accent-soft:#e7f3eb; --client-contrast:#fff;
   --client-shadow:rgba(33,74,54,.1); --client-pattern:none;
-  --client-readable-muted:color-mix(in srgb,var(--client-muted) 82%,var(--client-ink));
+  --client-readable-muted:color-mix(in srgb,var(--client-muted) 65%,var(--client-ink));
+  --client-readable-accent:color-mix(in srgb,var(--client-accent) 58%,var(--client-ink));
   --ink:var(--client-ink); --muted:var(--client-muted); --green:var(--client-accent);
   --line:var(--client-line); --soft:var(--client-surface-alt); --white:var(--client-surface);
   min-height:100vh; color:var(--client-ink); background-color:var(--client-bg); background-image:var(--client-pattern); background-attachment:fixed;
@@ -22,6 +23,17 @@
 .booking-client-page[data-client-theme] :is(.back,.section-icon,.progress-labels span.active,.input-hint.valid) { color:var(--client-accent); }
 .booking-client-page[data-client-theme] input.input-valid { border-color:color-mix(in srgb,var(--client-accent) 62%,var(--client-line)); background:var(--client-surface); }
 .booking-client-page[data-client-theme] .booking-footer a { color:var(--client-muted); }
+.booking-client-page[data-client-theme] .brand-mark {
+  background:var(--client-accent);
+  color:var(--client-contrast);
+  box-shadow:0 10px 24px var(--client-shadow);
+}
+.booking-client-page[data-client-theme] .step-label {
+  background:var(--client-accent-soft);
+  color:var(--client-readable-accent);
+}
+.booking-client-page[data-client-theme] .location-filter,
+.booking-client-page[data-client-theme] :is(#reviewsCount,.public-review-card>small) { color:var(--client-readable-muted); }
 
 /* Keep every booking state inside the selected client palette. */
 .booking-client-page[data-client-theme] .duration-note {
