@@ -428,10 +428,13 @@ assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерыв
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:2px;/, 'Кнопка фотографии снова закрывает центр аватара');
-assert.match(styles, /\.booking-sheet-client \{[^}]*grid-template-rows:auto auto auto;/, 'Строки карточки клиента больше не задают точную привязку аватара к имени');
-assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*grid-row:2;[^}]*transform:translateY\(calc\(\(var\(--booking-client-name-line\) - var\(--booking-client-avatar-size\)\)\/2\)\);/, 'Оптический центр аватара больше не совпадает с центром строки имени');
+assert.match(styles, /\.booking-sheet-client \{[^}]*grid-template-rows:auto auto auto;[^}]*row-gap:2px;/, 'Подпись, имя и телефон клиента снова разошлись по высоте');
+assert.match(styles, /\.booking-sheet-client>\.booking-client-avatar-control \{[^}]*grid-row:1\/4;[^}]*align-self:center;[^}]*transform:none;/, 'Аватар больше не центрируется относительно компактной группы данных клиента');
 assert.match(provider, /booking-sheet-client-label">Клиент<\/small>\$\{clientAvatarEditorMarkup[\s\S]*class="booking-sheet-client-name"/, 'Структура карточки клиента снова прячет имя во вложенном контейнере');
-assert.match(styles, /\.booking-sheet-client>\.booking-sheet-client-name \{[^}]*grid-row:2;[^}]*align-self:center;/, 'Имя клиента и аватар снова оказались в разных строках сетки');
+assert.match(styles, /\.booking-sheet-client>\.booking-sheet-client-name \{[^}]*grid-row:2;[^}]*align-self:start;[^}]*line-height:var\(--booking-client-name-line\);/, 'Имя клиента больше не входит в компактную текстовую группу');
+assert.match(styles, /\.booking-sheet-client>a \{[^}]*grid-row:3;[^}]*margin-top:0;/, 'Телефон снова оторвался от имени клиента');
+assert.match(styles, /\.provider-body\[data-provider-theme\] \.session-add-button \{[^}]*background:var\(--theme-surface-alt\);[^}]*color:var\(--theme-accent\);/, 'Добавление услуги снова выбивается из выбранной темы');
+assert.match(styles, /\.provider-body\[data-provider-theme\] \.session-composer-summary>span \{[^}]*border:1px solid var\(--theme-line\);[^}]*background:var\(--theme-surface-alt\);[^}]*color:var\(--theme-ink\);/, 'Итоги состава сеанса снова используют светлую поверхность вне темы');
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.booking-sheet-client>\.booking-client-avatar-control \{ background:transparent; color:inherit; \}/, 'Контейнер аватара снова получил лишний фон темы');
 assert.match(styles, /connection-log-dialog[\s\S]*connection-log-entry/, 'Журнал связи не оформлен для кабинета');
 assert.match(styles, /data-provider-theme="luxury"\] \.connection-log-dialog \{[^}]*background-color:#070809;/, 'Журнал связи не получил тёмную поверхность Luxury');

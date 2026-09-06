@@ -1539,12 +1539,12 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .booking-sheet-summary { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:18px; margin-top:21px; padding:16px 0; border-top:1px solid #e5ece7; border-bottom:1px solid #e5ece7; }
 .booking-sheet-summary .booking-sheet-client { margin:0; }
 .booking-sheet-client-name { display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-width:0; margin-top:3px; }
-/* Оптический центр круга совпадает с центром строки имени, а не с верхом строки. */
-.booking-sheet-client { --booking-client-avatar-size:48px; --booking-client-name-line:17px; grid-template-rows:auto auto auto; column-gap:12px; row-gap:0; }
-.booking-sheet-client>.booking-client-avatar-control { grid-column:1; grid-row:2; align-self:center; transform:translateY(calc((var(--booking-client-name-line) - var(--booking-client-avatar-size))/2)); }
+/* Аватар центрируется относительно компактной группы подписи, имени и телефона. */
+.booking-sheet-client { --booking-client-avatar-size:48px; --booking-client-name-line:17px; grid-template-rows:auto auto auto; align-items:start; column-gap:12px; row-gap:2px; }
+.booking-sheet-client>.booking-client-avatar-control { grid-column:1; grid-row:1/4; align-self:center; transform:none; }
 .booking-sheet-client>.booking-sheet-client-label { grid-column:2; grid-row:1; }
-.booking-sheet-client>.booking-sheet-client-name { grid-column:2; grid-row:2; align-self:center; margin-top:0; line-height:17px; }
-.booking-sheet-client>a { grid-column:2; grid-row:3; margin-top:4px; }
+.booking-sheet-client>.booking-sheet-client-name { grid-column:2; grid-row:2; align-self:start; margin-top:0; line-height:var(--booking-client-name-line); }
+.booking-sheet-client>a { grid-column:2; grid-row:3; margin-top:0; }
 .booking-sheet-client-name>strong { min-width:0; margin:0; }
 .booking-sheet-client-name .client-badges.with-labels { display:inline-flex; flex:none; flex-wrap:wrap; gap:4px; margin:0; }
 .booking-sheet-client-name .client-badges.with-labels .client-badge { width:auto; min-height:22px; padding:0 6px; gap:3px; border-radius:999px; box-shadow:none; }
@@ -3104,6 +3104,10 @@ html.provider-booting .provider-main {
 .provider-body[data-provider-theme] :is(.notification-filters button,.report-periods button) { color:var(--theme-muted); }
 .provider-body[data-provider-theme] :is(.notification-filters button.active,.report-periods button.active) { background:var(--theme-accent); color:#fff; box-shadow:none; }
 .provider-body[data-provider-theme] :is(.notification-card,.waitlist-provider-card,.report-summary article,.portfolio-card,.provider-review-card,.mobile-more-grid button,.mobile-more-grid a,.client-history-item,.day-off-item,.service-visibility-option,.booking-policy-form .settings-check,.organization-policy-workspace>.settings-check,.organization-policy-rule,.organization-policy-editor,.organization-policy-summary,.portfolio-form .settings-check,.booking-sheet-disclosure,.booking-session-summary,.session-composer-item,.booking-color-compact) { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] .session-add-button { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-accent); }
+.provider-body[data-provider-theme] .session-composer-summary>span { border:1px solid var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
+.provider-body[data-provider-theme] :is(.session-composer-lead,.session-duration-toggle span small,.session-composer-summary small) { color:var(--theme-muted); }
+.provider-body[data-provider-theme] .session-composer-summary strong { color:var(--theme-ink); }
 .provider-body[data-provider-theme] .service-default-duration { border-color:var(--theme-line); background:var(--theme-surface-alt); color:var(--theme-ink); }
 .provider-body[data-provider-theme] .service-default-duration-presets button { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-accent); }
 .provider-body[data-provider-theme] :is(.client-label-option,.repeat-times button,.portfolio-card-actions button,.booking-color-option,.notification-card-actions .notification-done-button,.notification-card-actions .notification-restore-button) { border-color:var(--theme-line); background:var(--theme-surface); color:var(--theme-ink); }
