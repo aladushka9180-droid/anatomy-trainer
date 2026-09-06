@@ -428,6 +428,7 @@ assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерыв
 
 assert.match(providerHtml, /id="serviceDuration"[^>]*>[\s\S]*?<option value="20">20 мин<\/option>[\s\S]*?<option value="180">180 мин<\/option>/, 'В форме новой услуги нет длительности 20 и 180 минут');
 assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker>small \{ position:absolute; right:3px; bottom:2px;/, 'Кнопка фотографии снова закрывает центр аватара');
+assert.match(styles, /\.booking-client-avatar-control \.client-avatar-picker \{[^}]*width:48px;[^}]*height:48px;[^}]*margin:0;/, 'Общий отступ label снова опускает аватар клиента');
 assert.doesNotMatch(provider, /booking-sheet-client-label">Клиент<\/small>/, 'Очевидная подпись «Клиент» снова занимает место в резюме записи');
 assert.match(provider, /class="booking-sheet-client">\$\{clientAvatarEditorMarkup[\s\S]*class="booking-sheet-client-copy"><div class="booking-sheet-client-name"/, 'Имя и телефон не собраны рядом с аватаром в единую группу');
 assert.match(styles, /\.booking-sheet-client \{[^}]*display:flex;[^}]*align-items:center;/, 'Данные клиента больше не центрируются по аватару');

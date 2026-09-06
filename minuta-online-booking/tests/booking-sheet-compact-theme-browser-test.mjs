@@ -15,7 +15,9 @@ try {
       <main style="width:min(100% - 32px,800px);margin:24px auto">
         <div class="booking-sheet-summary">
           <div class="booking-sheet-client">
-            <span class="client-avatar-control booking-client-avatar-control" style="width:48px;height:48px"></span>
+            <span class="client-avatar-control booking-client-avatar-control">
+              <label class="client-avatar-picker"><span class="booking-sheet-client-avatar">М</span><small>＋</small></label>
+            </span>
             <div class="booking-sheet-client-copy">
               <div class="booking-sheet-client-name"><strong>Марина</strong></div>
               <a href="tel:+79090509525">+7 (909) 050-95-25</a>
@@ -40,7 +42,7 @@ try {
       const cssOf=selector => getComputedStyle(document.querySelector(selector));
       const name=box('.booking-sheet-client-name');
       const phone=box('.booking-sheet-client-copy>a');
-      const avatar=box('.booking-client-avatar-control');
+      const avatar=box('.booking-sheet-client-avatar');
       const client=box('.booking-sheet-client');
       const groupTop=name.top;
       const groupBottom=phone.bottom;
