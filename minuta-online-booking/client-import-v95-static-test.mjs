@@ -9,6 +9,7 @@ const rollback = readFileSync(new URL('recovery/rollback-client-import-v95.sql',
 const clientImport = readFileSync(new URL('client-import.js', root), 'utf8');
 const provider = readFileSync(new URL('provider.js', root), 'utf8');
 const html = readFileSync(new URL('provider.html', root), 'utf8');
+const styles = readFileSync(new URL('styles.css', root), 'utf8');
 const xlsxVendorBytes = readFileSync(new URL('vendor/xlsx-0.20.3.full.min.js', root));
 const xlsxVendor = xlsxVendorBytes.toString('utf8');
 const xlsxLicense = readFileSync(new URL('vendor/xlsx-0.20.3.LICENSE', root), 'utf8');
@@ -60,6 +61,13 @@ assert.ok((clientImport.match(/if \(!requestIsCurrent\(\)\) return;/g) || []).le
 assert.match(clientImport, /await load\(\);\s*if \(organization\?\.id !== organizationId\) return;\s*renderPreview\(retryPreview\)/, 'Остаток частичного импорта нельзя переносить в другую организацию');
 assert.match(clientImport, /if \(currentOrganizationId && currentOrganizationId === nextOrganizationId\) return;/, 'Повторная синхронизация той же организации не должна прерывать импорт');
 assert.match(provider, /importedClients\.forEach/);
+const favoriteServices = provider.match(/function favoriteServiceNameKey\(value\)[\s\S]*?function renderClientDetail\(phone\)/)?.[0] || '';
+assert.match(favoriteServices, /replace\(\/\[\^a-zа-я0-9\]\+\/giu, ' '\)/, 'Названия услуг из импорта не нормализуются перед сопоставлением');
+assert.match(favoriteServices, /servicesByName\.set\(nameKey, servicesByName\.has\(nameKey\) \? null : service\)/, 'Неоднозначные названия услуг нельзя автоматически связывать с каталогом');
+assert.match(favoriteServices, /if \(!service && !item\.is_imported_history\) return;/, 'Несвязанные услуги импортированной истории снова скрываются');
+assert.match(favoriteServices, /`imported:\$\{nameKey\}`/, 'Импортированные любимые услуги не объединяются по нормализованному названию');
+assert.match(favoriteServices, /data-imported-favorite-service[\s\S]*?<small>из импорта<\/small>/, 'Несвязанная импортированная услуга не получает честную пометку');
+assert.match(styles, /\.client-favorite-services :is\(button,\.client-favorite-service\)/, 'Импортированный чип любимой услуги не наследует компактное оформление');
 assert.match(provider, /clientImportController\.setOrganization\(organization\?\.public_slug === REPORT_DEMO_SLUG \? null : organization\)/);
 assert.match(html, /id="clientImportPanel"[\s\S]*<strong>Импорт<\/strong>[\s\S]*id="clientImportFile"[\s\S]*id="clientImportMapping"[\s\S]*client-import\.js\?v=\d+/);
 assert.match(html, /accept="[^"]*\.xls,[^"]*\.xlsx/);

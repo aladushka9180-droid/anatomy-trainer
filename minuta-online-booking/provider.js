@@ -7751,18 +7751,40 @@ function updateClientPreferencesPreview(phone, noteValue = clientNotes.get(phone
   $('#clientPreferencesPreview').textContent = preferences.join(' · ') || 'Метки и заметка';
 }
 
+function favoriteServiceNameKey(value) {
+  return serviceName(String(value || '').trim())
+    .toLocaleLowerCase('ru-RU')
+    .replace(/ё/g, 'е')
+    .replace(/[^a-zа-я0-9]+/giu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function renderClientFavoriteServices(bookings) {
   const activeServices = ownServices.filter(item => item.active);
   const servicesById = new Map(activeServices.map(item => [String(item.id), item]));
-  const servicesByName = new Map(activeServices.map(item => [serviceName(String(item.name || '').trim()).toLocaleLowerCase('ru-RU'), item]));
+  const servicesByName = new Map();
+  activeServices.forEach(service => {
+    const nameKey = favoriteServiceNameKey(service.name);
+    if (!nameKey) return;
+    servicesByName.set(nameKey, servicesByName.has(nameKey) ? null : service);
+  });
   const totals = new Map();
   bookings.forEach(item => {
     const rawName = String(item.services?.name || '').trim();
     if (!rawName) return;
-    const service = servicesById.get(String(item.service_id || '')) || servicesByName.get(serviceName(rawName).toLocaleLowerCase('ru-RU'));
-    if (!service) return;
-    const key = String(service.id);
-    const current = totals.get(key) || { id:service.id, name:serviceName(service.name), count:0, lastVisit:'' };
+    const nameKey = favoriteServiceNameKey(rawName);
+    if (!nameKey || nameKey === 'услуга') return;
+    const service = servicesById.get(String(item.service_id || '')) || servicesByName.get(nameKey);
+    if (!service && !item.is_imported_history) return;
+    const key = service ? `service:${service.id}` : `imported:${nameKey}`;
+    const current = totals.get(key) || {
+      id:service?.id || '',
+      name:serviceName(service?.name || rawName),
+      count:0,
+      lastVisit:'',
+      importedOnly:!service
+    };
     current.count += 1;
     current.lastVisit = [current.lastVisit, `${item.booking_date || ''}${item.booking_time || ''}`].sort().at(-1);
     totals.set(key, current);
@@ -7771,7 +7793,9 @@ function renderClientFavoriteServices(bookings) {
     .sort((left, right) => right.count - left.count || right.lastVisit.localeCompare(left.lastVisit) || left.name.localeCompare(right.name, 'ru'))
     .slice(0, 2);
   const section = $('#clientFavoriteServices');
-  $('#clientFavoriteServicesList').innerHTML = favorites.map(item => `<button type="button" data-client-favorite-service="${escapeHtml(item.id)}" title="Записать клиента на услугу «${escapeHtml(item.name)}»" aria-label="Записать клиента на услугу «${escapeHtml(item.name)}»"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>${escapeHtml(item.name)}</span></button>`).join('');
+  $('#clientFavoriteServicesList').innerHTML = favorites.map(item => item.importedOnly
+    ? `<span class="client-favorite-service is-imported" data-imported-favorite-service title="Услуга из импортированной истории ещё не связана с текущим каталогом"><span>${escapeHtml(item.name)}</span><small>из импорта</small></span>`
+    : `<button type="button" data-client-favorite-service="${escapeHtml(item.id)}" title="Записать клиента на услугу «${escapeHtml(item.name)}»" aria-label="Записать клиента на услугу «${escapeHtml(item.name)}»"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>${escapeHtml(item.name)}</span></button>`).join('');
   section.hidden = !favorites.length;
 }
 
