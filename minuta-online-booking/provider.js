@@ -2161,7 +2161,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=541#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=542#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3976,7 +3976,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=541');
+    worker = new Worker('./report-worker.js?v=542');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5352,7 +5352,6 @@ function renderDateStrip() {
       dragStartX = event.clientX;
       dragStartScrollLeft = dateStrip.scrollLeft;
       hasDragged = false;
-      dateStrip.setPointerCapture?.(event.pointerId);
     });
     dateStrip.addEventListener('pointermove', event => {
       if (event.pointerId !== dragPointerId) return;
@@ -5360,6 +5359,7 @@ function renderDateStrip() {
       if (!hasDragged && Math.abs(delta) < 4) return;
       if (!hasDragged) {
         hasDragged = true;
+        dateStrip.setPointerCapture?.(event.pointerId);
         dateStrip.classList.add('is-dragging');
       }
       event.preventDefault();

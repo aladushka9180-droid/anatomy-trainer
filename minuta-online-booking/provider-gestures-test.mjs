@@ -36,8 +36,18 @@ assert.doesNotMatch(source, /event\.target\.closest\('#providerBookings,#dateStr
 assert.match(source, /classList\.toggle\('is-today', isToday\)/, 'сегодняшняя дата должна подсвечиваться независимо от выбранной');
 assert.match(source, /rangeStart\.setDate\(rangeStart\.getDate\(\) - 28\)[\s\S]*rangeEnd\.setDate\(rangeEnd\.getDate\(\) \+ 62\)/, 'лента должна показывать даты дальше одной недели');
 assert.match(source, /dateStrip\.addEventListener\('wheel',[\s\S]*requestAnimationFrame\(animateWheel\)[\s\S]*passive:false/, 'колесо мыши должно плавно прокручивать даты по горизонтали');
-assert.match(source, /dateStrip\.addEventListener\('pointerdown',[\s\S]*event\.pointerType !== 'mouse'[\s\S]*setPointerCapture/, 'мышью должно быть можно захватить ленту дат');
-assert.match(source, /dateStrip\.addEventListener\('pointermove',[\s\S]*dragStartScrollLeft - delta/, 'перетаскивание мышью должно прокручивать ленту');
+const pointerDownBlock = source.slice(
+  source.indexOf("dateStrip.addEventListener('pointerdown'"),
+  source.indexOf("dateStrip.addEventListener('pointermove'")
+);
+const pointerMoveBlock = source.slice(
+  source.indexOf("dateStrip.addEventListener('pointermove'"),
+  source.indexOf('const finishDrag')
+);
+assert.match(pointerDownBlock, /event\.pointerType !== 'mouse'/, 'мышью должно быть можно захватить ленту дат');
+assert.doesNotMatch(pointerDownBlock, /setPointerCapture/, 'обычный клик по дате не должен перенаправляться на ленту');
+assert.match(pointerMoveBlock, /Math\.abs\(delta\) < 4[\s\S]*setPointerCapture/, 'захват указателя должен включаться только после начала перетаскивания');
+assert.match(pointerMoveBlock, /dragStartScrollLeft - delta/, 'перетаскивание мышью должно прокручивать ленту');
 assert.match(source, /suppressClick = hasDragged[\s\S]*stopImmediatePropagation/, 'перетаскивание не должно случайно выбирать дату');
 assert.match(scheduleStyles, /scroll-behavior:smooth/, 'программная прокрутка дат должна быть плавной');
 assert.match(scheduleStyles, /cursor:grab[\s\S]*\.is-dragging[\s\S]*cursor:grabbing/, 'курсор должен подсказывать захват ленты мышью');
