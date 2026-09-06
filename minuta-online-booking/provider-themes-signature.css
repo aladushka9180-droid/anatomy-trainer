@@ -973,23 +973,20 @@
 
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
   --snow-print-veil:rgba(255,255,255,.86);
+  --snow-print-size:480px;
   background-color:#fff!important;
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-natural-v2.webp?v=484")!important;
-  background-size:100% 100%,100% 100%!important;
-  background-repeat:no-repeat!important;
-  background-position:center top!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),linear-gradient(90deg,#fff,rgba(255,255,255,0) 4% 96%,#fff),linear-gradient(#fff,rgba(255,255,255,0) 4% 96%,#fff),url("provider-snow-leopard-natural-v2.webp?v=484")!important;
+  background-size:auto,var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size)!important;
+  background-repeat:repeat!important;
+  background-position:0 0!important;
   background-attachment:scroll!important;
 }
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace) {
   background:transparent!important;
 }
-/* Keep the page canvas visible around opaque reading surfaces. */
-.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .provider-sidebar {
+/* Opaque desktop reading surfaces preserve the original Snow Leopard composition. */
+.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-sidebar,.provider-view) {
   background:#fff!important;
-  background-image:none!important;
-}
-.provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .provider-view {
-  background:transparent!important;
   background-image:none!important;
 }
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] .provider-topbar>div {
@@ -999,6 +996,7 @@
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
     --snow-print-veil:rgba(255,255,255,.80);
+    --snow-print-size:260px;
   }
   /* Reveal the canvas between sections; keep each reading surface opaque. */
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-view,.schedule-card) {

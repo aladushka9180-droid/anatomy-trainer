@@ -99,9 +99,10 @@ assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--the
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /background-size:100% 100%,100% 100%!important/);
-assert.match(snowCanvas, /background-repeat:no-repeat!important/);
-assert.doesNotMatch(snowCanvas, /--snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must use one uncropped full-page canvas without repeated edge masks');
-assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must reveal the page canvas around reading surfaces');
+assert.match(snowCanvas, /--snow-print-size:480px/);
+assert.match(snowCanvas, /background-size:auto,var\(--snow-print-size\) var\(--snow-print-size\),var\(--snow-print-size\) var\(--snow-print-size\),var\(--snow-print-size\) var\(--snow-print-size\)!important/);
+assert.match(snowCanvas, /background-repeat:repeat!important/);
+assert.match(snowCanvas, /linear-gradient\(90deg,#fff,rgba\(255,255,255,0\) 4% 96%,#fff\)/, 'Snow Leopard restores the original soft-edged repeating print');
+assert.match(css, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider-sidebar,\.provider-view\)\s*\{\s*background:#fff!important/, 'Snow Leopard preserves its original opaque desktop reading surfaces');
 
 console.log('Signature themes v484: 13 unified themes OK');
