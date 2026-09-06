@@ -94,9 +94,14 @@ assert.match(tigerCanvas, /\.timeline-stage:focus-visible\s*\{\s*outline-offset:
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
 assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
-assert.match(mobileSnow, /--snow-print-size:260px/);
 assert.match(mobileSnow, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
 assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
+
+const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
+assert.match(snowCanvas, /background-size:100% 100%,100% 100%!important/);
+assert.match(snowCanvas, /background-repeat:no-repeat!important/);
+assert.doesNotMatch(snowCanvas, /--snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must use one uncropped full-page canvas without repeated edge masks');
+assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must reveal the page canvas around reading surfaces');
 
 console.log('Signature themes v478: 13 unified themes OK');
