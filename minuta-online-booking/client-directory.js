@@ -55,7 +55,7 @@
         form.querySelector('[name="max"]').setCustomValidity(next.min !== '' && next.max !== '' && Number(next.min) > Number(next.max) ? 'Максимум должен быть не меньше минимума' : '');
         form.querySelector('[name="to"]').setCustomValidity(next.from && next.to && next.from > next.to ? 'Конец периода должен быть не раньше начала' : '');
         const count = filtered(next).length;
-        const noun = count % 10 === 1 && count % 100 !== 11 ? 'клиента' : 'клиентов';
+        const noun = count % 10 >= 1 && count % 10 <= 4 && !(count % 100 >= 11 && count % 100 <= 14) ? 'клиента' : 'клиентов';
         root.querySelector('[data-client-apply]').textContent = invalid ? 'Проверьте диапазон' : `Показать ${count} ${noun}`;
         root.querySelector('[data-service-count]').textContent = next.services.length ? `Выбрано: ${next.services.length}` : 'Любую';
       }
