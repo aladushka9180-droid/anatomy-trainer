@@ -51,5 +51,6 @@ assert.doesNotMatch(providerJs,/clientResultsVisitActive/);
 assert.match(providerJs,/mount\(\{ form:\$\('#bookingVisitResultForm'\), booking:item, expandEditor:true \}\)/);
 assert.match(serviceWorker,/client-results\.css\?v=535/);
 assert.match(serviceWorker,/client-results\.js\?v=535/);
+assert.match(serviceWorker,/provider\.js\?v=535/);
 assert.match(serviceWorker,/CACHE_PREFIX}v535/);
 console.log('Client results v120 static contract: PASS');
