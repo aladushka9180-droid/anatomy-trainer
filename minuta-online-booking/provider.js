@@ -7743,12 +7743,13 @@ function renderClientDetail(phone) {
   $('#clientAutomaticLabel').textContent = clientIsNew(client.phone) ? 'Новый клиент' : '';
   clearFormError('#clientLabelsError');
   const now = new Date();
-  const visits = client.bookings.filter(item => {
+  const completedVisits = client.bookings.filter(item => {
     const outcome = bookingOutcome(item);
     if (outcome.visit_status === 'completed') return true;
     if (outcome.visit_status === 'no_show') return false;
     return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
-  }).length;
+  });
+  const visits = completedVisits.length;
   const upcoming = clientUpcoming(client);
   const messageButton = $('#clientMessageButton');
   const fallbackMessage = `Здравствуйте, ${client.name}!`;
@@ -7761,6 +7762,11 @@ function renderClientDetail(phone) {
   messageButton.dataset.messageCancellation = upcoming ? composeNotificationMessage('cancellation', upcoming) : fallbackMessage;
   $('#clientVisits').textContent = String(Math.max(visits, Number(client.imported?.visit_count || 0)));
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
+  $('#clientNextDetails').textContent = upcoming ? serviceName(upcoming.services?.name || 'Услуга') : 'Будущих записей нет';
+  $('#clientSpent').textContent = money(completedVisits.reduce((sum, item) => sum + Math.max(0, Number(bookingOutcome(item).amount_rub || 0)), 0));
+  const lastVisit = [...completedVisits].sort((a, b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`))[0];
+  const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
+  $('#clientLastVisit').textContent = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric',month:'short',year:'numeric' }) : '—';
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = clientNotes.get(phone) || client.imported?.note || '';
@@ -7774,8 +7780,10 @@ function renderClientDetail(phone) {
     const status = bookingStatus(item);
     return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
   }).join('') || '<p class="provider-empty compact-empty">История визитов появится после первой записи в Minuta.</p>';
-  $('#clientDebt').textContent = money(client.bookings.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed')
-    .reduce((sum,item) => sum + Math.max(0,bookingCalculatedValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0));
+  const clientDebt = client.bookings.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed')
+    .reduce((sum,item) => sum + Math.max(0,bookingCalculatedValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0);
+  $('#clientDebt').textContent = money(clientDebt);
+  $('#clientDebtStatus').hidden = clientDebt <= 0;
   clientRecordsController.setClient({phone:client.phone,bookings:history.map(item => {
     const outcome = bookingOutcome(item);
     const received = Number(outcome.amount_rub || 0);
