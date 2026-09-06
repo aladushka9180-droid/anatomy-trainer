@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=510/, 'Кабинет не подключает Signature Collection v510');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=510/, 'Service Worker не кэширует Signature Collection v510');
+assert.match(provider, /provider-themes-signature\.css\?v=510/, 'Кабинет не подключает Signature Collection v511');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=510/, 'Service Worker не кэширует Signature Collection v511');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -119,4 +119,4 @@ for (const [asset, dimensions] of [['provider-snow-leopard-unified-landscape-v5.
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v510: 13 unified themes OK');
+console.log('Signature themes v511: 13 unified themes OK');

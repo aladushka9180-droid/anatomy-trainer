@@ -52,7 +52,7 @@ assert.match(providerJs, /url\.searchParams\.set\('theme'/);
 assert.match(providerJs, /url\.searchParams\.set\('headline'/);
 assert.match(appJs, /readClientOverride\(requestedOrganizationSlug\)/);
 assert.doesNotMatch(appJs, /get_public_minuta_catalog_v5/);
-assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v510`/);
+assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v511`/);
 assert.match(sw, /theme-catalog\.js\?v=510/);
 assert.match(providerHtml, /voice-assistant\.js\?v=510/);
 
