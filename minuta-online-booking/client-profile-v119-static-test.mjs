@@ -26,6 +26,8 @@ assert.match(provider,/setClientProfileDetailMode\(true\)/);
 assert.match(provider,/client-profile-detail-open/);
 assert.match(app,/client_online_booking_blocked/);
 assert.match(css,/@media \(max-width:760px\)[\s\S]*clients-layout\.is-detail[\s\S]*client-profile-dialog/);
+assert.match(css,/client-profile-detail-open[\s\S]*>\.clients-search-tools/);
+assert.match(css,/client-profile-detail-open[\s\S]*>#clientDirectoryFilters/);
 assert.match(integration,/specialist_block_allowed/);
 assert.match(integration,/outsider_read_allowed/);
 assert.match(integration,/check_client_profile_v119_rollback/);

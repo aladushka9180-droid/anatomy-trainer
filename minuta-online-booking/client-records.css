@@ -117,6 +117,8 @@
 @media (max-width:760px) {
   body.client-profile-detail-open [data-provider-panel="clients"]>.view-title,
   body.client-profile-detail-open [data-provider-panel="clients"]>.view-description,
+  body.client-profile-detail-open [data-provider-panel="clients"]>.clients-search-tools,
+  body.client-profile-detail-open [data-provider-panel="clients"]>#clientDirectoryFilters,
   body.client-profile-detail-open [data-provider-panel="clients"]>.client-import-panel,
   body.client-profile-detail-open [data-provider-panel="clients"]>.client-fields-settings { display:none!important; }
   .clients-layout.is-detail { display:block!important; width:100%; min-width:0; max-width:100%; margin-top:0; }
