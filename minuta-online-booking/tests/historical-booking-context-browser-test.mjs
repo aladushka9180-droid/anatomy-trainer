@@ -333,6 +333,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     assert.equal(await day.locator('.calendar-overview-more').count(),1);
     assert.equal(await day.evaluate(el=>getComputedStyle(el).borderRadius),'0px');
     assert.equal(await day.evaluate(el=>getComputedStyle(el).boxShadow),'none');
+    assert.equal(await day.evaluate(el=>getComputedStyle(el).backgroundColor),await page.locator('[data-calendar-date="2026-09-12"]').evaluate(el=>getComputedStyle(el).backgroundColor),'Selected day keeps the same canvas as other days; only bookings have grey fill');
     const booking=width<=760?page.locator('.calendar-month-mobile-agenda [data-open-booking]').first():day.locator('[data-open-booking]').first();
     const beforeHover=await booking.boundingBox();
     const originalBackground=await booking.evaluate(el=>getComputedStyle(el).backgroundColor);

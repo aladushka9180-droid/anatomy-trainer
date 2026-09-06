@@ -11,7 +11,7 @@
 }
 #providerBookings.calendar-overview-month .calendar-overview-day:nth-child(7n) { border-right:0!important; }
 #providerBookings.calendar-overview-month .calendar-overview-day.is-placeholder { visibility:visible; }
-#providerBookings.calendar-overview-month .calendar-overview-day.is-selected { background:var(--theme-accent-soft)!important; }
+#providerBookings.calendar-overview-month .calendar-overview-day.is-selected { background:var(--theme-surface)!important; }
 #providerBookings.calendar-overview-month .calendar-overview-date strong { border-radius:50%!important; box-shadow:none!important; }
 #providerBookings.calendar-overview-month .is-today .calendar-overview-date strong {
   background:var(--theme-accent)!important; color:var(--theme-accent-contrast,#fff)!important;
