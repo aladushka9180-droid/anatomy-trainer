@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      MINUTA_BASELINE_REF: 9aedf7b1a5a017534aeb3dfbde693f5f9d434173
+      MINUTA_BASELINE_REF: 022f6e065b0bf113e7a2d655c8e177741e51b47a
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
