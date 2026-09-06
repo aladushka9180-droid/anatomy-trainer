@@ -191,10 +191,16 @@ const server = http.createServer((request, response) => {
             return { background:style.backgroundColor, image:style.backgroundImage, shadow:style.boxShadow, contrast:contrast(style.color, style.backgroundColor) };
           });
           const restIcon = getComputedStyle(fixture.querySelector('.timeline-booking.status-block strong'), '::before');
+          const monthProbe = document.createElement('span');
+          monthProbe.style.background = 'color-mix(in srgb,var(--theme-surface) 90%,var(--theme-ink))';
+          fixture.append(monthProbe);
+          const monthAutoBackground = getComputedStyle(monthProbe).backgroundColor;
+          monthProbe.remove();
           return {
             normal,
             rest,
             activeDateBackground:activeDate.backgroundColor,
+            monthAutoBackground,
             restIconContent:restIcon.content,
             restIconImage:restIcon.backgroundImage,
             overflow:document.documentElement.scrollWidth > innerWidth + 2
@@ -204,9 +210,14 @@ const server = http.createServer((request, response) => {
         assert.equal(cards.rest.length, 4, `${theme} ${width}px: проверены не все режимы перерывов`);
         cards.normal.forEach((card, index) => {
           assert.equal(card.image, 'none', `${theme} ${width}px: лишний рисунок у записи ${index + 1}`);
-          assert.match(card.shadow, /inset/, `${theme} ${width}px: нет акцента выбранной темы у записи ${index + 1}`);
           assert.ok(card.contrast >= 4.5, `${theme} ${width}px: низкий контраст записи ${index + 1} (${card.contrast.toFixed(2)})`);
-          assert.ok(card.surfaceContrast >= 1.04, `${theme} ${width}px: запись ${index + 1} сливается с поверхностью (${card.surfaceContrast.toFixed(2)})`);
+          if (index === 2) {
+            assert.equal(card.background, cards.monthAutoBackground, `${theme} ${width}px: компактная месячная запись потеряла нейтральный фон`);
+            assert.equal(card.shadow, 'none', `${theme} ${width}px: месячная запись получила лишнюю постоянную тень`);
+          } else {
+            assert.match(card.shadow, /inset/, `${theme} ${width}px: нет акцента выбранной темы у записи ${index + 1}`);
+            assert.ok(card.surfaceContrast >= 1.04, `${theme} ${width}px: запись ${index + 1} сливается с поверхностью (${card.surfaceContrast.toFixed(2)})`);
+          }
           assert.notEqual(card.background, cards.activeDateBackground, `${theme} ${width}px: запись конкурирует с выбранной датой`);
         });
         cards.rest.forEach((card, index) => {

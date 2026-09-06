@@ -3,7 +3,7 @@ import { chromium } from 'playwright';
 import { startFixtureServer, themes } from './theme-card-fixture.mjs';
 
 const {server,url} = await startFixtureServer();
-const browser = await chromium.launch({headless:true});
+const browser = await chromium.launch({headless:true,executablePath:process.env.MINUTA_CHROME_PATH || undefined});
 try {
   const page = await browser.newPage();
   const errors = [];
