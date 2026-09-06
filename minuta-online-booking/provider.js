@@ -7678,10 +7678,21 @@ function clientUpcoming(client) {
   return client.bookings.find(item => item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`) >= now) || null;
 }
 
+let clientDirectoryController = null;
 function renderClients() {
   const clients = buildClients();
   const search = $('#clientSearch').value.trim().toLowerCase();
-  const filtered = clients.filter(client => `${client.name} ${client.displayPhone} ${client.phone}`.toLowerCase().includes(search));
+  if (!clientDirectoryController && window.MinutaClientDirectory && $('#clientDirectoryTools')) {
+    clientDirectoryController = window.MinutaClientDirectory.create({
+      root:$('#clientDirectoryTools'),
+      refresh:() => { clientRenderLimit = CLIENT_RENDER_PAGE_SIZE; renderClients(); },
+      outcome:bookingOutcome, getLabels:clientLabel, services:() => ownServices,
+      nameKey:favoriteServiceNameKey, today:businessTodayIso
+    });
+  }
+  const filtered = clientDirectoryController
+    ? clientDirectoryController.apply(clients, search, `${currentUser?.id || ''}:${activeClientOrganizationId || ''}:${sessionGeneration}`)
+    : clients.filter(client => `${client.name} ${client.displayPhone} ${client.phone}`.toLowerCase().includes(search));
   const visibleClients = filtered.slice(0, clientRenderLimit);
   $('#clientsCount').textContent = String(clients.length);
   if ($('#clientsBadge')) $('#clientsBadge').textContent = String(clients.length);
@@ -7692,7 +7703,7 @@ function renderClients() {
   $('#clientsList').innerHTML = visibleClients.map(client => {
     const upcoming = clientUpcoming(client);
     const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
-    const knownCount = Math.max(activeCount, Number(client.imported?.visit_count || 0));
+    const knownCount = client.directoryVisitCount ?? Math.max(activeCount, Number(client.imported?.visit_count || 0));
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
     return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
