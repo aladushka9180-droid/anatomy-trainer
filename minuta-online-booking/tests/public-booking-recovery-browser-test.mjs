@@ -12,7 +12,7 @@ const sourcePath = process.env.MINUTA_PUBLIC_BOOKING_SOURCE || resolve(root, 'ap
 const source = readFileSync(sourcePath);
 const originalHtml = readFileSync(resolve(root, 'index.html'), 'utf8');
 const html = originalHtml.replace(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>[\s\S]*?<\/script>/gi,
-  (tag, src) => /^(?:vendor\/supabase[^/]*\.js|config\.js|app\.js)(?:\?|$)/.test(src) ? tag : '');
+  (tag, src) => /^(?:vendor\/supabase[^/]*\.js|theme-catalog\.js|config\.js|app\.js)(?:\?|$)/.test(src) ? tag : '');
 assert.ok(html.includes('id="bookingForm"') && html.includes('src="app.js'), 'Real form and app must remain');
 const { chromium } = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
   ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
