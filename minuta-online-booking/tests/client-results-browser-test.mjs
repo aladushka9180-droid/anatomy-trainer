@@ -38,7 +38,7 @@ const ORGANIZATION_ID = '00000000-0120-4000-8000-000000000004';
 
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-  await page.setContent(`<!doctype html><html><body class="provider-body" data-provider-theme="noir">
+  await page.setContent(`<!doctype html><html><body class="provider-body" data-provider-theme="noir" data-provider-layout="bento">
     <main class="client-profile"><div id="clientProfileContent">
       <section id="clientFavoriteServices"></section>
       <details class="client-disclosure client-preferences-disclosure"><summary><span>Предпочтения и метки</span></summary></details>
@@ -54,6 +54,7 @@ try {
   </body></html>`);
   await page.addStyleTag({ content: `
     *{box-sizing:border-box}html,body{margin:0;max-width:100%;background:#0f1e2f;color:#f4f7fb;--theme-surface:#0f1e2f;--theme-surface-alt:#182a40;--theme-ink:#f4f7fb;--theme-muted:#aeb9c8;--theme-line:#5e7189;--theme-accent:#4c91c2;--theme-accent-contrast:#fff}
+    .provider-body[data-provider-theme][data-provider-layout] .primary:not(.danger){background:var(--theme-accent)!important;color:var(--theme-accent-contrast)!important}
     .client-profile{width:min(720px,100%);margin:0 auto;padding:16px;min-width:0}.client-disclosure{border-top:1px solid var(--theme-line)}.client-disclosure>summary{min-height:56px;padding:12px 0;cursor:pointer}.booking-sheet-disclosure,.booking-outcome-form{width:min(680px,100%);margin:20px auto;padding:16px;min-width:0}.booking-outcome-form>.primary{width:100%;min-height:44px;margin-top:14px}
   ${css}` });
   await page.addScriptTag({ content: source });
