@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 12
     env:
       RELEASE_SHA: ${{ github.event_name == 'push' && github.sha || inputs.release_sha }}
-      REVIEWED_SQL_SHA256: ${{ github.event_name == 'push' && '74d4fc5237eff7b42c1a15854788a27ff556e2232faff7ae7673388201736495' || inputs.reviewed_sql_sha256 }}
+      REVIEWED_SQL_SHA256: ${{ github.event_name == 'push' && '2d7b8dd1a756089e5f567c449c81d61d7e1544d9a241915f6b804d418b033b03' || inputs.reviewed_sql_sha256 }}
       SYNTHETIC_CONFIRM: ${{ github.event_name == 'push' && 'SYNTHETIC_PG_V116_ONLY' || inputs.confirm }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -46,7 +46,7 @@ jobs:
             workflow_dispatch) ;;
             push)
               test "$GITHUB_REF" = refs/heads/codex/feedback-media-integration
-              test "$REVIEWED_SQL_SHA256" = 74d4fc5237eff7b42c1a15854788a27ff556e2232faff7ae7673388201736495
+              test "$REVIEWED_SQL_SHA256" = 2d7b8dd1a756089e5f567c449c81d61d7e1544d9a241915f6b804d418b033b03
               ;;
             *) exit 1;;
           esac
