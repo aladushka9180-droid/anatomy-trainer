@@ -93,7 +93,8 @@ for (const scenario of [
   const result = await operation;
   assert.deepEqual({ pending:result.pending,reason:result.reason },{ pending:true,reason:'context_changed' },scenario.name);
   assert.equal(runtime.rpcCalls.length,0,`${scenario.name}: stale queue item must not call RPC`);
-  assert.equal(runtime.api.read(organization.id).sync_status,'pending',`${scenario.name}: local save must remain pending`);
+  const persisted = JSON.parse(runtime.storage.get(`minuta-provider-client-page-v1:user-1:${organization.id}`));
+  assert.equal(persisted.sync_status,'pending',`${scenario.name}: local save must remain pending`);
 }
 
 {
