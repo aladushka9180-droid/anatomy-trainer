@@ -393,7 +393,14 @@
 
     function findSections(value) {
       const variants = queryVariants(value);
-      return buildSectionsIndex().map(record => ({ ...record, score:Math.max(...variants.map(query => recordScore(record, query))) }))
+      const sectionScore = (record, query) => {
+        const base = recordScore(record, query);
+        if (!base) return 0;
+        const labelWords = normalize(record.label).split(' ').filter(Boolean);
+        const labelBoost = usefulTokens(query).reduce((sum, token) => sum + tokenScore(token, labelWords), 0);
+        return base + labelBoost * 3;
+      };
+      return buildSectionsIndex().map(record => ({ ...record, score:Math.max(...variants.map(query => sectionScore(record, query))) }))
         .filter(record => record.score > 0)
         .sort((left, right) => right.score - left.score || left.label.localeCompare(right.label, 'ru'))
         .slice(0, 6);

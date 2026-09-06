@@ -71,10 +71,10 @@ try {
   await assert.doesNotReject(() => search.waitFor({ state:'visible' }));
 
   await search.fill('клиетны');
-  assert.match(await page.locator('#cabinetSectionsSearchResults').innerText(), /Клиенты/);
+  assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Клиенты/);
 
   await search.fill('rkbytyns');
-  assert.match(await page.locator('#cabinetSectionsSearchResults').innerText(), /Клиенты/);
+  assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Клиенты/);
 
   await search.fill('посмотреть доход');
   assert.match(await page.locator('#cabinetSectionsSearchResults').innerText(), /Статистика/);
