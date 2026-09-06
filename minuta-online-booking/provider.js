@@ -2156,7 +2156,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=514#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=515#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3971,7 +3971,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=514');
+    worker = new Worker('./report-worker.js?v=515');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6890,6 +6890,10 @@ function updateNewBookingConnectivity() {
 
 let newBookingClientSuggestionMap = new Map();
 let newBookingClientSuggestionTimer = null;
+let newBookingAutoFilledPhone = '';
+let newBookingAutoFilledName = '';
+let newBookingClientBaseTitle = 'Новая запись';
+let newBookingClientBaseSubtitle = 'Только необходимое для записи';
 
 function newBookingClientPhoneLabel(phone, fallback = '') {
   const digits = normalizePhone(phone);
@@ -6902,26 +6906,38 @@ function newBookingClientCandidates(query) {
   const textQuery = value.toLocaleLowerCase('ru-RU');
   const phoneQuery = value.replace(/\D/g, '');
   if (textQuery.length < 2 && phoneQuery.length < 2) return [];
-  const matches = new Map();
-  const sources = [
-    ...(Array.isArray(allBookings) ? allBookings : []),
-    ...(Array.isArray(importedBookingHistory) ? importedBookingHistory : []),
-    ...(typeof importedClients !== 'undefined' && Array.isArray(importedClients) ? importedClients : [])
-  ];
-  for (const item of sources) {
-    const phone = normalizePhone(item?.phone || item?.client_phone || item?.display_phone);
-    const name = String(item?.name || item?.client_name || '').trim();
-    if (!phone || !name || isScheduleBlock(item)) continue;
-    if (!name.toLocaleLowerCase('ru-RU').includes(textQuery) && (!phoneQuery || !phone.includes(phoneQuery))) continue;
-    const previous = matches.get(phone) || {};
-    matches.set(phone, {
-      phone,
-      displayPhone:newBookingClientPhoneLabel(phone, item?.display_phone || item?.client_phone || previous.displayPhone),
-      name:name || previous.name,
-      note:String(item?.note || previous.note || clientNotes.get(phone) || '').trim()
-    });
+  const clients = buildClients();
+  const exactPhone = normalizePhone(value);
+  const exactClient = exactPhone ? clients.find(client => client.phone === exactPhone) : null;
+  if (exactClient) {
+    const variants = [];
+    const names = new Set();
+    const addVariant = rawName => {
+      const name = String(rawName || '').trim();
+      const key = name.toLocaleLowerCase('ru-RU');
+      if (!name || names.has(key)) return;
+      names.add(key);
+      variants.push({
+        phone:exactClient.phone,
+        displayPhone:newBookingClientPhoneLabel(exactClient.phone, exactClient.displayPhone),
+        name,
+        note:String(clientNotes.get(exactClient.phone) || exactClient.imported?.note || '').trim()
+      });
+    };
+    addVariant(exactClient.name);
+    [...exactClient.bookings].reverse().forEach(booking => addVariant(booking.client_name));
+    addVariant(exactClient.imported?.name);
+    return variants.slice(0, 8);
   }
-  return [...matches.values()].slice(0, 8);
+  return clients.filter(client => (
+    client.name.toLocaleLowerCase('ru-RU').includes(textQuery)
+    || (phoneQuery && client.phone.includes(phoneQuery))
+  )).slice(0, 8).map(client => ({
+    phone:client.phone,
+    displayPhone:newBookingClientPhoneLabel(client.phone, client.displayPhone),
+    name:client.name,
+    note:String(clientNotes.get(client.phone) || client.imported?.note || '').trim()
+  }));
 }
 
 function hideNewBookingClientSuggestions() {
@@ -6933,9 +6949,9 @@ function renderNewBookingClientSuggestions(query) {
   const panel = $('#newBookingClientSuggestions');
   if (!panel) return;
   const clients = newBookingClientCandidates(query);
-  newBookingClientSuggestionMap = new Map(clients.map(client => [client.phone, client]));
+  newBookingClientSuggestionMap = new Map(clients.map((client, index) => [String(index), client]));
   if (!clients.length) { panel.hidden = true; panel.innerHTML = ''; return; }
-  panel.innerHTML = clients.map(client => `<button type="button" role="option" data-new-booking-client="${escapeHtml(client.phone)}"><span><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.displayPhone)}</small></span><span aria-hidden="true">Выбрать</span></button>`).join('');
+  panel.innerHTML = clients.map((client, index) => `<button type="button" role="option" data-new-booking-client="${index}"><span><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.displayPhone)}</small></span><span aria-hidden="true">Выбрать</span></button>`).join('');
   panel.hidden = false;
 }
 
@@ -6944,17 +6960,62 @@ function scheduleNewBookingClientSuggestions(query) {
   newBookingClientSuggestionTimer = setTimeout(() => renderNewBookingClientSuggestions(query), 60);
 }
 
-function selectNewBookingClient(phone) {
-  const client = newBookingClientSuggestionMap.get(normalizePhone(phone));
+function restoreNewBookingClientLookupStatus() {
+  const fields = $('#newBookingClientFields');
+  if (!fields?.dataset.clientLookupState || newBookingMode !== 'client') return;
+  delete fields.dataset.clientLookupState;
+  $('#newBookingSheetTitle').textContent = newBookingClientBaseTitle;
+  $('#newBookingSectionSubtitle').textContent = newBookingClientBaseSubtitle;
+}
+
+function applyNewBookingClient(client, { automatic = false } = {}) {
   if (!client) return;
-  $('#newBookingName').value = client.name;
+  const nameInput = $('#newBookingName');
+  const currentName = nameInput.value.trim();
+  const canReplaceName = !currentName || currentName === newBookingAutoFilledName;
+  if (automatic && !canReplaceName) return false;
+  nameInput.value = client.name;
   $('#newBookingPhone').value = client.displayPhone;
+  newBookingAutoFilledPhone = client.phone;
+  newBookingAutoFilledName = client.name;
   const note = $('#newBookingNote');
   if (note && !note.value.trim() && client.note) note.value = client.note;
   $('#newBookingSheetTitle').textContent = 'Повторная запись';
   $('#newBookingSectionSubtitle').textContent = 'Клиент найден в базе';
+  $('#newBookingClientFields').dataset.clientLookupState = 'found';
   hideNewBookingClientSuggestions();
   saveNewBookingDraft();
+  return true;
+}
+
+function selectNewBookingClient(key) {
+  applyNewBookingClient(newBookingClientSuggestionMap.get(String(key)));
+}
+
+function handleNewBookingPhoneInput() {
+  const phoneInput = $('#newBookingPhone');
+  const nameInput = $('#newBookingName');
+  const phone = normalizePhone(phoneInput.value);
+  if (newBookingAutoFilledPhone && phone !== newBookingAutoFilledPhone) {
+    if (nameInput.value.trim() === newBookingAutoFilledName) nameInput.value = '';
+    newBookingAutoFilledPhone = '';
+    newBookingAutoFilledName = '';
+    restoreNewBookingClientLookupStatus();
+  }
+  if (!phone) { restoreNewBookingClientLookupStatus(); scheduleNewBookingClientSuggestions(phoneInput.value); return; }
+  const exactClients = newBookingClientCandidates(phoneInput.value).filter(client => client.phone === phone);
+  if (exactClients.length === 1 && applyNewBookingClient(exactClients[0], { automatic:true })) return;
+  renderNewBookingClientSuggestions(phoneInput.value);
+  const fields = $('#newBookingClientFields');
+  if (exactClients.length > 1) {
+    fields.dataset.clientLookupState = 'multiple';
+    $('#newBookingSectionSubtitle').textContent = 'Найдено несколько имён — выберите клиента';
+  } else if (exactClients.length === 1) {
+    fields.dataset.clientLookupState = 'manual-name';
+    $('#newBookingSectionSubtitle').textContent = 'Клиент найден — введённое имя сохранено';
+  } else {
+    restoreNewBookingClientLookupStatus();
+  }
 }
 
 function setNewBookingMode(mode) {
@@ -7012,6 +7073,10 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   newBookingHistoricalMode = date < businessTodayIso() || (date === businessTodayIso() && requestedHistorical);
   newBookingOutsideSchedule = !newBookingHistoricalMode && Boolean(draft?.outsideSchedule);
   newBookingMode = draft?.mode === 'block' ? 'block' : 'client';
+  newBookingAutoFilledPhone = '';
+  newBookingAutoFilledName = '';
+  newBookingClientBaseTitle = preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : 'Новая запись';
+  newBookingClientBaseSubtitle = preset.offlineEdit ? 'Измените данные и снова отправьте на проверку' : preset.clientName ? 'Клиент и услуга уже выбраны' : 'Только необходимое для записи';
   $('#bookingSheet').classList.add('booking-sheet-wide', 'new-booking-sheet');
   applyClientHighlightClasses($('#bookingSheet'), '', 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">${preset.offlineEdit ? 'Отложенная запись' : preset.clientName ? 'Повторный визит' : 'Ручное расписание'}</small><h2 id="bookingSheetTitle"><span id="newBookingSheetTitle">${preset.offlineEdit ? 'Исправить запись' : preset.clientName ? 'Повторная запись' : 'Новая запись'}</span>${newBookingPreferredTime ? `<small class="booking-clicked-time">Выбрано в расписании: ${escapeHtml(newBookingPreferredTime)}</small>` : ''}</h2>
@@ -7091,8 +7156,25 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingForm').addEventListener('submit', createNewBooking);
   $('#newBookingForm').addEventListener('input', saveNewBookingDraft);
   $('#newBookingForm').addEventListener('change', saveNewBookingDraft);
-  [$('#newBookingName'), $('#newBookingPhone')].forEach(input => {
-    input.addEventListener('input', () => scheduleNewBookingClientSuggestions(input.value));
+  const newBookingNameInput = $('#newBookingName');
+  const newBookingPhoneInput = $('#newBookingPhone');
+  newBookingNameInput.addEventListener('input', () => {
+    if (newBookingNameInput.value.trim() !== newBookingAutoFilledName) {
+      newBookingAutoFilledPhone = '';
+      newBookingAutoFilledName = '';
+      const phone = normalizePhone(newBookingPhoneInput.value);
+      const knownPhone = phone && newBookingClientCandidates(newBookingPhoneInput.value).some(client => client.phone === phone);
+      if (knownPhone) {
+        $('#newBookingClientFields').dataset.clientLookupState = 'manual-name';
+        $('#newBookingSectionSubtitle').textContent = 'Клиент найден — введённое имя сохранено';
+      } else {
+        restoreNewBookingClientLookupStatus();
+      }
+    }
+    scheduleNewBookingClientSuggestions(newBookingNameInput.value);
+  });
+  newBookingPhoneInput.addEventListener('input', handleNewBookingPhoneInput);
+  [newBookingNameInput, newBookingPhoneInput].forEach(input => {
     input.addEventListener('focus', () => scheduleNewBookingClientSuggestions(input.value));
     input.addEventListener('keydown', event => {
       if (event.key === 'Escape') hideNewBookingClientSuggestions();
