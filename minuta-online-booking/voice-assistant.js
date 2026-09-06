@@ -2757,7 +2757,9 @@
       // Мобильные движки могут игнорировать continuous и закрывать отдельную
       // сессию после паузы. Флаг намерения пользователя остаётся активным, а
       // onend безопасно открывает следующую сессию до повторного касания.
-      currentRecognition.continuous = touchDevice;
+      // Android uses short native recognition sessions. Keep the user's
+      // listening intent in our existing onend flow instead of continuous mode.
+      currentRecognition.continuous = touchDevice && !/Android/i.test(global.navigator?.userAgent || '');
       currentRecognition.interimResults = true;
       currentRecognition.maxAlternatives = 5;
       let latestTranscript = '';
@@ -2813,6 +2815,11 @@
         recognitionStartTimer = null;
         recognitionError = String(event.error || 'unknown');
         const messages = { 'not-allowed':'Нет разрешения на микрофон. Разрешите доступ в настройках браузера или используйте микрофон клавиатуры.', 'service-not-allowed':'Браузер запретил службу распознавания. Используйте микрофон клавиатуры или текстовый ввод.', 'audio-capture':'Микрофон не найден или занят другим приложением.', 'no-speech':'Речь не услышана. Попробуйте ещё раз.', network:'Служба распознавания речи недоступна. Используйте микрофон клавиатуры или текстовый ввод.', 'language-not-supported':'Русский язык не установлен для распознавания на этом устройстве.' };
+        if (recognitionError === 'aborted' && finishingRecognition) {
+          recognitionError = '';
+          return;
+        }
+        messages.aborted = 'Служба распознавания Android или браузера прервала сеанс. Микрофон может работать, даже если распознавание недоступно. Повторите попытку; если ошибка повторится, используйте диктовку клавиатуры.';
         Object.keys(messages).forEach(key => { messages[key] += ` Код: ${key}.`; });
         if (event.error === 'no-speech' && touchDevice) {
           recognitionEpoch += 1;
