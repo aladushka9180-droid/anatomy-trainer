@@ -2,12 +2,25 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright');
+const providerSource=readFileSync(new URL('../provider.js',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const initStart=providerSource.indexOf('function initializeProviderUx() {');
+const initialize=providerSource.slice(initStart,providerSource.indexOf('\n}',initStart)+2);
+const filterSelector=providerSource.match(/root:\$\('(#[^']+)'\),\n\s+refresh:\(\) => \{ clientRenderLimit/)[1];
 const browser=await chromium.launch({headless:true,channel:process.env.BROWSER_CHANNEL || 'chromium'});
 try {
   for(const width of [390,1280]) {
     const page=await browser.newPage({viewport:{width,height:850}});
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-    await page.setContent('<body class="provider-body" data-provider-theme="snow-leopard" data-provider-layout="linear"><section class="panel clients-directory"><div id="tools"></div></section></body>');
+    await page.setContent('<body class="provider-body" data-provider-theme="snow-leopard" data-provider-layout="linear"></body>');
+    await page.evaluate(html=>{
+      const doc=new DOMParser().parseFromString(html,'text/html');
+      const section=doc.querySelector('#clientsLayout').parentElement;
+      section.hidden=false;section.style.display='block';
+      document.body.append(document.importNode(section,true));
+      document.querySelectorAll('#clientImportPanel,#clientFieldsSettings').forEach(node=>node.hidden=true);
+    },readFileSync(new URL('../provider.html',import.meta.url),'utf8'));
+    await page.addScriptTag({content:`var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];${initialize};initializeProviderUx();`});
+    await page.evaluate(selector=>{window.filterRoot=document.querySelector(selector);},filterSelector);
     for (const file of ['styles.css','provider-themes-signature.css']) await page.addStyleTag({content:readFileSync(new URL(`../${file}`,import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../client-directory.css',import.meta.url),'utf8')});
     await page.addScriptTag({content:readFileSync(new URL('../client-directory.js',import.meta.url),'utf8')});
@@ -20,9 +33,12 @@ try {
       ];
       window.context='A'; window.search='';
       window.refresh=()=>{window.result=window.controller.apply(clients,search,context);};
-      window.controller=MinutaClientDirectory.create({root:document.querySelector('#tools'),refresh,outcome:b=>b,getLabels:p=>({vip:p==='2'}),services:()=>[{id:'massage',name:'Массаж'}],nameKey:s=>s.toLowerCase(),today:()=> '2026-09-06'});
+      window.controller=MinutaClientDirectory.create({root:filterRoot,refresh,outcome:b=>b,getLabels:p=>({vip:p==='2'}),services:()=>[{id:'massage',name:'Массаж'}],nameKey:s=>s.toLowerCase(),today:()=> '2026-09-06'});
       refresh();
     });
+    assert.equal(await page.locator('[data-client-filters]').isVisible(),true,'Filters must remain visible after real provider UX initialization');
+    assert.equal(await page.locator('#clientDirectoryTools').count(),1,'Import controls retain their unique ID');
+    assert.equal(await page.locator('#clientDirectoryTools #clientImportPanel').count(),1,'Filters must not replace import settings');
     assert.deepEqual(await page.evaluate(()=>result.map(c=>[c.name,c.directoryVisitCount])),[['Борис',6],['Анна',1],['Вера',0]]);
     await page.selectOption('[data-client-sort]','next');
     assert.equal(await page.evaluate(()=>result[0].name),'Анна');
@@ -37,17 +53,17 @@ try {
     assert.equal(await page.evaluate(()=>result.length),3);
     await page.click('[data-client-filters]');
     await page.fill('[name=from]','2020-01-03'); await page.fill('[name=to]','2020-01-01');
-    assert.equal(await page.$eval('form',f=>f.checkValidity()),false);
+    assert.equal(await page.$eval('.client-directory-dialog form',f=>f.checkValidity()),false);
     await page.fill('[name=from]','2020-01-02'); await page.fill('[name=to]','2020-01-02');
     await page.click('[data-client-apply]');
     assert.deepEqual(await page.evaluate(()=>result.map(c=>c.name)),['Борис']);
     await page.evaluate(()=>{context='B';refresh();});
     assert.equal(await page.evaluate(()=>result.length),3);
     await page.click('[data-client-filters]');
-    const box=await page.locator('dialog').boundingBox();
+    const box=await page.locator('.client-directory-dialog').boundingBox();
     assert.ok(box.x>=0 && box.x+box.width<=width+1,'Dialog must fit viewport');
     await page.keyboard.press('Escape');
-    assert.equal(await page.$eval('dialog',d=>d.open),false);
+    assert.equal(await page.$eval('.client-directory-dialog',d=>d.open),false);
     assert.deepEqual(errors,[]);
     await page.close();
   }
