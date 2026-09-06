@@ -148,7 +148,6 @@ jobs:
           cat minuta-online-booking/supabase-migration-v118.sql >> "$bundle"
           cat >> "$bundle" <<'SQL'
           select pg_temp.check_client_page_v118_reapply();
-          delete from public.organizations where id=current_setting('client_page.org')::uuid;
           select case
             when to_regclass('public.organization_client_page_settings') is not null
              and to_regprocedure('public.get_public_minuta_catalog_v5(text)') is not null
@@ -156,6 +155,7 @@ jobs:
             then 'v118_test_cycle_ok'
             else 'v118_test_cycle_failed'
           end;
+          rollback;
           SQL
           result="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 -f "$bundle" | tail -n 1)"
           test "$(tr -d '[:space:]' <<<"$result")" = "v118_test_cycle_ok"

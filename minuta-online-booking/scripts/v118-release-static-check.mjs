@@ -38,6 +38,8 @@ ordered(testJob, [
   'supabase-migration-v118.sql',
 ], 'test job must execute apply -> integration -> rollback -> reapply');
 requireText(testJob, 'migration-config-guard.mjs', 'test job must guard the isolated database');
+requireText(testJob, 'rollback;', 'test job must discard its temporary fixture transaction');
+forbid(testJob, /delete from public\.organizations/i, 'test job must not trigger last-owner protection during cleanup');
 
 const applyJob = job('apply-production-v118');
 for (const token of ['BACKUP_RUN_ID', 'TEST_RUN_ID', 'VALIDATION_RUN_ID', 'download-artifact@', 'sha256sum', 'environment: minuta-production']) {
