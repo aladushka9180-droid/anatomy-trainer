@@ -36,6 +36,7 @@ try{
     var renderClientDetail=(phone,options)=>effects.push(['client',phone,options]);
     var selectScheduleDate=date=>effects.push(['date',date]);
     var openBookingSheet=id=>effects.push(['booking',id]);
+    ${declaration('setClientProfileDetailMode')}
     ${declaration('resetClientProfileReturnContext')}
     ${declaration('openClientProfileFromBooking')}
     ${declaration('returnFromClientProfile')}
@@ -75,12 +76,14 @@ try{
   await page.evaluate(()=>openClientProfileFromBooking('booking-1','79990000001'));
   assert.deepEqual(await page.evaluate(()=>effects),[['close'],['view','clients'],['client','79990000001',{preserveReturn:true}]]);
   assert.equal(await page.locator('#clientsLayout').evaluate(el=>el.classList.contains('is-detail')),true);
+  assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('client-profile-detail-open')),true);
   assert.equal(await page.locator('#clientProfileBack span').textContent(),'Назад к записи');
   assert.equal(await page.locator('#clientProfileBack').evaluate(el=>el.classList.contains('is-booking-return')),true);
   assert.deepEqual(await page.evaluate(()=>clientProfileReturnContext),{bookingId:'booking-1',bookingDate:'2026-09-12'});
   await page.evaluate(()=>returnFromClientProfile());
   assert.deepEqual(await page.evaluate(()=>effects.slice(-3)),[['view','bookings'],['date','2026-09-12'],['booking','booking-1']]);
   assert.equal(await page.locator('#clientsLayout').evaluate(el=>el.classList.contains('is-detail')),false);
+  assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('client-profile-detail-open')),false);
   assert.equal(await page.locator('#clientProfileBack span').textContent(),'Назад к клиентам');
   assert.equal(await page.locator('#clientProfileBack').evaluate(el=>el.classList.contains('is-booking-return')),false);
   assert.equal(await page.evaluate(()=>clientProfileReturnContext),null);

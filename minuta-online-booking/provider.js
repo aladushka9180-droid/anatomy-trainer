@@ -356,6 +356,8 @@ const clientLabelSaveQueues = new Map();
 let selectedClientPhone = '';
 let clientProfileReturnContext = null;
 let activeClientOrganizationId = '';
+let clientProfileDetailsState = { phone:'', birthday:'', onlineBookingBlocked:false, canEdit:false, canManageBlock:false, available:false };
+let clientProfileDetailsLoadRevision = 0;
 let repeatTime = '';
 let bookingEditTime = '';
 let newBookingTime = '';
@@ -2159,7 +2161,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=525#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=526#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3974,7 +3976,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=525');
+    worker = new Worker('./report-worker.js?v=526');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4964,7 +4966,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     moreButton?.classList.add('active');
     moreButton?.setAttribute('aria-current', 'page');
   }
-  if (view === 'clients') $('#clientsLayout')?.classList.remove('is-detail');
+  setClientProfileDetailMode(false);
   $$('[data-provider-panel]').forEach(panel => {
     const active = panel.dataset.providerPanel === view;
     panel.hidden = !active;
@@ -8186,6 +8188,174 @@ function renderClientFavoriteServices(bookings) {
   section.hidden = !favorites.length;
 }
 
+function setClientProfileDetailMode(active) {
+  const enabled = active === true;
+  if (!enabled) closeClientProfileDialogs();
+  $('#clientsLayout')?.classList.toggle('is-detail', enabled);
+  document.body.classList.toggle('client-profile-detail-open', enabled);
+}
+
+function closeClientProfileDialogs() {
+  $$('.client-profile-dialog[open]').forEach(dialog => dialog.close());
+}
+
+function normalizedClientProfileDetails(value = {}, fallbackBirthday = '') {
+  const birthday = /^\d{4}-\d{2}-\d{2}$/.test(String(value?.birthday || ''))
+    ? String(value.birthday)
+    : /^\d{4}-\d{2}-\d{2}$/.test(String(fallbackBirthday || '')) ? String(fallbackBirthday) : '';
+  return {
+    phone:normalizePhone(value?.client_phone || selectedClientPhone),
+    birthday,
+    onlineBookingBlocked:Boolean(value?.online_booking_blocked),
+    canEdit:Boolean(value?.can_edit),
+    canManageBlock:Boolean(value?.can_manage_block),
+    available:Boolean(value?.available)
+  };
+}
+
+function clientBirthdayLabel(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return '';
+  return new Date(`${value}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+}
+
+function renderClientProfileDetails(client, state = clientProfileDetailsState) {
+  if (!client || selectedClientPhone !== client.phone) return;
+  const digits = normalizePhone(client.phone);
+  const displayPhone = String(client.displayPhone || client.phone || '');
+  const phoneCopy = $('#clientCopyPhone');
+  if (phoneCopy) phoneCopy.disabled = !digits;
+  const contactButton = $('#clientContactButton');
+  if (contactButton) contactButton.disabled = !digits;
+  const moreButton = $('#clientMoreButton');
+  if (moreButton) moreButton.hidden = !state.available;
+  $('#clientContactPhone').textContent = displayPhone;
+  $('#clientCallLink').href = digits ? `tel:${digits}` : '#';
+  $('#clientWhatsappLink').href = digits ? `https://wa.me/${digits}` : '#';
+  $('#clientTelegramLink').href = digits ? `tg://resolve?phone=${digits}` : '#';
+  const birthdayText = clientBirthdayLabel(state.birthday);
+  $('#clientBirthdayInfo').hidden = !birthdayText;
+  $('#clientBirthdayDisplay').textContent = birthdayText;
+  $('#clientBirthdayEdit').hidden = !state.canEdit;
+  $('#clientBirthdayAction').hidden = !state.available || !state.canEdit;
+  $('#clientBirthdayActionHint').textContent = birthdayText || 'Указать дату';
+  $('#clientBirthdayInput').value = state.birthday;
+  $('#clientBirthdayInput').max = businessTodayIso();
+  const blocked = state.onlineBookingBlocked;
+  $('#clientOnlineBlockBadge').hidden = !blocked;
+  const blockAction = $('#clientBlockAction');
+  blockAction.hidden = !state.available || !state.canManageBlock;
+  blockAction.classList.toggle('is-unblock', blocked);
+  blockAction.querySelector('span').textContent = blocked ? 'Разблокировать онлайн-запись' : 'Заблокировать онлайн-запись';
+  blockAction.querySelector('small').textContent = blocked ? 'Клиент снова сможет записываться сам' : 'Только для этой организации';
+}
+
+async function loadClientProfileDetails(client) {
+  const revision = ++clientProfileDetailsLoadRevision;
+  const fallback = normalizedClientProfileDetails({ client_phone:client.phone, birthday:client.imported?.birthday || '' }, client.imported?.birthday);
+  clientProfileDetailsState = fallback;
+  renderClientProfileDetails(client, fallback);
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const organizationId = activeClientOrganizationId;
+  if (!userId || !organizationId || !client.phone) return;
+  const { data, error } = await db.rpc('get_minuta_client_profile_v119', { p_organization:organizationId, p_client_phone:client.phone });
+  if (revision !== clientProfileDetailsLoadRevision || !sessionIsCurrent(userId, generation) || selectedClientPhone !== client.phone || activeClientOrganizationId !== organizationId) return;
+  if (error) {
+    if (!isMissingRpc(error, 'get_minuta_client_profile_v119')) console.warn('Client profile details unavailable:', error.message);
+    return;
+  }
+  clientProfileDetailsState = normalizedClientProfileDetails({ ...data, available:true }, fallback.birthday);
+  renderClientProfileDetails(client, clientProfileDetailsState);
+}
+
+async function copySelectedClientPhone() {
+  const client = buildClients().find(item => item.phone === selectedClientPhone);
+  const value = String(client?.displayPhone || client?.phone || '').trim();
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    notify('Номер скопирован');
+  } catch {
+    notify('Не удалось скопировать номер');
+  }
+}
+
+function openClientContactDialog() {
+  const client = buildClients().find(item => item.phone === selectedClientPhone);
+  if (!client || !normalizePhone(client.phone)) return;
+  renderClientProfileDetails(client);
+  $('#clientContactDialog').showModal();
+}
+
+function openClientMoreDialog() {
+  const client = buildClients().find(item => item.phone === selectedClientPhone);
+  if (!client) return;
+  renderClientProfileDetails(client);
+  $('#clientMoreDialog').showModal();
+}
+
+function openClientBirthdayDialog() {
+  $('#clientMoreDialog')?.close();
+  $('#clientBirthdayInput').value = clientProfileDetailsState.birthday;
+  $('#clientBirthdayDialog').showModal();
+}
+
+async function saveClientBirthday(event, clear = false) {
+  event?.preventDefault?.();
+  if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
+  const organizationId = activeClientOrganizationId;
+  const phone = selectedClientPhone;
+  const birthday = clear ? null : ($('#clientBirthdayInput').value || null);
+  if (birthday && (birthday > businessTodayIso() || birthday < '1900-01-01')) {
+    notify('Проверьте дату рождения');
+    return;
+  }
+  const submit = $('#clientBirthdayForm button[type="submit"]');
+  submit.disabled = true;
+  const { data, error } = await db.rpc('save_minuta_client_birthday_v119', {
+    p_organization:organizationId,p_client_phone:phone,p_birthday:birthday
+  });
+  submit.disabled = false;
+  if (error) { notify('Не удалось сохранить дату рождения'); return; }
+  clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
+  const client = buildClients().find(item => item.phone === phone);
+  if (client) renderClientProfileDetails(client);
+  $('#clientBirthdayDialog').close();
+  notify(birthday ? 'Дата рождения сохранена' : 'Дата рождения удалена');
+}
+
+function openClientBlockConfirmation() {
+  $('#clientMoreDialog')?.close();
+  const blocked = clientProfileDetailsState.onlineBookingBlocked;
+  $('#clientBlockTitle').textContent = blocked ? 'Разблокировать клиента?' : 'Заблокировать клиента?';
+  $('#clientBlockDescription').textContent = blocked
+    ? 'Клиент снова сможет самостоятельно записываться в эту организацию.'
+    : 'Клиент не сможет самостоятельно записаться в эту организацию. История и данные сохранятся, а сотрудник сможет создать запись вручную.';
+  const confirmButton = $('#clientBlockConfirm');
+  confirmButton.textContent = blocked ? 'Разблокировать' : 'Заблокировать';
+  confirmButton.classList.toggle('is-unblock', blocked);
+  $('#clientBlockDialog').showModal();
+}
+
+async function confirmClientOnlineBlock() {
+  if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canManageBlock) return;
+  const organizationId = activeClientOrganizationId;
+  const phone = selectedClientPhone;
+  const blocked = !clientProfileDetailsState.onlineBookingBlocked;
+  const button = $('#clientBlockConfirm');
+  button.disabled = true;
+  const { data, error } = await db.rpc('set_minuta_client_online_booking_block_v119', {
+    p_organization:organizationId,p_client_phone:phone,p_blocked:blocked
+  });
+  button.disabled = false;
+  if (error) { notify('Не удалось изменить блокировку'); return; }
+  clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });
+  const client = buildClients().find(item => item.phone === phone);
+  if (client) renderClientProfileDetails(client);
+  $('#clientBlockDialog').close();
+  notify(blocked ? 'Онлайн-запись для клиента заблокирована' : 'Онлайн-запись для клиента разблокирована');
+}
+
 function resetClientProfileReturnContext() {
   clientProfileReturnContext = null;
   const back = $('#clientProfileBack');
@@ -8208,7 +8378,7 @@ function openClientProfileFromBooking(bookingId, requestedPhone = '') {
     back?.classList.add('is-booking-return');
     const label = back?.querySelector('span');
     if (label) label.textContent = 'Назад к записи';
-    $('#clientsLayout')?.classList.add('is-detail');
+    setClientProfileDetailMode(true);
     renderClientDetail(phone, { preserveReturn:true });
   };
   const transition = setProviderView('clients');
@@ -8220,11 +8390,11 @@ function returnFromClientProfile() {
   const context = clientProfileReturnContext;
   resetClientProfileReturnContext();
   if (!context) {
-    $('#clientsLayout')?.classList.remove('is-detail');
+    setClientProfileDetailMode(false);
     $$('.client-list-item[data-client-phone]').find(button => button.dataset.clientPhone === selectedClientPhone)?.focus();
     return;
   }
-  $('#clientsLayout')?.classList.remove('is-detail');
+  setClientProfileDetailMode(false);
   const showBooking = () => {
     if (context.bookingDate) selectScheduleDate(context.bookingDate);
     openBookingSheet(context.bookingId);
@@ -8280,15 +8450,6 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const visits = completedVisits.length;
   renderClientFavoriteServices(completedVisits);
   const upcoming = clientUpcoming(client);
-  const messageButton = $('#clientMessageButton');
-  const fallbackMessage = `Здравствуйте, ${client.name}!`;
-  messageButton.disabled = !normalizePhone(client.phone);
-  messageButton.dataset.clientPhone = client.phone;
-  messageButton.dataset.clientName = client.name;
-  messageButton.dataset.messageConfirmation = upcoming ? composeNotificationMessage('confirmation', upcoming) : fallbackMessage;
-  messageButton.dataset.messageReminder = upcoming ? composeNotificationMessage('reminder', upcoming) : fallbackMessage;
-  messageButton.dataset.messageReschedule = `Здравствуйте, ${client.name}! Ваша запись перенесена. Новые дата и время: укажите здесь.`;
-  messageButton.dataset.messageCancellation = upcoming ? composeNotificationMessage('cancellation', upcoming) : fallbackMessage;
   $('#clientVisits').textContent = String(Math.max(visits, Number(client.imported?.visit_count || 0)));
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
   $('#clientNextDetails').textContent = upcoming ? serviceName(upcoming.services?.name || 'Услуга') : 'Будущих записей нет';
@@ -8296,6 +8457,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const lastVisit = [...completedVisits].sort((a, b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`))[0];
   const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
   $('#clientLastVisit').textContent = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric',month:'short',year:'numeric' }) : '—';
+  void loadClientProfileDetails(client);
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = noteValue;
@@ -10937,6 +11099,14 @@ document.addEventListener('click', async event => {
   const reviewVisibility = event.target.closest('[data-review-visibility]');
   const client = event.target.closest('[data-client-phone]');
   const clientProfileBack = event.target.closest('#clientProfileBack');
+  const clientContactButton = event.target.closest('#clientContactButton');
+  const clientMoreButton = event.target.closest('#clientMoreButton');
+  const clientCopyPhoneButton = event.target.closest('#clientCopyPhone,#clientCopyPhoneMenu');
+  const clientBirthdayButton = event.target.closest('#clientBirthdayAction,#clientBirthdayEdit');
+  const clientBirthdayClear = event.target.closest('#clientBirthdayClear');
+  const clientBlockAction = event.target.closest('#clientBlockAction');
+  const clientBlockConfirm = event.target.closest('#clientBlockConfirm');
+  const closeClientDialog = event.target.closest('[data-close-client-dialog]');
   const slotIntervalButton = event.target.closest('[data-slot-interval]');
   const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
@@ -11095,6 +11265,14 @@ document.addEventListener('click', async event => {
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickRepeatClient) openQuickRepeatForClient(quickRepeatClient.dataset.quickRepeatClient);
+  if (clientContactButton) openClientContactDialog();
+  if (clientMoreButton) openClientMoreDialog();
+  if (clientCopyPhoneButton) await copySelectedClientPhone();
+  if (clientBirthdayButton) openClientBirthdayDialog();
+  if (clientBirthdayClear) await saveClientBirthday(event, true);
+  if (clientBlockAction) openClientBlockConfirmation();
+  if (clientBlockConfirm) await confirmClientOnlineBlock();
+  if (closeClientDialog) closeClientDialog.closest('dialog')?.close();
   if (favoriteServiceButton) openFavoriteServiceBooking(favoriteServiceButton.dataset.clientFavoriteService);
   if (removeClientAvatarButton) await removeClientAvatar(removeClientAvatarButton.dataset.removeClientAvatar, removeClientAvatarButton.dataset.bookingId || '');
   if (createEmptyBooking && requireBookingWrites()) openNewBookingSheet('', { date:selectedDate, historical:selectedDate < businessTodayIso() });
@@ -11140,7 +11318,7 @@ document.addEventListener('click', async event => {
   if (closeSheet) closeBookingSheet();
   if (editService) openServiceEditor(editService.dataset.editService);
   if (client) {
-    $('#clientsLayout')?.classList.add('is-detail');
+    setClientProfileDetailMode(true);
     renderClientDetail(client.dataset.clientPhone);
   }
   if (clientProfileBack) returnFromClientProfile();
@@ -12025,7 +12203,7 @@ window.MinutaProviderAssistant = Object.freeze({
     captureProviderAssistantNavigation();
     const transition = setProviderView('clients');
     const showClient = () => {
-      $('#clientsLayout')?.classList.add('is-detail');
+      setClientProfileDetailMode(true);
       renderClientDetail(target.phone);
     };
     if (transition?.updateCallbackDone?.then) transition.updateCallbackDone.then(showClient).catch(showClient);
@@ -12212,6 +12390,7 @@ $('#providerFullscreenButton').addEventListener('click', toggleProviderFullscree
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
+$('#clientBirthdayForm').addEventListener('submit', saveClientBirthday);
 $('#saveClientNote').addEventListener('click', saveClientNote);
 $('#clientLabelFavorite').addEventListener('change', event => {
   $('#clientFavoriteNoteField').hidden = !event.target.checked;

@@ -267,3 +267,7 @@ Workflow `.github/workflows/minuta-booking-integration.yml` запускаетс
 `supabase-migration-v118.sql` добавляет tenant-safe настройки темы и заголовка клиентской страницы, owner-only RPC и публичный каталог v5. Для неё используется отдельный ручной workflow `.github/workflows/minuta-v118-safe-release.yml`.
 
 Порядок: `test-v118` на изолированной базе, `validate-production-v118` в read-only режиме, свежий зашифрованный backup на точном SHA, ручной `apply-production-v118` с IDs всех доказательств, затем `observe-production-v118`. Production apply нельзя запускать до слияния точного commit SHA в `main`; validation и observation не должны выполнять записей. Rollback удаляет только API v118 и сохраняет таблицу с выбранным оформлением для совместимого повторного применения.
+
+## Карточка клиента и блокировка онлайн-записи v119
+
+`supabase-migration-v119.sql` хранит день рождения и блокировку по паре организация/телефон, даёт сотрудникам закрытые RPC и запрещает самостоятельную онлайн-запись заблокированному номеру. Ручная запись активным сотрудником и service-role операции сохраняются. Выпуск проходит через `.github/workflows/minuta-v119-safe-release.yml`: test, read-only validation, свежий зашифрованный backup, apply с `APPLY_V119_TO_PRODUCTION`, затем read-only observation. Rollback сохраняет дни рождения и останавливается, если есть активная блокировка.

@@ -92,3 +92,7 @@ Workflow `.github/workflows/minuta-v118-safe-release.yml` запускается
 5. `observe-production-v118`: требует ID успешного apply-запуска и выполняет только read-only проверку схемы и публичный health check.
 
 До отдельного ручного запуска `apply-production-v118` workflow ничего в production не изменяет. Для test используется environment `minuta-test`; validation, apply и observation используют защищённый environment `minuta-production`. Любое несовпадение SHA, ветки, project ref, run ID, возраста или артефакта останавливает выпуск.
+
+## Узкий выпуск карточки клиента v119
+
+Workflow `.github/workflows/minuta-v119-safe-release.yml` применяет только `supabase-migration-v119.sql`. Последовательность обязательна: `test-v119` (apply/integration/rollback/reapply на изолированной базе), `validate-production-v119` (read-only), свежий зашифрованный backup на том же SHA, `apply-production-v119` с подтверждением `APPLY_V119_TO_PRODUCTION` и точными run ID, затем `observe-production-v119` (read-only). Откат сохраняет персональные данные и запрещён при активных блокировках онлайн-записи.

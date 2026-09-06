@@ -242,7 +242,8 @@ function bookingDefiniteRejection(error) {
     'resource_unavailable', 'booking_buffer_conflict', 'invalid_benefit_code', 'benefits_disabled',
     'benefit_code_not_found', 'benefit_client_mismatch', 'benefit_not_available',
     'insufficient_certificate_balance', 'package_service_exhausted', 'visit_pass_not_applicable',
-    'booking_already_has_benefit', 'booking_payment_already_started', 'benefit_request_conflict'].includes(error.message);
+    'booking_already_has_benefit', 'booking_payment_already_started', 'benefit_request_conflict',
+    'client_online_booking_blocked'].includes(error.message);
 }
 
 async function bookingFingerprint(service, name, phone, benefitCode) {
@@ -1283,6 +1284,9 @@ async function submitBooking(event) {
     if (!wasUncertain && missingTeamBookingRpc) {
       clearBookingAttempt();
       showError(benefitCode ? 'Применение сертификата или абонемента пока не активировано. Запись не создана — уберите код или повторите позже.' : 'Запись в филиал пока не активирована. Запись не создана — обновите страницу позже или свяжитесь со специалистом.');
+    } else if (!wasUncertain && error.message === 'client_online_booking_blocked') {
+      clearBookingAttempt();
+      showError('Онлайн-запись для этого номера недоступна. Свяжитесь с организацией — сотрудник сможет записать вас вручную.');
     } else if (benefitCode && bookingDefiniteRejection(error) && benefitRejected) {
       clearBookingAttempt();
       showError('Сертификат или абонемент не подходит: сервер проверил владельца, срок, услугу, оплату и остаток. Проверьте код; если нужна предоплата, обратитесь в организацию или запишитесь без кода.');
