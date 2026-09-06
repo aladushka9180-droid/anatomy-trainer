@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.ok(script.includes(`${key}:'${color}'`) || script.includes(`'${key}':'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=485/, 'Кабинет не подключает Signature Collection v485');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=485/, 'Service Worker не кэширует Signature Collection v485');
+assert.match(provider, /provider-themes-signature\.css\?v=486/, 'Кабинет не подключает Signature Collection v486');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=486/, 'Service Worker не кэширует Signature Collection v486');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -105,4 +105,4 @@ assert.match(snowCanvas, /background-repeat:repeat!important/);
 assert.match(snowCanvas, /linear-gradient\(90deg,#fff,rgba\(255,255,255,0\) 4% 96%,#fff\)/, 'Snow Leopard restores the original soft-edged repeating print');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider-sidebar,\.provider-view\)\s*\{\s*background:#fff!important/, 'Snow Leopard preserves its original opaque desktop reading surfaces');
 
-console.log('Signature themes v485: 13 unified themes OK');
+console.log('Signature themes v486: 13 unified themes OK');
