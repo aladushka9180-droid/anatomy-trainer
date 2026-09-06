@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const source = fs.readFileSync(new URL('./provider.js', import.meta.url), 'utf8');
 const styles = fs.readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
+const scheduleStyles = fs.readFileSync(new URL('./provider-schedule-minimal.css', import.meta.url), 'utf8');
 
 function sourceFunction(name, nextName) {
   const start = source.indexOf(`function ${name}`);
@@ -34,7 +35,12 @@ assert.match(source, /event\.target\.closest\('#providerBookings'\)/, 'свай�
 assert.doesNotMatch(source, /event\.target\.closest\('#providerBookings,#dateStrip'\)/, 'лента дат должна использовать нативную прокрутку без JS-перехвата');
 assert.match(source, /classList\.toggle\('is-today', isToday\)/, 'сегодняшняя дата должна подсвечиваться независимо от выбранной');
 assert.match(source, /rangeStart\.setDate\(rangeStart\.getDate\(\) - 28\)[\s\S]*rangeEnd\.setDate\(rangeEnd\.getDate\(\) \+ 62\)/, 'лента должна показывать даты дальше одной недели');
-assert.match(source, /dateStrip\.addEventListener\('wheel',[\s\S]*event\.preventDefault\(\)[\s\S]*passive:false/, 'на компьютере колесо мыши должно прокручивать даты по горизонтали');
+assert.match(source, /dateStrip\.addEventListener\('wheel',[\s\S]*requestAnimationFrame\(animateWheel\)[\s\S]*passive:false/, 'колесо мыши должно плавно прокручивать даты по горизонтали');
+assert.match(source, /dateStrip\.addEventListener\('pointerdown',[\s\S]*event\.pointerType !== 'mouse'[\s\S]*setPointerCapture/, 'мышью должно быть можно захватить ленту дат');
+assert.match(source, /dateStrip\.addEventListener\('pointermove',[\s\S]*dragStartScrollLeft - delta/, 'перетаскивание мышью должно прокручивать ленту');
+assert.match(source, /suppressClick = hasDragged[\s\S]*stopImmediatePropagation/, 'перетаскивание не должно случайно выбирать дату');
+assert.match(scheduleStyles, /scroll-behavior:smooth/, 'программная прокрутка дат должна быть плавной');
+assert.match(scheduleStyles, /cursor:grab[\s\S]*\.is-dragging[\s\S]*cursor:grabbing/, 'курсор должен подсказывать захват ленты мышью');
 assert.match(source, /shiftScheduleDate\(deltaX < 0 \? 1 : -1\)/);
 assert.match(source, /bookingPlacementIssue\(item, state\.date, state\.targetMinute\)/);
 assert.match(source, /p_ignore_booking: item\.id/);

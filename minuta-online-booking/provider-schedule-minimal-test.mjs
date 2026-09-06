@@ -16,7 +16,8 @@ assert.match(styles, /\.date-strip-shift\[data-date-shift="7"\]\s*\{[^}]*right:8
 assert.match(styles, /\.date-strip-frame>\.date-strip\s*\{[^}]*box-sizing:border-box;/s);
 assert.match(styles, /not\(\[data-provider-layout="split"\]\)[\s\S]*\.schedule-card:has\(#dateStrip:not\(\[hidden\]\)\)[\s\S]*border-radius:0!important;/s);
 assert.match(styles, /@media \(min-width:761px\)[\s\S]*\.booking-sheet\s*\{[^}]*place-items:center;[\s\S]*\.booking-sheet-panel\s*\{[^}]*margin-bottom:0;/s);
-assert.match(styles, /\.date-strip-frame>\.date-strip\s*\{[^}]*scroll-behavior:auto;[^}]*overscroll-behavior-x:contain;/s);
+assert.match(styles, /\.date-strip-frame>\.date-strip\s*\{[^}]*scroll-behavior:smooth;[^}]*overscroll-behavior-x:contain;/s);
+assert.match(styles, /@media \(min-width:761px\)[\s\S]*cursor:grab;[\s\S]*\.is-dragging[\s\S]*cursor:grabbing;/);
 assert.match(styles, /data-provider-theme\][\s\S]*--schedule-entry-fill-weight:18%;[\s\S]*--schedule-break-surface-weight:78%;/s);
 assert.match(styles, /data-provider-theme="midnight"[\s\S]*--schedule-entry-fill-weight:30%;[\s\S]*--schedule-break-surface-weight:68%;/s);
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking:not\(\.status-block\):not\(\.automatic-break\)[\s\S]*var\(--booking-tone,var\(--calendar-week-marker,var\(--theme-accent\)\)\)[\s\S]*var\(--schedule-entry-fill-weight\)[\s\S]*inset 3px 0 0/s);

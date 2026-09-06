@@ -2161,7 +2161,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=540#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=541#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3976,7 +3976,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=540');
+    worker = new Worker('./report-worker.js?v=541');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5306,16 +5306,86 @@ function renderDateStrip() {
   if ((rebuildStrip || selectionChanged) && dateStrip.scrollWidth > dateStrip.clientWidth) {
     requestAnimationFrame(() => active?.scrollIntoView({ behavior:'auto', block:'nearest', inline:'center' }));
   }
-  if (!dateStrip.dataset.wheelScrollBound) {
+  if (!dateStrip.dataset.scrollInteractionsBound) {
+    let wheelTarget = dateStrip.scrollLeft;
+    let wheelFrame = 0;
+    let dragPointerId = null;
+    let dragStartX = 0;
+    let dragStartScrollLeft = 0;
+    let hasDragged = false;
+    let suppressClick = false;
+    const clampScroll = value => Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, value));
+    const stopWheelAnimation = () => {
+      if (wheelFrame) cancelAnimationFrame(wheelFrame);
+      wheelFrame = 0;
+      wheelTarget = dateStrip.scrollLeft;
+    };
+    const animateWheel = () => {
+      const distance = wheelTarget - dateStrip.scrollLeft;
+      if (Math.abs(distance) < 0.75) {
+        dateStrip.scrollLeft = wheelTarget;
+        wheelFrame = 0;
+        return;
+      }
+      dateStrip.scrollLeft += distance * 0.24;
+      wheelFrame = requestAnimationFrame(animateWheel);
+    };
     dateStrip.addEventListener('wheel', event => {
       if (window.matchMedia('(max-width: 760px)').matches) return;
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      const maxScroll = dateStrip.scrollWidth - dateStrip.clientWidth;
-      if (!delta || (delta < 0 && dateStrip.scrollLeft <= 0) || (delta > 0 && dateStrip.scrollLeft >= maxScroll)) return;
+      const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      const unit = event.deltaMode === 1 ? 22 : event.deltaMode === 2 ? dateStrip.clientWidth : 1;
+      const delta = Math.max(-320, Math.min(320, rawDelta * unit * 1.1));
+      const nextTarget = clampScroll(wheelTarget + delta);
+      if (!delta || (nextTarget === wheelTarget && Math.abs(wheelTarget - dateStrip.scrollLeft) < 1)) return;
       event.preventDefault();
-      dateStrip.scrollLeft += delta;
+      wheelTarget = nextTarget;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        dateStrip.scrollLeft = wheelTarget;
+        return;
+      }
+      if (!wheelFrame) wheelFrame = requestAnimationFrame(animateWheel);
     }, { passive:false });
-    dateStrip.dataset.wheelScrollBound = 'true';
+    dateStrip.addEventListener('pointerdown', event => {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      stopWheelAnimation();
+      dragPointerId = event.pointerId;
+      dragStartX = event.clientX;
+      dragStartScrollLeft = dateStrip.scrollLeft;
+      hasDragged = false;
+      dateStrip.setPointerCapture?.(event.pointerId);
+    });
+    dateStrip.addEventListener('pointermove', event => {
+      if (event.pointerId !== dragPointerId) return;
+      const delta = event.clientX - dragStartX;
+      if (!hasDragged && Math.abs(delta) < 4) return;
+      if (!hasDragged) {
+        hasDragged = true;
+        dateStrip.classList.add('is-dragging');
+      }
+      event.preventDefault();
+      dateStrip.scrollLeft = clampScroll(dragStartScrollLeft - delta);
+      wheelTarget = dateStrip.scrollLeft;
+    });
+    const finishDrag = event => {
+      if (event.pointerId !== dragPointerId) return;
+      suppressClick = hasDragged;
+      hasDragged = false;
+      dragPointerId = null;
+      dateStrip.classList.remove('is-dragging');
+      if (dateStrip.hasPointerCapture?.(event.pointerId)) dateStrip.releasePointerCapture(event.pointerId);
+    };
+    dateStrip.addEventListener('pointerup', finishDrag);
+    dateStrip.addEventListener('pointercancel', finishDrag);
+    dateStrip.addEventListener('click', event => {
+      if (!suppressClick) return;
+      suppressClick = false;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+    dateStrip.addEventListener('scroll', () => {
+      if (!wheelFrame && dragPointerId === null) wheelTarget = dateStrip.scrollLeft;
+    }, { passive:true });
+    dateStrip.dataset.scrollInteractionsBound = 'true';
   }
   updateCalendarViewControls();
 }
