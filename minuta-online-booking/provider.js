@@ -2143,7 +2143,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=493#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=494#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3958,7 +3958,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=493');
+    worker = new Worker('./report-worker.js?v=494');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6655,14 +6655,10 @@ function renderNewBookingTimePicker({ offline = false, historical = false, outsi
   if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
   const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
-  const historicalOutsideScheduleAction = historical && !outsideSchedule
-    ? '<div class="booking-outside-schedule-prompt"><span aria-hidden="true">!</span><div><strong>Визит был вне рабочего графика?</strong><small>Основной список показывает только рабочие часы мастера.</small></div><button class="secondary-button" id="newBookingOutsideScheduleButton" type="button">Выбрать время вне графика</button></div>'
-    : '';
   holder.innerHTML = `${outsideSchedule ? `<div class="booking-time-warning booking-time-outside"><strong>Запись вне графика</strong><br>${historical ? 'Показываем только время вне рабочих часов мастера.' : 'Онлайн-запись на этот день останется закрытой.'}</div>` : historical ? '<div class="booking-time-warning"><strong>Запись в прошлом</strong><br>Укажите фактическое время визита. После создания отметьте результат и оплату.</div>' : offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} пересекается с другой записью. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${historical || outsideSchedule ? `${outsideSchedule ? 'Вне графика' : 'По графику мастера'} · шаг 5 минут` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
     <div class="booking-time-guide"><strong>2. Точное время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${hourSlots.length} свободных вариантов`}</span></div>
-    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>${historicalOutsideScheduleAction}`;
-  $('#newBookingOutsideScheduleButton')?.addEventListener('click', enableNewBookingOutsideSchedule);
+    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
 }
 
 function updateNewBookingSubmitCaption() {

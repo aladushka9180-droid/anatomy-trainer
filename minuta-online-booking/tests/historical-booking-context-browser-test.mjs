@@ -97,7 +97,7 @@ async function openAndFill(page,label){
   assert.equal(await page.locator('[data-new-booking-hour="00"]').count(),0,'Historical picker must start with provider working hours');
   assert.equal(await page.locator('[data-new-booking-hour="10"]').count(),1,'Provider opening hour must remain available');
   assert.equal(await page.locator('[data-new-booking-hour="19"]').count(),1,'Last valid start hour must remain available');
-  assert.equal(await page.locator('#newBookingOutsideScheduleButton').count(),1,'Outside-schedule time must remain a separate action');
+  assert.equal(await page.locator('#newBookingOutsideScheduleButton').count(),0,'Historical picker must not show the outside-schedule callout');
   await page.locator('#newBookingName').fill(`Клиент ${label}`);
   await page.locator('#newBookingPhone').fill(label==='A'?'+79990000001':'+79990000002');
   await page.locator('[data-new-booking-time="10:15"]').click();
