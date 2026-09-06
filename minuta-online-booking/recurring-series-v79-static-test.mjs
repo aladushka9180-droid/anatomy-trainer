@@ -24,12 +24,17 @@ assert.match(provider, /id="newBookingOccurrences"/);
 assert.match(provider, /Только эту запись/);
 assert.match(provider, /Эту и последующие/);
 assert.match(provider, /Все будущие записи/);
+assert.match(provider, /data-back-booking=.*?<span>Назад<\/span>/s);
+assert.match(provider, /Освободившиеся окна снова увидят клиенты/);
 assert.match(provider, /db\.rpc\('create_minuta_recurring_bookings'/);
 assert.match(provider, /db\.rpc\('manage_minuta_booking_series'/);
 assert.match(provider, /booking_series\(occurrence_count\)/);
 assert.match(provider, /affected\.forEach\(entry => notifyTelegramClient/);
 assert.match(provider, /Сначала примените миграцию v79/);
 assert.match(styles, /\.booking-series-scope/);
+assert.match(styles, /grid-template-columns:20px minmax\(0,1fr\)/);
+assert.match(styles, /\.booking-series-scope label:has\(input:checked\)/);
+assert.match(styles, /\.booking-series-cancel-form \.danger-primary/);
 assert.match(styles, /\.new-booking-recurrence/);
 
 console.log('recurring-series-v79 static checks passed');
