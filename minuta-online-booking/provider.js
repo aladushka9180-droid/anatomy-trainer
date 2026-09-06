@@ -354,6 +354,7 @@ let pendingClientLabels = new Set();
 let clientLabelReasonTimer = null;
 const clientLabelSaveQueues = new Map();
 let selectedClientPhone = '';
+let clientProfileReturnContext = null;
 let activeClientOrganizationId = '';
 let repeatTime = '';
 let bookingEditTime = '';
@@ -5931,6 +5932,40 @@ function bookingEmptyMarkup(message, extraClass = '') {
   return `<div class="provider-empty schedule-empty${extraClass ? ` ${escapeHtml(extraClass)}` : ''}"><span class="provider-empty-icon">${uiIcon('check')}</span><strong>Записей нет</strong><small>${escapeHtml(message)}</small><button class="primary schedule-empty-create" type="button" data-create-empty-booking>${uiIcon('plus')}<span>Создать запись</span></button></div>`;
 }
 
+function bookingClientProfileActionMarkup(item) {
+  const phone = normalizePhone(item?.client_phone);
+  if (!phone || isScheduleBlock(item)) return '';
+  return `<button class="secondary-button" type="button" data-open-client-profile="${escapeHtml(phone)}" data-client-booking-id="${escapeHtml(item.id)}">${uiIcon('user')} Карточка клиента</button>`;
+}
+
+function clientCompletedVisits(client, now = new Date()) {
+  return (client?.bookings || []).filter(item => {
+    const outcome = bookingOutcome(item);
+    if (outcome.visit_status === 'completed') return true;
+    if (outcome.visit_status === 'no_show') return false;
+    return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
+  });
+}
+
+function bookingClientOverviewMarkup(item) {
+  const phone = normalizePhone(item?.client_phone);
+  const client = buildClients().find(entry => entry.phone === phone);
+  if (!client) return '';
+  const completedVisits = clientCompletedVisits(client);
+  const visits = Math.max(completedVisits.length, Number(client.imported?.visit_count || 0));
+  const spent = completedVisits.reduce((sum, booking) => sum + Math.max(0, Number(bookingOutcome(booking).amount_rub || 0)), 0);
+  const upcoming = clientUpcoming(client);
+  const lastVisit = [...completedVisits].sort((left, right) => `${right.booking_date}${right.booking_time}`.localeCompare(`${left.booking_date}${left.booking_time}`))[0];
+  const lastVisitDate = lastVisit?.booking_date || client.imported?.last_visit_on || '';
+  const lastVisitText = lastVisitDate ? new Date(`${lastVisitDate}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short', year:'numeric' }) : 'Нет';
+  const upcomingText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
+  const favorites = clientFavoriteServiceFacts(completedVisits).map(service => service.name);
+  return `<section class="booking-client-overview" aria-label="Сведения о клиенте">
+    <div class="booking-client-overview-stats"><article><small>Ближайшая запись</small><strong>${escapeHtml(upcomingText)}</strong><span>${escapeHtml(upcoming ? serviceName(upcoming.services?.name || 'Услуга') : 'Будущих записей нет')}</span></article><article><small>Визитов</small><strong>${visits}</strong></article><article><small>Получено</small><strong>${money(spent)}</strong></article><article><small>Последний визит</small><strong>${escapeHtml(lastVisitText)}</strong></article></div>
+    ${favorites.length ? `<div class="booking-client-overview-favorites"><small>Любимые услуги</small><span>${favorites.map(name => `<b>${escapeHtml(name)}</b>`).join('')}</span></div>` : ''}
+  </section>`;
+}
+
 function focusCreatedBooking(id) {
   recentlyCreatedBookingId = String(id || '');
   if (!recentlyCreatedBookingId) return;
@@ -5972,6 +6007,8 @@ function openBookingSheet(id) {
       <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
       <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span></div>
       <div class="booking-sheet-summary"><div class="booking-sheet-client"><small class="booking-sheet-client-label">Клиент</small><div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name || 'Клиент')}</strong></div><a href="tel:${phone}">${escapeHtml(item.client_phone || '')}</a></div><div class="booking-sheet-price"><small>Стоимость по журналу</small><strong>${money(bookingSessionTotal(item))}</strong></div></div>
+      ${bookingClientOverviewMarkup(item)}
+      <div class="booking-sheet-actions">${bookingClientProfileActionMarkup(item)}</div>
       <div class="booking-sheet-block imported-history-readonly"><span>${uiIcon('download')}</span><div><small>Источник: ${escapeHtml(sourceName)}</small><strong>Архивная запись доступна только для просмотра.</strong>${item.source_note ? `<p>${escapeHtml(item.source_note)}</p>` : ''}</div></div>`;
     $('#bookingSheet').hidden = false;
     document.body.classList.add('booking-sheet-open');
@@ -6001,7 +6038,8 @@ function openBookingSheet(id) {
     <h2 id="bookingSheetTitle">${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</h2>
     <div class="booking-sheet-meta"><strong>${String(item.booking_time).slice(0, 5)}</strong><span>${duration} минут</span><span class="booking-status status-${statusClass}">${statusText}</span>${bookingSeriesMarkup(item)}</div>
     <div class="booking-sheet-summary"><div class="booking-sheet-client"><small class="booking-sheet-client-label">Клиент</small>${clientAvatarEditorMarkup(item.client_phone, item.client_name, item.id)}<div class="booking-sheet-client-name"><strong>${escapeHtml(item.client_name)}</strong>${clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true })}</div><a href="tel:${phone}">${escapeHtml(item.client_phone)}</a></div><div class="booking-sheet-price"><small>${isPerMinuteBooking(item) ? 'Тариф' : 'Стоимость'}</small><strong>${isPerMinuteBooking(item) ? `${money(minuteRate)}/мин` : money(bookingSessionTotal(item))}</strong></div></div>
-    <div class="booking-sheet-actions booking-repeat-actions"><button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
+    ${bookingClientOverviewMarkup(item)}
+    <div class="booking-sheet-actions booking-repeat-actions">${bookingClientProfileActionMarkup(item)}<button class="secondary-button booking-repeat-action" type="button" data-repeat-booking="${item.id}">${uiIcon('refresh')} Повторить запись</button></div>
     <div class="booking-sheet-secondary">
     ${bookingSessionMarkup(item)}
     ${bookingClientLabelsMarkup(item.client_phone, item.id)}
@@ -7989,9 +8027,10 @@ function buildClients() {
   });
 }
 
-function clientUpcoming(client) {
-  const now = new Date();
-  return client.bookings.find(item => item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`) >= now) || null;
+function clientUpcoming(client, now = new Date()) {
+  return client.bookings
+    .filter(item => item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0, 8)}`) >= now)
+    .sort((left, right) => `${left.booking_date}T${left.booking_time}`.localeCompare(`${right.booking_date}T${right.booking_time}`))[0] || null;
 }
 
 let clientDirectoryController = null;
@@ -8083,7 +8122,7 @@ function favoriteServiceNameKey(value) {
     .trim();
 }
 
-function renderClientFavoriteServices(bookings) {
+function clientFavoriteServiceFacts(bookings) {
   const activeServices = ownServices.filter(item => item.active);
   const servicesById = new Map(activeServices.map(item => [String(item.id), item]));
   const servicesByName = new Map();
@@ -8115,6 +8154,11 @@ function renderClientFavoriteServices(bookings) {
   const favorites = [...totals.values()]
     .sort((left, right) => right.count - left.count || right.lastVisit.localeCompare(left.lastVisit) || left.name.localeCompare(right.name, 'ru'))
     .slice(0, 2);
+  return favorites;
+}
+
+function renderClientFavoriteServices(bookings) {
+  const favorites = clientFavoriteServiceFacts(bookings);
   const section = $('#clientFavoriteServices');
   $('#clientFavoriteServicesList').innerHTML = favorites.map(item => item.importedOnly
     ? `<span class="client-favorite-service is-imported" data-imported-favorite-service title="Услуга из импортированной истории ещё не связана с текущим каталогом"><span>${escapeHtml(item.name)}</span><small>из импорта</small></span>`
@@ -8122,9 +8166,58 @@ function renderClientFavoriteServices(bookings) {
   section.hidden = !favorites.length;
 }
 
-function renderClientDetail(phone) {
+function resetClientProfileReturnContext() {
+  clientProfileReturnContext = null;
+  const back = $('#clientProfileBack');
+  back?.classList.remove('is-booking-return');
+  const label = back?.querySelector('span');
+  if (label) label.textContent = 'Назад к клиентам';
+}
+
+function openClientProfileFromBooking(bookingId, requestedPhone = '') {
+  const item = bookingSourceItems().find(booking => String(booking.id) === String(bookingId));
+  const phone = normalizePhone(requestedPhone || item?.client_phone);
+  if (!item || isScheduleBlock(item) || !phone || !buildClients().some(client => client.phone === phone)) {
+    notify('Карточка клиента недоступна');
+    return;
+  }
+  closeBookingSheet();
+  const showClient = () => {
+    clientProfileReturnContext = { bookingId:String(item.id), bookingDate:String(item.booking_date || '') };
+    const back = $('#clientProfileBack');
+    back?.classList.add('is-booking-return');
+    const label = back?.querySelector('span');
+    if (label) label.textContent = 'Назад к записи';
+    $('#clientsLayout')?.classList.add('is-detail');
+    renderClientDetail(phone, { preserveReturn:true });
+  };
+  const transition = setProviderView('clients');
+  if (transition?.updateCallbackDone?.then) transition.updateCallbackDone.then(showClient).catch(showClient);
+  else showClient();
+}
+
+function returnFromClientProfile() {
+  const context = clientProfileReturnContext;
+  resetClientProfileReturnContext();
+  if (!context) {
+    $('#clientsLayout')?.classList.remove('is-detail');
+    $$('.client-list-item[data-client-phone]').find(button => button.dataset.clientPhone === selectedClientPhone)?.focus();
+    return;
+  }
+  $('#clientsLayout')?.classList.remove('is-detail');
+  const showBooking = () => {
+    if (context.bookingDate) selectScheduleDate(context.bookingDate);
+    openBookingSheet(context.bookingId);
+  };
+  const transition = setProviderView('bookings');
+  if (transition?.updateCallbackDone?.then) transition.updateCallbackDone.then(showBooking).catch(showBooking);
+  else showBooking();
+}
+
+function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const client = buildClients().find(item => item.phone === phone);
   if (!client) return;
+  if (!preserveReturn) resetClientProfileReturnContext();
   const clientChanged = selectedClientPhone !== phone;
   selectedClientPhone = phone;
   renderClients();
@@ -8163,13 +8256,7 @@ function renderClientDetail(phone) {
     $('#clientHistoryDisclosure').open = false;
   }
   clearFormError('#clientLabelsError');
-  const now = new Date();
-  const completedVisits = client.bookings.filter(item => {
-    const outcome = bookingOutcome(item);
-    if (outcome.visit_status === 'completed') return true;
-    if (outcome.visit_status === 'no_show') return false;
-    return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
-  });
+  const completedVisits = clientCompletedVisits(client);
   const visits = completedVisits.length;
   renderClientFavoriteServices(completedVisits);
   const upcoming = clientUpcoming(client);
@@ -9157,6 +9244,7 @@ async function logout() {
   if (offlineBookingQueue.length && !confirm(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей. При выходе они будут удалены. Всё равно выйти?`)) return;
   ++sessionGeneration;
   clientRecordsController.reset();
+  resetClientProfileReturnContext();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   bookingsSnapshotSavedAt = '';
   bookingsSnapshotFromCache = false;
@@ -9190,6 +9278,7 @@ async function handleSession(session) {
   renderProviderVerification();
   const generation = ++sessionGeneration;
   clientRecordsController.reset();
+  resetClientProfileReturnContext();
   resetReportSessionState();
   window.dispatchEvent(new CustomEvent('minuta:provider-session-reset'));
   window.MinutaProviderOnboarding?.reset();
@@ -10802,6 +10891,7 @@ document.addEventListener('click', async event => {
   const dateShift = event.target.closest('[data-date-shift]');
   const dateToday = event.target.closest('[data-date-today]');
   const openBooking = event.target.closest('[data-open-booking]');
+  const openClientProfile = event.target.closest('[data-open-client-profile]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
   const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
   const favoriteServiceButton = event.target.closest('[data-client-favorite-service]');
@@ -10984,6 +11074,7 @@ document.addEventListener('click', async event => {
   if (dateToday) restoreDefaultScheduleView();
   if (date) selectScheduleDate(date.dataset.bookingDate);
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
+  if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
   if (quickRepeatClient) openQuickRepeatForClient(quickRepeatClient.dataset.quickRepeatClient);
   if (favoriteServiceButton) openFavoriteServiceBooking(favoriteServiceButton.dataset.clientFavoriteService);
@@ -11034,10 +11125,7 @@ document.addEventListener('click', async event => {
     $('#clientsLayout')?.classList.add('is-detail');
     renderClientDetail(client.dataset.clientPhone);
   }
-  if (clientProfileBack) {
-    $('#clientsLayout')?.classList.remove('is-detail');
-    $$('[data-client-phone]').find(button => button.dataset.clientPhone === selectedClientPhone)?.focus();
-  }
+  if (clientProfileBack) returnFromClientProfile();
   if (slotIntervalButton) {
     const slotInterval = $('#slotInterval');
     slotInterval.value = slotIntervalButton.dataset.slotInterval;
@@ -11479,6 +11567,7 @@ const organizationController = window.MinutaOrganization.createController({
       importedClients = [];
       importedBookingHistory = [];
       selectedClientPhone = '';
+      resetClientProfileReturnContext();
       const clientSearch = $('#clientSearch');
       if (clientSearch) clientSearch.value = '';
       const clientProfileEmpty = $('#clientProfileEmpty');

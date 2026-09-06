@@ -41,6 +41,17 @@
 #clientRecords .cr-status { font-size:14px; margin-bottom:12px; overflow-wrap:anywhere; }
 #clientRecords .cr-composer { margin-bottom:20px; }
 #clientRecords .cr-composer>summary { min-height:44px; color:var(--theme-accent,var(--green)); padding:8px 0; }
+.booking-client-overview { margin-top:16px; padding:14px; border:1px solid var(--theme-line,var(--line)); border-radius:14px; background:var(--theme-surface-alt,var(--soft)); }
+.booking-client-overview-stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.booking-client-overview article { min-width:0; }
+.booking-client-overview small { display:block; color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.booking-client-overview strong { display:block; margin-top:4px; color:var(--theme-ink,var(--ink)); font-size:13px; line-height:1.3; overflow-wrap:anywhere; }
+.booking-client-overview article span { display:block; margin-top:3px; color:var(--theme-muted,var(--muted)); font-size:10px; line-height:1.35; overflow-wrap:anywhere; }
+.booking-client-overview-favorites { margin-top:12px; padding-top:12px; border-top:1px solid var(--theme-line,var(--line)); }
+.booking-client-overview-favorites>span { display:flex; flex-wrap:wrap; gap:6px; margin-top:7px; }
+.booking-client-overview-favorites b { padding:6px 9px; border-radius:999px; background:var(--theme-surface,var(--white)); color:var(--theme-ink,var(--ink)); font-size:10px; font-weight:600; }
+#clientProfileBack.is-booking-return { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin:0 0 12px; padding:0 10px; border:1px solid var(--theme-line,var(--line)); border-radius:10px; background:var(--theme-surface-alt,var(--soft)); color:var(--theme-accent,var(--green)); font:600 13px/1.2 inherit; }
+#clientProfileBack.is-booking-return .ui-icon { width:16px; height:16px; }
 .provider-body .client-preferences-disclosure>.client-labels-panel { margin-top:8px; }
 .provider-body .client-profile .client-summary { display:flex; flex-wrap:wrap; gap:12px; }
 .provider-body .client-profile .client-summary>article { flex:1 1 140px; min-width:0; }
@@ -51,4 +62,5 @@
   #clientRecords summary::after { position:absolute; right:0; top:16px; }
   #clientRecords form { padding:12px; }
   #clientRecords .cr-button { width:100%; }
+  .booking-client-overview-stats { grid-template-columns:1fr; }
 }
