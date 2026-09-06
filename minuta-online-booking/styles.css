@@ -4214,8 +4214,8 @@ html.provider-booting .provider-main {
 }
 
 /* Перетаскивание записей и перелистывание дня. */
-#providerBookings,#dateStrip { touch-action:pan-y; }
-#providerBookings.is-day-swiping,#dateStrip.is-day-swiping { position:relative; z-index:3; transform:translate3d(var(--day-swipe-x,0),0,0); cursor:grabbing; user-select:none; transition:none!important; will-change:transform; }
+#providerBookings { touch-action:pan-y; }
+#providerBookings.is-day-swiping { position:relative; z-index:3; transform:translate3d(var(--day-swipe-x,0),0,0); cursor:grabbing; user-select:none; transition:none!important; will-change:transform; }
 .timeline-booking[data-open-booking] { cursor:grab; touch-action:pan-y; -webkit-user-drag:none; }
 .timeline-booking[data-open-booking].is-drag-pressed { cursor:grabbing; }
 .timeline-booking[data-open-booking].is-dragging { z-index:30!important; cursor:grabbing; pointer-events:none; opacity:.9; transform:scale(1.012)!important; box-shadow:0 14px 34px rgba(25,65,45,.22)!important; transition:none!important; will-change:top; }

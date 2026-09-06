@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'massage-izhevsk-';
-const CACHE = `${CACHE_PREFIX}v532`;
+const CACHE = `${CACHE_PREFIX}v533`;
 const ASSETS = [
   './microphone-diagnostic.js?v=532',
   './report-reconciliation.js?v=532',
@@ -113,7 +113,7 @@ const ASSETS = [
   './provider-icon-512.png',
   './provider-icon-maskable-512.png',
   './provider-luxury-marble-v4.webp',
-  './styles.css?v=532',
+  './styles.css?v=533',
   './code-scanner.css?v=532',
   './utm-funnel.css?v=532',
   './onboarding.css?v=532',
@@ -155,11 +155,11 @@ const ASSETS = [
   './pwa-install.js?v=532',
   './client-messaging.js?v=532',
   './provider-read-fetch.js?v=532',
-  './provider.js?v=532',
+  './provider.js?v=533',
   './client-directory.js?v=532',
   './client-directory.css?v=532',
   './provider-ui-refinements.css?v=532',
-  './provider-schedule-minimal.css?v=532',
+  './provider-schedule-minimal.css?v=533',
   './data-governance.js?v=532',
   './onboarding.js?v=532',
   './report-worker.js?v=532',

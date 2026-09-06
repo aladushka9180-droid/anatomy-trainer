@@ -48,6 +48,12 @@
 
 .provider-body .date-strip-frame:has(>.date-strip[hidden]) { display:none; }
 
+.provider-body .date-strip button.is-today:not(.active) {
+  background:color-mix(in srgb,var(--theme-accent) 8%,transparent);
+  color:var(--theme-accent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent) 42%,transparent);
+}
+
 /* In the daily journal, the schedule is one surface with quiet separators. */
 .provider-body[data-provider-layout]:not([data-provider-layout="split"])
   .schedule-card:has(#dateStrip:not([hidden])) {
@@ -105,10 +111,24 @@
 
 @media (max-width:760px) {
   .provider-body .date-strip-frame>.date-strip {
+    display:flex!important;
+    gap:6px;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
     padding-right:50px!important;
     padding-left:50px!important;
-    scroll-behavior:smooth;
+    scroll-behavior:auto;
+    scroll-padding-inline:50px;
+    scrollbar-width:none;
+    touch-action:pan-x pan-y!important;
     overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .provider-body .date-strip-frame>.date-strip::-webkit-scrollbar {
+    display:none;
+  }
+  .provider-body .date-strip-frame>.date-strip>button {
+    flex:0 0 62px!important;
   }
   .provider-body .date-strip-shift {
     width:34px;

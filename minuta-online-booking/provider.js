@@ -5255,29 +5255,45 @@ function refreshBusinessDay() {
 }
 
 function renderDateStrip() {
+  const dateStrip = $('#dateStrip');
+  if (!dateStrip) return;
   const todayIso = businessTodayIso();
   const today = parseLocalIsoDate(todayIso);
   const selected = parseLocalIsoDate(selectedDate) || today;
   const weekStart = weekStartFor(selected);
-  const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
-  $('#dateStrip').innerHTML = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + index);
-    const iso = localIsoDate(date);
-    const label = iso === todayIso ? 'Сегодня' : weekday.format(date).replace('.', '');
-    const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    return `<button type="button" class="${iso === selectedDate ? 'active' : ''}" data-booking-date="${iso}" aria-label="${fullDate}" aria-pressed="${iso === selectedDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
-  }).join('');
+  const weekKey = localIsoDate(weekStart);
+  const rebuildStrip = dateStrip.dataset.weekStart !== weekKey || dateStrip.dataset.today !== todayIso || dateStrip.children.length !== 7;
+  const selectionChanged = dateStrip.dataset.selectedDate !== selectedDate;
+  if (rebuildStrip) {
+    const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
+    dateStrip.innerHTML = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      const iso = localIsoDate(date);
+      const label = iso === todayIso ? 'Сегодня' : weekday.format(date).replace('.', '');
+      const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      return `<button type="button" data-booking-date="${iso}" aria-label="${fullDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
+    }).join('');
+    dateStrip.dataset.weekStart = weekKey;
+    dateStrip.dataset.today = todayIso;
+  }
+  dateStrip.querySelectorAll('[data-booking-date]').forEach(button => {
+    const active = button.dataset.bookingDate === selectedDate;
+    const isToday = button.dataset.bookingDate === todayIso;
+    button.classList.toggle('active', active);
+    button.classList.toggle('is-today', isToday);
+    button.setAttribute('aria-pressed', String(active));
+    if (isToday) button.setAttribute('aria-current', 'date');
+    else button.removeAttribute('aria-current');
+  });
+  dateStrip.dataset.selectedDate = selectedDate;
   const picker = $('#scheduleDatePicker');
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
   if (todayButton) todayButton.hidden = false;
-  const dateStrip = $('#dateStrip');
   const active = $('#dateStrip [data-booking-date].active');
-  if (window.matchMedia('(max-width: 760px)').matches) {
-    dateStrip.scrollLeft = 0;
-  } else if (dateStrip.scrollWidth > dateStrip.clientWidth) {
-    active?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  if ((rebuildStrip || selectionChanged) && dateStrip.scrollWidth > dateStrip.clientWidth) {
+    requestAnimationFrame(() => active?.scrollIntoView({ behavior:'auto', block:'nearest', inline:'center' }));
   }
   updateCalendarViewControls();
 }
@@ -10972,7 +10988,7 @@ document.addEventListener('pointerdown', event => {
     beginTimelineBookingDrag(event, bookingCard);
     return;
   }
-  const swipeSurface = event.target.closest('#providerBookings,#dateStrip');
+  const swipeSurface = event.target.closest('#providerBookings');
   if (swipeSurface) beginScheduleDaySwipe(event, swipeSurface);
 });
 
