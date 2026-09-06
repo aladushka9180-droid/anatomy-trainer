@@ -4,6 +4,7 @@
   --client-ink:#183427; --client-muted:#62766c; --client-line:#dce7df;
   --client-accent:#347258; --client-accent-soft:#e7f3eb; --client-contrast:#fff;
   --client-shadow:rgba(33,74,54,.1); --client-pattern:none;
+  --client-readable-muted:color-mix(in srgb,var(--client-muted) 82%,var(--client-ink));
   --ink:var(--client-ink); --muted:var(--client-muted); --green:var(--client-accent);
   --line:var(--client-line); --soft:var(--client-surface-alt); --white:var(--client-surface);
   min-height:100vh; color:var(--client-ink); background-color:var(--client-bg); background-image:var(--client-pattern); background-attachment:fixed;
@@ -21,6 +22,78 @@
 .booking-client-page[data-client-theme] :is(.back,.section-icon,.progress-labels span.active,.input-hint.valid) { color:var(--client-accent); }
 .booking-client-page[data-client-theme] input.input-valid { border-color:color-mix(in srgb,var(--client-accent) 62%,var(--client-line)); background:var(--client-surface); }
 .booking-client-page[data-client-theme] .booking-footer a { color:var(--client-muted); }
+
+/* Keep every booking state inside the selected client palette. */
+.booking-client-page[data-client-theme] .duration-note {
+  background:var(--client-surface-alt);
+  color:var(--client-muted);
+}
+.booking-client-page[data-client-theme] .duration-note strong { color:var(--client-accent); }
+.booking-client-page[data-client-theme] .time-periods button {
+  border-color:var(--client-line);
+  background:var(--client-surface);
+  color:var(--client-muted);
+}
+.booking-client-page[data-client-theme] .time-periods button small,
+.booking-client-page[data-client-theme] .time-hour small { color:var(--client-muted); }
+.booking-client-page[data-client-theme] .time-periods button.active {
+  border-color:var(--client-accent);
+  background:var(--client-accent-soft);
+  color:var(--client-accent);
+}
+.booking-client-page[data-client-theme] .time-hour.selected :is(strong,small) { color:var(--client-accent); }
+.booking-client-page[data-client-theme] .time-hour.unavailable {
+  border-color:var(--client-line);
+  background:color-mix(in srgb,var(--client-surface-alt) 88%,var(--client-bg));
+  color:var(--client-muted);
+}
+.booking-client-page[data-client-theme] .availability-suggestion {
+  border-color:var(--client-line);
+  background:color-mix(in srgb,var(--client-surface) 78%,var(--client-accent-soft));
+  color:var(--client-ink);
+}
+.booking-client-page[data-client-theme] .availability-suggestion-icon {
+  background:var(--client-accent-soft);
+  color:var(--client-accent);
+}
+.booking-client-page[data-client-theme] .availability-suggestion strong,
+.booking-client-page[data-client-theme] .waitlist-cta strong { color:var(--client-ink); }
+.booking-client-page[data-client-theme] .availability-suggestion span,
+.booking-client-page[data-client-theme] .waitlist-cta span { color:var(--client-readable-muted); }
+.booking-client-page[data-client-theme] .availability-suggestion button {
+  background:var(--client-accent);
+  color:var(--client-contrast);
+}
+.booking-client-page[data-client-theme] .waitlist-cta {
+  border-color:var(--client-line);
+  background:var(--client-surface-alt);
+  color:var(--client-ink);
+}
+.booking-client-page[data-client-theme] .waitlist-cta .secondary-button {
+  border-color:color-mix(in srgb,var(--client-accent) 42%,var(--client-line));
+  background:var(--client-surface);
+  color:var(--client-accent);
+}
+.booking-client-page[data-client-theme] .booking-faq-heading :is(h2,p),
+.booking-client-page[data-client-theme] .booking-faq summary { color:var(--client-ink); }
+.booking-client-page[data-client-theme] .booking-faq-heading p { color:var(--client-muted); }
+.booking-client-page[data-client-theme] .booking-faq details p { color:var(--client-readable-muted); }
+.booking-client-page[data-client-theme] .booking-faq-heading small span {
+  background:linear-gradient(90deg,var(--client-accent),var(--client-muted));
+}
+.booking-client-page[data-client-theme] .booking-faq details[open] {
+  border-color:color-mix(in srgb,var(--client-accent) 38%,var(--client-line));
+  background:var(--client-surface);
+}
+.booking-client-page[data-client-theme] .booking-faq summary:focus-visible {
+  outline-color:color-mix(in srgb,var(--client-accent) 30%,transparent);
+}
+.booking-client-page[data-client-theme] .booking-faq summary i { background:var(--client-accent-soft); }
+.booking-client-page[data-client-theme] .booking-faq summary i::before,
+.booking-client-page[data-client-theme] .booking-faq summary i::after { background:var(--client-accent); }
+.booking-client-page[data-client-theme] .booking-faq details[open] summary i { background:var(--client-accent); }
+.booking-client-page[data-client-theme] .booking-faq details[open] summary i::before,
+.booking-client-page[data-client-theme] .booking-faq details[open] summary i::after { background:var(--client-contrast); }
 
 .client-header-actions { display:flex; align-items:center; gap:8px; }
 .client-theme-button { display:inline-flex; min-height:42px; align-items:center; gap:7px; padding:0 13px; border:1px solid var(--client-line); border-radius:999px; background:var(--client-surface); color:var(--client-ink); cursor:pointer; font:800 10px/1 inherit; }
