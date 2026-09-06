@@ -6,6 +6,7 @@ const ASSETS = [
   './provider-apricot-tiger-mobile.svg?v=490',
   './provider-apricot-tiger.svg?v=490',
   './provider-snow-leopard-natural-v2.webp?v=490',
+  './provider-snow-leopard-continuous-v1.webp?v=490',
   './provider-header.css?v=490',
   './settings-nav-scroll.css?v=490',
   './settings-nav-scroll.js?v=490',

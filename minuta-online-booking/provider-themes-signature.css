@@ -972,14 +972,13 @@
 }
 
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-  --snow-print-veil:rgba(255,255,255,.86);
-  --snow-print-size:480px;
-  background-color:#fff!important;
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),linear-gradient(90deg,#fff,rgba(255,255,255,0) 4% 96%,#fff),linear-gradient(#fff,rgba(255,255,255,0) 4% 96%,#fff),url("provider-snow-leopard-natural-v2.webp?v=490")!important;
-  background-size:auto,var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size),var(--snow-print-size) var(--snow-print-size)!important;
-  background-repeat:repeat!important;
-  background-position:0 0!important;
-  background-attachment:scroll!important;
+  --snow-print-veil:rgba(255,255,255,.80);
+  background-color:#f7f8f9!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-continuous-v1.webp?v=490")!important;
+  background-size:auto,cover!important;
+  background-repeat:no-repeat!important;
+  background-position:center!important;
+  background-attachment:fixed!important;
 }
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-main,.provider-app,.provider-workspace) {
   background:transparent!important;
@@ -999,8 +998,7 @@
 }
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
-    --snow-print-veil:rgba(255,255,255,.80);
-    --snow-print-size:260px;
+    --snow-print-veil:rgba(255,255,255,.84);
   }
   /* Reveal the canvas between sections; keep each reading surface opaque. */
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] :is(.provider-view,.schedule-card) {

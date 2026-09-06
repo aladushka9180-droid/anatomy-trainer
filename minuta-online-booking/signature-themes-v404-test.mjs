@@ -93,16 +93,18 @@ assert.match(tigerCanvas, /\.timeline-stage\s*\{\s*overflow:clip;/, 'Timeline gr
 assert.match(tigerCanvas, /\.timeline-stage:focus-visible\s*\{\s*outline-offset:-3px;/, 'Clipped timeline keeps its keyboard focus visible');
 
 const mobileSnow = css.slice(css.lastIndexOf('@media (max-width:760px)'));
-assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.80\)/);
+assert.match(mobileSnow, /--snow-print-veil:rgba\(255,255,255,\.84\)/);
 assert.match(mobileSnow, /data-provider-theme="snow-leopard"[^}]*:is\(\.provider-view,\.schedule-card\)\s*\{\s*background:transparent!important/);
 assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--theme-surface\)!important/);
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /--snow-print-size:480px/);
-assert.match(snowCanvas, /background-size:auto,var\(--snow-print-size\) var\(--snow-print-size\),var\(--snow-print-size\) var\(--snow-print-size\),var\(--snow-print-size\) var\(--snow-print-size\)!important/);
-assert.match(snowCanvas, /background-repeat:repeat!important/);
-assert.match(snowCanvas, /linear-gradient\(90deg,#fff,rgba\(255,255,255,0\) 4% 96%,#fff\)/, 'Snow Leopard restores the original soft-edged repeating print');
+assert.match(snowCanvas, /provider-snow-leopard-continuous-v1\.webp\?v=490/);
+assert.match(snowCanvas, /background-size:auto,cover!important/);
+assert.match(snowCanvas, /background-repeat:no-repeat!important/);
+assert.match(snowCanvas, /background-position:center!important/);
+assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard keeps one continuous viewport background');
+assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must not restore visible tiles or edge-masking rectangles');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
