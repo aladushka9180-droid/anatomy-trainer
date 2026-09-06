@@ -99,12 +99,12 @@ assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--the
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /provider-snow-leopard-continuous-4k-v3\.webp\?v=501/);
+assert.match(snowCanvas, /provider-snow-leopard-crisp-seamless-4k-v4\.webp\?v=501/);
 assert.match(snowCanvas, /--snow-print-veil:rgba\(255,255,255,\.86\)/);
 assert.match(snowCanvas, /background-size:auto,cover!important/);
 assert.match(snowCanvas, /background-repeat:no-repeat!important/);
 assert.match(snowCanvas, /background-position:center!important/);
-assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard keeps one continuous reconstructed print on the viewport canvas');
+assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard keeps the crisp source print on one seamless viewport canvas');
 assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must not restore visible tiles or edge-masking rectangles');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');

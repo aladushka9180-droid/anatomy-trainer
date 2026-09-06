@@ -974,7 +974,7 @@
 .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
   --snow-print-veil:rgba(255,255,255,.86);
   background-color:#fff!important;
-  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-continuous-4k-v3.webp?v=501")!important;
+  background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-crisp-seamless-4k-v4.webp?v=501")!important;
   background-size:auto,cover!important;
   background-repeat:no-repeat!important;
   background-position:center!important;
