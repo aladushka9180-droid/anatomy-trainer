@@ -46,6 +46,13 @@
     return parseDate(value)?.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'long' }).replace('.', '') || value;
   }
 
+  function formatCompactDate(value) {
+    const date = parseDate(value);
+    if (!date) return value;
+    const weekday = date.toLocaleDateString('ru-RU', { weekday:'short' }).replace('.', '');
+    return `${date.getDate()} ${weekday}`;
+  }
+
   function slotTime(value) {
     const match = /^(\d{2}):(\d{2})/.exec(String(value || ''));
     return match ? `${match[1]}:${match[2]}` : '';
@@ -142,6 +149,8 @@
   function buildGeneralPublication(from, to, data, windows) {
     const dates = dateSpan(from, to);
     const hourly = data.timeFormat === 'hourly';
+    const compact = data.textLayout === 'compact';
+    const rowBreak = data.blankLine ? '\n\n' : '\n';
     const rows = dates.map(date => {
       const dayWindows = windows.filter(row => row.booking_date === date);
       const times = [...new Set(dayWindows.flatMap(item => {
@@ -153,11 +162,16 @@
       }))].sort();
       return { date, windows:dayWindows, times };
     }).filter(row => hourly ? row.times.length : row.windows.length);
-    const heading = dates.length === 1 ? `Свободные окна на ${formatDate(from)}:` : 'Свободные окна для записи:';
+    const heading = compact || dates.length !== 1 ? 'Свободные окна для записи:' : `Свободные окна на ${formatDate(from)}:`;
     const target = data.locationLabel || '';
-    const body = rows.length ? rows.map(row => `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${hourly ? row.times.join(', ') : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join('\n')}`).join('\n\n')
+    const body = rows.length ? rows.map(row => {
+      const availability = hourly ? row.times.join(', ') : row.windows.map(item => `${item.start_time}–${item.end_time} · ${durationLabel(item.duration_minutes)}`).join(compact ? '; ' : '\n');
+      if (compact) return `${formatCompactDate(row.date)}, ${availability}`;
+      return `${dates.length > 1 ? `${formatDate(row.date)}:\n` : ''}${availability}`;
+    }).join(rowBreak)
       : hourly ? 'На выбранный период целых свободных часов нет. Более короткие окна смотрите по ссылке.' : 'На выбранный период свободных окон пока нет.';
-    return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${rows.length ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
+    const intro = [data.showHeading === false ? '' : heading, target].filter(Boolean).join('\n');
+    return `${intro ? `${intro}\n` : ''}${body}\n\n${rows.length ? 'Выберите услугу и запишитесь по ссылке. Доступность проверим при выборе услуги.' : 'Посмотрите другие даты онлайн:'}\n${data.bookingUrl}`;
   }
 
   // Select real server-confirmed starts, never manufacture hours from working hours.
@@ -175,6 +189,8 @@
 
   function buildPublication(from, to, data, slots) {
     const dates = dateSpan(from, to);
+    const compact = data.textLayout === 'compact';
+    const rowBreak = data.blankLine ? '\n\n' : '\n';
     const grouped = new Map(dates.map(date => [date, []]));
     for (const slot of slots || []) {
       const date = String(slot?.booking_date || '');
@@ -183,15 +199,17 @@
     }
     const rows = dates.map(date => ({ date, times:grouped.get(date).sort() })).filter(row => row.times.length);
     const target = [data.serviceLabel, data.locationLabel].filter(Boolean).join(' · ');
-    const heading = dates.length === 1 ? `Свободное время на ${formatDate(dates[0])}:` : 'Свободное время для записи:';
+    const heading = compact || dates.length !== 1 ? 'Свободное время для записи:' : `Свободное время на ${formatDate(dates[0])}:`;
     const body = rows.length
       ? rows.map(row => {
           const times = row.times;
+          if (compact) return `${formatCompactDate(row.date)}, ${times.join(', ')}`;
           return `${dates.length === 1 ? 'Начало сеанса: ' : `${formatDate(row.date)} — `}${times.join(', ')}`;
-        }).join('\n')
+        }).join(rowBreak)
       : 'На выбранный период свободных окон пока нет.';
     const invitation = rows.length ? 'Выбрать время и записаться:' : 'Посмотрите другие даты онлайн:';
-    return `${heading}${target ? `\n${target}` : ''}\n${body}\n\n${invitation}\n${data.bookingUrl}`;
+    const intro = [data.showHeading === false ? '' : heading, target].filter(Boolean).join('\n');
+    return `${intro ? `${intro}\n` : ''}${body}\n\n${invitation}\n${data.bookingUrl}`;
   }
 
   function trackedBookingUrl(value, sourceKey) {
@@ -398,8 +416,12 @@
     const modeControls = [...dialog.querySelectorAll('[name="freeSlotsPeriod"]')];
     const bookingModeControls = [...dialog.querySelectorAll('[name="freeSlotsBookingMode"]')];
     const formatControls = [...dialog.querySelectorAll('[name="freeSlotsTimeFormat"]')];
+    const textLayoutControls = [...dialog.querySelectorAll('[name="freeSlotsTextLayout"]')];
     const formatSettings = dialog.querySelector('#freeSlotsFormatSettings');
     const formatHint = dialog.querySelector('#freeSlotsFormatHint');
+    const textSettingsHint = dialog.querySelector('#freeSlotsTextSettingsHint');
+    const blankLineControl = dialog.querySelector('#freeSlotsBlankLine');
+    const showHeadingControl = dialog.querySelector('#freeSlotsShowHeading');
     const serviceSelect = dialog.querySelector('#freeSlotsService');
     const locationField = dialog.querySelector('#freeSlotsLocationField');
     const locationSelect = dialog.querySelector('#freeSlotsLocation');
@@ -422,11 +444,17 @@
     const selectionSummary = dialog.querySelector('#freeSlotsSelectionSummary');
     const clearSelectionButton = dialog.querySelector('#freeSlotsClearSelection');
     const autoSelectionButton = dialog.querySelector('#freeSlotsAutoSelection');
+    const resetTextButton = dialog.querySelector('#resetFreeSlotsText');
+    const manualNotice = dialog.querySelector('#freeSlotsManualNotice');
+    const updateTextButton = dialog.querySelector('#updateFreeSlotsText');
+    const keepTextButton = dialog.querySelector('#keepFreeSlotsText');
     let serverContext = null;
     let serverSlots = [];
     let requestRevision = 0;
     let publicationReady = false;
     let publicationText = '';
+    let generatedText = '';
+    let manualTextDirty = false;
     let selectionContext = '';
     let selectedTimes = new Set();
     let manualSelection = false;
@@ -436,6 +464,7 @@
     let publicationScope = '';
     let activePublicationCheck = null;
     const formatPreferences = new Map();
+    const textPreferences = new Map();
 
     function scopeKey() {
       const data = getData();
@@ -451,6 +480,11 @@
       selectionContext = '';
       selectedTimes.clear();
       manualSelection = false;
+      generatedText = '';
+      publicationText = '';
+      manualTextDirty = false;
+      manualNotice.hidden = true;
+      resetTextButton.hidden = true;
       serviceSelect.replaceChildren();
       locationSelect.replaceChildren();
       showUnavailable('Контекст изменился. Откройте публикацию заново, чтобы проверить свободное время.');
@@ -472,6 +506,55 @@
     function configureFormat() {
       if (!formatSettings) return;
       formatSettings.hidden = !generalMode();
+    }
+
+    function textLayout() { return textLayoutControls.find(control => control.checked)?.value === 'compact' ? 'compact' : 'detailed'; }
+    function textPreferenceKey() { return `minuta:free-slots-text-settings:${getData().userId || 'local'}`; }
+    function currentTextSettings() {
+      return { textLayout:textLayout(), blankLine:Boolean(blankLineControl.checked), showHeading:Boolean(showHeadingControl.checked) };
+    }
+    function restoreTextSettings() {
+      const key = textPreferenceKey();
+      let saved = textPreferences.get(key);
+      try { if (!saved) saved = JSON.parse(window.localStorage.getItem(key) || 'null'); } catch {}
+      const settings = saved && typeof saved === 'object' ? saved : {};
+      const layout = settings.textLayout === 'compact' ? 'compact' : 'detailed';
+      textLayoutControls.forEach(control => { control.checked = control.value === layout; });
+      blankLineControl.checked = settings.blankLine === true;
+      showHeadingControl.checked = settings.showHeading !== false;
+    }
+    function saveTextSettings() {
+      const key = textPreferenceKey();
+      const settings = currentTextSettings();
+      textPreferences.set(key, settings);
+      try {
+        window.localStorage.setItem(key, JSON.stringify(settings));
+        textSettingsHint.hidden = true;
+        textSettingsHint.textContent = '';
+      } catch {
+        textSettingsHint.hidden = false;
+        textSettingsHint.textContent = 'Браузер не разрешил сохранение. Настройки действуют до перезагрузки страницы.';
+      }
+    }
+    function updateTextEditorState() {
+      resetTextButton.hidden = !manualTextDirty;
+      textArea.dataset.edited = String(manualTextDirty);
+    }
+    function useGeneratedText(message = '') {
+      publicationText = generatedText;
+      textArea.value = generatedText;
+      manualTextDirty = false;
+      manualNotice.hidden = true;
+      confirmedPublication = null;
+      updateTextEditorState();
+      if (message) status.textContent = message;
+    }
+    function applyGeneratedText(nextText) {
+      const changed = Boolean(generatedText) && generatedText !== nextText;
+      generatedText = nextText;
+      if (!manualTextDirty) useGeneratedText();
+      else if (changed) manualNotice.hidden = false;
+      updateTextEditorState();
     }
 
     function generalMode() { return bookingModeControls.find(control => control.checked)?.value === 'general'; }
@@ -615,6 +698,7 @@
         publicationData:{
           ...data,
           timeFormat:timeFormat(),
+          ...currentTextSettings(),
           bookingUrl:trackingUrl,
           selectedOnly:true,
           serviceLabel:service && showServiceControl.checked ? (service.name || 'Услуга') : '',
@@ -630,13 +714,13 @@
       if (!publicationIsCurrent()) return;
       const model = publicationModel();
       const chosenSlots = generalMode() ? serverSlots : serverSlots.filter(slot => selectedTimes.has(timeKey(slot)));
-      publicationText = (generalMode() ? buildGeneralPublication : buildPublication)(model.from, model.to, model.publicationData, chosenSlots);
       const hasSelection = chosenSlots.length > 0;
+      const nextText = !hasSelection && serverSlots.length
+        ? 'Отметьте время, которое хотите включить в публикацию.'
+        : (generalMode() ? buildGeneralPublication : buildPublication)(model.from, model.to, model.publicationData, chosenSlots);
+      applyGeneratedText(nextText);
       selectionSummary.textContent = `${manualSelection ? 'Выбрано вручную' : 'Свободные начала сеанса'} · ${selectedTimes.size}`;
       const trackingUrl = model.trackingUrl;
-      textArea.value = !hasSelection && serverSlots.length
-        ? 'Отметьте время, которое хотите включить в публикацию.'
-        : publicationText.slice(0, -trackingUrl.length) + 'Ссылка на онлайн-запись';
       bookingLink.href = trackingUrl;
       bookingLink.textContent = 'Открыть страницу записи';
       const showQr = sourceControls.some(control => control.checked && control.value === 'qr');
@@ -661,9 +745,8 @@
 
     function showUnavailable(message) {
       publicationReady = false;
-      publicationText = '';
       serverSlots = [];
-      textArea.value = 'Свободное время не опубликовано: сервер не подтвердил доступные слоты.';
+      applyGeneratedText('Свободное время не опубликовано: сервер не подтвердил доступные слоты.');
       bookingLink.removeAttribute('href');
       bookingLink.textContent = '';
       qrCanvas.hidden = true;
@@ -697,7 +780,7 @@
       if (autoSelectionButton) autoSelectionButton.disabled = true;
       timeChoices.querySelectorAll('input').forEach(input => { input.disabled = true; });
       status.textContent = 'Проверяем свободное время на сервере…';
-      textArea.value = 'Проверяем свободное время…';
+      if (!manualTextDirty) textArea.value = 'Проверяем свободное время…';
       dialog.setAttribute('aria-busy', 'true');
       try {
         const { from, to } = currentRange();
@@ -763,15 +846,17 @@
       checkingPublication = true;
       confirmedPublication = null;
       const previousSelection = [...selectedTimes];
-      const previousText = publicationText;
+      const previousGeneratedText = generatedText;
       const expectedRevision = requestRevision + 1;
       try {
         const refreshed = await refreshFromServer({ reloadContext:true });
         if (activePublicationCheck !== check || refreshed !== true || requestRevision !== expectedRevision || !publicationIsCurrent()) return false;
         const removed = previousSelection.filter(key => !selectedTimes.has(key));
-        if (generalMode() ? previousText !== publicationText : removed.length) {
-          status.textContent = 'Часть выбранного времени уже недоступна и убрана из текста. Проверьте публикацию и нажмите кнопку ещё раз.';
-          notify('Свободное время изменилось. Текст обновлён.');
+        if (previousGeneratedText !== generatedText || removed.length) {
+          status.textContent = manualTextDirty
+            ? 'Свободное время изменилось. Обновите текст или подтвердите, что хотите оставить свою редакцию.'
+            : 'Часть выбранного времени уже недоступна и убрана из текста. Проверьте публикацию и нажмите кнопку ещё раз.';
+          notify(manualTextDirty ? 'Свободное время изменилось. Проверьте свою редакцию.' : 'Свободное время изменилось. Текст обновлён.');
           return false;
         }
         if (copyButton.disabled) return false;
@@ -793,6 +878,7 @@
       manualSelection = false;
       const data = getData();
       restoreFormat();
+      restoreTextSettings();
       fromInput.min = data.today;
       fromInput.value = data.selectedDate >= data.today ? data.selectedDate : data.today;
       toInput.value = addDays(fromInput.value, 6);
@@ -831,6 +917,23 @@
       configureFormat();
       renderPublication();
     }));
+    textLayoutControls.forEach(control => control.addEventListener('change', () => { saveTextSettings(); renderPublication(); }));
+    blankLineControl.addEventListener('change', () => { saveTextSettings(); renderPublication(); });
+    showHeadingControl.addEventListener('change', () => { saveTextSettings(); renderPublication(); });
+    textArea.addEventListener('input', () => {
+      publicationText = textArea.value;
+      manualTextDirty = publicationText !== generatedText;
+      confirmedPublication = null;
+      if (!manualTextDirty) manualNotice.hidden = true;
+      updateTextEditorState();
+    });
+    resetTextButton.addEventListener('click', () => useGeneratedText('Исходный текст восстановлен.'));
+    updateTextButton.addEventListener('click', () => useGeneratedText('Текст обновлён по актуальным параметрам.'));
+    keepTextButton.addEventListener('click', () => {
+      manualNotice.hidden = true;
+      confirmedPublication = null;
+      status.textContent = 'Сохранена ваша редакция.';
+    });
     showServiceControl.addEventListener('change', renderPublication);
     timeChoices.addEventListener('change', event => {
       if (!publicationReady || event.target.type !== 'checkbox') return;
