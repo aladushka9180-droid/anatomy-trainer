@@ -211,6 +211,35 @@ as $$ declare result jsonb; begin
   ) select coalesce(jsonb_agg(jsonb_build_object('path',object_path,'token',cleanup_token)),'[]'::jsonb) into result from marked;
   return result;
 end $$;
+-- Explicit manifest claim: never touch leases outside the validated path set.
+create or replace function public.claim_minuta_feedback_cleanup_paths_v116(p_paths text[])
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare result jsonb;
+  uuid_pattern constant text:='[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}';
+begin
+  if p_paths is null or cardinality(p_paths) not between 1 and 50 or array_ndims(p_paths)<>1
+    or exists(select 1 from unnest(p_paths) as item(path) where path is null
+      or path !~ ('^'||uuid_pattern||'/'||uuid_pattern||'/'||uuid_pattern||'\.(webp|mp4|webm|mov)$'))
+    or (select count(distinct path) from unnest(p_paths) as item(path))<>cardinality(p_paths) then
+    raise exception using errcode='22023',message='invalid_cleanup_paths';
+  end if;
+  with candidates as (
+    select actor_id,request_id,attachment_id from public.product_feedback_media_uploads
+    where object_path=any(p_paths) and (
+      (state='reserved' and created_at<=now()-interval '48 hours')
+      or (state='cleanup' and (cleanup_until is null or cleanup_until<now())))
+    order by created_at,object_path for update skip locked
+  ), marked as (
+    update public.product_feedback_media_uploads u set state='cleanup',cleanup_token=gen_random_uuid(),cleanup_until=now()+interval '15 minutes'
+    from candidates c where u.actor_id=c.actor_id and u.request_id=c.request_id and u.attachment_id=c.attachment_id
+    returning u.object_path,u.cleanup_token
+  ) select coalesce(jsonb_agg(jsonb_build_object('path',object_path,'token',cleanup_token)),'[]'::jsonb) into result from marked;
+  return result;
+end $$;
+revoke all on function public.claim_minuta_feedback_cleanup_paths_v116(text[]) from public,anon,authenticated,service_role;
+grant execute on function public.claim_minuta_feedback_cleanup_paths_v116(text[]) to service_role;
+
 create or replace function public.finish_minuta_feedback_cleanup_v116(p_path text,p_token uuid)
 returns boolean language plpgsql security definer set search_path=''
 as $$ begin

@@ -87,6 +87,33 @@ try{
   await auth(actor);await fail(()=>db.query("insert into storage.objects(bucket_id,name,metadata) values('product-feedback-media',$1,$2)",[orphan.path,{size:13,mimetype:'image/webp'}]),'row-level security');
   await as('service_role');assert.equal(await scalar('select public.finish_minuta_feedback_cleanup_v116($1,$2)',[orphan.path,secondLease[0].token]),true);
   pass('cleanup reclaim rotates lease token; stale finish and post-claim upload are denied');
+  const scopedClaim=paths=>scalar('select public.claim_minuta_feedback_cleanup_paths_v116($1::text[])',[paths]);
+  const uploads=()=>db.query('select * from public.product_feedback_media_uploads order by object_path').then(result=>result.rows);
+  await auth(actor);const scoped=await reserve(uuid(1200),uuid(1201)),fresh=await reserve(uuid(1220),uuid(1221));
+  await scalar('select public.release_minuta_feedback_upload_v3($1,$2)',[uuid(1200),scoped.path]);
+  await fail(()=>scopedClaim([scoped.path]),'permission denied');
+  await as('anon');await fail(()=>scopedClaim([scoped.path]),'permission denied');
+  await as('postgres');await db.query('insert into auth.users values($1)',[uuid(4)]);await auth(uuid(4));
+  const foreign=await reserve(uuid(1210),uuid(1211));await scalar('select public.release_minuta_feedback_upload_v3($1,$2)',[uuid(1210),foreign.path]);
+  await as('service_role');const beforeInvalid=await uploads();
+  const manifest50=Array.from({length:50},(_,n)=>`${actor}/${uuid(2000+n)}/${uuid(3000+n)}.webp`);
+  assert.deepEqual(await scopedClaim(manifest50),[]);assert.deepEqual(await uploads(),beforeInvalid);
+  for(const paths of [null,[],[scoped.path,scoped.path],[null],[scoped.path.toUpperCase()],['../'],[scoped.path+'\n'],[...manifest50,scoped.path]]){
+    await assert.rejects(()=>scopedClaim(paths),error=>error.code==='22023'&&error.message==='invalid_cleanup_paths');
+    assert.deepEqual(await uploads(),beforeInvalid);
+  }
+  await assert.rejects(()=>scalar('select public.claim_minuta_feedback_cleanup_paths_v116(ARRAY[[$1,$2]])',[scoped.path,foreign.path]),error=>error.code==='22023');
+  assert.deepEqual(await uploads(),beforeInvalid);pass('scoped claim service-only; invalid/null/empty/duplicate/noncanonical/multidimensional manifests mutate no rows');
+  const scopedFirst=await scopedClaim([scoped.path,allocation.path,fresh.path,orphan.path]);assert.equal(scopedFirst.length,1);assert.equal(scopedFirst[0].path,scoped.path);
+  const outsideBefore=beforeInvalid.filter(row=>row.object_path!==scoped.path);
+  assert.deepEqual((await uploads()).filter(row=>row.object_path!==scoped.path),outsideBefore);
+  const leasedRows=await uploads();assert.deepEqual(await scopedClaim([scoped.path]),[]);assert.deepEqual(await uploads(),leasedRows);
+  await as('postgres');await db.query("update public.product_feedback_media_uploads set cleanup_until=now()-interval '1 minute' where object_path=$1",[scoped.path]);
+  await as('service_role');const scopedSecond=await scopedClaim([scoped.path]);assert.equal(scopedSecond.length,1);assert.notEqual(scopedSecond[0].token,scopedFirst[0].token);
+  assert.equal(await scalar('select public.finish_minuta_feedback_cleanup_v116($1,$2)',[scoped.path,scopedFirst[0].token]),false);
+  assert.equal(await scalar('select public.finish_minuta_feedback_cleanup_v116($1,$2)',[scoped.path,scopedSecond[0].token]),true);
+  assert.deepEqual((await uploads()).filter(row=>row.object_path!==scoped.path),outsideBefore);
+  pass('scoped claim leaves foreign eligible and linked rows byte-for-byte unchanged; active lease retry is empty, expired token rotates');
   const capped=uuid(3);
   await as('postgres');await db.query('insert into auth.users values($1)',[capped]);await auth(capped);
   const legacy=()=>scalar("select public.create_minuta_feedback(null,'problem','Общий лимит синтетический',null,'/provider.html','test','synthetic',null)");
