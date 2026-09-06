@@ -49,9 +49,9 @@
 .provider-body .date-strip-frame:has(>.date-strip[hidden]) { display:none; }
 
 .provider-body .date-strip button.is-today:not(.active) {
-  background:color-mix(in srgb,var(--theme-accent) 8%,transparent);
-  color:var(--theme-accent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent) 42%,transparent);
+  background:color-mix(in srgb,var(--theme-accent) 8%,transparent)!important;
+  color:var(--theme-accent)!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--theme-accent) 42%,transparent)!important;
 }
 
 /* In the daily journal, the schedule is one surface with quiet separators. */
