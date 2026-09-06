@@ -121,6 +121,12 @@ assert.match(css, /\.unified-channel-card input\s*\{[^}]*width:20px!important[^}
 assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav :is\(button,a\):not\(\.active\)/);
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
+const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
+assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%,100% 100%!important/);
+assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
+assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
+assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not split into repeated background tiles');
+
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.
 assert.match(calmCss, /\.provider-body\[data-provider-theme\] \.connection-log-dialog\s*\{[^}]*background:var\(--theme-surface\)!important;[^}]*color:var\(--theme-ink\)!important;/s);
