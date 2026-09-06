@@ -18,7 +18,7 @@
   --signature-stage:rgba(10,8,7,.92);
   --signature-nav-active:linear-gradient(90deg,rgba(122,66,31,.72),rgba(25,17,12,.93));
   --signature-card-shadow:0 16px 42px rgba(0,0,0,.34);
-  --atmosphere-background:url("provider-noir-safari-bg.webp?v=476");
+  --atmosphere-background:url("provider-noir-safari-bg.webp?v=477");
   --atmosphere-panel:rgba(10,8,7,.91);
   --atmosphere-panel-strong:rgba(17,14,12,.97);
   color-scheme:dark;
@@ -31,7 +31,7 @@
   background-image:linear-gradient(rgba(5,4,3,.08),rgba(5,4,3,.08)),var(--atmosphere-background)!important;
   background-position:center top!important;
   background-repeat:no-repeat!important;
-  background-size:cover!important;
+  background-size:100vw 100vh!important;
   background-attachment:fixed!important;
 }
 
@@ -75,7 +75,7 @@
   .booking-rules-card,.client-history-item,.client-disclosure,.voice-assistant-dialog,.booking-sheet
 ) {
   border-color:rgba(113,78,48,.55)!important;
-  background:rgba(16,13,11,.97)!important;
+  background:rgba(18,16,14,.97)!important;
   color:var(--theme-ink)!important;
   box-shadow:0 14px 34px rgba(0,0,0,.28)!important;
 }
@@ -167,8 +167,8 @@
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-brand strong {
   color:#f4ece2!important;
-  font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif!important;
-  font-weight:650!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-weight:500!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-brand small {
@@ -188,6 +188,13 @@
   background:transparent!important;
   color:#d7ccbf!important;
   box-shadow:none!important;
+}
+
+.provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
+  .provider-nav button>span:nth-child(2),.sidebar-bottom>a>span,.sidebar-bottom>button>span,.logout-button
+) {
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-weight:500!important;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .provider-nav button:hover {
@@ -229,9 +236,26 @@
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .client-list-item.active {
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
   border-color:#7f4927!important;
   background:#2e1c12!important;
   box-shadow:inset 4px 0 0 #d27b2d!important;
+}
+
+.provider-body[data-provider-theme="noir-safari"][data-provider-layout] .client-list-item.active::before {
+  content:"";
+  position:absolute;
+  z-index:0;
+  inset:0;
+  background:linear-gradient(90deg,rgba(122,66,31,.46),rgba(33,21,15,.12));
+  pointer-events:none;
+}
+
+.provider-body[data-provider-theme="noir-safari"][data-provider-layout] .client-list-item.active>* {
+  position:relative;
+  z-index:1;
 }
 
 .provider-body[data-provider-theme="noir-safari"][data-provider-layout] .client-list-item>b {
@@ -262,6 +286,27 @@
   box-shadow:none!important;
 }
 
+.provider-body[data-provider-theme="noir-safari"][data-provider-layout] :is(
+  .provider-section-nav button.active,.journal-mode-toggle button.active,.calendar-view-toggle button.active,
+  .booking-filters button.active,.notification-filters button.active,.report-periods button.active,
+  .report-data-source button.active,.report-mini-toggle button.active
+) {
+  border-color:#8f5730!important;
+  background:#3a2115!important;
+  color:#f2a45b!important;
+  box-shadow:inset 3px 0 0 #d27b2d!important;
+}
+
+.provider-body[data-provider-theme="noir-safari"][data-provider-layout] .client-profile-empty>span {
+  width:68px!important;
+  height:68px!important;
+  border:1px solid #ad7d4e!important;
+  border-radius:50%!important;
+  background:#d6aa72!important;
+  color:#21160f!important;
+  box-shadow:none!important;
+}
+
 .theme-noir-safari {
   --theme-preview-bg:#080705;
   --theme-preview-surface:#17120e;
@@ -271,7 +316,7 @@
 }
 
 .theme-noir-safari .theme-swatch {
-  background-image:linear-gradient(90deg,rgba(5,4,3,.18),rgba(5,4,3,.52)),url("provider-noir-safari-bg.webp?v=476")!important;
+  background-image:linear-gradient(90deg,rgba(5,4,3,.18),rgba(5,4,3,.52)),url("provider-noir-safari-bg.webp?v=477")!important;
   background-position:center!important;
   background-size:cover!important;
 }
@@ -283,6 +328,7 @@
 @media (max-width:760px) {
   .provider-body[data-provider-theme="noir-safari"][data-provider-layout] {
     background-position:26% center!important;
+    background-size:cover!important;
     background-attachment:scroll!important;
   }
 
