@@ -3,14 +3,18 @@ create function pg_temp.client_profile_assert(ok boolean,message text) returns v
 language plpgsql as $$ begin if ok is distinct from true then raise exception '%',message; end if; end $$;
 
 do $$
-declare actor uuid; org uuid; batch uuid;
+declare actor uuid; specialist uuid; org uuid; batch uuid;
 begin
   select id into actor from auth.users order by created_at,id limit 1;
   perform pg_temp.client_profile_assert(actor is not null,'client_profile_fixture_user_missing');
+  select id into specialist from auth.users where id<>actor order by created_at,id limit 1;
+  perform pg_temp.client_profile_assert(specialist is not null,'client_profile_second_fixture_user_missing');
   insert into public.organizations(name,public_booking_enabled,status)
     values('Client profile v119 test',true,'active') returning id into org;
   insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
     values(org,actor,'owner',true,true);
+  insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
+    values(org,specialist,'specialist',true,true);
   insert into public.client_import_batches(
     organization_id,request_id,source_system,payload_hash,input_count,created_count,updated_count,actor_id
   ) values(org,gen_random_uuid(),'other',repeat('0',64),1,1,0,actor) returning id into batch;
@@ -19,6 +23,7 @@ begin
     imported_visit_count,imported_total_spent_rub,last_import_batch_id
   ) values(org,'79990001122','+7 999 000-11-22','Client profile test','other',0,0,batch);
   perform set_config('client_profile.actor',actor::text,true);
+  perform set_config('client_profile.specialist',specialist::text,true);
   perform set_config('client_profile.org',org::text,true);
 end $$;
 
@@ -42,7 +47,7 @@ select pg_temp.client_profile_assert(
 );
 reset role;
 
-update public.organization_memberships set role='specialist' where organization_id=current_setting('client_profile.org')::uuid;
+select set_config('request.jwt.claim.sub',current_setting('client_profile.specialist'),true);
 set local role authenticated;
 select pg_temp.client_profile_assert(
   not (public.get_minuta_client_profile_v119(current_setting('client_profile.org')::uuid,'79990001122')->>'can_manage_block')::boolean,
