@@ -3,11 +3,18 @@
 # Reviewed API baseline: operations 4b42654b282e575b39b33058d50825bd903d5625.
 # v116 git-blob SHA256: 74d4fc5237eff7b42c1a15854788a27ff556e2232faff7ae7673388201736495.
 # Runtime execution remains pending until the frozen SQL and this gate are integrated
-# at one reviewed SHA and an owner explicitly dispatches the workflow.
+# at one reviewed SHA and an owner dispatches or pushes the sole integration branch.
 set -Eeuo pipefail
 umask 077
 [[ ${GITHUB_ACTIONS:-} == true && ${RUNNER_OS:-} == Linux ]]
-[[ ${GITHUB_EVENT_NAME:-} == workflow_dispatch ]]
+case ${GITHUB_EVENT_NAME:-} in
+  workflow_dispatch) ;;
+  push)
+    [[ ${GITHUB_REF:-} == refs/heads/codex/feedback-media-integration ]]
+    [[ ${REVIEWED_SQL_SHA256:-} == 74d4fc5237eff7b42c1a15854788a27ff556e2232faff7ae7673388201736495 ]]
+    ;;
+  *) exit 1;;
+esac
 [[ ${GITHUB_REPOSITORY:-} == aladushka9180-droid/anatomy-trainer ]]
 [[ ${GITHUB_RUN_ID:-} =~ ^[0-9]+$ && ${GITHUB_RUN_ATTEMPT:-} =~ ^[0-9]+$ ]]
 [[ ${RELEASE_SHA:-} =~ ^[a-f0-9]{40}$ && ${REVIEWED_SQL_SHA256:-} =~ ^[a-f0-9]{64}$ ]]
@@ -165,18 +172,30 @@ prepare_attachment() {
 }
 phase=create-before-cleanup-claim
 prepare_attachment 5
-# Cross the real TTL boundary only AFTER create has checked it and holds the row.
-# The observer waits on the timestamp predicate; a fixed sleep is not the barrier.
-db "update public.product_feedback_media_uploads set created_at=clock_timestamp()-interval '48 hours'+interval '15 seconds' where object_path='$object_path';" >/dev/null
-start_holder create-hold 5 "$(as_actor "$actor") select $(media "$request" "$attachments");"
-create_pid=$holder_pid
-await_sql "(select created_at+interval '48 hours'<=clock_timestamp() from public.product_feedback_media_uploads where object_path='$object_path')" 'TTL expires with create row still locked'
+# Pin create's transaction now() BEFORE choosing the committed TTL boundary.
+# Actual v116 checks eligibility with now(), not clock_timestamp(). While create
+# waits on its actor lock, the observer makes the reservation eligible for that
+# transaction but expired for the later cleanup transaction. No launch-time TTL
+# cushion or sleep controls correctness; all existing bounded barriers remain.
+start_holder ttl-actor-hold 15 "$(actor_lock "$actor")"
+ttl_job=$holder_job; ttl_pid=$holder_pid
+open_gate create-hold
+db "begin; $(as_actor "$actor") select $(media "$request" "$attachments"); select pg_advisory_xact_lock(116,5); select media_test.wait_gate('create-hold'); commit;" create-hold >"$private/create-hold.log" 2>&1 &
+holder_job=$!
+await_sql "exists(select 1 from pg_stat_activity where application_name='create-hold' and xact_start is not null and pid<>$ttl_pid and $ttl_pid=any(pg_blocking_pids(pid)))" 'create transaction pinned behind actor lock before TTL setup'
+db "update public.product_feedback_media_uploads set created_at=(select xact_start from pg_stat_activity where application_name='create-hold')-interval '48 hours'+interval '1 second' where object_path='$object_path';" >/dev/null
+assert_sql "(select u.state='reserved' and u.created_at>a.xact_start-interval '48 hours' from public.product_feedback_media_uploads u cross join pg_stat_activity a where u.object_path='$object_path' and a.application_name='create-hold')" 'committed reservation is eligible for pinned create transaction'
+await_sql "(select created_at+interval '48 hours'<=clock_timestamp() from public.product_feedback_media_uploads where object_path='$object_path')" 'committed reservation expires for a later cleanup transaction'
+release_gate ttl-actor-hold; wait_success "$ttl_job"
+ready 5 'eligible create has executed and still holds reservation row'
+create_pid="$(db "select pid from pg_stat_activity where application_name='create-hold';")"
+[[ $create_pid =~ ^[0-9]+$ ]]
 claim=$(db "begin; set local role service_role; select jsonb_build_object('pid',pg_backend_pid(),'result',public.claim_minuta_feedback_cleanup_v116()); commit;" claim-skip)
 test "$(jq -r .pid <<<"$claim")" != "$create_pid"
 test "$(jq '.result|length' <<<"$claim")" = 0
 release_gate create-hold; wait_success "$holder_job"
 assert_sql "(select state='linked' and feedback_id is not null and cleanup_token is null from public.product_feedback_media_uploads where object_path='$object_path')" 'claim skips uncommitted create and never leases linked row'
-echo 'PASS create holds reservation across TTL; independent cleanup claim SKIP LOCKED returns no lease'
+echo 'PASS pinned eligible create holds expired committed reservation; independent cleanup claim SKIP LOCKED returns no lease'
 
 phase=cleanup-claim-before-create
 prepare_attachment 6
