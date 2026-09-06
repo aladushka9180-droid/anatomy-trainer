@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Проверка распознавания | Minuta</title>
+  <style>
+    :root{color-scheme:light;--paper:#f5f0e9;--ink:#302a25;--muted:#70665e;--accent:#a76044;--line:#e0d5c8}
+    *{box-sizing:border-box}body{margin:0;padding:24px 16px;background:radial-gradient(ellipse at top right,#eadbca,transparent 65%),var(--paper);color:var(--ink);font:17px/1.5 'Trebuchet MS',sans-serif}
+    main{max-width:620px;margin:24px auto}header small{color:var(--accent);letter-spacing:.12em}h1{font:normal 34px/1.15 Georgia,serif;margin:12px 0}p{margin:12px 0}.muted{color:var(--muted);font-size:14px}
+    section{background:#fffcf8;border:1px solid var(--line);border-radius:20px;padding:20px;margin:20px 0}button{display:block;width:100%;min-height:52px;border:0;border-radius:14px;padding:14px;background:var(--accent);color:white;font:700 17px 'Trebuchet MS',sans-serif;cursor:pointer}button:disabled{opacity:.55;cursor:default}button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+    h2{font-size:18px;margin:0 0 10px}#transcript{min-height:48px;white-space:pre-wrap;overflow-wrap:anywhere}pre{font:13px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0 0}a{color:var(--accent)}
+  </style>
+  <script src="speech-test.js" defer></script>
+</head>
+<body><main>
+  <header><small>MINUTA / ТЕСТ 1</small><h1>Проверим распознавание отдельно</h1></header>
+  <p>Здесь нет кода помощника, озвучки и автоматических перезапусков. Проверяется только встроенное распознавание браузера.</p>
+  <p class="muted">Страница не сохраняет аудио и текст и не отправляет их на сервер Minuta. Сам браузер может передавать голос своей службе распознавания. Для теста не называйте личные данные.</p>
+  <section>
+    <p>Нажмите кнопку один раз и скажите: <strong>«Какие записи сегодня?»</strong></p>
+    <button id="start" type="button">Начать тест</button>
+    <p id="status" role="status" aria-live="polite">Готов к проверке.</p>
+    <p class="muted">Тест сам остановится не позднее чем через 45 секунд. Повторное нажатие остановит его раньше.</p>
+  </section>
+  <section><h2>Распознанный текст</h2><div id="transcript" aria-live="polite">Пока нет текста.</div></section>
+  <section><h2>Результат для проверки</h2><p class="muted">После теста пришлите скриншот этого блока и распознанного текста.</p><pre id="log"></pre></section>
+  <a href="provider.html">Вернуться в кабинет</a>
+</main></body></html>
