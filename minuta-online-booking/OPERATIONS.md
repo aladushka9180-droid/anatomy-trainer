@@ -261,3 +261,9 @@ Workflow `.github/workflows/minuta-booking-integration.yml` запускаетс
 2. Запустить `node minuta-online-booking/production-health-check.mjs` локально и сравнить результат с журналом workflow.
 3. При сбое после выпуска вернуть предыдущий фронтенд. Расширяющие миграции `v43`–`v47` назад не откатывать; ошибку схемы исправлять следующей совместимой миграцией.
 4. После исправления прогнать smoke test, интеграционный тест на тестовом проекте и production health.
+
+## Оформление клиентской страницы v118
+
+`supabase-migration-v118.sql` добавляет tenant-safe настройки темы и заголовка клиентской страницы, owner-only RPC и публичный каталог v5. Для неё используется отдельный ручной workflow `.github/workflows/minuta-v118-safe-release.yml`.
+
+Порядок: `test-v118` на изолированной базе, `validate-production-v118` в read-only режиме, свежий зашифрованный backup на точном SHA, ручной `apply-production-v118` с IDs всех доказательств, затем `observe-production-v118`. Production apply нельзя запускать до слияния точного commit SHA в `main`; validation и observation не должны выполнять записей. Rollback удаляет только API v118 и сохраняет таблицу с выбранным оформлением для совместимого повторного применения.
