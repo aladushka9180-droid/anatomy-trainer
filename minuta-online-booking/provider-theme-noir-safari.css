@@ -18,7 +18,7 @@
   --signature-stage:rgba(10,8,7,.92);
   --signature-nav-active:linear-gradient(90deg,rgba(122,66,31,.72),rgba(25,17,12,.93));
   --signature-card-shadow:0 16px 42px rgba(0,0,0,.34);
-  --atmosphere-background:url("provider-noir-safari-bg.webp?v=505");
+  --atmosphere-background:url("provider-noir-safari-bg.webp?v=506");
   --atmosphere-panel:rgba(10,8,7,.91);
   --atmosphere-panel-strong:rgba(17,14,12,.97);
   color-scheme:dark;
@@ -316,7 +316,7 @@
 }
 
 .theme-noir-safari .theme-swatch {
-  background-image:linear-gradient(90deg,rgba(5,4,3,.18),rgba(5,4,3,.52)),url("provider-noir-safari-bg.webp?v=505")!important;
+  background-image:linear-gradient(90deg,rgba(5,4,3,.18),rgba(5,4,3,.52)),url("provider-noir-safari-bg.webp?v=506")!important;
   background-position:center!important;
   background-size:cover!important;
 }
