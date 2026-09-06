@@ -6101,7 +6101,7 @@ function bookingClientResultMarkup(item) {
   return `<details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure">
     <summary><div><small>До и после сеанса</small><strong>Фото и результат</strong></div><span>${uiIcon('image')}<span data-booking-result-summary>Не заполнено</span></span></summary>
     <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${escapeHtml(item.id)}">
-      <button class="primary" type="submit">Сохранить фото и описание</button>
+      <button class="primary" type="submit">Сохранить результат</button>
     </form>
   </details>`;
 }
@@ -9180,7 +9180,7 @@ async function saveBookingVisitResult(event) {
   const result = await clientResultsController.save({ bookingId:item.id, phone:item.client_phone });
   if (button?.isConnected) {
     button.disabled = false;
-    button.textContent = 'Сохранить фото и описание';
+    button.textContent = 'Сохранить результат';
   }
   if (result.ok && result.skipped) notify('Добавьте фото или описание результата');
 }

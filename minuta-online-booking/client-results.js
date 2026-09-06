@@ -96,11 +96,15 @@
   function mediaMarkup(result, purpose) {
     const label = purpose === 'after' ? 'после' : 'до';
     const item = result?.media?.find(media => media.purpose === purpose);
-    return `<article class="booking-result-media-item" data-result-media-slot="${purpose}">
+    if (item) return `<article class="booking-result-media-item" data-result-media-slot="${purpose}">
       <div><strong>Фото ${label}</strong><small>${item ? 'Хранится приватно' : 'Не добавлено'}</small></div>
-      ${item ? `<button class="client-result-private-preview" type="button" data-client-result-preview="${escapeHtml(item.id)}">Открыть приватно</button>` : ''}
-      ${item ? '' : `<label class="booking-result-file-picker">Добавить фото ${label}<input type="file" accept="image/jpeg,image/png,image/webp" data-visit-result-media-input="${purpose}"></label>`}
+      <button class="client-result-private-preview" type="button" data-client-result-preview="${escapeHtml(item.id)}">Открыть</button>
     </article>`;
+    return `<label class="booking-result-media-item booking-result-file-picker" data-result-media-slot="${purpose}">
+      <span><strong>Фото ${label}</strong><small>Не добавлено</small></span>
+      <b>Добавить</b>
+      <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Добавить фото ${label}" data-visit-result-media-input="${purpose}">
+    </label>`;
   }
 
   function bookingFieldsMarkup(input = {}) {
@@ -130,7 +134,7 @@
             ${FIELD_DEFINITIONS.map(([key, label, placeholder]) => `<label class="booking-visit-result-field"><span>${label}</span><textarea name="client_result_${key}" rows="2" maxlength="${MAX_TEXT}" placeholder="${escapeHtml(placeholder)}">${escapeHtml(result[key])}</textarea></label>`).join('')}
           </div>
         </details>
-        <label class="booking-result-private-consent"><input type="checkbox" name="client_result_private_consent" ${result.private_storage_consent ? 'checked' : ''} ${hasPrivatePayload ? 'required' : ''}><span><strong>Согласие на приватное хранение</strong><small>Нужно для сохранения фото и описания.</small></span></label>
+        <label class="booking-result-private-consent"><input type="checkbox" name="client_result_private_consent" ${result.private_storage_consent ? 'checked' : ''} ${hasPrivatePayload ? 'required' : ''}><span><strong>Сохранить результат в карточке клиента</strong><small>Фото и описание доступны только сотрудникам организации.</small></span></label>
         <details class="booking-result-more">
           <summary><span>Дополнительно</span><small data-client-result-external-summary>${result.external_share_consent ? 'Внешнее использование разрешено' : 'Внешнее использование'}</small></summary>
           <label><input type="checkbox" name="client_result_external_consent" ${result.external_share_consent ? 'checked' : ''}><span><strong>Разрешить внешнее использование</strong><small>Необязательно. Ничего не публикуется автоматически.</small></span></label>
@@ -381,6 +385,8 @@
       if (quickSummary) quickSummary.textContent = pending || editor.dirty ? 'Черновик' : filled || editor.result?.media?.length ? 'Готово' : 'Не заполнено';
       const privateConsent = details.querySelector('[name="client_result_private_consent"]');
       if (privateConsent) privateConsent.required = filled > 0 || pending > 0 || Boolean(editor?.result?.media?.length);
+      const hasContent = filled > 0 || pending > 0 || Boolean(editor?.result?.media?.length);
+      editor.form.dataset.clientResultHasContent = hasContent ? 'true' : 'false';
     }
 
     function renderEditor(result = editor?.result) {

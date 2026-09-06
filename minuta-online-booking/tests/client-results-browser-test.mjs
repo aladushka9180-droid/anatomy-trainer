@@ -45,7 +45,7 @@ try {
     </div></main>
     <details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure" open>
       <summary><strong>Фото и результат</strong><span data-booking-result-summary>Не заполнено</span></summary>
-      <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${BOOKING_ID}"><button class="primary" type="submit">Сохранить фото и описание</button></form>
+      <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${BOOKING_ID}"><button class="primary" type="submit">Сохранить результат</button></form>
     </details>
     <form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${BOOKING_ID}">
       <label>Результат визита<select><option>Состоялся</option></select></label>
@@ -133,6 +133,8 @@ try {
   assert.equal(await page.evaluate(() => window.__storageDownloads), 0, 'Private media is not downloaded during profile load');
   assert.equal(await page.locator('[name="client_result_external_consent"]').isChecked(), false, 'External sharing is opt-in');
   assert.equal(await page.locator('[name="client_result_private_consent"]').isChecked(), true, 'Existing private consent is restored');
+  assert.equal(await page.locator('.booking-result-private-consent strong').innerText(), 'Сохранить результат в карточке клиента', 'Private consent uses plain task-oriented wording');
+  assert.match(await page.locator('.booking-result-private-consent small').innerText(), /только сотрудникам организации/, 'Private scope is explained without legalistic copy');
   assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => getComputedStyle(element).display), 'block', 'Draft editor is available before the visit is completed');
   assert.equal(await page.locator('#bookingVisitResultFields').evaluate(element => element.open), true, 'Photo editor opens with the dedicated result section');
   assert.equal(await page.locator('.booking-result-description').evaluate(element => element.open), false, 'Optional description stays collapsed by default');
@@ -149,6 +151,10 @@ try {
     return Boolean(media && description && (media.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING));
   });
   assert.equal(mediaBeforeDescription, true, 'Photo actions precede optional descriptions in the DOM');
+
+  const emptyMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ enabled: true, result: {} }));
+  assert.match(emptyMarkup, /aria-label="Добавить фото до"/);
+  assert.doesNotMatch(emptyMarkup, /booking-result-file-picker[^>]*>Добавить фото/, 'Empty photo slot has one clickable surface instead of a nested button');
 
   const disabledMarkup = await page.evaluate(() => window.MinutaClientResults.bookingFieldsMarkup({ enabled: false, can_enable: true }));
   assert.match(disabledMarkup, /Подключить/);
@@ -218,6 +224,7 @@ try {
 
   await page.locator('#bookingVisitResultFields').evaluate(element => { element.open = true; });
   await page.locator('[name="client_result_before_session"]').fill('Обновлённое состояние до сеанса');
+  assert.equal(await page.locator('#bookingVisitResultForm').getAttribute('data-client-result-has-content'), 'true', 'Save action becomes prominent after content is entered');
   assert.equal(await page.locator('[data-booking-result-summary]').innerText(), 'Черновик', 'Editing marks the result as a draft');
   await page.locator('[name="client_result_private_consent"]').uncheck();
   const denied = await page.evaluate(() => window.__controller.save());
@@ -249,6 +256,31 @@ try {
 
   await page.evaluate(() => window.__controller.setClient({ phone: '+7 999 111-22-33' }));
   assert.ok((await page.evaluate(() => window.__revoked.length)) >= 1, 'Changing client clears any private preview URL');
+
+  const emptyAction = await page.evaluate(bookingId => {
+    const form = document.createElement('form');
+    form.className = 'booking-visit-result-form';
+    form.dataset.bookingId = bookingId;
+    form.innerHTML = '<button class="primary" type="submit">Сохранить результат</button>';
+    document.body.append(form);
+    window.__controller.mount({ form, booking: { id: bookingId, client_phone: '+7 999 111-22-33' }, result: {}, expandEditor: true });
+    const button = form.querySelector('.primary');
+    const style = getComputedStyle(button);
+    return {
+      hasContent: form.dataset.clientResultHasContent,
+      background: style.backgroundColor,
+      borderStyle: style.borderTopStyle,
+      whiteSpace: style.whiteSpace,
+      text: button.textContent
+    };
+  }, '00000000-0120-4000-8000-000000000099');
+  assert.deepEqual(emptyAction, {
+    hasContent: 'false',
+    background: 'rgba(0, 0, 0, 0)',
+    borderStyle: 'solid',
+    whiteSpace: 'nowrap',
+    text: 'Сохранить результат'
+  }, 'Empty result keeps the save action quiet and on one line');
 
   console.log('Client results: private profile/editor/media 390/760/1440 PASS (browser fixture)');
 } finally {
