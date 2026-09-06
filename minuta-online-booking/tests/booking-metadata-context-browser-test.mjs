@@ -27,9 +27,17 @@ const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bo
   source.match(new RegExp(`^let ${name} = .*;$`,'m'))?.[0]||'').join('\n');
 const resets=[...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)].map(m=>m[0]).join('\n');
 const orgStart=source.indexOf('  onActiveOrganizationChange: organization => {');
-const orgEnd=source.indexOf('    if (clientOrganizationChanged) {',orgStart);
-assert.ok(orgStart>=0&&orgEnd>orgStart,'Actual org identity/epoch prefix');
+// End at the semantic epoch boundary, not the first conditional (feedback has
+// its own preceding conditional). Keep all actual callback statements in order.
+const orgEpoch='    if (clientOrganizationChanged) bookingMetadataRevision += 1;';
+const orgEpochStart=source.indexOf(orgEpoch,orgStart);
+assert.ok(orgStart>=0&&orgEpochStart>orgStart,'Actual org identity/epoch prefix');
+const orgEnd=orgEpochStart+orgEpoch.length;
 const orgHook=source.slice(orgStart,orgEnd).replace('  onActiveOrganizationChange: organization => {','function changeOrganization(organization) {')+'\n}';
+const orgFeedback=orgHook.indexOf('providerFeedbackController.reset();');
+const orgInvalidate=orgHook.indexOf('freeSlotsController?.invalidateScope();');
+assert.ok(orgFeedback>=0&&orgInvalidate>orgFeedback,'Actual feedback boundary must precede free-slots invalidation');
+assert.ok(orgHook.indexOf('activeClientOrganizationId = nextClientOrganizationId;')>orgInvalidate,'Actual organization assignment must be retained');
 const functions=['openBookingSheet','closeBookingSheet','saveBookingBlockNote','saveBookingColor','saveBookingNote',
   'persistBookingColors','persistBookingNotes','bookingColorStorageKey','bookingColorPendingStorageKey',
   'bookingNoteStorageKey','bookingNotePendingStorageKey','validBookingColor','bookingColor','bookingColorPicker',
@@ -71,6 +79,8 @@ async function fixture(){
   await page.addScriptTag({content:`
     var ids=${JSON.stringify(ids)},currentUser={id:'actor-A'},sessionGeneration=7,activeClientOrganizationId='org-A';
     var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+    // Unrelated feedback controller boundary; actual org/session hooks still run.
+    var providerFeedbackController={reset(){},refreshAvailability(){}};
     var freeSlotsController={invalidateScope(){}},providerReadFetch={cancelPendingReads(){}};
     var gestureClickSuppressedUntil=0,writesAllowed=true,editingOfflineBookingId='',newBookingHistoricalMode=false;
     var SCHEDULE_BLOCK_PHONE='0000000000';

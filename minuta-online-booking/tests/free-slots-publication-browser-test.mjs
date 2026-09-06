@@ -8,10 +8,18 @@ const dialog=html.slice(start,html.indexOf('</dialog>',start)+9);
 const script=readFileSync(new URL('../free-slots-share.js',import.meta.url),'utf8');
 const providerSource=readFileSync(process.env.MINUTA_PROVIDER_SOURCE || new URL('../provider.js',import.meta.url),'utf8');
 const orgHookStart=providerSource.indexOf('  onActiveOrganizationChange: organization => {');
-const orgHookEnd=providerSource.indexOf('    if (clientOrganizationChanged) {',orgHookStart);
-assert.ok(orgHookStart>=0 && orgHookEnd>orgHookStart,'Actual organization callback must be available');
+// Preserve preceding feedback and invalidation statements through the actual
+// epoch boundary; a newly inserted conditional must not truncate this fixture.
+const orgEpoch='    if (clientOrganizationChanged) bookingMetadataRevision += 1;';
+const orgEpochStart=providerSource.indexOf(orgEpoch,orgHookStart);
+assert.ok(orgHookStart>=0 && orgEpochStart>orgHookStart,'Actual organization callback must be available');
+const orgHookEnd=orgEpochStart+orgEpoch.length;
 const orgHook=providerSource.slice(orgHookStart,orgHookEnd)
   .replace('  onActiveOrganizationChange: organization => {','window.emitTestOrganization = organization => {')+'\n};';
+const orgFeedback=orgHook.indexOf('providerFeedbackController.reset();');
+const orgInvalidate=orgHook.indexOf('freeSlotsController?.invalidateScope();');
+assert.ok(orgFeedback>=0&&orgInvalidate>orgFeedback,'Actual feedback boundary must precede free-slots invalidation');
+assert.ok(orgHook.indexOf('activeClientOrganizationId = nextClientOrganizationId;')>orgInvalidate,'Actual organization assignment must be retained');
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
 try {
   const page=await browser.newPage({viewport:{width:390,height:844}});
@@ -48,6 +56,9 @@ try {
   // Organization reloads emit the same ID on every background synchronization.
   // Execute the production callback prefix, not a reimplementation of its guard.
   await page.evaluate(`(() => {
+    // Feedback behavior is outside this fixture; execute its actual call sites.
+    const providerFeedbackController={reset(){},refreshAvailability(){}};
+    const currentUser={id:'synthetic-master'};
     const freeSlotsController=window.controller;
     let activeClientOrganizationId='';
     let bookingSeriesCancellationRevision=0, bookingEditorRevision=0, bookingMetadataRevision=0;
