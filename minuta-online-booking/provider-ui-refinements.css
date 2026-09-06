@@ -22,15 +22,18 @@
 }
 #providerBookings.calendar-overview-month .calendar-overview-booking time { font-size:10px; font-weight:600; }
 #providerBookings.calendar-overview-month .calendar-overview-booking strong { font-size:10px; line-height:1.35; font-weight:500; }
+#providerBookings.calendar-overview-month .calendar-overview-booking.color-auto {
+  background:color-mix(in srgb,var(--theme-surface) 90%,var(--theme-ink))!important;
+}
 /* Overlay preserves custom booking colors; inset shadow never shifts the grid. */
 @media (hover:hover) and (pointer:fine) {
   #providerBookings.calendar-overview-month .calendar-overview-booking:hover {
-    box-shadow:inset 0 0 0 100vmax color-mix(in srgb,var(--theme-accent) 12%,transparent)!important;
+    box-shadow:inset 0 0 0 100vmax color-mix(in srgb,var(--theme-ink) 10%,transparent)!important;
   }
 }
 #providerBookings.calendar-overview-month .calendar-overview-booking:focus-visible {
   outline:2px solid var(--theme-accent)!important; outline-offset:1px;
-  box-shadow:inset 0 0 0 100vmax color-mix(in srgb,var(--theme-accent) 12%,transparent)!important;
+  box-shadow:inset 0 0 0 100vmax color-mix(in srgb,var(--theme-ink) 10%,transparent)!important;
 }
 #providerBookings.calendar-overview-month .calendar-overview-more {
   min-height:30px; border:0!important; border-radius:4px!important;

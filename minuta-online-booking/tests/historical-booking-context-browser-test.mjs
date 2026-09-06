@@ -336,6 +336,15 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     const booking=width<=760?page.locator('.calendar-month-mobile-agenda [data-open-booking]').first():day.locator('[data-open-booking]').first();
     const beforeHover=await booking.boundingBox();
     const originalBackground=await booking.evaluate(el=>getComputedStyle(el).backgroundColor);
+    assert.notEqual(originalBackground,'rgba(0, 0, 0, 0)','Booking has a permanent fill even without hover');
+    assert.equal(await booking.evaluate(el=>{
+      const probe=document.createElement('span');probe.style.background='color-mix(in srgb,var(--theme-surface) 90%,var(--theme-ink))';el.append(probe);
+      const matches=getComputedStyle(el).backgroundColor===getComputedStyle(probe).backgroundColor;probe.remove();return matches;
+    }),true,'Default booking uses the theme-adapted grey fill');
+    assert.equal(await booking.evaluate(el=>{
+      el.classList.replace('color-auto','color-rose');const custom=getComputedStyle(el).backgroundColor;
+      el.classList.replace('color-rose','color-auto');return custom!==getComputedStyle(el).backgroundColor;
+    }),true,'Explicit color remains separate from the automatic grey fill');
     await booking.hover();
     assert.notEqual(await booking.evaluate(el=>getComputedStyle(el).boxShadow),'none','Mouse hover must highlight the booking');
     assert.equal(await booking.evaluate(el=>getComputedStyle(el).backgroundColor),originalBackground,'Custom booking fill remains intact');
