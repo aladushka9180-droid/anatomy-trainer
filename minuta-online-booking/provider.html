@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="provider-layout-responsive.css?v=510">
   <link rel="stylesheet" href="provider-ux.css?v=510">
   <link rel="stylesheet" href="provider-header.css?v=510">
+  <link rel="stylesheet" href="client-themes.css?v=510">
   <link rel="stylesheet" href="provider-themes-wildlife.css?v=510">
   <link rel="stylesheet" href="settings-nav-scroll.css?v=510">
   <link rel="stylesheet" href="settings-smart-search.css?v=510">
@@ -983,7 +984,8 @@
             </ol>
           </details>
           <nav class="provider-section-nav" aria-label="Навигация по настройкам">
-            <button class="active" type="button" data-section-target="appearanceSettingsCard">Оформление</button>
+            <button class="active" type="button" data-section-target="clientAppearanceSettingsCard">Страница клиента</button>
+            <button type="button" data-section-target="appearanceSettingsCard">Оформление кабинета</button>
             <button type="button" data-section-target="telegramClientSettingsCard">Уведомления</button>
             <button type="button" data-section-target="installAppCard">Приложение</button>
             <button type="button" data-section-target="bookingRulesCard">Правила записи</button>
@@ -1026,6 +1028,15 @@
                 <small class="batch-booking-save-status" id="batchBookingSaveStatus" role="status" aria-live="polite">Изменения сохраняются автоматически</small>
               </form>
               <details class="batch-booking-journal"><summary>Последние пакеты</summary><div id="batchBookingRecentList"></div></details>
+            </section>
+            <section class="panel settings-card client-appearance-settings-card provider-section-anchor" id="clientAppearanceSettingsCard">
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
+              <div class="settings-heading"><small>Страница онлайн-записи</small><h3>Оформление для клиентов</h3><p>Владелец выбирает тему и приветствие по умолчанию. Клиент может оставить этот вариант или выбрать свою тему только для конкретной организации.</p></div>
+              <form id="clientAppearanceForm" class="client-appearance-form">
+                <fieldset><legend>Тема по умолчанию</legend><div class="provider-client-theme-options" id="providerClientThemeOptions"></div></fieldset>
+                <fieldset><legend>Приветствие</legend><div class="client-headline-options" id="clientHeadlineOptions"></div></fieldset>
+                <div class="client-appearance-actions"><p id="clientAppearanceStatus" role="status" aria-live="polite">Выберите организацию.</p><button class="primary compact-button" type="submit">Сохранить для клиентов</button></div>
+              </form>
             </section>
             <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
@@ -1583,6 +1594,7 @@
   <script src="report-reconciliation.js?v=510" defer></script>
   <link rel="stylesheet" href="client-directory.css?v=510">
   <link rel="stylesheet" href="provider-ui-refinements.css?v=510">
+  <script src="theme-catalog.js?v=510" defer></script>
   <script src="client-directory.js?v=510" defer></script>
   <script src="provider.js?v=510" defer></script>
   <script src="settings-nav-scroll.js?v=510" defer></script>

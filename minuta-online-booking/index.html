@@ -19,16 +19,18 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css?v=510">
+  <link rel="stylesheet" href="client-themes.css?v=510">
   <link rel="stylesheet" href="code-scanner.css?v=510">
 </head>
-<body class="booking-client-page">
+<body class="booking-client-page" data-client-theme="sage">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
   <header class="site-header booking-client-header">
     <a class="brand" href="#top" aria-label="Массаж в Ижевске — на главную"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>Рамиль · массажист</small></span></a>
-    <a class="client-bookings-link" href="my-bookings.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"/></svg><span>Мои записи</span></a>
+    <div class="client-header-actions"><button class="client-theme-button" id="openClientTheme" type="button" aria-haspopup="dialog" aria-controls="clientThemeDialog" title="Поменять оформление"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"/></svg><span id="clientThemeButtonLabel">Оформление</span></button><a class="client-bookings-link" href="my-bookings.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"/></svg><span>Мои записи</span></a></div>
   </header>
 
   <main id="top" class="layout booking-client-layout">
+    <section class="client-hero" aria-labelledby="clientHeroTitle"><small>Онлайн-запись без звонков</small><h1 id="clientHeroTitle">Массаж в удобное время.</h1><p>Выберите услугу и свободное окно — мастер сразу увидит вашу запись.</p></section>
     <section class="booking-card" aria-labelledby="bookingTitle">
       <div id="bookingFlow">
         <div class="repeat-booking-notice" id="repeatBookingNotice" role="status" hidden></div>
@@ -137,6 +139,7 @@
     </div>
   </section>
   <footer class="booking-footer"><a href="help/index.html">Помощь</a><a href="provider.html">Вход для исполнителя</a></footer>
+  <dialog class="client-theme-dialog" id="clientThemeDialog" aria-labelledby="clientThemeTitle"><form class="client-theme-dialog-form" method="dialog"><div class="client-theme-dialog-head"><div><small>Только на этом устройстве</small><h2 id="clientThemeTitle">Выберите оформление</h2></div><button class="client-theme-dialog-close" type="submit" value="close" aria-label="Закрыть">×</button></div><div class="client-theme-options" id="clientThemeOptions"></div><div class="client-theme-dialog-foot"><small>Выбор сохраняется отдельно для каждой организации и не влияет на запись.</small><button class="primary" type="submit" value="close">Закрыть</button></div></form></dialog>
   <dialog class="service-details-dialog" id="serviceDetailsDialog" aria-labelledby="serviceDetailsTitle">
     <button class="dialog-close" type="button" data-close-service-details aria-label="Закрыть"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"/></svg></button>
     <small>Об услуге</small><h2 id="serviceDetailsTitle">Массаж</h2>
@@ -177,6 +180,6 @@
   </dialog>
   <dialog class="code-scanner-dialog" id="codeScannerDialog" aria-labelledby="codeScannerTitle"><div class="code-scanner-shell"><div class="code-scanner-head"><div><small>Камера устройства</small><h2 id="codeScannerTitle">Сканировать код</h2></div><button type="button" data-close-code-scanner aria-label="Закрыть">×</button></div><div class="code-scanner-camera"><video id="codeScannerVideo" playsinline muted></video></div><p class="code-scanner-status" id="codeScannerStatus" role="status" aria-live="polite"></p><form class="code-scanner-manual" id="codeScannerManualForm"><label>Или введите код<input id="codeScannerManual" inputmode="text" autocomplete="off" maxlength="160"></label><button class="primary" type="submit">Применить</button></form></div></dialog>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=510"></script><script src="site-update.js?v=510" defer></script><script src="reliability.js?v=510"></script><script src="group-bookings.js?v=510" defer></script><script src="telegram-auth.js?v=510" defer></script><script src="code-scanner.js?v=510" defer></script><script src="app.js?v=510" defer></script>
+  <script src="config.js?v=510"></script><script src="theme-catalog.js?v=510"></script><script src="site-update.js?v=510" defer></script><script src="reliability.js?v=510"></script><script src="group-bookings.js?v=510" defer></script><script src="telegram-auth.js?v=510" defer></script><script src="code-scanner.js?v=510" defer></script><script src="app.js?v=510" defer></script>
 </body>
 </html>
