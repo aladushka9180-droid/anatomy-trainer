@@ -112,6 +112,36 @@ const server = http.createServer((request, response) => {
     });
     assert.equal(splitView.scheduleBorder, '0px', 'Разделённой компоновке не нужна третья внешняя рамка');
     assert.notEqual(splitView.contextBorder, '0px', 'Контекст разделённой компоновки должен остаться отдельной панелью');
+
+    const midnightCards = await page.evaluate(() => {
+      document.body.dataset.providerTheme = 'midnight';
+      document.body.dataset.providerLayout = 'soft';
+      const fixture = document.createElement('div');
+      fixture.id = 'midnightScheduleFixture';
+      fixture.className = 'timeline-view';
+      fixture.innerHTML = '<button class="timeline-booking status-confirmed color-auto"><span class="timeline-booking-copy"><strong>Запись</strong></span></button><button class="timeline-booking status-block"><span class="timeline-booking-copy"><strong>Перерыв</strong></span></button>';
+      document.body.append(fixture);
+      const normal = getComputedStyle(fixture.firstElementChild);
+      const rest = getComputedStyle(fixture.lastElementChild);
+      const restIcon = getComputedStyle(fixture.lastElementChild.querySelector('strong'), '::before');
+      return {
+        normalBackground:normal.backgroundColor,
+        normalShadow:normal.boxShadow,
+        restBackground:rest.backgroundColor,
+        restImage:rest.backgroundImage,
+        restShadow:rest.boxShadow,
+        restColor:rest.color,
+        restIconContent:restIcon.content,
+        restIconImage:restIcon.backgroundImage
+      };
+    });
+    assert.notEqual(midnightCards.normalBackground, midnightCards.restBackground, 'Запись и перерыв должны различаться по тону');
+    assert.match(midnightCards.normalShadow, /inset/, 'У записи нужен спокойный акцент выбранной даты');
+    assert.equal(midnightCards.restImage, 'none', 'У перерыва не должно быть отвлекающих полос');
+    assert.equal(midnightCards.restShadow, 'none', 'Перерыв должен оставаться второстепенным');
+    assert.equal(midnightCards.restIconContent, '""', 'У перерыва нужен компактный значок паузы');
+    assert.notEqual(midnightCards.restIconImage, 'none', 'Значок паузы должен отображаться');
+
     if (output) {
       await page.evaluate(() => {
         document.body.dataset.providerTheme = 'midnight';

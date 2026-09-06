@@ -118,3 +118,65 @@
   .provider-body .date-strip-shift[data-date-shift="-7"] { left:8px; }
   .provider-body .date-strip-shift[data-date-shift="7"] { right:8px; }
 }
+
+/* Midnight Navy: appointments echo the selected date without competing with it. */
+.provider-body[data-provider-theme="midnight"] :is(
+  .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
+  .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
+  .calendar-overview-booking:not(.status-block),
+  .calendar-week-booking:not(.is-block)
+) {
+  border-color:color-mix(in srgb,var(--theme-accent) 58%,var(--theme-line))!important;
+  background:color-mix(in srgb,var(--theme-accent) 24%,var(--theme-surface))!important;
+  background-image:none!important;
+  color:var(--theme-ink)!important;
+  box-shadow:inset 3px 0 0 color-mix(in srgb,var(--theme-accent) 82%,transparent),0 4px 12px color-mix(in srgb,var(--theme-shadow) 42%,transparent)!important;
+}
+
+.provider-body[data-provider-theme="midnight"] :is(
+  .timeline-view .timeline-booking:not(.status-block):not(.automatic-break),
+  .schedule-list .provider-booking:not(.status-block):not(.automatic-break),
+  .calendar-overview-booking:not(.status-block),
+  .calendar-week-booking:not(.is-block)
+):hover {
+  border-color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-line))!important;
+  background:color-mix(in srgb,var(--theme-accent) 30%,var(--theme-surface))!important;
+}
+
+.provider-body[data-provider-theme="midnight"] :is(
+  .timeline-view .timeline-booking.status-block,
+  .timeline-view .timeline-booking.automatic-break,
+  .schedule-list .provider-booking.status-block,
+  .schedule-list .provider-booking.automatic-break,
+  .calendar-overview-booking.status-block,
+  .calendar-week-booking.is-block
+) {
+  border-color:color-mix(in srgb,var(--theme-line) 68%,var(--theme-surface))!important;
+  background:color-mix(in srgb,var(--theme-surface-alt) 68%,var(--theme-surface))!important;
+  background-image:none!important;
+  color:var(--theme-muted)!important;
+  box-shadow:none!important;
+}
+
+.provider-body[data-provider-theme="midnight"] :is(
+  .timeline-booking.status-block,
+  .timeline-booking.automatic-break
+) .timeline-booking-copy>strong::before,
+.provider-body[data-provider-theme="midnight"] :is(
+  .provider-booking.status-block,
+  .provider-booking.automatic-break
+) h3::before,
+.provider-body[data-provider-theme="midnight"] :is(
+  .calendar-overview-booking.status-block,
+  .calendar-week-booking.is-block
+) strong::before {
+  content:"";
+  display:inline-block;
+  width:10px;
+  height:10px;
+  margin-right:8px;
+  border-radius:1px;
+  background:linear-gradient(90deg,currentColor 0 3px,transparent 3px 6px,currentColor 6px 9px,transparent 9px);
+  opacity:.72;
+  vertical-align:-1px;
+}

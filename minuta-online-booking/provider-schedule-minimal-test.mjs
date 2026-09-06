@@ -17,6 +17,10 @@ assert.match(styles, /\.date-strip-frame>\.date-strip\s*\{[^}]*box-sizing:border
 assert.match(styles, /not\(\[data-provider-layout="split"\]\)[\s\S]*\.schedule-card:has\(#dateStrip:not\(\[hidden\]\)\)[\s\S]*border-radius:0!important;/s);
 assert.match(styles, /@media \(min-width:761px\)[\s\S]*\.booking-sheet\s*\{[^}]*place-items:center;[\s\S]*\.booking-sheet-panel\s*\{[^}]*margin-bottom:0;/s);
 assert.match(styles, /@media \(max-width:760px\)[\s\S]*scroll-behavior:smooth;[\s\S]*overscroll-behavior-x:contain;/s);
+assert.match(styles, /data-provider-theme="midnight"[\s\S]*timeline-booking:not\(\.status-block\):not\(\.automatic-break\)[\s\S]*var\(--theme-accent\) 24%[\s\S]*inset 3px 0 0/s);
+assert.match(styles, /calendar-overview-booking:not\(\.status-block\)[\s\S]*calendar-week-booking:not\(\.is-block\)/s);
+assert.match(styles, /data-provider-theme="midnight"[\s\S]*timeline-booking\.status-block[\s\S]*var\(--theme-surface-alt\) 68%[\s\S]*background-image:none!important;[\s\S]*color:var\(--theme-muted\)!important;/s);
+assert.match(styles, /data-provider-theme="midnight"[\s\S]*timeline-booking\.status-block[\s\S]*timeline-booking-copy>strong::before[\s\S]*linear-gradient\(90deg,currentColor/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings,#dateStrip'\)/);
 assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
 assert.doesNotMatch(styles, /#[0-9a-f]{3,8}\b/i, 'Новая геометрия не должна добавлять отдельную палитру');
