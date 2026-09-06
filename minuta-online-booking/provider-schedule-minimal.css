@@ -1,0 +1,73 @@
+/* Minimal schedule navigation: one set of week controls, attached to the dates. */
+.provider-body .date-navigation:has([data-calendar-view="day"].active)>.date-nav-button {
+  display:none!important;
+}
+
+.provider-body .date-strip-frame {
+  position:relative;
+  min-width:0;
+}
+
+.provider-body .date-strip-frame>.date-strip {
+  width:100%;
+  min-width:0;
+  padding-right:48px;
+  padding-left:48px;
+}
+
+.provider-body .date-strip-shift {
+  position:absolute;
+  z-index:4;
+  top:50%;
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid color-mix(in srgb,var(--theme-line) 78%,transparent);
+  border-radius:50%;
+  background:color-mix(in srgb,var(--theme-surface) 88%,transparent);
+  color:var(--theme-ink);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--theme-shadow) 22%,transparent);
+  opacity:.68;
+  transform:translateY(-50%);
+  cursor:pointer;
+  backdrop-filter:blur(8px);
+}
+
+.provider-body .date-strip-shift[data-date-shift="-7"] { left:8px; }
+.provider-body .date-strip-shift[data-date-shift="7"] { right:8px; }
+.provider-body .date-strip-shift .ui-icon { width:17px; height:17px; }
+.provider-body .date-strip-shift:hover { opacity:1; }
+.provider-body .date-strip-shift:focus-visible {
+  outline:3px solid color-mix(in srgb,var(--theme-accent) 24%,transparent);
+  outline-offset:2px;
+  opacity:1;
+}
+
+.provider-body .date-strip-frame:has(>.date-strip[hidden]) { display:none; }
+
+@media (min-width:761px) {
+  .provider-body .booking-sheet {
+    place-items:center;
+  }
+  .provider-body .booking-sheet-panel {
+    margin-bottom:0;
+  }
+}
+
+@media (max-width:760px) {
+  .provider-body .date-strip-frame>.date-strip {
+    padding-right:42px;
+    padding-left:42px;
+    scroll-behavior:smooth;
+    overscroll-behavior-x:contain;
+  }
+  .provider-body .date-strip-shift {
+    width:34px;
+    height:34px;
+    opacity:.82;
+  }
+  .provider-body .date-strip-shift[data-date-shift="-7"] { left:5px; }
+  .provider-body .date-strip-shift[data-date-shift="7"] { right:5px; }
+}
