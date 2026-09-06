@@ -13,6 +13,7 @@ const ASSETS = [
   './settings-smart-search.js?v=470',
   './contextual-help.css?v=470',
   './contextual-help.js?v=470',
+  './settings-mobile-minimalism.css?v=470',
   './provider-themes-wildlife.css?v=470',
   './free-slots-compact.css?v=470',
   './vendor/qrcodegen.js?v=470',
