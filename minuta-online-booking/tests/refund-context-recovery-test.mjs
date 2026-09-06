@@ -121,7 +121,7 @@ async function harness() {
     freeSlotsController: { invalidateScope() {} }, REPORT_DEMO_SLUG: 'fixture-demo',
   };
   for (const name of ['teamCalendarController', 'groupBookingsController', 'notificationCenterController', 'providerFeedbackController',
-    'clientFieldsController', 'clientRecordsController', 'clientImportController', 'organizationController', 'resourceController', 'shiftController',
+    'clientFieldsController', 'clientRecordsController', 'clientResultsController', 'clientImportController', 'organizationController', 'resourceController', 'shiftController',
     'payrollController', 'benefitController', 'loyaltyController', 'inventoryController', 'retentionController',
     'batchBookingsController', 'bookingPolicyController', 'dataGovernanceController']) ctx[name] = controllerStub();
   for (const name of ['renderProviderVerification', 'resetReportSessionState', 'stopLiveUpdates', 'restoreTelegramClientSettings',
