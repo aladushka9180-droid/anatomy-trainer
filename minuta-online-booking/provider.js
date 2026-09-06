@@ -5261,20 +5261,36 @@ function renderDateStrip() {
   const today = parseLocalIsoDate(todayIso);
   const selected = parseLocalIsoDate(selectedDate) || today;
   const weekStart = weekStartFor(selected);
-  const weekKey = localIsoDate(weekStart);
-  const rebuildStrip = dateStrip.dataset.weekStart !== weekKey || dateStrip.dataset.today !== todayIso || dateStrip.children.length !== 7;
+  const mobileDateStrip = window.matchMedia('(max-width: 760px)').matches;
+  const todayWeekStart = weekStartFor(today);
+  const rangeStart = new Date(mobileDateStrip && todayWeekStart < weekStart ? todayWeekStart : weekStart);
+  const rangeEnd = new Date(mobileDateStrip && todayWeekStart > weekStart ? todayWeekStart : weekStart);
+  if (mobileDateStrip) {
+    rangeStart.setDate(rangeStart.getDate() - 28);
+    rangeEnd.setDate(rangeEnd.getDate() + 62);
+  } else {
+    rangeEnd.setDate(rangeEnd.getDate() + 6);
+  }
+  const rangeStartIso = localIsoDate(rangeStart);
+  const rangeEndIso = localIsoDate(rangeEnd);
+  const rangeDays = Math.round((Date.UTC(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate()) - Date.UTC(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())) / 86400000) + 1;
+  const currentRangeContainsSelection = dateStrip.dataset.rangeStart <= selectedDate && selectedDate <= dateStrip.dataset.rangeEnd;
+  const currentRangeContainsToday = dateStrip.dataset.rangeStart <= todayIso && todayIso <= dateStrip.dataset.rangeEnd;
+  const rebuildStrip = dateStrip.dataset.rangeMode !== (mobileDateStrip ? 'mobile' : 'desktop') || !currentRangeContainsSelection || !currentRangeContainsToday || dateStrip.dataset.today !== todayIso;
   const selectionChanged = dateStrip.dataset.selectedDate !== selectedDate;
   if (rebuildStrip) {
     const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
-    dateStrip.innerHTML = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(weekStart);
-      date.setDate(weekStart.getDate() + index);
+    dateStrip.innerHTML = Array.from({ length: rangeDays }, (_, index) => {
+      const date = new Date(rangeStart);
+      date.setDate(rangeStart.getDate() + index);
       const iso = localIsoDate(date);
       const label = iso === todayIso ? 'Сегодня' : weekday.format(date).replace('.', '');
       const fullDate = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       return `<button type="button" data-booking-date="${iso}" aria-label="${fullDate}"><span>${label}</span><strong>${date.getDate()}</strong><small>${date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '')}</small></button>`;
     }).join('');
-    dateStrip.dataset.weekStart = weekKey;
+    dateStrip.dataset.rangeMode = mobileDateStrip ? 'mobile' : 'desktop';
+    dateStrip.dataset.rangeStart = rangeStartIso;
+    dateStrip.dataset.rangeEnd = rangeEndIso;
     dateStrip.dataset.today = todayIso;
   }
   dateStrip.querySelectorAll('[data-booking-date]').forEach(button => {
