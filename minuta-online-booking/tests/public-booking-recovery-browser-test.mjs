@@ -34,7 +34,7 @@ function json(res, value, status = 200) {
 }
 function rpc(name, args, res) {
   scenario.calls.push({ name, args });
-  if (name === 'get_public_minuta_catalog_v4') return json(res, {
+  if (name === 'get_public_minuta_catalog_v5' || name === 'get_public_minuta_catalog_v4') return json(res, {
     organization:{ id:ids.org, name:'Изолированная студия' }, resource_scheduling:true,
     branch_shift_scheduling:true,
     locations:[{ id:ids.a, name:'Филиал A', is_primary:true }, { id:ids.b, name:'Филиал B' }],

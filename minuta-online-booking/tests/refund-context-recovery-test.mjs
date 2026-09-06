@@ -130,7 +130,7 @@ async function harness() {
     'applyDisplayPreferences', 'renderDisplayPreferencesForm', 'queueDisplayPreferencesSync', 'updateScheduleSaveState',
     'renderNotifications', 'startTopbarClock', 'stopTopbarClock', 'showRecoveryReset', 'closeBookingSheet',
     'renderOfflineBookingQueue', 'setSyncState', 'renderTopbarDateTime', 'renderDateStrip', 'renderNotificationTemplates',
-    'renderBookingPolicyForm', 'renderVisitorNotificationForm', 'flushOfflineBookings', 'startLiveUpdates',
+    'renderBookingPolicyForm', 'renderVisitorNotificationForm', 'loadClientAppearanceSettings', 'flushOfflineBookings', 'startLiveUpdates',
     'setProviderView', 'syncScheduleContextHistory', 'renderReportDataSourceControl', 'updateProviderClientLinks',
     'loadBookingSettings', 'renderWaitlist', 'loadWaitlist']) ctx[name] = noOp;
   function payload(organization) {
