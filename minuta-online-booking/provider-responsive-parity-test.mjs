@@ -33,8 +33,8 @@ for (const view of desktopViews) {
 }
 
 assert.doesNotMatch(html, /mobile-priority-shortcuts/, 'Быстрые ссылки не должны дублировать мобильный каталог разделов');
-for (const label of ['Помощник', 'Обновить', 'Клиентам']) {
-  assert.match(html, new RegExp(`data-mobile-label="${label}"`), `На телефоне отсутствует видимая подпись «${label}»`);
+for (const label of ['Помощник', 'Обновить данные', 'Страница клиента']) {
+  assert.match(html, new RegExp(`<span>${label}</span>`), `В меню инструментов отсутствует видимая подпись «${label}»`);
 }
 
 assert.match(provider, /#newBookingButton, #mobileNewBookingButton/, 'Создание записи на телефоне и компьютере должно использовать общий обработчик');
