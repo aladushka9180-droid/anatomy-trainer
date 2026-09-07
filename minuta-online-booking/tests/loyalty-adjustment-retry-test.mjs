@@ -283,6 +283,13 @@ test('RELOAD a new controller replays the durable adjustment key without storing
   assert.equal([...storage.values.keys()].filter(key=>key.includes(':adjustment:')).length,0,'confirmed replay clears only its durable intent');
 });
 
+test('live unknown intent is not cleared by workspace reconciliation before its RPC ACK',async()=>{
+  const f=fixture(undefined,undefined,true);await f.start();f.loseReply();await f.submit();
+  assert.equal(f.mutations().length,1);assert.match(f.get('loyaltyAdjustmentError').textContent,/подтвердить результат/);
+  await f.submit();assert.equal(f.mutations().length,2);assert.deepEqual(f.mutations()[1].args,f.mutations()[0].args);
+  assert.equal(f.ledger.rows.length,1);
+});
+
 test('unknown warning belongs to its actor/org and returns with the unresolved intent',async()=>{
   const f=await uncertain();await f.switchOrg(OTHER);
   assert.equal(f.get('loyaltyAdjustmentError').hidden,true);assert.equal(f.get('loyaltyAdjustmentError').textContent,'');

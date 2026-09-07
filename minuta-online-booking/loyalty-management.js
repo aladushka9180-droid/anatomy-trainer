@@ -133,7 +133,10 @@
         const stored = durableRecord(kind, key);
         if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) return;
         if (!stored) continue;
-        if (!stored.invalid && workspaceConfirmsIntent(kind, stored.request_id)) {
+        // An in-memory unknown result remains retryable until its own RPC
+        // confirms it. Workspace reconciliation is only for a genuinely new
+        // controller after reload, where that operation snapshot is gone.
+        if (!intents.has(key) && !stored.invalid && workspaceConfirmsIntent(kind, stored.request_id)) {
           clearPersistedIntent(kind, key); intents.delete(key);
           const holder = $(selector); if (holder) { holder.hidden = true; holder.textContent = ''; }
           continue;
