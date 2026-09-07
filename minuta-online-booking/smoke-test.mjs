@@ -558,8 +558,8 @@ const appearanceSources = [
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
 assert.match(appearanceSources[8], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
-const defaultMobileNav = ['bookings', 'notifications', 'analytics', 'schedule'];
-const defaultMobileNavByRole = { owner:['bookings','analytics','organization','notifications'], admin:['bookings','notifications','clients','schedule'], specialist:['bookings','schedule','clients','notifications'] };
+const defaultMobileNav = ['bookings', 'clients', 'notifications', 'analytics'];
+const defaultMobileNavByRole = { owner:['bookings','clients','notifications','analytics'], admin:['bookings','clients','notifications','analytics'], specialist:['bookings','clients','notifications','analytics'] };
 const defaultViewOrderByRole = { owner:['bookings','analytics','organization','notifications','clients','schedule','services','portfolio','waitlist','settings'], admin:['bookings','notifications','clients','schedule','organization','analytics','services','waitlist','portfolio','settings'], specialist:['bookings','schedule','clients','notifications','services','waitlist','analytics','portfolio','organization','settings'] };
 const defaultAnalyticsGoals = { revenue_rub:0, utilization_percent:70, repeat_percent:35, cancellation_percent:10 };
 const defaultAnalyticsGoalsByScope = {};
@@ -661,7 +661,7 @@ assert.match(provider, /function applyBookingQuery[\s\S]*bookingStatusClass\(ite
 assert.match(provider, /function refreshProviderSectionDisclosure\(nav\)[\s\S]*setProviderSectionElementVisible\(element, active\)/, 'Внутренняя навигация не переключает минималистичные подразделы');
 assert.match(provider, /function updateActiveSectionNavigation\(\) \{\s*return;\s*\}/, 'Прокрутка самопроизвольно меняет выбранный подраздел');
 for (const parameter of ['date', 'range', 'records', 'journal']) assert.match(provider, new RegExp(`searchParams\\.set\\('${parameter}'`), `Контекст расписания не сохраняет параметр ${parameter}`);
-assert.match(providerHtml, /data-provider-view="schedule"[^>]*>[\s\S]*?<span>График<\/span>/, 'Подпись рабочего графика в нижней навигации слишком длинная');
+assert.match(providerHtml, /data-provider-view="schedule"[^>]*>[\s\S]*?<span>Рабочие часы<\/span>/, 'Подпись рабочих часов в навигации снова стала неоднозначной');
 assert.doesNotMatch(providerHtml, /id="(?:newBookingsBadge|clientsBadge|servicesBadge|teamBadge|portfolioBadge)"/, 'В боковом меню остались неинформативные общие и нулевые счётчики');
 assert.match(styles, /calendar-overview-week \.calendar-overview-booking strong[\s\S]*-webkit-line-clamp:2/, 'Название записи в недельном календаре не получает две строки');
 assert.match(styles, /Навигация и рабочие поверхности:[\s\S]*background-image:linear-gradient\(180deg,[^}]*!important;/, 'Внутренние поверхности Luxury не отделены от мраморного фона');
@@ -1011,7 +1011,7 @@ assert.match(app, /if \(error\) \{[\s\S]*?return;\s*\n\s*\}\s*\n\s*const manageT
 const privacy = readFileSync(join(root, 'privacy.html'), 'utf8');
 assert.match(privacy, /Офлайн-копия, черновик и отложенные записи[\s\S]*не дольше 7 дней[\s\S]*не дольше 12 часов[\s\S]*имя, телефон, услуга, дата, время и заметка[\s\S]*при конфликте данные остаются до исправления или удаления/, 'Политика неверно объясняет локальное хранение офлайн-записи');
 assert.match(privacy, /Фотографии «до» и «после» публикуются[^.]+согласия клиента/, 'В политике не описано согласие на публикацию работ');
-assert.match(privacy, /EXIF и геометки/, 'В политике не описано удаление метаданных фотографий');
+assert.match(privacy, /EXIF,? геометки/, 'В политике не описано удаление метаданных фотографий');
 
 const reliability = readFileSync(join(root, 'reliability.js'), 'utf8');
 assert.match(reliability, /removeItem\('minuta-last-booking-url'\)/, 'Старый секретный токен не очищается');
