@@ -200,6 +200,8 @@ begin
       from (select * from public.loyalty_ledger where organization_id=p_organization order by id desc limit 100) entry),'[]'::jsonb)
   );
 end $$;
+revoke all on function public.get_minuta_loyalty_workspace(uuid) from public,anon,authenticated,service_role;
+grant execute on function public.get_minuta_loyalty_workspace(uuid) to authenticated;
 
 notify pgrst,'reload schema';
 commit;

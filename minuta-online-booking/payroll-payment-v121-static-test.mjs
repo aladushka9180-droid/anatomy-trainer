@@ -20,6 +20,7 @@ assert.match(migration, /'promo_redemptions'[\s\S]*'request_id',redemption\.requ
 assert.match(migration, /'ledger'[\s\S]*'request_id',entry\.request_id/);
 assert.match(migration, /from public\.loyalty_promo_redemptions redemption where redemption\.organization_id=p_organization/);
 assert.match(migration, /from \(select \* from public\.loyalty_ledger where organization_id=p_organization/);
+assert.match(migration, /grant execute on function public\.get_minuta_loyalty_workspace\(uuid\) to authenticated/);
 assert.doesNotMatch(migration, /drop function public\.add_minuta_payroll_adjustment\(uuid,uuid,uuid,integer,text\)/);
 
 assert.match(rollback, /v121_rollback_blocked_request_ids_exist/);
@@ -28,6 +29,7 @@ assert.match(rollback, /drop index public\.payroll_adjustments_organization_requ
 assert.match(rollback, /alter table public\.payroll_adjustments drop column request_id/);
 assert.doesNotMatch(rollback, /drop[\s\S]+cascade/i);
 assert.doesNotMatch(rollback, /or (?:item|adjustment)\.performer_id=v_user\)\)\),'\[\]'::jsonb/);
+assert.match(rollback, /grant execute on function public\.get_minuta_loyalty_workspace\(uuid\) to authenticated/);
 
 assert.match(payroll, /p_request_id:requestId/);
 assert.match(payroll, /minutaPayrollAdjustmentIntent/);
