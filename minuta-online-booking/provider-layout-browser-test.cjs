@@ -4,12 +4,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 const { chromium } = require('playwright');
 const root = __dirname;
 const source = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
 const keys = name => [...source.match(new RegExp(`const ${name} = \\[([^\\]]+)\\]`))[1].matchAll(/'([^']+)'/g)].map(match => match[1]);
 const layouts = keys('PROVIDER_LAYOUT_KEYS');
-const themes = keys('PROVIDER_THEME_KEYS');
+const catalogContext = { window:{} };
+vm.createContext(catalogContext);
+vm.runInContext(fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8'), catalogContext);
+const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 const widths = (process.env.MINUTA_LAYOUT_WIDTHS || '320,390,760,768,1024,1440').split(',').map(Number);
 const output = process.env.MINUTA_LAYOUT_OUTPUT;
 if (output) fs.mkdirSync(output, { recursive:true });
@@ -63,7 +67,19 @@ const server = http.createServer((request, response) => {
           const choices = [...document.querySelectorAll('.provider-layout-option')].map(element => ({ heading:parseFloat(getComputedStyle(element.querySelector('strong')).fontSize), description:parseFloat(getComputedStyle(element.querySelector('small')).fontSize) }));
           const listHeight = document.querySelector('#providerBookings').getBoundingClientRect().height;
           const clippedNav = innerWidth > 760 && [...document.querySelectorAll('.provider-nav button>span:nth-child(2)')].some(element => element.scrollWidth > element.clientWidth + 2);
-          return { pageOverflow:document.documentElement.scrollWidth > innerWidth + 2, outside, titleWordBreak:font?.overflowWrap, choices, listHeight, clippedNav };
+          const overflowElements = [...document.querySelectorAll('body *')].filter(element => element.checkVisibility()).map(element => ({
+            selector:element.id ? `#${element.id}` : String(element.className || element.tagName),
+            parent:element.parentElement?.id ? `#${element.parentElement.id}` : String(element.parentElement?.className || element.parentElement?.tagName || ''),
+            text:String(element.getAttribute('aria-label') || element.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80),
+            rect:element.getBoundingClientRect(),
+          })).filter(({rect}) => rect.right > innerWidth + 2).sort((first, second) => second.rect.right - first.rect.right).slice(0, 5).map(({selector,parent,text,rect}) => ({selector,parent,text,right:Math.round(rect.right),width:Math.round(rect.width)}));
+          const previousX = scrollX, previousY = scrollY;
+          scrollTo({left:document.documentElement.scrollWidth,top:previousY,behavior:'instant'});
+          const horizontalScroll = scrollX;
+          scrollTo({left:previousX,top:previousY,behavior:'instant'});
+          // Focus rings may add up to four virtual pixels to Chromium's root
+          // scrollWidth without exposing usable horizontal scrolling.
+          return { pageOverflow:horizontalScroll > 4, horizontalScroll, overflowElements, outside, titleWordBreak:font?.overflowWrap, titleClipped:title ? title.scrollWidth > title.clientWidth + 2 : false, choices, listHeight, clippedNav };
         }, { layout, theme, panel });
         results.push({ width, layout, theme, panel, ...measured });
         if (output && theme === 'sage' && panel === 'bookings' && [390,768,1440].includes(width)) await page.screenshot({ path:path.join(output, `${layout}-${width}.png`) });
@@ -72,7 +88,7 @@ const server = http.createServer((request, response) => {
       console.log(`Layout matrix: ${width}px checked`);
     }
     const failures = results.filter(result => result.pageOverflow || result.outside.length || result.choices.some(choice => choice.heading < choice.description)
-      || result.clippedNav || (result.width > 760 && result.width <= 1100 && result.titleWordBreak !== 'normal')
+      || result.clippedNav || result.titleClipped
       || (result.layout === 'split' && result.panel === 'bookings' && result.width > 1100 && result.listHeight >= 720));
     if (output) fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify({ results, failures }, null, 2));
     console.log(`${results.length} layout/theme/viewport/panel checks; failures: ${failures.length}`);

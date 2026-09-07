@@ -32,6 +32,16 @@ document.querySelector('#run').addEventListener('click', async () => {
   result.dataset.complete = ''; const failures = []; let combinations = 0, assertions = 0, minimumContrast = 100;
   try {
     if (frame.contentDocument.readyState !== 'complete') await new Promise(resolve => frame.addEventListener('load', resolve, {once:true}));
+    // Foreign accents are the strongest signal of a leaked theme. Neutral
+    // surfaces are deliberately shared by several palettes and are not errors.
+    const tokenNames = ['--theme-accent','--theme-accent-soft'];
+    const themeTokens = {};
+    for (const theme of ${JSON.stringify(themes)}) {
+      frame.contentDocument.body.dataset.providerTheme = theme;
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const computed = frame.contentWindow.getComputedStyle(frame.contentDocument.body);
+      themeTokens[theme] = tokenNames.map(name => computed.getPropertyValue(name).trim()).filter(Boolean);
+    }
     for (const width of [390,1440]) for (const layout of ${JSON.stringify(layouts)}) for (const theme of ${JSON.stringify(themes)}) {
       frame.style.width = width + 'px';
       frame.contentDocument.body.dataset.providerTheme = theme;
@@ -39,11 +49,23 @@ document.querySelector('#run').addEventListener('click', async () => {
       // Flush style/layout and fonts in the actual iframe viewport.
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       await frame.contentDocument.fonts.ready;
-      const report = inspectCardStates(frame.contentDocument);
+      const report = inspectCardStates(frame.contentDocument, {themeTokens});
       failures.push(...report.failures.map(failure => ({theme,layout,width,...failure})));
       assertions += report.assertions; minimumContrast = Math.min(minimumContrast, report.minimumContrast); combinations++;
       result.textContent = JSON.stringify({combinations,assertions,minimumContrast,failures});
     }
+    // Prove that the regression detector itself is alive: inject one foreign
+    // accent, verify it is reported, then remove it before returning results.
+    frame.contentDocument.body.dataset.providerTheme = 'warm';
+    const canary = frame.contentDocument.createElement('span');
+    canary.textContent = 'theme-regression-canary';
+    canary.style.setProperty('color', themeTokens.sage[0], 'important');
+    frame.contentDocument.body.append(canary);
+    const canaryReport = inspectCardStates(frame.contentDocument, {themeTokens});
+    const foreignColorCanary = canaryReport.failures.some(failure => failure.kind === 'foreign-theme-color');
+    canary.remove();
+    if (!foreignColorCanary) throw new Error('Foreign theme colour detector did not catch its canary');
+    result.textContent = JSON.stringify({combinations,assertions,minimumContrast,foreignColorCanary,failures});
     result.dataset.complete = 'true'; result.dataset.passed = String(failures.length === 0);
   } catch(error) {result.textContent = String(error.stack); result.dataset.complete='true'; result.dataset.passed='false';}
   document.querySelector('#run').disabled = false;
