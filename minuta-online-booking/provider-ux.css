@@ -232,6 +232,8 @@
 .provider-body .clients-search-tools>#clientDirectoryFilters,
 .provider-body .clients-search-tools>#clientDirectoryFilters>.client-directory-toolbar { display:contents; }
 .provider-body .clients-search-tools [data-client-filters] { min-height:44px; margin:0; white-space:nowrap; }
+.provider-body .clients-search-tools [data-client-filters] { grid-column:2; grid-row:1; }
+.provider-body .clients-search-tools .clients-tools { grid-column:3; grid-row:1; }
 .provider-body .clients-search-tools [data-client-found] { grid-column:1/-1; margin:-2px 2px 0; color:var(--theme-muted); font-size:12px; }
 .provider-body .clients-search-tools .client-directory-chips { grid-column:1/-1; }
 .provider-body[data-provider-theme][data-provider-layout] .clients-tools { margin:0; }
