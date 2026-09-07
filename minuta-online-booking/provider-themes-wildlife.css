@@ -159,7 +159,7 @@
 
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
   background-color:#dfc39a!important;
-  background-image:linear-gradient(rgba(255,247,233,.18),rgba(255,247,233,.18)),url("provider-golden-cheetah-canvas-v1.svg?v=572")!important;
+  background-image:linear-gradient(rgba(255,247,233,.18),rgba(255,247,233,.18)),url("provider-golden-cheetah-canvas-v1.svg?v=573")!important;
   background-size:100% 100%,cover!important;
   background-position:center!important;
   background-repeat:no-repeat!important;
@@ -167,7 +167,7 @@
 }
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f7f4ef!important;
-  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=572")!important;
+  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=573")!important;
   background-size:100% 100%,100% 100%!important;
   background-position:center top!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
 }
@@ -178,7 +178,7 @@
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .provider-sidebar { border-right-color:transparent!important;box-shadow:none!important; }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
-    background-image:linear-gradient(rgba(255,247,233,.24),rgba(255,247,233,.24)),url("provider-golden-cheetah-canvas-v1.svg?v=572")!important;
+    background-image:linear-gradient(rgba(255,247,233,.24),rgba(255,247,233,.24)),url("provider-golden-cheetah-canvas-v1.svg?v=573")!important;
     background-size:100% 100%,cover!important;
     background-position:center!important;
     background-repeat:no-repeat!important;
@@ -186,6 +186,6 @@
   }
 }
 .theme-golden-cheetah { --theme-preview-bg:#f7e4c9;--theme-preview-surface:#fffdf8;--theme-preview-line:#ae9785;--theme-preview-accent:#805033;--theme-preview-radius:14px; }
-.theme-golden-cheetah .theme-swatch { background-image:linear-gradient(rgba(255,247,233,.18),rgba(255,247,233,.18)),url("provider-golden-cheetah-canvas-v1.svg?v=572")!important; background-size:100% 100%,cover!important; background-position:center!important; background-repeat:no-repeat!important; }
+.theme-golden-cheetah .theme-swatch { background-image:linear-gradient(rgba(255,247,233,.18),rgba(255,247,233,.18)),url("provider-golden-cheetah-canvas-v1.svg?v=573")!important; background-size:100% 100%,cover!important; background-position:center!important; background-repeat:no-repeat!important; }
 .theme-pearl-zebra { --theme-preview-bg:#f7f4ef;--theme-preview-surface:#fffdfb;--theme-preview-line:#a39b93;--theme-preview-accent:#4f4944;--theme-preview-radius:14px; }
-.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=572") center/cover no-repeat!important; }
+.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=573") center/cover no-repeat!important; }
