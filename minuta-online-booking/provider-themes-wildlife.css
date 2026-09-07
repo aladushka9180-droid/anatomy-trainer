@@ -159,15 +159,15 @@
 
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
   background-color:#d8c0a0!important;
-  background-image:url("provider-golden-cheetah-matte-v1.svg?v=576")!important;
-  background-size:cover!important;
-  background-position:center!important;
-  background-repeat:no-repeat!important;
-  background-attachment:fixed!important;
+  background-image:radial-gradient(ellipse 80% 100% at 50% 45%,transparent 38%,rgba(83,57,39,.12) 100%),linear-gradient(rgba(216,192,160,.72),rgba(216,192,160,.72)),url("provider-leopard-premium-bg.webp?v=577")!important;
+  background-size:100% 100%,100% 100%,cover!important;
+  background-position:center,center,center!important;
+  background-repeat:no-repeat,no-repeat,no-repeat!important;
+  background-attachment:fixed,fixed,fixed!important;
 }
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f7f4ef!important;
-  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=576")!important;
+  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=577")!important;
   background-size:100% 100%,100% 100%!important;
   background-position:center top!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
 }
@@ -178,14 +178,14 @@
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .provider-sidebar { border-right-color:transparent!important;box-shadow:none!important; }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
-    background-image:url("provider-golden-cheetah-matte-v1.svg?v=576")!important;
-    background-size:cover!important;
-    background-position:center!important;
-    background-repeat:no-repeat!important;
+    background-image:radial-gradient(ellipse 130% 620px at 50% 40px,transparent 45%,rgba(83,57,39,.1) 100%),linear-gradient(rgba(216,192,160,.72),rgba(216,192,160,.72)),url("provider-leopard-premium-bg.webp?v=577")!important;
+    background-size:100% 100%,100% 100%,cover!important;
+    background-position:center,center,center!important;
+    background-repeat:no-repeat,no-repeat,no-repeat!important;
     background-attachment:scroll!important;
   }
 }
 .theme-golden-cheetah { --theme-preview-bg:#f7e4c9;--theme-preview-surface:#fffdf8;--theme-preview-line:#ae9785;--theme-preview-accent:#805033;--theme-preview-radius:14px; }
-.theme-golden-cheetah .theme-swatch { background-image:url("provider-golden-cheetah-matte-v1.svg?v=576")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
+.theme-golden-cheetah .theme-swatch { background-image:linear-gradient(rgba(216,192,160,.58),rgba(216,192,160,.58)),url("provider-leopard-premium-bg.webp?v=577")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
 .theme-pearl-zebra { --theme-preview-bg:#f7f4ef;--theme-preview-surface:#fffdfb;--theme-preview-line:#a39b93;--theme-preview-accent:#4f4944;--theme-preview-radius:14px; }
-.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=576") center/cover no-repeat!important; }
+.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=577") center/cover no-repeat!important; }
