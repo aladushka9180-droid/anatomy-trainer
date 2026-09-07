@@ -115,7 +115,8 @@
         }
         const days = Math.round((Date.parse(`${to}T00:00:00`) - Date.parse(`${from}T00:00:00`)) / DAY_MS) + 1;
         const valid = days > 0 && days <= MAX_REPORT_DAYS;
-        rangeHint.textContent = days <= 0 ? 'Дата окончания должна быть не раньше начала.' : days > MAX_REPORT_DAYS ? `Выбрано ${days} дней. Максимум — ${MAX_REPORT_DAYS}.` : `Выбрано ${days} ${days === 1 ? 'день' : days < 5 ? 'дня' : 'дней'}.`;
+        const dayWord = days % 100 >= 11 && days % 100 <= 14 ? 'дней' : days % 10 === 1 ? 'день' : days % 10 >= 2 && days % 10 <= 4 ? 'дня' : 'дней';
+        rangeHint.textContent = days <= 0 ? 'Дата окончания должна быть не раньше начала.' : days > MAX_REPORT_DAYS ? `Выбрано ${days} дней. Максимум — ${MAX_REPORT_DAYS}.` : `Выбрано ${days} ${dayWord}.`;
         rangeHint.dataset.tone = valid ? 'success' : 'warning';
         excelExportButton.disabled = !valid || workspace?.role !== 'owner';
         return valid ? { from, to, days } : null;

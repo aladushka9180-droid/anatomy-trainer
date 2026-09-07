@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=556/, 'Кабинет не подключает Signature Collection v556');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=556/, 'Service Worker не кэширует Signature Collection v556');
+assert.match(provider, /provider-themes-signature\.css\?v=557/, 'Кабинет не подключает Signature Collection v557');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=557/, 'Service Worker не кэширует Signature Collection v557');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -99,7 +99,7 @@ assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--the
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /provider-snow-leopard-unified-landscape-v5\.png\?v=556/);
+assert.match(snowCanvas, /provider-snow-leopard-unified-landscape-v5\.png\?v=557/);
 assert.match(snowCanvas, /--snow-print-veil:rgba\(255,255,255,\.86\)/);
 assert.match(snowCanvas, /background-size:auto,cover!important/);
 assert.match(snowCanvas, /background-repeat:no-repeat!important/);
@@ -108,15 +108,15 @@ assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard 
 assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|linear-gradient\(90deg/, 'Snow Leopard must not restore visible tiles or edge-masking rectangles');
 assert.doesNotMatch(snowCanvas, /crisp-seamless-4k-v4/, 'Snow Leopard still loads the internally tiled canvas');
 const portraitSnow = css.match(/@media \(orientation:portrait\) \{\s*\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\] \{([^}]*)\}/)?.[1] || '';
-assert.match(portraitSnow, /provider-snow-leopard-unified-portrait-v6\.png\?v=556/, 'Portrait screens must use the native dense portrait canvas instead of zooming the landscape image');
+assert.match(portraitSnow, /provider-snow-leopard-unified-portrait-v6\.png\?v=557/, 'Portrait screens must use the native dense portrait canvas instead of zooming the landscape image');
 assert.doesNotMatch(portraitSnow, /portrait-v5/, 'Portrait screens must not restore the oversized Snow Leopard motifs');
 for (const [asset, dimensions] of [['provider-snow-leopard-unified-landscape-v5.png', [1672, 941]], ['provider-snow-leopard-unified-portrait-v6.png', [941, 1672]]]) {
   const bytes = fs.readFileSync(new URL(`./${asset}`, import.meta.url));
   assert.ok(bytes.length > 1_000_000, `${asset} is missing or unexpectedly small`);
   assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], dimensions, `${asset} has the wrong orientation`);
-  assert.match(worker, new RegExp(`${asset.replace('.', '\\.') }\\?v=556`), `${asset} is not available offline`);
+  assert.match(worker, new RegExp(`${asset.replace('.', '\\.') }\\?v=557`), `${asset} is not available offline`);
 }
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v556: 13 unified themes OK');
+console.log('Signature themes v557: 13 unified themes OK');
