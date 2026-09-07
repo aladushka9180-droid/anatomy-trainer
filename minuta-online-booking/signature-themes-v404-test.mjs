@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=569/, 'Кабинет не подключает Signature Collection v569');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=569/, 'Service Worker не кэширует Signature Collection v569');
+assert.match(provider, /provider-themes-signature\.css\?v=570/, 'Кабинет не подключает Signature Collection v570');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=570/, 'Service Worker не кэширует Signature Collection v570');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -99,16 +99,17 @@ assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--the
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /provider-snow-leopard-natural-v2\.webp\?v=569/);
+assert.match(snowCanvas, /provider-snow-leopard-crisp-seamless-4k-v4\.webp\?v=570/);
 assert.match(snowCanvas, /--snow-print-veil:rgba\(255,255,255,\.86\)/);
-assert.match(snowCanvas, /background-size:auto,480px 480px!important/);
-assert.match(snowCanvas, /background-repeat:repeat!important/);
-assert.match(snowCanvas, /background-position:0 0!important/);
-assert.match(snowCanvas, /background-attachment:scroll!important/, 'Snow Leopard keeps the approved repeated canvas scale');
-assert.match(mobileSnow, /background-size:auto,260px 260px!important/);
-assert.doesNotMatch(snowCanvas, /unified-landscape-v5|crisp-seamless-4k-v4/);
+assert.match(snowCanvas, /background-size:auto,cover!important/);
+assert.match(snowCanvas, /background-repeat:no-repeat!important/);
+assert.match(snowCanvas, /background-position:center!important/);
+assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard keeps one continuous desktop canvas');
+assert.match(mobileSnow, /background-size:auto,cover!important/);
+assert.match(mobileSnow, /background-repeat:no-repeat!important/);
+assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|natural-v2|unified-landscape-v5/);
 assert.match(worker, /assetResponse[\s\S]*caches\.open\(CACHE\)\)\.put\(request, response\.clone\(\)\)/, 'Theme media is not cached after first use');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v569: Snow Leopard scale OK');
+console.log('Signature themes v570: Snow Leopard scale OK');
