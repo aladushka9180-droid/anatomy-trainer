@@ -193,7 +193,7 @@ try {
         boxes,
         resultColumns: getComputedStyle(document.querySelector('.client-result-grid')).gridTemplateColumns,
         editorColumns: getComputedStyle(document.querySelector('.booking-visit-result-grid')).gridTemplateColumns,
-        mobileResultInsets: [
+        resultInsets: [
           document.querySelector('.booking-visit-result-form>.settings-help-link'),
           document.querySelector('.booking-result-media-grid'),
           document.querySelector('.booking-result-description>summary'),
@@ -209,13 +209,13 @@ try {
     metrics.boxes.forEach(box => {
       assert.ok(box.left >= -0.5 && box.right <= metrics.clientWidth + 0.5, `${box.selector} stays inside ${width}px`);
     });
+    metrics.resultInsets.forEach(inset => {
+      assert.equal(inset.left, 10, `${width}px result content shares a 10px left inset`);
+      assert.equal(inset.right, 10, `${width}px result content shares a 10px right inset`);
+    });
     if (width <= 760) {
       assert.equal(metrics.resultColumns.split(' ').length, 1, `${width}px result fields use one column`);
       assert.equal(metrics.editorColumns.split(' ').length, 1, `${width}px editor uses one column`);
-      metrics.mobileResultInsets.forEach(inset => {
-        assert.equal(inset.left, 10, `${width}px result content shares a 10px left inset`);
-        assert.equal(inset.right, 10, `${width}px result content shares a 10px right inset`);
-      });
     } else {
       assert.equal(metrics.resultColumns.split(' ').length, 2, 'Desktop result fields use two columns');
       assert.equal(metrics.editorColumns.split(' ').length, 2, 'Desktop editor uses two columns');
