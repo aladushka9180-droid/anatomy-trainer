@@ -17,7 +17,7 @@
 .provider-body [data-provider-panel="settings"] .settings-layout>.app-navigation-settings-card { order:2; }
 .provider-body [data-provider-panel="settings"] .settings-layout>.account-settings-card { order:1; }
 .provider-body [data-provider-panel="settings"] .settings-layout>.data-governance-card { order:2; }
-.provider-body [data-provider-panel="settings"] .settings-card:has(.settings-help-link)>[data-contextual-help] { display:none; }
+.provider-body [data-provider-panel="settings"] .settings-card>[data-contextual-help] { display:none; }
 .provider-body [data-provider-panel="settings"] :is(.booking-advanced-settings,.subscription-plans-disclosure,.security-more-methods) {
   grid-column:1/-1;
   border:1px solid var(--theme-line,#dce7df);
@@ -132,6 +132,9 @@
     gap:8px!important;
     margin-top:8px!important;
   }
+
+  .provider-body [data-provider-panel="settings"] .settings-layout>.settings-card,
+  .provider-body [data-provider-panel="settings"] .provider-section-marker { scroll-margin-top:106px; }
 
   .provider-body [data-provider-panel="settings"] .client-appearance-selection { order:1; }
   .provider-body [data-provider-panel="settings"] .client-appearance-preview-shell { order:2; }
