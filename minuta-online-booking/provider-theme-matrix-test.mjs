@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, goldenCheetahAsset, snowLeopardMobileAsset, leopardPremiumAsset] = await Promise.all([
+const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, goldenCheetahAsset, snowLeopardMobileAsset] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
@@ -14,9 +14,8 @@ const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noi
   readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
   readFile(path.join(directory, 'provider-theme-noir-safari.css'), 'utf8'),
   readFile(path.join(directory, 'provider-pearl-zebra-smooth-4k-v4.webp')),
-  readFile(path.join(directory, 'provider-golden-cheetah-canvas-v1.svg'), 'utf8'),
+  readFile(path.join(directory, 'provider-golden-cheetah-matte-v1.svg'), 'utf8'),
   readFile(path.join(directory, 'provider-snow-leopard-mobile-v1.png')),
-  readFile(path.join(directory, 'provider-leopard-premium-bg.webp')),
 ]);
 const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}`;
 
@@ -132,7 +131,7 @@ assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav 
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=574"\)/);
+assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=575"\)/);
 assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
@@ -140,12 +139,11 @@ assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not s
 assert.doesNotMatch(pearlZebraBackground, /repeating-radial-gradient/, 'Pearl Zebra must use the approved natural stripe artwork');
 
 const goldenCheetahBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="golden-cheetah"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(goldenCheetahBackground, /url\("provider-leopard-premium-bg\.webp\?v=574"\)/);
-assert.match(goldenCheetahBackground, /background-size:100% 100%,100% 100%,520px auto!important/);
-assert.equal(leopardPremiumAsset.toString('ascii', 0, 4), 'RIFF', 'Leopard Premium must be a WebP asset');
-assert.match(goldenCheetahBackground, /background-repeat:no-repeat,no-repeat,repeat!important/);
-assert.match(goldenCheetahBackground, /background-attachment:fixed,fixed,fixed!important/);
-assert.doesNotMatch(goldenCheetahBackground, /205px 205px|wildlife-spots/, 'Golden Cheetah must not use the old dot tile');
+assert.match(goldenCheetahBackground, /url\("provider-golden-cheetah-matte-v1\.svg\?v=575"\)/);
+assert.match(goldenCheetahBackground, /background-size:cover!important/);
+assert.match(goldenCheetahBackground, /background-repeat:no-repeat!important/);
+assert.match(goldenCheetahBackground, /background-attachment:fixed!important/);
+assert.doesNotMatch(goldenCheetahBackground, /background-repeat:[^;]*,\s*repeat|205px 205px|520px auto|wildlife-spots/, 'Golden Cheetah must use one continuous matte canvas');
 
 const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
 assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);
@@ -156,11 +154,13 @@ assert.equal(pearlZebraAsset.readUInt16LE(26) & 0x3fff, 3840, 'Pearl Zebra must 
 assert.equal(pearlZebraAsset.readUInt16LE(28) & 0x3fff, 2160, 'Pearl Zebra must retain its 4K height');
 assert.match(goldenCheetahAsset, /^<svg\s/, 'Golden Cheetah must use a standalone continuous canvas');
 assert.match(goldenCheetahAsset, /viewBox="0 0 1600 900"/, 'Golden Cheetah canvas must be landscape and crop-safe');
+assert.match(goldenCheetahAsset, /#d8c0a0/i, 'Golden Cheetah matte canvas must use the approved sandy base');
+assert.match(goldenCheetahAsset, /id="edge"/, 'Golden Cheetah matte canvas must include a soft edge vignette');
 assert.equal(snowLeopardMobileAsset.toString('ascii', 1, 4), 'PNG', 'Snow Leopard mobile artwork must remain a PNG asset');
 assert.equal(snowLeopardMobileAsset.readUInt32BE(16), 941, 'Snow Leopard mobile artwork width must stay high-resolution');
 assert.equal(snowLeopardMobileAsset.readUInt32BE(20), 1672, 'Snow Leopard mobile artwork height must stay portrait');
-assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=574/);
-assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=574"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
+assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=575/);
+assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=575"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
 
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.

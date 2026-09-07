@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e1ccaa"/>
+      <stop offset="0.5" stop-color="#d8c0a0"/>
+      <stop offset="1" stop-color="#c5a27b"/>
+    </linearGradient>
+    <radialGradient id="edge" cx="50%" cy="46%" r="78%">
+      <stop offset="0" stop-color="#fff5df" stop-opacity="0"/>
+      <stop offset="0.68" stop-color="#6e4c35" stop-opacity="0.02"/>
+      <stop offset="1" stop-color="#5c402e" stop-opacity="0.2"/>
+    </radialGradient>
+    <filter id="grain" x="-8%" y="-8%" width="116%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="31"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="table" tableValues="0 0.055"/></feComponentTransfer>
+    </filter>
+    <filter id="soft" x="-12%" y="-12%" width="124%" height="124%">
+      <feGaussianBlur stdDeviation="0.55"/>
+    </filter>
+    <g id="spot-a" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-42-10C-33-32-8-39 14-30C31-23 38-8 30 5" stroke="#76543c" stroke-width="13" opacity=".2"/>
+      <path d="M22 18C7 35-19 34-31 18" stroke="#76543c" stroke-width="13" opacity=".2"/>
+      <path d="M-19-8C-9-22 9-20 17-9" stroke="#9a6d47" stroke-width="7" opacity=".18"/>
+      <path d="M14 4C7 13-4 16-13 11" stroke="#9a6d47" stroke-width="7" opacity=".18"/>
+      <ellipse cx="-1" cy="2" rx="7" ry="4" fill="#795538" stroke="none" opacity=".16"/>
+    </g>
+    <g id="spot-b" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-31-18C-16-32 5-30 20-19" stroke="#805a3d" stroke-width="11" opacity=".19"/>
+      <path d="M28-9C32 6 21 20 9 24" stroke="#805a3d" stroke-width="11" opacity=".19"/>
+      <path d="M-5 28C-20 26-31 16-34 5" stroke="#805a3d" stroke-width="11" opacity=".19"/>
+      <path d="M-13-7C-5-16 7-15 14-8" stroke="#b27b4d" stroke-width="6" opacity=".17"/>
+      <path d="M10 2C6 10-3 13-10 9" stroke="#b27b4d" stroke-width="6" opacity=".17"/>
+      <ellipse cx="0" cy="1" rx="4" ry="6" fill="#765139" stroke="none" opacity=".14"/>
+    </g>
+    <g id="spot-c" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M-25-14C-13-27 7-28 19-17" stroke="#6e4b34" stroke-width="9" opacity=".18"/>
+      <path d="M23-1C25 11 16 20 4 23" stroke="#6e4b34" stroke-width="9" opacity=".18"/>
+      <path d="M-8 24C-19 20-26 12-27 2" stroke="#6e4b34" stroke-width="9" opacity=".18"/>
+      <path d="M-8-4C-2-11 7-10 11-4" stroke="#a97247" stroke-width="5" opacity=".16"/>
+      <ellipse cx="2" cy="4" rx="3" ry="4" fill="#6e4b34" stroke="none" opacity=".12"/>
+    </g>
+    <g id="freckle" fill="#805b3d" opacity=".14">
+      <ellipse cx="0" cy="0" rx="6" ry="3.6"/>
+    </g>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sand)"/>
+  <rect width="1600" height="900" fill="url(#edge)"/>
+  <rect width="1600" height="900" filter="url(#grain)" opacity=".55"/>
+  <g filter="url(#soft)">
+    <use href="#spot-a" transform="translate(78 108) rotate(-14) scale(.82)"/>
+    <use href="#spot-b" transform="translate(310 62) rotate(18) scale(.66)"/>
+    <use href="#spot-c" transform="translate(570 145) rotate(-9) scale(1.12)"/>
+    <use href="#spot-a" transform="translate(872 80) rotate(16) scale(.7)"/>
+    <use href="#spot-b" transform="translate(1160 126) rotate(-21) scale(.8)"/>
+    <use href="#spot-c" transform="translate(1450 72) rotate(13) scale(.72)"/>
+    <use href="#spot-b" transform="translate(190 340) rotate(22) scale(1.02)"/>
+    <use href="#spot-c" transform="translate(452 292) rotate(-25) scale(.76)"/>
+    <use href="#spot-a" transform="translate(760 356) rotate(11) scale(.86)"/>
+    <use href="#spot-b" transform="translate(1050 300) rotate(-16) scale(.7)"/>
+    <use href="#spot-c" transform="translate(1370 370) rotate(23) scale(1.08)"/>
+    <use href="#spot-a" transform="translate(1570 286) rotate(-8) scale(.6)"/>
+    <use href="#spot-c" transform="translate(48 610) rotate(18) scale(.76)"/>
+    <use href="#spot-a" transform="translate(292 572) rotate(-12) scale(.94)"/>
+    <use href="#spot-b" transform="translate(565 704) rotate(16) scale(.72)"/>
+    <use href="#spot-c" transform="translate(840 600) rotate(-19) scale(1.04)"/>
+    <use href="#spot-a" transform="translate(1120 758) rotate(8) scale(.78)"/>
+    <use href="#spot-b" transform="translate(1398 610) rotate(-18) scale(.92)"/>
+    <use href="#spot-c" transform="translate(1544 840) rotate(16) scale(.62)"/>
+    <use href="#spot-a" transform="translate(102 842) rotate(-7) scale(.62)"/>
+  </g>
+  <g>
+    <use href="#freckle" transform="translate(232 182) rotate(14) scale(.65)"/>
+    <use href="#freckle" transform="translate(512 198) rotate(-21) scale(.5)"/>
+    <use href="#freckle" transform="translate(990 188) rotate(18) scale(.7)"/>
+    <use href="#freckle" transform="translate(1305 224) rotate(-12) scale(.54)"/>
+    <use href="#freckle" transform="translate(360 446) rotate(-17) scale(.62)"/>
+    <use href="#freckle" transform="translate(652 468) rotate(10) scale(.48)"/>
+    <use href="#freckle" transform="translate(968 480) rotate(-8) scale(.68)"/>
+    <use href="#freckle" transform="translate(1488 472) rotate(15) scale(.48)"/>
+    <use href="#freckle" transform="translate(144 732) rotate(21) scale(.55)"/>
+    <use href="#freckle" transform="translate(432 808) rotate(-17) scale(.7)"/>
+    <use href="#freckle" transform="translate(760 790) rotate(12) scale(.5)"/>
+    <use href="#freckle" transform="translate(1288 824) rotate(-22) scale(.66)"/>
+  </g>
+</svg>
