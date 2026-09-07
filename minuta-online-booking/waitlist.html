@@ -9,14 +9,15 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Лист ожидания — Массаж в Ижевске</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=553">
+  <link rel="stylesheet" href="styles.css?v=554">
+  <link rel="stylesheet" href="client-themes.css?v=554">
 </head>
-<body class="manage-body">
+<body class="manage-body booking-client-page" data-client-theme="sage">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
   <header class="site-header manage-header"><a class="brand" href="index.html"><span class="brand-mark">М</span><span><strong>Массаж в Ижевске</strong><small>лист ожидания</small></span></a><a class="provider-link" href="index.html"><span>Онлайн-запись</span></a></header>
   <main class="manage-layout"><section class="manage-card">
     <div class="loading-state manage-loading" id="waitlistManageLoading"><i></i><span>Загружаем заявку…</span></div>
-    <div class="manage-error" id="waitlistManageError" hidden><span>!</span><h1>Заявка не найдена</h1><p>Ссылка могла быть повреждена или заявка больше недоступна.</p><a class="manage-secondary" href="index.html">Перейти к онлайн-записи</a></div>
+    <div class="manage-error" id="waitlistManageError" hidden><span>!</span><h1>Заявка не найдена</h1><p>Проверьте ссылку или выберите свободное время заново.</p><div class="manage-error-actions"><a class="primary" href="index.html">Проверить свободное время</a><a class="manage-secondary" href="my-bookings.html">Открыть мои записи</a></div></div>
     <div id="waitlistManageContent" hidden>
       <div class="manage-title"><div><small>Лист ожидания</small><h1 id="waitlistManageService">Услуга</h1></div><span class="manage-status" id="waitlistManageStatus">Ожидает</span></div>
       <div class="manage-appointment"><div class="manage-date-mark"><strong id="waitlistManageDay">—</strong><span id="waitlistManageMonth">—</span></div><div><strong id="waitlistManageDate">—</strong><span id="waitlistManagePeriod">—</span></div></div>
@@ -27,6 +28,6 @@
   </section></main>
   <div class="toast" id="toast" hidden></div>
   <script src="vendor/supabase-2.112.4.min.js" integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
-  <script src="config.js?v=553"></script><script src="site-update.js?v=553" defer></script><script src="waitlist.js?v=553" defer></script>
+  <script src="config.js?v=554"></script><script src="site-update.js?v=554" defer></script><script src="theme-catalog.js?v=554"></script><script src="waitlist.js?v=554" defer></script>
 </body>
 </html>

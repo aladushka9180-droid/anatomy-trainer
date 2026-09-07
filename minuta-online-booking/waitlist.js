@@ -3,6 +3,18 @@ const $ = selector => document.querySelector(selector);
 const token = new URLSearchParams(location.search).get('token') || new URLSearchParams(location.hash.slice(1)).get('token') || '';
 const organizationScope = new URLSearchParams(location.search).get('scope') === 'organization';
 if (new URLSearchParams(location.search).has('token')) history.replaceState({}, '', `waitlist.html${organizationScope ? '?scope=organization' : ''}#token=${encodeURIComponent(token)}`);
+applyStoredClientTheme();
+
+function applyStoredClientTheme() {
+  const catalog = window.MinutaThemeCatalog;
+  if (!catalog) return;
+  let theme = catalog.settingsFromSearch(location.search).theme_key;
+  try {
+    const saved = JSON.parse(localStorage.getItem('minuta-client-active-presentation-v1') || 'null');
+    if (saved?.theme && Date.now() - Number(saved.savedAt || 0) < 30 * 24 * 60 * 60 * 1000) theme = saved.theme;
+  } catch {}
+  catalog.applyClientTheme(document.body, theme);
+}
 
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
 function localDate(value) { return new Date(`${value}T12:00:00`); }
@@ -49,8 +61,8 @@ function showError(networkError = false) {
   $('#waitlistManageError').hidden = false;
   $('#waitlistManageError h1').textContent = networkError ? 'Не удалось загрузить заявку' : 'Заявка не найдена';
   $('#waitlistManageError p').textContent = networkError
-    ? 'Проверьте соединение и обновите страницу. Заявка не удалена из-за этой ошибки.'
-    : 'Ссылка могла быть повреждена или заявка больше недоступна.';
+    ? 'Проверьте соединение и повторите попытку позже.'
+    : 'Проверьте ссылку или выберите свободное время заново.';
 }
 
 $('#cancelWaitlist').addEventListener('click', async () => {

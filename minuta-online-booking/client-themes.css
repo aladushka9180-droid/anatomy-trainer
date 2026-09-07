@@ -203,3 +203,81 @@
   .client-appearance-actions>div { display:grid; grid-template-columns:1fr; }
   .client-appearance-actions :is(.primary,.secondary-button) { width:100%; min-width:0; }
 }
+
+/* Public client flow: keep the same calm visual language beyond the booking form. */
+.booking-client-page.manage-body {
+  background-color:var(--client-bg);
+  background-image:var(--client-pattern);
+  color:var(--client-ink);
+}
+.booking-client-page[data-client-theme] :is(.manage-card,.client-login-card,.client-bookings-card) {
+  border-color:var(--client-line);
+  background:color-mix(in srgb,var(--client-surface) 95%,transparent);
+  color:var(--client-ink);
+  box-shadow:0 22px 60px var(--client-shadow);
+}
+.booking-client-page[data-client-theme] :is(.provider-link,.manage-secondary,.social-auth-button) {
+  border-color:var(--client-line);
+  background:var(--client-surface);
+  color:var(--client-ink);
+}
+.booking-client-page[data-client-theme] :is(.client-login-card>p,.client-login-note,.phone-auth-note,.manage-error p) {
+  color:var(--client-readable-muted,var(--client-muted));
+}
+.booking-client-page[data-client-theme] :is(.client-login-mark,.manage-error>span) {
+  background:var(--client-accent-soft);
+  color:var(--client-accent);
+}
+.booking-client-page[data-client-theme] .booking-benefit {
+  margin-top:18px;
+  padding-top:15px;
+  border:0;
+  border-top:1px solid var(--client-line);
+}
+.booking-client-page[data-client-theme] .booking-benefit>summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  color:var(--client-readable-accent);
+  cursor:pointer;
+  list-style:none;
+  font-size:12px;
+  font-weight:850;
+}
+.booking-client-page[data-client-theme] .booking-benefit>summary::-webkit-details-marker { display:none; }
+.booking-client-page[data-client-theme] .booking-benefit>summary::after { content:'+'; font-size:18px; font-weight:500; }
+.booking-client-page[data-client-theme] .booking-benefit[open]>summary::after { content:'−'; }
+.booking-client-page[data-client-theme] .booking-benefit .scan-field {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:end;
+  gap:10px;
+  margin-top:3px;
+}
+.booking-client-page[data-client-theme] .booking-benefit .scan-field>label { min-width:0; }
+.booking-client-page[data-client-theme] .booking-benefit .scan-field>.secondary-button {
+  width:auto;
+  min-width:126px;
+  min-height:49px;
+  margin:0;
+  padding:0 16px;
+  border-color:var(--client-line);
+  background:var(--client-surface-alt);
+  color:var(--client-readable-accent);
+}
+
+@media (max-width:760px) {
+  .booking-client-page .client-hero {
+    margin-bottom:10px;
+    padding:13px 16px;
+    border-radius:18px;
+  }
+  .booking-client-page .client-hero h1 { margin-top:5px; font-size:23px; line-height:1.08; }
+  .booking-client-page .client-hero p { margin-top:6px; font-size:10px; line-height:1.4; }
+}
+
+@media (max-width:540px) {
+  .booking-client-page[data-client-theme] .booking-benefit .scan-field { grid-template-columns:1fr; }
+  .booking-client-page[data-client-theme] .booking-benefit .scan-field>.secondary-button { width:100%; min-width:0; }
+}

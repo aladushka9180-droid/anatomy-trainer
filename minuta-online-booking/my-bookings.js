@@ -10,6 +10,17 @@ let smsPhone = '';
 let smsCodeRequested = false;
 let socialAuthUser = null;
 
+function applyStoredClientTheme() {
+  const catalog = window.MinutaThemeCatalog;
+  if (!catalog) return;
+  let theme = catalog.settingsFromSearch(location.search).theme_key;
+  try {
+    const saved = JSON.parse(localStorage.getItem('minuta-client-active-presentation-v1') || 'null');
+    if (saved?.theme && Date.now() - Number(saved.savedAt || 0) < 30 * 24 * 60 * 60 * 1000) theme = saved.theme;
+  } catch {}
+  catalog.applyClientTheme(document.body, theme);
+}
+
 function loadSessionToken() {
   try {
     const value = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY) || '';
@@ -208,7 +219,7 @@ async function linkClientSocialProfile(event) {
 
 async function login(event) {
   event.preventDefault();
-  const phone = $('#clientLoginPhone').value;
+  const phone = $('#clientSmsPhone').value || $('#clientLoginPhone').value;
   const code = $('#clientLoginCode').value;
   const button = $('#clientLoginButton');
   $('#clientLoginError').hidden = true;
@@ -292,15 +303,18 @@ async function initializeSmsLogin() {
   const status = $('#clientSmsStatus');
   if (!window.MinutaPhoneAuth) {
     button.textContent = 'Вход по SMS недоступен';
-    status.textContent = 'Используйте личный код ниже.';
+    status.textContent = 'Введите личный код, выданный после записи.';
+    document.body.dataset.clientSms = 'disabled';
+    $('#legacyClientLogin').open = true;
     return;
   }
   const capability = await window.MinutaPhoneAuth.capability();
+  document.body.dataset.clientSms = capability.enabled ? 'enabled' : 'disabled';
   button.disabled = !capability.enabled;
   button.textContent = capability.enabled ? 'Получить код' : 'Вход по SMS пока не подключён';
   status.textContent = capability.enabled
     ? 'Код действует ограниченное время. Никому его не сообщайте.'
-    : capability.reason === 'offline' ? 'Без интернета используйте ранее выданный личный код.' : capability.reason === 'backend' ? 'Безопасный вход по SMS ещё не установлен на сервере. Используйте личный код.' : 'SMS пока не подключены. Личный код ниже продолжает работать.';
+    : capability.reason === 'offline' ? 'Без интернета войдите по личному коду.' : 'Введите личный код, выданный после записи.';
   if (!capability.enabled) $('#legacyClientLogin').open = true;
 }
 
@@ -335,7 +349,7 @@ document.querySelectorAll('[data-social-auth-login]').forEach(button => button.a
 $('#clientSocialLinkForm').addEventListener('submit', linkClientSocialProfile);
 $('#clientSocialPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#clientSocialCode').addEventListener('input', event => { event.target.value = formatCode(event.target.value); });
-$('#clientSmsPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || formatPhone(event.target.value); });
+$('#clientSmsPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || formatPhone(event.target.value); $('#clientLoginPhone').value = event.target.value; });
 $('#clientSmsCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#clientSmsLoginForm').addEventListener('submit', clientSmsLogin);
 $('#clientSmsResend').addEventListener('click', resendClientSmsCode);
@@ -351,6 +365,7 @@ document.querySelectorAll('[data-review-rating]').forEach(button => button.addEv
 $('#reviewForm').addEventListener('submit', submitReview);
 $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
 window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
+applyStoredClientTheme();
 openAccount();
 initializeSmsLogin();
 initializeSocialLogin();

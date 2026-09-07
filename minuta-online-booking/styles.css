@@ -8656,6 +8656,40 @@ html.provider-booting .provider-main {
 .client-favorite-services :is(button,.client-favorite-service)>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .client-favorite-services .client-favorite-service small { flex:none; color:var(--theme-muted,#718278); font-size:8px; font-weight:750; white-space:nowrap; }
 
+/* Public flow hierarchy: one primary task, rare choices on demand. */
+.client-social-auth-buttons { margin-top:18px; padding-top:16px; border-top:1px solid var(--client-line,#e2e9e4); }
+.client-social-auth-buttons .social-auth-button:disabled { display:none; }
+.client-social-auth-buttons:not(:has(.social-auth-button:not(:disabled))) { display:none; }
+.client-account-body[data-client-sms="disabled"] #clientSmsButton { display:none; }
+.client-account-body[data-client-sms="disabled"] #clientSmsStatus { margin:10px 0 0; padding:0; border:0; }
+.client-account-body[data-client-sms="disabled"] .legacy-client-login { margin-top:12px; padding-top:0; border-top:0; }
+.client-account-body[data-client-sms="disabled"] .legacy-client-login>summary { display:none; }
+.client-account-body[data-client-sms="disabled"] .legacy-client-login form { margin-top:8px; }
+
+.manage-error { padding:24px 10px; }
+.manage-error>span { width:46px; height:46px; margin-bottom:14px; border-radius:14px; font-size:20px; }
+.manage-error h1 { font-size:26px; }
+.manage-error p { margin:9px auto 19px; line-height:1.5; }
+.manage-error-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; width:min(100%,460px); margin:0 auto; }
+.manage-error-actions>* { width:100%; min-height:46px; margin:0!important; }
+.manage-error-actions .primary { display:inline-flex; align-items:center; justify-content:center; padding:0 18px; text-decoration:none; }
+.manage-error-actions #retryManage:not([hidden]) { grid-column:1/-1; }
+
+@media (max-width:540px) {
+  .manage-layout,.client-account-layout { width:calc(100% - 20px); padding:14px 0 34px; }
+  .manage-card { padding:20px 14px; border-radius:20px; }
+  .manage-error { padding:18px 2px; }
+  .manage-error-actions { grid-template-columns:1fr; }
+  .manage-error-actions #retryManage:not([hidden]) { grid-column:auto; }
+  .client-login-card>small { margin-top:14px; }
+  .client-login-card h1 { font-size:34px; }
+  .client-login-card form { margin-top:16px; }
+  .client-account-body .manage-header .provider-link,
+  .manage-body:has(#waitlistManageContent) .manage-header .provider-link { width:auto; padding:0 12px; font-size:11px; }
+  .client-account-body .manage-header .provider-link>span,
+  .manage-body:has(#waitlistManageContent) .manage-header .provider-link>span { display:inline; font-size:11px; }
+}
+
 @media (max-width:760px) {
   .client-profile-head { grid-template-columns:1fr; align-items:center; }
   .client-profile-primary-actions {

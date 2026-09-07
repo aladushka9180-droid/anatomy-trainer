@@ -40,6 +40,11 @@
   const productLink = document.querySelector('#productLink');
   const footerProductLink = document.querySelector('#footerProductLink');
   const isClient = category.audience === 'client';
+  setText('#categoryAudience', isClient ? 'Помощь клиенту' : 'Помощь специалисту');
+  const categoryBackLink = document.querySelector('#categoryBackLink');
+  if (categoryBackLink) categoryBackLink.href = `index.html?audience=${category.audience}#sections`;
+  const brandLink = document.querySelector('.help-brand');
+  if (brandLink) brandLink.href = `index.html?audience=${category.audience}`;
   if (productLink) {
     productLink.href = isClient ? '../index.html' : '../provider.html';
     const label = productLink.querySelector('span');

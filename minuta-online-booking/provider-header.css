@@ -109,3 +109,109 @@
     font-size:10px!important;
   }
 }
+
+/* Daily work gets the header; secondary utilities stay one deliberate tap away. */
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar {
+  min-height:64px!important;
+  padding-block:10px!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions {
+  position:relative;
+  flex-wrap:nowrap;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar #syncState {
+  max-width:210px;
+  min-height:40px!important;
+  padding:7px 10px!important;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar #syncState small { display:none!important; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools {
+  position:relative;
+  margin:0;
+  color:var(--theme-ink);
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>summary {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:40px;
+  padding:7px 10px;
+  border:1px solid var(--theme-line);
+  border-radius:var(--material-control-radius,12px);
+  background:var(--theme-surface);
+  color:var(--theme-ink);
+  cursor:pointer;
+  font-size:calc(13px + var(--provider-text-step,0px));
+  font-weight:650;
+  list-style:none;
+}
+.provider-body .provider-topbar-tools>summary::-webkit-details-marker { display:none; }
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools[open]>summary {
+  border-color:var(--theme-accent);
+  background:var(--theme-accent-soft);
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>div {
+  position:absolute;
+  z-index:40;
+  top:calc(100% + 8px);
+  right:0;
+  display:grid;
+  width:min(290px,calc(100vw - 28px));
+  padding:8px;
+  border:1px solid var(--theme-line);
+  border-radius:16px;
+  background:var(--theme-surface);
+  box-shadow:0 18px 44px var(--theme-shadow);
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>div :is(button,a) {
+  display:flex!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  min-height:44px!important;
+  padding:10px 12px!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--theme-ink)!important;
+  text-decoration:none;
+}
+.provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>div :is(button,a):hover {
+  background:var(--theme-surface-alt)!important;
+}
+
+@media(max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar,
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] header.provider-topbar {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    min-height:52px!important;
+    padding:5px 4px!important;
+    gap:8px!important;
+    background:transparent!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-actions,
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .provider-topbar .provider-topbar-actions {
+    display:flex!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    align-items:center!important;
+    gap:4px!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar #syncState,
+  .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] .provider-topbar #syncState {
+    grid-column:auto!important;
+    grid-row:auto!important;
+    width:34px!important;
+    min-width:34px!important;
+    min-height:40px!important;
+    padding:0!important;
+    justify-content:center!important;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar #syncState span { display:none!important; }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>summary {
+    width:40px;
+    min-height:40px;
+    padding:0;
+  }
+  .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>summary span { display:none; }
+}

@@ -8,11 +8,12 @@
   const popular = document.querySelector('#popularGuides');
   const productLink = document.querySelector('#productLink');
   const footerProductLink = document.querySelector('#footerProductLink');
-  let audience = 'specialist';
+  let audience = new URLSearchParams(location.search).get('audience') === 'client' ? 'client' : 'specialist';
 
   try {
+    const requestedAudience = new URLSearchParams(location.search).get('audience');
     const savedAudience = sessionStorage.getItem('minuta-help-audience');
-    if (savedAudience === 'client' || savedAudience === 'specialist') audience = savedAudience;
+    if (!requestedAudience && (savedAudience === 'client' || savedAudience === 'specialist')) audience = savedAudience;
   } catch {
     // The audience switch remains usable when storage is unavailable.
   }
@@ -166,6 +167,10 @@
       item.classList.toggle('active', active);
       item.setAttribute('aria-pressed', String(active));
     });
+    const intro = document.querySelector('#helpIntroCopy');
+    if (intro) intro.textContent = audience === 'client'
+      ? 'Только ответы о записи, переносе, отмене и уведомлениях — без настроек кабинета.'
+      : 'Только инструкции для работы в кабинете — без клиентских материалов и лишних шагов.';
     renderSections();
     if (productLink) {
       productLink.href = audience === 'client' ? '../index.html' : '../provider.html';

@@ -30,6 +30,13 @@
   setText('#articleMeta', article.category);
   setText('#articleTitle', article.title);
   setText('#articleIntro', article.intro);
+  const articleBackLink = document.querySelector('#articleBackLink');
+  if (articleBackLink) articleBackLink.href = `index.html?audience=${article.audience}`;
+  const audienceHome = `index.html?audience=${article.audience}`;
+  const brandLink = document.querySelector('.help-brand');
+  if (brandLink) brandLink.href = audienceHome;
+  const breadcrumbHome = document.querySelector('.breadcrumbs a');
+  if (breadcrumbHome) breadcrumbHome.href = audienceHome;
   const productLink = document.querySelector('#productLink');
   const footerProductLink = document.querySelector('#footerProductLink');
   if (productLink) {

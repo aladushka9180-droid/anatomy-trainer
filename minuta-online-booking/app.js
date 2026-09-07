@@ -210,6 +210,7 @@ function restoreBookingRequest() {
   $('#clientName').value = request.p_client_name;
   $('#clientPhone').value = request.p_client_phone;
   $('#bookingBenefitCode').value = request.p_benefit_code || '';
+  if (request.p_benefit_code) $('.booking-benefit').open = true;
   state.serviceId = request.p_service;
   state.date = request.p_date;
   state.time = request.p_time.slice(0, 5);
@@ -387,7 +388,7 @@ function renderLocations() {
     state.locationId = state.locations.find(item => item.is_primary)?.id || state.locations[0]?.id || '';
   }
   select.innerHTML = state.locations.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === state.locationId ? 'selected' : ''}>${escapeHtml(item.name || 'Филиал')}${item.address ? ` · ${escapeHtml(item.address)}` : ''}</option>`).join('');
-  field.hidden = false;
+  field.hidden = state.locations.length < 2;
 }
 function selectedDate() { return dates.find(item => item.iso === state.date); }
 function timeRange(time, duration) {
@@ -470,6 +471,7 @@ function applyClientPagePresentation(settings = null) {
   const selected = catalog.readClientOverride(state.organization?.id, requestedOrganizationSlug);
   const effectiveTheme = selected === 'follow' ? state.clientPage.theme_key : selected;
   const theme = catalog.applyClientTheme(document.body, effectiveTheme);
+  try { localStorage.setItem('minuta-client-active-presentation-v1', JSON.stringify({ theme:theme.key, savedAt:Date.now() })); } catch {}
   const headline = catalog.headline(state.clientPage.headline_key);
   if ($('#clientHeroTitle')) $('#clientHeroTitle').textContent = headline.label;
   if ($('#clientThemeButtonLabel')) $('#clientThemeButtonLabel').textContent = theme.label;
@@ -695,7 +697,13 @@ function renderServices() {
     return;
   }
   $('#toDate').disabled = !selectedService();
-  holder.innerHTML = services.map(item => `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : `${item.duration_minutes} мин`} · ${escapeHtml(item.performer_profiles?.display_name || 'Мастер')}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>`).join('');
+  const showPerformer = state.teamMode && performerOptions().length > 1;
+  holder.innerHTML = services.map(item => {
+    const duration = Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : durationLabel(item.duration_minutes);
+    const performer = showPerformer ? ` · ${escapeHtml(item.performer_profiles?.display_name || 'Специалист')}` : '';
+    const label = `${serviceName(item.name)}, ${duration}, ${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? ' за минуту' : ''}`;
+    return `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-label="${escapeHtml(label)}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${duration}${performer}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>`;
+  }).join('');
   $('#serviceDetailsButton').hidden = !selectedService();
   renderRepeatBookingNotice();
 }
@@ -1368,7 +1376,7 @@ function resetFlow() {
     delete replacement.dataset.telegramAuthBound;
     telegramButton.replaceWith(replacement);
   }
-  $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); restoreClientContact(); $('#formError').hidden = true; currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1);
+  $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); if ($('.booking-benefit')) $('.booking-benefit').open = false; restoreClientContact(); $('#formError').hidden = true; currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1);
 }
 document.addEventListener('click', event => {
   if ((bookingSubmissionPending || (bookingAttempt?.request && !bookingAttempt.detached)) && event.target.closest('[data-performer], [data-service], [data-date], [data-time], [data-suggested-date], [data-time-period], [data-back], [data-next], #moreDates')) {

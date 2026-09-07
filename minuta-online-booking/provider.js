@@ -211,7 +211,7 @@ const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'bookings', label:'Записи', icon:'grid' },
   { key:'notifications', label:'Уведомления', icon:'bell' },
   { key:'analytics', label:'Статистика', icon:'chart' },
-  { key:'schedule', label:'График', icon:'clock' },
+  { key:'schedule', label:'Рабочие часы', icon:'clock' },
   { key:'clients', label:'Клиенты', icon:'users' },
   { key:'services', label:'Услуги', icon:'spark' },
   { key:'organization', label:'Организация', icon:'users' },
@@ -219,18 +219,17 @@ const PROVIDER_MOBILE_NAV_ITEMS = Object.freeze([
   { key:'waitlist', label:'Ожидание', icon:'clock' },
   { key:'settings', label:'Настройки', icon:'settings' }
 ]);
-const DEFAULT_MOBILE_NAV = Object.freeze(['bookings', 'notifications', 'analytics', 'schedule']);
+const DEFAULT_MOBILE_NAV = Object.freeze(['bookings', 'clients', 'notifications', 'analytics']);
 const PROVIDER_ROLE_KEYS = Object.freeze(['owner','admin','specialist']);
 const DEFAULT_MOBILE_NAV_BY_ROLE = Object.freeze({
-  owner:Object.freeze(['bookings','analytics','organization','notifications']),
-  admin:Object.freeze(['bookings','notifications','clients','schedule']),
-  specialist:Object.freeze(['bookings','schedule','clients','notifications'])
+  owner:Object.freeze(['bookings','clients','notifications','analytics']),
+  admin:Object.freeze(['bookings','clients','notifications','analytics']),
+  specialist:Object.freeze(['bookings','clients','notifications','analytics'])
 });
 const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
   organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
-  benefitsPanel:['loyaltyPanel', 'retentionPanel'],
   telegramClientSettingsCard:['visitorAlertSettingsCard'],
   bookingRulesCard:['batchBookingSettingsCard', 'teamCalendarSettingsCard', 'groupBookingSettingsCard'],
   installAppCard:['appNavigationSettingsCard'],
@@ -251,7 +250,7 @@ const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   show_notes: true,
   ios_transitions: true,
   team_calendar_enabled: false,
-  mobile_nav: ['bookings', 'notifications', 'analytics', 'schedule'],
+  mobile_nav: ['bookings', 'clients', 'notifications', 'analytics'],
   mobile_nav_by_role: DEFAULT_MOBILE_NAV_BY_ROLE,
   view_order_by_role: Object.freeze({
     owner:Object.freeze(['bookings','analytics','organization','notifications','clients','schedule','services','portfolio','waitlist','settings']),
@@ -1310,6 +1309,18 @@ function normalizeMobileNavigation(value) {
   return result;
 }
 function normalizeProviderRole(value) { return PROVIDER_ROLE_KEYS.includes(value) ? value : 'specialist'; }
+const LEGACY_MOBILE_NAV_SIGNATURES = new Set([
+  'bookings|notifications|analytics|schedule',
+  'bookings|analytics|organization|notifications',
+  'bookings|notifications|clients|schedule',
+  'bookings|schedule|clients|notifications'
+]);
+function migrateLegacyMobileNavigation(value, version = 0) {
+  const normalized = normalizeMobileNavigation(value);
+  return Number(version) < 5 && LEGACY_MOBILE_NAV_SIGNATURES.has(normalized.join('|'))
+    ? [...DEFAULT_MOBILE_NAV]
+    : normalized;
+}
 function normalizeProviderViewOrder(value) {
   const allowed=PROVIDER_MOBILE_NAV_ITEMS.map(item=>item.key),result=[];
   [...(Array.isArray(value)?value:[]),...allowed].forEach(key=>{if(allowed.includes(key)&&!result.includes(key))result.push(key);});
@@ -1321,9 +1332,9 @@ function mergeVisibleRoleViewOrder(baseOrder, selectedKeys, visibleOrder) {
   const movable=new Set(visible),queue=[...visible];
   return base.map(key=>movable.has(key)?queue.shift():key);
 }
-function normalizeRoleNavigation(value, legacy) {
+function normalizeRoleNavigation(value, legacy, version = 5) {
   const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
-  return Object.fromEntries(PROVIDER_ROLE_KEYS.map(role=>[role,normalizeMobileNavigation(source[role]??(Array.isArray(legacy)?legacy:DEFAULT_MOBILE_NAV_BY_ROLE[role]))]));
+  return Object.fromEntries(PROVIDER_ROLE_KEYS.map(role=>[role,migrateLegacyMobileNavigation(source[role]??(Array.isArray(legacy)?legacy:DEFAULT_MOBILE_NAV_BY_ROLE[role]),version)]));
 }
 function normalizeRoleViewOrder(value) {
   const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
@@ -1352,6 +1363,7 @@ function normalizeAnalyticsGoalsByScope(value = {}) {
 }
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
+  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 5);
   const storedTheme = String(source.theme || '');
   const storedLayout = String(source.layout || '');
   const storedTextScale = String(source.text_scale || source.textScale || '');
@@ -1367,8 +1379,8 @@ function normalizeDisplayPreferences(value = {}) {
     show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes,
     ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
     team_calendar_enabled: source.team_calendar_enabled ?? source.teamCalendarEnabled ?? DEFAULT_DISPLAY_PREFERENCES.team_calendar_enabled,
-    mobile_nav: normalizeMobileNavigation(source.mobile_nav ?? source.mobileNav),
-    mobile_nav_by_role:normalizeRoleNavigation(source.mobile_nav_by_role ?? source.mobileNavByRole, source.mobile_nav ?? source.mobileNav),
+    mobile_nav: migrateLegacyMobileNavigation(source.mobile_nav ?? source.mobileNav, preferencesVersion),
+    mobile_nav_by_role:normalizeRoleNavigation(source.mobile_nav_by_role ?? source.mobileNavByRole, source.mobile_nav ?? source.mobileNav, preferencesVersion),
     view_order_by_role:normalizeRoleViewOrder(source.view_order_by_role ?? source.viewOrderByRole),
     analytics_goals:normalizeAnalyticsGoals(source.analytics_goals ?? source.analyticsGoals),
     analytics_goals_by_scope:normalizeAnalyticsGoalsByScope(source.analytics_goals_by_scope ?? source.analyticsGoalsByScope)
@@ -1401,7 +1413,7 @@ function normalizeDisplayPreferencesRecord(value = {}, exists = true) {
   const timestamp = Number(source.updated_at ?? storedPreferences.updated_at ?? 0);
   return {
     exists: Boolean(exists),
-    preferences: normalizeDisplayPreferences(storedPreferences),
+    preferences: normalizeDisplayPreferences({ ...storedPreferences, preferences_version:source.version ?? storedPreferences.version ?? 0 }),
     updatedAt: Number.isFinite(timestamp) && timestamp > 0 ? Math.floor(timestamp) : 0,
     pending: source.pending === true
   };
@@ -1444,7 +1456,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 4,
+      version: 5,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -1466,7 +1478,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 4,
+    version: 5,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -1507,8 +1519,14 @@ function renderMobileNavigation() {
   const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
   nav.innerHTML = `${selected.map(key => {
     const item = PROVIDER_MOBILE_NAV_ITEMS.find(entry => entry.key === key);
-    return `<button type="button" data-provider-view="${item.key}">${uiIcon(item.icon)}<span>${item.label}</span></button>`;
-  }).join('')}<button type="button" data-provider-view="more">${uiIcon('more')}<span>Разделы</span></button>`;
+    const badge = key === 'notifications' ? '<b class="mobile-nav-badge" data-mobile-notification-badge hidden>0</b>' : '';
+    return `<button type="button" data-provider-view="${item.key}">${uiIcon(item.icon)}<span>${item.label}</span>${badge}</button>`;
+  }).join('')}<button type="button" data-provider-view="more">${uiIcon('more')}<span>Ещё</span></button>`;
+  const pendingBadge = $('#notificationBadge');
+  nav.querySelectorAll('[data-mobile-notification-badge]').forEach(badge => {
+    badge.textContent = pendingBadge?.textContent || '0';
+    badge.hidden = pendingBadge?.hidden !== false;
+  });
   nav.querySelectorAll('[data-provider-view]').forEach(button => {
     const active = button.dataset.providerView === activeView || (button.dataset.providerView === 'more' && !selected.includes(activeView));
     button.classList.toggle('active', active);
@@ -1523,6 +1541,34 @@ function applyRoleViewOrder() {
   const order=viewOrderForRole(),more=$('.mobile-more-grid');
   if(more)order.forEach(key=>{const button=more.querySelector(`[data-provider-view="${key}"]`);if(button)more.append(button);});
 }
+function groupMobileMoreNavigation() {
+  const holder = $('.mobile-more-grid');
+  if (!holder) return;
+  [...holder.querySelectorAll(':scope>.mobile-more-group')].forEach(section => {
+    [...section.children].filter(child => child.tagName !== 'H3').forEach(child => holder.append(child));
+    section.remove();
+  });
+  const groups = [
+    { title:'Ежедневная работа', keys:['bookings','clients','notifications','waitlist'] },
+    { title:'Настройка бизнеса', keys:['schedule','services','organization'] },
+    { title:'Развитие', keys:['analytics','portfolio'] },
+    { title:'Система', keys:['settings'], extras:['.mobile-help-shortcut','[data-open-product-feedback]'] }
+  ];
+  groups.forEach(({ title, keys, extras = [] }) => {
+    const nodes = [
+      ...keys.map(key => holder.querySelector(`[data-provider-view="${key}"]`)).filter(Boolean),
+      ...extras.map(selector => holder.querySelector(selector)).filter(Boolean)
+    ];
+    if (!nodes.length) return;
+    const section = document.createElement('section');
+    section.className = 'mobile-more-group';
+    section.hidden = nodes.every(node => node.hidden);
+    const heading = document.createElement('h3');
+    heading.textContent = title;
+    section.append(heading, ...nodes);
+    holder.append(section);
+  });
+}
 function renderMobileNavigationPreview(selectedKeys = displayPreferences.mobile_nav) {
   const preview = $('#mobileNavigationPreview');
   if (!preview) return;
@@ -1530,7 +1576,7 @@ function renderMobileNavigationPreview(selectedKeys = displayPreferences.mobile_
   preview.innerHTML = `${selected.map(key => {
     const item = PROVIDER_MOBILE_NAV_ITEMS.find(entry => entry.key === key);
     return `<span>${uiIcon(item.icon)}<small>${item.label}</small></span>`;
-  }).join('')}<span>${uiIcon('more')}<small>Разделы</small></span>`;
+  }).join('')}<span>${uiIcon('more')}<small>Ещё</small></span>`;
 }
 function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
@@ -1540,6 +1586,7 @@ function applyDisplayPreferences() {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', window.MinutaThemeCatalog.theme(displayPreferences.theme).palette.themeColor);
   renderMobileNavigation();
   applyRoleViewOrder();
+  groupMobileMoreNavigation();
 }
 
 function setTeamCalendarEnabledPreference(nextEnabled) {
@@ -2164,7 +2211,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=553#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=554#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3631,7 +3678,7 @@ function renderAnalytics() {
   const paymentEvidence = $('#reportPaymentEvidence');
   if (paymentEvidence) {
     paymentEvidence.hidden = unknownPaymentCount === 0;
-    paymentEvidence.textContent = unknownPaymentCount ? `Данные об оплате есть у ${completed.length - unknownPaymentCount} из ${completed.length} визитов. История на ${money(importedValue)} сохранена в стоимости услуг: для ${unknownPaymentCount} визитов нет данных об оплате, их не относим к получено или долгу. Отчёт относится к датам визитов, не банковских операций.` : '';
+    paymentEvidence.innerHTML = unknownPaymentCount ? `<summary>Точность оплаты · ${completed.length - unknownPaymentCount} из ${completed.length} визитов</summary><p>История на ${escapeHtml(money(importedValue))} сохранена в стоимости услуг. Для ${unknownPaymentCount} визитов нет данных об оплате, поэтому они не относятся к полученному или долгу. Отчёт относится к датам визитов, а не банковских операций.</p>` : '';
   }
   const receivedLabel = 'Получено от клиентов';
   const heroCaption = $('#reportHeroRevenue')?.closest('article')?.querySelector('small');
@@ -3979,7 +4026,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=553');
+    worker = new Worker('./report-worker.js?v=554');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4123,6 +4170,15 @@ function renderNotifications() {
   $('#notificationCount').textContent = String(tasks.length);
   $('#notificationBadge').textContent = pending > 9 ? '9+' : String(pending);
   $('#notificationBadge').hidden = pending === 0;
+  $$('[data-mobile-notification-badge]').forEach(badge => {
+    badge.textContent = pending > 9 ? '9+' : String(pending);
+    badge.hidden = pending === 0;
+  });
+  const markAllButton = $('#markAllNotificationsSent');
+  if (markAllButton) {
+    markAllButton.hidden = pending === 0 || notificationFilter === 'sent';
+    markAllButton.textContent = pending ? `Отметить все · ${pending}` : 'Отметить все';
+  }
   const filtered = tasks.filter(task => {
     if (notificationFilter === 'sent') return task.mark === 'sent';
     if (notificationFilter === 'pending') return task.isDue && task.mark !== 'sent';
@@ -4145,6 +4201,23 @@ function renderNotifications() {
       <div class="notification-card-actions">${link ? `<a class="whatsapp-action" href="${link}" target="_blank" rel="noopener noreferrer" data-open-notification="${escapeHtml(task.key)}">Открыть WhatsApp</a>` : '<span class="notification-phone-error">Проверьте телефон</span>'}${task.mark === 'sent' ? `<button class="notification-restore-button" type="button" data-restore-notification="${escapeHtml(task.key)}">Вернуть</button>` : `<button class="notification-done-button" type="button" data-sent-notification="${escapeHtml(task.key)}" aria-label="Отметить отправленным" title="Отметить отправленным">${uiIcon('check')}</button>`}</div>
     </article>`;
   }).join('');
+}
+async function markAllDueNotificationsSent(button) {
+  if (!requireWrites()) return;
+  const marks = notificationMarks();
+  const tasks = buildNotificationTasks().filter(task => task.dueAt <= new Date() && marks[task.key] !== 'sent');
+  if (!tasks.length) return;
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = 'Отмечаем…';
+  try {
+    await Promise.all(tasks.map(task => setNotificationMark(task.key, 'sent')));
+    renderNotifications();
+    notify(`Отмечено отправленными: ${tasks.length}`);
+  } finally {
+    button.disabled = false;
+    if (button.isConnected && !button.hidden) button.textContent = originalText;
+  }
 }
 async function saveNotificationTemplates(event) {
   event.preventDefault();
@@ -10630,7 +10703,7 @@ function renderPortfolio() {
   list.innerHTML = portfolioItems.map((item, index) => `<article class="portfolio-card" draggable="true" data-portfolio-card="${item.id}">
     <div class="portfolio-card-photos">${portfolioPhotoMarkup(item, 'before')}${portfolioPhotoMarkup(item, 'after')}</div>
     <div class="portfolio-card-body"><h3>${escapeHtml(item.procedure_name)}</h3><small>${escapeHtml(item.body_area || 'Зона не указана')}${item.session_count ? ` · ${item.session_count} ${portfolioSessionWord(item.session_count)}` : ''}</small>${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}<span class="portfolio-card-status ${item.published ? 'published' : ''}">${item.published ? 'Опубликовано' : 'Черновик'}</span></div>
-    <div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" data-portfolio-id="${item.id}" ${index === 0 ? 'hidden disabled' : ''} aria-label="Переместить работу выше">↑ Выше</button><button type="button" data-portfolio-move="down" data-portfolio-id="${item.id}" ${index === portfolioItems.length - 1 ? 'hidden disabled' : ''} aria-label="Переместить работу ниже">↓ Ниже</button><button class="portfolio-edit" type="button" data-edit-portfolio="${item.id}">Изменить</button><button class="danger" type="button" data-delete-portfolio="${item.id}">Удалить</button></div>
+    <div class="portfolio-card-actions"><button type="button" data-portfolio-move="up" data-portfolio-id="${item.id}" ${index === 0 ? 'hidden disabled' : ''} aria-label="Переместить работу выше">↑ Выше</button><button type="button" data-portfolio-move="down" data-portfolio-id="${item.id}" ${index === portfolioItems.length - 1 ? 'hidden disabled' : ''} aria-label="Переместить работу ниже">↓ Ниже</button><button class="portfolio-edit" type="button" data-edit-portfolio="${item.id}">Изменить</button><details class="portfolio-more"><summary aria-label="Другие действия с работой">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-portfolio="${item.id}">${uiIcon('trash')}<span>Удалить работу</span></button></div></details></div>
   </article>`).join('');
   $('#portfolioOrderStatus').textContent = `${portfolioItems.length} ${portfolioCountLabel(portfolioItems.length, 'работа', 'работы', 'работ')}, опубликовано ${publishedCount}`;
   applyWriteAvailability();
@@ -11047,7 +11120,7 @@ function renderWaitlist() {
   }
   if (!active.length) {
     const clientPageUrl = $('.provider-client-link')?.href || new URL('index.html', location.href).href;
-    holder.innerHTML = `<div class="provider-empty"><strong>Заявок пока нет</strong><small>Когда клиент не найдёт время, он сможет оставить здесь удобную дату.</small><a class="secondary-button provider-client-link" href="${escapeHtml(clientPageUrl)}" target="_blank" rel="noopener noreferrer">Открыть страницу записи</a></div>`;
+    holder.innerHTML = `<div class="provider-empty compact-empty"><strong>Заявок пока нет</strong><small>Клиент сможет оставить удобную дату, если свободного времени не окажется.</small><div class="provider-empty-actions"><button class="primary compact-button" type="button" data-provider-view="bookings">Проверить расписание</button><a class="secondary-button provider-client-link" href="${escapeHtml(clientPageUrl)}" target="_blank" rel="noopener noreferrer">Страница клиента</a></div></div>`;
     return;
   }
   const statusLabels = { waiting: 'Ожидает', contacted: 'Связались' };
@@ -11189,6 +11262,8 @@ document.addEventListener('click', async event => {
   const view = event.target.closest('[data-provider-view]');
   const sectionTarget = event.target.closest('[data-section-target]');
   const notificationFilterButton = event.target.closest('[data-notification-filter]');
+  const markAllNotificationsButton = event.target.closest('#markAllNotificationsSent');
+  const inventorySectionButton = event.target.closest('[data-inventory-section]');
   const reportFilterToggle = event.target.closest('#reportFilterToggle');
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
@@ -11289,6 +11364,8 @@ document.addEventListener('click', async event => {
     $$('[data-notification-filter]').forEach(button => button.classList.toggle('active', button === notificationFilterButton));
     renderNotifications();
   }
+  if (markAllNotificationsButton) await markAllDueNotificationsSent(markAllNotificationsButton);
+  if (inventorySectionButton) setInventorySection(inventorySectionButton.dataset.inventorySection);
   if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');
   if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
     if (reportDataSource === 'demo' && reportSourceButton.dataset.reportSource !== 'demo') restoreOwnBookingContext();
@@ -12128,6 +12205,19 @@ function clearProviderAssistantPreferences() {
   catch { return { ok:false }; }
 }
 
+function setInventorySection(nextSection = 'balances') {
+  const allowed = new Set(['balances', 'catalog', 'operations', 'history']);
+  const section = allowed.has(nextSection) ? nextSection : 'balances';
+  $$('[data-inventory-section]').forEach(button => {
+    const active = button.dataset.inventorySection === section;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  $$('[data-inventory-pane]').forEach(pane => {
+    pane.hidden = pane.dataset.inventoryPane !== section;
+  });
+}
+
 const PROVIDER_ASSISTANT_UNDO_TTL_MS = 10 * 60 * 1000;
 let providerAssistantUndoState = null;
 let providerAssistantClientLookup = new Map();
@@ -12144,7 +12234,7 @@ function providerAssistantScreenContext(readable = false, offline = false) {
   const view = String($('#dashboard')?.dataset.activeView || providerViewFromLocation() || 'bookings');
   const viewLabel = ({
     bookings:'Записи', clients:'Клиенты', notifications:'Уведомления', waitlist:'Лист ожидания', analytics:'Статистика',
-    schedule:'График', services:'Услуги', organization:'Организация', portfolio:'Портфолио', settings:'Настройки'
+    schedule:'Рабочие часы', services:'Услуги', organization:'Организация', portfolio:'Портфолио', settings:'Настройки'
   })[view] || 'Кабинет';
   const bookingId = providerAssistantOpenBookingId();
   const item = readable && bookingId ? allBookings.find(entry => String(entry.id || '') === bookingId && !isScheduleBlock(entry)) : null;
@@ -12865,6 +12955,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('mess
   if (event.data?.type === 'open-provider-view' && PROVIDER_VIEW_ORDER.includes(event.data.view) && currentUser) setProviderView(event.data.view);
 });
 function initializeProviderUx() {
+  setInventorySection('balances');
   const layout = $('#clientsLayout');
   const search = $('#clientSearch')?.closest('label');
   if (layout && search) {
@@ -12873,7 +12964,7 @@ function initializeProviderUx() {
     const tools = document.createElement('details');
     tools.id = 'clientDirectoryTools';
     tools.className = 'clients-tools ux-disclosure';
-    tools.innerHTML = '<summary>Импорт и поля клиента</summary><div></div>';
+    tools.innerHTML = '<summary>Дополнительно</summary><div aria-label="Импорт и поля клиента"></div>';
     const panels = [$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
     panels.forEach(panel => tools.lastElementChild.append(panel));
     toolbar.append(search, tools);
@@ -12890,7 +12981,7 @@ function initializeProviderUx() {
   }
   const textScale = $('.provider-text-scale-picker');
   if (textScale) $('.provider-layout-picker')?.before(textScale);
-  const evidence = document.createElement('p');
+  const evidence = document.createElement('details');
   evidence.id = 'reportPaymentEvidence';
   evidence.className = 'report-payment-evidence';
   evidence.hidden = true;
