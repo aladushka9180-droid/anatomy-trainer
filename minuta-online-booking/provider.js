@@ -226,7 +226,7 @@ const DEFAULT_MOBILE_NAV_BY_ROLE = Object.freeze({
   admin:Object.freeze(['bookings','notifications','clients','schedule']),
   specialist:Object.freeze(['bookings','schedule','clients','notifications'])
 });
-const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v2';
+const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
   organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
@@ -2167,7 +2167,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=548#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=549#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3982,7 +3982,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=548');
+    worker = new Worker('./report-worker.js?v=549');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
