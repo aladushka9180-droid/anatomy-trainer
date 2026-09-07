@@ -44,6 +44,7 @@ select set_config('minuta.v121_second',public.add_minuta_payroll_adjustment(
   current_setting('minuta.v121_org')::uuid,'00000000-0000-4000-8000-000000121001',
   current_setting('minuta.v121_owner')::uuid,500,'V121 exact retry',
   '00000000-0000-4000-8000-000000121002')::text,true);
+reset role;
 
 do $$
 begin
@@ -71,7 +72,6 @@ begin
   end if;
 end;
 $$;
-reset role;
 
 set local role authenticated;
 do $$
