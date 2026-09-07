@@ -18,7 +18,7 @@ assert.doesNotMatch(provider, /reportPeriodLabel'\)\.textContent =[^\n]*преж
 assert.match(provider, /data-report-actions-toggle[\s\S]*Рекомендации · \$\{visibleActions\.length\}/, 'Дополнительные рекомендации не сворачиваются');
 
 assert.match(styles, /\.report-filter-toggle \{ display:none; \}/, 'Десктоп не должен показывать лишнюю кнопку фильтров');
-assert.match(styles, /@media \(max-width:640px\)[\s\S]*\.report-filter-toggle \{ display:flex;[\s\S]*\.report-filter-content \{ display:none;[\s\S]*\.report-filters\.is-open \.report-filter-content \{ display:grid;/, 'На телефоне фильтры не стали компактными');
+assert.match(styles, /@media \(max-width:760px\)[\s\S]*\.report-filter-toggle \{ display:flex;[\s\S]*\.report-filter-content \{ display:none;[\s\S]*\.report-filters\.is-open \.report-filter-content \{ display:grid;/, 'На телефоне фильтры не стали компактными');
 assert.match(styles, /\.report-command-metrics article:nth-child\(2\),\.report-command-metrics article:nth-child\(3\) \{ display:none; \}/, 'Вторичные KPI всё ещё занимают первый экран телефона');
 assert.match(styles, /\.report-smart-actions \.report-smart-action:nth-of-type\(n\+2\) \{ display:none; \}/, 'Дополнительные рекомендации не скрыты на телефоне');
 assert.match(styles, /\.report-smart-actions \.report-smart-action \{ display:none;/, 'Рекомендации должны открываться по запросу на телефоне');
