@@ -132,7 +132,7 @@ assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav 
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=579"\)/);
+assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=580"\)/);
 assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
@@ -149,7 +149,7 @@ assert.doesNotMatch(goldenCheetahBackground, /provider-leopard-premium-bg\.webp|
 assert.doesNotMatch(goldenCheetahBackground, /#fffdf8|255,253,248/, 'Golden Cheetah must not add a white spotlight over the sand base');
 
 const velvetLeopardBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="velvet-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(velvetLeopardBackground, /url\("provider-leopard-premium-bg\.webp\?v=579"\)/);
+assert.match(velvetLeopardBackground, /url\("provider-leopard-premium-bg\.webp\?v=580"\)/);
 assert.match(velvetLeopardBackground, /background-size:100% 100%,100% 100%,cover!important/);
 assert.match(velvetLeopardBackground, /background-repeat:no-repeat,no-repeat,no-repeat!important/);
 assert.doesNotMatch(velvetLeopardBackground, /background-repeat:[^;]*(?:^|,)\s*repeat(?:,|!important)|520px auto/, 'Velvet Leopard must not use repeated background tiles');
@@ -164,8 +164,8 @@ assert.equal(pearlZebraAsset.readUInt16LE(28) & 0x3fff, 2160, 'Pearl Zebra must 
 assert.equal(snowLeopardMobileAsset.toString('ascii', 1, 4), 'PNG', 'Snow Leopard mobile artwork must remain a PNG asset');
 assert.equal(snowLeopardMobileAsset.readUInt32BE(16), 941, 'Snow Leopard mobile artwork width must stay high-resolution');
 assert.equal(snowLeopardMobileAsset.readUInt32BE(20), 1672, 'Snow Leopard mobile artwork height must stay portrait');
-assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=579/);
-assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=579"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
+assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=580/);
+assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=580"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
 
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.
