@@ -1000,9 +1000,12 @@
 @media (max-width:760px) {
   .provider-body[data-provider-theme="snow-leopard"][data-provider-layout] {
     --snow-print-veil:rgba(255,255,255,.80);
-    background-size:auto,cover!important;
+    /* Dedicated portrait artwork keeps rosettes about 30% smaller on phones
+       while preserving one continuous, non-tiled canvas. */
+    background-image:linear-gradient(var(--snow-print-veil),var(--snow-print-veil)),url("provider-snow-leopard-mobile-v1.png?v=572")!important;
+    background-size:100% 100%,100% 100%!important;
     background-repeat:no-repeat!important;
-    background-position:center!important;
+    background-position:center top!important;
     background-attachment:scroll!important;
   }
   /* Reveal the canvas between sections; keep each reading surface opaque. */
