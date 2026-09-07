@@ -25,7 +25,7 @@ const modules = [...executableModules, 'app.js', 'free-slots-share.js', 'provide
   'payroll-management.js', 'inventory-management.js', 'loyalty-management.js'];
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
-function snapshot(read) {
+function snapshot(read, requiredModules = modules) {
   const worker = read('sw.js');
   const source = worker.toString('utf8');
   const version = source.match(/const CACHE = `\$\{CACHE_PREFIX\}v(\d+)`;/)?.[1];
@@ -39,13 +39,18 @@ function snapshot(read) {
     assert.ok(!relative.split('/').includes('..') && !relative.includes('\\'), 'Unexpected manifest traversal');
     if (!files.has(relative)) files.set(relative, read(relative));
   }
-  for (const module of modules) assert.ok(assets.includes(`./${module}?v=${version}`), `${module} missing from cache manifest`);
+  for (const module of [...modules, 'report-reconciliation.js']) if (!files.has(module)) files.set(module, read(module));
+  for (const module of requiredModules) assert.ok(assets.includes(`./${module}?v=${version}`), `${module} missing from cache manifest`);
   return { version, files, assets, cache:`${cachePrefix}v${version}` };
 }
-const oldRelease = snapshot(oldFile);
-const newRelease = snapshot(newFile);
 const newModules = [...modules, 'report-reconciliation.js'];
+const oldRelease = snapshot(oldFile);
+const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliation.js'];
+const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
+const newRelease = snapshot(newFile, newCoreModules);
 assert.ok(newRelease.assets.includes(`./report-reconciliation.js?v=${newRelease.version}`), 'New report module must be cached');
+assert.ok(!newRelease.assets.includes(`./benefit-management.js?v=${newRelease.version}`), 'Benefits must be cached on first use, not during install');
+assert.ok(!newRelease.assets.includes(`./retention-management.js?v=${newRelease.version}`), 'Retention must be cached on first use, not during install');
 assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have a new cache version');
 
 function shell(version) {
@@ -115,7 +120,7 @@ try {
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
   await page.reload();
 
-  async function cacheHashes(release) {
+  async function cacheHashes(release, requestedModules = release === newRelease ? newCoreModules : modules) {
     return page.evaluate(async ({ cacheName, prefix, version, modules }) => {
       const cache = await caches.open(cacheName);
       const result = {};
@@ -126,9 +131,10 @@ try {
         result[module] = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
       }
       return result;
-    }, { cacheName:release.cache, prefix, version:release.version, modules:release === newRelease ? newModules : modules });
+    }, { cacheName:release.cache, prefix, version:release.version, modules:requestedModules });
   }
-  const expectedHashes = release => Object.fromEntries((release === newRelease ? newModules : modules).map(module => [module, sha(release.files.get(module))]));
+  const expectedHashes = (release, requestedModules = release === newRelease ? newCoreModules : modules) =>
+    Object.fromEntries(requestedModules.map(module => [module, sha(release.files.get(module))]));
   assert.deepEqual(await cacheHashes(oldRelease), expectedHashes(oldRelease));
   const originalController = await page.evaluate(() => navigator.serviceWorker.controller.scriptURL);
   console.log(`PASS: pinned baseline ${baseline} cache v${oldRelease.version} controls the isolated page`);
@@ -176,7 +182,7 @@ try {
   await context.setOffline(true);
   const resourceResponses = [];
   page.on('response', response => {
-    if (newModules.some(module => new URL(response.url()).pathname.endsWith(`/${module}`))) {
+    if (offlineModules.some(module => new URL(response.url()).pathname.endsWith(`/${module}`))) {
       resourceResponses.push({ url:response.url(), serviceWorker:response.fromServiceWorker() });
     }
   });
@@ -190,12 +196,13 @@ try {
       result[module] = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
     }
     return result;
-  }, { prefix, version:newRelease.version, modules:newModules });
-  assert.deepEqual(offlineHashes, expectedHashes(newRelease));
+  }, { prefix, version:newRelease.version, modules:offlineModules });
+  assert.deepEqual(offlineHashes, expectedHashes(newRelease, offlineModules));
   assert.equal(await page.locator('body').getAttribute('data-release'), newRelease.version);
   assert.equal(await page.evaluate(() => Boolean(window.MinutaGroupBookings && window.MinutaBenefits)), true);
   assert.equal(await page.evaluate(() => typeof window.MinutaReportReconciliation?.amounts), 'function');
-  for (const module of newModules) assert.ok(resourceResponses.some(response =>
+  assert.deepEqual(await cacheHashes(newRelease, offlineModules), expectedHashes(newRelease, offlineModules));
+  for (const module of offlineModules) assert.ok(resourceResponses.some(response =>
     response.url.endsWith(`/${module}?v=${newRelease.version}`) && response.serviceWorker), `${module} must be served by the real worker offline`);
   assert.deepEqual(externalRequests, []);
   assert.deepEqual(pageErrors, []);

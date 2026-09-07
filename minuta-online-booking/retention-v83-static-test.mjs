@@ -8,6 +8,7 @@ const migration = await readFile(join(root, 'supabase-migration-v83.sql'), 'utf8
 const rollback = await readFile(join(root, 'recovery', 'rollback-retention-v83.sql'), 'utf8');
 const controller = await readFile(join(root, 'retention-management.js'), 'utf8');
 const html = await readFile(join(root, 'provider.html'), 'utf8');
+const provider = await readFile(join(root, 'provider.js'), 'utf8');
 const styles = await readFile(join(root, 'styles.css'), 'utf8');
 
 assert.match(migration, /v83_requires_v65_and_client_accounts/i);
@@ -32,7 +33,8 @@ assert.doesNotMatch(controller, /localStorage|sessionStorage|indexedDB/i);
 assert.match(controller, /scopeMatches/);
 assert.match(controller, /sessionIsCurrent/);
 assert.match(html, /id="retentionPanel"/);
-assert.match(html, /retention-management\.js\?v=/);
+assert.match(provider, /script:'retention-management\.js'/);
+assert.doesNotMatch(html, /<script[^>]+retention-management\.js/);
 assert.match(html, /id="retentionSaveStatus"/);
 assert.match(html, /class="settings-check retention-toggle"/);
 assert.match(styles, /\.provider-body \.organization-section \.retention-toggle\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px[^}]*width:100%/i);

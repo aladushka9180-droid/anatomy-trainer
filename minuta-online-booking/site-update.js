@@ -4,21 +4,35 @@
   if (!('serviceWorker' in navigator)) return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=562', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=563', scriptUrl).href;
+  const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;
   let lastCheck = 0;
+  let checkPromise = null;
 
-  async function checkForUpdate(force) {
+  function checkForUpdate({ force = false, registerOnly = false } = {}) {
+    if (checkPromise) return checkPromise;
     const now = Date.now();
-    if (!force && now - lastCheck < 30000) return;
-    lastCheck = now;
-    try {
-      if (!registration) registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache:'none' });
-      await registration.update();
-    } catch {
-      // An unavailable update check must not interrupt booking work.
-    }
+    if (!registerOnly && !force && now - lastCheck < CHECK_INTERVAL_MS) return Promise.resolve();
+    checkPromise = (async () => {
+      try {
+        if (!registration) {
+          registration = await navigator.serviceWorker.register(workerUrl, { updateViaCache:'none' });
+          lastCheck = Date.now();
+          if (registerOnly) return;
+        }
+        if (!registerOnly) {
+          lastCheck = Date.now();
+          await registration.update();
+        }
+      } catch {
+        // An unavailable update check must not interrupt booking work.
+      } finally {
+        checkPromise = null;
+      }
+    })();
+    return checkPromise;
   }
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -29,12 +43,10 @@
     currentController = nextController;
   });
 
-  window.addEventListener('load', () => checkForUpdate(true), { once:true });
-  window.addEventListener('focus', () => checkForUpdate(false));
-  window.addEventListener('online', () => checkForUpdate(true));
-  window.addEventListener('pageshow', () => checkForUpdate(false));
+  window.addEventListener('load', () => checkForUpdate({ registerOnly:true }), { once:true });
+  window.addEventListener('online', () => checkForUpdate({ force:true }));
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) checkForUpdate(true);
+    if (!document.hidden) checkForUpdate();
   });
-  window.setInterval(() => { if (!document.hidden) checkForUpdate(false); }, 60000);
+  window.setInterval(() => { if (!document.hidden) checkForUpdate(); }, CHECK_INTERVAL_MS);
 })();

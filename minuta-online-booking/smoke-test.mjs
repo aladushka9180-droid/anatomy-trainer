@@ -147,7 +147,8 @@ assert.match(providerHtml, /id="openVoiceAssistant"[\s\S]*id="voiceAssistantDial
 assert.match(providerHtml, /id="voiceAssistantSpeechSettings"[\s\S]*id="voiceAssistantVoice"[\s\S]*id="voiceAssistantRate"[\s\S]*id="voiceAssistantVoicePreview"/, 'В помощнике нет настроек голоса и скорости озвучки');
 assert.match(voiceAssistant, /minuta-assistant-speech-settings-v1[\s\S]*const rate = speechRate[\s\S]*utterance\.rate = rate/, 'Выбор голоса и скорости не сохраняется или не применяется ко всем частям озвучки');
 assert.match(providerHtml, /data-voice-back[\s\S]*Вернуться к основному меню помощника/, 'В ответе помощника нет доступной кнопки возврата в основное меню');
-assert.match(providerHtml, new RegExp(`voice-assistant\\.js\\?v=${version}`), 'Кабинет не подключает голосового помощника текущей версии');
+assert.match(provider, /loadProviderFeatureScript\('voice-assistant\.js'\)/, 'Кабинет не загружает голосового помощника по запросу');
+assert.doesNotMatch(providerHtml, /<script[^>]+voice-assistant\.js/, 'Голосовой помощник снова блокирует первый экран');
 assert.match(provider, /window\.MinutaProviderAssistant = Object\.freeze/, 'Голосовой помощник не отделён безопасным интерфейсом от состояния кабинета');
 assert.match(config, /assistantRemoteUnderstanding:\s*false/, 'Платный внешний ИИ не выключен в публичной конфигурации');
 assert.match(provider, /remoteUnderstandingEnabled:Boolean\(window\.MINUTA_CONFIG\.assistantRemoteUnderstanding\)/, 'Помощник не публикует явный статус внешнего ИИ');
@@ -234,11 +235,10 @@ assert.match(providerHtml, /id="recoverySentAddress"[\s\S]*id="retryPasswordReco
 assert.match(providerHtml, /Отдельная оплата не требуется[\s\S]*id="copyMemberInviteLink"/, 'Приглашение сотрудника не объясняет бесплатный доступ и передачу ссылки');
 assert.match(organization, /providerInviteLink[\s\S]*navigator\.clipboard\.writeText/, 'Ссылку для сотрудника нельзя скопировать');
 assert.match(providerHtml, new RegExp(`team-calendar\\.js\\?v=${version}`), 'Кабинет не подключает контроллер командного календаря');
-assert.match(providerHtml, new RegExp(`resource-management\\.js\\?v=${version}`), 'Кабинет не подключает безопасный контроллер ресурсов');
-assert.match(providerHtml, new RegExp(`shift-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер смен команды');
-assert.match(providerHtml, new RegExp(`payroll-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер зарплат');
-assert.match(providerHtml, new RegExp(`benefit-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер абонементов');
-assert.match(providerHtml, new RegExp(`retention-management\\.js\\?v=${version}`), 'Кабинет не подключает контроллер возврата клиентов');
+for (const asset of ['resource-management.js','shift-management.js','payroll-management.js','benefit-management.js','retention-management.js']) {
+  assert.match(provider, new RegExp(`script:'${asset.replace('.', '\\.')}'`), `Кабинет не подключает ${asset} по запросу`);
+  assert.doesNotMatch(providerHtml, new RegExp(`<script[^>]+${asset.replace('.', '\\.')}`), `${asset} снова блокирует первый экран`);
+}
 assert.match(providerHtml, new RegExp(`booking-policy-management\\.js\\?v=${version}`), 'Кабинет не подключает правила филиалов');
 for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollEndDate','payrollPlansList','payrollPeriodsList','payrollItemsList','payrollPlanForm','payrollPeriodForm','payrollAdjustmentForm','payrollAuditList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент зарплат ${id}`);
@@ -246,8 +246,8 @@ for (const id of ['payrollPanel','payrollWorkspace','payrollStartDate','payrollE
 for (const id of ['benefitsPanel','benefitsWorkspace','benefitsEnabled','benefitProductsList','benefitInstrumentsList','benefitRedemptionsList','benefitProductForm','benefitIssueForm','benefitApplyForm']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент абонементов ${id}`);
 }
-assert.match(provider, /benefitController\.setOrganization\(organization\)/, 'Абонементы не переключаются вместе с организацией');
-assert.match(provider, /retentionController\.setOrganization\(organization\)/, 'Возврат клиентов не переключается вместе с организацией');
+assert.match(provider, /benefitController\?\.setOrganization\(organization\)/, 'Абонементы не переключаются вместе с организацией');
+assert.match(provider, /retentionController\?\.setOrganization\(organization\)/, 'Возврат клиентов не переключается вместе с организацией');
 for (const id of ['retentionPanel','retentionWorkspace','retentionEnabled','retentionInactivityDays','retentionCooldownDays','retentionMessageTemplate','retentionClientsList','retentionDeliveriesList']) {
   assert.match(providerHtml, new RegExp(`id="${id}"`), `Кабинет не содержит обязательный элемент возврата клиентов ${id}`);
 }
@@ -421,7 +421,7 @@ assert.match(provider, /timeline-client-phone-separator/, 'Телефон в м�
 assert.match(styles, /timeline-client-phone[^}]*display:block;[^}]*white-space:nowrap;/, 'Телефон не переносится на отдельную строку мобильной карточки');
 assert.match(provider, /const timelineStatus = block\s*\? ''/, 'Перерыв дублируется меткой «Занято»');
 assert.match(provider, /\$\{timeRange\}\$\{block \? '' : ' · '\}/, 'Перерыв дублирует подпись «Занятое время» после диапазона времени');
-assert.match(provider, /const cachedBookings = navigator\.onLine \? null : await hydrateCachedBookings/, 'При обновлении онлайн сначала показывается устаревшая офлайн-копия');
+assert.match(provider, /providerAccessAllowed\(currentUser\.id\)[\s\S]*const cachedBookings = await hydrateCachedBookings\(userId\)/, 'Локальная копия должна показываться онлайн только после проверки доступа');
 assert.match(provider, /SCHEDULE_BLOCK_PHONE = '0000000000'/, 'Нет безопасного маркера занятого времени');
 assert.match(provider, /data-new-booking-mode="block"/, 'В ручной записи нет режима «Занять время»');
 assert.match(provider, /if \(isScheduleBlock\(item\)\) return;/, 'Перерывы попадают в клиентские уведомления');
@@ -763,16 +763,15 @@ assert.match(styles, /timeline-booking\.compact \.client-badges:not\(\.with-labe
 const worker = readFileSync(join(root, 'sw.js'), 'utf8');
 assert.match(worker, new RegExp(`CACHE_PREFIX.*massage-izhevsk-`), 'Service Worker не использует собственный префикс кэша');
 assert.match(worker, new RegExp(`v${version}`), 'Версия Service Worker не совпадает');
-for (const asset of ['styles.css', 'config.js', 'reliability.js', 'app.js', 'resource-management.js', 'organization.js', 'team-calendar.js', 'provider.js', 'booking.js', 'my-bookings.js', 'waitlist.js']) {
+for (const asset of ['styles.css', 'config.js', 'reliability.js', 'organization.js', 'team-calendar.js', 'provider.js']) {
   assert.match(worker, new RegExp(`${asset.replace('.', '\\.')}\\?v=${version}`), `Service Worker не кэширует ${asset}`);
 }
 assert.match(providerHtml, new RegExp(`href="styles\\.css\\?v=${version}"`), 'Кабинет запрашивает CSS по адресу, которого нет в precache');
 assert.match(providerHtml, new RegExp(`src="provider\\.js\\?v=${version}"`), 'Кабинет запрашивает JavaScript по адресу, которого нет в precache');
 assert.match(worker, /'\.\/ui-icons\.svg',/, 'Service Worker не кэширует URL иконок без query для офлайн-страниц');
-assert.match(worker, new RegExp(`'\\./ui-icons\\.svg\\?v=${version}',`), 'Service Worker не кэширует версионированный URL иконок');
 assert.match(worker, /event\.request\.mode === 'navigate'/, 'Навигация не отделена от статических ресурсов');
 assert.match(worker, /key\.startsWith\(CACHE_PREFIX\)/, 'Service Worker может удалить чужие кэши');
-assert.match(worker, /!new URL\(request\.url\)\.search/, 'Навигация с секретными параметрами может попасть в кэш');
+assert.match(worker, /put\(shell, response\.clone\(\)\)/, 'Навигация может сохранить секретные параметры вместо безопасного адреса оболочки');
 
 assert.doesNotMatch(app, /minuta-last-booking-url/, 'Секретная ссылка сохраняется в localStorage');
 assert.match(app, /validateCurrentSelection/, 'Выбранное время не перепроверяется после восстановления связи');

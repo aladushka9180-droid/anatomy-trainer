@@ -301,6 +301,7 @@ let bookingsSnapshotSavedAt = '';
 let bookingsSnapshotFromCache = false;
 let waitlistRequests = [];
 let waitlistRemoteAvailable = false;
+let waitlistLoaded = false;
 let bookingOutcomes = new Map();
 let bookingSessionItems = new Map();
 let sessionItemsRemoteAvailable = false;
@@ -351,6 +352,7 @@ let clientAvatars = new Map();
 let importedClients = [];
 let importedBookingHistory = [];
 let clientAvatarsRemoteAvailable = false;
+let clientAvatarsLoaded = false;
 let pendingClientLabels = new Set();
 let clientLabelReasonTimer = null;
 const clientLabelSaveQueues = new Map();
@@ -405,6 +407,13 @@ let editingOfflineBookingId = '';
 let lastConnectionLogSignature = '';
 let teamCalendarController = null;
 let batchBookingsController = null;
+let resourceController = null;
+let shiftController = null;
+let payrollController = null;
+let benefitController = null;
+let loyaltyController = null;
+let inventoryController = null;
+let retentionController = null;
 let providerFeedbackController = { bind() {}, refreshAvailability() {}, reset() {} };
 let timelineBookingDrag = null;
 let timelineMovePending = false;
@@ -417,6 +426,60 @@ const TIMELINE_TOUCH_HOLD_MS = 380;
 const TIMELINE_DRAG_THRESHOLD_PX = 5;
 const SCHEDULE_SWIPE_THRESHOLD_PX = 58;
 const reliability = window.MinutaReliability;
+const providerAssetVersion = (() => {
+  try { return new URL(document.currentScript?.src || location.href).searchParams.get('v') || ''; }
+  catch { return ''; }
+})();
+const providerFeatureLoads = new Map();
+function loadProviderFeatureScript(path) {
+  if (providerFeatureLoads.has(path)) return providerFeatureLoads.get(path);
+  const source = `${path}${providerAssetVersion ? `?v=${encodeURIComponent(providerAssetVersion)}` : ''}`;
+  const pending = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = source;
+    script.async = true;
+    script.addEventListener('load', resolve, { once:true });
+    script.addEventListener('error', () => reject(new Error(`Не удалось загрузить ${path}`)), { once:true });
+    document.head.append(script);
+  }).catch(error => {
+    providerFeatureLoads.delete(path);
+    throw error;
+  });
+  providerFeatureLoads.set(path, pending);
+  return pending;
+}
+function loadProviderGuidance() {
+  return loadProviderFeatureScript('help/help-data.js').then(() => Promise.all([
+    loadProviderFeatureScript('contextual-help.js'),
+    loadProviderFeatureScript('settings-nav-scroll.js'),
+    loadProviderFeatureScript('settings-smart-search.js')
+  ]));
+}
+function loadVoiceAssistant() { return loadProviderFeatureScript('voice-assistant.js'); }
+document.addEventListener('pointerover', event => {
+  if (event.target.closest?.('#openVoiceAssistant') && !window.MinutaVoiceAssistant) void loadVoiceAssistant().catch(() => {});
+}, { passive:true });
+document.addEventListener('focusin', event => {
+  if (event.target.closest?.('#openVoiceAssistant') && !window.MinutaVoiceAssistant) void loadVoiceAssistant().catch(() => {});
+});
+document.addEventListener('click', async event => {
+  const button = event.target.closest?.('#openVoiceAssistant');
+  if (!button || window.MinutaVoiceAssistant) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  try {
+    await loadVoiceAssistant();
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.click();
+  } catch {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    notify('Помощник не загрузился. Проверьте интернет и повторите.');
+  }
+}, true);
 const PROVIDER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const OFFLINE_BOOKING_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const providerCacheMaintenance = (async () => {
@@ -584,7 +647,7 @@ function bookingDataSignature(items = allBookings) {
   return `${items.length}:${hash >>> 0}`;
 }
 async function hydrateOfflineBookingInputs(userId, generation, cachedBookings) {
-  if (!userId || navigator.onLine || !cachedBookings) return false;
+  if (!userId || !cachedBookings) return false;
   const [cachedServices, cachedSchedule, cachedDaysOff] = await Promise.all([
     readProviderCache('services', userId),
     readProviderCache('schedule', userId),
@@ -1131,7 +1194,6 @@ function renderBookingData() {
     renderDayFocus();
     const activeView = $('#dashboard')?.dataset.activeView || 'bookings';
     renderProviderBookingView(activeView);
-    scheduleProviderBookingWarmup(activeView);
     providerPerformance.measure('booking_render', startedAt, { view:activeView, count:allBookings.length });
   });
 }
@@ -1146,22 +1208,6 @@ function renderProviderBookingView(view) {
   if (view === 'notifications') renderNotifications();
   if (view === 'analytics') renderAnalytics();
   if (['bookings', 'clients', 'notifications', 'analytics'].includes(view)) providerBookingViewRevisions.set(view, providerBookingRenderRevision);
-}
-
-let providerBookingWarmupRevision = 0;
-function scheduleProviderBookingWarmup(activeView) {
-  const revision = ++providerBookingWarmupRevision;
-  const pending = ['clients', 'notifications', 'analytics'].filter(view => view !== activeView);
-  const schedule = window.requestIdleCallback
-    ? callback => window.requestIdleCallback(callback, { timeout:1500 })
-    : callback => window.setTimeout(() => callback({ timeRemaining:() => 8 }), 120);
-  const warmNext = deadline => {
-    if (revision !== providerBookingWarmupRevision || !pending.length) return;
-    if (!deadline.timeRemaining() && !deadline.didTimeout) { schedule(warmNext); return; }
-    renderProviderBookingView(pending.shift());
-    if (pending.length) schedule(warmNext);
-  };
-  schedule(warmNext);
 }
 
 function localIsoDate(date) {
@@ -2212,7 +2258,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=562#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=563#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4027,7 +4073,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=562');
+    worker = new Worker('./report-worker.js?v=563');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -4883,7 +4929,7 @@ function refreshSectionNavigation() {
     buttons.forEach(button => {
       const target = document.getElementById(button.dataset.sectionTarget);
       if (target) button.setAttribute('aria-controls', target.id);
-      const shouldHide = !target || target.hidden;
+      const shouldHide = !target || (target.hidden && !target.dataset.lazyOrganizationFeature);
       if (button.hidden !== shouldHide) button.hidden = shouldHide;
       if (shouldHide) {
         button.classList.remove('active');
@@ -4903,7 +4949,17 @@ function refreshSectionNavigation() {
 
 function scrollToProviderSection(button) {
   const target = document.getElementById(button?.dataset.sectionTarget || '');
-  if (!target || target.hidden) return;
+  if (!target) return;
+  if (target.dataset.lazyOrganizationFeature) {
+    target.hidden = false;
+    const loading = target.querySelector('.loading-state');
+    if (loading) loading.hidden = false;
+    void ensureOrganizationFeature(target.id).catch(() => {
+      if (loading) loading.hidden = true;
+      notify('Раздел не загрузился. Проверьте интернет и повторите.');
+    });
+  }
+  if (target.hidden) return;
   const nav = button.closest('.provider-section-nav')
     || target.closest('[data-provider-panel]')?.querySelector('.provider-section-nav')
     || $('.provider-section-nav');
@@ -5083,9 +5139,14 @@ function setProviderViewImmediate(view, focusHeading = false) {
   }
   if (view === 'notifications') { renderNotificationTemplates(); renderNotifications(); }
   if (view === 'analytics') renderAnalytics();
+  if (view === 'clients' && currentUser && navigator.onLine && !clientAvatarsLoaded) void loadClientAvatars();
   if (view === 'portfolio') { renderPortfolio(); renderProviderReviews(); }
   if (view === 'portfolio' && currentUser && navigator.onLine && portfolioSyncDirty) scheduleBookingsReload('portfolio_items');
-  if (view === 'waitlist') renderWaitlist();
+  if (view === 'waitlist') {
+    renderWaitlist();
+    if (currentUser && navigator.onLine && !waitlistLoaded) void loadWaitlist();
+  }
+  if (view === 'settings' || view === 'organization') void loadProviderGuidance().catch(() => {});
   if (view === 'organization') {
     if (organizationController.availability === null) organizationController.load();
     else organizationController.render();
@@ -8792,6 +8853,7 @@ async function loadClientAvatars() {
   const { data, error } = await db.from('client_avatars').select('client_phone,storage_path,width,height,updated_at').eq('performer_id', userId);
   if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
   if (error) {
+    clientAvatarsLoaded = false;
     clientAvatarsRemoteAvailable = false;
     clientAvatars = new Map();
     renderClients();
@@ -8809,6 +8871,7 @@ async function loadClientAvatars() {
   }));
   if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
   clientAvatars = new Map(entries.filter(item => item.client_phone).map(item => [item.client_phone, item]));
+  clientAvatarsLoaded = true;
   clientAvatarsRemoteAvailable = true;
   renderClients();
   if (selectedClientPhone) renderClientDetail(selectedClientPhone);
@@ -9423,7 +9486,7 @@ function renderProviderVerification() {
 
 async function synchronizePortfolio({ force = false } = {}) {
   // Keep the initial sidebar count, but do not repeatedly download hidden photos/reviews.
-  if (!force && portfolioSyncLoaded && $('#dashboard')?.dataset.activeView !== 'portfolio') {
+  if (!force && $('#dashboard')?.dataset.activeView !== 'portfolio') {
     portfolioSyncDirty = true;
     return { ok:true, optional:true, deferred:true };
   }
@@ -9498,7 +9561,7 @@ function armBookingsReload() {
   }, 250);
 }
 
-function startLiveUpdates() {
+function startLiveUpdates({ catchUpOnSubscribe = true } = {}) {
   stopLiveUpdates();
   if (!currentUser || !navigator.onLine || document.hidden) return;
   const userId = currentUser.id;
@@ -9528,8 +9591,10 @@ function startLiveUpdates() {
         clearTimeout(liveReconnectTimer);
         liveReconnectTimer = null;
         setSyncState(writesAllowed ? 'online' : 'warning', writesAllowed ? 'Онлайн · данные обновляются' : 'Подключено · проверяем данные · только чтение');
-        // Realtime does not replay the events missed while disconnected.
-        scheduleBookingsReload();
+        // Realtime does not replay events missed while disconnected. The first
+        // page load subscribes before its full synchronization, so it needs no
+        // second identical request; reconnects still perform this catch-up.
+        if (catchUpOnSubscribe) scheduleBookingsReload();
       }
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         bookingsChannel = null;
@@ -9600,11 +9665,8 @@ function synchronizeProvider({ tables = null, background = false } = {}) {
       })(),
       loadClientNotes(),
       loadClientLabels(),
-      loadClientAvatars(),
       loadBookingSessionItems(),
       loadBookingOutcomes(),
-      synchronizePortfolio({ force:!background }),
-      loadWaitlist(),
       organizationController.load(),
       teamCalendarController.load()
     ])).map(result => result.status === 'fulfilled' ? result.value : { ok:false });
@@ -9736,6 +9798,8 @@ async function handleSession(session) {
   lastProviderVerificationAt = 0;
   portfolioSyncLoaded = false;
   portfolioSyncDirty = true;
+  waitlistLoaded = false;
+  clientAvatarsLoaded = false;
   renderProviderVerification();
   const generation = ++sessionGeneration;
   clientResultsController.reset();
@@ -9871,10 +9935,9 @@ async function handleSession(session) {
     return;
   }
   const userId = currentUser.id;
-  // When the network is available, do not paint the privacy-safe offline copy
-  // first: it intentionally contains neither the client's name nor phone and
-  // therefore looks like the details disappeared during refresh.
-  const cachedBookings = navigator.onLine ? null : await hydrateCachedBookings(userId);
+  // Access has already been verified above, so the user's own saved snapshot
+  // can be shown immediately while the server refresh continues in read-only mode.
+  const cachedBookings = await hydrateCachedBookings(userId);
   if (!sessionIsCurrent(userId, generation)) return;
   await hydrateOfflineBookingInputs(userId, generation, cachedBookings);
   if (!sessionIsCurrent(userId, generation)) return;
@@ -9898,6 +9961,7 @@ async function handleSession(session) {
   renderVisitorNotificationForm();
   await providerCacheMaintenance;
   if (!sessionIsCurrent(userId, generation)) return;
+  if (navigator.onLine && !bookingsChannel) startLiveUpdates({ catchUpOnSubscribe:false });
   await synchronizeProvider();
   if (!sessionIsCurrent(userId, generation)) return;
   window.MinutaProviderOnboarding?.handleSession({
@@ -11212,6 +11276,10 @@ function renderWaitlist() {
   const badge = $('#waitlistBadge');
   badge.textContent = String(active.length);
   badge.hidden = !active.length;
+  if (!waitlistLoaded) {
+    holder.innerHTML = '<div class="provider-empty compact-empty"><strong>Загружаем лист ожидания…</strong><small>Данные появятся здесь через несколько секунд.</small></div>';
+    return;
+  }
   if (!waitlistRemoteAvailable) {
     holder.innerHTML = '<div class="provider-empty"><strong>Лист ожидания недоступен</strong><small>Обновите страницу после установки серверного обновления.</small></div>';
     return;
@@ -11251,6 +11319,7 @@ async function loadWaitlist() {
   }
   if (!sessionIsCurrent(userId,generation) || (organizationController.getActiveOrganization()?.id || null) !== organizationId) return { ok:false,optional:true,stale:true };
   waitlistRemoteAvailable = !error && !scoped.error;
+  waitlistLoaded = true;
   waitlistRequests = waitlistRemoteAvailable ? [...(data || []),...(scoped.data || [])]
     .sort((a,b)=>a.desired_date.localeCompare(b.desired_date) || a.created_at.localeCompare(b.created_at)) : [];
   renderWaitlist();
@@ -11927,68 +11996,61 @@ teamCalendarController = window.MinutaTeamCalendar.createController({
 });
 teamCalendarController.bind();
 
-const resourceController = window.MinutaResources?.createController ? window.MinutaResources.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {} };
-resourceController.bind();
+const organizationFeatureDefinitions = new Map([
+  ['resourcesPanel', { script:'resource-management.js', api:() => window.MinutaResources, get:() => resourceController, set:value => { resourceController = value; }, admin:false }],
+  ['shiftsPanel', { script:'shift-management.js', api:() => window.MinutaShifts, get:() => shiftController, set:value => { shiftController = value; }, admin:false }],
+  ['payrollPanel', { script:'payroll-management.js', api:() => window.MinutaPayroll, get:() => payrollController, set:value => { payrollController = value; }, admin:false }],
+  ['benefitsPanel', { script:'benefit-management.js', api:() => window.MinutaBenefits, get:() => benefitController, set:value => { benefitController = value; }, admin:true }],
+  ['loyaltyPanel', { script:'loyalty-management.js', api:() => window.MinutaLoyalty, get:() => loyaltyController, set:value => { loyaltyController = value; }, admin:true }],
+  ['inventoryPanel', { script:'inventory-management.js', api:() => window.MinutaInventory, get:() => inventoryController, set:value => { inventoryController = value; }, admin:true }],
+  ['retentionPanel', { script:'retention-management.js', api:() => window.MinutaRetention, get:() => retentionController, set:value => { retentionController = value; }, admin:true }]
+]);
 
-const shiftController = window.MinutaShifts?.createController ? window.MinutaShifts.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {}, reset() {} };
-shiftController.bind();
+function organizationFeatureOptions() {
+  return {
+    db, $, escapeHtml, notify, requireWrites,
+    getCurrentUser: () => currentUser,
+    getSessionGeneration: () => sessionGeneration,
+    sessionIsCurrent,
+    applyWriteAvailability
+  };
+}
 
-const payrollController = window.MinutaPayroll?.createController ? window.MinutaPayroll.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {}, reset() {} };
-payrollController.bind();
+function prepareOrganizationFeatures(organization) {
+  const allowedAdmin = ['owner', 'admin'].includes(organization?.current_role);
+  organizationFeatureDefinitions.forEach((definition, sectionId) => {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    const allowed = Boolean(organization?.id) && (!definition.admin || allowedAdmin);
+    if (allowed && !definition.get()) section.dataset.lazyOrganizationFeature = 'true';
+    else delete section.dataset.lazyOrganizationFeature;
+    if (!allowed) section.hidden = true;
+  });
+}
 
-const benefitController = window.MinutaBenefits?.createController ? window.MinutaBenefits.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {}, reset() {} };
-benefitController.bind();
-
-const loyaltyController = window.MinutaLoyalty?.createController ? window.MinutaLoyalty.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {}, reset() {} };
-loyaltyController.bind();
-
-const inventoryController = window.MinutaInventory?.createController ? window.MinutaInventory.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {}, reset() {} };
-inventoryController.bind();
-
-const retentionController = window.MinutaRetention?.createController ? window.MinutaRetention.createController({
-  db, $, escapeHtml, notify, requireWrites,
-  getCurrentUser: () => currentUser,
-  getSessionGeneration: () => sessionGeneration,
-  sessionIsCurrent,
-  applyWriteAvailability
-}) : { bind() {}, setOrganization() {}, reset() {} };
-retentionController.bind();
+async function ensureOrganizationFeature(sectionId) {
+  const definition = organizationFeatureDefinitions.get(sectionId);
+  if (!definition) return null;
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  const organization = organizationController?.getActiveOrganization?.();
+  if (!userId || !organization?.id) return null;
+  let controller = definition.get();
+  if (!controller) {
+    await loadProviderFeatureScript(definition.script);
+    if (!sessionIsCurrent(userId, generation) || organizationController.getActiveOrganization()?.id !== organization.id) return null;
+    const api = definition.api();
+    if (!api?.createController) throw new Error(`Модуль ${definition.script} недоступен`);
+    controller = api.createController(organizationFeatureOptions());
+    controller.bind();
+    definition.set(controller);
+  }
+  const section = document.getElementById(sectionId);
+  if (section) delete section.dataset.lazyOrganizationFeature;
+  await controller.setOrganization(organization);
+  refreshSectionNavigation();
+  return controller;
+}
 
 batchBookingsController = window.MinutaBatchBookings?.createController ? window.MinutaBatchBookings.createController({
   db, $, escapeHtml, notify, requireWrites,
@@ -12118,17 +12180,19 @@ const organizationController = window.MinutaOrganization.createController({
     if (clientOrganizationChanged && currentUser && navigator.onLine) void loadBookingSettings();
     if (clientOrganizationChanged) {
       waitlistRequests = [];
+      waitlistLoaded = false;
       renderWaitlist();
-      if (currentUser && navigator.onLine) void loadWaitlist();
+      if (currentUser && navigator.onLine && $('#dashboard')?.dataset.activeView === 'waitlist') void loadWaitlist();
     }
     teamCalendarController.setOrganization(organization);
-    resourceController.setOrganization(organization);
-    shiftController.setOrganization(organization);
-    payrollController.setOrganization(organization);
-    benefitController.setOrganization(organization);
-    loyaltyController.setOrganization(organization);
-    inventoryController.setOrganization(organization);
-    retentionController.setOrganization(organization);
+    prepareOrganizationFeatures(organization);
+    resourceController?.setOrganization(organization);
+    shiftController?.setOrganization(organization);
+    payrollController?.setOrganization(organization);
+    benefitController?.setOrganization(organization);
+    loyaltyController?.setOrganization(organization);
+    inventoryController?.setOrganization(organization);
+    retentionController?.setOrganization(organization);
     batchBookingsController.setOrganization(organization);
     bookingPolicyController.setOrganization(organization);
     groupBookingsController.setOrganization(organization);
@@ -12141,6 +12205,7 @@ const organizationController = window.MinutaOrganization.createController({
     dataGovernanceController.setOrganization(organization);
     applyDisplayPreferences();
     renderDisplayPreferencesForm();
+    refreshSectionNavigation();
   }
 });
 organizationController.bind();

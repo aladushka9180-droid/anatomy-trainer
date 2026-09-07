@@ -306,7 +306,7 @@ for (const table of ['bookings', 'services', 'provider_schedule', 'provider_days
 {
   const h = harness();
   await h.c.synchronizeProvider({ background:true }); await h.drain();
-  assert.ok(h.c.loadNames.includes('loadPortfolio'), 'initial load retains sidebar counts');
+  assert.ok(!h.c.loadNames.includes('loadPortfolio'), 'initial load must not download a hidden portfolio');
   h.c.loadNames.length = 0;
   await h.c.synchronizeProvider({ background:true }); await h.drain();
   assert.ok(!h.c.loadNames.includes('loadPortfolio') && !h.c.loadNames.includes('loadProviderReviews'), 'hidden portfolio media/reviews skip repeat background downloads');
@@ -324,7 +324,7 @@ for (const table of ['bookings', 'services', 'provider_schedule', 'provider_days
   assert.ok(h.c.loadNames.includes('loadPortfolio'), 'item changes keep the navigation count current');
   h.c.loadNames.length = 0;
   await h.c.synchronizeProvider(); await h.drain();
-  assert.ok(h.c.loadNames.includes('loadPortfolio'), 'explicit refresh still checks every section');
+  assert.ok(!h.c.loadNames.includes('loadPortfolio'), 'explicit core refresh must keep hidden portfolio deferred');
 }
 for (const result of [{ ok:false, cached:true }, { ok:true, skipped:true }]) {
   const h = harness(); h.c.lastProviderVerificationAt = 12345;
