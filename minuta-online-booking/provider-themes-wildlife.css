@@ -214,7 +214,7 @@
 }
 .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] {
   background-color:#f2dfc7!important;
-  background-image:radial-gradient(ellipse 80% 100% at 50% 45%,transparent 38%,rgba(83,57,39,.12) 100%),linear-gradient(rgba(216,192,160,.72),rgba(216,192,160,.72)),url("provider-leopard-premium-bg.webp?v=579")!important;
+  background-image:radial-gradient(ellipse 80% 100% at 50% 45%,transparent 38%,rgba(83,57,39,.12) 100%),linear-gradient(rgba(255,250,243,.30),rgba(255,250,243,.30)),url("provider-leopard-premium-bg.webp?v=579")!important;
   background-size:100% 100%,100% 100%,cover!important;
   background-position:center,center,center!important;
   background-repeat:no-repeat,no-repeat,no-repeat!important;
@@ -244,7 +244,7 @@
 }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] {
-    background-image:radial-gradient(ellipse 130% 620px at 50% 40px,transparent 45%,rgba(83,57,39,.1) 100%),linear-gradient(rgba(216,192,160,.72),rgba(216,192,160,.72)),url("provider-leopard-premium-bg.webp?v=579")!important;
+    background-image:radial-gradient(ellipse 130% 620px at 50% 40px,transparent 45%,rgba(83,57,39,.1) 100%),linear-gradient(rgba(255,250,243,.30),rgba(255,250,243,.30)),url("provider-leopard-premium-bg.webp?v=579")!important;
     background-size:100% 100%,100% 100%,cover!important;
     background-position:center,center,center!important;
     background-repeat:no-repeat,no-repeat,no-repeat!important;
@@ -273,4 +273,4 @@
 .theme-pearl-zebra { --theme-preview-bg:#f7f4ef;--theme-preview-surface:#fffdfb;--theme-preview-line:#a39b93;--theme-preview-accent:#4f4944;--theme-preview-radius:14px; }
 .theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=579") center/cover no-repeat!important; }
 .theme-velvet-leopard { --theme-preview-bg:#f2dfc7;--theme-preview-surface:#fffaf3;--theme-preview-line:#c5a991;--theme-preview-accent:#6e442d;--theme-preview-radius:14px; }
-.theme-velvet-leopard .theme-swatch { background-image:linear-gradient(rgba(216,192,160,.52),rgba(216,192,160,.52)),url("provider-leopard-premium-bg.webp?v=579")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
+.theme-velvet-leopard .theme-swatch { background-image:linear-gradient(rgba(255,250,243,.30),rgba(255,250,243,.30)),url("provider-leopard-premium-bg.webp?v=579")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
