@@ -31,9 +31,9 @@ vm.runInContext(catalogSource, catalogContext);
 const themes = [...catalogContext.window.MinutaThemeCatalog.themeKeys];
 const layouts = sourceArray('PROVIDER_LAYOUT_KEYS');
 
-assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'golden-cheetah', 'pearl-zebra', 'noir-safari']);
+assert.deepEqual(themes, ['sage', 'nordic', 'warm', 'graphite', 'lavender', 'luxury', 'loft', 'eco', 'hitech', 'japandi', 'midnight', 'mono', 'desert', 'rose', 'botanical', 'burgundy', 'coastal', 'pearl', 'butter', 'celadon', 'snow-leopard', 'apricot-tiger', 'golden-cheetah', 'velvet-leopard', 'pearl-zebra', 'noir-safari']);
 assert.deepEqual(layouts, ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split']);
-assert.equal(themes.length * layouts.length, 150, 'the supported appearance matrix must contain 150 combinations');
+assert.equal(themes.length * layouts.length, 156, 'the supported appearance matrix must contain 156 combinations');
 
 function parseColor(value) {
   const color = String(value || '').trim();
@@ -148,6 +148,12 @@ assert.match(goldenCheetahBackground, /background-attachment:fixed!important/);
 assert.doesNotMatch(goldenCheetahBackground, /provider-leopard-premium-bg\.webp|provider-golden-cheetah-matte-v1\.svg/);
 assert.doesNotMatch(goldenCheetahBackground, /#fffdf8|255,253,248/, 'Golden Cheetah must not add a white spotlight over the sand base');
 
+const velvetLeopardBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="velvet-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
+assert.match(velvetLeopardBackground, /url\("provider-leopard-premium-bg\.webp\?v=579"\)/);
+assert.match(velvetLeopardBackground, /background-size:100% 100%,100% 100%,cover!important/);
+assert.match(velvetLeopardBackground, /background-repeat:no-repeat,no-repeat,no-repeat!important/);
+assert.doesNotMatch(velvetLeopardBackground, /background-repeat:[^;]*(?:^|,)\s*repeat(?:,|!important)|520px auto/, 'Velvet Leopard must not use repeated background tiles');
+
 const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
 assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);
 assert.doesNotMatch(noirSafariBackground, /linear-gradient\(90deg/, 'Noir Safari must preserve the approved leopard artwork without directional recoloring');
@@ -168,4 +174,4 @@ assert.match(calmCss, /\.connection-log-entry\s*\{[^}]*background:var\(--theme-s
 assert.match(calmCss, /\.connection-log-actions \.primary\s*\{[^}]*background:var\(--theme-accent\)!important;[^}]*color:var\(--theme-accent-contrast\)!important;/s);
 assert.match(calmCss, /\.connection-log-dialog :is\(\.connection-log-head small,\.connection-log-lead,\.connection-log-entry small\)\s*\{[^}]*var\(--theme-muted\) 82%,var\(--theme-ink\)/s);
 
-console.log('Provider theme matrix checks passed: 25 themes × 6 layouts.');
+console.log('Provider theme matrix checks passed: 26 themes × 6 layouts.');
