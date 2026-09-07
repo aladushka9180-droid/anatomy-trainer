@@ -18,27 +18,28 @@
     <filter id="soft" x="-12%" y="-12%" width="124%" height="124%">
       <feGaussianBlur stdDeviation="0.55"/>
     </filter>
-    <g id="spot-a" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M-42-10C-33-32-8-39 14-30C31-23 38-8 30 5" stroke="#76543c" stroke-width="13" opacity=".2"/>
-      <path d="M22 18C7 35-19 34-31 18" stroke="#76543c" stroke-width="13" opacity=".2"/>
-      <path d="M-19-8C-9-22 9-20 17-9" stroke="#9a6d47" stroke-width="7" opacity=".18"/>
-      <path d="M14 4C7 13-4 16-13 11" stroke="#9a6d47" stroke-width="7" opacity=".18"/>
-      <ellipse cx="-1" cy="2" rx="7" ry="4" fill="#795538" stroke="none" opacity=".16"/>
+    <g id="spot-a">
+      <path d="M-43-18C-37-34-19-38-8-29C-1-23-7-11-19-8C-31-5-46-8-43-18Z" fill="#76543c" opacity=".18"/>
+      <path d="M5-33C18-36 31-28 32-16C33-7 25 1 15-2C4-6-2-21 5-33Z" fill="#76543c" opacity=".18"/>
+      <path d="M18 5C30 8 36 19 29 28C21 38 4 34-2 23C-7 13 5 2 18 5Z" fill="#76543c" opacity=".18"/>
+      <path d="M-28 8C-39 10-44 21-37 29C-31 36-19 32-15 23C-11 15-18 7-28 8Z" fill="#76543c" opacity=".18"/>
+      <path d="M-13-9C-7-18 4-18 10-12C13-8 9-3 2-3C-5-3-16-3-13-9Z" fill="#9a6d47" opacity=".16"/>
+      <ellipse cx="0" cy="5" rx="4.5" ry="3" fill="#795538" opacity=".14"/>
     </g>
-    <g id="spot-b" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M-31-18C-16-32 5-30 20-19" stroke="#805a3d" stroke-width="11" opacity=".19"/>
-      <path d="M28-9C32 6 21 20 9 24" stroke="#805a3d" stroke-width="11" opacity=".19"/>
-      <path d="M-5 28C-20 26-31 16-34 5" stroke="#805a3d" stroke-width="11" opacity=".19"/>
-      <path d="M-13-7C-5-16 7-15 14-8" stroke="#b27b4d" stroke-width="6" opacity=".17"/>
-      <path d="M10 2C6 10-3 13-10 9" stroke="#b27b4d" stroke-width="6" opacity=".17"/>
-      <ellipse cx="0" cy="1" rx="4" ry="6" fill="#765139" stroke="none" opacity=".14"/>
+    <g id="spot-b">
+      <path d="M-31-22C-21-34-3-33 5-24C11-17 5-8-5-8C-18-8-37-11-31-22Z" fill="#805a3d" opacity=".17"/>
+      <path d="M10-25C21-31 34-24 34-13C34-4 26 2 17-1C8-4 4-17 10-25Z" fill="#805a3d" opacity=".17"/>
+      <path d="M21 5C33 6 37 17 29 26C21 35 6 31 2 21C-1 13 10 4 21 5Z" fill="#805a3d" opacity=".17"/>
+      <path d="M-14 8C-25 5-34 12-32 22C-30 32-15 34-8 25C-3 19-5 11-14 8Z" fill="#805a3d" opacity=".17"/>
+      <path d="M-7-5C0-13 11-11 15-5C18 0 12 5 5 4C-3 3-12 1-7-5Z" fill="#b27b4d" opacity=".15"/>
+      <ellipse cx="-1" cy="7" rx="3.5" ry="5" fill="#765139" opacity=".13"/>
     </g>
-    <g id="spot-c" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M-25-14C-13-27 7-28 19-17" stroke="#6e4b34" stroke-width="9" opacity=".18"/>
-      <path d="M23-1C25 11 16 20 4 23" stroke="#6e4b34" stroke-width="9" opacity=".18"/>
-      <path d="M-8 24C-19 20-26 12-27 2" stroke="#6e4b34" stroke-width="9" opacity=".18"/>
-      <path d="M-8-4C-2-11 7-10 11-4" stroke="#a97247" stroke-width="5" opacity=".16"/>
-      <ellipse cx="2" cy="4" rx="3" ry="4" fill="#6e4b34" stroke="none" opacity=".12"/>
+    <g id="spot-c">
+      <path d="M-25-16C-15-28 2-29 10-21C16-15 10-7 1-7C-10-7-30-8-25-16Z" fill="#6e4b34" opacity=".16"/>
+      <path d="M10-19C20-25 29-19 29-10C29-3 23 2 16 0C8-2 5-12 10-19Z" fill="#6e4b34" opacity=".16"/>
+      <path d="M18 5C28 8 29 17 22 23C14 30 2 25 0 17C-2 10 10 3 18 5Z" fill="#6e4b34" opacity=".16"/>
+      <path d="M-12 5C-21 4-27 11-24 19C-20 27-9 27-3 20C2 14-4 6-12 5Z" fill="#6e4b34" opacity=".16"/>
+      <path d="M-6-4C0-10 8-9 11-4C13 0 9 4 3 3C-3 3-10 1-6-4Z" fill="#a97247" opacity=".14"/>
     </g>
     <g id="freckle" fill="#805b3d" opacity=".14">
       <ellipse cx="0" cy="0" rx="6" ry="3.6"/>
