@@ -462,23 +462,22 @@ document.addEventListener('pointerover', event => {
 document.addEventListener('focusin', event => {
   if (event.target.closest?.('#openVoiceAssistant') && !window.MinutaVoiceAssistant) void loadVoiceAssistant().catch(() => {});
 });
-document.addEventListener('click', async event => {
+document.addEventListener('click', event => {
   const button = event.target.closest?.('#openVoiceAssistant');
   if (!button || window.MinutaVoiceAssistant) return;
   event.preventDefault();
   event.stopImmediatePropagation();
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
-  try {
-    await loadVoiceAssistant();
+  void loadVoiceAssistant().then(() => {
     button.disabled = false;
     button.removeAttribute('aria-busy');
     button.click();
-  } catch {
+  }).catch(() => {
     button.disabled = false;
     button.removeAttribute('aria-busy');
     notify('Помощник не загрузился. Проверьте интернет и повторите.');
-  }
+  });
 }, true);
 const PROVIDER_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const OFFLINE_BOOKING_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -2258,7 +2257,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=563#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=564#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4073,7 +4072,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=563');
+    worker = new Worker('./report-worker.js?v=564');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
