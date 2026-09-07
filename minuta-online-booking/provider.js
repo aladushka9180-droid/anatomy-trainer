@@ -1313,11 +1313,12 @@ const LEGACY_MOBILE_NAV_SIGNATURES = new Set([
   'bookings|notifications|analytics|schedule',
   'bookings|analytics|organization|notifications',
   'bookings|notifications|clients|schedule',
-  'bookings|schedule|clients|notifications'
+  'bookings|schedule|clients|notifications',
+  'bookings|organization|analytics|schedule'
 ]);
 function migrateLegacyMobileNavigation(value, version = 0) {
   const normalized = normalizeMobileNavigation(value);
-  return Number(version) < 5 && LEGACY_MOBILE_NAV_SIGNATURES.has(normalized.join('|'))
+  return Number(version) < 6 && LEGACY_MOBILE_NAV_SIGNATURES.has(normalized.join('|'))
     ? [...DEFAULT_MOBILE_NAV]
     : normalized;
 }
@@ -1332,7 +1333,7 @@ function mergeVisibleRoleViewOrder(baseOrder, selectedKeys, visibleOrder) {
   const movable=new Set(visible),queue=[...visible];
   return base.map(key=>movable.has(key)?queue.shift():key);
 }
-function normalizeRoleNavigation(value, legacy, version = 5) {
+function normalizeRoleNavigation(value, legacy, version = 6) {
   const source=value&&typeof value==='object'&&!Array.isArray(value)?value:{};
   return Object.fromEntries(PROVIDER_ROLE_KEYS.map(role=>[role,migrateLegacyMobileNavigation(source[role]??(Array.isArray(legacy)?legacy:DEFAULT_MOBILE_NAV_BY_ROLE[role]),version)]));
 }
@@ -1363,7 +1364,7 @@ function normalizeAnalyticsGoalsByScope(value = {}) {
 }
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
-  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 5);
+  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 6);
   const storedTheme = String(source.theme || '');
   const storedLayout = String(source.layout || '');
   const storedTextScale = String(source.text_scale || source.textScale || '');
@@ -1456,7 +1457,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 5,
+      version: 6,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -1478,7 +1479,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 5,
+    version: 6,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -2211,7 +2212,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=557#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=558#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4026,7 +4027,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=557');
+    worker = new Worker('./report-worker.js?v=558');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -5337,6 +5338,31 @@ function refreshBusinessDay() {
   renderBookingData();
 }
 
+function centerDateStripSelection(dateStrip) {
+  if (!dateStrip || dateStrip.scrollWidth <= dateStrip.clientWidth) return;
+  const active = dateStrip.querySelector('[data-booking-date].active');
+  if (!active) return;
+  const target = active.offsetLeft - (dateStrip.clientWidth - active.offsetWidth) / 2;
+  const previousBehavior = dateStrip.style.scrollBehavior;
+  dateStrip.style.scrollBehavior = 'auto';
+  dateStrip.scrollLeft = Math.max(0, Math.min(dateStrip.scrollWidth - dateStrip.clientWidth, target));
+  dateStrip.style.scrollBehavior = previousBehavior;
+}
+
+function bindDateStripResizeCentering(dateStrip) {
+  if (!dateStrip || dateStrip.dataset.resizeObserverBound) return;
+  let previousWidth = dateStrip.clientWidth;
+  const recenterForWidth = widthValue => {
+    const width = Math.round(widthValue || dateStrip.clientWidth);
+    if (!width || Math.abs(width - previousWidth) < 1) return;
+    previousWidth = width;
+    requestAnimationFrame(() => centerDateStripSelection(dateStrip));
+  };
+  if ('ResizeObserver' in window) new ResizeObserver(entries => recenterForWidth(entries[0]?.contentRect?.width)).observe(dateStrip);
+  window.addEventListener('resize', () => recenterForWidth(dateStrip.clientWidth), { passive:true });
+  dateStrip.dataset.resizeObserverBound = 'true';
+}
+
 function renderDateStrip() {
   const dateStrip = $('#dateStrip');
   if (!dateStrip) return;
@@ -5385,10 +5411,8 @@ function renderDateStrip() {
   if (picker) picker.value = selectedDate;
   const todayButton = $('[data-date-today]');
   if (todayButton) todayButton.hidden = false;
-  const active = $('#dateStrip [data-booking-date].active');
-  if ((rebuildStrip || selectionChanged) && dateStrip.scrollWidth > dateStrip.clientWidth) {
-    requestAnimationFrame(() => active?.scrollIntoView({ behavior:'auto', block:'nearest', inline:'center' }));
-  }
+  if (rebuildStrip || selectionChanged) requestAnimationFrame(() => centerDateStripSelection(dateStrip));
+  bindDateStripResizeCentering(dateStrip);
   if (!dateStrip.dataset.scrollInteractionsBound) {
     let wheelTarget = dateStrip.scrollLeft;
     let wheelFrame = 0;
@@ -10519,6 +10543,7 @@ function renderSchedule() {
   updateWeeklyScheduleSummary(scheduleRows);
   updateScheduleSaveState();
   renderMonthlySchedule();
+  refreshSettingsQuickStart();
 }
 
 async function loadSchedule() {
@@ -10988,6 +11013,7 @@ function renderOwnServices() {
   const list = $('#serviceManageList');
   populateRepeatServices();
   const activeCount = ownServices.filter(item => item.active).length;
+  refreshSettingsQuickStart();
   $('#servicesCount').textContent = String(ownServices.length);
   if ($('#servicesBadge')) $('#servicesBadge').textContent = String(ownServices.length);
   $('#activeServicesCount').textContent = String(activeCount);
@@ -10996,6 +11022,12 @@ function renderOwnServices() {
     return;
   }
   list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
+}
+
+function refreshSettingsQuickStart() {
+  const quickStart = $('#settingsQuickStart');
+  if (!quickStart) return;
+  quickStart.hidden = ownServices.some(item => item.active) && scheduleRows.some(item => item.enabled);
 }
 
 async function loadOwnServices(options = {}) {
@@ -12964,13 +12996,14 @@ function initializeProviderUx() {
     const tools = document.createElement('details');
     tools.id = 'clientDirectoryTools';
     tools.className = 'clients-tools ux-disclosure';
-    tools.innerHTML = '<summary>Дополнительно</summary><div aria-label="Импорт и поля клиента"></div>';
+    tools.innerHTML = '<summary>Ещё</summary><div aria-label="Импорт и поля клиента"></div>';
     const panels = [$('#clientImportPanel'), $('#clientFieldsSettings')].filter(Boolean);
     panels.forEach(panel => tools.lastElementChild.append(panel));
-    toolbar.append(search, tools);
-    layout.before(toolbar);
     const filters = $('#clientDirectoryFilters');
-    if (filters) toolbar.after(filters);
+    toolbar.append(search);
+    if (filters) toolbar.append(filters);
+    toolbar.append(tools);
+    layout.before(toolbar);
     const syncTools = () => {
       const hidden = panels.every(panel => panel.hidden);
       if (tools.hidden !== hidden) tools.hidden = hidden;

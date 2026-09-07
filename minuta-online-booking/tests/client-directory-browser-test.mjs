@@ -19,7 +19,7 @@ try {
       document.body.append(document.importNode(section,true));
       document.querySelectorAll('#clientImportPanel,#clientFieldsSettings').forEach(node=>node.hidden=true);
     },readFileSync(new URL('../provider.html',import.meta.url),'utf8'));
-    await page.addScriptTag({content:`var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];${initialize};initializeProviderUx();`});
+    await page.addScriptTag({content:`var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],setInventorySection=()=>{};${initialize};initializeProviderUx();`});
     await page.evaluate(selector=>{window.filterRoot=document.querySelector(selector);},filterSelector);
     for (const file of [...readFileSync(new URL('../provider.html',import.meta.url),'utf8').matchAll(/<link rel="stylesheet" href="([^"?]+)(?:\?[^" ]*)?"/g)].map(m=>m[1])) await page.addStyleTag({content:readFileSync(new URL(`../${file}`,import.meta.url),'utf8')});
     await page.addStyleTag({content:readFileSync(new URL('../client-directory.css',import.meta.url),'utf8')});
@@ -37,11 +37,18 @@ try {
       refresh();
     });
     assert.equal(await page.locator('[data-client-filters]').isVisible(),true,'Filters must remain visible after real provider UX initialization');
+    const toolbarGeometry=await page.evaluate(()=>{const search=document.querySelector('#clientSearch').getBoundingClientRect(),filters=document.querySelector('[data-client-filters]').getBoundingClientRect();return {aligned:Math.abs(search.top-filters.top)<=2,searchWidth:search.width,overflow:document.documentElement.scrollWidth>innerWidth+2,foundHidden:document.querySelector('[data-client-found]').hidden};});
+    assert.equal(toolbarGeometry.aligned,true,'Search and filters must stay in one compact row');
+    assert.ok(toolbarGeometry.searchWidth>=140,'Client search became too narrow');
+    assert.equal(toolbarGeometry.overflow,false,'Client toolbar created horizontal overflow');
+    assert.equal(toolbarGeometry.foundHidden,true,'Default result count must not occupy a separate row');
     assert.equal(await page.locator('#clientDirectoryTools').count(),1,'Import controls retain their unique ID');
     assert.equal(await page.locator('#clientDirectoryTools #clientImportPanel').count(),1,'Filters must not replace import settings');
     assert.deepEqual(await page.evaluate(()=>result.map(c=>[c.name,c.directoryVisitCount])),[['Борис',6],['Анна',1],['Вера',0]]);
+    await page.click('[data-client-filters]');
     await page.selectOption('[data-client-sort]','next');
     assert.equal(await page.evaluate(()=>result[0].name),'Анна');
+    await page.click('[data-client-close]');
     await page.click('[data-client-filters]');
     assert.ok((await page.locator('[data-client-close]').boundingBox()).width <= 48);
     assert.ok((await page.locator('[data-client-apply]').boundingBox()).width > (await page.locator('[data-client-reset]').boundingBox()).width);

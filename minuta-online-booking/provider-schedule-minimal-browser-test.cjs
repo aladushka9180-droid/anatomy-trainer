@@ -7,6 +7,11 @@ const { chromium } = require('playwright');
 
 const root = __dirname;
 const themeCatalog = fs.readFileSync(path.join(root, 'theme-catalog.js'), 'utf8');
+const providerSource = fs.readFileSync(path.join(root, 'provider.js'), 'utf8');
+const helperStart = providerSource.indexOf('function centerDateStripSelection(');
+const helperEnd = providerSource.indexOf('function renderDateStrip()', helperStart);
+assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Помощники адаптивной ленты дат не найдены');
+const dateStripResizeHelpers = providerSource.slice(helperStart, helperEnd);
 const themeKeys = [...themeCatalog.matchAll(/defineTheme\('([^']+)'/g)].map(match => match[1]);
 assert.ok(themeKeys.length >= 20, 'Каталог тем не прочитан');
 const output = process.env.MINUTA_SCHEDULE_OUTPUT;
@@ -99,6 +104,26 @@ const server = http.createServer((request, response) => {
       assert.equal(result.bookingsRadius, '0px', `${width}px: рабочая область осталась вложенной карточкой`);
       if (width > 760) assert.ok(result.panelCenterDelta <= 2, 'На ПК карточка записи не центрирована');
       else assert.ok(result.panelBottomDelta <= 2, 'На телефоне карточка должна оставаться у нижнего края');
+    }
+
+    await page.addScriptTag({ content:dateStripResizeHelpers });
+    await page.setViewportSize({ width:1440, height:900 });
+    await page.evaluate(() => {
+      const strip = document.querySelector('#dateStrip');
+      strip.innerHTML = Array.from({ length:91 }, (_, index) => `<button type="button" data-booking-date="2026-10-${String(index + 1).padStart(2, '0')}" class="${index === 70 ? 'active' : ''}"><span>день</span><strong>${index + 1}</strong><small>окт</small></button>`).join('');
+      centerDateStripSelection(strip);
+      bindDateStripResizeCentering(strip);
+    });
+    for (const width of [760, 390, 1440]) {
+      await page.setViewportSize({ width, height:900 });
+      await page.waitForTimeout(100);
+      const activeState = await page.evaluate(() => {
+        const strip = document.querySelector('#dateStrip').getBoundingClientRect();
+        const active = document.querySelector('#dateStrip .active').getBoundingClientRect();
+        const node = document.querySelector('#dateStrip');
+        return { visible:active.left >= strip.left - 1 && active.right <= strip.right + 1, strip, active, scrollLeft:node.scrollLeft, clientWidth:node.clientWidth, scrollWidth:node.scrollWidth, bound:node.dataset.resizeObserverBound };
+      });
+      assert.equal(activeState.visible, true, `${width}px: выбранная дата ушла из видимой области после смены ширины (${JSON.stringify(activeState)})`);
     }
 
     const alternateView = await page.evaluate(() => {

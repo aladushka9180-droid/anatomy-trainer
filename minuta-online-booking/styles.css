@@ -6834,7 +6834,7 @@ html.provider-booting .provider-main {
   .report-methodology-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .report-visual-grid { grid-template-columns:1fr; }
 }
-@media (max-width:640px) {
+@media (max-width:760px) {
   #analyticsView .report-head { grid-template-columns:minmax(0,1fr) 44px; }
   #analyticsView #exportBookings { width:44px!important; min-width:44px!important; max-width:44px!important; padding:0!important; }
   #analyticsView .report-export-button span { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
@@ -6899,6 +6899,13 @@ html.provider-booting .provider-main {
   .report-heatmap-card .report-section-heading>span { max-width:none; font-size:12px; text-align:left; }
   .schedule-settings-layout,.schedule-settings-layout>.panel,.weekly-schedule,.monthly-schedule-panel { width:100%; min-width:0; max-width:100%; box-sizing:border-box; }
   .schedule-settings-layout :is(input,select,textarea,.field-with-unit) { min-width:0; max-width:100%; box-sizing:border-box; }
+}
+
+@media (min-width:761px) and (max-width:980px) {
+  .provider-body[data-provider-theme][data-provider-layout] .clients-layout:not(.is-detail) .client-profile,
+  .provider-body[data-provider-theme][data-provider-layout] .clients-layout.is-detail .clients-directory { display:none; }
+  .provider-body[data-provider-theme][data-provider-layout] .clients-layout.is-detail .client-profile { display:block; }
+  .provider-body[data-provider-theme][data-provider-layout] .client-profile-back { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; margin:0 0 12px; padding:0 10px; border:1px solid var(--theme-line); border-radius:10px; background:var(--theme-surface-alt); color:var(--theme-accent); font:850 12px/1 inherit; }
 }
 @media (prefers-reduced-motion:reduce) {
   #analyticsView * { scroll-behavior:auto!important; transition:none!important; animation:none!important; }

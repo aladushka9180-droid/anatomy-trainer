@@ -102,6 +102,15 @@
 .provider-body [data-provider-panel="settings"] .security-more-methods>section { margin-inline:14px; }
 .provider-body [data-provider-panel="settings"] .security-more-methods>section:last-child { margin-bottom:14px; }
 @media(max-width:760px) {
+  .provider-body [data-provider-panel="settings"] .settings-smart-search:not(:focus-within) .settings-search-status {
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    clip-path:inset(50%);
+    white-space:nowrap;
+  }
+
   .provider-body [data-provider-panel="settings"] {
     padding-top:12px!important;
   }
@@ -153,8 +162,12 @@
   .provider-body [data-provider-panel="settings"] .settings-search-status {
     min-height:0;
     margin:4px 4px 0;
-    font-size:8px;
+    font-size:11px;
     font-weight:650;
+  }
+
+  .provider-body [data-provider-panel="settings"] .settings-section-picker>span {
+    font-size:11px;
   }
 
   .provider-body [data-provider-panel="settings"] .settings-layout {

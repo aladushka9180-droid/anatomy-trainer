@@ -40,7 +40,7 @@
     facts, matches,
     create({ root, refresh, outcome, getLabels, services, nameKey, today }) {
       let state = defaults(), rows = [], scope = '', query = '';
-      root.innerHTML = `<div class="client-directory-toolbar"><label><span class="sr-only">Сортировка клиентов</span><select data-client-sort>${Object.entries(sorts).map(([key,label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><button type="button" class="secondary-button" data-client-filters>Фильтры</button><span data-client-found role="status" aria-live="polite"></span></div><div class="client-directory-chips"></div><dialog class="client-directory-dialog"><form><header><h3>Фильтры клиентов</h3><button type="button" class="secondary-button" data-client-close aria-label="Закрыть фильтры">×</button></header><div class="client-directory-fields"></div><footer><button type="button" class="secondary-button" data-client-reset>Сбросить</button><button type="submit" class="primary" data-client-apply>Показать клиентов</button></footer></form></dialog>`;
+      root.innerHTML = `<div class="client-directory-toolbar"><button type="button" class="secondary-button" data-client-filters>Фильтры</button><span data-client-found role="status" aria-live="polite" hidden></span></div><div class="client-directory-chips"></div><dialog class="client-directory-dialog"><form><header><h3>Фильтры клиентов</h3><button type="button" class="secondary-button" data-client-close aria-label="Закрыть фильтры">×</button></header><label class="client-directory-sort">Сортировка<select data-client-sort>${Object.entries(sorts).map(([key,label]) => `<option value="${key}">${label}</option>`).join('')}</select></label><div class="client-directory-fields"></div><footer><button type="button" class="secondary-button" data-client-reset>Сбросить</button><button type="submit" class="primary" data-client-apply>Показать клиентов</button></footer></form></dialog>`;
       const dialog = root.querySelector('dialog');
       const form = root.querySelector('form');
       const filtered = draft => rows.filter(row => `${row.client.name} ${row.client.displayPhone} ${row.client.phone}`.toLowerCase().includes(query) && matches(row,draft,getLabels,today()));
@@ -106,7 +106,8 @@
             if(state.sort==='next')order=(a.next||'9999').localeCompare(b.next||'9999');
             return order||a.client.name.localeCompare(b.client.name,'ru')||a.client.phone.localeCompare(b.client.phone);
           });
-          root.querySelector('[data-client-found]').textContent=`Найдено: ${result.length}`;
+          const found=root.querySelector('[data-client-found]');
+          found.textContent=`Найдено: ${result.length}`;
           const serviceNames=new Map(rows.flatMap(row=>[...row.visited]));
           const chips=[];
           const chip=(key,value,label)=>chips.push(`<button type="button" data-clear-client-filter="${key}" data-value="${escape(value)}" aria-label="Убрать фильтр: ${escape(label)}">${escape(label)} ×</button>`);
@@ -116,6 +117,7 @@
           if(state.upcoming)chip('upcoming','',state.upcoming==='yes'?'Есть будущая запись':'Нет будущей записи');
           root.querySelector('[data-client-filters]').textContent=`Фильтры${chips.length?` · ${chips.length}`:''}`;
           root.querySelector('.client-directory-chips').innerHTML=chips.join('')+(chips.length?'<button type="button" data-clear-client-filter="all">Сбросить</button>':'');
+          found.hidden=!query&&!chips.length;
           return result.map(row=>({...row.client,directoryVisitCount:row.count}));
         }
       };
