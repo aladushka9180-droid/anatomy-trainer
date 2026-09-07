@@ -15,6 +15,7 @@ assert.match(migration, /add_minuta_payroll_adjustment\([\s\S]*p_request_id uuid
 assert.match(migration, /where organization_id=p_organization and request_id=p_request_id[\s\S]*for update/);
 assert.match(migration, /payroll_adjustment_idempotency_conflict/);
 assert.match(migration, /'request_id',adjustment\.request_id/);
+assert.doesNotMatch(migration, /or (?:item|adjustment)\.performer_id=v_user\)\)\),'\[\]'::jsonb/);
 assert.match(migration, /'promo_redemptions'[\s\S]*'request_id',redemption\.request_id/);
 assert.match(migration, /'ledger'[\s\S]*'request_id',entry\.request_id/);
 assert.match(migration, /from public\.loyalty_promo_redemptions redemption where redemption\.organization_id=p_organization/);
@@ -26,6 +27,7 @@ assert.match(rollback, /drop function public\.add_minuta_payroll_adjustment\(uui
 assert.match(rollback, /drop index public\.payroll_adjustments_organization_request_uidx/);
 assert.match(rollback, /alter table public\.payroll_adjustments drop column request_id/);
 assert.doesNotMatch(rollback, /drop[\s\S]+cascade/i);
+assert.doesNotMatch(rollback, /or (?:item|adjustment)\.performer_id=v_user\)\)\),'\[\]'::jsonb/);
 
 assert.match(payroll, /p_request_id:requestId/);
 assert.match(payroll, /minutaPayrollAdjustmentIntent/);

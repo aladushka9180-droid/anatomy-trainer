@@ -153,13 +153,13 @@ begin
       order by item.booking_date,item.booking_id)
       from public.payroll_items item join public.payroll_periods period on period.id=item.period_id
       where item.organization_id=p_organization and period.starts_on<=p_end and period.ends_on>=p_start
-        and (v_role in ('owner','admin') or item.performer_id=v_user))),'[]'::jsonb),
+        and (v_role in ('owner','admin') or item.performer_id=v_user)),'[]'::jsonb),
     'adjustments',coalesce((select jsonb_agg(jsonb_build_object('id',adjustment.id,'period_id',adjustment.period_id,
       'performer_id',adjustment.performer_id,'amount_rub',adjustment.amount_rub,'reason',adjustment.reason,
       'request_id',adjustment.request_id,'created_at',adjustment.created_at) order by adjustment.created_at,adjustment.id)
       from public.payroll_adjustments adjustment join public.payroll_periods period on period.id=adjustment.period_id
       where adjustment.organization_id=p_organization and period.starts_on<=p_end and period.ends_on>=p_start
-        and (v_role in ('owner','admin') or adjustment.performer_id=v_user))),'[]'::jsonb),
+        and (v_role in ('owner','admin') or adjustment.performer_id=v_user)),'[]'::jsonb),
     'audit',case when v_role in ('owner','admin') then coalesce((select jsonb_agg(jsonb_build_object('id',entry.id,
       'actor_id',entry.actor_id,'action',entry.action,'subject_id',entry.subject_id,'details',entry.details,
       'created_at',entry.created_at) order by entry.created_at desc,entry.id desc)
