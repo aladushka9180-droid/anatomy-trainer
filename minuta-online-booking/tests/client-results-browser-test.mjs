@@ -45,7 +45,7 @@ try {
     </div></main>
     <details class="booking-sheet-disclosure booking-client-result-disclosure" id="bookingClientResultDisclosure" open>
       <summary><strong>Фото и результат</strong><span data-booking-result-summary>Не заполнено</span></summary>
-      <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${BOOKING_ID}"><button class="primary" type="submit">Сохранить результат</button></form>
+      <form class="booking-visit-result-form" id="bookingVisitResultForm" data-booking-id="${BOOKING_ID}"><a class="settings-help-link" href="#private-results">Как хранится приватно</a><button class="primary" type="submit">Сохранить результат</button></form>
     </details>
     <form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${BOOKING_ID}">
       <label>Результат визита<select><option>Состоялся</option></select></label>
@@ -194,6 +194,8 @@ try {
         resultColumns: getComputedStyle(document.querySelector('.client-result-grid')).gridTemplateColumns,
         editorColumns: getComputedStyle(document.querySelector('.booking-visit-result-grid')).gridTemplateColumns,
         mobileResultInsets: [
+          document.querySelector('.booking-visit-result-form>.settings-help-link'),
+          document.querySelector('.booking-result-media-grid'),
           document.querySelector('.booking-result-description>summary'),
           document.querySelector('.booking-result-private-consent'),
           document.querySelector('.booking-result-more>summary')
@@ -211,8 +213,8 @@ try {
       assert.equal(metrics.resultColumns.split(' ').length, 1, `${width}px result fields use one column`);
       assert.equal(metrics.editorColumns.split(' ').length, 1, `${width}px editor uses one column`);
       metrics.mobileResultInsets.forEach(inset => {
-        assert.equal(inset.left, 10, `${width}px result controls share a 10px left inset`);
-        assert.equal(inset.right, 10, `${width}px result controls share a 10px right inset`);
+        assert.equal(inset.left, 10, `${width}px result content shares a 10px left inset`);
+        assert.equal(inset.right, 10, `${width}px result content shares a 10px right inset`);
       });
     } else {
       assert.equal(metrics.resultColumns.split(' ').length, 2, 'Desktop result fields use two columns');
