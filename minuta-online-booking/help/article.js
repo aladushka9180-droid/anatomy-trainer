@@ -17,7 +17,6 @@
     setText('#articleIntro', 'Возможно, ссылка устарела. Вернитесь к разделам или воспользуйтесь поиском.');
     document.querySelector('#articleSteps').hidden = true;
     document.querySelector('#articleNote').hidden = true;
-    document.querySelector('.article-feedback').hidden = true;
     document.querySelector('.related-articles').hidden = true;
     return;
   }
@@ -27,7 +26,7 @@
   setText('#articleCategory', article.category);
   const categoryLink = document.querySelector('#articleCategory');
   if (categoryLink) categoryLink.href = categoryUrl(article);
-  setText('#articleMeta', article.category);
+  setText('#articleMeta', article.reviewedAt ? `${article.category} · Проверено ${article.reviewedAt}` : article.category);
   setText('#articleTitle', article.title);
   setText('#articleIntro', article.intro);
   const articleBackLink = document.querySelector('#articleBackLink');
@@ -154,8 +153,4 @@
     related.append(link);
   });
 
-  document.querySelectorAll('[data-feedback]').forEach(button => button.addEventListener('click', () => {
-    document.querySelector('.feedback-actions').hidden = true;
-    document.querySelector('#feedbackThanks').hidden = false;
-  }));
 }());

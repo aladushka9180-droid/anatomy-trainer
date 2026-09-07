@@ -170,7 +170,7 @@ main { width: min(1060px, calc(100% - 48px)); margin: 0 auto; }
 .related-articles a:hover > svg { transform: translateX(3px); color: var(--accent); }
 .article-script-note { grid-column: 2; margin: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .help-header { width: min(100% - 32px, 1160px); min-height: 72px; }
   .help-header-nav > a:first-child { display: none; }
   .help-product-link { padding: 0 13px; }

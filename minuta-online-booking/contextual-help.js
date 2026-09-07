@@ -176,8 +176,8 @@
     if (config.example || config.change) {
       const details = doc.createElement('div');
       details.className = 'contextual-help__details';
-      appendDetail(doc, details, 'Пример', config.example);
-      appendDetail(doc, details, 'Что изменится', config.change);
+      appendDetail(doc, details, 'Первый шаг', config.example);
+      appendDetail(doc, details, 'Важно', config.change);
       panel.append(details);
     }
 
