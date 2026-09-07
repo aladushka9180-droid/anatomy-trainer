@@ -38,6 +38,9 @@
     function currentRole() { return String(payload?.current_role || organization?.current_role || ''); }
     function manager() { return ['owner', 'admin'].includes(currentRole()); }
     function owner() { return currentRole() === 'owner'; }
+    function scopeMatches(data, organizationId) {
+      return Boolean(data && typeof data === 'object' && String(data.organization_id || '') === String(organizationId || ''));
+    }
     function moneyMinor(value) { return `${new Intl.NumberFormat('ru-RU', { minimumFractionDigits:2, maximumFractionDigits:2 }).format(Number(value || 0) / 100)} ₽`; }
     function parseRefundAmount(value) {
       const match = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(String(value ?? '').trim());
@@ -54,9 +57,20 @@
     function refundRemaining() {
       const attempts = Array.isArray(payload?.recent_attempts) ? payload.recent_attempts : [];
       const attempt = attempts.find((item) => item.id === $('#paymentRefundAttempt').value);
-      const captured = minorInteger(attempt?.captured_amount_minor);
-      const refunded = minorInteger(attempt?.refunded_amount_minor);
-      return captured !== null && refunded !== null && refunded <= captured ? captured - refunded : null;
+      return attemptRemaining(attempt);
+    }
+    function attemptRemaining(attempt) {
+      if (!attempt || attempt.status !== 'succeeded') return null;
+      const captured = minorInteger(attempt.captured_amount_minor);
+      const refunded = minorInteger(attempt.refunded_amount_minor);
+      if (captured === null || refunded === null || refunded > captured) return null;
+      const pending = (Array.isArray(payload?.recent_refunds) ? payload.recent_refunds : [])
+        .filter(item => item.attempt_id === attempt.id && ['creating', 'pending'].includes(item.status))
+        .reduce((sum, item) => {
+          const amount = minorInteger(item.amount_minor);
+          return amount === null ? sum : sum + amount;
+        }, 0);
+      return Math.max(0, captured - refunded - pending);
     }
     function minorInputValue(amount) {
       const digits = String(amount).padStart(3, '0');
@@ -78,29 +92,38 @@
       refreshNavigation();
     }
     async function load() {
-      if (!organization) return;
-      if (!manager()) { available = false; render(); return; }
+      if (!organization) return { ok:false, optional:true };
+      if (!manager()) { available = false; render(); return { ok:false, optional:true, denied:true }; }
+      const organizationId = organization.id;
       const contextIsCurrent = currentContext();
       const revision = ++loadRevision;
       const isCurrent = () => contextIsCurrent() && revision === loadRevision;
       try {
         const result = await db.rpc('get_minuta_payment_workspace', { p_organization:organization.id });
-        if (!isCurrent()) return;
+        if (!isCurrent()) return { ok:false, optional:true, stale:true };
         if (result.error) {
           const denied = /42501|payment_access_denied/i.test(`${result.error.code || ''} ${result.error.message || ''}`);
           if (denied) invalidateContext();
           available = isMissing(result.error) || denied ? false : null;
           render(result.error);
-          return;
+          return { ok:false, optional:true, unavailable:true };
+        }
+        if (!scopeMatches(result.data, organizationId)) {
+          payload = null;
+          available = null;
+          render({ code:'payment_workspace_scope_mismatch' });
+          return { ok:false, optional:true, scopeMismatch:true };
         }
         if (String(result.data?.current_role || organization.current_role || '') !== currentRole()) invalidateContext();
         available = true;
         payload = result.data || {};
         render();
+        return { ok:true, optional:true };
       } catch (error) {
-        if (!isCurrent()) return;
+        if (!isCurrent()) return { ok:false, optional:true, stale:true };
         available = null;
         render(error);
+        return { ok:false, optional:true, unavailable:true };
       }
     }
     async function setOrganization(next) {
@@ -116,7 +139,10 @@
       await load();
     }
     function statusLabel(value) {
-      return ({ creating:'создаётся', pending:'ожидает оплаты', succeeded:'оплачено', canceled:'отменено', failed:'ошибка', partially_refunded:'частично возвращено', refunded:'возвращено' })[value] || value || '—';
+      return ({ creating:'создаётся', pending:'ожидает оплаты', succeeded:'оплачено', canceled:'отменено', failed:'ошибка', partially_refunded:'частично возвращено', refunded:'возвращено', matched:'сверено', mismatch:'расхождение' })[value] || value || '—';
+    }
+    function refundStatusLabel(value) {
+      return ({ creating:'создаётся', pending:'в обработке', succeeded:'выполнено', canceled:'отменено', failed:'ошибка' })[value] || value || '—';
     }
     function render(error = null) {
       const panel = $('#paymentProviderPanel');
@@ -126,7 +152,9 @@
       $('#paymentProviderUnavailable').hidden = available !== null;
       $('#paymentProviderWorkspace').hidden = available !== true;
       if (available !== true) {
-        $('#paymentProviderUnavailableText').textContent = error ? 'Не удалось загрузить платёжный модуль. Записи продолжают работать без онлайн-эквайринга.' : '';
+        $('#paymentProviderUnavailableText').textContent = error?.code === 'payment_workspace_scope_mismatch'
+          ? 'Сервер вернул данные другой организации. Платёжные действия заблокированы.'
+          : error ? 'Не удалось загрузить платёжный модуль. Записи продолжают работать без онлайн-эквайринга.' : 'Проверяем защищённые настройки и операции…';
         refreshNavigation();
         return;
       }
@@ -137,22 +165,30 @@
       $('#paymentTaxation').value = settings.taxation || 'usn_income';
       $('#paymentVatCode').value = String(settings.vat_code || 1);
       $('#paymentMode').value = settings.payment_mode || 'full_prepayment';
+      const attempts = Array.isArray(payload.recent_attempts) ? payload.recent_attempts : [];
+      const refunds = Array.isArray(payload.recent_refunds) ? payload.recent_refunds : [];
+      const reconciliations = Array.isArray(payload.recent_reconciliations) ? payload.recent_reconciliations : [];
+      const testPaymentSucceeded = attempts.some(item => item.environment === 'test' && item.status === 'succeeded');
       $('#paymentProviderState').textContent = settings.enabled
         ? `ЮKassa включена в режиме «${settings.environment === 'production' ? 'рабочий' : 'тестовый'}»`
-        : 'ЮKassa подготовлена, но выключена';
+        : testPaymentSucceeded ? 'Тестовый платёж подтверждён, приём выключен' : 'Тестовый платёж ещё не подтверждён';
       $('#paymentProviderSettingsForm').hidden = !owner();
       $('#paymentProviderControls').hidden = !owner();
-      const attempts = Array.isArray(payload.recent_attempts) ? payload.recent_attempts : [];
-      $('#paymentAttemptsList').innerHTML = attempts.length ? attempts.map((item) => {
-        const remaining = Math.max(0, Number(item.captured_amount_minor || 0) - Number(item.refunded_amount_minor || 0));
-        return `<article class="organization-row payment-attempt-row"><div><strong>${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
-      }).join('') : '<div class="provider-empty compact-empty"><strong>Платежей пока нет</strong><small>Операции появятся после включения ЮKassa и первой предоплаты.</small></div>';
-      const refundable = attempts.filter((item) => Number(item.captured_amount_minor || 0) > Number(item.refunded_amount_minor || 0));
+      const operationRows = [
+        ...attempts.map(item => {
+          const remaining = attemptRemaining(item);
+          return `<article class="organization-row payment-attempt-row"><div><strong>Платёж · ${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(statusLabel(item.status))} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${remaining > 0 ? `доступно к возврату ${escapeHtml(moneyMinor(remaining))}` : ''}</span></article>`;
+        }),
+        ...refunds.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Возврат · ${escapeHtml(moneyMinor(item.amount_minor))}</strong><small>${escapeHtml(refundStatusLabel(item.status))} · ${escapeHtml(item.reason || 'Без пояснения')} · ${escapeHtml(new Date(item.created_at).toLocaleString('ru-RU'))}</small></div><span>${['creating','pending'].includes(item.status) ? 'сумма зарезервирована' : ''}</span></article>`),
+        ...reconciliations.map(item => `<article class="organization-row payment-attempt-row"><div><strong>Сверка · ${escapeHtml(statusLabel(item.outcome))}</strong><small>${escapeHtml(item.object_kind || 'операция')} · ${escapeHtml(new Date(item.checked_at).toLocaleString('ru-RU'))}</small></div><span>${item.amount_minor == null ? '' : escapeHtml(moneyMinor(item.amount_minor))}</span></article>`)
+      ];
+      $('#paymentAttemptsList').innerHTML = operationRows.length ? operationRows.join('') : '<div class="provider-empty compact-empty"><strong>Платежей пока нет</strong><small>Операции появятся после включения ЮKassa и первой предоплаты.</small></div>';
+      const refundable = attempts.filter(item => item.status === 'succeeded' && Number.isSafeInteger(attemptRemaining(item)) && attemptRemaining(item) >= 100);
       const previousAttempt = $('#paymentRefundAttempt').value;
       const maySelectInitial = !refundSelectionInitialized
         && !$('#paymentRefundAmount').value && !$('#paymentRefundReason').value;
       $('#paymentRefundAttempt').innerHTML = refundable.map((item) => {
-        const remaining = Number(item.captured_amount_minor || 0) - Number(item.refunded_amount_minor || 0);
+        const remaining = attemptRemaining(item);
         return `<option value="${escapeHtml(item.id)}" data-remaining="${remaining}">${escapeHtml(moneyMinor(remaining))} · ${escapeHtml(String(item.id).slice(0, 8))}</option>`;
       }).join('');
       if (!maySelectInitial) {
@@ -180,29 +216,57 @@
       }
       updateFiscalization();
     }
+    function settingsMatch(actual, expected) {
+      return Boolean(actual)
+        && Boolean(actual.enabled) === expected.enabled
+        && String(actual.environment || 'test') === expected.environment
+        && Boolean(actual.fiscalization_enabled) === expected.fiscalization_enabled
+        && (!expected.fiscalization_enabled || (
+          String(actual.taxation || '') === expected.taxation
+          && Number(actual.vat_code) === expected.vat_code
+          && String(actual.payment_mode || '') === expected.payment_mode
+        ));
+    }
     async function submit(event) {
       if (event.target.id === 'paymentProviderSettingsForm') {
         event.preventDefault();
         if (!organization || !owner() || busy || !requireWrites()) return;
         const isCurrent = beginOperation();
         const fiscal = $('#paymentFiscalizationEnabled').checked;
+        const expected = {
+          enabled:$('#paymentProviderEnabled').checked,
+          environment:$('#paymentProviderEnvironment').value,
+          fiscalization_enabled:fiscal,
+          taxation:fiscal ? $('#paymentTaxation').value : null,
+          vat_code:fiscal ? Number($('#paymentVatCode').value) : null,
+          payment_mode:fiscal ? $('#paymentMode').value : null
+        };
         try {
           const result = await db.rpc('set_minuta_yookassa_settings', {
             p_organization:organization.id,
-            p_enabled:$('#paymentProviderEnabled').checked,
-            p_environment:$('#paymentProviderEnvironment').value,
-            p_fiscalization_enabled:fiscal,
-            p_taxation:fiscal ? $('#paymentTaxation').value : null,
-            p_vat_code:fiscal ? Number($('#paymentVatCode').value) : null,
-            p_payment_mode:fiscal ? $('#paymentMode').value : null
+            p_enabled:expected.enabled,
+            p_environment:expected.environment,
+            p_fiscalization_enabled:expected.fiscalization_enabled,
+            p_taxation:expected.taxation,
+            p_vat_code:expected.vat_code,
+            p_payment_mode:expected.payment_mode
           });
           if (!isCurrent()) return;
           setBusy(false);
-          if (result.error) { notify('Сохранение настроек ЮKassa не подтверждено. Проверьте настройки.'); return; }
-          await load();
-          if (isCurrent()) notify('Настройки ЮKassa сохранены');
+          if (result.error || !scopeMatches(result.data, organization.id)) {
+            await load();
+            if (isCurrent()) notify('Сохранение настроек ЮKassa не подтверждено. Показано последнее подтверждённое состояние.');
+            return;
+          }
+          const verified = await load();
+          if (!isCurrent()) return;
+          if (verified?.ok && settingsMatch(payload?.settings, expected)) notify('Настройки ЮKassa сохранены и проверены');
+          else notify('Сохранение настроек ЮKassa не удалось сверить. Платёжные действия заблокированы до обновления.');
         } catch {
-          if (isCurrent()) notify('Сохранение настроек ЮKassa не подтверждено. Проверьте настройки.');
+          if (isCurrent()) {
+            await load();
+            if (isCurrent()) notify('Сохранение настроек ЮKassa не подтверждено. Показано последнее подтверждённое состояние.');
+          }
         } finally {
           if (isCurrent()) setBusy(false);
         }
@@ -245,6 +309,12 @@
       }
       if (reason.length < 8) {
         notify('Укажите причину возврата не короче 8 символов');
+        return;
+      }
+      const confirmedByUser = typeof global.confirm === 'function'
+        && global.confirm(`Вернуть ${minorInputValue(amountMinor).replace('.', ',')} ₽ через ЮKassa? Отменить операцию после отправки нельзя.`);
+      if (!confirmedByUser) {
+        notify('Возврат не отправлен');
         return;
       }
       const isCurrent = beginOperation();

@@ -1,0 +1,177 @@
+name: Minuta v121 safe release
+run-name: Minuta v121 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Safe release phase for v121
+        required: true
+        default: test-v121
+        type: choice
+        options: [test-v121, validate-production-v121, apply-production-v121, observe-production-v121]
+      commit_sha:
+        description: Exact 40-character commit SHA
+        required: true
+        type: string
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful test-v121 run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter APPLY_V121_TO_PRODUCTION for apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: ${{ inputs.phase == 'test-v121' && 'minuta-test-database' || 'minuta-production-database' }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin commit and phase
+        env: { SHA: "${{ inputs.commit_sha }}", PHASE: "${{ inputs.phase }}", CONFIRM: "${{ inputs.confirmation }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] && test "$SHA" = "$GITHUB_SHA" && test "$(git rev-parse HEAD)" = "$SHA"
+          case "$PHASE" in
+            test-v121) ;;
+            validate-production-v121|observe-production-v121) test "$GITHUB_REF" = refs/heads/main ;;
+            apply-production-v121) test "$GITHUB_REF" = refs/heads/main; test "$CONFIRM" = APPLY_V121_TO_PRODUCTION ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/scripts/v121-release-static-check.mjs
+      - run: node --test minuta-online-booking/tests/payroll-adjustment-recovery-test.mjs minuta-online-booking/tests/refund-amount-ux-test.mjs minuta-online-booking/tests/refund-context-recovery-test.mjs
+
+  test-v121:
+    if: inputs.phase == 'test-v121'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Guard isolated test database
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" -c "select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations")" = 1
+      - name: Apply, integrate, rollback and reapply
+        env: { PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000" }
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v121.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/payroll-payment-v121-integration.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v121-rollback.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text,uuid)') is null and not exists(select 1 from pg_attribute where attrelid='public.payroll_adjustments'::regclass and attname='request_id' and not attisdropped)")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v121.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text,uuid)') is not null and exists(select 1 from pg_attribute where attrelid='public.payroll_adjustments'::regclass and attname='request_id' and not attisdropped)")" = t
+      - name: Attest test cycle
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" '{status:"success",phase:"test-v121",commitSha:$sha,runId:$run,cycle:["apply","integration","rollback","reapply"],productionWritten:false}' > "$RUNNER_TEMP/v121-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v121-test-${{ github.run_id }}", path: "${{ runner.temp }}/v121-test.json", if-no-files-found: error, retention-days: 35 }
+
+  validate-production-v121:
+    if: inputs.phase == 'validate-production-v121' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only preapply validation
+        run: |
+          set -euo pipefail
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('base',to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text)') is not null and to_regprocedure('public.get_minuta_loyalty_workspace(uuid)') is not null,'clean',to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text,uuid)') is null and not exists(select 1 from pg_attribute where attrelid='public.payroll_adjustments'::regclass and attname='request_id' and not attisdropped))")"
+          jq -e '.base and .clean' <<<"$state" >/dev/null
+          printf '%s\n' "$state" > "$RUNNER_TEMP/v121-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v121-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v121-validation.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v121:
+    if: inputs.phase == 'apply-production-v121' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env: { SUPABASE_DB_URL: "${{ secrets.SUPABASE_DB_URL }}", MINUTA_PRODUCTION_PROJECT_REF: "${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}" }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify exact test, validation and fresh backup runs
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}", BACKUP: "${{ inputs.backup_run_id }}", TEST: "${{ inputs.test_run_id }}", VALIDATION: "${{ inputs.validation_run_id }}" }
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$TEST" "$VALIDATION"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check() { run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .path <<<"$run")" = "$2"; }
+          check "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          check "$TEST" .github/workflows/minuta-v121-safe-release.yml
+          check "$VALIDATION" .github/workflows/minuta-v121-safe-release.yml
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false)]|length==1' <<<"$artifacts" >/dev/null
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Repeat clean guard and apply v121 only
+        env: { PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000" }
+        run: |
+          set -euo pipefail
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          test "$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text,uuid)') is null and not exists(select 1 from pg_attribute where attrelid='public.payroll_adjustments'::regclass and attname='request_id' and not attisdropped)")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v121.sql
+          test "$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text,uuid)') is not null")" = t
+
+  observe-production-v121:
+    if: inputs.phase == 'observe-production-v121' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env: { SUPABASE_DB_URL: "${{ secrets.SUPABASE_DB_URL }}", MINUTA_PRODUCTION_PROJECT_REF: "${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}", PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000" }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify exact apply run
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v121-safe-release.yml
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe v121 read-only
+        run: |
+          set -euo pipefail
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select json_build_object('rpc',to_regprocedure('public.add_minuta_payroll_adjustment(uuid,uuid,uuid,integer,text,uuid)') is not null,'column',exists(select 1 from pg_attribute where attrelid='public.payroll_adjustments'::regclass and attname='request_id' and not attisdropped),'index',to_regclass('public.payroll_adjustments_organization_request_uidx') is not null)")"
+          jq -e '.rpc and .column and .index' <<<"$state" >/dev/null
+          printf '%s\n' "$state" > "$RUNNER_TEMP/v121-observation.json"
+      - run: node minuta-online-booking/production-health-check.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v121-observation-${{ github.run_id }}", path: "${{ runner.temp }}/v121-observation.json", if-no-files-found: error, retention-days: 90 }

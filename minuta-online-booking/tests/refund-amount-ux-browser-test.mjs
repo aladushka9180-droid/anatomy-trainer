@@ -15,6 +15,7 @@ async function fixture(captured = 1000, refunded = 0) {
   const page = await browser.newPage({ serviceWorkers:'block', viewport:{ width:390, height:844 } });
   page.setDefaultTimeout(5000);
   page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
   await page.route('**/*', route => {
     if (route.request().url() !== fixtureUrl) {
       unexpectedRequests.push(route.request().url());

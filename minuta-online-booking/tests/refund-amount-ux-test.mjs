@@ -6,7 +6,8 @@ import { runInNewContext } from 'node:vm';
 const source = readFileSync(new URL('../payment-management.js', import.meta.url), 'utf8');
 
 // Actual controller, mocked DOM/transport only. No database or payment calls.
-async function harness({ captured = 1000, refunded = 0, response = { data: { ok: true, status: 'succeeded' } } } = {}) {
+async function harness({ captured = 1000, refunded = 0, pendingRefunds = [], reconciliations = [],
+  attemptStatus = 'succeeded', confirmed = true, response = { data: { ok: true, status: 'succeeded' } } } = {}) {
   const elements = new Map();
   const listeners = new Map();
   const notifications = [];
@@ -35,12 +36,14 @@ async function harness({ captured = 1000, refunded = 0, response = { data: { ok:
     return elements.get(selector);
   };
   const payload = {
-    current_role: 'owner', settings: { enabled: true, environment: 'test' },
-    recent_attempts: [{ id: 'attempt-1', status: 'succeeded', amount_minor: captured,
+    organization_id:'org-1', current_role: 'owner', settings: { enabled: true, environment: 'test' },
+    recent_attempts: [{ id: 'attempt-1', status: attemptStatus, amount_minor: captured,
       captured_amount_minor: captured, refunded_amount_minor: refunded, created_at: '2026-09-05T00:00:00Z' }],
+    recent_refunds:pendingRefunds,
+    recent_reconciliations:reconciliations,
   };
   const context = {
-    window: { crypto: { randomUUID: () => `request-${++uuidCount}` } },
+    window: { crypto: { randomUUID: () => `request-${++uuidCount}` }, confirm:() => confirmed },
     document: { addEventListener: (name, callback) => listeners.set(name, callback) },
   };
   runInNewContext(source, context, { filename: 'payment-management.js' });
@@ -104,6 +107,33 @@ for (const value of ['9.01', '9.50', '9.99']) {
 test('after refunds of 3 and 5.50 RUB, only the full remaining 1.50 is offered', async () => {
   const ui = await refused('1.00', /Можно вернуть весь остаток — 1,50 ₽/, { refunded: 850 });
   assert.doesNotMatch(ui.notifications.at(-1), /не больше 0,50/);
+});
+
+test('pending refunds reserve balance and recent refunds/reconciliations are visible', async () => {
+  const ui = await harness({ pendingRefunds:[{ attempt_id:'attempt-1', amount_minor:400, status:'pending', reason:'Ожидает провайдера', created_at:'2026-09-06T00:00:00Z' }],
+    reconciliations:[{ outcome:'matched', object_kind:'refund', amount_minor:400, checked_at:'2026-09-06T00:01:00Z' }] });
+  assert.match(ui.select('#paymentRefundAttempt').innerHTML, /data-remaining="600"/);
+  assert.match(ui.select('#paymentAttemptsList').innerHTML, /Возврат.*сумма зарезервирована/s);
+  assert.match(ui.select('#paymentAttemptsList').innerHTML, /Сверка.*сверено/s);
+  await ui.submit('6.01');
+  assert.equal(ui.invocations.length, 0);
+  assert.match(ui.notifications.at(-1), /превышает доступные 6,00 ₽/);
+});
+
+test('refund requires a separate explicit confirmation', async () => {
+  const ui = await harness({ confirmed:false });
+  await ui.submit('1.00');
+  assert.equal(ui.invocations.length, 0);
+  assert.equal(ui.uuidCount, 0);
+  assert.equal(ui.notifications.at(-1), 'Возврат не отправлен');
+});
+
+test('only succeeded attempts are offered for a refund', async () => {
+  const ui = await harness({ attemptStatus:'pending' });
+  assert.equal(ui.select('#paymentRefundAttempt').innerHTML, '');
+  await ui.submit('1.00');
+  assert.equal(ui.invocations.length, 0);
+  assert.match(ui.notifications.at(-1), /Выберите платёж/);
 });
 
 test('amount above the locally known cap is refused', async () => {

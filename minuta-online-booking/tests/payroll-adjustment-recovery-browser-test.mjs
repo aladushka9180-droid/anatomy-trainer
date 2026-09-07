@@ -3,8 +3,8 @@ import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 
 // Native DOM + FULL actual payroll controller. Auth/bootstrap are not executed.
-// Local SDK adapter models sequential v72:558-589 INSERT/total/audit only: every
-// accepted call inserts a NEW adjustment. There is no request_id or amount dedupe.
+// Local SDK adapter models the v121 request_id response contract. Every distinct
+// accepted request inserts a new adjustment; this is not PostgreSQL evidence.
 // No SQL execution, transport/concurrency/production payroll or full E2E claim.
 // Intentionally RED on v450; do not include in green CI before a real fix.
 const source=readFileSync(process.env.MINUTA_PAYROLL_SOURCE||new URL('../payroll-management.js',import.meta.url),'utf8');
@@ -53,13 +53,13 @@ async function fixture(){
         return {data:workspace(args.p_organization),error:null};
       }
       if(name!=='add_minuta_payroll_adjustment')throw Error('Unexpected mutating RPC '+name);
-      if(Object.keys(args).sort().join(',')!=='p_amount_rub,p_organization,p_performer,p_period,p_reason')throw Error('This adapter supports ONLY actual v72 five-argument contract');
+      if(Object.keys(args).sort().join(',')!=='p_amount_rub,p_organization,p_performer,p_period,p_reason,p_request_id')throw Error('This adapter supports ONLY the actual v121 six-argument contract');
       const selected=scopes.get(args.p_organization);
       if(!selected||args.p_period!==selected.period||args.p_performer!==selected.performer||!Number.isInteger(args.p_amount_rub)||!args.p_amount_rub||Math.abs(args.p_amount_rub)>10000000||args.p_reason.trim().length<3)throw Error('Invalid fixture adjustment, do not mask validation');
       const adjustmentId=crypto.randomUUID();
-      ledger.push({id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,performer_id:selected.performer,amount_rub:args.p_amount_rub,reason:args.p_reason.trim()});
+      ledger.push({id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,performer_id:selected.performer,amount_rub:args.p_amount_rub,reason:args.p_reason.trim(),request_id:args.p_request_id});
       audit.push({id:crypto.randomUUID(),organization_id:args.p_organization,action:'payroll_adjustment_added',subject_id:adjustmentId,created_at:'2026-09-06T00:00:00Z'});
-      const ack={data:{id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,total_payroll_rub:total(args.p_organization)},error:null};
+      const ack={data:{id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,request_id:args.p_request_id,total_payroll_rub:total(args.p_organization)},error:null};
       if(deferMutation)return new Promise((resolve,reject)=>gates.push({resolve,reject,ack,organization:args.p_organization}));
       const mode=replyMode;replyMode='success';
       if(mode==='lost')return {data:null,error:{code:'08006',message:'connection lost after commit'}};

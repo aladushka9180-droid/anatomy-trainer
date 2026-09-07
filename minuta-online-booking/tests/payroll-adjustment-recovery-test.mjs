@@ -19,7 +19,8 @@ const clone = value => JSON.parse(JSON.stringify(value));
 
 async function harness() {
   const elements = new Map(), handlers = new Map(), mutations = [], ledger = [], audit = [], reads = [], notices = [];
-  let currentActor = actor, generation = 1, activeOrg = organization, nextRefusal = null, failNextRead = false, deferredRead = null, writesAllowed = true;
+  let currentActor = actor, generation = 1, activeOrg = organization, nextRefusal = null, failNextRead = false,
+    deferredRead = null, writesAllowed = true, failBeforeCommit = false;
   const periodFor = org => org === organization ? period : id(8);
   const writeControls = ['#payrollEnabled', '#adjustmentSubmit'];
   function $(selector) {
@@ -71,6 +72,13 @@ async function harness() {
     }
     assert.equal(name, 'add_minuta_payroll_adjustment', 'No other mutating RPC belongs to this fixture');
     assert.equal(params.p_period, periodFor(params.p_organization)); assert.equal(params.p_performer, performer);
+    assert.match(params.p_request_id, /^[0-9a-f-]{36}$/i);
+    if (failBeforeCommit) {
+      failBeforeCommit = false;
+      const operation = { name, params:clone(params), response:{ data:null, error:null } };
+      mutations.push(operation);
+      return new Promise((resolve, reject) => { operation.resolve = resolve; operation.reject = reject; });
+    }
     if (nextRefusal) {
       const operation = { name, params:clone(params), response:{ data:null, error:nextRefusal } };
       nextRefusal = null; mutations.push(operation);
@@ -82,21 +90,25 @@ async function harness() {
     // deduplication: v72 has no such constraint or replay key on this endpoint.
     const row = { id:id(100 + ledger.length), period_id:params.p_period, organization_id:params.p_organization,
       performer_id:performer, amount_rub:params.p_amount_rub, reason:params.p_reason.trim(),
-      created_by:currentActor, created_at:'2026-09-06T12:00:00Z' };
+      request_id:params.p_request_id, created_by:currentActor, created_at:'2026-09-06T12:00:00Z' };
     ledger.push(row);
     audit.push({ id:audit.length + 1, actor_id:currentActor, action:'payroll_adjustment_added', subject_id:row.id,
       details:{ period_id:row.period_id, performer_id:performer, amount_rub:row.amount_rub, reason:row.reason }, created_at:row.created_at });
     const operation = { name, params:clone(params), row:clone(row),
-      response:{ data:{ id:row.id, organization_id:row.organization_id, period_id:row.period_id, total_payroll_rub:total(row.period_id) }, error:null } };
+      response:{ data:{ id:row.id, organization_id:row.organization_id, period_id:row.period_id,
+        request_id:row.request_id, total_payroll_rub:total(row.period_id) }, error:null } };
     mutations.push(operation);
     return new Promise((resolve, reject) => { operation.resolve = resolve; operation.reject = reject; });
   } };
-  const context = vm.createContext({ window:{}, document:{ addEventListener:(name, handler) => handlers.set(name, handler) } });
+  const history = { state:{}, replaceState(next){ this.state = next; } };
+  let requestSequence = 700;
+  const context = vm.createContext({ window:{ history, crypto:{ randomUUID:() => id(++requestSequence) } }, document:{ addEventListener:(name, handler) => handlers.set(name, handler) } });
   vm.runInContext(source, context, { filename:'actual-payroll-management.js' });
-  const controller = context.window.MinutaPayroll.createController({ db, $, escapeHtml:value => String(value ?? ''),
+  const controllerOptions = { db, $, escapeHtml:value => String(value ?? ''),
     notify:message => notices.push(message), requireWrites:() => writesAllowed, getCurrentUser:() => ({ id:currentActor }),
     getSessionGeneration:() => generation, sessionIsCurrent:(user, version) => user === currentActor && version === generation,
-    applyWriteAvailability(){ writeControls.forEach(selector => { $(selector).disabled = !writesAllowed; }); } });
+    applyWriteAvailability(){ writeControls.forEach(selector => { $(selector).disabled = !writesAllowed; }); } };
+  let controller = context.window.MinutaPayroll.createController(controllerOptions);
   controller.bind(); assert.equal((await controller.setOrganization({ id:organization })).ok, true);
   function fill(amount = 500, reason = 'Премия за дополнительную смену') {
     $('#payrollAdjustmentPeriod').value = periodFor(activeOrg); $('#payrollAdjustmentPerformer').value = performer;
@@ -114,12 +126,18 @@ async function harness() {
   }
   const snapshot = () => clone({ ledger, audit, total:total() });
   fill();
-  return { $, controller, mutations, ledger, audit, reads, notices, fill, submit, deliver, snapshot, total,
+  return { $, get controller(){ return controller; }, mutations, ledger, audit, reads, notices, fill, submit, deliver, snapshot, total,
     input:async () => { if (handlers.has('input')) await handlers.get('input')({ target:$('#payrollAdjustmentAmount') });
       await handlers.get('change')({ target:$('#payrollAdjustmentAmount') }); },
     switchOrg:async org => { activeOrg = org; return controller.setOrganization({ id:org }); },
     resetActor:async next => { currentActor = next; generation += 1; controller.reset(); await controller.setOrganization({ id:activeOrg }); },
     refuseNext:error => { nextRefusal = error; }, failRead:() => { failNextRead = true; },
+    failBeforeCommit:() => { failBeforeCommit = true; },
+    reloadController:async () => {
+      controller = context.window.MinutaPayroll.createController(controllerOptions);
+      controller.bind();
+      return controller.setOrganization({ id:activeOrg });
+    },
     deferRead:() => { deferredRead = {}; return deferredRead; },
     disableWrites:() => { writesAllowed = false; writeControls.forEach(selector => { $(selector).disabled = true; }); } };
 }
@@ -140,7 +158,8 @@ test('positive two explicitly requested identical adjustments after acknowledgem
   h.fill(); assert.equal(h.$('#adjustmentSubmit').disabled, false);
   const next = h.submit(); await h.deliver(1, 'success', next);
   assert.equal(h.ledger.length, 2); assert.notEqual(h.ledger[0].id, h.ledger[1].id);
-  assert.deepEqual(h.mutations[0].params, h.mutations[1].params);
+  assert.deepEqual({ ...h.mutations[0].params, p_request_id:null }, { ...h.mutations[1].params, p_request_id:null });
+  assert.notEqual(h.mutations[0].params.p_request_id, h.mutations[1].params.p_request_id);
   assert.equal(h.total(), 11000); assert.equal(h.audit.length, 2);
   assert.deepEqual(h.notices, ['Корректировка добавлена', 'Корректировка добавлена']);
 });
@@ -175,6 +194,33 @@ test('SAFETY lost committed reply cannot assert that the adjustment was not save
   assert.equal(h.ledger.length, 1); assert.equal(h.controller.payload.periods[0].total_payroll_rub, 10500);
   assert.doesNotMatch(h.$('#payrollAdjustmentError').textContent, /не сохранено/i,
     'a transport failure does not prove absence of the committed payroll adjustment');
+});
+
+test('v121 reload reconciles an exact committed request_id without a second write', async () => {
+  const h = await harness(), pending = h.submit();
+  const requestId = h.mutations[0].params.p_request_id;
+  await h.deliver(0, 'lost', pending);
+  assert.equal(h.$('#adjustmentSubmit').disabled, true);
+  await h.reloadController();
+  assert.equal(h.mutations.length, 1);
+  assert.equal(h.controller.payload.adjustments[0].request_id, requestId);
+  assert.equal(h.$('#adjustmentSubmit').disabled, false);
+  assert.match(h.notices.at(-1), /подтверждена по журналу/);
+});
+
+test('v121 reload replays an uncommitted intent with the exact same request and parameters', async () => {
+  const h = await harness();
+  h.failBeforeCommit();
+  const first = h.submit();
+  await h.deliver(0, 'throw', first);
+  const original = clone(h.mutations[0].params);
+  await h.reloadController();
+  h.fill(999, 'Новые данные формы не должны подменить повтор');
+  const replay = h.submit();
+  assert.deepEqual(h.mutations[1].params, original);
+  await h.deliver(1, 'success', replay);
+  assert.equal(h.ledger.length, 1);
+  assert.equal(h.ledger[0].request_id, original.p_request_id);
 });
 
 test('pending parameters stay frozen while input/change and direct duplicate submit occur', async () => {

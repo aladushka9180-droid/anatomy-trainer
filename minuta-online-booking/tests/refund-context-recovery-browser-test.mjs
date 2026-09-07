@@ -20,6 +20,7 @@ async function fixture() {
   page.setDefaultTimeout(5000);
   const errors = [], traffic = [];
   page.on('pageerror', error => errors.push(error.message));
+  page.on('dialog', dialog => dialog.accept());
   await page.route('**/*', route => {
     if (route.request().url() !== url) { traffic.push(route.request().url()); return route.abort(); }
     return route.fulfill({ contentType:'text/html', body:'<!doctype html><html lang="ru"><meta charset="utf-8"><body></body></html>' });

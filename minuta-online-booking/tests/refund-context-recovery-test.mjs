@@ -89,6 +89,7 @@ async function harness() {
     document: { addEventListener: (name, callback) => handlers.set(name, callback) },
     window: {
       crypto: { randomUUID: () => id(++nextUuid) },
+      confirm: () => true,
       addEventListener: (type, callback) => {
         if (!windowHandlers.has(type)) windowHandlers.set(type, []);
         windowHandlers.get(type).push(callback);
@@ -143,7 +144,8 @@ async function harness() {
     rpc: async (name, params) => {
       assert.ok(['get_minuta_payment_workspace', 'set_minuta_yookassa_settings'].includes(name));
       rpcCalls.push({ name, params: clone(params), actor: ctx.currentUser?.id ?? null });
-      if (name === 'set_minuta_yookassa_settings') return settingsQueue.shift()?.promise ?? { data: {}, error: null };
+      if (name === 'set_minuta_yookassa_settings') return settingsQueue.shift()?.promise
+        ?? { data: { organization_id:params.p_organization }, error: null };
       if (loadQueue.length) return loadQueue.shift().promise;
       return { data: payload(params.p_organization), error: null };
     },
@@ -282,6 +284,15 @@ for (const [name, transition] of Object.entries(transitions)) {
   }
 }
 
+test('foreign organization workspace is rejected fail-closed', async () => {
+  const h = await harness(), load = h.deferLoad(), pending = h.load();
+  load.resolve({ data:h.payload(orgB), error:null });
+  const result = await pending;
+  assert.equal(result.scopeMismatch, true);
+  assert.equal(h.ctx.$('#paymentProviderWorkspace').hidden, true);
+  assert.match(h.ctx.$('#paymentProviderUnavailableText').textContent, /другой организации/);
+});
+
 for (const kind of ['success', 'error', 'unexpected-reject']) {
   test(`late workspace A ${kind} cannot overwrite loaded organization B`, async () => {
     const h = await harness(), old = h.deferLoad(); const pending = h.load();
@@ -378,6 +389,6 @@ test('current settings success still reloads its own workspace and confirms save
   const h = await harness(), beforeRpc = h.rpcCalls.length;
   await h.submitSettings();
   assert.deepEqual(h.rpcCalls.slice(beforeRpc).map(call => call.name), ['set_minuta_yookassa_settings', 'get_minuta_payment_workspace']);
-  assert.deepEqual(h.notifications, ['Настройки ЮKassa сохранены']);
+  assert.deepEqual(h.notifications, ['Настройки ЮKassa сохранены и проверены']);
   assert.ok(h.ui().controls.every(([, disabled]) => !disabled));
 });

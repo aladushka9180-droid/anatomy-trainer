@@ -32,14 +32,41 @@
     let requestRevision = 0;
     let writePending = false;
     let pendingOrganization;
-    // Memory-only protection, not server idempotency. Keep unresolved attempts
-    // across this controller's reset/org switches, keyed by actor + organization.
-    // A full page reload/new controller loses this registry: reconcile manually;
-    // matching amount/reason or a similar workspace row cannot resolve an intent.
+    // The map protects concurrent UI work. The exact unresolved intent also lives
+    // in this tab's history entry so a reload can reconcile or replay it exactly.
+    // It is removed after a definitive response and never enters web storage.
     const adjustmentIntents = new Map();
     let activeAdjustmentWrite = null;
     let adjustmentErrorKey = null;
-    const adjustmentUnknownMessage = 'Результат корректировки не подтверждён. Проверьте расчёт перед новой операцией. Повторная отправка заблокирована.';
+    const adjustmentUnknownMessage = 'Результат корректировки не подтверждён. После обновления страницы повтор будет выполнен с тем же защищённым запросом.';
+
+    function validRequestId(value) {
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+    }
+    function historyAdjustmentIntent() {
+      try {
+        const value = window.history?.state?.minutaPayrollAdjustmentIntent;
+        if (!value || typeof value !== 'object' || !validRequestId(value.requestId)
+          || !validRequestId(value.organizationId) || !validRequestId(value.userId)
+          || !validRequestId(value.parameters?.p_period) || !validRequestId(value.parameters?.p_performer)
+          || !Number.isSafeInteger(value.parameters?.p_amount_rub)
+          || typeof value.parameters?.p_reason !== 'string') return null;
+        return value;
+      } catch { return null; }
+    }
+    function rememberAdjustmentIntent(value) {
+      try {
+        const state = window.history?.state && typeof window.history.state === 'object' ? window.history.state : {};
+        const next = { ...state };
+        if (value) next.minutaPayrollAdjustmentIntent = value;
+        else delete next.minutaPayrollAdjustmentIntent;
+        window.history?.replaceState?.(next, '');
+      } catch {}
+    }
+    function createRequestId() {
+      if (!window.crypto?.randomUUID) throw new Error('secure_request_id_unavailable');
+      return window.crypto.randomUUID();
+    }
 
     function adjustmentKey(userId = getCurrentUser()?.id, organizationId = organization?.id) {
       return JSON.stringify([userId || '', organizationId || '']);
@@ -52,11 +79,16 @@
       const form = $('#payrollAdjustmentForm');
       const button = $('#payrollAdjustmentForm button[type="submit"]');
       if (!form || !button) return;
-      if (intent) {
+      if (intent?.state === 'pending') {
         form.dataset.adjustmentState = intent.state;
         if (!button.dataset.adjustmentLabel) button.dataset.adjustmentLabel = button.textContent;
         if (!button.disabled) { button.disabled = true; button.dataset.adjustmentLocked = 'true'; }
-        button.textContent = intent.state === 'pending' ? 'Сохраняем…' : 'Результат не подтверждён';
+        button.textContent = 'Сохраняем…';
+      } else if (intent?.state === 'unknown') {
+        form.dataset.adjustmentState = intent.state;
+        if (!button.dataset.adjustmentLabel) button.dataset.adjustmentLabel = button.textContent;
+        if (!button.disabled) { button.disabled = true; button.dataset.adjustmentLocked = 'true'; }
+        button.textContent = 'Результат не подтверждён';
       } else {
         delete form.dataset.adjustmentState;
         if (button.dataset.adjustmentLocked === 'true') { button.disabled = false; delete button.dataset.adjustmentLocked; }
@@ -129,7 +161,22 @@
       return result;
     }
 
-    async function load() {
+    function reconcileAdjustmentIntent() {
+      const key = adjustmentKey();
+      const intent = adjustmentIntents.get(key);
+      if (intent) return false;
+      const recovered = historyAdjustmentIntent();
+      const requestId = recovered?.organizationId === organization?.id && recovered?.userId === getCurrentUser()?.id
+        ? recovered.requestId : '';
+      if (!requestId || !payload?.adjustments?.some(item => String(item.request_id || '') === requestId)) return false;
+      adjustmentIntents.delete(key);
+      rememberAdjustmentIntent(null);
+      clearError('#payrollAdjustmentError');
+      notify('Корректировка подтверждена по журналу зарплат');
+      return true;
+    }
+
+    async function load({ reconcile = true } = {}) {
       if (writePending) return { ok: false, optional: true, pending: true };
       const userId = getCurrentUser()?.id;
       const generation = getSessionGeneration();
@@ -172,7 +219,7 @@
       }
       payload = normalize(data);
       availability = 'ready';
-      render();
+      render(reconcile);
       return { ok: true, optional: true };
     }
 
@@ -210,7 +257,7 @@
       return `<article><span></span><div><strong>${escapeHtml(auditLabels[item.action] || 'Изменение зарплат')}</strong><small>${escapeHtml(time)}</small></div></article>`;
     }
 
-    function render() {
+    function render(reconcile = true) {
       if (availability !== 'ready' || !payload) return;
       const role = payload.current_role || '';
       const canManage = Boolean(payload.can_manage) && (role === 'owner' || role === 'admin');
@@ -242,6 +289,7 @@
       $('#payrollAuditPanel').hidden = !canManage;
       $('#payrollAuditCount').textContent = String(payload.audit.length);
       $('#payrollAuditList').innerHTML = payload.audit.length ? payload.audit.map(auditCard).join('') : empty('Изменений пока нет', 'Здесь появятся планы, расчёты и статусы выплат.');
+      if (reconcile) reconcileAdjustmentIntent();
       setBusy(false);
       syncAdjustmentLock();
       applyWriteAvailability();
@@ -309,8 +357,35 @@
       if (!userId) return false;
       const key = adjustmentKey(userId, organizationId);
       if (adjustmentIntents.has(key)) { syncAdjustmentLock(); return false; }
-      const intent = { state:'pending', parameters:Object.freeze({ ...parameters }) };
-      adjustmentIntents.set(key, intent);
+      let intent;
+      {
+        const recovered = historyAdjustmentIntent();
+        let requestId;
+        if (recovered?.organizationId === organizationId && recovered?.userId === userId) {
+          requestId = recovered.requestId;
+          parameters = Object.freeze({
+            p_organization:organizationId,
+            p_period:recovered.parameters.p_period,
+            p_performer:recovered.parameters.p_performer,
+            p_amount_rub:recovered.parameters.p_amount_rub,
+            p_reason:recovered.parameters.p_reason,
+            p_request_id:requestId
+          });
+        } else {
+          try { requestId = createRequestId(); }
+          catch { showError(errorSelector, 'Безопасный идентификатор запроса недоступен. Обновите браузер и повторите.'); return false; }
+          parameters = Object.freeze({ ...parameters, p_request_id:requestId });
+          rememberAdjustmentIntent({
+            requestId,organizationId,userId,
+            parameters:{
+              p_period:parameters.p_period,p_performer:parameters.p_performer,
+              p_amount_rub:parameters.p_amount_rub,p_reason:parameters.p_reason
+            }
+          });
+        }
+        intent = { state:'pending', requestId, parameters };
+        adjustmentIntents.set(key, intent);
+      }
       activeAdjustmentWrite = intent;
       const revision = ++requestRevision;
       const contextIsCurrent = () => sessionIsCurrent(userId, generation) && organization?.id === organizationId;
@@ -325,15 +400,20 @@
       const confirmed = error === null && data && typeof data.id === 'string'
         && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(data.id)
         && data.organization_id === organizationId && data.period_id === intent.parameters.p_period
+        && data.request_id === intent.requestId
         && Number.isSafeInteger(data.total_payroll_rub);
       const refusals = {
         '42501':['authentication_required', 'organization_access_denied', 'payroll_manager_role_required'],
         '55000':['payroll_disabled', 'payroll_period_not_draft'],
         '22023':['invalid_payroll_adjustment'],
-        '23503':['payroll_performer_not_in_organization']
+        '23503':['payroll_performer_not_in_organization'],
+        '23505':['payroll_adjustment_idempotency_conflict']
       };
       const refused = !transportThrown && !confirmed && refusals[String(error?.code || '')]?.includes(String(error?.message || ''));
-      if (confirmed || refused) adjustmentIntents.delete(key);
+      if (confirmed || refused) {
+        adjustmentIntents.delete(key);
+        rememberAdjustmentIntent(null);
+      }
       else intent.state = 'unknown';
       // reset may already have admitted an independent operation in another
       // context. An old completion must not clear that operation's busy state.
@@ -370,12 +450,16 @@
           payroll_disabled:'Сначала включите зарплаты в организации.',
           payroll_period_not_draft:'Корректировать можно только черновик расчёта.',
           invalid_payroll_adjustment:'Проверьте сумму и причину корректировки.',
-          payroll_performer_not_in_organization:'Выберите действующего сотрудника организации.'
+          payroll_performer_not_in_organization:'Выберите действующего сотрудника организации.',
+          payroll_adjustment_idempotency_conflict:'Предыдущий защищённый запрос содержал другие данные. Проверьте форму и отправьте её ещё раз.'
         };
         showError(errorSelector, messages[error.message] || 'Недостаточно прав для этой корректировки.');
       } else showError(errorSelector, adjustmentUnknownMessage);
       const reloadRevision = requestRevision + 1;
-      try { await load(); }
+      try {
+        await load({ reconcile:false });
+        if (!adjustmentIntents.has(key)) return true;
+      }
       catch {
         if (contextIsCurrent() && requestRevision === reloadRevision && !writePending) {
           availability = 'error';
