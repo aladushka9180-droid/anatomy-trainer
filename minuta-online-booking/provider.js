@@ -4772,6 +4772,24 @@ function rememberProviderSection(button) {
   try { localStorage.setItem(providerSectionStorageKey(nav), target); } catch {}
 }
 
+function providerSectionSelector(nav) {
+  if (!nav?.id) return null;
+  return $$('[data-provider-section-selector]').find(selector => selector.dataset.providerSectionSelector === nav.id) || null;
+}
+
+function syncProviderSectionSelector(nav, selected = null) {
+  const selector = providerSectionSelector(nav);
+  if (!selector) return;
+  const buttons = [...nav.querySelectorAll('[data-section-target]')];
+  [...selector.options].forEach(option => {
+    const button = buttons.find(item => item.dataset.sectionTarget === option.value);
+    option.disabled = !button || button.hidden;
+    option.hidden = !button || button.hidden;
+  });
+  const current = selected || preferredProviderSectionTarget(buttons, rememberedProviderSection(nav));
+  if (current) selector.value = current.dataset.sectionTarget;
+}
+
 function preferredProviderSectionTarget(buttons, rememberedTarget = '') {
   const visible = buttons.filter(button => !button.hidden);
   return visible.find(button => button.dataset.sectionTarget === rememberedTarget)
@@ -4843,6 +4861,7 @@ function refreshProviderSectionDisclosure(nav) {
     else button.removeAttribute('aria-current');
     providerSectionElements(button).forEach(element => setProviderSectionElementVisible(element, active));
   });
+  syncProviderSectionSelector(nav, selected);
   if (selectionChanged && selectedTarget === 'accountSettingsCard') {
     const accountDetails = document.getElementById('accountSettingsCard')?.nextElementSibling;
     if (accountDetails?.matches('details')) accountDetails.open = true;
@@ -6546,8 +6565,16 @@ function updateServiceDefaultDurationField(selectSelector, holderSelector, input
 function bindServiceDefaultDurationPresets(holderSelector, inputSelector) {
   $$(holderSelector).forEach(button => button.addEventListener('click', () => {
     const input = $(inputSelector);
-    if (input) input.value = String(normalizePerMinuteDuration(button.dataset.serviceDefaultDuration, 60));
+    const duration = button.dataset.serviceDefaultDuration ?? button.dataset.editServiceDefaultDuration;
+    if (input) input.value = String(normalizePerMinuteDuration(duration, 60));
   }));
+}
+
+function updateEditServiceVisibilityHint() {
+  const input = $('#editServiceActive');
+  const hint = input?.closest('.service-visibility-option')?.querySelector('small');
+  if (!input || !hint) return;
+  hint.textContent = input.checked ? 'Клиенты смогут выбрать эту услугу' : 'Услуга будет скрыта от клиентов';
 }
 
 async function applyPerMinuteBookingTerms(bookingIds, service, durationMinutes) {
@@ -6608,6 +6635,7 @@ function openServiceEditor(id) {
   document.body.classList.add('booking-sheet-open');
   $('#serviceEditForm').addEventListener('submit', saveServiceChanges);
   $('#editServiceDuration').addEventListener('change', () => updateServiceDefaultDurationField('#editServiceDuration', '#editServiceDefaultDurationField', '#editServiceDefaultDuration'));
+  $('#editServiceActive').addEventListener('change', updateEditServiceVisibilityHint);
   bindServiceDefaultDurationPresets('[data-edit-service-default-duration]', '#editServiceDefaultDuration');
   setTimeout(() => $('#editServiceName')?.focus(), 0);
 }
@@ -11024,6 +11052,43 @@ function renderOwnServices() {
   list.innerHTML = ownServices.map(item => `<article class="managed-service ${item.active ? '' : 'inactive'}"><button class="service-info service-edit-target" type="button" data-edit-service="${item.id}" aria-label="Изменить услугу ${escapeHtml(serviceName(item.name))}"><div><strong>${escapeHtml(serviceName(item.name))}</strong><small>${Number(item.duration_minutes) === 1 ? `Поминутно · ${money(item.price_rub)}/мин · обычно ${serviceDefaultDuration(item.id)} мин` : `${item.duration_minutes} мин · ${money(item.price_rub)}`}</small></div></button><div class="manage-actions"><button class="service-visibility-toggle" type="button" data-toggle-service="${item.id}" data-active="${item.active}" aria-label="${item.active ? 'Скрыть услугу от клиентов' : 'Показать услугу клиентам'}"><i aria-hidden="true"></i><span>${item.active ? 'Доступна' : 'Скрыта'}</span></button><details class="service-more"><summary aria-label="Другие действия">${uiIcon('more')}</summary><div><button class="danger" type="button" data-delete-service="${item.id}">${uiIcon('trash')}<span>Удалить</span></button></div></details></div></article>`).join('');
 }
 
+async function toggleServiceVisibility(button) {
+  const id = button?.dataset.toggleService;
+  const userId = currentUser?.id;
+  if (!id || !userId) return false;
+  const nextActive = button.dataset.active !== 'true';
+  const label = button.querySelector('span');
+  const previousLabel = label?.textContent || '';
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  if (label) label.textContent = 'Сохраняем…';
+  try {
+    let result;
+    try {
+      result = await db.from('services').update({ active:nextActive })
+        .eq('id', id).eq('performer_id', userId).select('id,active').maybeSingle();
+    } catch {
+      if (currentUser?.id === userId) notify('Не удалось изменить видимость услуги');
+      return false;
+    }
+    if (currentUser?.id !== userId) return false;
+    const { data, error } = result || {};
+    if (error || !data) {
+      notify('Не удалось изменить видимость услуги');
+      return false;
+    }
+    notify(nextActive ? 'Услуга доступна клиентам' : 'Услуга скрыта от клиентов');
+    await refreshAfterWrite();
+    return true;
+  } finally {
+    if (button.isConnected) {
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      if (label) label.textContent = previousLabel;
+    }
+  }
+}
+
 function refreshSettingsQuickStart() {
   const quickStart = $('#settingsQuickStart');
   if (!quickStart) return;
@@ -11606,9 +11671,7 @@ document.addEventListener('click', async event => {
     await loadProviderReviews();
   }
   if (toggle) {
-    await db.from('services').update({ active: toggle.dataset.active !== 'true' }).eq('id', toggle.dataset.toggleService);
-    notify('Услуга обновлена');
-    await refreshAfterWrite();
+    await toggleServiceVisibility(toggle);
   }
   if (remove && confirm('Удалить услугу? Отменённые тестовые записи будут очищены.')) {
     let { data, error } = await db.rpc('provider_delete_service', { p_service: remove.dataset.deleteService });
@@ -11691,6 +11754,14 @@ document.addEventListener('click', async event => {
 });
 
 document.addEventListener('change', async event => {
+  const sectionSelector = event.target.closest('[data-provider-section-selector]');
+  if (sectionSelector) {
+    const nav = document.getElementById(sectionSelector.dataset.providerSectionSelector);
+    const button = [...(nav?.querySelectorAll('[data-section-target]') || [])]
+      .find(item => item.dataset.sectionTarget === sectionSelector.value && !item.hidden);
+    if (button) scrollToProviderSection(button);
+    return;
+  }
   const clientAvatarInput = event.target.closest('[data-client-avatar-input]');
   if (clientAvatarInput) {
     await saveClientAvatar(clientAvatarInput);

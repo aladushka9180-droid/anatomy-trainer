@@ -740,7 +740,22 @@
 
           <div class="organization-workspace" id="organizationWorkspace" hidden>
             <label class="organization-switcher" id="organizationSwitcherField" hidden><span>Текущая организация</span><select id="organizationSwitcher"></select></label>
-            <nav class="provider-section-nav" aria-label="Разделы организации">
+            <label class="provider-section-selector organization-section-selector" for="organizationSectionSelect">
+              <span>Раздел организации</span>
+              <select id="organizationSectionSelect" data-provider-section-selector="organizationSectionNav">
+                <option value="organizationOverviewSection">Главное</option>
+                <option value="organizationPeopleSection">Люди и филиалы</option>
+                <option value="resourcesPanel">Ресурсы</option>
+                <option value="shiftsPanel">График команды</option>
+                <option value="payrollPanel">Зарплаты</option>
+                <option value="paymentProviderPanel">Приём оплаты</option>
+                <option value="benefitsPanel">Абонементы</option>
+                <option value="loyaltyPanel">Бонусы</option>
+                <option value="retentionPanel">Возврат клиентов</option>
+                <option value="inventoryPanel">Склад</option>
+              </select>
+            </label>
+            <nav class="provider-section-nav" aria-label="Разделы организации" id="organizationSectionNav">
               <button class="active" type="button" data-section-target="organizationOverviewSection">Главное</button>
               <button type="button" data-section-target="organizationPeopleSection">Люди и филиалы</button>
               <button type="button" data-section-target="resourcesPanel">Ресурсы</button>
@@ -867,7 +882,7 @@
               <p class="organization-invite-help">Подключите приём предоплаты, проверьте тестовый платёж и только затем включайте рабочий режим.</p>
               <details class="ux-disclosure payment-technical-details"><summary>Техническая безопасность</summary><p>Ключи хранятся только на защищённом сервере. Браузер получает ссылку на оплату, но не получает Shop ID или Secret Key.</p></details>
               <div data-contextual-help data-help-slug="setup-yookassa" data-help-question="Объясни безопасное подключение ЮKassa, тестовый режим, чеки и последствия включения предоплаты."></div>
-              <div class="resource-inline-error" id="paymentProviderUnavailable" hidden><div><strong>Платёжный модуль временно недоступен</strong><small id="paymentProviderUnavailableText"></small></div><button class="secondary-button" id="reloadPaymentProvider" type="button">Повторить</button></div>
+              <div class="resource-inline-error" id="paymentProviderUnavailable" role="status" aria-live="polite" hidden><div><strong>Платёжный модуль временно недоступен</strong><small id="paymentProviderUnavailableText"></small></div><button class="secondary-button" id="reloadPaymentProvider" type="button">Повторить</button></div>
               <div id="paymentProviderWorkspace" hidden>
                 <form id="paymentProviderSettingsForm" class="payment-provider-settings">
                   <label class="settings-check"><input id="paymentProviderEnabled" type="checkbox"><span><strong>Принимать предоплату через ЮKassa</strong><small>Включайте только после добавления секретов и тестового платежа.</small></span></label>
