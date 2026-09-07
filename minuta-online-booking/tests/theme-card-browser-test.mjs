@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { startFixtureServer, themes } from './theme-card-fixture.mjs';
+
+const playwrightModule = await import(process.env.MINUTA_PLAYWRIGHT_MODULE
+  ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href
+  : 'playwright');
+const { chromium } = playwrightModule.chromium ? playwrightModule : playwrightModule.default;
 
 const {server,url} = await startFixtureServer();
 const browser = await chromium.launch({headless:true,executablePath:process.env.MINUTA_CHROME_PATH || undefined});
@@ -12,7 +19,13 @@ try {
   await page.getByRole('button',{name:'Проверить все сочетания'}).click();
   await page.waitForFunction(() => document.querySelector('#result').dataset.complete === 'true', undefined, {timeout:120000});
   const result = JSON.parse(await page.locator('#result').innerText());
+  if (result.failures.length && process.env.MINUTA_THEME_OUTPUT) {
+    await mkdir(process.env.MINUTA_THEME_OUTPUT,{recursive:true});
+    await writeFile(path.join(process.env.MINUTA_THEME_OUTPUT,'theme-card-failures.json'),JSON.stringify(result,null,2));
+    await page.screenshot({path:path.join(process.env.MINUTA_THEME_OUTPUT,'theme-card-failure.png'),fullPage:true});
+  }
   assert.equal(result.combinations,300);
+  assert.equal(result.foreignColorCanary,true);
   assert.deepEqual(result.failures,[]);
   // Actual :hover and keyboard :focus-visible, not synthetic class substitutes.
   for (const width of [390,1440]) for (const theme of themes) {

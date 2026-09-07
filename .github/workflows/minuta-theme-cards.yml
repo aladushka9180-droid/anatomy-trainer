@@ -17,7 +17,16 @@ jobs:
           node-version: 22
       - run: npm install --no-save --ignore-scripts playwright@1.58.2 @electric-sql/pglite@0.3.10
       - run: npx playwright install --with-deps chromium
-      - run: node minuta-online-booking/tests/theme-card-browser-test.mjs
+      - name: Check theme colours and marked card states
+        env:
+          MINUTA_THEME_OUTPUT: ${{ runner.temp }}/theme-regression
+        run: node minuta-online-booking/tests/theme-card-browser-test.mjs
+      - name: Check every provider theme, layout and viewport
+        env:
+          MINUTA_LAYOUT_OUTPUT: ${{ runner.temp }}/theme-regression/layouts
+        run: node minuta-online-booking/provider-layout-browser-test.cjs
+      - run: node minuta-online-booking/provider-schedule-minimal-browser-test.cjs
+      - run: node minuta-online-booking/provider-services-organization-browser-test.cjs
       - run: node minuta-online-booking/tests/client-theme-selection-browser-test.mjs
       - run: node minuta-online-booking/tests/client-theme-visual-parity-browser-test.mjs
       - run: node minuta-online-booking/tests/client-page-settings-v118-pglite-test.mjs
@@ -28,3 +37,10 @@ jobs:
       - run: node minuta-online-booking/provider-header-test.mjs
       - run: node minuta-online-booking/tests/header-browser-test.mjs
       - run: node minuta-online-booking/tests/settings-search-navigation-browser-test.mjs
+      - name: Upload visual regression evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minuta-theme-regression
+          path: ${{ runner.temp }}/theme-regression
+          if-no-files-found: ignore
