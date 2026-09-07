@@ -47,23 +47,55 @@
     function record(value) { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
     function text(value) { return typeof value === 'string' && value.length > 0; }
     function nullableText(value) { return value === null || typeof value === 'string'; }
+    function normalizeWorkspace(data) {
+      // Tenant and role are never inferred. Older deployed RPCs can omit newly
+      // added optional collections/columns; normalize those only to values that
+      // cannot make a client eligible or confirm a delivery.
+      if (!record(data) || !text(data.organization_id) || !['owner', 'admin'].includes(data.current_role)) return null;
+      if (data.clients != null && !Array.isArray(data.clients)) return null;
+      if (data.deliveries != null && !Array.isArray(data.deliveries)) return null;
+      if (data.audit != null && !Array.isArray(data.audit)) return null;
+      const boundedDays = (value, fallback) => {
+        const number = Number(value);
+        return Number.isInteger(number) && number >= 7 && number <= 730 ? number : fallback;
+      };
+      if ((data.clients || []).some(client => !record(client) || !text(client.client_account_id))) return null;
+      const clients = (data.clients || []).map(client => {
+        const visits = Number(client.completed_visits);
+        return { ...client,
+          client_name:typeof client.client_name === 'string' ? client.client_name : '',
+          client_phone:typeof client.client_phone === 'string' ? client.client_phone : '',
+          last_visit_on:typeof client.last_visit_on === 'string' ? client.last_visit_on : null,
+          last_sent_at:typeof client.last_sent_at === 'string' ? client.last_sent_at : null,
+          completed_visits:Number.isInteger(visits) && visits >= 0 ? visits : 0,
+          consent_status:['granted', 'revoked'].includes(client.consent_status) ? client.consent_status : 'unknown',
+          eligible:client.eligible === true && client.consent_status === 'granted'
+        };
+      });
+      if ((data.deliveries || []).some(delivery => !record(delivery) || !text(delivery.id) || !text(delivery.client_account_id)
+        || !['prepared', 'sent', 'cancelled', 'failed'].includes(delivery.status))) return null;
+      const deliveries = (data.deliveries || []).map(delivery => {
+        return { ...delivery,
+          message_snapshot:typeof delivery.message_snapshot === 'string' ? delivery.message_snapshot : '',
+          prepared_at:typeof delivery.prepared_at === 'string' ? delivery.prepared_at : '',
+          sent_at:typeof delivery.sent_at === 'string' ? delivery.sent_at : null
+        };
+      });
+      const validAuditId = value => (Number.isSafeInteger(value) && value > 0)
+        || (typeof value === 'string' && /^[1-9][0-9]*$/.test(value));
+      if ((data.audit || []).some(entry => !record(entry)
+        || !validAuditId(entry.id) || !text(entry.action) || !nullableText(entry.subject_id) || !text(entry.created_at))) return null;
+      const audit = (data.audit || []).map(entry => ({ ...entry, id:String(entry.id) }));
+      return { ...data,
+        enabled:typeof data.enabled === 'boolean' ? data.enabled : false,
+        inactivity_days:boundedDays(data.inactivity_days, 45),
+        cooldown_days:boundedDays(data.cooldown_days, 90),
+        message_template:typeof data.message_template === 'string' && data.message_template.length ? data.message_template : defaultTemplate,
+        clients, deliveries, audit
+      };
+    }
     function workspaceIsValid(data) {
-      if (!record(data) || !['owner', 'admin'].includes(data.current_role) || typeof data.enabled !== 'boolean'
-        || ![data.inactivity_days, data.cooldown_days].every(value => Number.isInteger(value) && value >= 7 && value <= 730)
-        || typeof data.message_template !== 'string') return false;
-      return Array.isArray(data.clients) && data.clients.every(client => record(client)
-        && text(client.client_account_id) && typeof client.client_name === 'string' && typeof client.client_phone === 'string'
-        && nullableText(client.last_visit_on) && nullableText(client.last_sent_at)
-        && Number.isInteger(client.completed_visits) && client.completed_visits >= 0
-        && ['unknown', 'granted', 'revoked'].includes(client.consent_status)
-        // SQL's nullable consent join can produce NULL, which is not eligibility.
-        && (client.eligible === null || typeof client.eligible === 'boolean'))
-        && Array.isArray(data.deliveries) && data.deliveries.every(delivery => record(delivery)
-          && text(delivery.id) && text(delivery.client_account_id)
-          && ['prepared', 'sent', 'cancelled', 'failed'].includes(delivery.status)
-          && typeof delivery.message_snapshot === 'string' && text(delivery.prepared_at) && nullableText(delivery.sent_at))
-        && Array.isArray(data.audit) && data.audit.every(entry => record(entry)
-          && text(entry.id) && text(entry.action) && nullableText(entry.subject_id) && text(entry.created_at));
+      return Boolean(normalizeWorkspace(data));
     }
     function mutationIsValid(name, data, args) {
       if (!record(data)) return false;
@@ -134,12 +166,13 @@
         availability = 'error'; $('#retentionUnavailable').hidden = false; $('#retentionUnavailableText').textContent = 'Сервер вернул данные другой организации. Изменения заблокированы.';
         return { ok: false, optional: true, scopeMismatch: true };
       }
-      if (!workspaceIsValid(data)) {
+      const normalized = normalizeWorkspace(data);
+      if (!normalized || !workspaceIsValid(normalized)) {
         availability = 'error'; $('#retentionUnavailable').hidden = false;
         $('#retentionUnavailableText').textContent = 'Сервер вернул неполные данные возврата клиентов. Обновите раздел; изменения заблокированы.';
         return { ok: false, optional: true, malformed: true };
       }
-      payload = data;
+      payload = normalized;
       availability = 'ready'; render(); return { ok: true, optional: true };
     }
     function clientById(id) { return payload?.clients.find(client => String(client.client_account_id) === String(id)); }
@@ -151,8 +184,8 @@
     }
     function deliveryCard(delivery) {
       const client = clientById(delivery.client_account_id) || {};
-      const status = { prepared: 'Готово к отправке', sent: 'Отправлено', cancelled: 'Отменено', failed: 'Ошибка' }[delivery.status] || delivery.status;
-      const actions = delivery.status === 'prepared' ? `<a class="secondary-button" href="${escapeHtml(whatsappUrl(client.client_phone, delivery.message_snapshot))}" target="_blank" rel="noopener noreferrer">Открыть WhatsApp</a><button class="primary compact-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="sent" data-retention-write>Отметить отправленным</button><button class="danger-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="cancelled" data-retention-write>Отменить</button>` : '';
+      const status = { prepared: 'Готово к ручной отправке', sent: 'Отмечено отправленным вручную', cancelled: 'Отменено', failed: 'Ошибка' }[delivery.status] || delivery.status;
+      const actions = delivery.status === 'prepared' ? `<a class="secondary-button" href="${escapeHtml(whatsappUrl(client.client_phone, delivery.message_snapshot))}" target="_blank" rel="noopener noreferrer">Открыть WhatsApp и отправить</a><button class="primary compact-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="sent" data-retention-write>Я отправил · отметить</button><button class="danger-button" type="button" data-retention-finish="${escapeHtml(delivery.id)}" data-retention-action="cancelled" data-retention-write>Отменить</button>` : '';
       return `<article class="organization-row retention-delivery-row"><div class="organization-row-main"><strong>${escapeHtml(client.client_name || 'Клиент')} · ${escapeHtml(status)}</strong><small>${escapeHtml(delivery.message_snapshot)}</small><small>${escapeHtml(formatDateTime(delivery.prepared_at))}</small></div><span class="retention-row-actions">${actions}</span></article>`;
     }
     function render() {
@@ -162,11 +195,19 @@
       $('#retentionInactivityDays').value = Number(payload.inactivity_days || 45);
       $('#retentionCooldownDays').value = Number(payload.cooldown_days || 90);
       $('#retentionMessageTemplate').value = payload.message_template || defaultTemplate;
+      const owner = payload.current_role === 'owner';
+      const enabled = Boolean(payload.enabled);
+      $('#retentionEnabled').disabled = !owner && !enabled;
+      ['#retentionInactivityDays', '#retentionCooldownDays', '#retentionMessageTemplate'].forEach(selector => { $(selector).disabled = !owner && enabled; });
       const eligible = payload.clients.filter(client => client.eligible).length;
       $('#retentionEligibleCount').textContent = String(eligible);
       $('#retentionEligibleCount').hidden = eligible === 0;
       const saveStatus = $('#retentionSaveStatus');
-      if (saveStatus) saveStatus.textContent = organization?.current_role === 'owner' ? 'Изменения сохраняются автоматически' : 'Настройки может изменять только владелец';
+      if (saveStatus) saveStatus.textContent = owner
+        ? 'Изменения сохраняются автоматически'
+        : enabled
+          ? 'Включённую программу может настраивать только владелец; администратор может её выключить'
+          : 'Администратор может настроить выключенную программу; включить её может только владелец';
       $('#retentionClientsList').innerHTML = payload.clients.length ? payload.clients.map(clientCard).join('') : empty('Клиентов пока нет', 'После завершённых визитов здесь появятся клиенты.');
       $('#retentionDeliveriesList').innerHTML = payload.deliveries.length ? payload.deliveries.map(deliveryCard).join('') : empty('Сообщений пока нет', 'Система не отправляет сообщения без зафиксированного согласия клиента.');
       applyWriteAvailability?.();
@@ -277,7 +318,7 @@
       const prepare = event.target.closest('[data-retention-prepare]');
       if (prepare) { await mutate('prepare_minuta_retention_delivery', { p_organization: organization.id, p_client_account: prepare.dataset.retentionPrepare, p_channel: 'whatsapp' }, prepare, 'Сообщение подготовлено'); return; }
       const finish = event.target.closest('[data-retention-finish]');
-      if (finish) await mutate('finish_minuta_retention_delivery', { p_organization: organization.id, p_delivery: finish.dataset.retentionFinish, p_action: finish.dataset.retentionAction }, finish, finish.dataset.retentionAction === 'sent' ? 'Отправка отмечена' : 'Сообщение отменено');
+      if (finish) await mutate('finish_minuta_retention_delivery', { p_organization: organization.id, p_delivery: finish.dataset.retentionFinish, p_action: finish.dataset.retentionAction }, finish, finish.dataset.retentionAction === 'sent' ? 'Отмечено вручную; Minuta не подтверждает доставку' : 'Сообщение отменено');
     }
     function bind() {
       if (bound) return;

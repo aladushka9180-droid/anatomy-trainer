@@ -43,7 +43,11 @@ function ledgerModel() {
   return {rows,balances,apply};
 }
 
-function fixture(sharedLedger) {
+function memoryStorage() {
+  const values = new Map();
+  return { getItem:key => values.has(key) ? values.get(key) : null, setItem:(key,value) => values.set(key,String(value)), removeItem:key => values.delete(key), values };
+}
+function fixture(sharedLedger, intentStorage, exposeRequestIds = false) {
   const elements = new Map(), handlers = new Map(), calls = [], notices = [], ledger = sharedLedger || ledgerModel();
   for (const [,id] of html.matchAll(/id="((?:loyalty|reloadLoyalty)[^"]*)"/g)) {
     const element = {id,value:'',checked:false,disabled:false,hidden:false,dataset:{},textContent:'',form:null,
@@ -71,7 +75,7 @@ function fixture(sharedLedger) {
   const workspace = org => ({organization_id:org,current_role:'owner',enabled:true,rule:{earn_rate_bps:500,min_paid_amount_rub:0},max_redeem_percent_bps:3000,
     clients:[{id:CLIENT,client_name:'Клиент A',client_phone:'+79990000001'},{id:OTHER,client_name:'Клиент B',client_phone:'+79990000002'}],
     bookings:[],accounts:[...ledger.balances].filter(([key])=>key.startsWith(`${org}:`)).map(([key,balance_points])=>({client_account_id:key.split(':')[1],balance_points,lifetime_earned:balance_points,lifetime_spent:0})),
-    promotions:[],promo_redemptions:[],ledger:copy(ledger.rows.filter(row=>row.organization_id===org))});
+    promotions:[],promo_redemptions:[],ledger:copy(ledger.rows.filter(row=>row.organization_id===org).map(row => exposeRequestIds ? row : (({ request_id, ...rest }) => rest)(row)))});
   const db={rpc:async(name,args)=>{
     calls.push({name,args:copy(args)});
     if(name==='get_minuta_loyalty_workspace') {
@@ -93,7 +97,7 @@ function fixture(sharedLedger) {
   runInNewContext(source,{window,document,crypto:{randomUUID},console});
   const controller=window.MinutaLoyalty.createController({db,$:selector=>get(selector.replace(/^#/,'')),escapeHtml:value=>String(value??''),
     notify:message=>notices.push(message),requireWrites:()=>true,getCurrentUser:()=>({id:currentUser}),getSessionGeneration:()=>generation,
-    sessionIsCurrent:(user,version)=>user===currentUser&&version===generation,applyWriteAvailability(){}});
+    sessionIsCurrent:(user,version)=>user===currentUser&&version===generation,applyWriteAvailability(){},intentStorage});
   controller.bind();
   async function dispatch(type,target,extra={}) {
     assert.ok(handlers.has(type),`Actual controller did not bind ${type}`);
@@ -266,10 +270,17 @@ test('queued workspace throw permits read retry and late read rejection cannot o
   assert.deepEqual(copy(f.controller.payload),before);assert.equal(f.controller.availability,'ready');
 });
 
-test('BOUNDARY a new controller has no persistent request registry; no cross-reload dedupe claim',async()=>{
-  const first=await uncertain(),next=fixture(first.ledger);await next.start();await next.submit();
-  assert.notEqual(next.mutations()[0].args.p_request_id,first.mutations()[0].args.p_request_id);
-  assert.equal(next.ledger.rows.length,2,'Characterization of unimplemented full-page recovery, not a safety acceptance claim');
+test('RELOAD a new controller replays the durable adjustment key without storing open PII',async()=>{
+  const ledger=ledgerModel(),storage=memoryStorage(),first=fixture(ledger,storage);await first.start();first.loseReply();await first.submit();
+  const original=copy(first.mutations()[0].args);assert.equal(ledger.rows.length,1);
+  assert.equal([...storage.values.values()].some(value=>value.includes(REASON)||value.includes(CLIENT)),false);
+  assert.equal([...storage.values.keys()].filter(key=>key.includes(':adjustment:')).length,1);
+  const next=fixture(ledger,storage);await next.start();
+  assert.deepEqual([next.get('loyaltyAdjustmentClient').value,next.get('loyaltyAdjustmentPoints').value,next.get('loyaltyAdjustmentReason').value],[CLIENT,'100',REASON]);
+  await next.submit();
+  assert.equal(next.mutations().length,1,next.get('loyaltyAdjustmentError').textContent);
+  assert.deepEqual(next.mutations()[0].args,original);assert.equal(ledger.rows.length,1);
+  assert.equal([...storage.values.keys()].filter(key=>key.includes(':adjustment:')).length,0,'confirmed replay clears only its durable intent');
 });
 
 test('unknown warning belongs to its actor/org and returns with the unresolved intent',async()=>{

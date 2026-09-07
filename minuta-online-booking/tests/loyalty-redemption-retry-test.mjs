@@ -58,8 +58,9 @@ function model() {
   return {apply,snapshot,workspace,redemptions,ledger,balances};
 }
 
-async function harness() {
-  const nodes=new Map(),handlers=new Map(),calls=[],reads=[],notices=[],server=model();let lost=false, actor=ACTOR,generation=1,writeReply,readReply;
+function memoryStorage(){const values=new Map();return {getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key),values};}
+async function harness(sharedServer, intentStorage, exposeRequestIds = false) {
+  const nodes=new Map(),handlers=new Map(),calls=[],reads=[],notices=[],server=sharedServer||model();let lost=false, actor=ACTOR,generation=1,writeReply,readReply;
   const fieldIds=['loyaltyRedeemClient','loyaltyRedeemBooking','loyaltyRedeemPoints'];
   for(const [,nodeId] of html.matchAll(/id="((?:loyalty|reloadLoyalty)[^"]*)"/g)) {
     let options=[],value='',markup='',text='';
@@ -81,11 +82,17 @@ async function harness() {
   vm.runInContext(source,context,{filename:'actual-loyalty-management.js'});
   const controller=context.window.MinutaLoyalty.createController({$:selector=>get(selector.slice(1)),escapeHtml:value=>String(value??''),
     notify:message=>notices.push(message),requireWrites:()=>true,getCurrentUser:()=>actor?({id:actor}):null,getSessionGeneration:()=>generation,
-    sessionIsCurrent:(who,epoch)=>who===actor&&epoch===generation,applyWriteAvailability(){},
+    sessionIsCurrent:(who,epoch)=>who===actor&&epoch===generation,applyWriteAvailability(){},intentStorage,
     db:{rpc:async(name,parameters)=>{
       if(name==='get_minuta_loyalty_workspace'){
-        reads.push(clone(parameters));if(readReply){const next=readReply;readReply=null;return next(parameters);}
-        return {data:{...server.workspace(),organization_id:parameters.p_organization},error:null};
+        reads.push(clone(parameters));if(readReply){
+          const next=readReply;readReply=null;const result=await next(parameters);
+          if(!exposeRequestIds&&Array.isArray(result?.data?.ledger))result.data.ledger=result.data.ledger.map(({request_id,...row})=>row);
+          return result;
+        }
+        const workspace = server.workspace();
+        if (!exposeRequestIds) workspace.ledger = workspace.ledger.map(({ request_id, ...row }) => row);
+        return {data:{...workspace,organization_id:parameters.p_organization},error:null};
       }
       assert.equal(name,'redeem_minuta_loyalty','Only the assigned redemption RPC may mutate this fixture');
       if(writeReply){const next=writeReply;writeReply=null;const call={parameters:clone(parameters)};calls.push(call);const reply=await next(parameters);call.reply=clone(reply);return reply;}
@@ -301,11 +308,13 @@ for(const scope of ['organization','account'])test(`CONTEXT unknown warning/blan
   await h.restore();assert.equal(h.calls.length,2);await h.submit();assert.deepEqual(h.calls[2].parameters,h.calls[0].parameters);
 });
 
-test('BOUNDARY full new controller has no durable unknown request registry',async()=>{
-  const first=await unknown(),second=await harness();await second.submit();
-  assert.notEqual(second.calls[0].parameters.p_request_id,first.calls[0].parameters.p_request_id);
-  // Separate model here proves only lost controller memory, not a second debit
-  // on the same SQL booking (which v81 independently forbids).
+test('RELOAD full new controller reuses the durable redemption request id',async()=>{
+  const server=model(),storage=memoryStorage(),first=await harness(server,storage);first.lose();await first.submit();
+  const original=clone(first.calls[0].parameters);assert.equal(server.redemptions.length,1);
+  assert.equal([...storage.values.values()].some(value=>value.includes(CLIENT)||value.includes(BOOKING)),false);
+  const second=await harness(server,storage);await second.submit();
+  assert.deepEqual(second.calls[0].parameters,original);assert.equal(server.redemptions.length,1);
+  assert.equal([...storage.values.keys()].filter(key=>key.includes(':redemption:')).length,0);
 });
 
 test('RECOVERY edits during a pending read are captured at actual render, not overwritten by an earlier draft',async()=>{

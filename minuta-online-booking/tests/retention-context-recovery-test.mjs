@@ -258,8 +258,7 @@ for (const [label, invalid] of [
   ['missing workspace fields', () => ({ data:{ organization_id:'org-a' }, error:null })],
   ['null client row', () => ({ data:{ ...workspace('org-a'), clients:[null] }, error:null })],
   ['null delivery row', () => ({ data:{ ...workspace('org-a'), deliveries:[null] }, error:null })],
-  ['non-array clients', () => ({ data:{ ...workspace('org-a'), clients:{} }, error:null })],
-  ['missing message template', () => { const data = workspace('org-a'); delete data.message_template; return { data, error:null }; }]
+  ['non-array clients', () => ({ data:{ ...workspace('org-a'), clients:{} }, error:null })]
 ]) {
   test(`malformed load: ${label} fails closed and the next valid load recovers`, async () => {
     const f = fixture();
@@ -286,14 +285,46 @@ test('SQL nullable eligible and absent visit dates remain valid client rows', as
   assert.doesNotMatch(f.elements.retentionClientsList.innerHTML, /data-retention-prepare/);
 });
 
+test('legacy workspace omissions normalize safely without making a client eligible', async () => {
+  const f = fixture(), data = workspace('org-a');
+  delete data.message_template; delete data.audit; delete data.deliveries;
+  Object.assign(data.clients[0], { client_name:null, client_phone:null, completed_visits:null });
+  delete data.clients[0].consent_status; delete data.clients[0].eligible;
+  f.override(() => ({ data, error:null }));
+  await f.controller.setOrganization(org('org-a'));
+  assert.equal(f.controller.availability, 'ready');
+  assert.equal(f.controller.payload.message_template.includes('{ссылка}'), true);
+  assert.equal(f.controller.payload.audit.length, 0);
+  assert.equal(f.controller.payload.deliveries.length, 0);
+  assert.equal(f.controller.payload.clients[0].consent_status, 'unknown');
+  assert.equal(f.controller.payload.clients[0].eligible, false);
+  assert.doesNotMatch(f.elements.retentionClientsList.innerHTML, /data-retention-prepare/);
+});
+
+test('admin rights text and controls match the v83 owner-only enable rule', async () => {
+  const f = fixture(), enabled = workspace('org-a'); enabled.current_role = 'admin';
+  f.override(name => name === 'get_minuta_retention_workspace' ? { data:enabled, error:null } : undefined);
+  await f.controller.setOrganization({ id:'org-a', current_role:'admin' });
+  assert.equal(f.elements.retentionEnabled.disabled, false, 'admin can turn an enabled program off');
+  assert.equal(f.elements.retentionMessageTemplate.disabled, true, 'admin cannot resave enabled=true settings');
+  assert.match(f.elements.retentionSaveStatus.textContent, /может её выключить/);
+  const disabled = workspace('org-a'); disabled.current_role = 'admin'; disabled.enabled = false;
+  f.override(name => name === 'get_minuta_retention_workspace' ? { data:disabled, error:null } : undefined);
+  await f.controller.load();
+  assert.equal(f.elements.retentionEnabled.disabled, true, 'admin cannot enable the program');
+  assert.equal(f.elements.retentionMessageTemplate.disabled, false, 'admin can prepare settings while disabled');
+  assert.match(f.elements.retentionSaveStatus.textContent, /включить её может только владелец/);
+});
+
 test('real nonempty v83 delivery and audit records render without extra schema requirements', async () => {
   const f = fixture(), data = workspace('org-a');
   data.deliveries = [{ id:'delivery-a', client_account_id:'client-org-a', channel:'whatsapp',
     status:'prepared', message_snapshot:'Приглашение для клиента', prepared_at:'2026-09-05T10:00:00Z', sent_at:null }];
-  data.audit = [{ id:'audit-a', action:'retention_settings_saved', subject_id:null, created_at:'2026-09-05T10:00:00Z' }];
+  data.audit = [{ id:41, action:'retention_settings_saved', subject_id:null, created_at:'2026-09-05T10:00:00Z' }];
   f.override(() => ({ data, error:null }));
   await f.controller.setOrganization(org('org-a'));
   assert.equal(f.controller.availability, 'ready');
+  assert.equal(f.controller.payload.audit[0].id, '41');
   assert.match(f.elements.retentionDeliveriesList.innerHTML, /data-retention-finish="delivery-a"/);
 });
 

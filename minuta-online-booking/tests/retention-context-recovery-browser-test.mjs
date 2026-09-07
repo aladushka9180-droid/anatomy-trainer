@@ -40,7 +40,7 @@ async function fixture() {
       clients:[{ client_account_id:`client-${id}`, client_name:`Клиент ${id}`, client_phone:'+79990000000',
         last_visit_on:'2025-01-01', eligible:true, consent_status:'granted', completed_visits:1,
         performer_id:'performer-a', last_booking_id:'booking-a', last_sent_at:null }],
-      deliveries:[], audit:[] });
+      deliveries:[], audit:[{ id:41, action:'retention_settings_saved', subject_id:null, created_at:'2026-09-05T10:00:00Z' }] });
     const db = { rpc:async (name, args) => {
       state.calls.push({ name, args:structuredClone(args) });
       if (name === 'get_minuta_retention_workspace') return { data:workspace(args.p_organization), error:null };
@@ -84,6 +84,12 @@ async function runCase(title, run) {
 }
 
 try {
+  await runCase('numeric bigint audit id from production normalizes without hiding workspace', async page => {
+    assert.equal(await page.evaluate(() => controller.availability), 'ready');
+    assert.equal(await page.evaluate(() => controller.payload.audit[0].id), '41');
+    assert.equal(await page.locator('#retentionWorkspace').isVisible(), true);
+  });
+
   for (const outcome of ['success', 'throw']) {
     await runCase(`native autosave A to B suppresses stale ${outcome} and loads B once`, async page => {
       await beginAutosave(page, 'hold');
@@ -144,5 +150,5 @@ try {
 
   assert.deepEqual(pageErrors, [], 'no unhandled controller errors');
   assert.deepEqual(unexpectedRequests, [], 'fixture must never request external resources');
-  console.log('Retention native DOM recovery: 4/4 PASS (isolated RPC mocks, no production access)');
+  console.log('Retention native DOM recovery: 5/5 PASS (isolated RPC mocks, no production access)');
 } finally { await browser.close(); }

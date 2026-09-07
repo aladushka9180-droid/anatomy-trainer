@@ -59,8 +59,9 @@ function model() {
   return {apply,snapshot,workspace,rows};
 }
 
-async function harness() {
-  const nodes=new Map(),handlers=new Map(),calls=[],reads=[],notices=[],server=model();
+function memoryStorage(){const values=new Map();return {getItem:key=>values.has(key)?values.get(key):null,setItem:(key,value)=>values.set(key,String(value)),removeItem:key=>values.delete(key),values};}
+async function harness(sharedServer, intentStorage, exposeRequestIds = false) {
+  const nodes=new Map(),handlers=new Map(),calls=[],reads=[],notices=[],server=sharedServer||model();
   let lost=false,nextResponse,writeReply,readReply,actor=ACTOR,generation=1;
   const fields=['loyaltyPromoClient','loyaltyPromoBooking','loyaltyPromoApplyCode'];
   for(const [,nodeId] of html.matchAll(/id="((?:loyalty|reloadLoyalty)[^"]*)"/g)) {
@@ -88,11 +89,17 @@ async function harness() {
   vm.runInContext(source,context,{filename:'actual-loyalty-management.js'});
   const controller=context.window.MinutaLoyalty.createController({$:selector=>get(selector.slice(1)),escapeHtml:value=>String(value??''),
     notify:message=>notices.push(message),requireWrites:()=>true,getCurrentUser:()=>actor?({id:actor}):null,getSessionGeneration:()=>generation,
-    sessionIsCurrent:(who,epoch)=>who===actor&&epoch===generation,applyWriteAvailability(){},
+    sessionIsCurrent:(who,epoch)=>who===actor&&epoch===generation,applyWriteAvailability(){},intentStorage,
     db:{rpc:async(name,parameters)=>{
       if(name==='get_minuta_loyalty_workspace'){
-        reads.push(clone(parameters));if(readReply){const next=readReply;readReply=null;return next(parameters);}
-        return {data:{...server.workspace(),organization_id:parameters.p_organization},error:null};
+        reads.push(clone(parameters));if(readReply){
+          const next=readReply;readReply=null;const result=await next(parameters);
+          if(!exposeRequestIds&&Array.isArray(result?.data?.promo_redemptions))result.data.promo_redemptions=result.data.promo_redemptions.map(({request_id,...row})=>row);
+          return result;
+        }
+        const workspace=server.workspace();
+        if(!exposeRequestIds)workspace.promo_redemptions=workspace.promo_redemptions.map(({request_id,...row})=>row);
+        return {data:{...workspace,organization_id:parameters.p_organization},error:null};
       }
       assert.equal(name,'redeem_minuta_promotion','No other mutation is allowed in this fixture');
       if(writeReply){const next=writeReply;writeReply=null;const call={parameters:clone(parameters)};calls.push(call);const reply=await next(parameters);call.reply=clone(reply);return reply;}
@@ -322,8 +329,10 @@ for(const scope of ['organization','account'])test(`CONTEXT unknown warning/inva
   assert.equal(h.get('loyaltyPromoApplyError').hidden,true);h.get('loyaltyPromoApplyCode').value=CODE;h.write(()=>ack(id(30)));await h.submit();if(scope==='account')h.actor(ACTOR);await h.controller.setOrganization({id:ORG,current_role:'owner'});
   assert.equal(h.get('loyaltyPromoApplyCode').value,'');assert.match(h.get('loyaltyPromoApplyError').textContent,/Не удалось подтвердить/);await h.restore();assert.equal(h.calls.length,2);await h.submit();assert.deepEqual(h.calls[2].parameters,h.calls[0].parameters);
 });
-test('BOUNDARY a full new controller has no durable unknown-key registry',async()=>{
-  const first=await unknown(),second=await harness();await second.submit();assert.notEqual(second.calls[0].parameters.p_request_id,first.calls[0].parameters.p_request_id);
-  // Separate fixtures establish memory scope only. SQL separately prevents a
-  // second promo row for the same booking; no duplicate cash effect is claimed.
+test('RELOAD a full new controller reuses the durable promo request id',async()=>{
+  const server=model(),storage=memoryStorage(),first=await harness(server,storage);first.lose();await first.submit();
+  const original=clone(first.calls[0].parameters);assert.equal(server.rows.length,1);
+  assert.equal([...storage.values.values()].some(value=>value.includes(CLIENT)||value.includes(BOOKING)||value.includes(CODE)),false);
+  const second=await harness(server,storage);await second.submit();assert.deepEqual(second.calls[0].parameters,original);assert.equal(server.rows.length,1);
+  assert.equal([...storage.values.keys()].filter(key=>key.includes(':promo:')).length,0);
 });

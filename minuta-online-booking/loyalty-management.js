@@ -11,9 +11,10 @@
     let revision = 0;
     let writing = false;
     let pendingOrganization;
-    // Controller-memory only: reset/org switches keep each actor's unresolved
-    // snapshot/key. A full page reload/new controller does not restore these;
-    // matching ledger rows or amounts are never used to infer resolution.
+    // The active form snapshot stays in controller memory. Only an opaque scope
+    // digest, tuple digest and request id are persisted, so a reload can replay
+    // the same request without storing client ids, booking ids or reasons in
+    // readable form. Workspace rows are never used to infer resolution.
     const adjustmentIntents = new Map(), adjustmentDrafts = new Map();
     const adjustmentUnknownMessage = 'Не удалось подтвердить результат. Проверьте обновлённый журнал; повторить можно только исходную корректировку.';
     let activeAdjustment = null, renderedAdjustmentKey = '';
@@ -23,6 +24,123 @@
     const promoIntents = new Map(), promoDrafts = new Map();
     const promoUnknownMessage = 'Не удалось подтвердить применение промокода. Проверьте актуальные данные; повторить можно только исходное применение.';
     let activePromo = null, renderedPromoKey = '';
+
+    const durablePrefix = 'minuta:loyalty-intent:v1:';
+    const volatileIntentValues = new Map();
+    const volatileIntentStorage = {
+      getItem:key => volatileIntentValues.has(key) ? volatileIntentValues.get(key) : null,
+      setItem:(key, value) => volatileIntentValues.set(key, String(value)),
+      removeItem:key => volatileIntentValues.delete(key)
+    };
+    let durableStorage = Object.prototype.hasOwnProperty.call(options, 'intentStorage')
+      ? options.intentStorage
+      : (() => { try { return typeof window !== 'undefined' ? window.localStorage : null; } catch { return null; } })();
+    // DOM-less controller fixtures intentionally have no browser storage. Keep
+    // their single-controller semantics without weakening real browsers where
+    // a denied localStorage access must fail closed.
+    const useVolatileStorage = durableStorage === undefined && typeof window !== 'undefined' && !('localStorage' in window);
+    if (useVolatileStorage) durableStorage = volatileIntentStorage;
+    function digestText(value) {
+      if (typeof options.intentDigest === 'function') return options.intentDigest(String(value));
+      // A per-browser salt prevents readable values and useful cross-browser
+      // correlation. Eight independently seeded 32-bit mixers make accidental
+      // tuple collisions impractical without introducing an async gap before a
+      // financial request is locked.
+      let salt = '';
+      try {
+        salt = durableStorage?.getItem(`${durablePrefix}salt`) || '';
+        if (!salt) { salt = uuid(); durableStorage?.setItem(`${durablePrefix}salt`, salt); }
+      } catch { return ''; }
+      if (!salt) return '';
+      const source = `${salt}:${String(value)}`;
+      const seeds = [2166136261, 2246822507, 3266489909, 668265263, 374761393, 1103515245, 2654435761, 1597334677];
+      return seeds.map((seed, index) => {
+        let hash = seed >>> 0;
+        for (const symbol of source) {
+          hash = Math.imul(hash ^ (symbol.codePointAt(0) + index * 131), 16777619) >>> 0;
+          hash = (hash ^ (hash >>> 13)) >>> 0;
+        }
+        return hash.toString(16).padStart(8, '0');
+      }).join('');
+    }
+    function canonicalTuple(tuple) {
+      return JSON.stringify(Object.keys(tuple).sort().map(key => [key, tuple[key]]));
+    }
+    function durableLocation(kind, key) {
+      const scope = digestText(`scope:${key}`);
+      return scope ? `${durablePrefix}${kind}:${scope}` : '';
+    }
+    function durableRecord(kind, key) {
+      if (!durableStorage) return null;
+      const location = durableLocation(kind, key);
+      if (!location) return { invalid:true };
+      try {
+        const value = JSON.parse(durableStorage.getItem(location) || 'null');
+        if (!value) return null;
+        if (value.v !== 1 || !/^[0-9a-f-]{36}$/i.test(value.request_id || '') || !/^[0-9a-f]{64}$/i.test(value.tuple_digest || '')) return { invalid:true };
+        return { ...value, location };
+      } catch { return { invalid:true }; }
+    }
+    function persistIntent(kind, key, tuple, requestId) {
+      if (!durableStorage) return false;
+      const location = durableLocation(kind, key);
+      const tupleDigest = digestText(`tuple:${canonicalTuple(tuple)}`);
+      if (!location || !tupleDigest) return false;
+      try {
+        durableStorage.setItem(location, JSON.stringify({ v:1, request_id:requestId, tuple_digest:tupleDigest }));
+        return durableStorage.getItem(location) !== null;
+      } catch { return false; }
+    }
+    function clearPersistedIntent(kind, key) {
+      if (!durableStorage) return;
+      const location = durableLocation(kind, key);
+      if (!location) return;
+      try { durableStorage.removeItem(location); } catch { /* keep fail-closed */ }
+    }
+    function durableIntent(kind, key, tuple, fields, intents) {
+      const stored = durableRecord(kind, key);
+      if (!stored) return { intent:null, conflict:false };
+      if (stored.invalid) return { intent:null, conflict:true };
+      const tupleDigest = digestText(`tuple:${canonicalTuple(tuple)}`);
+      if (!tupleDigest || tupleDigest !== stored.tuple_digest) return { intent:null, conflict:true };
+      const intent = { parameters:Object.freeze({ ...tuple, p_request_id:stored.request_id }), fields:Object.freeze({ ...fields }), unknown:true, state:'unknown', durable:true };
+      intents.set(key, intent);
+      return { intent, conflict:false };
+    }
+    function newDurableIntent(kind, key, tuple, fields, intents) {
+      const requestId = uuid();
+      if (!persistIntent(kind, key, tuple, requestId)) return null;
+      const intent = { parameters:Object.freeze({ ...tuple, p_request_id:requestId }), fields:Object.freeze({ ...fields }), unknown:false, durable:true };
+      intents.set(key, intent);
+      return intent;
+    }
+    function durableConflict(selector, label) {
+      showFormError(selector, `В этом браузере есть неподтверждённое ${label}. Введите исходные данные и повторите его; новый запрос пока не отправлен.`);
+    }
+    function workspaceConfirmsIntent(kind, requestId) {
+      if (!requestId || !payload) return false;
+      if (kind === 'promo') return payload.promo_redemptions?.some(row => row?.request_id === requestId) || false;
+      const eventType = kind === 'adjustment' ? 'manual_adjustment' : 'redemption';
+      return payload.ledger?.some(row => row?.request_id === requestId && row?.event_type === eventType) || false;
+    }
+    function showPersistedWarnings(key, userId, generation, organizationId, current) {
+      const rows = [
+        ['adjustment', adjustmentIntents, '#loyaltyAdjustmentError', 'корректирование баланса'],
+        ['redemption', redemptionIntents, '#loyaltyRedeemError', 'списание бонусов'],
+        ['promo', promoIntents, '#loyaltyPromoApplyError', 'применение промокода']
+      ];
+      for (const [kind, intents, selector, label] of rows) {
+        const stored = durableRecord(kind, key);
+        if (!sessionIsCurrent(userId, generation) || current !== revision || organization?.id !== organizationId) return;
+        if (!stored) continue;
+        if (!stored.invalid && workspaceConfirmsIntent(kind, stored.request_id)) {
+          clearPersistedIntent(kind, key); intents.delete(key);
+          const holder = $(selector); if (holder) { holder.hidden = true; holder.textContent = ''; }
+          continue;
+        }
+        if (intents.get(key)?.state !== 'unknown') durableConflict(selector, label);
+      }
+    }
 
     function adjustmentKey() { return JSON.stringify([getCurrentUser()?.id || '', organization?.id || '']); }
     function adjustmentFields() {
@@ -138,7 +256,9 @@
       if (!scopeMatches(data, organizationId)) { availability = 'error'; $('#loyaltyUnavailable').hidden = false; $('#loyaltyUnavailableText').textContent = 'Сервер вернул данные другой организации. Изменения заблокированы.'; return { ok:false, optional:true }; }
       payload = data;
       for (const key of ['clients','bookings','accounts','promotions','promo_redemptions','ledger']) if (!Array.isArray(payload[key])) payload[key] = [];
-      availability = 'ready'; render(); return { ok:true, optional:true };
+      availability = 'ready'; render();
+      showPersistedWarnings(adjustmentKey(), userId, generation, organizationId, current);
+      return { ok:true, optional:true };
     }
 
     function accountCard(item) {
@@ -257,16 +377,19 @@
         p_points_delta:Math.round(Number(fields.points)), p_reason:fields.reason.trim() };
       let intent = adjustmentIntents.get(key);
       if (intent?.state === 'pending') return;
+      if (!intent) {
+        const restored = durableIntent('adjustment', key, tuple, fields, adjustmentIntents);
+        intent = restored.intent;
+        if (!intent && !restored.conflict) intent = newDurableIntent('adjustment', key, tuple, fields, adjustmentIntents);
+        if (restored.conflict) { durableConflict('#loyaltyAdjustmentError', 'корректирование баланса'); return; }
+        if (!intent) { showFormError('#loyaltyAdjustmentError', 'Безопасный повтор сейчас недоступен. Разрешите локальное хранение для сайта и повторите.'); return; }
+      }
       if (intent && Object.keys(tuple).some(name => tuple[name] !== intent.parameters[name])) {
         // Do not silently submit edited data, nor silently replay old data. Put
         // the original fields back for review; a separate submit retries them.
         restoreAdjustmentFields(intent.fields); rememberAdjustmentFields();
         showAdjustmentRecovery('Результат прежней корректировки не подтверждён. Возвращены исходные поля: проверьте их и повторите исходную корректировку.');
         return;
-      }
-      if (!intent) {
-        intent = { parameters:Object.freeze({ ...tuple, p_request_id:uuid() }), fields:Object.freeze({ ...fields }), unknown:false };
-        adjustmentIntents.set(key, intent);
       }
       const wasUnknown = intent.unknown;
       const userId = getCurrentUser().id, generation = getSessionGeneration(), organizationId = organization.id, current = ++revision;
@@ -285,7 +408,7 @@
         '22023':['invalid_loyalty_adjustment'], '55000':['loyalty_disabled','insufficient_loyalty_balance']
       };
       const refused = !wasUnknown && !thrown && result?.data === null && refusals[error?.code]?.includes(error?.message);
-      if (confirmed || refused) adjustmentIntents.delete(key);
+      if (confirmed || refused) { adjustmentIntents.delete(key); clearPersistedIntent('adjustment', key); }
       else { intent.state = 'unknown'; intent.unknown = true; }
       if (activeAdjustment !== operation) return;
       activeAdjustment = null; writing = false;
@@ -346,14 +469,17 @@
       const tuple = { p_organization:organization.id, p_booking:fields.booking, p_points:Number(fields.points) };
       let intent = redemptionIntents.get(key);
       if (intent?.state === 'pending') return;
+      if (!intent) {
+        const restored = durableIntent('redemption', key, tuple, fields, redemptionIntents);
+        intent = restored.intent;
+        if (!intent && !restored.conflict) intent = newDurableIntent('redemption', key, tuple, fields, redemptionIntents);
+        if (restored.conflict) { durableConflict('#loyaltyRedeemError', 'списание бонусов'); return; }
+        if (!intent) { showFormError('#loyaltyRedeemError', 'Безопасный повтор сейчас недоступен. Разрешите локальное хранение для сайта и повторите.'); return; }
+      }
       if (intent && (fields.client !== intent.fields.client || Object.keys(tuple).some(name => tuple[name] !== intent.parameters[name]))) {
         restoreRedemptionFields(intent.fields); rememberRedemptionFields();
         showRedemptionRecovery('Результат прежнего списания не подтверждён. Возвращены исходные поля: проверьте их и отдельно повторите исходное списание.');
         return;
-      }
-      if (!intent) {
-        intent = { parameters:Object.freeze({ ...tuple, p_request_id:uuid() }), fields:Object.freeze({ ...fields }), unknown:false };
-        redemptionIntents.set(key, intent);
       }
       const wasUnknown = intent.unknown;
       const userId = getCurrentUser().id, generation = getSessionGeneration(), organizationId = organization.id, current = ++revision;
@@ -378,7 +504,7 @@
         '23505':['loyalty_booking_already_redeemed']
       };
       const refused = !wasUnknown && !thrown && result?.data === null && refusals[error?.code]?.includes(error?.message);
-      if (confirmed || refused) redemptionIntents.delete(key);
+      if (confirmed || refused) { redemptionIntents.delete(key); clearPersistedIntent('redemption', key); }
       else { intent.state = 'unknown'; intent.unknown = true; }
       if (activeRedemption !== operation) return;
       activeRedemption = null; writing = false;
@@ -441,14 +567,17 @@
       const tuple = { p_organization:organization.id, p_booking:fields.booking, p_code:fields.code.trim().toUpperCase() };
       let intent = promoIntents.get(key);
       if (intent?.state === 'pending') return;
+      if (!intent) {
+        const restored = durableIntent('promo', key, tuple, fields, promoIntents);
+        intent = restored.intent;
+        if (!intent && !restored.conflict) intent = newDurableIntent('promo', key, tuple, fields, promoIntents);
+        if (restored.conflict) { durableConflict('#loyaltyPromoApplyError', 'применение промокода'); return; }
+        if (!intent) { showFormError('#loyaltyPromoApplyError', 'Безопасный повтор сейчас недоступен. Разрешите локальное хранение для сайта и повторите.'); return; }
+      }
       if (intent && (fields.client !== intent.fields.client || Object.keys(tuple).some(name => tuple[name] !== intent.parameters[name]))) {
         restorePromoFields(intent.fields); rememberPromoFields();
         showPromoRecovery('Результат прежнего применения не подтверждён. Возвращены исходные поля: проверьте их и отдельно повторите исходное применение.');
         return;
-      }
-      if (!intent) {
-        intent = { parameters:Object.freeze({ ...tuple, p_request_id:uuid() }), fields:Object.freeze({ ...fields }), unknown:false };
-        promoIntents.set(key, intent);
       }
       const wasUnknown = intent.unknown;
       const userId = getCurrentUser().id, generation = getSessionGeneration(), organizationId = organization.id, current = ++revision;
@@ -474,7 +603,7 @@
         '23505':['promo_already_applied']
       };
       const refused = !wasUnknown && !thrown && result?.data === null && refusals[error?.code]?.includes(error?.message);
-      if (confirmed || refused) promoIntents.delete(key);
+      if (confirmed || refused) { promoIntents.delete(key); clearPersistedIntent('promo', key); }
       else { intent.state = 'unknown'; intent.unknown = true; }
       if (activePromo !== operation) return;
       activePromo = null; writing = false;
