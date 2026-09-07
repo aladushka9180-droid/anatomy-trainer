@@ -33,6 +33,10 @@ async function fixture(){
   await page.evaluate(html=>{
     const panel=new DOMParser().parseFromString(html,'text/html').querySelector('#inventoryPanel');
     if(!panel)throw Error('Missing actual inventory panel');
+    panel.hidden=false;
+    panel.querySelector('#inventoryWorkspace').hidden=false;
+    panel.querySelector('#inventoryControls').hidden=false;
+    panel.querySelector('[data-inventory-pane="operations"]').hidden=false;
     document.body.append(document.importNode(panel,true));
   },html);
   await page.addScriptTag({content:source});

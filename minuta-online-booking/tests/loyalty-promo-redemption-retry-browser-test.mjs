@@ -41,6 +41,8 @@ async function fixture() {
   await page.evaluate(html=>{
     const panel=new DOMParser().parseFromString(html,'text/html').querySelector('#loyaltyPanel');
     if(!panel)throw Error('Actual provider loyalty panel missing');
+    panel.hidden=false;
+    panel.querySelector('#loyaltyWorkspace').hidden=false;
     document.body.append(document.importNode(panel,true));
   },html);
   await page.addScriptTag({content:source});

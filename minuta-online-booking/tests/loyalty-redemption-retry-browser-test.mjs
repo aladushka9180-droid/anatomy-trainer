@@ -36,7 +36,10 @@ async function fixture(){
   await page.goto('https://loyalty-redemption.test/');
   await page.evaluate(html=>{
     const panel=new DOMParser().parseFromString(html,'text/html').querySelector('#loyaltyPanel');
-    if(!panel)throw Error('Actual loyalty panel missing');document.body.append(document.importNode(panel,true));
+    if(!panel)throw Error('Actual loyalty panel missing');
+    panel.hidden=false;
+    panel.querySelector('#loyaltyWorkspace').hidden=false;
+    document.body.append(document.importNode(panel,true));
   },html);
   await page.addScriptTag({content:source});
   await page.evaluate(async({A,B})=>{
