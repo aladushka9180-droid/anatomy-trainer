@@ -1558,9 +1558,9 @@ function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
   providerThemeFilter = filter;
   const options = [...form.querySelectorAll('.provider-theme-option')];
   const featuredOptions = options.filter(option => String(option.dataset.themeGroups || '').split(/\s+/).includes('featured'));
-  const selectedFeatured = featuredOptions.find(option => option.querySelector('input')?.checked);
+  const selectedOption = options.find(option => option.querySelector('input')?.checked);
   const recommendedOptions = featuredOptions.slice(0, 4);
-  if (selectedFeatured && !recommendedOptions.includes(selectedFeatured)) recommendedOptions.splice(-1, 1, selectedFeatured);
+  if (selectedOption && !recommendedOptions.includes(selectedOption)) recommendedOptions.splice(-1, 1, selectedOption);
   let visibleCount = 0;
   options.forEach(option => {
     const groups = String(option.dataset.themeGroups || '').split(/\s+/).filter(Boolean);
@@ -1584,11 +1584,8 @@ function renderDisplayPreferencesForm() {
   if (layout) layout.checked = true;
   const theme = form.querySelector(`input[name="providerTheme"][value="${displayPreferences.theme}"]`);
   if (theme) theme.checked = true;
-  const selectedGroups = String(theme?.closest('.provider-theme-option')?.dataset.themeGroups || '').split(/\s+/);
   if (!providerThemeFilter) {
-    providerThemeFilter = selectedGroups.includes('featured') ? 'featured' : 'all';
-  } else if (providerThemeFilter !== 'all' && !selectedGroups.includes(providerThemeFilter)) {
-    providerThemeFilter = 'all';
+    providerThemeFilter = 'featured';
   }
   applyProviderThemeFilter(providerThemeFilter);
   const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
@@ -2167,7 +2164,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=552#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=553#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3982,7 +3979,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=552');
+    worker = new Worker('./report-worker.js?v=553');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
