@@ -5,14 +5,14 @@
   if (!panel || !nav || panel.querySelector('.settings-smart-search')) return;
 
   const SECTION_META = Object.freeze({
-    appearanceSettingsCard:{ aliases:'оформление дизайн внешний вид цвет тема фон стиль структура интерфейс размер шрифт текст карточка запись анимация переход меню навигация вкладка', companions:[] },
+    appearanceSettingsCard:{ aliases:'оформление дизайн внешний вид цвет тема фон стиль структура интерфейс размер шрифт текст карточка запись', companions:[] },
     telegramClientSettingsCard:{ aliases:'уведомления сообщение телеграм telegram телега бот связь клиент посетитель сайта звук сигнал', companions:['visitorAlertSettingsCard'] },
-    installAppCard:{ aliases:'приложение установить установка pwa ярлык рабочий стол главный экран полный экран fullscreen', companions:[] },
-    bookingRulesCard:{ aliases:'правила онлайн запись отмена перенос предоплата депозит завершение визит календарь команда смена групповой сеанс', companions:['teamCalendarSettingsCard','groupBookingSettingsCard'] },
+    installAppCard:{ aliases:'приложение установить установка pwa ярлык рабочий стол главный экран полный экран fullscreen переход меню навигация вкладка роль', companions:['appNavigationSettingsCard'] },
+    bookingRulesCard:{ aliases:'правила онлайн запись отмена перенос предоплата депозит завершение визит календарь команда смена групповой сеанс пакет даты серия', companions:['batchBookingSettingsCard','teamCalendarSettingsCard','groupBookingSettingsCard'] },
     batchBookingSettingsCard:{ aliases:'пакет пакетные несколько даты серия повторные записи лимит', companions:[] },
     subscriptionSettingsCard:{ aliases:'тариф подписка цена стоимость оплата месяц год специалисты филиалы пробный период бонус', companions:[] },
     dataGovernanceCard:{ aliases:'данные документы хранение скачать экспорт выгрузка удалить удаление очистка конфиденциальность политика резервная копия восстановление', companions:[] },
-    accountSettingsCard:{ aliases:'безопасность аккаунт профиль пароль логин вход телефон sms код telegram vk вконтакте яндекс привязать восстановить доступ', companions:[] }
+    accountSettingsCard:{ aliases:'безопасность аккаунт профиль пароль логин вход телефон sms код telegram vk вконтакте яндекс привязать восстановить доступ данные документы хранение скачать экспорт выгрузка удалить очистка конфиденциальность политика', companions:['dataGovernanceCard'] }
   });
   const STOP_WORDS = new Set('а без бы в вам вас весь где для до его ее ещё же за и из или как кабинет кабинета ли мне мой на не но о от по при про с со что чтобы это я хочу хотим нужно надо можно найти покажи показать посмотреть смотреть открыть перейти поменять изменить настроить включить выключить отключить убрать добавить создать сделать настройка настройки параметр параметры'.split(' '));
   const EN_LAYOUT = '`qwertyuiop[]asdfghjkl;\'zxcvbnm,.';
@@ -21,7 +21,8 @@
   search.className = 'settings-smart-search';
   search.setAttribute('aria-label', 'Поиск по настройкам');
   search.innerHTML = `<div class="settings-search-field"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-search"></use></svg><label><span class="sr-only">Найти настройку</span><input id="settingsSearchInput" type="search" inputmode="search" autocomplete="off" maxlength="160" placeholder="Например: отключить предоплату" role="combobox" aria-autocomplete="list" aria-controls="settingsSearchResults" aria-expanded="false"></label><button class="settings-search-clear" type="button" aria-label="Очистить поиск" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button><button class="settings-search-voice" type="button" aria-label="Найти настройку голосом" aria-pressed="false"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-microphone"></use></svg></button></div><div class="settings-search-results" id="settingsSearchResults" role="listbox" hidden></div><p class="settings-search-status" role="status" aria-live="polite">Можно написать обычной фразой — поиск понимает опечатки.</p>`;
-  (nav.parentElement.classList.contains('settings-nav-scroll-shell') ? nav.parentElement : nav).before(search);
+  const workspace = nav.closest('.settings-workspace');
+  (workspace || (nav.parentElement.classList.contains('settings-nav-scroll-shell') ? nav.parentElement : nav)).before(search);
 
   const input = search.querySelector('input');
   const results = search.querySelector('.settings-search-results');

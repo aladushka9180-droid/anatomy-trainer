@@ -1010,7 +1010,7 @@
         <section class="provider-view" data-provider-panel="settings" hidden>
           <div class="view-title"><div><span>Параметры кабинета</span><h2 tabindex="-1">Настройки</h2></div></div>
           <details class="panel settings-quick-start ux-disclosure" aria-labelledby="settingsQuickStartTitle">
-            <summary><strong id="settingsQuickStartTitle">Настройка за 5 минут</strong><span>Первые шаги</span></summary>
+            <summary><strong id="settingsQuickStartTitle">Первоначальная настройка</strong><span>Для нового кабинета</span></summary>
             <div class="settings-quick-start-head"><div><small>Для первого запуска</small><p>Пройдите основные шаги по порядку, затем откройте страницу клиента и проверьте результат.</p></div><a class="settings-help-link" href="help/article.html?slug=settings-quick-start" target="_blank" rel="noopener noreferrer">Пошаговая инструкция <span aria-hidden="true">↗</span></a></div>
             <ol class="settings-quick-start-list">
               <li><button type="button" data-provider-view="services"><span>1</span><strong>Услуги и цены</strong><small>Что сможет выбрать клиент</small></button></li>
@@ -1020,26 +1020,27 @@
               <li><a href="index.html" target="_blank" rel="noopener noreferrer"><span>5</span><strong>Проверка страницы</strong><small>Посмотреть глазами клиента</small></a></li>
             </ol>
           </details>
+          <div class="settings-workspace">
           <nav class="provider-section-nav" aria-label="Навигация по настройкам">
-            <button class="active" type="button" data-section-target="appearanceSettingsCard">Оформление</button>
+            <button class="active" type="button" data-section-target="bookingRulesCard">Онлайн-запись</button>
             <button type="button" data-section-target="clientAppearanceSettingsCard">Страница для клиентов</button>
-            <button type="button" data-section-target="telegramClientSettingsCard">Уведомления</button>
-            <button type="button" data-section-target="installAppCard">Приложение</button>
-            <button type="button" data-section-target="bookingRulesCard">Правила записи</button>
-            <button id="batchBookingSettingsNav" type="button" data-section-target="batchBookingSettingsCard" hidden>Пакетные записи</button>
+            <button type="button" data-section-target="telegramClientSettingsCard">Сообщения клиентам</button>
+            <button type="button" data-section-target="appearanceSettingsCard">Оформление</button>
+            <button type="button" data-section-target="installAppCard">Приложение и навигация</button>
             <button type="button" data-section-target="subscriptionSettingsCard">Тариф</button>
-            <button type="button" data-section-target="dataGovernanceCard">Данные</button>
-            <button type="button" data-section-target="accountSettingsCard">Безопасность</button>
+            <button type="button" data-section-target="accountSettingsCard">Аккаунт и данные</button>
           </nav>
           <div class="settings-layout">
             <section class="panel settings-card subscription-settings-card" id="subscriptionSettingsCard" aria-labelledby="subscriptionTitle">
               <div class="subscription-settings-head">
                 <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-chart"></use></svg></div>
-                <div class="settings-heading"><small>Тариф и подписка</small><h3 id="subscriptionTitle">Полный доступ без скрытых ограничений</h3><p>Во всех тарифах доступны функции Minuta. Стоимость зависит только от числа принимающих специалистов и филиалов.</p></div>
-                <span class="subscription-trial-badge">14 дней бесплатно</span>
+                <div class="settings-heading"><small>Тариф и подписка</small><h3 id="subscriptionTitle">Полный доступ</h3><p>Оплата пока не включена: все функции кабинета доступны без выбора тарифа.</p></div>
+                <span class="subscription-trial-badge">Оплата не включена</span>
               </div>
               <div data-contextual-help data-help-slug="subscription-plans" data-help-question="Объясни, какой тариф подходит, кто считается принимающим специалистом, как учитываются филиалы и что оплачивается отдельно."></div>
-              <div class="subscription-trial-note"><div class="subscription-start-bonus"><strong>+500 ₽ бонусом</strong><span>При пополнении на 1 000 ₽ в первые 24 часа</span></div></div>
+              <p class="subscription-launch-note">До запуска оплаты ничего выбирать и оплачивать не нужно.</p>
+              <details class="subscription-plans-disclosure">
+                <summary>Посмотреть будущие тарифы</summary>
               <div class="subscription-pricing">
                 <input class="subscription-cycle-input" id="subscriptionMonthly" name="subscriptionCycle" type="radio" checked>
                 <input class="subscription-cycle-input" id="subscriptionAnnual" name="subscriptionCycle" type="radio">
@@ -1053,7 +1054,7 @@
               </div>
               <details class="subscription-includes"><summary>Что входит в каждый тариф</summary><div class="subscription-feature-grid"><span>Онлайн-запись и расписание</span><span>Клиенты и история посещений</span><span>Уведомления и напоминания</span><span>Оплата и предоплата</span><span>Статистика, UTM и Excel-отчёты</span><span>Бонусы и промокоды</span><span>Сертификаты и абонементы</span><span>Лист ожидания и групповые сеансы</span><span>Отзывы и портфолио</span><span>Товары и склад</span><span>Импорт и экспорт данных</span><span>Приложение, резервные копии и защита</span></div></details>
               <div class="subscription-footnote"><strong>Считаются только специалисты, доступные для записи.</strong><span>Администраторы без приёма клиентов не расходуют лимит. SMS и комиссия платёжной системы оплачиваются отдельно.</span></div>
-              <p class="subscription-launch-note">Тарифы показаны для ознакомления и пока не ограничивают работу кабинета. Выбор тарифа и оплата будут включены позже.</p>
+              </details>
             </section>
             <section class="panel settings-card batch-booking-settings-card" id="batchBookingSettingsCard" hidden>
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></div>
@@ -1108,7 +1109,7 @@
             </section>
             <section class="panel settings-card appearance-settings-card provider-section-anchor" id="appearanceSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-spark"></use></svg></div>
-              <div class="settings-heading"><small>Внешний вид кабинета</small><h3>Структура, тема и карточки</h3><p>Сначала выберите компоновку интерфейса, затем независимо примените к ней цветную или фактурную тему. Оформление меняется сразу.</p><a class="settings-help-link" href="help/article.html?slug=cabinet-layout-theme" target="_blank" rel="noopener noreferrer">Как выбрать оформление <span aria-hidden="true">↗</span></a></div>
+              <div class="settings-heading"><small>Внешний вид кабинета</small><h3>Текст, структура и тема</h3><p>Настройки применяются только к вашему рабочему кабинету и сохраняются автоматически.</p><a class="settings-help-link" href="help/article.html?slug=cabinet-layout-theme" target="_blank" rel="noopener noreferrer">Как выбрать оформление <span aria-hidden="true">↗</span></a></div>
               <div data-contextual-help data-help-slug="cabinet-layout-theme" data-help-question="Объясни разницу между компоновкой, темой, размером текста и отображением данных в карточке записи."></div>
               <form id="providerDisplayForm" class="provider-display-form">
                 <div class="provider-display-save-state"><span class="provider-display-status" id="providerDisplayStatus" role="status" aria-live="polite">Автосохранение включено</span></div>
@@ -1126,7 +1127,7 @@
                 <fieldset class="provider-theme-picker">
                   <legend>Цвет и материал</legend>
                   <div class="provider-theme-filter" role="group" aria-label="Категория тем">
-                    <button type="button" data-provider-theme-filter="featured" aria-pressed="true">Популярные</button>
+                    <button type="button" data-provider-theme-filter="featured" aria-pressed="true">Рекомендуемые</button>
                     <button type="button" data-provider-theme-filter="light" aria-pressed="false">Светлые</button>
                     <button type="button" data-provider-theme-filter="dark" aria-pressed="false">Тёмные</button>
                     <button type="button" data-provider-theme-filter="natural" aria-pressed="false">Натуральные</button>
@@ -1181,35 +1182,11 @@
                   </div>
                   <a class="settings-help-link" href="help/article.html?slug=booking-card-appearance" target="_blank" rel="noopener noreferrer">Что лучше показывать в карточке <span aria-hidden="true">↗</span></a>
                 </fieldset>
-                <fieldset class="booking-card-settings motion-settings">
-                  <legend>Движение интерфейса</legend>
-                  <div class="booking-card-options">
-                    <label class="settings-check"><input id="iosTransitionsEnabled" type="checkbox"><span><strong>Переходы в стиле iOS</strong><small>На телефоне разделы плавно сменяют друг друга. Настройка устройства «Уменьшение движения» имеет приоритет.</small></span></label>
-                  </div>
-                </fieldset>
-                <fieldset class="booking-card-settings mobile-navigation-settings">
-                  <legend>Разделы и быстрые действия по ролям</legend>
-                  <label>Настройки для роли<select id="providerPreferenceRole"><option value="owner">Владелец</option><option value="admin">Администратор</option><option value="specialist">Сотрудник</option></select></label>
-                  <p>Для каждой роли отдельно выберите четыре быстрых раздела и порядок остальных блоков в меню «Разделы».</p>
-                  <div class="mobile-navigation-options">
-                    <label><span>Первая вкладка</span><select id="mobileNavSlot1" data-mobile-nav-slot></select></label>
-                    <label><span>Вторая вкладка</span><select id="mobileNavSlot2" data-mobile-nav-slot></select></label>
-                    <label><span>Третья вкладка</span><select id="mobileNavSlot3" data-mobile-nav-slot></select></label>
-                    <label><span>Четвёртая вкладка</span><select id="mobileNavSlot4" data-mobile-nav-slot></select></label>
-                  </div>
-                  <div class="mobile-navigation-preview" id="mobileNavigationPreview" aria-label="Предварительный вид нижней панели"></div>
-                  <details class="navigation-order-disclosure">
-                    <summary>Порядок в меню «Разделы»</summary>
-                    <p>Здесь показаны только пункты, которые попадут в меню «Разделы». Стрелки меняют их порядок; четыре вкладки нижней панели настраиваются выше.</p>
-                    <div class="role-view-order" id="providerRoleViewOrder" aria-label="Порядок пунктов меню Разделы"></div>
-                  </details>
-                  <a class="settings-help-link" href="help/article.html?slug=mobile-navigation" target="_blank" rel="noopener noreferrer">Как настроить панель <span aria-hidden="true">↗</span></a>
-                </fieldset>
               </form>
             </section>
             <section class="panel settings-card telegram-client-settings-card provider-section-anchor" id="telegramClientSettingsCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-telegram"></use></svg></div>
-              <div class="settings-heading"><small>Telegram клиентам</small><h3>Уведомления и связь с мастером</h3><p>Сообщения отправляет бот Minuta, а кнопка «Написать мастеру» открывает ваш личный Telegram.</p><a class="settings-help-link" href="help/article.html?slug=telegram" target="_blank" rel="noopener noreferrer">Инструкция по Telegram <span aria-hidden="true">↗</span></a></div>
+              <div class="settings-heading"><small>Сообщения клиентам</small><h3>Telegram и связь с мастером</h3><p>Выберите нужные события и при желании добавьте кнопку для связи с вами.</p><a class="settings-help-link" href="help/article.html?slug=telegram" target="_blank" rel="noopener noreferrer">Инструкция по Telegram <span aria-hidden="true">↗</span></a></div>
               <div data-contextual-help data-help-slug="telegram" data-help-question="Объясни подключение Telegram, виды сообщений клиентам, username мастера и причины недоставки."></div>
               <form id="telegramClientSettingsForm" class="telegram-client-settings-form" novalidate>
                 <p class="telegram-client-explainer"><strong>Как это работает</strong><span>Бот пишет только клиентам, которые сами подключили Telegram после записи. Ваш номер телефона клиентам не показывается.</span></p>
@@ -1269,6 +1246,35 @@
                 </div>
               </div>
             </section>
+            <section class="panel settings-card app-navigation-settings-card" id="appNavigationSettingsCard">
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-grid"></use></svg></div>
+              <div class="settings-heading"><small>Интерфейс приложения</small><h3>Навигация на телефоне</h3><p>Выберите быстрые разделы для каждой роли. Редкий порядок остальных пунктов скрыт ниже.</p><a class="settings-help-link" href="help/article.html?slug=mobile-navigation" target="_blank" rel="noopener noreferrer">Как настроить панель <span aria-hidden="true">↗</span></a></div>
+              <form id="providerNavigationForm" class="provider-navigation-form">
+                <fieldset class="booking-card-settings motion-settings">
+                  <legend>Переходы</legend>
+                  <div class="booking-card-options">
+                    <label class="settings-check"><input id="iosTransitionsEnabled" type="checkbox"><span><strong>Плавная смена разделов</strong><small>Учитывает системную настройку «Уменьшение движения».</small></span></label>
+                  </div>
+                </fieldset>
+                <fieldset class="booking-card-settings mobile-navigation-settings">
+                  <legend>Быстрые разделы</legend>
+                  <label>Настройки для роли<select id="providerPreferenceRole"><option value="owner">Владелец</option><option value="admin">Администратор</option><option value="specialist">Сотрудник</option></select></label>
+                  <p>Четыре выбранных раздела будут постоянно видны в нижней панели.</p>
+                  <div class="mobile-navigation-options">
+                    <label><span>Первая вкладка</span><select id="mobileNavSlot1" data-mobile-nav-slot></select></label>
+                    <label><span>Вторая вкладка</span><select id="mobileNavSlot2" data-mobile-nav-slot></select></label>
+                    <label><span>Третья вкладка</span><select id="mobileNavSlot3" data-mobile-nav-slot></select></label>
+                    <label><span>Четвёртая вкладка</span><select id="mobileNavSlot4" data-mobile-nav-slot></select></label>
+                  </div>
+                  <div class="mobile-navigation-preview" id="mobileNavigationPreview" aria-label="Предварительный вид нижней панели"></div>
+                  <details class="navigation-order-disclosure">
+                    <summary>Дополнительно: порядок в меню «Разделы»</summary>
+                    <p>Стрелки меняют только порядок пунктов внутри меню «Разделы».</p>
+                    <div class="role-view-order" id="providerRoleViewOrder" aria-label="Порядок пунктов меню Разделы"></div>
+                  </details>
+                </fieldset>
+              </form>
+            </section>
             <section class="panel settings-card booking-rules-card provider-section-anchor" id="bookingRulesCard">
               <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></div>
               <div class="settings-heading"><small>Правила онлайн-записи</small><h3>Записи, перерывы и предоплата</h3><p>Правила применяются к новым записям. Перед сохранением проверьте примеры ниже — они показывают последствия для клиента и расписания.</p><div class="settings-heading-actions"><a class="settings-help-link" href="help/article.html?slug=booking-rules" target="_blank" rel="noopener noreferrer">Подробная инструкция <span aria-hidden="true">↗</span></a><a class="settings-client-preview-link" href="index.html" target="_blank" rel="noopener noreferrer">Посмотреть глазами клиента <span aria-hidden="true">↗</span></a></div></div>
@@ -1306,16 +1312,21 @@
                     <p class="password-hint">Можно использовать <code>{code}</code> и <code>{amount}</code>. Автоматическую проверку оплаты подключим после выбора платёжного сервиса.</p>
                   </div>
                 </div>
-                <label class="settings-check booking-buffer-setting"><input id="bookingBufferEnabled" type="checkbox"><span><strong>Перерыв до и после каждой записи</strong><small>Свободные окна рядом с визитом будут закрыты автоматически. В начале или конце рабочего дня перерыв добавится только с доступной стороны.</small></span></label>
-                <div class="booking-buffer-duration" id="bookingBufferDuration" hidden>
-                  <label><span>Длительность перерыва</span><span class="field-with-unit"><input id="bookingBufferMinutes" type="number" min="1" max="1440" step="1" inputmode="numeric" value="60"><small>минут</small></span></label>
-                  <div class="booking-buffer-presets" aria-label="Быстрый выбор длительности перерыва"><button type="button" data-booking-buffer-minutes="15">15 мин</button><button type="button" data-booking-buffer-minutes="30">30 мин</button><button type="button" data-booking-buffer-minutes="60">1 час</button><button type="button" data-booking-buffer-minutes="120">2 часа</button><button type="button" data-booking-buffer-minutes="1440">Весь день</button></div>
-                  <small>Можно указать любое точное время от 1 минуты до 24 часов.</small>
-                </div>
-                <label class="settings-check auto-complete-setting"><input id="autoCompleteVisits" type="checkbox"><span><strong>Автоматически отмечать завершённые визиты</strong><small>Прошедшие записи будут учитываться в статистике как состоявшиеся. Неявку можно отметить вручную.</small></span></label>
-                <p class="settings-effect-note"><strong>Важно:</strong> изменение правил не переписывает существующие записи. Автозавершение влияет на статистику, поэтому неявки нужно отмечать вручную.</p>
+                <details class="booking-advanced-settings">
+                  <summary>Дополнительно: перерывы и автозавершение</summary>
+                  <div class="booking-advanced-settings-body">
+                    <label class="settings-check booking-buffer-setting"><input id="bookingBufferEnabled" type="checkbox"><span><strong>Перерыв до и после каждой записи</strong><small>Свободные окна рядом с визитом будут закрыты автоматически.</small></span></label>
+                    <div class="booking-buffer-duration" id="bookingBufferDuration" hidden>
+                      <label><span>Длительность перерыва</span><span class="field-with-unit"><input id="bookingBufferMinutes" type="number" min="1" max="1440" step="1" inputmode="numeric" value="60"><small>минут</small></span></label>
+                      <div class="booking-buffer-presets" aria-label="Быстрый выбор длительности перерыва"><button type="button" data-booking-buffer-minutes="15">15 мин</button><button type="button" data-booking-buffer-minutes="30">30 мин</button><button type="button" data-booking-buffer-minutes="60">1 час</button><button type="button" data-booking-buffer-minutes="120">2 часа</button><button type="button" data-booking-buffer-minutes="1440">Весь день</button></div>
+                      <small>Можно указать точное время от 1 минуты до 24 часов.</small>
+                    </div>
+                    <label class="settings-check auto-complete-setting"><input id="autoCompleteVisits" type="checkbox"><span><strong>Автоматически отмечать завершённые визиты</strong><small>Прошедшие записи попадут в статистику как состоявшиеся.</small></span></label>
+                    <p class="settings-effect-note"><strong>Важно:</strong> существующие записи не изменятся. Неявки отмечайте вручную.</p>
+                  </div>
+                </details>
                 <p class="form-error" id="bookingPolicyError" hidden></p>
-                <button class="primary" type="submit">Сохранить автоматизацию</button>
+                <button class="primary" type="submit">Сохранить правила</button>
               </form>
             </section>
             <section class="panel settings-card team-calendar-settings-card" id="teamCalendarSettingsCard" hidden>
@@ -1330,12 +1341,40 @@
               <div data-contextual-help data-help-slug="settings-group-sessions" data-help-question="Объясни разницу между групповым сеансом, пакетной записью и серией и что изменится после включения."></div>
               <label class="settings-check group-booking-toggle"><input id="groupBookingsEnabled" type="checkbox" data-group-booking-write aria-describedby="groupBookingPurpose groupBookingsSettingNote"><span><strong>Включить групповые сеансы</strong><small>После включения появятся управление событиями и запись клиентов по количеству мест.</small></span></label>
             </section>
-            <section class="panel settings-card data-governance-card" id="dataGovernanceCard"><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Данные и документы</small><h3>Управление данными</h3><p>Сроки хранения, выгрузка и запросы на удаление в одном месте.</p></div><div data-contextual-help data-help-slug="data-governance" data-help-danger="true" data-help-question="Объясни сроки хранения, предварительную проверку очистки, выгрузку и последствия удаления данных. Ничего не удаляй."></div><div class="data-governance-grid"><label>Отменённые записи, месяцев<input id="bookingRetentionMonths" type="number" min="1" max="120" value="36"></label><label>События посещений, дней<input id="visitorRetentionDays" type="number" min="1" max="90" value="7"></label><label>Журнал доступа, месяцев<input id="auditRetentionMonths" type="number" min="1" max="60" value="12"></label><label>Срок отмены удаления, дней<input id="deletionGraceDays" type="number" min="1" max="30" value="7"></label></div><div class="data-governance-actions owner-only-data-action"><button type="button" class="primary" id="saveDataGovernanceBtn">Сохранить сроки</button><button type="button" class="secondary-button" id="exportOrganizationDataBtn">Скачать данные</button><button type="button" class="secondary-button" id="previewPrivacyCleanupBtn">Проверить очистку</button><button type="button" class="secondary-button" id="runPrivacyCleanupBtn">Очистить по срокам</button></div><p id="dataGovernanceStatus" class="settings-hint" aria-live="polite">Настройки загружаются после выбора организации.</p><details class="data-governance-details"><summary>Запросы на удаление</summary><p>Запрос можно отменить до даты исполнения. Это защищает от случайной потери данных.</p><div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" data-data-request="account_deletion">Удалить мой аккаунт</button><button type="button" class="danger-button" data-data-request="organization_deletion">Удалить организацию</button></div><div id="dataGovernanceRequests"></div></details><p class="settings-hint">Документы: <a href="privacy.html" target="_blank" rel="noopener">политика конфиденциальности</a> и <a href="terms.html" target="_blank" rel="noopener">условия использования</a>.</p></section>
+            <section class="panel settings-card data-governance-card" id="dataGovernanceCard">
+              <div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div>
+              <div class="settings-heading"><small>Данные и конфиденциальность</small><h3>Выгрузка и хранение</h3><p>Скачивание данных доступно сразу. Редкие и опасные действия отделены ниже.</p></div>
+              <div data-contextual-help data-help-slug="data-governance" data-help-danger="true" data-help-question="Объясни сроки хранения, предварительную проверку очистки, выгрузку и последствия удаления данных. Ничего не удаляй."></div>
+              <div class="data-primary-actions owner-only-data-action"><button type="button" class="secondary-button" id="exportOrganizationDataBtn">Скачать данные организации</button></div>
+              <p id="dataGovernanceStatus" class="settings-hint" aria-live="polite">Настройки загружаются после выбора организации.</p>
+              <details class="data-governance-details">
+                <summary>Дополнительно: сроки хранения</summary>
+                <div class="data-governance-grid"><label>Отменённые записи, месяцев<input id="bookingRetentionMonths" type="number" min="1" max="120" value="36"></label><label>События посещений, дней<input id="visitorRetentionDays" type="number" min="1" max="90" value="7"></label><label>Журнал доступа, месяцев<input id="auditRetentionMonths" type="number" min="1" max="60" value="12"></label><label>Срок отмены удаления, дней<input id="deletionGraceDays" type="number" min="1" max="30" value="7"></label></div>
+                <div class="data-governance-actions owner-only-data-action"><button type="button" class="primary" id="saveDataGovernanceBtn">Сохранить сроки</button></div>
+              </details>
+              <details class="data-governance-details data-danger-zone">
+                <summary>Опасная зона: очистка и удаление</summary>
+                <p>Сначала проверьте состав данных. Очистка и удаление не запускаются без отдельного подтверждения.</p>
+                <div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" id="previewPrivacyCleanupBtn">Показать, что будет удалено</button><button type="button" class="danger-button" id="runPrivacyCleanupBtn">Очистить данные по срокам</button></div>
+                <div class="data-delete-requests"><strong>Запросы на удаление</strong><p>Запрос можно отменить до даты исполнения.</p><div class="data-governance-actions owner-only-data-action"><button type="button" class="secondary-button" data-data-request="account_deletion">Удалить мой аккаунт</button><button type="button" class="danger-button" data-data-request="organization_deletion">Удалить организацию</button></div><div id="dataGovernanceRequests"></div></div>
+              </details>
+              <p class="settings-hint">Документы: <a href="privacy.html" target="_blank" rel="noopener">политика конфиденциальности</a> и <a href="terms.html" target="_blank" rel="noopener">условия использования</a>.</p>
+            </section>
             <span class="provider-section-marker" id="accountSettingsCard" aria-hidden="true"></span>
-            <details class="panel settings-card account-settings-card">
-              <summary><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Аккаунт исполнителя</small><h3>Способы входа</h3><p>Пароль и подтверждённый телефон для резервного входа.</p></div></summary>
+            <details class="panel settings-card account-settings-card" open>
+              <summary><div class="settings-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></div><div class="settings-heading"><small>Безопасность аккаунта</small><h3>Пароль и способы входа</h3><p>Смена пароля доступна сразу. Остальные способы показаны только при необходимости.</p></div></summary>
               <div data-contextual-help data-help-slug="account-security" data-help-question="Объясни безопасную смену пароля, резервный вход по телефону и что делать при потере доступа."></div>
-              <div class="security-recommendation"><strong>Рекомендуемая защита</strong><p>Сохраните рабочий пароль и привяжите телефон. Тогда у вас будет второй способ входа, если один из них окажется недоступен.</p><a class="settings-help-link" href="help/article.html?slug=account-security" target="_blank" rel="noopener noreferrer">Инструкция по безопасности <span aria-hidden="true">↗</span></a></div>
+              <div class="security-recommendation"><strong>Защита аккаунта</strong><p>Используйте уникальный пароль длиной не менее 8 символов.</p><a class="settings-help-link" href="help/article.html?slug=account-security" target="_blank" rel="noopener noreferrer">Инструкция по безопасности <span aria-hidden="true">↗</span></a></div>
+              <form id="passwordForm" class="password-form">
+                <label>Текущий пароль<input id="currentPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Введите текущий пароль" required></label>
+                <label>Новый пароль<input id="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required></label>
+                <label>Повторите новый пароль<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Введите новый пароль ещё раз" required></label>
+                <p class="password-hint">Если текущий пароль забыт, выйдите из кабинета и выберите «Забыли пароль?» на экране входа.</p>
+                <p class="form-error" id="passwordError" hidden></p>
+                <button class="primary" type="submit">Сохранить новый пароль</button>
+              </form>
+              <details class="security-more-methods">
+                <summary>Дополнительно: другие способы входа</summary>
               <section class="provider-social-link" aria-labelledby="providerSocialLinkTitle">
                 <div><strong id="providerSocialLinkTitle">Внешние аккаунты</strong><p>Привяжите их один раз, чтобы затем входить без пароля. Недоступная кнопка означает, что этот способ входа ещё не подключён администратором Minuta.</p></div>
                 <div class="social-auth-link-list" id="providerSocialLinkList">
@@ -1357,15 +1396,9 @@
                   <button class="secondary-button" id="providerPhoneLinkSubmit" type="submit" disabled>Проверяем SMS…</button>
                 </form>
               </section>
-              <form id="passwordForm" class="password-form">
-                <label>Текущий пароль<input id="currentPassword" type="password" autocomplete="current-password" minlength="6" placeholder="Введите текущий пароль" required></label>
-                <label>Новый пароль<input id="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Минимум 8 символов" required></label>
-                <label>Повторите новый пароль<input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Введите новый пароль ещё раз" required></label>
-                <p class="password-hint">Пароль должен содержать не менее 8 символов. Если текущий пароль забыт, выйдите из кабинета и выберите «Забыли пароль?» на экране входа.</p>
-                <p class="form-error" id="passwordError" hidden></p>
-                <button class="primary" type="submit">Сохранить новый пароль</button>
-              </form>
+              </details>
             </details>
+          </div>
           </div>
         </section>
 

@@ -1,32 +1,78 @@
-.settings-nav-scroll-shell { display:contents; }
-.settings-nav-scroll-arrow { display:none; }
+.provider-body [data-provider-panel="settings"] .settings-workspace {
+  display:grid;
+  grid-template-columns:190px minmax(0,960px);
+  gap:18px;
+  align-items:start;
+  margin-top:14px;
+}
+.provider-body [data-provider-panel="settings"] .settings-nav-scroll-shell { display:contents; }
+.provider-body [data-provider-panel="settings"] .settings-section-picker { display:none; }
+.provider-body [data-provider-panel="settings"] .provider-section-nav {
+  position:sticky;
+  top:10px;
+  z-index:10;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  margin:0;
+  padding:6px;
+  overflow:visible;
+  border-radius:14px;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+.provider-body [data-provider-panel="settings"] .provider-section-nav button {
+  width:100%;
+  min-height:42px;
+  padding:9px 11px;
+  border-radius:9px;
+  white-space:normal;
+  text-align:left;
+}
+.provider-body [data-provider-panel="settings"] .settings-layout {
+  width:100%;
+  max-width:960px;
+  margin:0;
+}
 @media(max-width:760px) {
-  .provider-body .settings-nav-scroll-shell { display:block; position:sticky; top:6px; z-index:12; margin:10px 0; min-width:0; }
-  .provider-body .settings-nav-scroll-shell.has-overflow {
+  .provider-body [data-provider-panel="settings"] .settings-workspace {
+    grid-template-columns:minmax(0,1fr);
+    gap:8px;
+    margin-top:8px;
+  }
+  .provider-body [data-provider-panel="settings"] .settings-nav-scroll-shell {
+    display:block;
+    position:sticky;
+    top:6px;
+    z-index:12;
+    min-width:0;
+  }
+  .provider-body [data-provider-panel="settings"] .settings-section-picker {
     display:grid;
-    grid-template-columns:38px minmax(0,1fr) 38px;
-    align-items:stretch;
-    overflow:hidden;
-    border:1px solid color-mix(in srgb,var(--theme-line,#dce7df) 62%,transparent);
-    border-radius:12px;
+    gap:5px;
+    padding:9px 11px;
+    border:1px solid color-mix(in srgb,var(--theme-line,#dce7df) 70%,transparent);
+    border-radius:13px;
     background:var(--theme-surface,#fff);
+    box-shadow:0 8px 24px color-mix(in srgb,var(--theme-shadow,rgba(24,52,39,.14)) 22%,transparent);
   }
-  .provider-body .settings-nav-scroll-shell>.provider-section-nav { position:relative!important; z-index:0!important; top:auto!important; margin:0!important; scrollbar-width:none; }
-  .provider-body .settings-nav-scroll-shell.has-overflow>.provider-section-nav {
-    grid-column:2;
-    grid-row:1;
-    padding:5px 0!important;
-    border:0!important;
-    border-radius:0!important;
-    background:transparent!important;
-    box-shadow:none!important;
-    backdrop-filter:none!important;
-    scroll-padding-inline:8px;
+  .provider-body [data-provider-panel="settings"] .settings-section-picker>span {
+    color:var(--theme-muted,#66786e);
+    font-size:8px;
+    font-weight:850;
+    letter-spacing:.08em;
+    text-transform:uppercase;
   }
-  .settings-nav-scroll-shell>.provider-section-nav::-webkit-scrollbar { display:none; }
-  .provider-body .settings-nav-scroll-shell>.settings-nav-scroll-arrow { display:flex; grid-row:1; position:static; z-index:1; align-items:center; justify-content:center; width:38px; min-width:38px; min-height:44px; padding:0; border:0!important; border-radius:0!important; background:var(--theme-surface,#fff)!important; box-shadow:none!important; color:var(--theme-ink,#173b2a)!important; cursor:pointer; font:400 25px/1 system-ui; }
-  .provider-body .settings-nav-scroll-arrow.is-prev { grid-column:1; border-right:1px solid color-mix(in srgb,var(--theme-line,#dce7df) 44%,transparent)!important; }
-  .provider-body .settings-nav-scroll-arrow.is-next { grid-column:3; border-left:1px solid color-mix(in srgb,var(--theme-line,#dce7df) 44%,transparent)!important; }
-  .provider-body .settings-nav-scroll-shell.has-overflow>.settings-nav-scroll-arrow[hidden] { display:flex!important; visibility:hidden; pointer-events:none; }
-  .provider-body .settings-nav-scroll-arrow:focus-visible { outline:2px solid var(--theme-accent,#235b40)!important; outline-offset:-4px; }
+  .provider-body [data-provider-panel="settings"] .settings-section-picker select {
+    width:100%;
+    min-height:44px;
+    margin:0;
+    padding:0 38px 0 11px;
+    border:1px solid var(--theme-line,#dce7df);
+    border-radius:10px;
+    background-color:var(--theme-surface-alt,#f7faf8);
+    color:var(--theme-ink,#173b2a);
+    font:800 14px/1.2 inherit;
+  }
+  .provider-body [data-provider-panel="settings"] .settings-nav-scroll-shell>.provider-section-nav { display:none!important; }
 }

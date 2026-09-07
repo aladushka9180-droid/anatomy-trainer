@@ -226,13 +226,15 @@ const DEFAULT_MOBILE_NAV_BY_ROLE = Object.freeze({
   admin:Object.freeze(['bookings','notifications','clients','schedule']),
   specialist:Object.freeze(['bookings','schedule','clients','notifications'])
 });
-const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v1';
+const PROVIDER_SECTION_STORAGE_PREFIX = 'minuta-provider-subsection-v2';
 const providerSectionMobileQuery = window.matchMedia('(max-width: 760px)');
 const PROVIDER_SECTION_COMPANIONS = Object.freeze({
   organizationPeopleSection:['invitationsPanel', 'organizationAuditPanel'],
   benefitsPanel:['loyaltyPanel', 'retentionPanel'],
   telegramClientSettingsCard:['visitorAlertSettingsCard'],
-  bookingRulesCard:['teamCalendarSettingsCard', 'groupBookingSettingsCard']
+  bookingRulesCard:['batchBookingSettingsCard', 'teamCalendarSettingsCard', 'groupBookingSettingsCard'],
+  installAppCard:['appNavigationSettingsCard'],
+  accountSettingsCard:['dataGovernanceCard']
 });
 const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', capsule:'lavender', editorial:'warm', bento:'graphite' });
 const VISIT_WINDOW_DAYS = 30;
@@ -1555,10 +1557,14 @@ function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
   const filter = PROVIDER_THEME_FILTER_KEYS.includes(nextFilter) ? nextFilter : 'featured';
   providerThemeFilter = filter;
   const options = [...form.querySelectorAll('.provider-theme-option')];
+  const featuredOptions = options.filter(option => String(option.dataset.themeGroups || '').split(/\s+/).includes('featured'));
+  const selectedFeatured = featuredOptions.find(option => option.querySelector('input')?.checked);
+  const recommendedOptions = featuredOptions.slice(0, 4);
+  if (selectedFeatured && !recommendedOptions.includes(selectedFeatured)) recommendedOptions.splice(-1, 1, selectedFeatured);
   let visibleCount = 0;
   options.forEach(option => {
     const groups = String(option.dataset.themeGroups || '').split(/\s+/).filter(Boolean);
-    const visible = filter === 'all' || groups.includes(filter);
+    const visible = filter === 'featured' ? recommendedOptions.includes(option) : filter === 'all' || groups.includes(filter);
     option.hidden = !visible;
     if (visible) visibleCount += 1;
   });
@@ -1569,7 +1575,7 @@ function applyProviderThemeFilter(nextFilter, { focus = false } = {}) {
     if (active && focus) button.focus();
   });
   const status = $('#providerThemeFilterStatus');
-  if (status) status.textContent = filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
+  if (status) status.textContent = filter === 'featured' ? `Рекомендуемые темы · ${visibleCount}` : filter === 'all' ? `Все темы · ${visibleCount}` : `Показано тем: ${visibleCount}`;
 }
 function renderDisplayPreferencesForm() {
   const form = $('#providerDisplayForm');
@@ -4803,9 +4809,12 @@ function refreshSectionNavigation() {
 function scrollToProviderSection(button) {
   const target = document.getElementById(button?.dataset.sectionTarget || '');
   if (!target || target.hidden) return;
-  const nav = button.closest('.provider-section-nav') || $('.provider-section-nav');
+  const nav = button.closest('.provider-section-nav')
+    || target.closest('[data-provider-panel]')?.querySelector('.provider-section-nav')
+    || $('.provider-section-nav');
   const navigationButton = [...(nav?.querySelectorAll('[data-section-target]') || [])]
-    .find(item => item.dataset.sectionTarget === button.dataset.sectionTarget) || button;
+    .find(item => item.dataset.sectionTarget === button.dataset.sectionTarget
+      || (PROVIDER_SECTION_COMPANIONS[item.dataset.sectionTarget] || []).includes(button.dataset.sectionTarget)) || button;
   rememberProviderSection(navigationButton);
   nav?.querySelectorAll('[data-section-target]').forEach(item => {
     const active = item === navigationButton;
@@ -12498,7 +12507,7 @@ $('#visitorNotificationTestButton').addEventListener('click', testVisitorSystemN
 $('#telegramClientSettingsForm').addEventListener('submit', saveTelegramClientSettings);
 document.addEventListener('pointerdown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); }, { passive:true });
 document.addEventListener('keydown', () => { if (bookingPolicy.visitor_notifications_enabled) void unlockVisitorNotificationSound(); });
-$('#providerDisplayForm').addEventListener('click', event => {
+function handleDisplayPreferencesClick(event) {
   const move = event.target.closest('[data-move-role-view]');
   if (move) {
     const row=move.closest('[data-role-view-order]');
@@ -12509,11 +12518,15 @@ $('#providerDisplayForm').addEventListener('click', event => {
   const button = event.target.closest('[data-provider-theme-filter]');
   if (!button) return;
   applyProviderThemeFilter(button.dataset.providerThemeFilter, { focus:true });
-});
-$('#providerDisplayForm').addEventListener('change', event => {
+}
+function handleDisplayPreferencesChange(event) {
   if(event.target.id==='providerPreferenceRole'){renderDisplayPreferencesForm();return;}
   saveDisplayPreferences();
-});
+}
+$('#providerDisplayForm').addEventListener('click', handleDisplayPreferencesClick);
+$('#providerDisplayForm').addEventListener('change', handleDisplayPreferencesChange);
+$('#providerNavigationForm')?.addEventListener('click', handleDisplayPreferencesClick);
+$('#providerNavigationForm')?.addEventListener('change', handleDisplayPreferencesChange);
 $('.report-view-tabs')?.addEventListener('keydown', event => {
   const current = event.target.closest('[data-report-view]');
   if (!current || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;

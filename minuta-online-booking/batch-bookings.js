@@ -95,7 +95,7 @@
       $('#batchBookingsEnabled').checked = enabled;
       $('#batchBookingsEnabled').disabled = loading || workspace?.current_role !== 'owner';
       $('#batchBookingsMaxItems').value = String(workspace?.max_items || 12);
-      $('#batchBookingsMaxItems').disabled = loading || workspace?.current_role !== 'owner';
+      $('#batchBookingsMaxItems').disabled = loading || workspace?.current_role !== 'owner' || !enabled;
       const saveStatus = $('#batchBookingSaveStatus');
       if (saveStatus) saveStatus.textContent = loading ? 'Загружаем настройки…'
         : workspace?.current_role !== 'owner' ? 'Изменять настройки может только владелец'
@@ -188,7 +188,7 @@
         p_max_items:Number(maxItemsInput.value)
       });
       enabledInput.disabled = false;
-      maxItemsInput.disabled = false;
+      maxItemsInput.disabled = !enabledInput.checked;
       if (error) {
         if (saveStatus) saveStatus.textContent = 'Не удалось сохранить — повторите изменение';
         notify('Не удалось сохранить пакетные записи');
@@ -270,7 +270,11 @@
       if (bound) return;
       bound = true;
       $('#batchBookingSettingsForm')?.addEventListener('submit',saveSettings);
-      $('#batchBookingsEnabled')?.addEventListener('change',scheduleSettingsSave);
+      $('#batchBookingsEnabled')?.addEventListener('change',event=>{
+        const limit=$('#batchBookingsMaxItems');
+        if(limit) limit.disabled=event.target.disabled||!event.target.checked;
+        scheduleSettingsSave();
+      });
       $('#batchBookingsMaxItems')?.addEventListener('change',scheduleSettingsSave);
       $('#addBatchBookingRow')?.addEventListener('click',addRow);
       $('#batchBookingRows')?.addEventListener('click',event => {
