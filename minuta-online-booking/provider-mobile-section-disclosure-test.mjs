@@ -48,7 +48,7 @@ assert.match(source, /function refreshProviderSectionDisclosure\(nav\)[\s\S]*con
 assert.match(source, /organizationPeopleSection:\['invitationsPanel', 'organizationAuditPanel'\]/, 'приглашения и журнал должны оставаться в подразделе команды');
 assert.match(source, /benefitsPanel:\['loyaltyPanel', 'retentionPanel'\]/, 'лояльность и возврат клиентов должны оставаться в клиентском подразделе');
 assert.match(source, /telegramClientSettingsCard:\['visitorAlertSettingsCard'\]/, 'Telegram и системные уведомления должны оставаться в одном подразделе');
-assert.match(source, /bookingRulesCard:\['teamCalendarSettingsCard', 'groupBookingSettingsCard'\]/, 'настройки команды и групповые записи должны оставаться рядом с правилами записи');
+assert.match(source, /bookingRulesCard:\['batchBookingSettingsCard', 'teamCalendarSettingsCard', 'groupBookingSettingsCard'\]/, 'режимы записи и календарь команды должны оставаться рядом с правилами записи');
 assert.match(source, /element\.style\.display = 'none';[\s\S]*element\.setAttribute\('aria-hidden', 'true'\);[\s\S]*element\.setAttribute\('inert', ''\)/, 'неактивный мобильный подраздел должен быть скрыт и исключён из фокуса');
 assert.doesNotMatch(source, /if \(!providerSectionMobileQuery\.matches\) \{[\s\S]*restoreProviderSectionDisclosure\(nav\)/, 'компьютер не должен возвращаться к длинной странице со всеми подразделами');
 assert.match(source, /if \(nav\) refreshProviderSectionDisclosure\(nav\)/, 'выбор кнопки должен сразу переключать подраздел на любой ширине');
