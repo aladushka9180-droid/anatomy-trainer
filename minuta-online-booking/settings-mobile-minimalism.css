@@ -134,7 +134,7 @@
   }
 
   .provider-body [data-provider-panel="settings"] .settings-layout>.settings-card,
-  .provider-body [data-provider-panel="settings"] .provider-section-marker { scroll-margin-top:106px; }
+  .provider-body [data-provider-panel="settings"] .provider-section-marker { scroll-margin-top:112px; }
 
   .provider-body [data-provider-panel="settings"] .client-appearance-selection { order:1; }
   .provider-body [data-provider-panel="settings"] .client-appearance-preview-shell { order:2; }
