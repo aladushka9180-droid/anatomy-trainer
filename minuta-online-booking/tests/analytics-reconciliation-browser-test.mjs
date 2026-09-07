@@ -38,7 +38,7 @@ const script=`
   ${moduleSource}
   ${names.map(declaration).join('\n')}
   // The production UX initializer inserts this report node dynamically.
-  ${source.slice(source.indexOf("  const evidence = document.createElement('p');"),source.indexOf('  // Secondary starter commands'))}
+  ${source.slice(source.indexOf("  const evidence = document.createElement('details');"),source.indexOf('  // Secondary starter commands'))}
 `;
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
