@@ -114,7 +114,7 @@ const cases=[
   ['SAFETY committed adjustment with network error must not claim nothing changed',async page=>{
     const first=await committedReply(page,'lost');const text=[first.error,...first.notices].join(' ');
     assert.doesNotMatch(text,/изменение не сохранено|корректировка не (?:сохранена|добавлена)|ничего не измен/i,'Transport failure does not prove adjustment rollback; no cash payment is claimed');
-    assert.match(text,/подтверд|проверь|неопредел|свер/i,'Explain uncertain result or reconciliation');
+    assert.match(text,/подтверж|проверь|неопредел|свер/i,`Explain uncertain result or reconciliation: ${text}`);
   }],
   ['SAFETY organization-only ACK must not claim confirmed adjustment',async page=>{
     const first=await committedReply(page,'partial');
