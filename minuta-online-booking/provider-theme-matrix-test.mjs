@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, goldenCheetahAsset, snowLeopardMobileAsset] = await Promise.all([
+const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noirSafariCss, pearlZebraAsset, goldenCheetahAsset, snowLeopardMobileAsset, leopardPremiumAsset] = await Promise.all([
   readFile(path.join(directory, 'styles.css'), 'utf8'),
   readFile(path.join(directory, 'provider-themes-signature.css'), 'utf8'),
   readFile(path.join(directory, 'provider.js'), 'utf8'),
@@ -16,6 +16,7 @@ const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noi
   readFile(path.join(directory, 'provider-pearl-zebra-smooth-4k-v4.webp')),
   readFile(path.join(directory, 'provider-golden-cheetah-canvas-v1.svg'), 'utf8'),
   readFile(path.join(directory, 'provider-snow-leopard-mobile-v1.png')),
+  readFile(path.join(directory, 'provider-leopard-premium-bg.webp')),
 ]);
 const css = `${baseCss}\n${signatureCss}\n${wildlifeCss}\n${noirSafariCss}`;
 
@@ -139,11 +140,12 @@ assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not s
 assert.doesNotMatch(pearlZebraBackground, /repeating-radial-gradient/, 'Pearl Zebra must use the approved natural stripe artwork');
 
 const goldenCheetahBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="golden-cheetah"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(goldenCheetahBackground, /url\("provider-golden-cheetah-canvas-v1\.svg\?v=573"\)/);
-assert.match(goldenCheetahBackground, /background-size:100% 100%,cover!important/);
-assert.match(goldenCheetahBackground, /background-repeat:no-repeat!important/);
-assert.match(goldenCheetahBackground, /background-attachment:fixed!important/);
-assert.doesNotMatch(goldenCheetahBackground, /background-repeat:repeat|205px 205px|wildlife-spots/, 'Golden Cheetah must not use a repeated dot tile');
+assert.match(goldenCheetahBackground, /url\("provider-leopard-premium-bg\.webp\?v=573"\)/);
+assert.match(goldenCheetahBackground, /background-size:100% 100%,100% 100%,520px auto!important/);
+assert.equal(leopardPremiumAsset.toString('ascii', 0, 4), 'RIFF', 'Leopard Premium must be a WebP asset');
+assert.match(goldenCheetahBackground, /background-repeat:no-repeat,no-repeat,repeat!important/);
+assert.match(goldenCheetahBackground, /background-attachment:fixed,fixed,fixed!important/);
+assert.doesNotMatch(goldenCheetahBackground, /205px 205px|wildlife-spots/, 'Golden Cheetah must not use the old dot tile');
 
 const noirSafariBackground = noirSafariCss.match(/\.provider-body\[data-provider-theme="noir-safari"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
 assert.match(noirSafariBackground, /background-image:linear-gradient\(rgba\(5,4,3,\.08\),rgba\(5,4,3,\.08\)\),var\(--atmosphere-background\)!important/);

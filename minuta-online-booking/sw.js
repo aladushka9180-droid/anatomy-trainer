@@ -24,6 +24,7 @@ const ASSETS = [
   './provider-header.css?v=573',
   './client-themes.css?v=573',
   './provider-themes-wildlife.css?v=573',
+  './provider-leopard-premium-bg.webp?v=573',
   './settings-nav-scroll.css?v=573',
   './settings-smart-search.css?v=573',
   './contextual-help.css?v=573',
