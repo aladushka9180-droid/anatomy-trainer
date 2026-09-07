@@ -43,7 +43,10 @@ assert.doesNotMatch(controller, /localStorage|sessionStorage|indexedDB/i, 'tenan
 assert.match(controller, /sessionIsCurrent[\s\S]*organization_id/i, 'controller must reject stale and cross-organization responses');
 assert.match(controller, /typeof options\.getCurrentUser === 'function' \? options\.getCurrentUser : \(\) => null/, 'missing session accessor must fail closed without crashing the organization workspace');
 assert.match(controller, /absence_has_bookings[\s\S]*Сначала замените специалиста/i, 'unsafe absence changes need a clear explanation');
-assert.match(provider, /window\.MinutaShifts\.createController\(\{[\s\S]*getCurrentUser:\s*\(\) => currentUser[\s\S]*shiftController\.setOrganization/i, 'provider must pass the live session accessor and scope shifts to the active organization');
+assert.match(provider, /'shiftsPanel',[^\n]*api:\(\) => window\.MinutaShifts/i, 'provider must register the lazy shift controller');
+assert.match(provider, /function organizationFeatureOptions\(\)[\s\S]*getCurrentUser:\s*\(\) => currentUser/i, 'provider must pass the live session accessor to lazy organization controllers');
+assert.match(provider, /api\.createController\(organizationFeatureOptions\(\)\)/i, 'provider must construct lazy organization controllers with live scope accessors');
+assert.match(provider, /controller\.setOrganization\(organization\)/i, 'provider must scope a lazy controller to the active organization');
 assert.match(html, /id="shiftsPanel"[\s\S]*id="shiftForm"[\s\S]*id="absenceForm"[\s\S]*id="substitutionForm"/i, 'organization UI must expose all v71 workflows');
 assert.match(app, /get_public_minuta_catalog_v4[\s\S]*get_public_minuta_catalog_v3/i, 'public catalog must fall back safely when v71 is absent');
 assert.match(app, /get_public_minuta_available_slots_v4[\s\S]*get_public_minuta_available_slots_v3/i, 'public slots must fall back safely when v71 is absent');

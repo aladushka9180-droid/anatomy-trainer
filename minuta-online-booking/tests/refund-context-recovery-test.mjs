@@ -133,7 +133,7 @@ async function harness() {
     'renderOfflineBookingQueue', 'setSyncState', 'renderTopbarDateTime', 'renderDateStrip', 'renderNotificationTemplates',
     'renderBookingPolicyForm', 'renderVisitorNotificationForm', 'loadClientAppearanceSettings', 'flushOfflineBookings', 'startLiveUpdates',
     'setProviderView', 'syncScheduleContextHistory', 'renderReportDataSourceControl', 'updateProviderClientLinks',
-    'loadBookingSettings', 'renderWaitlist', 'loadWaitlist']) ctx[name] = noOp;
+    'loadBookingSettings', 'renderWaitlist', 'loadWaitlist', 'prepareOrganizationFeatures']) ctx[name] = noOp;
   function payload(organization) {
     assert.ok([orgA, orgB].includes(organization));
     return { organization_id: organization, current_role: 'owner', settings: { enabled: true, environment: 'test' },
