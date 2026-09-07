@@ -42,7 +42,9 @@ assert.match(app, /Date\.now\(\) - savedAt <= VISITOR_FIRST_SOURCE_TTL/, 'first-
 assert.match(app, /VISITOR_PRESENCE_OPT_OUT_KEY[\s\S]*visitorPresenceAllowed\(\)/, 'booking page must honor visitor-presence opt-out');
 assert.match(provider, /const organizationId = organizationController\?\.getActiveOrganization\?\.\(\)\?\.id \|\| ''[\s\S]*if \(!organizationId\) return \{ data:\[\], error:null \}[\s\S]*booking_page_visits'[\s\S]*query = query\.eq\('organization_id', organizationId\)[\s\S]*fallback = fallback\.eq\('organization_id', organizationId\)/i, 'provider presence feed must stay inside the active organization');
 assert.match(provider, /onActiveOrganizationChange:[\s\S]*clientOrganizationChanged[\s\S]*void loadBookingSettings\(\)/i, 'presence feed must reload after the active organization changes');
-assert.match(privacy, /идентификатор текущей вкладки отдельно для каждой организации[\s\S]*не дольше 90 дней[\s\S]*не дольше 7 дней[\s\S]*оба значения совпали[\s\S]*Отключить учёт посещений/i, 'privacy page must disclose scope, retention, identity matching and opt-out');
+for (const disclosure of [/идентификатор текущей вкладки отдельно для каждой организации/i, /не дольше 90 дней/i, /не дольше 7 дней/i, /оба значения совпали/i, /Отключить учёт посещений/i]) {
+  assert.match(privacy, disclosure, 'privacy page must disclose scope, retention, identity matching and opt-out');
+}
 
 assert.equal((workflow.match(/-f minuta-online-booking\/supabase-migration-v105\.sql/g) || []).length, 3, 'workflow must apply v105 twice in test and once in production');
 assert.match(workflow, /node --check minuta-online-booking\/visitor-presence-v105-static-test\.mjs[\s\S]*node minuta-online-booking\/visitor-presence-v105-static-test\.mjs/, 'workflow must syntax-check and run the v105 static test');
