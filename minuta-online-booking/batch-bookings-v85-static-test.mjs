@@ -53,7 +53,8 @@ assert.match(provider, /batchBookingsController\.setOrganization\(organization\)
 assert.match(provider, /batchBookingsController\?\.setClient\(client\)/, 'composer must follow the selected client');
 assert.match(html, /id="batchBookingRows"/, 'provider UI must contain the row composer');
 assert.match(html, /id="batchBookingSettingsCard" hidden/, 'settings UI must start hidden until RPC support is confirmed');
-assert.match(html, /id="batchBookingSettingsNav"[^>]+hidden/, 'settings navigation must stay hidden until RPC support is confirmed');
+assert.doesNotMatch(html, /id="batchBookingSettingsNav"/, 'batch bookings should not duplicate the main settings navigation');
+assert.match(provider, /bookingRulesCard:\['batchBookingSettingsCard'/, 'batch bookings must be grouped under online booking settings');
 assert.doesNotMatch(html, /id="batchBookingSettingsSubmit"/, 'minimal settings must not require a separate save button');
 assert.match(html, /id="batchBookingSaveStatus"[^>]*aria-live="polite"/, 'automatic saving must expose a readable status');
 assert.match(styles, /\.batch-booking-toggle>input \{[^}]*appearance:none;[^}]*width:44px!important;[^}]*border-radius:999px;/, 'batch setting must use a compact switch');
