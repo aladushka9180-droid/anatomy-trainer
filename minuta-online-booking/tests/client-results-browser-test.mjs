@@ -192,7 +192,15 @@ try {
         scrollWidth: document.documentElement.scrollWidth,
         boxes,
         resultColumns: getComputedStyle(document.querySelector('.client-result-grid')).gridTemplateColumns,
-        editorColumns: getComputedStyle(document.querySelector('.booking-visit-result-grid')).gridTemplateColumns
+        editorColumns: getComputedStyle(document.querySelector('.booking-visit-result-grid')).gridTemplateColumns,
+        mobileResultInsets: [
+          document.querySelector('.booking-result-description>summary'),
+          document.querySelector('.booking-result-private-consent'),
+          document.querySelector('.booking-result-more>summary')
+        ].map(element => ({
+          left: Number.parseFloat(getComputedStyle(element).paddingInlineStart),
+          right: Number.parseFloat(getComputedStyle(element).paddingInlineEnd)
+        }))
       };
     });
     assert.ok(metrics.scrollWidth <= metrics.clientWidth, `${width}px has no document-level horizontal overflow`);
@@ -202,6 +210,10 @@ try {
     if (width <= 760) {
       assert.equal(metrics.resultColumns.split(' ').length, 1, `${width}px result fields use one column`);
       assert.equal(metrics.editorColumns.split(' ').length, 1, `${width}px editor uses one column`);
+      metrics.mobileResultInsets.forEach(inset => {
+        assert.equal(inset.left, 10, `${width}px result controls share a 10px left inset`);
+        assert.equal(inset.right, 10, `${width}px result controls share a 10px right inset`);
+      });
     } else {
       assert.equal(metrics.resultColumns.split(' ').length, 2, 'Desktop result fields use two columns');
       assert.equal(metrics.editorColumns.split(' ').length, 2, 'Desktop editor uses two columns');
