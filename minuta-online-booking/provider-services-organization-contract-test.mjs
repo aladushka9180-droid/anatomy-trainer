@@ -18,7 +18,7 @@ for (const target of ['organizationOverviewSection','organizationPeopleSection',
   assert.match(html, new RegExp(`<option value="${target}">`), `В мобильном выборе отсутствует ${target}`);
   assert.match(html, new RegExp(`data-section-target="${target}"`), `В desktop-навигации отсутствует ${target}`);
 }
-assert.match(provider, /function syncProviderSectionSelector[\s\S]*option\.disabled = !button \|\| button\.hidden;[\s\S]*selector\.value = current\.dataset\.sectionTarget;/, 'Скрытые и выбранный подразделы не синхронизируются с select');
+assert.match(provider, /function syncProviderSectionSelector[\s\S]*const unavailable = !button \|\| button\.hidden;[\s\S]*if \(option\.disabled !== unavailable\) option\.disabled = unavailable;[\s\S]*if \(option\.hidden !== unavailable\) option\.hidden = unavailable;[\s\S]*selector\.value = current\.dataset\.sectionTarget;/, 'Скрытые подразделы должны синхронизироваться без бесконечного цикла MutationObserver');
 assert.match(provider, /data-provider-section-selector[\s\S]*scrollToProviderSection\(button\)/, 'Выбор select не использует единый путь сохранения и раскрытия подраздела');
 
 assert.match(ux, /@media\(max-width:760px\)[\s\S]*organization-section-selector[\s\S]*min-height:44px[\s\S]*organization-workspace>.provider-section-nav \{ display:none!important; \}/, 'На 760px select должен заменить горизонтальные вкладки');
