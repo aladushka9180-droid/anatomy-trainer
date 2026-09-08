@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 const sql=readFileSync(new URL('../supabase-migration-v123.sql',import.meta.url),'utf8');
-const rollback=readFileSync(new URL('../supabase-migration-v123-rollback.sql',import.meta.url),'utf8');
+const rollback=readFileSync(new URL('../supabase-migration-v123-rollback.sql',import.meta.url),'utf8').replace(/\r\n/g,'\n');
 const old=readFileSync(new URL('../supabase-migration-v79.sql',import.meta.url),'utf8');
 
 test('production baseline is pinned before any DDL; no unconditional draft bypass',()=>{

@@ -46,7 +46,7 @@ function portfolioFixture(mode) {
   const item={id:'item',updated_at:'2026-09-08T10:00:00Z',sort_order:10,photos:[{photo_type:'before',storage_path:'old-before'},{photo_type:'after',storage_path:'old-after'}]};
   const form={dataset:{}},button={disabled:false};
   const box=context(['savePortfolioItem'],{
-    requireWrites:()=>true,portfolioRemoteAvailable:true,clearFormError(){},$:id=>fields[id],portfolioItems:[item],portfolioPhotoDrafts:{before:{},after:{}},currentUser:{id:'owner'},
+    requireWrites:()=>true,portfolioRemoteAvailable:true,clearFormError(){},$:id=>fields[id],portfolioItems:[item],portfolioPhotoDrafts:{before:{},after:{}},currentUser:{id:'owner'},sessionGeneration:1,sessionIsCurrent:()=>true,portfolioEditorRevision:0,
     showFormError:(_id,m)=>errors.push(m),notify:m=>notices.push(m),
     savePortfolioPhoto:async(_item,type)=>{if(mode==='second-upload'&&type==='after')throw Error('upload');return{photo_type:type,storage_path:`new-${type}`};},
     removePortfolioStorage:async paths=>{removed.push([...paths]);return mode!=='cleanup-fail';},
