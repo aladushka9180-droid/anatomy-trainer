@@ -19,6 +19,16 @@ function between(start, end, includeEnd = false) {
   const to = providerSource.indexOf(end, from); assert.notEqual(to, -1, end);
   return providerSource.slice(from, to + (includeEnd ? end.length : 0));
 }
+function declaration(name) {
+  const start = providerSource.search(new RegExp(`^(?:async )?function ${name}\\(`, 'm'));
+  assert.ok(start >= 0, `Missing actual function: ${name}`);
+  const lineEnd = providerSource.indexOf('\n', start);
+  const end = providerSource.slice(start, lineEnd).endsWith('}')
+    ? lineEnd
+    : providerSource.indexOf('\n}', start) + 2;
+  assert.ok(end > start, `Missing actual function end: ${name}`);
+  return providerSource.slice(start, end);
+}
 const construction = between('const paymentController = ', 'paymentController.bind();', true);
 const sessionFunction = between('async function handleSession(session) {', 'async function providerAccessAllowed(');
 const orgBlock = between('onActiveOrganizationChange: organization => {', '\n  }\n});\norganizationController.bind();');
@@ -28,6 +38,14 @@ const lifecycleDeclarations = ['bookingSeriesCancellationRevision', 'bookingEdit
   assert.ok(declaration, `Missing actual lifecycle declaration: ${name}`);
   return declaration;
 }).join('\n');
+const scheduleNameDeclarations = ['serviceScheduleNames', 'serviceScheduleNamesUpdatedAt', 'serviceScheduleNamesPending'].map(name => {
+  const declarationSource = providerSource.match(new RegExp(`^let ${name} = [^;]+;`, 'm'))?.[0];
+  assert.ok(declarationSource, `Missing actual service schedule name declaration: ${name}`);
+  return declarationSource;
+}).join('\n');
+const scheduleNameFunctions = ['serviceScheduleNamesStorageKey', 'normalizeServiceScheduleNames', 'restoreServiceScheduleNames', 'persistLocalServiceScheduleNames']
+  .map(declaration)
+  .join('\n');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const actorA = id(1), actorB = id(2), orgA = id(10), orgB = id(11), attemptA = id(20), attemptB = id(21);
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -126,6 +144,7 @@ async function harness({ digestTicks = 0 } = {}) {
     },
     freeSlotsController: { invalidateScope() {} }, REPORT_DEMO_SLUG: 'fixture-demo',
   };
+  ctx.localStorage = ctx.window.localStorage;
   for (const name of ['teamCalendarController', 'groupBookingsController', 'notificationCenterController', 'providerFeedbackController',
     'clientFieldsController', 'clientRecordsController', 'clientResultsController', 'clientImportController', 'organizationController', 'resourceController', 'shiftController',
     'payrollController', 'benefitController', 'loyaltyController', 'inventoryController', 'retentionController',
@@ -172,7 +191,7 @@ async function harness({ digestTicks = 0 } = {}) {
   ctx.window.MinutaPayments.createController = options => {
     optionsKeys = Object.keys(options).sort(); return actualCreate(options);
   };
-  runInContext(`${lifecycleDeclarations}\n${construction}\n${sessionFunction}\nvar onOrgChange = ${orgCallback};`, vm, { filename: 'actual-provider-excerpts.js' });
+  runInContext(`${lifecycleDeclarations}\n${scheduleNameDeclarations}\n${scheduleNameFunctions}\n${construction}\n${sessionFunction}\nvar onOrgChange = ${orgCallback};`, vm, { filename: 'actual-provider-excerpts.js' });
   const controller = runInContext('paymentController', vm);
   async function switchOrg(organization, role = 'owner') {
     ctx.onOrgChange({ id: organization, current_role: role, public_slug: `fixture-${organization}` });
