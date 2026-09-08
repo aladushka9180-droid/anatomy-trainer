@@ -289,7 +289,7 @@ assert.match(providerHtml, /id="browserInstallGuide"[\s\S]*HTTPS/, 'Нет об�
 assert.equal(providerManifest.start_url, './provider.html', 'Установленное приложение открывает не кабинет');
 assert.equal(providerManifest.display, 'standalone', 'Кабинет не запускается как отдельное приложение');
 for (const icon of ['provider-icon-192.png', 'provider-icon-512.png', 'provider-icon-maskable-512.png']) {
-  assert.ok(providerManifest.icons.some(item => item.src === icon), `В манифесте нет иконки ${icon}`);
+  assert.ok(providerManifest.icons.some(item => item.src === `${icon}?v=${version}`), `В манифесте нет версионированной иконки ${icon}`);
   assert.ok(existsSync(join(root, icon)), `Отсутствует иконка приложения ${icon}`);
 }
 assert.match(provider, /beforeinstallprompt/, 'Браузерное предложение установки не сохраняется');
