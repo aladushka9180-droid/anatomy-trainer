@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -40,6 +40,7 @@ function snapshot(read, requiredModules = modules) {
     if (!files.has(relative)) files.set(relative, read(relative));
   }
   for (const module of [...modules, 'report-reconciliation.js']) if (!files.has(module)) files.set(module, read(module));
+  for(const page of ['index.html','booking.html','my-bookings.html','waitlist.html']) if(!files.has(page)) files.set(page,read(page));
   for (const module of requiredModules) assert.ok(assets.includes(`./${module}?v=${version}`), `${module} missing from cache manifest`);
   return { version, files, assets, cache:`${cachePrefix}v${version}` };
 }
@@ -54,7 +55,7 @@ assert.ok(!newRelease.assets.includes(`./retention-management.js?v=${newRelease.
 assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have a new cache version');
 
 function shell(version, route) {
-  return `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Isolated PWA update</title>
+  return `<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Isolated PWA update</title><link rel="manifest" href="./provider.webmanifest?v=${version}">
     <body data-release="${version}" data-route="${route}"><h1>Isolated resource update</h1>
     ${[...executableModules, ...(version === newRelease.version ? ['report-reconciliation.js'] : [])].map(module => `<script src="./${module}?v=${version}"></script>`).join('\n')}</body></html>`;
 }
@@ -82,10 +83,10 @@ const server = createServer((request, response) => {
       response.writeHead(503, { 'Cache-Control':'no-store' }).end('Simulated incomplete release'); return;
     }
     // Inert navigation shells prevent auth/bootstrap and user-data requests. Worker/assets remain real bytes.
-    const content = relative.endsWith('.html') ? Buffer.from(shell(phase.version,relative)) : phase.files.get(relative);
+    const content = relative.endsWith('.html') && relative!=='offline.html' ? Buffer.from(shell(phase.version,relative)) : phase.files.get(relative);
     response.writeHead(200, { 'Content-Type':mime[extname(relative)] || 'application/octet-stream',
       'Cache-Control':'no-store', 'Service-Worker-Allowed':prefix,
-      'Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'" });
+      'Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self'; object-src 'none'; base-uri 'none'" });
     response.end(request.method === 'HEAD' ? undefined : content);
   } catch (error) {
     serverErrors.push(error.message);
@@ -100,6 +101,9 @@ try {
   const { chromium, devices } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
   browser = await chromium.launch({ headless:true,
     ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
+  const target = `${origin}${prefix}provider.html`;
+  const retryOnly = process.env.MINUTA_PWA_RETRY_ONLY === '1';
+  if (!retryOnly) {
   const device = process.env.MINUTA_PWA_DEVICE ? devices[process.env.MINUTA_PWA_DEVICE] : {};
   assert.ok(device, 'Unknown Playwright device profile');
   const context = await browser.newContext({ ...device, serviceWorkers:'allow' });
@@ -113,7 +117,6 @@ try {
   const page = await context.newPage();
   page.setDefaultTimeout(30000);
   page.on('pageerror', error => pageErrors.push(error.message));
-  const target = `${origin}${prefix}provider.html`;
   await page.goto(target);
   await page.evaluate(async ({ prefix, version }) => {
     await navigator.serviceWorker.register(`${prefix}sw.js?v=${version}`, { scope:prefix, updateViaCache:'none' });
@@ -222,12 +225,39 @@ try {
   assert.deepEqual(serverErrors, []);
   console.log('PASS: offline new resources match checkout SHA-256 and are served by the actual service worker');
   console.log('Isolated real-SW resource update: 4/4 passed; installed-PWA and production E2E not exercised');
-  if(process.env.MINUTA_PWA_AUDIT_COLD_ROUTES) {
-    for(const route of ['my-bookings.html','booking.html','index.html']) {
-      await page.goto(`${origin}${prefix}${route}`);
-      console.log(`COLD_OFFLINE_DIAGNOSTIC requested=${route} served=${await page.locator('body').getAttribute('data-route')}`);
-    }
+  } else {
+    phase = newRelease;
   }
+  assert.ok(newRelease.assets.includes('./offline.html'),'Neutral offline page must be part of the atomic precache');
+  const coldProfiles=[...[390,760,1440].map(width=>({name:String(width),viewport:{width,height:900}})),...['iPhone 13','Pixel 7'].map(name=>({...devices[name],name}))];
+  const retryFailures=[];
+  for(const {name,...profile} of coldProfiles) {
+    const coldContext=await browser.newContext({...profile,serviceWorkers:'allow'});
+    await coldContext.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());
+    const coldPage=await coldContext.newPage();await coldPage.goto(target);
+    await coldPage.evaluate(async ({prefix,version})=>{await navigator.serviceWorker.register(`${prefix}sw.js?v=${version}`,{scope:prefix,updateViaCache:'none'});await navigator.serviceWorker.ready;},{prefix,version:newRelease.version});
+    await coldPage.waitForFunction(()=>!!navigator.serviceWorker.controller);
+    const cdp=await coldContext.newCDPSession(coldPage);const installability=await cdp.send('Page.getInstallabilityErrors');
+    assert.deepEqual(installability.installabilityErrors.filter(error=>error.errorId!=='in-incognito'),[],'No candidate installability blockers other than isolated context');
+    await coldContext.setOffline(true);
+    for(const route of retryOnly ? ['booking.html'] : ['my-bookings.html','booking.html','index.html','waitlist.html']) {
+      const requested=`${origin}${prefix}${route}?audit=cold#token=11111111-1111-4111-8111-111111111111`;
+      const response=await coldPage.goto(requested);assert.equal(response.fromServiceWorker(),true);
+      assert.equal(await coldPage.locator('h1').innerText(),'Нет соединения');
+      assert.equal(await coldPage.locator('#authCard').count(),0,'Must not substitute provider login');
+      assert.equal(await coldPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      const retry=coldPage.getByRole('button',{name:'Повторить'});assert.ok((await retry.boundingBox()).height>=44);
+      if(route==='booking.html') {
+        if(process.env.MINUTA_AUDIT_SCREENSHOTS){mkdirSync(process.env.MINUTA_AUDIT_SCREENSHOTS,{recursive:true});await coldPage.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOTS,`cold-offline-${name.replaceAll(' ','-')}.png`),scale:'css',fullPage:true});}
+        await Promise.all([coldPage.waitForEvent('load'), retry.click()]);
+        assert.equal(await coldPage.locator('h1').innerText(),'Нет соединения');
+        if(coldPage.url()!==requested) retryFailures.push(`${name}: retry changed original URL fragment`);
+      }
+    }
+    console.log(`PASS ${retryOnly ? 'offline Retry preserves original query and token' : 'cold offline neutral page and installability contract'}: ${name}`);
+    await coldContext.close();
+  }
+  assert.deepEqual(retryFailures,[],'Retry must preserve private management fragments');
 } finally {
   try { if (browser) await browser.close(); }
   finally {

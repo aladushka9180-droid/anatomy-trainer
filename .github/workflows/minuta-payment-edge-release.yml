@@ -1,0 +1,67 @@
+name: Minuta payment Edge release
+run-name: Minuta payment Edge - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character main commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter DEPLOY_PAYMENT_EDGE
+        required: true
+        type: string
+
+permissions: { contents: read }
+concurrency:
+  group: minuta-production-edge-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin production target
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test "$CONFIRMATION" = DEPLOY_PAYMENT_EDGE
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$PROJECT_REF"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 24 }
+      - name: Verify handlers without external side effects
+        run: node --test minuta-online-booking/tests/payment-edge-integration-test.mjs
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with: { version: 2.117.0 }
+      - name: Deploy payment handlers only
+        run: |
+          set -euo pipefail
+          supabase functions deploy yookassa-create-payment --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy yookassa-refund --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy payment-webhook --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+      - name: Verify deployed routes without a payment request
+        run: |
+          set -euo pipefail
+          for function_name in yookassa-create-payment yookassa-refund payment-webhook; do
+            status="$(curl --silent --show-error --output "$RUNNER_TEMP/$function_name.json" --write-out '%{http_code}' "https://$PROJECT_REF.supabase.co/functions/v1/$function_name")"
+            test "$status" = 405
+            jq -e '.error == "method_not_allowed"' "$RUNNER_TEMP/$function_name.json" >/dev/null
+          done

@@ -1,0 +1,89 @@
+name: Minuta v123 schema audit
+run-name: Minuta v123 schema audit - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character main commit SHA
+        required: true
+        type: string
+
+permissions: { contents: read }
+concurrency:
+  group: minuta-production-database
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin read-only production target
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_REF" = refs/heads/main
+          test -n "$SUPABASE_DB_URL"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$PROJECT_REF"* ]]
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Extract schema-only evidence
+        run: |
+          set -euo pipefail
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          mkdir -p "$RUNNER_TEMP/v123-schema"
+          psql "$db" -X -qAt -v ON_ERROR_STOP=1 > "$RUNNER_TEMP/v123-schema/functions.sql" <<'SQL'
+          select '-- '||p.oid::regprocedure||E'\n'||pg_get_functiondef(p.oid)
+          from pg_proc p
+          join pg_namespace n on n.oid=p.pronamespace
+          where n.nspname='public'
+            and (p.proname in ('get_available_slots','get_available_slots_v101','book_appointment','provider_book_appointment','manage_minuta_booking_series','minuta_slot_respects_booking_buffer')
+              or p.oid in (select trigger.tgfoid from pg_trigger trigger where trigger.tgrelid in
+                ('public.bookings'::regclass,'public.services'::regclass,'public.provider_schedule'::regclass,'public.provider_days_off'::regclass)))
+          order by p.proname,pg_get_function_identity_arguments(p.oid);
+          SQL
+          psql "$db" -X --csv -q -v ON_ERROR_STOP=1 > "$RUNNER_TEMP/v123-schema/columns.csv" <<'SQL'
+          select table_name,column_name,data_type,udt_name,is_nullable,column_default
+          from information_schema.columns
+          where table_schema='public' and table_name in
+            ('bookings','services','provider_schedule','provider_days_off','organizations','organization_memberships','locations','notification_outbox','booking_outcomes')
+          order by table_name,ordinal_position;
+          SQL
+          psql "$db" -X -qAt -v ON_ERROR_STOP=1 > "$RUNNER_TEMP/v123-schema/guards.sql" <<'SQL'
+          select '-- constraint '||conrelid::regclass||'.'||conname||E'\n'||pg_get_constraintdef(oid,true)
+          from pg_constraint
+          where connamespace='public'::regnamespace
+            and conrelid in ('public.bookings'::regclass,'public.services'::regclass,'public.provider_schedule'::regclass,'public.provider_days_off'::regclass)
+          order by conrelid::regclass::text,conname;
+          select '-- trigger '||event_object_table||'.'||trigger_name||E'\n'||action_statement
+          from information_schema.triggers
+          where trigger_schema='public' and event_object_table in ('bookings','services','provider_schedule','provider_days_off')
+          order by event_object_table,trigger_name;
+          select '-- index '||schemaname||'.'||tablename||'.'||indexname||E'\n'||indexdef
+          from pg_indexes
+          where schemaname='public' and tablename in ('bookings','services','provider_schedule','provider_days_off')
+          order by tablename,indexname;
+          SQL
+          test -s "$RUNNER_TEMP/v123-schema/functions.sql"
+          test -s "$RUNNER_TEMP/v123-schema/columns.csv"
+          test -s "$RUNNER_TEMP/v123-schema/guards.sql"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: v123-schema-${{ github.run_id }}
+          path: ${{ runner.temp }}/v123-schema
+          if-no-files-found: error
+          retention-days: 7
