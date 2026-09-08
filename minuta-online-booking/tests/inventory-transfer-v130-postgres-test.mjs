@@ -57,6 +57,23 @@ const awaitBlocked = async (observer,pid) => {
 let fixtureCreated = false;
 
 try {
+  const orphanState = (await admin.query(`select
+    to_regclass('public.organization_inventory_transfer_settings') is not null settings,
+    to_regclass('public.inventory_cost_layers') is not null cost_layers,
+    to_regclass('public.inventory_transfer_documents') is not null documents,
+    to_regclass('public.inventory_movement_cost_snapshots') is not null snapshots,
+    to_regclass('public.inventory_cost_allocations') is not null allocations`)).rows[0];
+  if (!orphanState.settings && orphanState.cost_layers) {
+    if (orphanState.documents || orphanState.snapshots || orphanState.allocations) {
+      throw Error('v130_orphan_cost_schema_not_isolated');
+    }
+    const orphanRows = Number((await admin.query('select count(*)::bigint count from public.inventory_cost_layers')).rows[0].count);
+    if (orphanRows !== 0) throw Error('v130_orphan_cost_schema_not_empty');
+    // The guarded test database can contain an empty table left by an older,
+    // never-published D09 rehearsal. Drop only that exact empty orphan (never
+    // CASCADE); the canonical migration recreates it in the same test run.
+    await admin.query('drop table public.inventory_cost_layers');
+  }
   if ((await admin.query("select to_regclass('public.organization_inventory_transfer_settings') is not null present")).rows[0].present) {
     await admin.query(schemaRollback);
   }
