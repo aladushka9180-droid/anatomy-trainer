@@ -125,6 +125,7 @@ try {
           heatHint:document.querySelector('#reportHeatmapLegend small')?.textContent?.trim() || '',
           trendOverflow:trend.getBoundingClientRect().right > innerWidth + 2,
           chartHeight:Math.round(chart.getBoundingClientRect().height),
+          defaultChartOverflow:chart.scrollWidth > chart.clientWidth + 1,
           chartTracksTransparent:chartTracks.every(element => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'),
           trendDetailOverflow:trendDetail.getBoundingClientRect().right > trend.getBoundingClientRect().right + 2,
           trendActionTooWide:innerWidth > 760 && trendAction.getBoundingClientRect().width > trendDetail.getBoundingClientRect().width * .5,
@@ -132,7 +133,7 @@ try {
         };
       });
       const expectedChartHeight = width <= 760 ? 168 : 210;
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow) {
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow) {
         failures.push({ width, theme, ...metrics });
       }
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });

@@ -8946,17 +8946,18 @@ html.provider-booting .provider-main {
 
 @media (max-width:760px) {
   .report-trend .report-chart {
-    gap:8px;
+    gap:6px;
     height:168px;
     min-height:168px;
     overflow-x:auto;
     overflow-y:hidden;
     padding:4px 2px 5px;
     scroll-snap-type:x proximity;
-    scrollbar-width:thin;
+    scrollbar-width:none;
   }
+  .report-trend .report-chart::-webkit-scrollbar { display:none; }
   .report-trend .report-chart::before { inset:31px 2px 31px; }
-  .report-trend .report-chart-column { flex:1 0 78px; grid-template-rows:24px 1fr minmax(30px,auto); }
+  .report-trend .report-chart-column { flex:1 0 56px; grid-template-rows:24px 1fr minmax(30px,auto); }
   .report-trend .report-chart-column small { white-space:normal; }
   .report-trend-detail { align-items:stretch; flex-direction:column; gap:10px; }
   .report-trend-open { width:100%; }
