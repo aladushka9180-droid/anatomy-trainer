@@ -313,18 +313,26 @@
   }
 
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line {
-    display:grid!important;
-    grid-template-columns:minmax(0,1fr);
-    align-items:start!important;
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    justify-content:space-between;
     gap:8px!important;
   }
 
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line h2 {
+    min-width:0;
+    font-size:clamp(28px,8.6vw,38px)!important;
+    line-height:1!important;
     white-space:nowrap;
   }
 
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line .dashboard-summary {
+    width:auto!important;
+    flex:0 0 auto;
     margin:0;
+    padding:6px 8px!important;
+    gap:7px!important;
     background:var(--theme-surface-alt)!important;
   }
 

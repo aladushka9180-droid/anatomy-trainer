@@ -13,7 +13,7 @@ assert.match(provider, /id="dataGovernanceCard" data-owner="false"/);
 assert.match(provider, /id="exportBookingsExcelBtn"/);
 assert.match(provider, /id="fullDataExportDialog"/);
 assert.match(provider, /id="fullDataExportConfirm"/);
-assert.match(provider, /data-governance\.js\?v=584/);
+assert.match(provider, /data-governance\.js\?v=585/);
 assert.match(controller, /MAX_REPORT_DAYS = 31/);
 assert.match(controller, /application\/zip/);
 assert.match(controller, /requireOwner/);
