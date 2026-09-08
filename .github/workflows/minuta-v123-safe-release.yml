@@ -1,0 +1,249 @@
+name: Minuta v123 safe release
+run-name: Minuta v123 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Safe release phase for v123
+        required: true
+        default: test-v123
+        type: choice
+        options: [test-v123, validate-production-v123, apply-production-v123, observe-production-v123]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful test-v123 run ID, required: false, default: "", type: string }
+      validation_run_id: { description: Successful validation run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter APPLY_V123_TO_PRODUCTION for apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: ${{ inputs.phase == 'test-v123' && 'minuta-test-database' || 'minuta-production-database' }}
+  cancel-in-progress: false
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact main commit and phase
+        env: { SHA: "${{ inputs.commit_sha }}", PHASE: "${{ inputs.phase }}", CONFIRM: "${{ inputs.confirmation }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$SHA" = "$GITHUB_SHA" && test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-v123|validate-production-v123|observe-production-v123) ;;
+            apply-production-v123) test "$CONFIRM" = APPLY_V123_TO_PRODUCTION ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: node --test minuta-online-booking/tests/booking-concurrency-v123-draft-test.mjs
+      - name: Prepare exact read-only contracts without materializing webhook secrets
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v123-contract"
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          const sql=readFileSync('minuta-online-booking/supabase-migration-v123.sql','utf8').replaceAll('\r','');
+          const guard=sql.match(/do \$guard\$[\s\S]*?end \$guard\$;/)?.[0];
+          assert.ok(guard,'Missing pinned migration guard');
+          const mutation="  execute 'drop trigger new_booking_telegram on public.bookings';\n  execute definition;";
+          assert.equal(guard.split(mutation).length,2,'Unexpected guard DDL contract');
+          const readonly=guard.replace(mutation,'  null; -- read-only validation; production DDL is forbidden here');
+          assert.doesNotMatch(readonly,/\bexecute\s+(?:'|definition\b)/i);
+          const clean="select not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('minuta_block_slot_valid_v123','get_provider_block_slots_v123','create_provider_block_v123','manage_minuta_booking_series_v123_core','manage_minuta_booking_series_v123')) as clean \\gset\n\\if :clean\n\\else\n\\quit 1\n\\endif\n";
+          const dir=join(process.env.RUNNER_TEMP,'v123-contract');
+          writeFileSync(join(dir,'validate.sql'),"\\set ON_ERROR_STOP on\n"+readonly+'\n'+clean);
+          writeFileSync(join(dir,'observe.sql'),`select json_build_object(
+            'rpc',to_regprocedure('public.create_provider_block_v123(uuid,uuid,uuid,date,time,integer,uuid,text,text)') is not null and to_regprocedure('public.get_provider_block_slots_v123(uuid,uuid,uuid,date,integer)') is not null and to_regprocedure('public.manage_minuta_booking_series_v123(uuid,text,text,date,time,date,time)') is not null,
+            'acl',not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('minuta_block_slot_valid_v123','get_provider_block_slots_v123','create_provider_block_v123','manage_minuta_booking_series_v123_core','manage_minuta_booking_series_v123') and (not p.prosecdef or has_function_privilege('anon',p.oid,'EXECUTE') or (p.proname in ('minuta_block_slot_valid_v123','manage_minuta_booking_series_v123_core') and has_function_privilege('authenticated',p.oid,'EXECUTE')))),
+            'wrapper',md5(replace((select prosrc from pg_proc where oid='public.manage_minuta_booking_series(uuid,text,text,date,time)'::regprocedure),E'\\r',''))=md5(E'\\n select public.manage_minuta_booking_series_v123_core(p_booking,p_action,p_scope,p_date,p_time,null,null);\\n'),
+            'webhook',exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='new_booking_telegram' and tgenabled='O' and position(' WHEN ((new.client_phone <> ''0000000000''::text)) EXECUTE FUNCTION ' in pg_get_triggerdef(oid))>0)
+          );\n`);
+          JS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v123-contract-${{ github.run_id }}", path: "${{ runner.temp }}/v123-contract", if-no-files-found: error, retention-days: 35 }
+
+  test-v123:
+    if: inputs.phase == 'test-v123'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Guard isolated PostgreSQL target
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+      - name: Real PostgreSQL multi-session apply, integration, rollback and reapply
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v123-test" "$RUNNER_TEMP/v123-pg"
+          npm install --prefix "$RUNNER_TEMP/v123-pg" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
+          export MINUTA_PG_MODULE="$RUNNER_TEMP/v123-pg/node_modules/pg/lib/index.js"
+          export MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          node minuta-online-booking/tests/booking-concurrency-v123-postgres-test.mjs | tee "$RUNNER_TEMP/v123-test/postgres.log"
+          jq -n --arg sha '${{ inputs.commit_sha }}' --arg run "$GITHUB_RUN_ID" '{status:"success",phase:"test-v123",commitSha:$sha,runId:$run,engine:"PostgreSQL",cycle:["apply","integration","rollback","reapply","multi-session-concurrency"],productionWritten:false}' > "$RUNNER_TEMP/v123-test/attestation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with: { name: "v123-test-${{ github.run_id }}", path: "${{ runner.temp }}/v123-test", if-no-files-found: error, retention-days: 35 }
+
+  validate-production-v123:
+    if: inputs.phase == 'validate-production-v123'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+      PGSSLMODE: require
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: { name: "v123-contract-${{ github.run_id }}", path: "${{ runner.temp }}/v123-contract" }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Read-only production baseline and clean-state validation
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/v123-contract/validate.sql"
+          jq -n --arg sha '${{ inputs.commit_sha }}' '{status:"success",phase:"validate-production-v123",commitSha:$sha,readOnly:true,schemaBaseline:true,clean:true}' > "$RUNNER_TEMP/v123-validation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v123-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v123-validation.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v123:
+    if: inputs.phase == 'apply-production-v123'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: { name: "v123-contract-${{ github.run_id }}", path: "${{ runner.temp }}/v123-contract" }
+      - name: Verify pinned test, validation, encrypted backup and current main
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}", BACKUP: "${{ inputs.backup_run_id }}", TEST: "${{ inputs.test_run_id }}", VALIDATION: "${{ inputs.validation_run_id }}" }
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$TEST" "$VALIDATION"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check() { run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"; test "$(jq -r .conclusion <<<"$run")" = success; test "$(jq -r .head_sha <<<"$run")" = "$SHA"; test "$(jq -r .head_branch <<<"$run")" = main; test "$(jq -r .event <<<"$run")" = workflow_dispatch; test "$(jq -r .path <<<"$run")" = "$2"; }
+          check "$TEST" .github/workflows/minuta-v123-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v123 - test-v123 - $SHA"
+          check "$VALIDATION" .github/workflows/minuta-v123-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v123 - validate-production-v123 - $SHA"
+          check "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          mkdir -p "$RUNNER_TEMP/v123-evidence/backup" "$RUNNER_TEMP/v123-evidence/test" "$RUNNER_TEMP/v123-evidence/validation"
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v123-test-$TEST" -D "$RUNNER_TEMP/v123-evidence/test"
+          gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v123-validation-$VALIDATION" -D "$RUNNER_TEMP/v123-evidence/validation"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="test-v123" and .commitSha==$sha and .engine=="PostgreSQL" and .productionWritten==false' "$RUNNER_TEMP/v123-evidence/test/attestation.json" >/dev/null
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="validate-production-v123" and .commitSha==$sha and .readOnly==true and .clean==true' "$RUNNER_TEMP/v123-evidence/validation/v123-validation.json" >/dev/null
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length==1' <<<"$artifacts" >/dev/null
+          artifact="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$artifacts")"
+          [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v123-evidence/backup"
+          shopt -s nullglob
+          journals=("$RUNNER_TEMP/v123-evidence/backup/"*.json)
+          encrypted=("$RUNNER_TEMP/v123-evidence/backup/"*.dump.gpg)
+          checksums=("$RUNNER_TEMP/v123-evidence/backup/"*.dump.gpg.sha256)
+          test "${#journals[@]}" = 1 && test "${#encrypted[@]}" = 1 && test "${#checksums[@]}" = 1
+          jq -e --arg run "$BACKUP" --arg repo "$GITHUB_REPOSITORY" '.operation=="backup" and .status=="success" and .workflowRunId==$run and .repository==$repo and .encryption=="OpenPGP symmetric AES-256" and .archiveFormat=="PostgreSQL custom" and .archiveEntries>0' "${journals[0]}" >/dev/null
+          test "$(sha256sum "${encrypted[0]}" | cut -d' ' -f1)" = "$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(tr -d '[:space:]' < "${checksums[0]}")" = "$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(stat -c %s "${encrypted[0]}")" = "$(jq -r .encryptedBytes "${journals[0]}")"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Repeat read-only guard, atomically apply v123 only, verify
+        env: { PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000", GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/v123-contract/validate.sql"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v123.sql
+          PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/v123-contract/observe.sql" > "$RUNNER_TEMP/v123-apply.json"
+          jq -e '.rpc and .acl and .wrapper and .webhook' "$RUNNER_TEMP/v123-apply.json" >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with: { name: "v123-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v123-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v123:
+    if: inputs.phase == 'observe-production-v123'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with: { name: "v123-contract-${{ github.run_id }}", path: "${{ runner.temp }}/v123-contract" }
+      - name: Verify exact successful apply run
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}", APPLY: "${{ inputs.apply_run_id }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA" && test "$(jq -r .head_branch <<<"$run")" = main
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v123-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v123 - apply-production-v123 - $SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe RPC, ACL, compatibility wrapper and webhook read-only
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f "$RUNNER_TEMP/v123-contract/observe.sql" > "$RUNNER_TEMP/v123-observation.json"
+          jq -e '.rpc and .acl and .wrapper and .webhook' "$RUNNER_TEMP/v123-observation.json" >/dev/null
+      - run: node minuta-online-booking/production-health-check.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: { name: "v123-observation-${{ github.run_id }}", path: "${{ runner.temp }}/v123-observation.json", if-no-files-found: error, retention-days: 90 }
