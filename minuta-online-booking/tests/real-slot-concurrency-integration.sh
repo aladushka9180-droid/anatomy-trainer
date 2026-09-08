@@ -35,8 +35,7 @@ SQL
 trap cleanup EXIT
 cleanup
 
-IFS='|' read -r slug location_id service_id target_date target_time < <(
-  psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
+slot_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
 with chosen as (
   select service.id,
          organization.public_slug,
@@ -73,12 +72,21 @@ cross join lateral public.get_available_slots(
 order by slot.booking_date, slot.booking_time
 limit 1;
 SQL
-)
+)"
 
-if [[ -z "${target_date:-}" ]]; then
+if [[ -z "$slot_row" ]]; then
   echo "No real test-project slot is available for the concurrency check" >&2
+  psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL' >&2
+select
+  (select count(*) from public.organizations where status='active' and public_booking_enabled),
+  (select count(*) from public.organization_memberships where active and is_bookable),
+  (select count(*) from public.locations where active and is_primary and timezone='Europe/Samara'),
+  (select count(*) from public.services where active),
+  (select count(*) from public.provider_schedule where enabled);
+SQL
   exit 1
 fi
+IFS='|' read -r slug location_id service_id target_date target_time <<<"$slot_row"
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v request_id="$request_one" -v slug="$slug" -v location_id="$location_id" \
