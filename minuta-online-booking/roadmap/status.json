@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T18:26:00Z",
+  "updatedAt": "2026-09-08T19:42:49Z",
   "items": {
     "D01": {
       "status": "awaiting_external",
@@ -15,14 +15,14 @@
     "D02": {
       "status": "awaiting_external",
       "evidence": {
-        "releaseSha": "77485bd4e8726f480e0afc08d9254fc2c265e701",
+        "releaseSha": "4c06863938c3bb10caeb2648c45e8a42192ab941",
         "ciRuns": {
-          "smoke": 34260711653,
-          "pages": 34260710186,
-          "notification_delivery": 34261189745
+          "smoke": 34268755938,
+          "pages": 34268754339,
+          "notification_delivery": 34269008328
         },
-        "productionHealthRunId": 34261849496,
-        "verifiedAt": "2026-09-08T18:16:00Z",
+        "productionHealthRunId": 34269923067,
+        "verifiedAt": "2026-09-08T19:36:00Z",
         "checks": {
           "confirmation_request": true,
           "consent": true,
@@ -33,8 +33,8 @@
       },
       "blocker": {
         "type": "secret",
-        "reason": "Миграция v126 применена с выключенными по умолчанию каналами, но Edge Functions не развёрнуты: в GitHub отсутствует SUPABASE_ACCESS_TOKEN. Реальные каналы и доставка также ещё не подтверждены.",
-        "requiredAction": "Безопасно добавить SUPABASE_ACCESS_TOKEN и ключи выбранных провайдеров, затем отдельно подтвердить контролируемую отправку реальных уведомлений."
+        "reason": "Миграция v128 применена и проверена в production, но новые Edge Functions не развёрнуты: в GitHub отсутствует SUPABASE_ACCESS_TOKEN. Реальная доставка на контролируемый адресат также ещё не подтверждена.",
+        "requiredAction": "Через защищённый интерфейс добавить SUPABASE_ACCESS_TOKEN и ключи выбранного провайдера, затем развернуть receipt и dispatcher и выполнить ровно одну scoped-тестовую доставку."
       }
     },
     "D03": {
