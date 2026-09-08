@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T19:42:51Z",
+  "updatedAt": "2026-09-08T21:11:00Z",
   "items": {
     "D01": {
       "status": "awaiting_external",
@@ -22,7 +22,7 @@
           "notification_delivery": 34269008328
         },
         "productionHealthRunId": 34278869046,
-        "verifiedAt": "2026-09-08T21:09:00Z",
+        "verifiedAt": "2026-09-08T21:11:00Z",
         "checks": {
           "confirmation_request": true,
           "consent": true,
