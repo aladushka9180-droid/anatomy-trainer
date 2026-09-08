@@ -21,6 +21,9 @@ cleanup() {
     wait "$first_pid" 2>/dev/null || true
   fi
   psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=0 \
+    -c 'alter table public.bookings enable trigger bookings_enqueue_created_notification' \
+    >/dev/null 2>&1 || true
+  psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=0 \
     -v request_one="$request_one" -v request_two="$request_two" \
     -v client_one="$client_one" -v client_two="$client_two" \
     -v test_performer="$test_performer" -v test_service="$test_service" \
@@ -154,6 +157,14 @@ if [[ -z "$slot_row" ]]; then
 fi
 IFS='|' read -r target_date target_time <<<"$slot_row"
 
+# The isolated test project currently has a legacy v46 notification trigger
+# whose insert no longer satisfies notification_outbox.organization_id. Keep
+# every booking/scope/concurrency trigger enabled and isolate only that known
+# delivery-schema defect while this race is running.
+psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+  -c 'alter table public.bookings disable trigger bookings_enqueue_created_notification' \
+  >/dev/null
+
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v client_id="$client_one" -v request_id="$request_one" -v slug="$slug" \
   -v location_id="$location_id" -v service_id="$test_service" \
@@ -161,7 +172,6 @@ psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v lock_key="$lock_key" >"$first_log" 2>&1 <<'SQL' &
 begin;
 select set_config('request.jwt.claim.sub', :'client_id', true);
-set local session_replication_role=replica;
 select * from public.book_minuta_appointment(
   :'request_id'::uuid, :'slug', :'location_id'::uuid, :'service_id'::uuid,
   :'booking_date'::date, :'booking_time'::time,
@@ -199,7 +209,6 @@ psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v booking_date="$target_date" -v booking_time="$target_time" >"$second_log" 2>&1 <<'SQL'
 begin;
 select set_config('request.jwt.claim.sub', :'client_id', true);
-set local session_replication_role=replica;
 select * from public.book_minuta_appointment(
   :'request_id'::uuid, :'slug', :'location_id'::uuid, :'service_id'::uuid,
   :'booking_date'::date, :'booking_time'::time,
@@ -211,6 +220,9 @@ second_status=$?
 set -e
 wait "$first_pid"
 first_pid=""
+psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+  -c 'alter table public.bookings enable trigger bookings_enqueue_created_notification' \
+  >/dev/null
 
 if [[ "$second_status" -eq 0 ]]; then
   echo "Both authenticated clients acquired the same slot" >&2
