@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T19:42:50Z",
+  "updatedAt": "2026-09-08T19:42:51Z",
   "items": {
     "D01": {
       "status": "awaiting_external",
@@ -69,14 +69,14 @@
     "D05": {
       "status": "awaiting_human",
       "evidence": {
-        "releaseSha": "59c9cfef24c43a86cc408facc395430f6ca2c857",
+        "releaseSha": "4c06863938c3bb10caeb2648c45e8a42192ab941",
         "ciRuns": {
-          "smoke": 34262193425,
-          "pages": 34262186318,
-          "production_health": 34262236879
+          "smoke": 34268755938,
+          "pages": 34268754339,
+          "production_health": 34269923067
         },
-        "productionHealthRunId": 34262236879,
-        "verifiedAt": "2026-09-08T18:26:00Z",
+        "productionHealthRunId": 34269923067,
+        "verifiedAt": "2026-09-08T19:36:00Z",
         "checks": {
           "backup_slo": true,
           "incident_runbook": true
@@ -84,8 +84,8 @@
       },
       "blocker": {
         "type": "human_decision",
-        "reason": "Read-only production snapshot работает и видит GitHub и БД, но доступно только 8 из требуемых 30 полных дней; пороги и адресаты реальной тревоги ещё не утверждены.",
-        "requiredAction": "Утвердить предложенные SLO и адресатов, выполнить одну контролируемую реальную тревогу и накопить 30 дней наблюдений."
+        "reason": "Fail-closed webhook-адаптер опубликован и выключен по умолчанию; доступны только 8 из требуемых 30 полных дней, а основной и резервный адресаты реальной тревоги не заданы.",
+        "requiredAction": "Выбрать основной и резервный HTTPS-адресат, добавить URL и HMAC-секрет через GitHub Secrets, выполнить одну контролируемую тревогу и накопить 30 дней наблюдений."
       }
     },
     "D06": { "status": "not_started", "evidence": {}, "blocker": null },
