@@ -46,9 +46,53 @@ try{
       failures.push(...errors.map(error=>({theme,layout,width,scale,error})));combinations++;
     }
   }
+  let menuCombinations=0;
+  for(const width of [320,390,760,1440]){
+    await page.setViewportSize({width,height:1000});
+    for(const layout of layouts)for(const theme of themes)for(const scale of ['default','large']){
+      await page.evaluate(({layout,theme,scale})=>{
+        document.body.dataset.providerTheme=theme;
+        document.body.dataset.providerLayout=layout;
+        document.body.dataset.providerTextScale=scale;
+        document.querySelector('#desktopAppInstallButton').hidden=false;
+        document.querySelector('.provider-topbar-tools').open=true;
+      },{layout,theme,scale});
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      const errors=await page.evaluate(()=>{
+        const errors=[];
+        const menu=document.querySelector('.provider-topbar-tools>div');
+        const summary=document.querySelector('.provider-topbar-tools>summary');
+        const menuRect=menu.getBoundingClientRect();
+        const summaryRect=summary.getBoundingClientRect();
+        const items=[...menu.querySelectorAll(':scope>:is(button,a)')];
+        const rects=items.map(item=>item.getBoundingClientRect());
+        if(items.length!==4)errors.push('wrong tool count');
+        if(menuRect.width>253||menuRect.height>107)errors.push(`large menu ${menuRect.width}x${menuRect.height}`);
+        if(menuRect.left<0||menuRect.right>innerWidth+1)errors.push('menu overflow');
+        if(Math.abs(menuRect.right-summaryRect.right)>1)errors.push('menu is not right aligned');
+        const rows=new Set(rects.map(rect=>Math.round(rect.top)));
+        const columns=new Set(rects.map(rect=>Math.round(rect.left)));
+        if(rows.size!==2||columns.size!==2)errors.push('menu is not a 2x2 grid');
+        for(let index=0;index<items.length;index++){
+          const item=items[index],rect=rects[index],label=item.querySelector('span');
+          if(rect.width<44||rect.height<44)errors.push(`small menu control ${item.id}`);
+          if(rect.left<menuRect.left||rect.right>menuRect.right||rect.top<menuRect.top||rect.bottom>menuRect.bottom)errors.push(`menu control overflow ${item.id}`);
+          if(label.scrollWidth>label.clientWidth+1)errors.push(`clipped menu label ${item.id}`);
+          if(!item.getAttribute('aria-label'))errors.push(`missing menu label ${item.id}`);
+        }
+        for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
+          const a=rects[i],b=rects[j];
+          if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)errors.push(`menu overlap ${items[i].id} ${items[j].id}`);
+        }
+        return errors;
+      });
+      failures.push(...errors.map(error=>({theme,layout,width,scale,error})));menuCombinations++;
+    }
+  }
   assert.deepEqual(failures,[]);
+  await page.evaluate(()=>{document.querySelector('.provider-topbar-tools').open=false;document.querySelector('#desktopAppInstallButton').hidden=true;});
   await page.locator('#syncState').click();await page.getByRole('dialog').waitFor({state:'visible'});
   assert.match(await page.getByRole('dialog').innerText(),/дополнительные данные сохранены/);
   assert.deepEqual(pageErrors,[],'Header matrix and dialog must not hide script errors');
-  console.log(`Header browser: ${combinations} combinations, transparent frame, 44px targets, no clipping/overlap; full status opens on click.`);
+  console.log(`Header browser: ${combinations} header combinations and ${menuCombinations} compact-menu combinations; transparent frame, 44px targets, no clipping/overlap; full status opens on click.`);
 }finally{await browser?.close();server.close();}
