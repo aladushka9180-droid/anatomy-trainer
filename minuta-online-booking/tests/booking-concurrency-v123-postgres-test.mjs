@@ -138,6 +138,7 @@ try{
    begin
     if not exists(select 1 from public.performer_profiles where id=v_actor and display_name='V123 isolated fixture') then raise exception 'v123_cleanup_identity_mismatch';end if;
     select array_agg(id) into v_orgs from public.organizations where created_by=v_actor or legacy_performer_id=v_actor;
+    update public.bookings set series_id=null,series_occurrence=null where performer_id=v_actor and series_id is not null;
     for attempts in 1..20 loop
      remaining:=0;
      for item in select c.table_name,c.column_name from information_schema.columns c join information_schema.tables t using(table_schema,table_name)
