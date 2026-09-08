@@ -17,6 +17,7 @@ assert.match(provider, /function activateClientProfileJump\(/, 'Profile navigati
 assert.match(provider, /querySelector\('\[data-cr-panel="history"\]'\)/, 'History tab opens the current records timeline when available');
 assert.match(provider, /profileOrbit\.classList\.toggle\('is-max-level', facts\.level === 4\)/, 'Maximum level enables the premium frame');
 assert.ok(html.indexOf('client-records.js') < html.indexOf('provider.js'), 'Client files controller loads before the provider initializes it');
+assert.match(provider, /matchMedia\('\(max-width:980px\)'\).*window\.scrollTo\(\{ top:0/, 'Mobile client profile opens from its beginning');
 assert.doesNotMatch(css, /repeating-conic-gradient/, 'Relationship ring no longer resembles a segmented loader');
 
 console.log('Client profile polish static checks: PASS');
