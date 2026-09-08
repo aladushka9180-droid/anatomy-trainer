@@ -73,8 +73,9 @@ for phase in pre-data data auth-placeholders post-data; do
   fi
 done
 
-stage=validate
-docker exec "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 <<'SQL' > "$result" 2>>"$private_log"
+stage=validate-query
+if ! docker exec "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 \
+  -v VERBOSITY=sqlstate <<'SQL' > "$result" 2>>"$private_log"
 select jsonb_build_object(
   'schemaVersion', 1,
   'status', 'success',
@@ -99,9 +100,15 @@ select jsonb_build_object(
 where to_regclass('public.services') is not null
   and to_regclass('public.bookings') is not null;
 SQL
+then
+  echo 'Ephemeral restore validation query failed; private database output withheld' >&2
+  sed -nE 's/^(ERROR:  [0-9A-Z]{5}):.*$/\1/p' "$private_log" >&2
+  exit 1
+fi
 
+stage=validate-contract
 test -s "$result"
-jq -e '
+if ! jq -e '
   .status == "success" and
   .publicTables > 0 and
   .publicFunctions > 0 and
@@ -111,6 +118,10 @@ jq -e '
   .networkMode == "none" and
   .productionWritten == false and
   .testDatabaseWritten == false
-' "$result" >/dev/null
+' "$result" >/dev/null; then
+  jq '{status,publicTables,publicFunctions,publicIndexes,publicForeignKeys,services,bookings,networkMode,productionWritten,testDatabaseWritten}' \
+    "$result" >&2
+  exit 1
+fi
 
 echo "Ephemeral production backup restore validated; container cleanup is armed"
