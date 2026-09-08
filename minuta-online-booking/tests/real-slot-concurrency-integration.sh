@@ -89,6 +89,23 @@ select
   (select count(*) from public.locations where active and is_primary and timezone='Europe/Samara'),
   (select count(*) from public.services where active),
   (select count(*) from public.provider_schedule where enabled);
+with chosen as (
+  select service.id, service.performer_id, service.duration_minutes
+  from public.services service
+  join public.organization_memberships membership
+    on membership.user_id=service.performer_id and membership.active and membership.is_bookable
+  join public.organizations organization
+    on organization.id=membership.organization_id and organization.status='active' and organization.public_booking_enabled
+  where service.active
+    and exists(select 1 from public.provider_schedule schedule where schedule.performer_id=service.performer_id and schedule.enabled)
+  order by service.id
+  limit 1
+)
+select current_date,current_setting('TimeZone'),chosen.duration_minutes,
+  coalesce(string_agg(schedule.weekday::text||':'||schedule.start_time::text||'-'||schedule.end_time::text,',' order by schedule.weekday),'')
+from chosen
+left join public.provider_schedule schedule on schedule.performer_id=chosen.performer_id and schedule.enabled
+group by chosen.duration_minutes;
 SQL
   exit 1
 fi
