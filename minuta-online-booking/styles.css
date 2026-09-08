@@ -149,14 +149,15 @@
 .calendar-week-now-marker,.timeline-now-marker { position:absolute; z-index:3; right:0; left:0; height:2px; background:color-mix(in srgb,var(--theme-accent,#235b40) 78%,transparent); pointer-events:none; }
 .calendar-week-now-marker::before,.timeline-now-marker::before { position:absolute; top:50%; left:-4px; width:8px; height:8px; border-radius:50%; background:var(--theme-accent,#235b40); content:""; transform:translateY(-50%); }
 .calendar-week-now-marker time,.timeline-now-marker time { position:absolute; right:7px; bottom:4px; padding:2px 5px; border:1px solid color-mix(in srgb,var(--theme-accent,#235b40) 28%,transparent); border-radius:999px; background:var(--theme-surface,#fff); color:var(--theme-accent,#235b40); font-size:8px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1; }
-.calendar-week-booking { position:absolute; z-index:2; right:5px; left:5px; display:flex; min-height:30px; overflow:hidden; flex-direction:column; align-items:flex-start; justify-content:flex-start; padding:6px 8px; border:1px solid color-mix(in srgb,var(--theme-accent,#235b40) 34%,var(--theme-line,#dce7df)); border-radius:9px; background:var(--theme-accent-soft,#edf6f0); color:var(--theme-ink,#173b2a); cursor:pointer; text-align:left; box-shadow:0 2px 7px color-mix(in srgb,var(--theme-shadow,rgba(35,57,46,.12)) 48%,transparent); }
+.calendar-week-booking { position:absolute; z-index:2; right:5px; left:5px; display:flex; min-height:30px; overflow:hidden; flex-direction:column; align-items:flex-start; justify-content:flex-start; padding:5px 8px; border:1px solid color-mix(in srgb,var(--theme-accent,#235b40) 34%,var(--theme-line,#dce7df)); border-radius:9px; background:var(--theme-accent-soft,#edf6f0); color:var(--theme-ink,#173b2a); cursor:pointer; text-align:left; box-shadow:0 2px 7px color-mix(in srgb,var(--theme-shadow,rgba(35,57,46,.12)) 48%,transparent); }
 .calendar-week-booking time,.calendar-week-booking strong,.calendar-week-booking small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.calendar-week-booking time { flex:0 0 auto; color:var(--theme-ink,#173b2a); font-size:9px; font-weight:900; }
-.calendar-week-booking strong { display:-webkit-box; margin-top:2px; overflow:hidden; font-size:11px; line-height:1.2; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
-.calendar-week-booking small { margin-top:2px; color:color-mix(in srgb,var(--theme-ink,#173b2a) 78%,var(--theme-surface,#fff)); font-size:9px; }
+.calendar-week-booking time { flex:0 0 auto; color:var(--theme-ink,#173b2a); font-size:9px; font-weight:900; line-height:1.15; }
+.calendar-week-booking strong { display:-webkit-box; flex:0 0 auto; margin-top:2px; overflow:hidden; font-size:11px; line-height:1.12; white-space:normal; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.calendar-week-booking small { flex:0 0 auto; margin-top:2px; color:color-mix(in srgb,var(--theme-ink,#173b2a) 78%,var(--theme-surface,#fff)); font-size:9px; line-height:1.15; }
 .calendar-week-booking.is-compact { justify-content:center; padding:4px 6px; }
 .calendar-week-booking.is-compact strong { display:block; margin-top:1px; text-overflow:ellipsis; white-space:nowrap; }
 .calendar-week-booking.is-compact small { display:none; }
+.provider-body:is([data-provider-text-scale="comfortable"],[data-provider-text-scale="large"]) .calendar-week-booking:not(.is-compact) strong { -webkit-line-clamp:1; }
 .calendar-week-booking { border-left:3px solid var(--calendar-week-marker,var(--theme-accent,#235b40)); }
 .calendar-week-booking.color-mint { --calendar-week-marker:#66a97d; }
 .calendar-week-booking.color-sky { --calendar-week-marker:#6097bd; }

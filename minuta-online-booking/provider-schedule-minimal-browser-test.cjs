@@ -155,7 +155,7 @@ const server = http.createServer((request, response) => {
       document.body.dataset.providerLayout = 'soft';
       document.querySelector('#dateStrip>button')?.classList.add('active');
       const fixtureStyle = document.createElement('style');
-      fixtureStyle.textContent = '#scheduleThemeFixture,#scheduleThemeFixture *{transition:none!important;animation:none!important}#scheduleThemeFixture>.timeline-view,#scheduleThemeFixture>.calendar-overview-booking,#scheduleThemeFixture>.calendar-week-booking{position:absolute!important;left:-9999px!important}';
+      fixtureStyle.textContent = '#scheduleThemeFixture,#scheduleThemeFixture *,#weeklyReadabilityFixture,#weeklyReadabilityFixture *{transition:none!important;animation:none!important}#scheduleThemeFixture>.timeline-view,#scheduleThemeFixture>.calendar-overview-booking,#scheduleThemeFixture>.calendar-week-booking{position:absolute!important;left:-9999px!important}#weeklyReadabilityFixture{position:fixed;left:-9999px;top:0;width:127px;height:62px}#weeklyReadabilityFixture>.calendar-week-booking{position:relative!important;inset:auto!important;width:127px;height:62px}';
       document.head.append(fixtureStyle);
       const fixture = document.createElement('div');
       fixture.id = 'scheduleThemeFixture';
@@ -175,10 +175,48 @@ const server = http.createServer((request, response) => {
       const bookings = document.querySelector('#providerBookings');
       bookings.classList.add('calendar-overview', 'calendar-overview-month');
       bookings.replaceChildren(fixture);
+      const readability = document.createElement('div');
+      readability.id = 'weeklyReadabilityFixture';
+      readability.innerHTML = '<button class="calendar-week-booking status-confirmed color-auto"><time>14:00–15:00</time><strong>Массаж спины + ШВЗ — углублённый (с акцентом на проблемные зоны) — 60 мин</strong><small>Константин</small></button>';
+      document.body.append(readability);
     });
 
     for (const width of [390, 760, 1440]) {
       await page.setViewportSize({ width, height:900 });
+      for (const textScale of ['default', 'comfortable', 'large']) {
+        const readability = await page.evaluate(scale => {
+          document.body.dataset.providerTextScale = scale;
+          const card = document.querySelector('#weeklyReadabilityFixture>.calendar-week-booking');
+          const rows = [...card.children];
+          const cardRect = card.getBoundingClientRect();
+          const cardStyle = getComputedStyle(card);
+          const geometry = rows.map(row => {
+            const rect = row.getBoundingClientRect();
+            const style = getComputedStyle(row);
+            return {
+              top:rect.top,
+              bottom:rect.bottom,
+              height:rect.height,
+              lineHeight:parseFloat(style.lineHeight),
+              flexShrink:style.flexShrink,
+              lineClamp:style.webkitLineClamp
+            };
+          });
+          return {
+            cardBottom:cardRect.bottom - parseFloat(cardStyle.borderBottomWidth) - parseFloat(cardStyle.paddingBottom),
+            geometry
+          };
+        }, textScale);
+        const [time, title, client] = readability.geometry;
+        const titleLines = textScale === 'default' ? 2 : 1;
+        assert.equal(time.flexShrink, '0', `${width}px ${textScale}: время сжимается по высоте`);
+        assert.equal(title.flexShrink, '0', `${width}px ${textScale}: название сжимается по высоте`);
+        assert.equal(client.flexShrink, '0', `${width}px ${textScale}: имя клиента сжимается по высоте`);
+        assert.ok(title.height + .5 >= title.lineHeight * titleLines, `${width}px ${textScale}: строка услуги обрезается по высоте`);
+        assert.equal(title.lineClamp, String(titleLines), `${width}px ${textScale}: неверное число строк услуги`);
+        assert.ok(time.bottom <= title.top + .5 && title.bottom <= client.top + .5, `${width}px ${textScale}: строки недельной записи перекрываются`);
+        assert.ok(client.bottom <= readability.cardBottom + .5, `${width}px ${textScale}: имя клиента выходит за карточку`);
+      }
       for (const theme of themeKeys) {
         const cards = await page.evaluate(themeKey => {
           document.body.dataset.providerTheme = themeKey;
