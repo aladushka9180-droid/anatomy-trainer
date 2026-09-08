@@ -366,6 +366,8 @@ let clientProfileDetailsState = { phone:'', birthday:'', onlineBookingBlocked:fa
 let clientProfileDetailsLoadRevision = 0;
 let repeatTime = '';
 let bookingEditTime = '';
+let bookingEditSlots = [];
+let bookingEditHour = '';
 let newBookingTime = '';
 let newBookingHistoricalMode = false;
 let newBookingOutsideSchedule = false;
@@ -1230,6 +1232,35 @@ function businessTodayIso(date = new Date()) {
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
 }
+function businessClock(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const hour = String(values.hour || '00').padStart(2, '0');
+  const minute = String(values.minute || '00').padStart(2, '0');
+  return { minutes:(Number(hour) * 60) + Number(minute), label:`${hour}:${minute}` };
+}
+function scheduleNowMarkerMarkup(date, start, end, hourHeight, className) {
+  if (date !== businessTodayIso()) return '';
+  return `<span class="${className}" data-schedule-now-marker data-start="${start}" data-end="${end}" data-hour-height="${hourHeight}" hidden aria-label="Текущее время"><time></time></span>`;
+}
+function updateScheduleNowMarkers(now = new Date()) {
+  const clock = businessClock(now);
+  $$('[data-schedule-now-marker]').forEach(marker => {
+    const start = Number(marker.dataset.start);
+    const end = Number(marker.dataset.end);
+    const hourHeight = Number(marker.dataset.hourHeight);
+    const visible = Number.isFinite(start) && Number.isFinite(end) && Number.isFinite(hourHeight)
+      && clock.minutes >= start && clock.minutes <= end;
+    marker.hidden = !visible;
+    if (!visible) return;
+    marker.style.top = `${((clock.minutes - start) / 60) * hourHeight}px`;
+    marker.setAttribute('aria-label', `Сейчас ${clock.label}`);
+    const time = marker.querySelector('time');
+    if (time) time.textContent = clock.label;
+  });
+}
 function renderTopbarDateTime() {
   const now = new Date();
   const dateLabel = $('#todayLabel');
@@ -1239,6 +1270,7 @@ function renderTopbarDateTime() {
       timeLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(now);
     timeLabel.dateTime = now.toISOString();
   }
+  updateScheduleNowMarkers(now);
 }
 function stopTopbarClock() {
   clearTimeout(topbarClockTimer);
@@ -6265,7 +6297,11 @@ function renderTimeline(sourceItems) {
     const duration = Number(item.duration_minutes || item.services?.duration_minutes || 60);
     return Math.max(latest, itemStart + duration);
   }, start);
-  const compactEnd = Math.max(start + 180, Math.ceil((lastBookingEnd + 30) / 60) * 60);
+  const currentClock = selectedDate === businessTodayIso() ? businessClock() : null;
+  const currentTimeEnd = currentClock && currentClock.minutes >= start && currentClock.minutes <= fullBounds.end
+    ? Math.ceil((currentClock.minutes + 30) / 60) * 60
+    : start;
+  const compactEnd = Math.min(fullBounds.end, Math.max(start + 180, Math.ceil((lastBookingEnd + 30) / 60) * 60, currentTimeEnd));
   const timelineWasCompacted = mobileTimeline && !timelineFullDay && fullBounds.end - compactEnd >= 120;
   if (timelineWasCompacted) end = compactEnd;
   const hourHeight = mobileTimeline ? 72 : 76;
@@ -6353,8 +6389,10 @@ function renderTimeline(sourceItems) {
   const expandTimeline = timelineWasCompacted
     ? `<button class="timeline-day-expand" type="button" data-expand-timeline>Показать весь день до ${timeFromMinutes(fullBounds.end)}</button>`
     : '';
+  const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  updateScheduleNowMarkers();
 }
 
 function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {
@@ -6928,7 +6966,11 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
     && $('#editBookingService')?.value === service && $('#editBookingDate')?.value === date
     && (form.elements.editBookingSeriesScope?.value || 'one') === scope;
   const movesSeveral = Boolean(item.series_id && scope !== 'one');
-  if (!preserveCurrent) bookingEditTime = '';
+  if (!preserveCurrent) {
+    bookingEditTime = '';
+    bookingEditHour = '';
+  }
+  bookingEditSlots = [];
   holder.innerHTML = '<span>Ищем свободное время…</span>';
   try {
     const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date, p_ignore_booking:item.id });
@@ -6939,17 +6981,38 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
     if (movesSeveral && !times.includes(currentTime) && !bookingMoveTimeIsPast(date, currentTime)) times.unshift(currentTime);
     if (!times.length) {
       bookingEditTime = '';
+      bookingEditHour = '';
       updateBookingMovePreview();
       holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
       return;
     }
     if (preserveCurrent && service === item.service_id && date === item.booking_date && times.includes(currentTime)) bookingEditTime = currentTime;
     if (!times.includes(bookingEditTime)) bookingEditTime = '';
-    holder.innerHTML = `${movesSeveral ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>' : ''}${times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" aria-pressed="${time === bookingEditTime}" data-edit-booking-time="${time}">${time}</button>`).join('')}`;
-    updateBookingMovePreview();
+    bookingEditSlots = times;
+    bookingEditHour = String(bookingEditTime || bookingEditHour || times[0]).slice(0, 2);
+    if (holder.dataset) holder.dataset.movesSeveral = String(movesSeveral);
+    renderBookingEditTimePicker();
   } catch {
-    if (isCurrent()) { bookingEditTime = ''; holder.innerHTML = '<span>Не удалось загрузить свободное время. Выберите дату ещё раз.</span>'; updateBookingMovePreview(); }
+    if (isCurrent()) { bookingEditTime = ''; bookingEditHour = ''; bookingEditSlots = []; holder.innerHTML = '<span>Не удалось загрузить свободное время. Выберите дату ещё раз.</span>'; updateBookingMovePreview(); }
   }
+}
+
+function renderBookingEditTimePicker({ focusExact = false } = {}) {
+  const holder = $('#editBookingTimes');
+  if (!holder || !bookingEditSlots.length) return;
+  const hours = [...new Set(bookingEditSlots.map(time => time.slice(0, 2)))];
+  if (!hours.includes(bookingEditHour)) bookingEditHour = hours[0];
+  const hourSlots = bookingEditSlots.filter(time => time.startsWith(`${bookingEditHour}:`));
+  const step = typeof scheduleStepForDate === 'function' ? scheduleStepForDate($('#editBookingDate')?.value) : 5;
+  const seriesHint = holder.dataset?.movesSeveral === 'true'
+    ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>'
+    : '';
+  holder.innerHTML = `${seriesHint}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${hours.length} доступно</span></div>
+    <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === bookingEditHour ? 'active' : ''}" aria-pressed="${hour === bookingEditHour}" aria-label="Час ${hour}:00" data-edit-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
+    <div class="booking-time-guide"><strong>2. Точное время</strong><span id="editBookingExactStatus">${bookingEditTime ? `Выбрано ${bookingEditTime}` : `${hourSlots.length === 1 ? '1 вариант' : `${hourSlots.length} вариантов`} · шаг ${step} мин`}</span></div>
+    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" aria-pressed="${time === bookingEditTime}" data-edit-booking-time="${time}">${time}</button>`).join('')}</div>`;
+  updateBookingMovePreview();
+  if (focusExact) holder.querySelector('[data-edit-booking-time]')?.focus();
 }
 
 function sessionServiceOptions(selectedId = '', allowCustom = false) {
@@ -7129,6 +7192,11 @@ function updateBookingMovePreview() {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
+  $$('[data-edit-booking-hour]').forEach(button => {
+    const active = button.dataset.editBookingHour === bookingEditHour;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
 }
 
 function blockDurationChoices(selected = 60) {
@@ -7157,6 +7225,8 @@ function openBookingEditor(id, preset = {}) {
   const block = isScheduleBlock(item);
   const presetDate = providerAssistantIsoDate(preset.date) || item.booking_date;
   bookingEditTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(preset.time || '')) ? String(preset.time) : String(item.booking_time).slice(0, 5);
+  bookingEditSlots = [];
+  bookingEditHour = bookingEditTime.slice(0, 2);
   $('#bookingSheet').classList.remove('booking-sheet-wide');
   applyClientHighlightClasses($('#bookingSheet'), block ? '' : item.client_phone, 'booking-sheet-');
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
@@ -7166,7 +7236,7 @@ function openBookingEditor(id, preset = {}) {
       <input id="editBookingService" type="hidden" value="${escapeHtml(item.service_id)}">
       ${block ? `<label>Длительность<select id="editBookingBlockDuration">${blockDurationChoices(item.duration_minutes)}</select></label>` : ''}
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${presetDate}" required></label>
-      <div class="booking-edit-slot-group" role="group" aria-labelledby="editBookingTimesLabel"><span id="editBookingTimesLabel">Свободное время</span><div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></div>
+      <div class="booking-edit-slot-group" role="group" aria-labelledby="editBookingTimesLabel"><span class="sr-only" id="editBookingTimesLabel">Свободное время</span><div class="booking-editor-times booking-time-picker" id="editBookingTimes"><span>Ищем свободное время…</span></div></div>
       ${block ? '' : bookingSeriesScopeMarkup(item, 'editBookingSeriesScope', 'Какие записи перенести')}
       <p class="booking-move-selection" id="editBookingSelection" role="status" aria-live="polite"></p>
       <p class="form-error" id="bookingEditError" hidden></p>
@@ -8580,7 +8650,8 @@ function calendarWeekTimelineMarkup(days, byDate, today) {
       const details = `${title}, ${client}, с ${startTime} до ${endTime}`;
       return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${item.is_imported_history ? ' is-imported-history' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. ${item.is_imported_history ? 'Импортировано, только просмотр' : 'Открыть запись'}"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}${item.is_imported_history ? ' · Импортировано' : ''}</small></button>`;
     }).join('');
-    return `<section class="calendar-week-day-stage${iso === today ? ' is-today' : ''}" style="grid-column:${index + 2}" aria-label="${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}">${cards}</section>`;
+    const nowMarker = scheduleNowMarkerMarkup(iso, start, end, hourHeight, 'calendar-week-now-marker');
+    return `<section class="calendar-week-day-stage${iso === today ? ' is-today' : ''}" style="grid-column:${index + 2}" aria-label="${escapeHtml(date.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long' }))}">${nowMarker}${cards}</section>`;
   }).join('');
   return `<div class="calendar-week-timeline" aria-label="Недельное расписание по времени"><div class="calendar-week-timeline-grid" style="--calendar-week-height:${height}px;--calendar-week-hour:${hourHeight}px;--calendar-week-half-hour:${hourHeight / 2}px"><div class="calendar-week-axis-head">Время</div>${headers}<div class="calendar-week-axis" aria-hidden="true">${labels.join('')}</div>${columns}</div></div>`;
 }
@@ -8621,6 +8692,7 @@ function renderCalendarOverview(view) {
   holder.innerHTML = view === 'week'
     ? `${calendarWeekTimelineMarkup(days, byDate, today)}<div class="calendar-overview-grid calendar-week-mobile-list" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`
     : `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>${mobileMonthAgenda}`;
+  updateScheduleNowMarkers();
   $('#selectedDateTitle').textContent = calendarRangeTitle(view);
   const clientCount = visible.filter(item => !isScheduleBlock(item)).length;
   const blockCount = visible.length - clientCount;
@@ -11948,6 +12020,7 @@ document.addEventListener('click', async event => {
   const removeSessionItem = event.target.closest('[data-remove-session-item]');
   const backBooking = event.target.closest('[data-back-booking]');
   const editTime = event.target.closest('[data-edit-booking-time]');
+  const editHour = event.target.closest('[data-edit-booking-hour]');
   const newTime = event.target.closest('[data-new-booking-time]');
   const newHour = event.target.closest('[data-new-booking-hour]');
   const closeSheet = event.target.closest('[data-close-booking-sheet]');
@@ -12158,7 +12231,15 @@ document.addEventListener('click', async event => {
   if (backBooking) openBookingSheet(backBooking.dataset.backBooking);
   if (editTime) {
     bookingEditTime = editTime.dataset.editBookingTime;
+    bookingEditHour = bookingEditTime.slice(0, 2);
+    const exactStatus = $('#editBookingExactStatus');
+    if (exactStatus) exactStatus.textContent = `Выбрано ${bookingEditTime}`;
     updateBookingMovePreview();
+  }
+  if (editHour) {
+    bookingEditHour = editHour.dataset.editBookingHour;
+    if (!bookingEditTime.startsWith(`${bookingEditHour}:`)) bookingEditTime = '';
+    renderBookingEditTimePicker({ focusExact:true });
   }
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;

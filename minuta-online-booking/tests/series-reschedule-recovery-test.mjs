@@ -341,7 +341,7 @@ test('real rejected slot load is handled and a later read recovers', async () =>
   assert.match(h.nodes['#editBookingTimes'].innerHTML, /Не удалось загрузить/);
   const retry = h.context.loadBookingEditSlots(ids.A);
   h.reads[1].resolve({ data:[{ booking_time:'13:00:00' }], error:null }); await retry;
-  assert.match(h.nodes['#editBookingTimes'].innerHTML, /data-edit-booking-time="13:00"/);
+  assert.match(h.nodes['#editBookingTimes'].innerHTML, /data-edit-booking-hour="13"/);
 });
 
 test('late RPC refusal must not paint an error or reload slots in editor B', async () => {

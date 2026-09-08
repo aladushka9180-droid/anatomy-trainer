@@ -24,7 +24,7 @@ function listener(startText) {
   assert.ok(start >= 0 && end > start, 'Actual production listener missing');
   return source.slice(start, end + 4);
 }
-const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
+const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
   'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'escapeHtml',
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
@@ -92,7 +92,7 @@ async function fixture(holdAt = '') {
   await page.addScriptTag({content:`
     var ids=${JSON.stringify(ids)}, responseFixture=${JSON.stringify(reply)}, holdAt=${JSON.stringify(holdAt)};
     var currentUser={id:'same-provider'}, sessionGeneration=7, activeClientOrganizationId='org-A';
-    var bookingEditTime='', editingOfflineBookingId='', newBookingHistoricalMode=false;
+    var bookingEditTime='', bookingEditSlots=[], bookingEditHour='', editingOfflineBookingId='', newBookingHistoricalMode=false;
     var gestureClickSuppressedUntil=0, writesAllowed=true;
     var freeSlotsController={invalidateScope(){}}, providerReadFetch={cancelPendingReads(){}};
     var SCHEDULE_BLOCK_PHONE='0000000000', bookingColors=new Map(), bookingNotes=new Map(), bookingOutcomes=new Map();
@@ -103,7 +103,7 @@ async function fixture(holdAt = '') {
       booking_series:{occurrence_count:1},service_id:ids.service,services:ownServices[0],duration_minutes:60,
       booking_date:'2099-09-05',booking_time:'10:00:00',status:'confirmed',client_phone:'+7999000000'+(index+1)}));
     var $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
-    var businessTodayIso=()=> '2099-09-04', applyClientHighlightClasses=()=>{};
+    var businessTodayIso=()=> '2099-09-04', scheduleStepForDate=()=>5, applyClientHighlightClasses=()=>{};
     var effects=[], gates=[], slotCalls=[], notices=[];
     var boundary=(kind,value)=>{effects.push({kind});return kind===holdAt
       ?new Promise((resolve,reject)=>gates.push({kind,resolve:override=>resolve(override===undefined?value:override),reject})):Promise.resolve(value);};
@@ -142,6 +142,8 @@ async function edit(page, name) {
   await page.locator('#editBookingDate').fill(name==='A'?'2099-09-06':'2099-09-07');
   await page.locator('#editBookingDate').dispatchEvent('change');
   const time = name==='A'?'11:00':'15:00';
+  await page.locator(`[data-edit-booking-hour="${time.slice(0,2)}"]`).click();
+  assert.equal(await page.evaluate(()=>bookingEditTime),'','Смена часа не должна молча выбирать точное время');
   await page.locator(`[data-edit-booking-time="${time}"]`).click();
 }
 async function startA(page) {
@@ -307,6 +309,7 @@ cases.push(['same-form out-of-order dates keep the latest actual slot response',
   }
   await page.waitForFunction(()=>gates.length===2);
   await page.evaluate(()=>gates.pop().resolve({data:[{booking_time:'15:00:00'}],error:null}));
+  await page.locator('[data-edit-booking-hour="15"]').click();
   await page.locator('[data-edit-booking-time="15:00"]').click();
   await release(page,{data:[{booking_time:'23:45:00'}],error:null});
   assert.equal(await page.locator('[data-edit-booking-time="23:45"]').count(),0);
@@ -319,6 +322,7 @@ cases.push(['native slot loading recovers after rejected transport on the next d
   await page.waitForFunction(()=>$('#editBookingTimes').textContent.includes('Не удалось загрузить'));
   await page.evaluate(()=>{holdAt='';});
   await page.locator('#editBookingDate').fill('2099-09-08');await page.locator('#editBookingDate').dispatchEvent('change');
+  await page.locator('[data-edit-booking-hour="15"]').click();
   await page.locator('[data-edit-booking-time="15:00"]').click();
   assert.equal(await page.evaluate(()=>bookingEditTime),'15:00');
 }]);
