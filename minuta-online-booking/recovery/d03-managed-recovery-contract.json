@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "scope": "offline-managed-auth-storage-recovery-preflight",
+  "target": {
+    "projectRefPattern": "^[a-z0-9]{20}$",
+    "commitShaPattern": "^[a-f0-9]{40}$",
+    "workflowRunIdPattern": "^[1-9][0-9]*$",
+    "purpose": "disposable-d03-recovery",
+    "observationMode": "read-only",
+    "maxObservationAgeSeconds": 900,
+    "fixturePrefix": "primetime-d03-",
+    "inventoryModes": [
+      "empty",
+      "owned-fixtures-only"
+    ],
+    "countKeys": [
+      "businessRows",
+      "authUsers",
+      "authIdentities",
+      "authMfaFactors",
+      "authSessions",
+      "authRefreshTokens",
+      "authOneTimeTokens",
+      "authMfaChallenges",
+      "storageBuckets",
+      "storageObjects",
+      "storageBytes"
+    ],
+    "forbiddenManagedResidue": [
+      "authSessions",
+      "authRefreshTokens",
+      "authOneTimeTokens",
+      "authMfaChallenges"
+    ],
+    "fixtureKinds": {
+      "business-row": "businessRows",
+      "auth-user": "authUsers",
+      "auth-identity": "authIdentities",
+      "auth-mfa-factor": "authMfaFactors",
+      "storage-bucket": "storageBuckets",
+      "storage-object": "storageObjects"
+    }
+  },
+  "gates": {
+    "plan": "PREPARE_D03_MANAGED_RECOVERY_PLAN_ONLY",
+    "auth": "RESTORE_AUTH_ONLY_DISPOSABLE_D03_TARGET",
+    "storage": "RESTORE_STORAGE_ONLY_DISPOSABLE_D03_TARGET",
+    "cleanup": "DELETE_ONLY_DISPOSABLE_D03_TARGET"
+  },
+  "forbiddenEnvironment": [
+    "SUPABASE_ACCESS_TOKEN",
+    "SUPABASE_DB_URL",
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "MINUTA_TEST_DATABASE_URL",
+    "MINUTA_RESTORE_TEST_DB_URL",
+    "MINUTA_BACKUP_S3_ACCESS_KEY_ID",
+    "MINUTA_BACKUP_S3_SECRET_ACCESS_KEY",
+    "BACKUP_ENCRYPTION_PASSWORD",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "PGPASSWORD"
+  ],
+  "journal": {
+    "forbiddenKeys": [
+      "email",
+      "phone",
+      "name",
+      "path",
+      "relative_path",
+      "object_path",
+      "storage_path",
+      "user_id",
+      "provider_id",
+      "organization_id",
+      "credential",
+      "password",
+      "secret",
+      "token",
+      "otp"
+    ],
+    "requiredSafetyEvidence": {
+      "preflightOnly": true,
+      "restorePerformed": false,
+      "targetWritten": false,
+      "productionWritten": false,
+      "sharedTestWritten": false,
+      "externalSystemsWritten": false,
+      "networkAccessUsed": false,
+      "temporaryPlaintextCreated": false,
+      "unsafeAuthStateRestored": false,
+      "externalTargetRecheckRequired": true,
+      "targetEvidenceVerified": true
+    }
+  }
+}
