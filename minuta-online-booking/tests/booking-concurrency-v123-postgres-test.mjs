@@ -23,6 +23,8 @@ let fixture;
 let syntheticWebhook=false;
 let syntheticWebhookFunction=false;
 let syntheticWebhookSchema=false;
+let syntheticOnlineBlockFunction=false;
+let syntheticOnlineBlockTrigger=false;
 const blockSQL='select public.create_provider_block_v123($1,$2,$3,$4,$5,$6,$7,$8,$9) result';
 const seriesSQL='select public.manage_minuta_booking_series_v123($1,$2,$3,$4,$5,$6,$7) result';
 const args=(time,id,duration=15)=>[fixture.org,fixture.loc,fixture.service,fixture.date,time,duration,id,'Перерыв',''];
@@ -37,6 +39,12 @@ const awaitBlocked=async(c,pid)=>{
 };
 const outcome=p=>p.then(value=>({value}),error=>({error}));
 try{
+ if(!(await admin.query("select to_regprocedure('public.enforce_minuta_client_online_booking_block_v119()') is not null present")).rows[0].present){
+  await admin.query("create function public.enforce_minuta_client_online_booking_block_v119() returns trigger language plpgsql as 'begin return new; end'");syntheticOnlineBlockFunction=true;
+ }
+ if(!(await admin.query("select exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='zy_bookings_client_online_block_v119') present")).rows[0].present){
+  await admin.query('create trigger zy_bookings_client_online_block_v119 before insert on public.bookings for each row execute function public.enforce_minuta_client_online_booking_block_v119()');syntheticOnlineBlockTrigger=true;
+ }
  const webhook=(await admin.query("select exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='new_booking_telegram') present")).rows[0].present;
  if(!webhook){
   if(!(await admin.query("select exists(select 1 from pg_namespace where nspname='supabase_functions') present")).rows[0].present){
@@ -150,5 +158,7 @@ try{
  if(syntheticWebhook)await admin.query('drop trigger if exists new_booking_telegram on public.bookings');
  if(syntheticWebhookFunction)await admin.query('drop function if exists supabase_functions.http_request()');
  if(syntheticWebhookSchema)await admin.query('drop schema if exists supabase_functions');
+ if(syntheticOnlineBlockTrigger)await admin.query('drop trigger if exists zy_bookings_client_online_block_v119 on public.bookings');
+ if(syntheticOnlineBlockFunction)await admin.query('drop function if exists public.enforce_minuta_client_online_booking_block_v119()');
  for(const c of clients)await c.end();
 }
