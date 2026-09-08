@@ -1,0 +1,314 @@
+name: Minuta v126 safe release
+run-name: Minuta v126 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v126
+        required: true
+        default: test-local-v126
+        type: choice
+        options: [test-local-v126, audit-production-v126, apply-production-v126, deploy-functions-v126]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful local v126 test run ID, required: false, default: "", type: string }
+      audit_run_id: { description: Successful read-only v126 audit run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v126 database apply run ID, required: false, default: "", type: string }
+      confirmation: { description: BACKUP_VERIFIED for apply or DEPLOY_V126_FUNCTIONS for deploy, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency:
+  group: ${{ inputs.phase == 'test-local-v126' && 'minuta-v126-local-test' || inputs.phase == 'deploy-functions-v126' && 'minuta-production-edge-functions' || 'minuta-production-database' }}
+  cancel-in-progress: false
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            test-local-v126|audit-production-v126) ;;
+            apply-production-v126) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            deploy-functions-v126) test "$CONFIRMATION" = DEPLOY_V126_FUNCTIONS ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/notification-v114-static-test.mjs
+
+  test-local-v126:
+    if: inputs.phase == 'test-local-v126'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with: { deno-version: v2.5.1 }
+      - name: Verify static and Edge contracts without external calls
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/notification-center-v88-static-test.mjs
+          node minuta-online-booking/notification-outbox-v125-static-test.mjs
+          node minuta-online-booking/notification-v114-static-test.mjs
+          node --test minuta-online-booking/tests/notification-edge-integration-test.mjs minuta-online-booking/tests/notification-receipt-edge-test.mjs
+          deno check supabase/functions/notification-dispatcher/adapters.ts supabase/functions/notification-dispatcher/index.ts supabase/functions/notification-receipt/index.ts
+          deno fmt --check supabase/functions/notification-receipt/index.ts minuta-online-booking/notification-v126-integration-test.ts
+          deno lint --rules-exclude=no-unversioned-import supabase/functions/notification-receipt/index.ts minuta-online-booking/notification-v126-integration-test.ts
+      - name: PGlite apply twice, behavior, rollback and reapply
+        run: deno test --allow-read minuta-online-booking/notification-v114-integration-test.ts
+      - name: Attest local test cycle
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" '{status:"success",phase:"test-local-v126",commitSha:$sha,runId:$run,engine:"PGlite",cycle:["apply","apply","behavior","rollback","compatibility-shims","reapply"],externalCalls:false,productionWritten:false}' > "$RUNNER_TEMP/v126-test.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v126-test-${{ github.run_id }}", path: "${{ runner.temp }}/v126-test.json", if-no-files-found: error, retention-days: 35 }
+
+  audit-production-v126:
+    if: inputs.phase == 'audit-production-v126'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+      PGSSLMODE: require
+    steps:
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Audit v125 baseline and reject partial v126 read-only
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          with flags as(
+            select
+              exists(select 1 from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name='organization_id' and data_type='uuid' and is_nullable='NO') v125_tenant,
+              to_regprocedure('public.confirm_minuta_notification_delivery_v114(text,text,timestamp with time zone,text)') is not null v125_receipt,
+              coalesce((select md5(replace(prosrc,E'\r','')) in('1f1a45095b0926a19d56a6129c04edac','a509808937e4eaed2cdd8e7d74995ca9') from pg_proc where oid=to_regprocedure('public.enqueue_booking_created_notification()')),false) v125_hash,
+              exists(select 1 from pg_trigger where tgrelid=to_regclass('public.bookings') and tgname='bookings_enqueue_created_notification' and tgfoid=to_regprocedure('public.enqueue_booking_created_notification()') and tgtype=5 and tgenabled='O' and not tgisinternal) v125_trigger,
+              (select count(*) from information_schema.columns where table_schema='public' and table_name='organization_notification_settings' and column_name in('booking_confirmation_request_enabled','confirmation_request_minutes_before','quiet_hours_enabled','quiet_hours_start','quiet_hours_end','quiet_hours_timezone')) settings_columns,
+              (to_regclass('public.organization_notification_fallbacks') is not null)::int fallback_table,
+              (select count(*) from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name in('fallback_of','fallback_depth')) outbox_columns,
+              (to_regprocedure('public.set_minuta_notification_fallback_v126(uuid,text,text,text,boolean,integer)') is not null)::int fallback_rpc,
+              (to_regprocedure('public.minuta_notification_next_allowed_at_v126(uuid,timestamp with time zone)') is not null)::int quiet_rpc,
+              coalesce((select pg_get_constraintdef(oid) like '%booking_confirmation_request%' from pg_constraint where conrelid=to_regclass('public.notification_outbox') and conname='notification_outbox_kind_check'),false)::int kind_constraint,
+              coalesce((select position('booking_confirmation_request_enabled' in prosrc)>0 from pg_proc where oid=to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)')),false) scheduler_full,
+              coalesce((select position('return 0' in lower(prosrc))>0 from pg_proc where oid=to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)')),false) scheduler_shim,
+              to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)') is not null scheduler_present,
+              coalesce((select position('queue.id=p_outbox' in replace(prosrc,' ',''))>0 from pg_proc where oid=to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)')),false) receipt_full,
+              coalesce((select position('return ''not_found''' in lower(prosrc))>0 from pg_proc where oid=to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)')),false) receipt_shim,
+              to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)') is not null receipt_present
+          ), state as(
+            select *,settings_columns+fallback_table+outbox_columns+fallback_rpc+quiet_rpc+kind_constraint core_count from flags
+          )
+          select json_build_object(
+            'v125Ready',v125_tenant and v125_receipt and v125_hash and v125_trigger,
+            'coreCount',core_count,'expectedCoreCount',12,
+            'schedulerFull',scheduler_full,'schedulerShim',scheduler_shim,
+            'receiptFull',receipt_full,'receiptShim',receipt_shim,
+            'v126Mode',case
+              when core_count=0 and (not scheduler_present or scheduler_shim)
+                and (not receipt_present or receipt_shim) then 'absent'
+              when core_count=12 and scheduler_full and receipt_full then 'full'
+              else 'partial' end
+          ) from state;
+          SQL
+          )"
+          jq -e '.v125Ready and (.v126Mode=="absent" or .v126Mode=="full")' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"audit-production-v126",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v126-audit.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v126-audit-${{ github.run_id }}", path: "${{ runner.temp }}/v126-audit.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v126:
+    if: inputs.phase == 'apply-production-v126'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify same-workflow test/audit, same-SHA backup and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          TEST: ${{ inputs.test_run_id }}
+          AUDIT: ${{ inputs.audit_run_id }}
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$TEST" "$AUDIT"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            test "$(jq -r .conclusion <<<"$run")" = success
+            test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+            test "$(jq -r .head_branch <<<"$run")" = main
+            test "$(jq -r .event <<<"$run")" = workflow_dispatch
+            test "$(jq -r .path <<<"$run")" = "$2"
+          }
+          check_run "$TEST" .github/workflows/minuta-v126-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v126 - test-local-v126 - $SHA"
+          check_run "$AUDIT" .github/workflows/minuta-v126-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v126 - audit-production-v126 - $SHA"
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          mkdir -p "$RUNNER_TEMP/v126-evidence/test" "$RUNNER_TEMP/v126-evidence/audit" "$RUNNER_TEMP/v126-evidence/backup"
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v126-test-$TEST" -D "$RUNNER_TEMP/v126-evidence/test"
+          gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v126-audit-$AUDIT" -D "$RUNNER_TEMP/v126-evidence/audit"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="test-local-v126" and .commitSha==$sha and .engine=="PGlite" and .cycle==["apply","apply","behavior","rollback","compatibility-shims","reapply"] and .externalCalls==false and .productionWritten==false' "$RUNNER_TEMP/v126-evidence/test/v126-test.json" >/dev/null
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="audit-production-v126" and .commitSha==$sha and .productionWritten==false and .state.v125Ready and (.state.v126Mode=="absent" or .state.v126Mode=="full")' "$RUNNER_TEMP/v126-evidence/audit/v126-audit.json" >/dev/null
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length==1' <<<"$artifacts" >/dev/null
+          artifact="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$artifacts")"
+          [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v126-evidence/backup"
+          shopt -s nullglob
+          journals=("$RUNNER_TEMP/v126-evidence/backup/"*.json)
+          encrypted=("$RUNNER_TEMP/v126-evidence/backup/"*.dump.gpg)
+          checksums=("$RUNNER_TEMP/v126-evidence/backup/"*.dump.gpg.sha256)
+          test "${#journals[@]}" = 1 && test "${#encrypted[@]}" = 1 && test "${#checksums[@]}" = 1
+          jq -e --arg run "$BACKUP" --arg repo "$GITHUB_REPOSITORY" '.operation=="backup" and .status=="success" and .workflowRunId==$run and .repository==$repo and .encryption=="OpenPGP symmetric AES-256" and .archiveFormat=="PostgreSQL custom" and .archiveEntries>0' "${journals[0]}" >/dev/null
+          expected="$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(sha256sum "${encrypted[0]}" | cut -d' ' -f1)" = "$expected"
+          test "$(tr -d '[:space:]' < "${checksums[0]}")" = "$expected"
+          test "$(stat -c %s "${encrypted[0]}")" = "$(jq -r .encryptedBytes "${journals[0]}")"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Repeat exact guard, atomically apply v126 and post-verify read-only
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'v125Ready',to_regprocedure('public.confirm_minuta_notification_delivery_v114(text,text,timestamp with time zone,text)') is not null and to_regprocedure('public.fail_notification_outbox(uuid,uuid,text,text,boolean,integer)') is not null,
+            'settingsColumns',(select count(*) from information_schema.columns where table_schema='public' and table_name='organization_notification_settings' and column_name in('booking_confirmation_request_enabled','confirmation_request_minutes_before','quiet_hours_enabled','quiet_hours_start','quiet_hours_end','quiet_hours_timezone')),
+            'fallbackTable',to_regclass('public.organization_notification_fallbacks') is not null,
+            'outboxColumns',(select count(*) from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name in('fallback_of','fallback_depth')),
+            'fallbackRpc',to_regprocedure('public.set_minuta_notification_fallback_v126(uuid,text,text,text,boolean,integer)') is not null,
+            'quietRpc',to_regprocedure('public.minuta_notification_next_allowed_at_v126(uuid,timestamp with time zone)') is not null,
+            'confirmationKind',coalesce((select pg_get_constraintdef(oid) like '%booking_confirmation_request%' from pg_constraint where conrelid=to_regclass('public.notification_outbox') and conname='notification_outbox_kind_check'),false),
+            'schedulerPresent',to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)') is not null,
+            'schedulerFull',coalesce((select position('booking_confirmation_request_enabled' in prosrc)>0 from pg_proc where oid=to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)')),false),
+            'schedulerShim',coalesce((select position('return 0' in lower(prosrc))>0 from pg_proc where oid=to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)')),false),
+            'receiptPresent',to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)') is not null,
+            'receiptFull',coalesce((select position('queue.id=p_outbox' in replace(prosrc,' ',''))>0 from pg_proc where oid=to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)')),false),
+            'receiptShim',coalesce((select position('return ''not_found''' in lower(prosrc))>0 from pg_proc where oid=to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)')),false)
+          );
+          SQL
+          )"
+          jq -e '.v125Ready and (
+            (.settingsColumns==0 and (.fallbackTable|not) and .outboxColumns==0 and (.fallbackRpc|not) and (.quietRpc|not) and (.confirmationKind|not) and ((.schedulerPresent|not) or .schedulerShim) and ((.receiptPresent|not) or .receiptShim))
+            or (.settingsColumns==6 and .fallbackTable and .outboxColumns==2 and .fallbackRpc and .quietRpc and .confirmationKind and .schedulerFull and .receiptFull)
+          )' <<<"$before" >/dev/null
+          PGOPTIONS='-c statement_timeout=120000 -c lock_timeout=10000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v126.sql
+          after="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'settingsColumns',(select count(*) from information_schema.columns where table_schema='public' and table_name='organization_notification_settings' and column_name in('booking_confirmation_request_enabled','confirmation_request_minutes_before','quiet_hours_enabled','quiet_hours_start','quiet_hours_end','quiet_hours_timezone')),
+            'fallbackTable',to_regclass('public.organization_notification_fallbacks') is not null,
+            'outboxColumns',(select count(*) from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name in('fallback_of','fallback_depth')),
+            'confirmationKind',coalesce((select pg_get_constraintdef(oid) like '%booking_confirmation_request%' from pg_constraint where conrelid=to_regclass('public.notification_outbox') and conname='notification_outbox_kind_check'),false),
+            'schedulerReal',coalesce((select position('booking_confirmation_request_enabled' in prosrc)>0 from pg_proc where oid=to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)')),false),
+            'receiptReal',coalesce((select position('queue.id=p_outbox' in replace(prosrc,' ',''))>0 from pg_proc where oid=to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)')),false),
+            'newSettingsEnabled',(select count(*) from public.organization_notification_settings where booking_confirmation_request_enabled or quiet_hours_enabled),
+            'fallbacksEnabled',(select count(*) from public.organization_notification_fallbacks where enabled),
+            'receiptServiceOnly',has_function_privilege('service_role','public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)','EXECUTE') and not has_function_privilege('anon','public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)','EXECUTE') and not has_function_privilege('authenticated','public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)','EXECUTE')
+          );
+          SQL
+          )"
+          jq -e '.settingsColumns==6 and .fallbackTable and .outboxColumns==2 and .confirmationKind and .schedulerReal and .receiptReal and .newSettingsEnabled==0 and .fallbacksEnabled==0 and .receiptServiceOnly' <<<"$after" >/dev/null
+          jq -n --arg sha "$SHA" --argjson before "$before" --argjson after "$after" '{status:"success",phase:"apply-production-v126",commitSha:$sha,before:$before,after:$after,channelsActivated:false,secretsCreated:false}' > "$RUNNER_TEMP/v126-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v126-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v126-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  deploy-functions-v126:
+    if: inputs.phase == 'deploy-functions-v126'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      SHA: ${{ inputs.commit_sha }}
+      APPLY: ${{ inputs.apply_run_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify exact successful database apply and deployment target
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .head_branch <<<"$run")" = main
+          test "$(jq -r .event <<<"$run")" = workflow_dispatch
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v126-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v126 - apply-production-v126 - $SHA"
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="apply-production-v126" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          mkdir -p "$RUNNER_TEMP/v126-apply-evidence"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v126-apply-$APPLY" -D "$RUNNER_TEMP/v126-apply-evidence"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="apply-production-v126" and .commitSha==$sha and .after.settingsColumns==6 and .after.fallbackTable and .after.schedulerReal and .after.receiptReal and .channelsActivated==false and .secretsCreated==false' "$RUNNER_TEMP/v126-apply-evidence/v126-apply.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Recheck handlers without external side effects
+        run: node --test minuta-online-booking/tests/notification-edge-integration-test.mjs minuta-online-booking/tests/notification-receipt-edge-test.mjs
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with: { version: 2.117.0 }
+      - name: Deploy only the two v126 handlers without creating secrets
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          supabase functions deploy notification-receipt --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          supabase functions deploy notification-dispatcher --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+      - name: Verify read-only routes without dispatching messages
+        run: |
+          set -euo pipefail
+          status="$(curl --silent --show-error --output "$RUNNER_TEMP/receipt.json" --write-out '%{http_code}' "https://$PROJECT_REF.supabase.co/functions/v1/notification-receipt")"
+          test "$status" = 405
+          jq -e '.error=="method_not_allowed"' "$RUNNER_TEMP/receipt.json" >/dev/null
+          status="$(curl --silent --show-error --output "$RUNNER_TEMP/dispatcher.json" --write-out '%{http_code}' "https://$PROJECT_REF.supabase.co/functions/v1/notification-dispatcher")"
+          test "$status" = 200
+          jq -e '.ok==true and (.configured_channels|type)=="array"' "$RUNNER_TEMP/dispatcher.json" >/dev/null
+          jq -n --arg sha "$SHA" '{status:"success",phase:"deploy-functions-v126",commitSha:$sha,secretsCreated:false,messagesDispatched:false}' > "$RUNNER_TEMP/v126-deploy.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v126-deploy-${{ github.run_id }}", path: "${{ runner.temp }}/v126-deploy.json", if-no-files-found: error, retention-days: 90 }

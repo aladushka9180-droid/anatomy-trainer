@@ -8,6 +8,7 @@ const dispatcher=read('../supabase/functions/notification-dispatcher/index.ts');
 const adapters=read('../supabase/functions/notification-dispatcher/adapters.ts');
 const receipt=read('../supabase/functions/notification-receipt/index.ts');
 const config=read('../supabase/config.toml');
+const workflow=read('../.github/workflows/minuta-v126-safe-release.yml');
 
 assert.match(migration,/v126_requires_notification_v114_and_v125/i);
 assert.match(migration,/booking_confirmation_request_enabled boolean not null default false/i);
@@ -61,5 +62,17 @@ assert.match(receipt,/p_event_key: eventKey/);
 assert.match(receipt,/p_organization: organizationId/);
 assert.doesNotMatch(receipt,/console\.(log|error)/);
 assert.match(config,/\[functions\.notification-receipt\]\s+verify_jwt = false/);
+
+assert.match(workflow,/options: \[test-local-v126, audit-production-v126, apply-production-v126, deploy-functions-v126\]/);
+assert.match(workflow,/gh api "repos\/\$GITHUB_REPOSITORY\/git\/ref\/heads\/main"/);
+assert.match(workflow,/deno test --allow-read minuta-online-booking\/notification-v114-integration-test\.ts/);
+assert.match(workflow,/cycle:\["apply","apply","behavior","rollback","compatibility-shims","reapply"\]/);
+assert.match(workflow,/test "\$CONFIRMATION" = BACKUP_VERIFIED/);
+assert.match(workflow,/\.github\/workflows\/minuta-v126-safe-release\.yml/g);
+assert.match(workflow,/encryption=="OpenPGP symmetric AES-256"/);
+assert.match(workflow,/supabase-migration-v126\.sql/);
+assert.match(workflow,/supabase functions deploy notification-receipt[\s\S]*supabase functions deploy notification-dispatcher/);
+assert.match(workflow,/NOTIFICATION_RECEIPT_<CHANNEL>_KEYS|without creating secrets/i);
+assert.doesNotMatch(workflow,/supabase secrets set|curl[^\n]*--request POST/i);
 
 console.log('Notification v126 D02A static checks passed.');
