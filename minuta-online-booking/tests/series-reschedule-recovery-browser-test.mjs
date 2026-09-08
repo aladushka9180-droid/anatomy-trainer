@@ -52,7 +52,7 @@ const loader = [metadataDependencies,lifecycle, resetHooks, orgHook, colorConsta
   declaration('saveBookingColor').replace('function saveBookingColor(', 'function actualSaveBookingColor('),
   declaration('saveBookingNote').replace('function saveBookingNote(', 'function actualSaveBookingNote('),
   listener("document.addEventListener('click', async event => {"),
-  listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;")].join('\n');
+  listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
 const ids = { A:'11111111-1111-4111-8111-111111111111', B:'22222222-2222-4222-8222-222222222222',
   service:'33333333-3333-4333-8333-333333333333', seriesA:'44444444-4444-4444-8444-444444444444', seriesB:'55555555-5555-4555-8555-555555555555' };
 const reply = { data:{ series_id:ids.seriesA, action:'reschedule', scope:'following', affected_count:1,

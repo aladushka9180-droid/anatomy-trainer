@@ -31,7 +31,7 @@ const functions = ['openBookingSeriesCancellation', 'cancelBookingSeries', 'clos
   'actionableSeriesBookings', 'seriesBookingCountLabel', 'bookingSeriesScopeMarkup',
   'seriesRpcErrorMessage', 'showFormError', 'clearFormError', 'escapeHtml'];
 const click = listener("document.addEventListener('click', async event => {");
-const escape = listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;");
+const escape = listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');");
 const resetPrefix = "window.addEventListener('minuta:provider-session-reset'";
 const resetHooks = [...source.matchAll(/window\.addEventListener\('minuta:provider-session-reset'/g)]
   .map(match => listener(resetPrefix, match.index));
