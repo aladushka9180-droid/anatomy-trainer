@@ -43,6 +43,7 @@ jobs:
       - run: node minuta-online-booking/data-governance-v110-static-test.mjs
       - run: node minuta-online-booking/notification-v114-static-test.mjs
       - run: node minuta-online-booking/platform-hardening-v115-static-test.mjs
+      - run: node --check minuta-online-booking/tests/benefit-public-v115-postgres-concurrency-test.mjs
       - run: node minuta-online-booking/visit-outcome-defaults-v124-static-test.mjs
       - run: node minuta-online-booking/financial-ledger-v129-static-test.mjs
       - run: bash -n minuta-online-booking/tests/financial-ledger-v129-concurrency-test.sh
