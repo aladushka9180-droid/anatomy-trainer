@@ -2457,7 +2457,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=642#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=643#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4626,7 +4626,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=642');
+    worker = new Worker('./report-worker.js?v=643');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -9614,8 +9614,15 @@ function activateClientProfileJump(name, { scroll = true } = {}) {
   });
   let target = null;
   if (targetName === 'history') {
-    target = $('#clientHistoryDisclosure');
-    if (target) target.open = true;
+    const records = $('#clientRecords');
+    const modernHistory = records?.querySelector('[data-cr-panel="history"]');
+    if (records && !records.hidden && modernHistory) {
+      modernHistory.open = true;
+      target = records;
+    } else {
+      target = $('#clientHistoryDisclosure');
+      if (target) target.open = true;
+    }
   } else if (targetName === 'services') {
     target = $('#clientFavoriteServices');
   } else if (targetName === 'notes') {
@@ -9729,6 +9736,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
       title:serviceName(item.services?.name || 'Услуга'),status:bookingStatus(item),
       payment:`Получено ${money(received)}${debt ? ` · Долг ${money(debt)}` : ''}${item.is_imported_history ? ' · Из импортированной истории' : ''}`};
   })});
+  if (clientChanged) activateClientProfileJump('history', { scroll:false });
 }
 
 function populateRepeatServices() {

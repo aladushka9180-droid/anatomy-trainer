@@ -14,7 +14,9 @@ assert.equal((html.match(/data-client-profile-jump=/g) || []).length, 4, 'Profil
 assert.equal((html.match(/class="client-summary-icon"/g) || []).length, 4, 'Every client fact has a restrained visual icon');
 assert.match(html, /class="client-orbit-jewel"/, 'Premium relationship frame has a small crown marker');
 assert.match(provider, /function activateClientProfileJump\(/, 'Profile navigation reuses the existing client sections');
+assert.match(provider, /querySelector\('\[data-cr-panel="history"\]'\)/, 'History tab opens the current records timeline when available');
 assert.match(provider, /profileOrbit\.classList\.toggle\('is-max-level', facts\.level === 4\)/, 'Maximum level enables the premium frame');
+assert.ok(html.indexOf('client-records.js') < html.indexOf('provider.js'), 'Client files controller loads before the provider initializes it');
 assert.doesNotMatch(css, /repeating-conic-gradient/, 'Relationship ring no longer resembles a segmented loader');
 
 console.log('Client profile polish static checks: PASS');
