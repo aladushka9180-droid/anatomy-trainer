@@ -9,10 +9,12 @@ window.addEventListener('minuta:provider-session-reset', () => freeSlotsControll
 let bookingSeriesCancellationRevision = 0;
 let bookingEditorRevision = 0;
 let bookingMetadataRevision = 0;
+let portfolioEditorRevision = 0;
 window.addEventListener('minuta:provider-session-reset', () => {
   bookingSeriesCancellationRevision += 1;
   bookingEditorRevision += 1;
   bookingMetadataRevision += 1;
+  portfolioEditorRevision += 1;
   providerReadFetch.cancelPendingReads();
 });
 window.addEventListener('offline', () => providerReadFetch.cancelPendingReads());
@@ -11204,6 +11206,7 @@ function updatePortfolioPublishControl() {
 
 function openPortfolioEditor(id = '') {
   if (!portfolioRemoteAvailable) { notify('Сначала подключите серверную часть портфолио'); return; }
+  portfolioEditorRevision += 1;
   const item = portfolioItems.find(entry => entry.id === id);
   clearPortfolioPreviews();
   $('#portfolioForm').reset();
@@ -11224,6 +11227,7 @@ function openPortfolioEditor(id = '') {
 }
 
 function closePortfolioEditor() {
+  portfolioEditorRevision += 1;
   $('#portfolioEditorDialog').close();
   clearPortfolioPreviews();
 }
@@ -11287,13 +11291,20 @@ function createPortfolioPhotoId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-async function savePortfolioPhoto(item, type, file, procedure, area, sessions) {
+async function savePortfolioPhoto(item, type, file, procedure, area, sessions, userId, isCurrent) {
   if (!file) return null;
+  if (!isCurrent()) throw new Error('stale_portfolio_editor');
   const prepared = await preparePortfolioImage(file);
+  if (!isCurrent()) throw new Error('stale_portfolio_editor');
   const photoId = createPortfolioPhotoId();
-  const path = `${currentUser.id}/${item.id}/${photoId}.webp`;
+  const path = `${userId}/${item.id}/${photoId}.webp`;
   const { error: uploadError } = await db.storage.from(PORTFOLIO_BUCKET).upload(path, prepared.blob, { contentType: 'image/webp', cacheControl: '31536000', upsert: false });
   if (uploadError) throw uploadError;
+  if (!isCurrent()) {
+    const staleError = new Error('stale_portfolio_editor');
+    staleError.storagePath = path;
+    throw staleError;
+  }
   const label = type === 'before' ? 'до процедуры' : sessions ? `после ${sessions} ${portfolioAfterSessionWord(sessions)}` : 'после процедуры';
   return { photo_type: type, storage_path: path, alt_text: `${procedure}${area ? `, ${area}` : ''} — ${label}`.slice(0, 240), width: prepared.width, height: prepared.height };
 }
@@ -11340,6 +11351,12 @@ async function savePortfolioItem(event) {
   const button = event.submitter;
   const form = event.currentTarget;
   if (form.dataset.saveUncertain) { showFormError('#portfolioError', 'Результат предыдущего сохранения пока не подтверждён. Закройте форму и обновите портфолио перед повтором.'); return; }
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const editorRevision = portfolioEditorRevision;
+  const isCurrent = () => sessionIsCurrent(userId, generation)
+    && portfolioEditorRevision === editorRevision && form.isConnected !== false;
+  const photoDrafts = { before:portfolioPhotoDrafts.before, after:portfolioPhotoDrafts.after };
   button.disabled = true;
   button.textContent = 'Сохраняем…';
   const stagedPhotos = [];
@@ -11351,31 +11368,42 @@ async function savePortfolioItem(event) {
   const metadata = { procedure_name: procedure, body_area: area, session_count: sessions, description, sort_order: existing?.sort_order ?? nextOrder, published, consent_confirmed_at: consent ? item.consent_confirmed_at || new Date().toISOString() : null };
   try {
     for (const type of ['before', 'after']) {
-      const staged = await savePortfolioPhoto(item, type, portfolioPhotoDrafts[type], procedure, area, sessions);
+      const staged = await savePortfolioPhoto(item, type, photoDrafts[type], procedure, area, sessions, userId, isCurrent);
       if (staged) stagedPhotos.push(staged);
     }
+    if (!isCurrent()) throw new Error('stale_portfolio_editor');
     metadataSubmitted = true;
     let data, error;
     try { ({ data, error } = await db.rpc('save_provider_portfolio_item', { p_item_id: item.id, p_expected_updated_at: existing?.updated_at || null, p_item: metadata, p_photos: stagedPhotos })); }
     catch (failure) { error = failure; }
+    if (!isCurrent()) return;
     const rpcConfirmed = !error && data?.ok === true && data.item_id === item.id;
     metadataConfirmed = rpcConfirmed;
     if (rpcConfirmed && Array.isArray(data.retired_paths)) {
       retiredPaths = data.retired_paths.filter(path => typeof path === 'string' && path);
     }
     if (!metadataConfirmed) {
-      metadataConfirmed = await verifyPortfolioSave(item.id, metadata, stagedPhotos, currentUser.id);
+      metadataConfirmed = await verifyPortfolioSave(item.id, metadata, stagedPhotos, userId);
+      if (!isCurrent()) return;
       if (!metadataConfirmed) {
         // A database rejection rolls back the entire transaction. A lost reply does not prove rejection.
         if (['23514', '23505', '42501', 'P0001', 'PGRST202', 'PGRST203', 'PGRST204', '22023', '40001'].includes(error?.code)) metadataSubmitted = false;
         throw error || new Error('portfolio_save_unconfirmed');
       }
     }
+    if (!isCurrent()) return;
     const cleaned = await removePortfolioStorage(retiredPaths);
+    if (!isCurrent()) return;
     closePortfolioEditor();
     await loadPortfolio();
+    if (!sessionIsCurrent(userId, generation)) return;
     notify(!cleaned ? 'Работа сохранена. Старые файлы пока не удалены из хранилища.' : published ? 'Работа опубликована' : 'Работа сохранена');
   } catch (error) {
+    if (error?.storagePath) stagedPhotos.push({ storage_path:error.storagePath });
+    if (!isCurrent()) {
+      if (!metadataSubmitted) await removePortfolioStorage(stagedPhotos.map(photo => photo.storage_path).filter(Boolean));
+      return;
+    }
     if (metadataConfirmed) { notify('Работа сохранена, но список не обновился. Обновите портфолио.'); return; }
     const uncertain = metadataSubmitted && !metadataConfirmed;
     if (uncertain) form.dataset.saveUncertain = 'true';
@@ -11383,8 +11411,10 @@ async function savePortfolioItem(event) {
     const message = uncertain ? 'Не удалось подтвердить сохранение. Фотографии сохранены в хранилище без удаления исходных. Обновите портфолио и проверьте работу перед повтором.' : error?.message === 'image_too_large' ? 'После обработки фотография всё ещё слишком большая.' : error?.code === 'PGRST202' ? 'Безопасное сохранение ещё не установлено на сервере. Работа не изменена. Повторите после обновления.' : `Не удалось сохранить работу. Исходные фотографии не удалены.${cleaned ? ' Проверьте данные и повторите.' : ' Неиспользуемые новые файлы пока остались в хранилище.'}`;
     showFormError('#portfolioError', message);
   } finally {
-    button.disabled = false;
-    button.textContent = 'Сохранить работу';
+    if (isCurrent()) {
+      button.disabled = false;
+      button.textContent = 'Сохранить работу';
+    }
   }
 }
 

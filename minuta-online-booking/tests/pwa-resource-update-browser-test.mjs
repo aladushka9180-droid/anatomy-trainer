@@ -44,7 +44,7 @@ function snapshot(read, requiredModules = modules) {
   return { version, files, assets, cache:`${cachePrefix}v${version}` };
 }
 const newModules = [...modules, 'report-reconciliation.js'];
-const oldRelease = snapshot(oldFile);
+const oldRelease = snapshot(oldFile, ['group-bookings.js', 'provider.js']);
 const newCoreModules = ['group-bookings.js', 'provider.js', 'report-reconciliation.js'];
 const offlineModules = [...new Set([...newCoreModules, ...executableModules])];
 const newRelease = snapshot(newFile, newCoreModules);
@@ -53,9 +53,9 @@ assert.ok(!newRelease.assets.includes(`./benefit-management.js?v=${newRelease.ve
 assert.ok(!newRelease.assets.includes(`./retention-management.js?v=${newRelease.version}`), 'Retention must be cached on first use, not during install');
 assert.notEqual(newRelease.version, oldRelease.version, 'The candidate must have a new cache version');
 
-function shell(version) {
+function shell(version, route) {
   return `<!doctype html><html lang="ru"><meta charset="utf-8"><title>Isolated PWA update</title>
-    <body data-release="${version}"><h1>Isolated resource update</h1>
+    <body data-release="${version}" data-route="${route}"><h1>Isolated resource update</h1>
     ${[...executableModules, ...(version === newRelease.version ? ['report-reconciliation.js'] : [])].map(module => `<script src="./${module}?v=${version}"></script>`).join('\n')}</body></html>`;
 }
 const mime = { '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webmanifest':'application/manifest+json',
@@ -82,7 +82,7 @@ const server = createServer((request, response) => {
       response.writeHead(503, { 'Cache-Control':'no-store' }).end('Simulated incomplete release'); return;
     }
     // Inert navigation shells prevent auth/bootstrap and user-data requests. Worker/assets remain real bytes.
-    const content = relative.endsWith('.html') ? Buffer.from(shell(phase.version)) : phase.files.get(relative);
+    const content = relative.endsWith('.html') ? Buffer.from(shell(phase.version,relative)) : phase.files.get(relative);
     response.writeHead(200, { 'Content-Type':mime[extname(relative)] || 'application/octet-stream',
       'Cache-Control':'no-store', 'Service-Worker-Allowed':prefix,
       'Content-Security-Policy':"default-src 'self'; connect-src 'self'; script-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'" });
@@ -97,10 +97,12 @@ try {
   await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
   const origin = `http://127.0.0.1:${server.address().port}`;
   const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE;
-  const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
+  const { chromium, devices } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
   browser = await chromium.launch({ headless:true,
     ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
-  const context = await browser.newContext({ serviceWorkers:'allow' });
+  const device = process.env.MINUTA_PWA_DEVICE ? devices[process.env.MINUTA_PWA_DEVICE] : {};
+  assert.ok(device, 'Unknown Playwright device profile');
+  const context = await browser.newContext({ ...device, serviceWorkers:'allow' });
   const externalRequests = [], pageErrors = [];
   await context.route('**/*', route => {
     if (new URL(route.request().url()).origin !== origin) {
@@ -119,6 +121,17 @@ try {
   }, { prefix, version:oldRelease.version });
   await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller));
   await page.reload();
+
+  // Recent baselines already lazy-cache secondary sections. Model a user who
+  // opened these sections before upgrading, rather than requiring every module
+  // to block installation. Bytes still come through the real worker and are hashed.
+  await page.evaluate(async ({prefix,version,modules}) => {
+    for(const module of modules) {
+      const response=await fetch(`${prefix}${module}?v=${version}`);
+      if(!response.ok) throw new Error(`Baseline warmup failed: ${module}`);
+      await response.arrayBuffer();
+    }
+  }, {prefix,version:oldRelease.version,modules});
 
   async function cacheHashes(release, requestedModules = release === newRelease ? newCoreModules : modules) {
     return page.evaluate(async ({ cacheName, prefix, version, modules }) => {
@@ -209,6 +222,12 @@ try {
   assert.deepEqual(serverErrors, []);
   console.log('PASS: offline new resources match checkout SHA-256 and are served by the actual service worker');
   console.log('Isolated real-SW resource update: 4/4 passed; installed-PWA and production E2E not exercised');
+  if(process.env.MINUTA_PWA_AUDIT_COLD_ROUTES) {
+    for(const route of ['my-bookings.html','booking.html','index.html']) {
+      await page.goto(`${origin}${prefix}${route}`);
+      console.log(`COLD_OFFLINE_DIAGNOSTIC requested=${route} served=${await page.locator('body').getAttribute('data-route')}`);
+    }
+  }
 } finally {
   try { if (browser) await browser.close(); }
   finally {

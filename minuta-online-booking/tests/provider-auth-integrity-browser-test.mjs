@@ -8,11 +8,12 @@ const root=path.resolve(fileURLToPath(new URL('..',import.meta.url)));
 const source=readFileSync(path.join(root,'provider.js'),'utf8');
 const html=readFileSync(path.join(root,'provider.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
 function actual(name){const start=source.search(new RegExp(`^(?:async )?function ${name}\\(`,'m'));assert.ok(start>=0,name);const next=source.slice(start+1).search(/^(?:async )?function /m);return source.slice(start,next<0?undefined:start+next+1);}
-const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
+const {chromium,devices}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
 const browser=await chromium.launch({headless:true,channel:process.env.BROWSER_CHANNEL||'chrome'});
 test.after(()=>browser.close());
-for(const width of [390,760,1440])for(const state of ['login','request','expired','reset'])test(`native auth ${state}, ${width}px`,async()=>{
-  const page=await browser.newPage({viewport:{width,height:1000},bypassCSP:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+const profiles=[...[390,760,1440].map(width=>({name:String(width),viewport:{width,height:1000}})),...['iPhone 13','Pixel 7'].map(name=>({...devices[name],name}))];
+for(const profile of profiles)for(const state of ['login','request','expired','reset'])test(`native auth ${state}, ${profile.name}`,async()=>{
+  const {name,...device}=profile;const width=device.viewport.width;const page=await browser.newPage({...device,bypassCSP:true});const errors=[];page.on('pageerror',e=>errors.push(e.message));
   try{
     await page.route('**/*',route=>{
       const url=new URL(route.request().url());
@@ -46,7 +47,7 @@ for(const width of [390,760,1440])for(const state of ['login','request','expired
     if(state==='request')assert.match(dimensions.title,/Восстановите доступ/);
     if(state==='expired'){assert.equal(await page.locator('#resetPasswordForm').isVisible(),false);assert.match(await page.locator('#recoveryError').innerText(),/устарела/);}
     if(state==='reset')assert.equal(await page.locator('#resetPasswordForm').isVisible(),true);
-    if(process.env.PROVIDER_AUTH_SCREENSHOTS){mkdirSync(process.env.PROVIDER_AUTH_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PROVIDER_AUTH_SCREENSHOTS,`${state}-${width}.png`),fullPage:true});}
+    if(process.env.PROVIDER_AUTH_SCREENSHOTS){mkdirSync(process.env.PROVIDER_AUTH_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.PROVIDER_AUTH_SCREENSHOTS,`${state}-${name.replaceAll(' ','-')}.png`),fullPage:true});}
     assert.deepEqual(errors,[]);
   }finally{await page.close();}
 });

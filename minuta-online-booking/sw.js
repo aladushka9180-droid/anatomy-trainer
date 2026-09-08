@@ -5,6 +5,7 @@ const CACHE = `${CACHE_PREFIX}v590`;
 // Secondary sections, help media and decorative theme images are cached on use.
 const ASSETS = [
   './provider.html',
+  './offline.html',
   './provider.webmanifest?v=590',
   './provider-icon-192.png',
   './provider-icon-512.png',
@@ -145,7 +146,7 @@ async function navigationResponse(event) {
     return cached;
   }
   try { return await update; }
-  catch { return (await caches.match('./provider.html')) || (await caches.match('./index.html')); }
+  catch { return (await caches.match('./offline.html')) || (await caches.match('./provider.html')); }
 }
 
 async function assetResponse(request) {
