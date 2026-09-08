@@ -242,7 +242,10 @@
       if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id))return false;
       const userId=getCurrentUser()?.id,generation=getSessionGeneration(),organizationId=organization.id,current=++revision;
       writing=true;setBusy(true);if(errorHolder){$(errorHolder).hidden=true;$(errorHolder).textContent='';}const old=button?.textContent;if(button){button.disabled=true;button.textContent='Сохраняем…';}
-      const {data,error}=await db.rpc(rpc,parameters);if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
+      let data=null,error=null;
+      try{({data,error}=await db.rpc(rpc,parameters));}
+      catch(reason){error=reason instanceof Error?reason:{message:String(reason||'')};}
+      if(button)button.textContent=old;const stale=!sessionIsCurrent(userId,generation)||current!==revision||organization?.id!==organizationId;writing=false;
       if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);return false;}
       if(error){const message=messageFor(error);if(errorHolder){$(errorHolder).textContent=message;$(errorHolder).hidden=false;}else notify(message);await load();return false;}
       if(!scopeMatches(data,organizationId)){notify('Ответ другой организации заблокирован.');await load();return false;}

@@ -20,6 +20,7 @@ class MockElement {
   }
   querySelector() { return new MockElement(); }
   querySelectorAll() { return []; }
+  closest(selector) { return selector === '#resourcesPanel' ? this : null; }
   reset() {}
 }
 
@@ -27,7 +28,8 @@ const ids = [
   'resourcesPanel','resourcesLoading','resourcesUnavailable','resourcesUnavailableText','resourcesCount',
   'resourceManagementGrid','resourceGroupsSection','resourceObjectsSection','resourceGroupsCount','resourceGroupsList','resourcesList','resourceGroupCreator','resourceGroupCreatorLabel','resourceGroupCreatorHint','resourceCreator','resourceCreatorLabel','resourceCreatorHint',
   'resourceRequirementsPanel','resourceLocation','resourceGroup','resourceForm','resourceCreateHelp',
-  'resourceRequirementService','resourceRequirementsList','resourceRequirementSubmit','resourceRequirementError','resourceAuditPanel','resourceAuditCount','resourceAuditList'
+  'resourceRequirementService','resourceRequirementsList','resourceRequirementSubmit','resourceRequirementError','resourceAuditPanel','resourceAuditCount','resourceAuditList',
+  'resourceGroupForm','resourceGroupName','resourceGroupKind','resourceGroupDescription','resourceGroupError'
 ];
 function makeDom() {
   const elements = Object.fromEntries(ids.map(id => [id, new MockElement(id)]));
@@ -53,8 +55,9 @@ function deferred() {
   return { promise, resolve };
 }
 
+const listeners = {};
 globalThis.window = {};
-globalThis.document = { addEventListener() {} };
+globalThis.document = { addEventListener(type, handler) { (listeners[type] ||= []).push(handler); } };
 await import(`${pathToFileURL(join(root, 'resource-management.js')).href}?test=${Date.now()}`);
 const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[char]));
 
@@ -188,6 +191,34 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({ '
   const result = await load;
   assert.equal(result.stale, true, 'Ответ после выхода должен быть отброшен');
   assert.equal(dom.elements.resourcesPanel.hidden, true);
+}
+
+{
+  const dom = makeDom();
+  let writeCalls = 0;
+  const controller = window.MinutaResources.createController({
+    db: { rpc: async name => {
+      if (name === 'get_minuta_resource_workspace') return { data:workspace('org-retry'), error:null };
+      if (name === 'create_minuta_resource_group') {
+        writeCalls += 1;
+        if (writeCalls === 1) throw new TypeError('network request failed');
+        return { data:workspace('org-retry'), error:null };
+      }
+      throw new Error(`unexpected rpc: ${name}`);
+    } },
+    ...dom, escapeHtml, notify() {}, requireWrites: () => true,
+    getCurrentUser: () => ({ id:'owner' }), getSessionGeneration: () => 7,
+    sessionIsCurrent: () => true, applyWriteAvailability() {}
+  });
+  controller.bind();
+  await controller.setOrganization({ id:'org-retry', can_manage:true });
+  dom.elements.resourceGroupName.value = 'Новая группа';
+  dom.elements.resourceGroupKind.value = 'room';
+  const submit = listeners.submit.at(-1);
+  const event = { target:dom.elements.resourceGroupForm, submitter:new MockElement('save'), preventDefault() {} };
+  await submit(event);
+  await submit(event);
+  assert.equal(writeCalls, 2, 'Отклонённый Promise не должен навсегда блокировать следующую запись ресурсов');
 }
 
 console.log('resource management controller tests passed');

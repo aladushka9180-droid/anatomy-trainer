@@ -30,8 +30,9 @@ function workspace(id,overrides={}) {
 }
 function deferred() { let resolve; const promise=new Promise(done=>{resolve=done;}); return {promise,resolve}; }
 
+const listeners={};
 globalThis.window={};
-globalThis.document={addEventListener(){}};
+globalThis.document={addEventListener(type,handler){(listeners[type]||=[]).push(handler);}};
 await import(`${pathToFileURL(join(root,'benefit-management.js')).href}?test=${Date.now()}`);
 const escapeHtml=value=>String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 function controller(dom,rpc,overrides={}) {
@@ -68,6 +69,26 @@ function controller(dom,rpc,overrides={}) {
   const request=instance.setOrganization({id:'org',current_role:'owner'}); active=false; instance.reset(); pending.resolve({data:workspace('org'),error:null});
   assert.equal((await request).stale,true);
   assert.equal(dom.elements.benefitsPanel.hidden,true);
+}
+{
+  const dom=makeDom();let writeCalls=0;
+  const instance=controller(dom,async name=>{
+    if(name==='get_minuta_benefit_workspace')return {data:workspace('org-retry'),error:null};
+    if(name==='set_minuta_benefits_enabled'){
+      writeCalls+=1;
+      if(writeCalls===1)throw new TypeError('network request failed');
+      return {data:workspace('org-retry',{enabled:true}),error:null};
+    }
+    throw new Error(`unexpected rpc: ${name}`);
+  });
+  instance.bind();
+  await instance.setOrganization({id:'org-retry',current_role:'owner'});
+  dom.elements.benefitsEnabled.checked=true;
+  const change=listeners.change.at(-1);
+  await change({target:dom.elements.benefitsEnabled});
+  dom.elements.benefitsEnabled.checked=true;
+  await change({target:dom.elements.benefitsEnabled});
+  assert.equal(writeCalls,2,'Отклонённый Promise не должен навсегда блокировать следующую запись льгот');
 }
 
 for (const rpc of ['get_minuta_benefit_workspace','set_minuta_benefits_enabled','upsert_minuta_benefit_product','issue_minuta_benefit','set_minuta_benefit_status','apply_minuta_benefit']) assert.match(source,new RegExp(rpc));

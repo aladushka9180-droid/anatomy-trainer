@@ -225,7 +225,13 @@
       if (errorSelector) $(errorSelector).hidden = true;
       const oldText = button?.textContent;
       if (button) { button.disabled = true; button.textContent = 'Сохраняем…'; }
-      const { data, error } = await db.rpc(rpc, parameters);
+      let data = null;
+      let error = null;
+      try {
+        ({ data, error } = await db.rpc(rpc, parameters));
+      } catch (reason) {
+        error = reason instanceof Error ? reason : { message: String(reason || '') };
+      }
       if (button) button.textContent = oldText;
       const stale = !sessionIsCurrent(userId, generation) || organization?.id !== organizationId || revision !== requestRevision;
       writePending = false;
