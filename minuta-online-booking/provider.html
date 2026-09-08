@@ -1215,13 +1215,21 @@
                   <p class="provider-text-scale-help">Масштаб применяется к подписям и формам кабинета. Размеры сетки календаря и времени остаются стабильными.</p>
                 </fieldset>
                 <fieldset class="booking-card-settings">
-                  <legend>Показывать в карточке записи</legend>
-                  <div class="booking-card-options">
-                    <label class="settings-check"><input id="showBookingPhone" type="checkbox"><span><strong>Номер телефона</strong><small>Оставить телефон рядом с именем клиента.</small></span></label>
-                    <label class="settings-check"><input id="showBookingVisitNumber" type="checkbox"><span><strong>Номер визита</strong><small>Например: «4-й визит за 30 дней».</small></span></label>
-                    <label class="settings-check"><input id="showBookingClientType" type="checkbox"><span><strong>Тип клиента</strong><small>Новый, повторный, после перерыва или постоянный. Постоянный — после 10 завершённых сеансов за 30 дней; отмены и неявки не учитываются.</small></span></label>
-                    <label class="settings-check"><input id="showBookingClientLabels" type="checkbox"><span><strong>Личные метки</strong><small>VIP, любимый клиент и требует внимания.</small></span></label>
-                    <label class="settings-check"><input id="showBookingNotes" type="checkbox"><span><strong>Заметки</strong><small>Короткая заметка о клиенте прямо в расписании.</small></span></label>
+                  <legend>Карточки записей</legend>
+                  <div class="booking-card-density-options" role="radiogroup" aria-label="Подробность карточек записей">
+                    <label class="booking-card-density-option"><input type="radio" name="bookingCardDensity" value="compact"><span><strong>Компактно <em>Рекомендуем</em></strong><small>Всё важное без длинных подписей</small></span></label>
+                    <label class="booking-card-density-option"><input type="radio" name="bookingCardDensity" value="detailed"><span><strong>Подробно</strong><small>Больше данных прямо в расписании</small></span></label>
+                    <label class="booking-card-density-option"><input type="radio" name="bookingCardDensity" value="custom"><span><strong>Настроить</strong><small>Выбрать данные вручную</small></span></label>
+                  </div>
+                  <p class="booking-card-density-hint" id="bookingCardDensityHint">Время, услуга, клиент и одна важная метка. Остальное — после открытия.</p>
+                  <div class="booking-card-custom" id="bookingCardCustomOptions" hidden>
+                    <div class="booking-card-options">
+                      <label class="settings-check"><input id="showBookingPhone" type="checkbox"><span><strong>Номер телефона</strong><small>Только в дневном списке</small></span></label>
+                      <label class="settings-check"><input id="showBookingVisitNumber" type="checkbox"><span><strong>Номер визита</strong><small>Например, «4-й визит»</small></span></label>
+                      <label class="settings-check"><input id="showBookingClientType" type="checkbox"><span><strong>Тип клиента</strong><small>Новый, повторный или постоянный</small></span></label>
+                      <label class="settings-check"><input id="showBookingClientLabels" type="checkbox"><span><strong>Личные метки</strong><small>Одна важная метка и число остальных</small></span></label>
+                      <label class="settings-check"><input id="showBookingNotes" type="checkbox"><span><strong>Заметки</strong><small>Короткий текст в карточке</small></span></label>
+                    </div>
                   </div>
                   <a class="settings-help-link" href="help/article.html?slug=booking-card-appearance" target="_blank" rel="noopener noreferrer">Что лучше показывать в карточке <span aria-hidden="true">↗</span></a>
                 </fieldset>

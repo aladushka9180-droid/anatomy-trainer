@@ -241,15 +241,21 @@ const LEGACY_PROVIDER_THEME_MAP = Object.freeze({ linear:'sage', soft:'nordic', 
 const VISIT_WINDOW_DAYS = 30;
 const VISIT_WINDOW_MS = VISIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const REGULAR_CLIENT_COMPLETED_VISITS = 10;
+const BOOKING_CARD_DENSITY_KEYS = Object.freeze(['compact', 'detailed', 'custom']);
+const BOOKING_CARD_DENSITY_PRESETS = Object.freeze({
+  compact:Object.freeze({ show_phone:false, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:false }),
+  detailed:Object.freeze({ show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true })
+});
 const DEFAULT_DISPLAY_PREFERENCES = Object.freeze({
   layout: 'soft',
   theme: 'warm',
   text_scale: 'default',
-  show_phone: true,
+  booking_card_density: 'compact',
+  show_phone: false,
   show_visit_number: true,
   show_client_type: true,
   show_client_labels: true,
-  show_notes: true,
+  show_notes: false,
   ios_transitions: true,
   team_calendar_enabled: false,
   mobile_nav: ['bookings', 'clients', 'notifications', 'analytics'],
@@ -1449,20 +1455,28 @@ function normalizeAnalyticsGoalsByScope(value = {}) {
 }
 function normalizeDisplayPreferences(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
-  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 6);
+  const preferencesVersion = Number(source.preferences_version ?? source.version ?? 7);
   const storedTheme = String(source.theme || '');
   const storedLayout = String(source.layout || '');
   const storedTextScale = String(source.text_scale || source.textScale || '');
   const legacyLayout = PROVIDER_LAYOUT_KEYS.includes(storedTheme) ? storedTheme : '';
+  const density = BOOKING_CARD_DENSITY_KEYS.includes(source.booking_card_density)
+    ? source.booking_card_density
+    : DEFAULT_DISPLAY_PREFERENCES.booking_card_density;
+  const customCardOptions = {
+    show_phone:source.show_phone ?? DEFAULT_DISPLAY_PREFERENCES.show_phone,
+    show_visit_number:source.show_visit_number ?? DEFAULT_DISPLAY_PREFERENCES.show_visit_number,
+    show_client_type:source.show_client_type ?? DEFAULT_DISPLAY_PREFERENCES.show_client_type,
+    show_client_labels:source.show_client_labels ?? DEFAULT_DISPLAY_PREFERENCES.show_client_labels,
+    show_notes:source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes
+  };
+  const cardOptions = BOOKING_CARD_DENSITY_PRESETS[density] || customCardOptions;
   return {
     layout: PROVIDER_LAYOUT_KEYS.includes(storedLayout) ? storedLayout : legacyLayout || DEFAULT_DISPLAY_PREFERENCES.layout,
     theme: PROVIDER_THEME_KEYS.includes(storedTheme) ? storedTheme : LEGACY_PROVIDER_THEME_MAP[storedTheme] || DEFAULT_DISPLAY_PREFERENCES.theme,
     text_scale: PROVIDER_TEXT_SCALE_KEYS.includes(storedTextScale) ? storedTextScale : DEFAULT_DISPLAY_PREFERENCES.text_scale,
-    show_phone: source.show_phone ?? DEFAULT_DISPLAY_PREFERENCES.show_phone,
-    show_visit_number: source.show_visit_number ?? DEFAULT_DISPLAY_PREFERENCES.show_visit_number,
-    show_client_type: source.show_client_type ?? DEFAULT_DISPLAY_PREFERENCES.show_client_type,
-    show_client_labels: source.show_client_labels ?? DEFAULT_DISPLAY_PREFERENCES.show_client_labels,
-    show_notes: source.show_notes ?? DEFAULT_DISPLAY_PREFERENCES.show_notes,
+    booking_card_density:density,
+    ...cardOptions,
     ios_transitions: source.ios_transitions ?? DEFAULT_DISPLAY_PREFERENCES.ios_transitions,
     team_calendar_enabled: source.team_calendar_enabled ?? source.teamCalendarEnabled ?? DEFAULT_DISPLAY_PREFERENCES.team_calendar_enabled,
     mobile_nav: migrateLegacyMobileNavigation(source.mobile_nav ?? source.mobileNav, preferencesVersion),
@@ -1478,6 +1492,7 @@ function displayPreferencesEqual(left, right) {
   return a.layout === b.layout
     && a.theme === b.theme
     && a.text_scale === b.text_scale
+    && a.booking_card_density === b.booking_card_density
     && a.show_phone === b.show_phone
     && a.show_visit_number === b.show_visit_number
     && a.show_client_type === b.show_client_type
@@ -1542,7 +1557,7 @@ function persistLocalDisplayPreferences(userId = currentUser?.id) {
   if (!userId) return;
   try {
     localStorage.setItem(providerDisplayStorageKey(userId), JSON.stringify({
-      version: 6,
+      version: 7,
       preferences: displayPreferences,
       updated_at: displayPreferencesUpdatedAt,
       pending: displayPreferencesPending
@@ -1564,7 +1579,7 @@ function restoreDisplayPreferences(user = currentUser) {
 function displayPreferencesServerSnapshot() {
   return {
     ...displayPreferences,
-    version: 6,
+    version: 7,
     updated_at: displayPreferencesUpdatedAt
   };
 }
@@ -1668,6 +1683,7 @@ function applyDisplayPreferences() {
   document.body.dataset.providerTheme = displayPreferences.theme;
   document.body.dataset.providerLayout = displayPreferences.layout;
   document.body.dataset.providerTextScale = displayPreferences.text_scale;
+  document.body.dataset.bookingCardDensity = displayPreferences.booking_card_density;
   document.body.dataset.iosTransitions = displayPreferences.ios_transitions ? 'on' : 'off';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', window.MinutaThemeCatalog.theme(displayPreferences.theme).palette.themeColor);
   renderMobileNavigation();
@@ -1723,6 +1739,16 @@ function renderDisplayPreferencesForm() {
   applyProviderThemeFilter(providerThemeFilter);
   const textScale = form.querySelector(`input[name="providerTextScale"][value="${displayPreferences.text_scale}"]`);
   if (textScale) textScale.checked = true;
+  const bookingCardDensity = form.querySelector(`input[name="bookingCardDensity"][value="${displayPreferences.booking_card_density}"]`);
+  if (bookingCardDensity) bookingCardDensity.checked = true;
+  const customCardOptions = $('#bookingCardCustomOptions');
+  if (customCardOptions) customCardOptions.hidden = displayPreferences.booking_card_density !== 'custom';
+  const densityHint = $('#bookingCardDensityHint');
+  if (densityHint) densityHint.textContent = displayPreferences.booking_card_density === 'detailed'
+    ? 'Телефон, метки и заметки видны сразу. Длинный текст ограничен двумя строками.'
+    : displayPreferences.booking_card_density === 'custom'
+    ? 'Отметьте только те данные, которые нужны вам в расписании.'
+    : 'Время, услуга, клиент и одна важная метка. Остальное — после открытия.';
   $('#showBookingPhone').checked = displayPreferences.show_phone;
   $('#showBookingVisitNumber').checked = displayPreferences.show_visit_number;
   $('#showBookingClientType').checked = displayPreferences.show_client_type;
@@ -1898,6 +1924,7 @@ function displayPreferencesFromForm() {
     layout: $('#providerDisplayForm input[name="providerLayout"]:checked')?.value,
     theme: $('#providerDisplayForm input[name="providerTheme"]:checked')?.value,
     text_scale: $('#providerDisplayForm input[name="providerTextScale"]:checked')?.value,
+    booking_card_density:$('#providerDisplayForm input[name="bookingCardDensity"]:checked')?.value,
     show_phone: $('#showBookingPhone').checked,
     show_visit_number: $('#showBookingVisitNumber').checked,
     show_client_type: $('#showBookingClientType').checked,
@@ -2022,6 +2049,12 @@ function bookingClientLabelsMarkup(phone, bookingId) {
       <span class="client-labels-autosave" data-booking-labels-status role="status" aria-live="polite">Сохраняются автоматически</span>
     </div>
   </details>`;
+}
+function compactBookingCardsEnabled() {
+  return displayPreferences.booking_card_density === 'compact';
+}
+function compactBookingNoteMarkup(note, className = 'booking-note-presence') {
+  return note && compactBookingCardsEnabled() ? `<span class="${className}">${uiIcon('edit')}<span>Есть заметка</span></span>` : '';
 }
 function bookingColorStorageKey(userId = currentUser?.id) { return `massage-booking-colors-v1:${userId || 'anonymous'}`; }
 function bookingColorPendingStorageKey(userId = currentUser?.id) { return `massage-booking-colors-pending-v1:${userId || 'anonymous'}`; }
@@ -6364,16 +6397,17 @@ function renderTimeline(sourceItems) {
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
     const visibleNote = displayPreferences.show_notes ? note : '';
+    const notePresence = compactBookingCardsEnabled() && note;
     const visitText = block ? '' : bookingVisitSummaryText(item);
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item, 'timeline-client-visit');
-    const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', visitText, `${duration} мин`].filter(Boolean).join(' · ');
+    const clientDetails = block ? (item.automatic_break ? 'Автоматический перерыв' : 'Занятое время') : [item.client_name, visitText, `${duration} мин`].filter(Boolean).join(' · ');
     const clientDetailsMarkup = block
       ? ''
-      : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${displayPreferences.show_phone ? `<span class="timeline-client-phone"><span class="timeline-client-phone-separator" aria-hidden="true"> · </span>${escapeHtml(item.client_phone)}</span>` : ''}${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}`;
+      : `<span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${visitMarkup ? `<span class="timeline-client-visit-wrap"> · ${visitMarkup}</span>` : ''}`;
     const timelineClientRow = compactMobile
       ? ''
       : tightMobile && !block
-      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${visibleNote ? '<span> · есть заметка</span>' : ''}</small></span>`
+      ? `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange} · </span><span class="timeline-client-name">${escapeHtml(item.client_name)}</span>${visibleNote || notePresence ? '<span> · есть заметка</span>' : ''}</small></span>`
       : `<span class="timeline-booking-client-row"><small class="timeline-booking-client"><span class="timeline-mobile-time">${timeRange}${block ? '' : ' · '}</span>${clientDetailsMarkup}</small></span>`;
     const ariaDetails = visibleNote ? `${clientDetails}, заметка: ${visibleNote}` : clientDetails;
     const highlightClasses = block ? '' : clientHighlightClasses(item.client_phone);
@@ -6391,7 +6425,7 @@ function renderTimeline(sourceItems) {
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
     const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
     const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup}<wbr><span class="timeline-service-duration"> · ${duration} мин</span>`;
-    const renderedNote = !mobileTimeline && visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : '';
+    const renderedNote = !mobileTimeline && (visibleNote ? `<small class="timeline-booking-note"><b>Заметка:</b> ${escapeHtml(visibleNote)}</small>` : compactBookingNoteMarkup(note, 'timeline-booking-note-presence'));
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
     const mobileBadgeMarkup = mobileTimeline ? badgeMarkup : '';
     const desktopBadgeMarkup = mobileTimeline ? '' : badgeMarkup;
@@ -6401,7 +6435,7 @@ function renderTimeline(sourceItems) {
       <span class="timeline-booking-copy">${mobileBadgeMarkup}<strong>${serviceTitleMarkup}</strong>${timelineClientRow}${desktopBadgeMarkup}${renderedNote}</span>
       ${renderedStatus}`;
     const tight = tightMobile ? ' timeline-tight' : '';
-    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
+    const className = `timeline-booking status-${statusClass} color-${bookingColor(item)}${compact}${tight}${minuteOnly ? ' minute-only' : ''}${item.automatic_break ? ' automatic-break' : ''}${imported ? ' is-imported-history' : ''}${visibleNote || notePresence ? ' has-note' : ''}${highlightClasses}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}`;
     const ariaLabel = `${escapeHtml(block ? (item.client_name || 'Занятое время') : serviceName(item.services?.name || 'Услуга'))}, с ${startTime} до ${endTime}, ${escapeHtml(ariaDetails)}${badgeDetails ? `, метки клиента: ${escapeHtml(badgeDetails)}` : ''}, статус: ${escapeHtml(item.automatic_break ? 'автоматический перерыв' : statusText)}`;
     const timelineStyle = `top:${visualTop + 2}px;height:${height}px${tightMobile ? ';padding:5px 9px!important;overflow:hidden!important' : ''}`;
     return item.automatic_break
@@ -6439,6 +6473,7 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const block = isScheduleBlock(item);
     const note = bookingDisplayNote(item);
     const visibleNote = displayPreferences.show_notes ? note : '';
+    const compactNote = compactBookingNoteMarkup(note, 'provider-booking-note-presence');
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
     const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
     const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
@@ -6446,8 +6481,8 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
       <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
-        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, mobileList ? { limit:3, showLabels:true } : { limit:1 }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
-        <span class="provider-booking-signals">${bookingSeriesMarkup(item)}${visibleNote ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(visibleNote)}</span>` : ''}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
+        ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1, showLabels:mobileList }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
+        <span class="provider-booking-signals">${bookingSeriesMarkup(item)}${visibleNote ? `<span class="provider-booking-note-full"><b>Заметка:</b> ${escapeHtml(visibleNote)}</span>` : compactNote}${Number(item.deposit_amount_rub || 0) > 0 ? `<span class="booking-prepayment-badge status-${escapeHtml(item.payment_status)}">${item.payment_status === 'paid' ? 'Оплачено' : item.payment_status === 'refunded' ? 'Возврат' : 'Ждёт оплаты'}</span>` : ''}${resultSummary ? `<span class="booking-outcome-summary">${escapeHtml(resultSummary)}</span>` : ''}</span></span>
         <span class="provider-booking-chevron" aria-hidden="true">›</span>
       </button>
     </article>`;
@@ -8580,18 +8615,20 @@ function calendarOverviewBookingMarkup(item, compact) {
   const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
   const client = block ? 'Занятое время' : item.client_name;
   const statusClass = bookingStatusClass(item);
-  const phone = block || !displayPreferences.show_phone ? '' : String(item.client_phone || '');
+  const phone = '';
   const visitText = block ? '' : bookingVisitSummaryText(item);
-  const note = block || !displayPreferences.show_notes ? '' : bookingDisplayNote(item);
+  const rawNote = block ? '' : bookingDisplayNote(item);
+  const note = displayPreferences.show_notes ? rawNote : '';
+  const notePresence = compactBookingNoteMarkup(rawNote, 'calendar-overview-note-presence');
   const badgeText = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
-  const badgeMarkup = block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:3, showLabels:true });
+  const badgeMarkup = block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1, showLabels:true });
   const importedText = item.is_imported_history ? 'Импортировано, только просмотр' : '';
-  const details = [title, client, time, phone, visitText, badgeText, importedText, note ? `заметка: ${note}` : ''].filter(Boolean).join(', ');
+  const details = [title, client, time, visitText, badgeText, importedText, note ? `заметка: ${note}` : rawNote ? 'есть заметка' : ''].filter(Boolean).join(', ');
   const cardDetails = compact ? '' : `<span class="calendar-overview-booking-details">
     <span class="calendar-overview-client-row"><b>${escapeHtml(client)}${item.is_imported_history ? ' · Импортировано' : ''}</b>${badgeMarkup}</span>
     ${phone ? `<small class="calendar-overview-phone">${escapeHtml(phone)}</small>` : ''}
     ${visitText ? `<small class="calendar-overview-visit">${escapeHtml(visitText)}</small>` : ''}
-    ${note ? `<small class="calendar-overview-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : ''}
+    ${note ? `<small class="calendar-overview-note"><b>Заметка:</b> ${escapeHtml(note)}</small>` : notePresence}
   </span>`;
   return `<button class="calendar-overview-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" aria-label="${escapeHtml(details)}. Открыть запись"><time>${escapeHtml(time)}</time><span class="calendar-overview-booking-copy"><strong>${escapeHtml(title)}</strong>${cardDetails}</span></button>`;
 }

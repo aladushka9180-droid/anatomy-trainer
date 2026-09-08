@@ -360,8 +360,12 @@ assert.match(provider, /bookingOutcome\(item\)\.visit_status === 'completed'/, '
 assert.match(provider, /provider_display_preferences/, 'Оформление кабинета не сохраняется в аккаунте мастера');
 assert.match(providerHtml, /id="providerDisplayForm"/, 'В настройках нет выбора оформления кабинета');
 assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"[\s\S]*value="graphite"[\s\S]*value="lavender"[\s\S]*value="luxury"[\s\S]*value="loft"[\s\S]*value="eco"[\s\S]*value="hitech"[\s\S]*value="japandi"[\s\S]*value="midnight"[\s\S]*value="mono"[\s\S]*value="desert"[\s\S]*value="rose"/, 'В настройках доступны не все базовые темы');
+assert.match(providerHtml, /name="bookingCardDensity" value="compact"[\s\S]*name="bookingCardDensity" value="detailed"[\s\S]*name="bookingCardDensity" value="custom"/, 'В карточках записей нет компактного, подробного и ручного режима');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
-assert.match(providerHtml, /id="showBookingClientType"[\s\S]{0,400}Постоянный — после 10 завершённых сеансов за 30 дней; отмены и неявки не учитываются\./, 'Правило постоянного клиента находится вне настройки «Тип клиента»');
+assert.match(providerHtml, /id="bookingCardCustomOptions" hidden/, 'Ручные галочки карточки перегружают рекомендуемый режим');
+assert.match(provider, /compactBookingNoteMarkup[\s\S]*Есть заметка/, 'Компактная карточка не сообщает о наличии заметки');
+assert.match(provider, /clientBadgeMarkup\(item\.client_phone, \{ limit:1, showLabels:mobileList \}\)/, 'Мобильная карточка показывает больше одной личной метки');
+assert.match(styles, /\.provider-booking-note-full \{[^}]*-webkit-line-clamp:2;/, 'Длинная заметка не ограничена двумя строками');
 assert.doesNotMatch(providerHtml, /class="provider-display-hint"[^>]*>«Постоянный клиент»/, 'Подсказка о постоянном клиенте осталась отдельным несвязанным блоком');
 assert.match(providerHtml, /class="provider-display-save-state"[\s\S]{0,240}id="providerDisplayStatus"/, 'Статус автосохранения оформления не находится в шапке формы');
 assert.match(provider, /const moreOrder=viewOrderForRole\(role\)\.filter\(key=>!selected\.includes\(key\)\)/, 'Редактор меню «Разделы» показывает пункты нижней панели');
@@ -552,12 +556,14 @@ const appearanceSources = [
   provider.match(/const PROVIDER_ROLE_KEYS = [^;]+;/)?.[0],
   provider.match(/const DEFAULT_MOBILE_NAV_BY_ROLE = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/const LEGACY_PROVIDER_THEME_MAP = [^;]+;/)?.[0],
+  provider.match(/const BOOKING_CARD_DENSITY_KEYS = Object\.freeze\([^;]+;/)?.[0],
+  provider.match(/const BOOKING_CARD_DENSITY_PRESETS = Object\.freeze\([\s\S]*?\n\}\);/)?.[0],
   provider.match(/const DEFAULT_DISPLAY_PREFERENCES = Object\.freeze\([\s\S]*?\);/)?.[0],
   provider.match(/function normalizeMobileNavigation\([\s\S]*?(?=\nfunction normalizeDisplayPreferences)/)?.[0],
   provider.match(/function normalizeDisplayPreferences\([\s\S]*?(?=\nfunction loadLocalDisplayPreferences)/)?.[0]
 ];
 assert.ok(!appearanceSources.includes(undefined), 'Не удалось извлечь логику раздельного оформления');
-assert.match(appearanceSources[8], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
+assert.match(appearanceSources[10], /theme:\s*'warm'/, 'Новый кабинет исполнителя не открывается в теме Warm Beige');
 const normalizeAppearance = Function(`${appearanceSources.join('\n')}; return normalizeDisplayPreferences;`)();
 const defaultMobileNav = ['bookings', 'clients', 'notifications', 'analytics'];
 const defaultMobileNavByRole = { owner:['bookings','clients','notifications','analytics'], admin:['bookings','clients','notifications','analytics'], specialist:['bookings','clients','notifications','analytics'] };
@@ -570,13 +576,15 @@ for (const layout of ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'
     assert.deepEqual(normalizeAppearance({ layout, theme }).theme, theme, `Тема ${theme} потерялась со структурой ${layout}`);
   }
 }
-assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
+assert.deepEqual(normalizeAppearance({ theme:'bento' }), { layout:'bento', theme:'graphite', text_scale:'default', booking_card_density:'compact', show_phone:false, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:false, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope }, 'Старый выбор Bento переносится неверно');
+assert.equal(normalizeAppearance({ booking_card_density:'detailed' }).show_notes, true, 'Подробный режим не включает заметки');
+assert.equal(normalizeAppearance({ booking_card_density:'compact', show_phone:true }).show_phone, false, 'Компактный режим снова показывает телефон');
 const migratedLegacyNavigation = normalizeAppearance({ version:5, mobile_nav:['bookings','organization','analytics','schedule'], mobile_nav_by_role:{ owner:['bookings','organization','analytics','schedule'], admin:['bookings','organization','analytics','schedule'], specialist:['bookings','organization','analytics','schedule'] } });
 assert.deepEqual(migratedLegacyNavigation.mobile_nav, defaultMobileNav, 'Прежняя нижняя панель не заменяется ежедневными разделами');
 assert.deepEqual(migratedLegacyNavigation.mobile_nav_by_role, defaultMobileNavByRole, 'Прежняя нижняя панель ролей не переносится на новый порядок');
 const displayPreferenceResolver = Function(`${appearanceSources.join('\n')}; return { normalizeDisplayPreferencesRecord, resolveDisplayPreferenceRecords };`)();
-const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
-const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const luxuryLinear = { layout:'linear', theme:'luxury', text_scale:'default', booking_card_density:'custom', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
+const ecoCapsule = { layout:'capsule', theme:'eco', text_scale:'default', booking_card_density:'custom', show_phone:true, show_visit_number:true, show_client_type:true, show_client_labels:true, show_notes:true, ios_transitions:true, team_calendar_enabled:false, mobile_nav:defaultMobileNav, mobile_nav_by_role:defaultMobileNavByRole, view_order_by_role:defaultViewOrderByRole, analytics_goals:defaultAnalyticsGoals, analytics_goals_by_scope:defaultAnalyticsGoalsByScope };
 const pendingLocalAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ version:2, preferences:luxuryLinear, updated_at:200, pending:true }, true);
 const staleRemoteAppearance = displayPreferenceResolver.normalizeDisplayPreferencesRecord({ ...ecoCapsule, version:2, updated_at:100 }, true);
 assert.deepEqual(displayPreferenceResolver.resolveDisplayPreferenceRecords(pendingLocalAppearance, staleRemoteAppearance, 300).preferences, luxuryLinear, 'Обновление страницы заменяет новый локальный Luxury устаревшей темой аккаунта');
