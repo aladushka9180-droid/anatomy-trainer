@@ -1,0 +1,177 @@
+name: Minuta v125 safe release
+run-name: Minuta v125 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v125
+        required: true
+        default: audit-production-v125
+        type: choice
+        options: [audit-production-v125, apply-production-v125]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful booking/concurrency run ID, required: false, default: "", type: string }
+      audit_run_id: { description: Successful read-only audit run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: minuta-production-database, cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            audit-production-v125) ;;
+            apply-production-v125) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: node minuta-online-booking/notification-outbox-v125-static-test.mjs
+
+  audit-production-v125:
+    if: inputs.phase == 'audit-production-v125'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+    steps:
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Audit exact hash, trigger and tenant contract read-only
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'tenantOutbox',exists(select 1 from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name='organization_id' and data_type='uuid' and is_nullable='NO'),
+            'unifiedFunction',to_regprocedure('public.enqueue_minuta_booking_notification(uuid,text)') is not null,
+            'enqueueHash',(select md5(replace(prosrc,E'\r','')) from pg_proc where oid=to_regprocedure('public.enqueue_booking_created_notification()')),
+            'acceptedHash',coalesce((select md5(replace(prosrc,E'\r','')) in ('1f1a45095b0926a19d56a6129c04edac','a509808937e4eaed2cdd8e7d74995ca9') from pg_proc where oid=to_regprocedure('public.enqueue_booking_created_notification()')),false),
+            'trigger',exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_enqueue_created_notification' and tgfoid=to_regprocedure('public.enqueue_booking_created_notification()') and tgtype=5 and tgenabled='O' and not tgisinternal)
+          );
+          SQL
+          )"
+          jq -e '.tenantOutbox and .unifiedFunction and .acceptedHash and .trigger' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"audit-production-v125",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v125-audit.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v125-audit-${{ github.run_id }}", path: "${{ runner.temp }}/v125-audit.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v125:
+    if: inputs.phase == 'apply-production-v125'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify same-SHA test, audit, fresh encrypted backup and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          TEST: ${{ inputs.test_run_id }}
+          AUDIT: ${{ inputs.audit_run_id }}
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$TEST" "$AUDIT"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run() {
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            test "$(jq -r .conclusion <<<"$run")" = success
+            test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+            test "$(jq -r .head_branch <<<"$run")" = main
+            test "$(jq -r .event <<<"$run")" = workflow_dispatch
+            test "$(jq -r .path <<<"$run")" = "$2"
+          }
+          check_run "$TEST" .github/workflows/minuta-booking-integration.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta booking integration test"
+          check_run "$AUDIT" .github/workflows/minuta-v125-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v125 - audit-production-v125 - $SHA"
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          mkdir -p "$RUNNER_TEMP/v125-evidence/audit" "$RUNNER_TEMP/v125-evidence/backup"
+          gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v125-audit-$AUDIT" -D "$RUNNER_TEMP/v125-evidence/audit"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="audit-production-v125" and .commitSha==$sha and .productionWritten==false and .state.tenantOutbox and .state.unifiedFunction and .state.acceptedHash and .state.trigger' "$RUNNER_TEMP/v125-evidence/audit/v125-audit.json" >/dev/null
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length==1' <<<"$artifacts" >/dev/null
+          artifact="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$artifacts")"
+          [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v125-evidence/backup"
+          shopt -s nullglob
+          journals=("$RUNNER_TEMP/v125-evidence/backup/"*.json)
+          encrypted=("$RUNNER_TEMP/v125-evidence/backup/"*.dump.gpg)
+          checksums=("$RUNNER_TEMP/v125-evidence/backup/"*.dump.gpg.sha256)
+          test "${#journals[@]}" = 1 && test "${#encrypted[@]}" = 1 && test "${#checksums[@]}" = 1
+          jq -e --arg run "$BACKUP" --arg repo "$GITHUB_REPOSITORY" '.operation=="backup" and .status=="success" and .workflowRunId==$run and .repository==$repo and .encryption=="OpenPGP symmetric AES-256" and .archiveFormat=="PostgreSQL custom" and .archiveEntries>0' "${journals[0]}" >/dev/null
+          expected="$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(sha256sum "${encrypted[0]}" | cut -d' ' -f1)" = "$expected"
+          test "$(tr -d '[:space:]' < "${checksums[0]}")" = "$expected"
+          test "$(stat -c %s "${encrypted[0]}")" = "$(jq -r .encryptedBytes "${journals[0]}")"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Repeat exact guard, apply v125 atomically and post-verify read-only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="${SUPABASE_DB_URL/:6543/:5432}"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'tenantOutbox',exists(select 1 from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name='organization_id' and data_type='uuid' and is_nullable='NO'),
+            'unifiedFunction',to_regprocedure('public.enqueue_minuta_booking_notification(uuid,text)') is not null,
+            'enqueueHash',(select md5(replace(prosrc,E'\r','')) from pg_proc where oid=to_regprocedure('public.enqueue_booking_created_notification()')),
+            'acceptedHash',coalesce((select md5(replace(prosrc,E'\r','')) in ('1f1a45095b0926a19d56a6129c04edac','a509808937e4eaed2cdd8e7d74995ca9') from pg_proc where oid=to_regprocedure('public.enqueue_booking_created_notification()')),false),
+            'trigger',exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_enqueue_created_notification' and tgfoid=to_regprocedure('public.enqueue_booking_created_notification()') and tgtype=5 and tgenabled='O' and not tgisinternal)
+          );
+          SQL
+          )"
+          jq -e '.tenantOutbox and .unifiedFunction and .acceptedHash and .trigger' <<<"$before" >/dev/null
+          PGOPTIONS='-c statement_timeout=120000 -c lock_timeout=10000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v125.sql
+          after="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'tenantOutbox',exists(select 1 from information_schema.columns where table_schema='public' and table_name='notification_outbox' and column_name='organization_id' and data_type='uuid' and is_nullable='NO'),
+            'enqueueHash',(select md5(replace(prosrc,E'\r','')) from pg_proc where oid=to_regprocedure('public.enqueue_booking_created_notification()')),
+            'trigger',exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='bookings_enqueue_created_notification' and tgfoid=to_regprocedure('public.enqueue_booking_created_notification()') and tgtype=5 and tgenabled='O' and not tgisinternal)
+          );
+          SQL
+          )"
+          jq -e '.tenantOutbox and .trigger and .enqueueHash=="a509808937e4eaed2cdd8e7d74995ca9"' <<<"$after" >/dev/null
+          jq -n --arg sha "$SHA" --argjson before "$before" --argjson after "$after" '{status:"success",phase:"apply-production-v125",commitSha:$sha,before:$before,after:$after}' > "$RUNNER_TEMP/v125-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v125-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v125-apply.json", if-no-files-found: error, retention-days: 90 }
