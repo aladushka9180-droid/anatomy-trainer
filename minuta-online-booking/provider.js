@@ -1270,7 +1270,7 @@ function renderTopbarDateTime() {
       timeLabel.textContent = new Intl.DateTimeFormat('ru-RU', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(now);
     timeLabel.dateTime = now.toISOString();
   }
-  updateScheduleNowMarkers(now);
+  if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers(now);
 }
 function stopTopbarClock() {
   clearTimeout(topbarClockTimer);
@@ -2297,7 +2297,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=599#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=600#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4256,7 +4256,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=599');
+    worker = new Worker('./report-worker.js?v=600');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6392,7 +6392,7 @@ function renderTimeline(sourceItems) {
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   holder.className = 'provider-bookings timeline-view';
   holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
-  updateScheduleNowMarkers();
+  if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
 function renderBookingList(items, emptyMessage = 'На выбранный период всё свободно.') {
@@ -8692,7 +8692,7 @@ function renderCalendarOverview(view) {
   holder.innerHTML = view === 'week'
     ? `${calendarWeekTimelineMarkup(days, byDate, today)}<div class="calendar-overview-grid calendar-week-mobile-list" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>`
     : `${weekdayHeader}<div class="calendar-overview-grid" role="grid" aria-label="${escapeHtml(calendarRangeTitle(view))}">${dayCells.join('')}</div>${mobileMonthAgenda}`;
-  updateScheduleNowMarkers();
+  if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
   $('#selectedDateTitle').textContent = calendarRangeTitle(view);
   const clientCount = visible.filter(item => !isScheduleBlock(item)).length;
   const blockCount = visible.length - clientCount;
