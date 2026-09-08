@@ -677,8 +677,9 @@ assert.match(provider, /filters\.hidden = Boolean\(teamCalendarController\?\.isT
 assert.match(provider, /function providerViewFromLocation[\s\S]*searchParams\.set\('section', view\)[\s\S]*addEventListener\('popstate'/, 'Открытый раздел не восстанавливается через URL и кнопку «Назад»');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Разделы организации"/, 'В разделе организации нет внутренней навигации');
 assert.match(providerHtml, /class="provider-section-nav" aria-label="Навигация по настройкам"/, 'В длинном разделе настроек нет внутренней навигации');
-assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 3, 'Ссылки на страницу клиента не объединены общей логикой');
+assert.equal((providerHtml.match(/class="[^"]*provider-client-link[^"]*"/g) || []).length, 2, 'Ссылки на страницу клиента не объединены общей логикой');
 assert.match(providerHtml, /provider-client-link[^>]*target="_blank"[^>]*rel="noopener noreferrer"/, 'Страница клиента не открывается безопасно в новой вкладке');
+assert.match(providerHtml, /id="openPrimeTime"[^>]*aria-label="Управлять профилем в PrimeTime"/, 'В дополнительных инструментах нет управления профилем PrimeTime');
 assert.match(provider, /function buildProviderClientUrl[\s\S]*public_booking_enabled[\s\S]*searchParams\.set\('org', organization\.public_slug\)/, 'Ссылка на страницу клиента не учитывает выбранную организацию');
 assert.match(providerHtml, /id="bookingSearch"[^>]*Имя, телефон или услуга/, 'В истории записей нет поиска');
 assert.match(providerHtml, /id="bookingStatusFilter"[\s\S]*value="needs-result"[\s\S]*value="cancelled"/, 'В истории записей нет фильтра по статусу');
