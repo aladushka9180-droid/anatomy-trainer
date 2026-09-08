@@ -42,7 +42,7 @@ const metadataDependencies = source.includes('// Background replay') ? source.sl
 const loader=[metadataDependencies,constants,revisions,resets,orgHook,operations,...functions.map(declaration),
   listener("document.addEventListener('change', async event => {"),
   listener("document.addEventListener('click', async event => {"),
-  listener("document.addEventListener('keydown', event => {\n  if (event.key !== 'Escape') return;")].join('\n');
+  listener("document.addEventListener('keydown', event => {\n  const profileTab = event.target.closest?.('[data-client-profile-jump][role=\"tab\"]');")].join('\n');
 const ids={A:'11111111-1111-4111-8111-111111111111',B:'22222222-2222-4222-8222-222222222222'};
 const origin='https://metadata-context.test/';
 const {chromium}=await import(process.env.MINUTA_PLAYWRIGHT_MODULE?pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href:'playwright');
