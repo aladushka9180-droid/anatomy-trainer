@@ -140,9 +140,17 @@ jobs:
           ticket_a="$(tr -d '[:space:]' < "$RUNNER_TEMP/v127-ticket-a")"
           ticket_b="$(tr -d '[:space:]' < "$RUNNER_TEMP/v127-ticket-b")"
           [[ "$ticket_a" =~ ^[0-9a-f]{64}$ && "$ticket_b" =~ ^[0-9a-f]{64}$ && "$ticket_a" != "$ticket_b" ]]
-          rows="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" -c "select count(*) from public.primetime_handoffs where user_id=:'actor'")"
+          rows="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" <<'SQL'
+          select count(*) from public.primetime_handoffs where user_id=:'actor';
+          SQL
+          )"
           test "$(tr -d '[:space:]' <<<"$rows")" = 1
-          ttl="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" -c "select expires_at > clock_timestamp()+interval '90 seconds' and expires_at <= clock_timestamp()+interval '125 seconds' from public.primetime_handoffs where user_id=:'actor'")"
+          ttl="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" <<'SQL'
+          select expires_at > clock_timestamp()+interval '90 seconds'
+            and expires_at <= clock_timestamp()+interval '125 seconds'
+          from public.primetime_handoffs where user_id=:'actor';
+          SQL
+          )"
           test "$(tr -d '[:space:]' <<<"$ttl")" = t
           valid=0
           result_a="$(consume_ticket "$ticket_a" "$state_a")"
@@ -152,6 +160,10 @@ jobs:
           test "$valid" = 1
           state_expired="$(openssl rand -hex 32)"
           ticket_expired="$(create_ticket "$state_expired" | tr -d '[:space:]')"
-          psql "$db" -X -q -v ON_ERROR_STOP=1 -v actor="$actor" -c "update public.primetime_handoffs set expires_at=clock_timestamp()-interval '1 second' where user_id=:'actor'"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v actor="$actor" <<'SQL'
+          update public.primetime_handoffs
+          set expires_at=clock_timestamp()-interval '1 second'
+          where user_id=:'actor';
+          SQL
           expired="$(consume_ticket "$ticket_expired" "$state_expired")"
           test "$(tr -d '[:space:]' <<<"$expired")" = null

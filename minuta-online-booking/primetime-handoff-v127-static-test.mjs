@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [migration, rollback, script, provider, worker, release] = await Promise.all([
+const [migration, rollback, script, provider, worker, release, integration] = await Promise.all([
   readFile(new URL('supabase-migration-v127.sql', import.meta.url), 'utf8'),
   readFile(new URL('supabase-migration-v127-rollback.sql', import.meta.url), 'utf8'),
   readFile(new URL('primetime-handoff.js', import.meta.url), 'utf8'),
   readFile(new URL('provider.html', import.meta.url), 'utf8'),
   readFile(new URL('sw.js', import.meta.url), 'utf8'),
   readFile(new URL('../.github/workflows/minuta-v127-safe-release.yml', import.meta.url), 'utf8'),
+  readFile(new URL('../.github/workflows/minuta-booking-integration.yml', import.meta.url), 'utf8'),
 ]);
 
 assert.match(migration, /create table public\.primetime_handoffs/i);
@@ -49,5 +50,8 @@ assert.match(release, /default_transaction_read_only=on/g);
 assert.match(release, /supabase-migration-v127\.sql/);
 assert.match(release, /\.state\.workspaceFunction and \.state\.pgcrypto/);
 assert.doesNotMatch(release, /pull_request|push:/);
+
+assert.match(integration, /Race PrimeTime handoffs and verify latest-wins TTL/);
+assert.doesNotMatch(integration, /-c "[^"]*:'actor'/);
 
 console.log('PrimeTime handoff v127 static checks passed.');
