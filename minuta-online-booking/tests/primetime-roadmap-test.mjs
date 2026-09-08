@@ -18,7 +18,7 @@ const STATUS_PATH = resolve(APP_DIR, 'roadmap', 'status.json');
 const CLI_PATH = resolve(APP_DIR, 'scripts', 'primetime-roadmap.mjs');
 const clone = value => structuredClone(value);
 
-test('published roadmap contract is valid and selects safe work inside stage 0', () => {
+test('published roadmap contract is valid and stops at declared stage-0 gates', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
   const result = validateRoadmap(plan, status);
@@ -26,11 +26,11 @@ test('published roadmap contract is valid and selects safe work inside stage 0',
   assert.equal(result.items, 22);
 
   const next = selectNext(plan, status);
-  assert.equal(next.decision, 'work');
+  assert.equal(next.decision, 'blocked');
   assert.equal(next.stage.id, 'stage-0');
-  assert.equal(next.primary.id, 'D02');
-  assert.deepEqual(next.parallelCandidates.map(item => item.id), ['D03', 'D05']);
-  assert.deepEqual(next.blockers.map(item => item.id), ['D01', 'D04']);
+  assert.equal(next.primary, null);
+  assert.deepEqual(next.parallelCandidates, []);
+  assert.deepEqual(next.blockers.map(item => item.id), ['D01', 'D02', 'D03', 'D04', 'D05']);
 });
 
 test('validator fails closed on undeclared evidence and dependency cycles', () => {
@@ -49,7 +49,7 @@ test('transition accepts one monotonic item update and rejects multiple updates'
   const plan = readJson(PLAN_PATH);
   const before = readJson(STATUS_PATH);
   const after = clone(before);
-  after.updatedAt = '2026-09-08T00:01:00Z';
+  after.updatedAt = '2026-09-08T18:23:00Z';
   after.items.D06.status = 'implementing';
   const result = verifyTransition(plan, before, after);
   assert.deepEqual(result, {
@@ -69,8 +69,10 @@ test('transition cannot mark an item ready without complete production evidence'
   const plan = readJson(PLAN_PATH);
   const before = readJson(STATUS_PATH);
   const after = clone(before);
-  after.updatedAt = '2026-09-08T00:01:00Z';
+  after.updatedAt = '2026-09-08T18:23:00Z';
   after.items.D02.status = 'verifying';
+  after.items.D02.evidence = {};
+  after.items.D02.blocker = null;
   assert.throws(() => verifyTransition(plan, before, after), /completion requires releaseSha/);
 });
 

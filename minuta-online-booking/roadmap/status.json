@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T18:21:00Z",
+  "updatedAt": "2026-09-08T18:22:00Z",
   "items": {
     "D01": {
       "status": "awaiting_external",
@@ -66,7 +66,28 @@
         "requiredAction": "Подключить реальные устройства и вручную выполнить сценарии установки, сети, Push, камеры и загрузки."
       }
     },
-    "D05": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D05": {
+      "status": "awaiting_human",
+      "evidence": {
+        "releaseSha": "59c9cfef24c43a86cc408facc395430f6ca2c857",
+        "ciRuns": {
+          "smoke": 34262193425,
+          "pages": 34262186318,
+          "production_health": 34262236879
+        },
+        "productionHealthRunId": 34262236879,
+        "verifiedAt": "2026-09-08T18:19:00Z",
+        "checks": {
+          "backup_slo": true,
+          "incident_runbook": true
+        }
+      },
+      "blocker": {
+        "type": "human_decision",
+        "reason": "Read-only production snapshot работает и видит GitHub и БД, но доступно только 8 из требуемых 30 полных дней; пороги и адресаты реальной тревоги ещё не утверждены.",
+        "requiredAction": "Утвердить предложенные SLO и адресатов, выполнить одну контролируемую реальную тревогу и накопить 30 дней наблюдений."
+      }
+    },
     "D06": { "status": "not_started", "evidence": {}, "blocker": null },
     "D07": { "status": "implementing", "evidence": {}, "blocker": null },
     "D08": { "status": "implementing", "evidence": {}, "blocker": null },
