@@ -5946,7 +5946,7 @@ function timelineTimeFromClick(stage, event) {
   const position = Math.max(0, Math.min(scaleHeight, event.clientY - rect.top));
   const rawMinute = start + ((position / scaleHeight) * (end - start));
   const step = 30;
-  const snappedMinute = Math.round(rawMinute / step) * step;
+  const snappedMinute = Math.floor(rawMinute / step) * step;
   const firstSlot = Math.ceil(start / step) * step;
   const lastSlot = Math.floor((end - 1) / step) * step;
   const snapped = firstSlot <= lastSlot

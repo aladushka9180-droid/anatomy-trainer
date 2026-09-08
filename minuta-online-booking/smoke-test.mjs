@@ -419,11 +419,13 @@ const timelineFunctionSource = provider.match(/function timelineTimeFromClick\(s
 assert.ok(timelineFunctionSource, 'Не удалось извлечь расчёт времени клика для проверки');
 const timelineTimeFromClick = Function(`const selectedDate = '2026-09-02'; function scheduleStepForDate(){ return 5; } ${timelineFunctionSource}; return timelineTimeFromClick;`)();
 const timelineStage = { dataset: { timelineStart: '600', timelineEnd: '1200' }, getBoundingClientRect: () => ({ top: 0, height: 600 }) };
-assert.equal(timelineTimeFromClick(timelineStage, { clientY: 205 }), '13:30', 'Клик в 13:25 должен округляться до 13:30');
-assert.equal(timelineTimeFromClick(timelineStage, { clientY: 239 }), '14:00', 'Клик в конце часа должен выбирать ближайший шаг');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 205 }), '13:00', 'Верхняя половина часа должна выбирать начало часа');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 239 }), '13:30', 'Вторая половина часа должна выбирать отметку :30');
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 240 }), '14:00', 'Клик ровно в начале часа не должен сдвигаться');
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 515 }), '18:30', 'Клик в 18:35 должен округляться до 18:30');
-assert.equal(timelineTimeFromClick(timelineStage, { clientY: 530 }), '19:00', 'Клик в 18:50 должен округляться до 19:00');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 530 }), '18:30', 'Клик в 18:50 не должен перескакивать на следующий час');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 389 }), '16:00', 'Клик в 16:29 должен выбирать 16:00');
+assert.equal(timelineTimeFromClick(timelineStage, { clientY: 390 }), '16:30', 'Клик с 16:30 должен выбирать 16:30');
 assert.match(provider, /openTimelineBookingAtTime\(time, stage\.dataset\.timelineDate \|\| selectedDate\)/, 'Дата клика должна браться из показанного расписания, а не из изменяемого глобального состояния');
 assert.match(provider, /data-create-booking-at data-timeline-date="\$\{selectedDate\}"/, 'Расписание не закрепляет дату для создаваемой записи');
 assert.match(provider, /const requestId = \+\+newBookingSlotsRequestId;[\s\S]*?if \(!requestIsCurrent\(\)\) return;/, 'Устаревший ответ свободных окон может заменить актуальные дату, услугу или время');
