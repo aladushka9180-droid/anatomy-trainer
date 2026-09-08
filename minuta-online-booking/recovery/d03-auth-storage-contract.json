@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "scope": "fixture-only-auth-storage-recovery-preparation",
+  "auth": {
+    "entities": {
+      "users": [
+        "id",
+        "instance_id",
+        "aud",
+        "role",
+        "email",
+        "phone",
+        "email_confirmed_at",
+        "phone_confirmed_at",
+        "created_at",
+        "updated_at",
+        "is_anonymous",
+        "raw_app_meta_data",
+        "raw_user_meta_data"
+      ],
+      "identities": [
+        "id",
+        "user_id",
+        "provider",
+        "provider_id",
+        "created_at",
+        "updated_at",
+        "last_sign_in_at"
+      ],
+      "mfaFactors": [
+        "id",
+        "user_id",
+        "factor_type",
+        "status",
+        "friendly_name",
+        "created_at",
+        "updated_at"
+      ],
+      "tenantLinks": [
+        "organization_id",
+        "user_id",
+        "role",
+        "is_bookable",
+        "active"
+      ]
+    },
+    "excludedEntities": [
+      "sessions",
+      "refresh_tokens",
+      "one_time_tokens",
+      "mfa_challenges",
+      "flow_state",
+      "audit_log_entries",
+      "sso_sessions"
+    ],
+    "forbiddenFieldFragments": [
+      "password",
+      "secret",
+      "token",
+      "otp",
+      "challenge",
+      "credential",
+      "code_verifier"
+    ],
+    "verificationIdentity": {
+      "originalCredentialRestored": false,
+      "activeSessionRestored": false,
+      "credentialSource": "generated-in-isolated-target-only",
+      "mfaRequiresReenrollment": true
+    }
+  },
+  "storage": {
+    "entities": {
+      "buckets": [
+        "id",
+        "name",
+        "public",
+        "file_size_limit",
+        "allowed_mime_types"
+      ],
+      "policies": [
+        "name",
+        "table",
+        "command",
+        "roles",
+        "using_expression",
+        "check_expression"
+      ],
+      "objects": [
+        "bucket_id",
+        "name",
+        "relative_path",
+        "mime_type"
+      ]
+    },
+    "requiredObjectEvidence": [
+      "size",
+      "sha256"
+    ]
+  },
+  "journal": {
+    "forbiddenKeys": [
+      "id",
+      "name",
+      "email",
+      "phone",
+      "provider_id",
+      "user_id",
+      "organization_id",
+      "relative_path",
+      "object_path",
+      "storage_path"
+    ],
+    "requiredSafetyEvidence": {
+      "fixtureOnly": true,
+      "restorePerformed": false,
+      "productionWritten": false,
+      "externalSystemsWritten": false,
+      "networkAccessUsed": false,
+      "temporaryPlaintextCleaned": true
+    }
+  }
+}

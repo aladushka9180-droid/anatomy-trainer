@@ -1,0 +1,29 @@
+{
+  "buckets": [
+    {
+      "id": "fixture-private",
+      "name": "fixture-private",
+      "public": false,
+      "file_size_limit": 1048576,
+      "allowed_mime_types": ["application/octet-stream"]
+    }
+  ],
+  "policies": [
+    {
+      "name": "fixture owner read",
+      "table": "objects",
+      "command": "SELECT",
+      "roles": ["authenticated"],
+      "using_expression": "bucket_id = 'fixture-private'",
+      "check_expression": null
+    }
+  ],
+  "objects": [
+    {
+      "bucket_id": "fixture-private",
+      "name": "synthetic/example.bin",
+      "relative_path": "fixture-private/synthetic/example.bin",
+      "mime_type": "application/octet-stream"
+    }
+  ]
+}
