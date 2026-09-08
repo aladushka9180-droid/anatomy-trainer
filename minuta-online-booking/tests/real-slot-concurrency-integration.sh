@@ -7,6 +7,7 @@ request_one="00000000-0000-4000-8000-000000009001"
 request_two="00000000-0000-4000-8000-000000009002"
 test_performer="00000000-0000-4000-8000-000000009003"
 test_service="00000000-0000-4000-8000-000000009004"
+test_location="00000000-0000-4000-8000-000000009005"
 lock_key="900090"
 first_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-first.log"
 second_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-second.log"
@@ -15,7 +16,8 @@ schedule_weekday=""
 cleanup() {
   psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=0 \
     -v request_one="$request_one" -v request_two="$request_two" \
-    -v test_performer="$test_performer" -v test_service="$test_service" <<'SQL' >/dev/null
+    -v test_performer="$test_performer" -v test_service="$test_service" \
+    -v test_location="$test_location" <<'SQL' >/dev/null
 select set_config('minuta.test_request_one', :'request_one', false);
 select set_config('minuta.test_request_two', :'request_two', false);
 do $$
@@ -36,6 +38,7 @@ end $$;
 delete from public.services where id=:'test_service'::uuid;
 delete from public.provider_schedule where performer_id=:'test_performer'::uuid;
 delete from public.organization_memberships where user_id=:'test_performer'::uuid;
+delete from public.locations where id=:'test_location'::uuid;
 delete from public.performer_profiles where id=:'test_performer'::uuid;
 delete from auth.users where id=:'test_performer'::uuid;
 SQL
@@ -46,23 +49,12 @@ cleanup
 
 seed_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
 select organization.public_slug,
-       location.id,
        organization.id,
-       coalesce(
-         organization.legacy_performer_id,
-         (select membership.user_id from public.organization_memberships membership
-          where membership.organization_id=organization.id and membership.role='owner'
-          order by membership.created_at limit 1)
-       ),
+       (select location.id from public.locations location order by location.id limit 1),
        (select service.id from public.services service order by service.id limit 1),
        current_date + 7,
        extract(dow from current_date + 7)::integer
 from public.organizations organization
-join public.locations location
-  on location.organization_id = organization.id
- and location.active
- and location.is_primary
- and location.timezone = 'Europe/Samara'
 where organization.status = 'active'
   and organization.public_booking_enabled
 order by organization.id
@@ -74,12 +66,14 @@ if [[ -z "$seed_row" ]]; then
   echo "No active public test-project service is available for the concurrency check" >&2
   exit 1
 fi
-IFS='|' read -r slug location_id organization_id owner_id seed_service target_date schedule_weekday <<<"$seed_row"
+IFS='|' read -r slug organization_id seed_location seed_service target_date schedule_weekday <<<"$seed_row"
+location_id="$test_location"
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v performer_id="$test_performer" -v service_id="$test_service" \
-  -v organization_id="$organization_id" -v owner_id="$owner_id" \
-  -v seed_service="$seed_service" -v weekday="$schedule_weekday" <<'SQL' >/dev/null
+  -v location_id="$test_location" -v organization_id="$organization_id" \
+  -v seed_location="$seed_location" -v seed_service="$seed_service" \
+  -v weekday="$schedule_weekday" <<'SQL' >/dev/null
 set session_replication_role=replica;
 insert into auth.users(
   id,instance_id,aud,role,email,email_confirmed_at,
@@ -91,10 +85,17 @@ insert into auth.users(
 set session_replication_role=origin;
 insert into public.performer_profiles(id,display_name)
 values(:'performer_id'::uuid,'PrimeTime Concurrency Specialist');
+insert into public.locations
+select (jsonb_populate_record(null::public.locations,to_jsonb(location)||jsonb_build_object(
+  'id',:'location_id','organization_id',:'organization_id','name','PrimeTime concurrency location',
+  'timezone','Europe/Samara','active',true,'is_primary',false,'created_at',now(),'updated_at',now()
+))).*
+from public.locations location
+where location.id=:'seed_location'::uuid;
 insert into public.organization_memberships(
   organization_id,user_id,role,is_bookable,active,created_by
 ) values (
-  :'organization_id'::uuid,:'performer_id'::uuid,'specialist',true,true,:'owner_id'::uuid
+  :'organization_id'::uuid,:'performer_id'::uuid,'specialist',true,true,:'performer_id'::uuid
 );
 insert into public.services
 select (jsonb_populate_record(null::public.services,to_jsonb(service)||jsonb_build_object(
