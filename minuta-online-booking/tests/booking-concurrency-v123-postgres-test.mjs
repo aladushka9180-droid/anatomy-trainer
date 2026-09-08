@@ -143,6 +143,7 @@ try{
      remaining:=0;
      for item in select c.table_name,c.column_name from information_schema.columns c join information_schema.tables t using(table_schema,table_name)
       where c.table_schema='public' and t.table_type='BASE TABLE' and c.column_name in ('organization_id','performer_id')
+       and c.table_name<>'organization_memberships'
        and c.data_type='uuid' order by c.table_name loop
       begin
        if item.column_name='organization_id' then execute format('delete from public.%I where organization_id=any($1)',item.table_name) using v_orgs;
