@@ -29,6 +29,9 @@ assert.match(migration,/v_error_code not like '%delivery_unknown%'/i);
 assert.match(migration,/fallback_of,fallback_depth/i);
 assert.match(migration,/foreign key\(fallback_of\)[\s\S]*on delete restrict/i);
 assert.match(migration,/exists\(select 1 from public\.notification_recipient_endpoints/i);
+assert.match(migration,/confirm_minuta_notification_delivery_v126\(\s*p_outbox uuid,p_event_key text,p_organization uuid,p_channel text/i);
+assert.match(migration,/queue\.id=p_outbox and queue\.event_key=p_event_key[\s\S]*queue\.organization_id=p_organization and queue\.channel=p_channel[\s\S]*queue\.provider_message_id=v_message_id/i);
+assert.doesNotMatch(migration,/confirm_minuta_notification_delivery_v126[\s\S]*order by queue\.sent_at desc limit 1/i);
 assert.match(migration,/grant execute on function public\.set_minuta_notification_fallback_v126[\s\S]*to authenticated/i);
 assert.doesNotMatch(migration,/grant (insert|update|delete).*organization_notification_fallbacks.*authenticated/i);
 
@@ -36,17 +39,26 @@ assert.match(rollback,/v126_rollback_blocked_by_active_notification_policy_or_hi
 assert.match(rollback,/drop table public\.organization_notification_fallbacks/i);
 assert.match(rollback,/drop column if exists booking_confirmation_request_enabled/i);
 assert.match(rollback,/booking_created','booking_confirmed','booking_rescheduled','booking_cancelled','booking_reminder'/i);
+assert.match(rollback,/create or replace function public\.enqueue_due_minuta_booking_confirmation_requests_v126[\s\S]*return 0/i);
+assert.match(rollback,/create or replace function public\.confirm_minuta_notification_delivery_v126[\s\S]*return 'not_found'/i);
+assert.doesNotMatch(rollback,/drop function public\.enqueue_due_minuta_booking_confirmation_requests_v126/i);
 assert.doesNotMatch(rollback,/delete from public\.(notification_outbox|organization_notification_fallbacks)/i);
 
 assert.match(dispatcher,/enqueue_due_minuta_booking_confirmation_requests_v126/);
 assert.match(dispatcher,/confirmation_requests_queued/);
 assert.match(adapters,/booking_confirmation_request: "Подтвердите посещение"/);
-assert.match(receipt,/NOTIFICATION_RECEIPT_SECRET/);
+assert.match(receipt,/`NOTIFICATION_RECEIPT_\$\{channel\.toUpperCase\(\)\}_KEYS`/);
+assert.doesNotMatch(receipt,/NOTIFICATION_RECEIPT_CHANNEL_KEYS|NOTIFICATION_RECEIPT_SECRET/);
+assert.match(receipt,/x-receipt-key-id/);
+assert.match(receipt,/encoder\.encode\(`\$\{timestamp\}\.\$\{keyId\}\.\$\{rawBody\}`\)/);
 assert.match(receipt,/x-receipt-timestamp/);
 assert.match(receipt,/x-receipt-signature/);
 assert.match(receipt,/HMAC/);
 assert.match(receipt,/timestampSeconds < nowSeconds - 300/);
-assert.match(receipt,/confirm_minuta_notification_delivery_v114/);
+assert.match(receipt,/confirm_minuta_notification_delivery_v126/);
+assert.match(receipt,/p_outbox: outboxId/);
+assert.match(receipt,/p_event_key: eventKey/);
+assert.match(receipt,/p_organization: organizationId/);
 assert.doesNotMatch(receipt,/console\.(log|error)/);
 assert.match(config,/\[functions\.notification-receipt\]\s+verify_jwt = false/);
 

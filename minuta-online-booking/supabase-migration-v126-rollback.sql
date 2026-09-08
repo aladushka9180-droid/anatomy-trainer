@@ -281,7 +281,34 @@ begin
 end
 $$;
 
-drop function public.enqueue_due_minuta_booking_confirmation_requests_v126(integer);
+-- Keep deployed v126 Edge Functions safe while the database is rolled back.
+-- The dispatcher can continue calling this service-only no-op until reapply.
+create or replace function public.enqueue_due_minuta_booking_confirmation_requests_v126(
+  p_limit integer default 500
+)
+returns integer language plpgsql security definer set search_path to '' as $$
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  return 0;
+end
+$$;
+
+-- A rolled-back receipt endpoint also fails closed without resolving any row.
+create or replace function public.confirm_minuta_notification_delivery_v126(
+  p_outbox uuid,p_event_key text,p_organization uuid,p_channel text,
+  p_provider_message_id text,p_delivered_at timestamptz,p_receipt_source text
+)
+returns text language plpgsql security definer set search_path to '' as $$
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  return 'not_found';
+end
+$$;
+
 drop function public.set_minuta_notification_fallback_v126(uuid,text,text,text,boolean,integer);
 drop function public.validate_minuta_notification_quiet_hours_v126();
 drop function public.minuta_notification_next_allowed_at_v126(uuid,timestamptz);
@@ -314,8 +341,12 @@ revoke all on function public.enqueue_minuta_booking_change_notification() from 
 revoke all on function public.claim_minuta_notification_outbox(text[],integer) from public,anon,authenticated,service_role;
 revoke all on function public.fail_notification_outbox(uuid,uuid,text,text,boolean,integer) from public,anon,authenticated,service_role;
 revoke all on function public.get_minuta_notification_workspace(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.enqueue_due_minuta_booking_confirmation_requests_v126(integer) from public,anon,authenticated,service_role;
+revoke all on function public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamptz,text) from public,anon,authenticated,service_role;
 grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role;
 grant execute on function public.fail_notification_outbox(uuid,uuid,text,text,boolean,integer) to service_role;
+grant execute on function public.enqueue_due_minuta_booking_confirmation_requests_v126(integer) to service_role;
+grant execute on function public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamptz,text) to service_role;
 grant execute on function public.get_minuta_notification_workspace(uuid) to authenticated;
 
 notify pgrst,'reload schema';

@@ -450,6 +450,51 @@ begin
 end
 $$;
 
+-- Provider receipts identify one immutable outbox event. Unlike the legacy
+-- channel/message lookup, this function never chooses a row by recency.
+create or replace function public.confirm_minuta_notification_delivery_v126(
+  p_outbox uuid,p_event_key text,p_organization uuid,p_channel text,
+  p_provider_message_id text,p_delivered_at timestamptz,p_receipt_source text
+)
+returns text language plpgsql security definer set search_path to '' as $$
+declare
+  v_performer uuid; v_attempt integer;
+  v_message_id text:=left(trim(coalesce(p_provider_message_id,'')),240);
+  v_source text:=left(trim(coalesce(p_receipt_source,'')),120);
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    raise exception using errcode='42501',message='service_role_required';
+  end if;
+  if p_outbox is null or p_organization is null
+     or nullif(p_event_key,'') is null or char_length(p_event_key)>240
+     or p_channel not in('telegram','email','sms','max','push')
+     or nullif(v_message_id,'') is null or p_delivered_at is null
+     or nullif(v_source,'') is null then
+    raise exception using errcode='22023',message='invalid_delivery_receipt';
+  end if;
+
+  update public.notification_outbox queue
+  set delivered_at=coalesce(queue.delivered_at,p_delivered_at),
+    delivery_receipt_at=coalesce(queue.delivery_receipt_at,now()),
+    delivery_receipt_source=coalesce(queue.delivery_receipt_source,v_source),
+    updated_at=now()
+  where queue.id=p_outbox and queue.event_key=p_event_key
+    and queue.organization_id=p_organization and queue.channel=p_channel
+    and queue.provider_message_id=v_message_id and queue.status='sent'
+  returning queue.performer_id,queue.attempts into v_performer,v_attempt;
+  if not found then return 'not_found'; end if;
+
+  update public.notification_delivery_attempts attempt
+  set delivered_at=coalesce(attempt.delivered_at,p_delivered_at),
+    delivery_receipt_source=coalesce(attempt.delivery_receipt_source,v_source),
+    finished_at=coalesce(attempt.finished_at,now())
+  where attempt.outbox_id=p_outbox and attempt.performer_id=v_performer
+    and attempt.attempt_no=v_attempt and attempt.outcome='sent'
+    and attempt.provider_message_id=v_message_id;
+  return 'delivered';
+end
+$$;
+
 create or replace function public.set_minuta_notification_fallback_v126(
   p_organization uuid,p_audience text,p_primary_channel text,p_fallback_channel text,
   p_enabled boolean,p_delay_seconds integer default 300
@@ -519,6 +564,7 @@ $$;
 revoke all on function public.validate_minuta_notification_quiet_hours_v126() from public,anon,authenticated,service_role;
 revoke all on function public.minuta_notification_next_allowed_at_v126(uuid,timestamptz) from public,anon,authenticated,service_role;
 revoke all on function public.enqueue_due_minuta_booking_confirmation_requests_v126(integer) from public,anon,authenticated,service_role;
+revoke all on function public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamptz,text) from public,anon,authenticated,service_role;
 revoke all on function public.set_minuta_notification_fallback_v126(uuid,text,text,text,boolean,integer) from public,anon,authenticated,service_role;
 revoke all on function public.enqueue_minuta_booking_notification(uuid,text) from public,anon,authenticated,service_role;
 revoke all on function public.enqueue_minuta_booking_change_notification() from public,anon,authenticated,service_role;
@@ -526,6 +572,7 @@ revoke all on function public.claim_minuta_notification_outbox(text[],integer) f
 revoke all on function public.fail_notification_outbox(uuid,uuid,text,text,boolean,integer) from public,anon,authenticated,service_role;
 revoke all on function public.get_minuta_notification_workspace(uuid) from public,anon,authenticated,service_role;
 grant execute on function public.enqueue_due_minuta_booking_confirmation_requests_v126(integer) to service_role;
+grant execute on function public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamptz,text) to service_role;
 grant execute on function public.claim_minuta_notification_outbox(text[],integer) to service_role;
 grant execute on function public.fail_notification_outbox(uuid,uuid,text,text,boolean,integer) to service_role;
 grant execute on function public.set_minuta_notification_fallback_v126(uuid,text,text,text,boolean,integer) to authenticated;
@@ -540,6 +587,7 @@ begin
       where table_schema='public' and table_name='organization_notification_fallbacks'
         and column_name='enabled' and column_default='false')
      or to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)') is null
+     or to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)') is null
      or to_regprocedure('public.set_minuta_notification_fallback_v126(uuid,text,text,text,boolean,integer)') is null then
     raise exception using errcode='55000',message='v126_install_verification_failed';
   end if;

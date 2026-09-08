@@ -17,6 +17,8 @@ const database = new PGlite();
 const organization = "00000000-0000-4000-8000-000000000001";
 const performer = "00000000-0000-4000-8000-000000000002";
 const service = "00000000-0000-4000-8000-000000000003";
+const receiptOutbox = "10000000-0000-4000-8000-000000000001";
+const otherReceiptOutbox = "10000000-0000-4000-8000-000000000002";
 
 await database.exec(`
   create role anon; create role authenticated; create role service_role;
@@ -204,6 +206,83 @@ Deno.test("v126 quiet hours, confirmation request, fallback and rollback contrac
   );
   assertEquals(unsafeFallback.rows, [{ count: 0 }]);
 
+  await database.exec(`insert into public.notification_outbox(
+      id,performer_id,booking_id,organization_id,event_key,kind,channel,status,attempts,
+      next_attempt_at,audience,recipient_key,payload,dispatcher,provider_message_id,sent_at)
+    values
+      ('${receiptOutbox}','${performer}',gen_random_uuid(),'${organization}',
+        'receipt:exact:first','booking_created','sms','sent',1,now(),'client','79990000001',
+        '{}'::jsonb,'unified','same-provider-message',now()-interval '2 minutes'),
+      ('${otherReceiptOutbox}','${performer}',gen_random_uuid(),'${organization}',
+        'receipt:exact:second','booking_created','sms','sent',1,now(),'client','79990000001',
+        '{}'::jsonb,'unified','same-provider-message',now());
+    insert into public.notification_delivery_attempts(
+      outbox_id,performer_id,attempt_no,outcome,provider_message_id,finished_at)
+    values
+      ('${receiptOutbox}','${performer}',1,'sent','same-provider-message',now()),
+      ('${otherReceiptOutbox}','${performer}',1,'sent','same-provider-message',now());`);
+  for (
+    const [outboxId, eventKey, organizationId, channel, messageId] of [
+      [
+        otherReceiptOutbox,
+        "receipt:exact:first",
+        organization,
+        "sms",
+        "same-provider-message",
+      ],
+      [
+        receiptOutbox,
+        "receipt:exact:second",
+        organization,
+        "sms",
+        "same-provider-message",
+      ],
+      [
+        receiptOutbox,
+        "receipt:exact:first",
+        "90000000-0000-4000-8000-000000000009",
+        "sms",
+        "same-provider-message",
+      ],
+      [
+        receiptOutbox,
+        "receipt:exact:first",
+        organization,
+        "email",
+        "same-provider-message",
+      ],
+      [
+        receiptOutbox,
+        "receipt:exact:first",
+        organization,
+        "sms",
+        "different-provider-message",
+      ],
+    ]
+  ) {
+    const mismatch = await database.query<{ state: string }>(`
+      select public.confirm_minuta_notification_delivery_v126(
+        '${outboxId}','${eventKey}','${organizationId}','${channel}',
+        '${messageId}',now(),'fixture_gateway') state`);
+    assertEquals(mismatch.rows, [{ state: "not_found" }]);
+  }
+  const receipt = await database.query<{ state: string }>(`
+    select public.confirm_minuta_notification_delivery_v126(
+      '${receiptOutbox}','receipt:exact:first','${organization}','sms',
+      'same-provider-message',now(),'fixture_gateway') state`);
+  assertEquals(receipt.rows, [{ state: "delivered" }]);
+  const exactReceipt = await database.query<{
+    id: string;
+    delivered: boolean;
+  }>(
+    `select id,delivered_at is not null delivered from public.notification_outbox
+    where id in('${receiptOutbox}','${otherReceiptOutbox}') order by id`,
+  );
+  assertEquals(exactReceipt.rows, [
+    { id: receiptOutbox, delivered: true },
+    { id: otherReceiptOutbox, delivered: false },
+  ]);
+
   await database.exec(`delete from public.notification_delivery_attempts;
     delete from public.notification_outbox;
     delete from public.organization_notification_fallbacks;
@@ -211,15 +290,47 @@ Deno.test("v126 quiet hours, confirmation request, fallback and rollback contrac
       set booking_confirmation_request_enabled=false,quiet_hours_enabled=false;`);
   await database.exec(rollback);
   const after = await database.query<
-    { new_column: boolean; new_table: boolean; new_rpc: boolean }
+    {
+      new_column: boolean;
+      new_table: boolean;
+      scheduler_compat: boolean;
+      scheduler_result: number;
+      receipt_compat: boolean;
+      receipt_result: string;
+    }
   >(`
     select exists(select 1 from information_schema.columns where table_schema='public'
       and table_name='organization_notification_settings' and column_name='quiet_hours_enabled') new_column,
       to_regclass('public.organization_notification_fallbacks') is not null new_table,
-      to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)') is not null new_rpc`);
+      to_regprocedure('public.enqueue_due_minuta_booking_confirmation_requests_v126(integer)') is not null scheduler_compat,
+      public.enqueue_due_minuta_booking_confirmation_requests_v126(20) scheduler_result,
+      to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)') is not null receipt_compat,
+      public.confirm_minuta_notification_delivery_v126(
+        '${receiptOutbox}','receipt:exact:first','${organization}','sms',
+        'same-provider-message',now(),'fixture_gateway') receipt_result`);
   assertEquals(after.rows, [{
     new_column: false,
     new_table: false,
-    new_rpc: false,
+    scheduler_compat: true,
+    scheduler_result: 0,
+    receipt_compat: true,
+    receipt_result: "not_found",
+  }]);
+
+  await database.exec(migration);
+  const reapplied = await database.query<{
+    new_column: boolean;
+    new_table: boolean;
+    receipt_rpc: boolean;
+  }>(
+    `select exists(select 1 from information_schema.columns where table_schema='public'
+      and table_name='organization_notification_settings' and column_name='quiet_hours_enabled') new_column,
+    to_regclass('public.organization_notification_fallbacks') is not null new_table,
+    to_regprocedure('public.confirm_minuta_notification_delivery_v126(uuid,text,uuid,text,text,timestamp with time zone,text)') is not null receipt_rpc`,
+  );
+  assertEquals(reapplied.rows, [{
+    new_column: true,
+    new_table: true,
+    receipt_rpc: true,
   }]);
 });
