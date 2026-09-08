@@ -81,7 +81,7 @@ if [[ "$relations" != "1|1" ]]; then
   echo "Required restored tables present (services|bookings): $relations" >&2
   exit 1
 fi
-if ! docker exec "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 \
+if ! docker exec -i "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 \
   -v VERBOSITY=sqlstate <<'SQL' > "$result" 2>>"$private_log"
 select jsonb_build_object(
   'schemaVersion', 1,
