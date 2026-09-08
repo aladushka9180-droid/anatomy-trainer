@@ -84,16 +84,24 @@ psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
   -v seed_booking="$seed_booking" -v booking_id="$booking_id" \
   -v booking_request="$booking_request" -v account_request="$account_request" <<'SQL' >/dev/null
 set session_replication_role=replica;
-insert into public.bookings
-select (jsonb_populate_record(null::public.bookings,to_jsonb(seed)||jsonb_build_object(
-  'id',:'booking_id','booking_code','V129-CONCURRENCY','manage_token',gen_random_uuid(),
-  'request_id',:'booking_request','request_fingerprint',repeat('1',64),
-  'client_name','V129 synthetic fixture','client_phone','0000000000',
-  'booking_date','1901-01-01','booking_time','00:00:00','slot_start',null,'slot_end',null,
-  'status','confirmed','deposit_amount_rub',0,'payment_status','not_required',
-  'payment_url','','series_id',null,'series_occurrence',null,
-  'created_at',now(),'updated_at',now()
-))).* from public.bookings seed where seed.id=:'seed_booking'::uuid;
+select format(
+  'insert into public.bookings(%1$s) select %2$s from public.bookings seed '
+  'cross join lateral jsonb_populate_record(null::public.bookings,to_jsonb(seed)||jsonb_build_object('
+  '''id'',%3$L::uuid,''booking_code'',''V129-CONCURRENCY'',''manage_token'',gen_random_uuid(),'
+  '''request_id'',%4$L::uuid,''request_fingerprint'',repeat(''1'',64),'
+  '''client_name'',''V129 synthetic fixture'',''client_phone'',''0000000000'','
+  '''booking_date'',''1901-01-01'',''booking_time'',''00:00:00'','
+  '''status'',''confirmed'',''deposit_amount_rub'',0,''payment_status'',''not_required'','
+  '''payment_url'','''',''series_id'',null,''series_occurrence'',null,'
+  '''created_at'',now(),''updated_at'',now())) cloned where seed.id=%5$L::uuid',
+  string_agg(format('%I',attribute.attname),',' order by attribute.attnum),
+  string_agg(format('cloned.%I',attribute.attname),',' order by attribute.attnum),
+  :'booking_id',:'booking_request',:'seed_booking'
+)
+from pg_attribute attribute
+where attribute.attrelid='public.bookings'::regclass and attribute.attnum>0
+  and not attribute.attisdropped and attribute.attgenerated=''
+\gexec
 insert into public.booking_outcomes(
   booking_id,performer_id,visit_status,payment_method,amount_rub,
   calculated_amount_rub,completion_source,updated_at
