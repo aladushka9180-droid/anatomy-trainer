@@ -15,6 +15,10 @@ assert.equal(typeof Client, 'function', 'PostgreSQL Client constructor unavailab
 const read = name => readFileSync(new URL(name, root), 'utf8');
 const migration = read('supabase-migration-v130.sql');
 const rollback = read('supabase-migration-v130-operational-rollback.sql');
+const rollbackInTransaction = rollback
+  .replace(/^\\set ON_ERROR_STOP on\s*/m,'')
+  .replace(/^begin;\s*/m,'')
+  .replace(/\s*notify pgrst,'reload schema';\s*commit;\s*$/m,'');
 const clients = [];
 const tls = process.env.MINUTA_TEST_PG_TLS_NO_VERIFY === 'MIGRATION_TEST_ONLY' ? { rejectUnauthorized:false } : undefined;
 const connect = async () => {
@@ -208,16 +212,22 @@ try {
   assert.equal(revoked.error?.code,'42501'); assert.equal(revoked.error?.message,'inventory_management_denied');
   await admin.query('update public.organization_memberships set active=true where organization_id=$1 and user_id=$2',[organization,actor]);
 
-  await admin.query(rollback);
+  // Exercise the global operational rollback inside an outer transaction.
+  // A process crash closes the connection and PostgreSQL rolls it back, so a
+  // persistent shared test database cannot leave unrelated organizations
+  // suspended or authenticated grants revoked.
+  await admin.query('begin');
+  await admin.query(rollbackInTransaction);
   assert.equal((await admin.query('select enabled from public.organization_inventory_transfer_settings where organization_id=$1',[organization])).rows[0].enabled,false);
+  assert.equal((await admin.query("select has_function_privilege('authenticated','public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)','EXECUTE') allowed")).rows[0].allowed,false);
   assert.equal((await admin.query("select exists(select 1 from pg_trigger where tgname='inventory_movement_cost_v130' and not tgisinternal and tgenabled<>'D') ok")).rows[0].ok,true);
-  await admin.query(migration);
+  await admin.query('rollback');
+  assert.equal((await admin.query('select enabled from public.organization_inventory_transfer_settings where organization_id=$1',[organization])).rows[0].enabled,true);
+  assert.equal((await admin.query("select has_function_privilege('authenticated','public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)','EXECUTE') allowed")).rows[0].allowed,true);
   const replayAfterRollback = (await a.query(transfer,transferArgs(request))).rows[0].result;
   assert.equal(replayAfterRollback.document_id,first.document_id);
-  const blocked = await outcome(a.query(transfer,transferArgs(randomUUID(),1)));
-  assert.equal(blocked.error?.message,'inventory_transfers_disabled');
 
-  console.log('inventory transfer v130 PostgreSQL: FIFO, mixed cost, atomic failure, replay, races and rollback PASS');
+  console.log('inventory transfer v130 PostgreSQL: FIFO, mixed cost, atomic failure, replay, races and transactional rollback PASS');
 } finally {
   for (const client of clients) { try { await client.query('rollback'); await client.query('reset role'); } catch {} }
   try { await admin.query('drop trigger if exists fail_d09_transfer_in_test on public.inventory_movements'); } catch {}
