@@ -103,8 +103,10 @@ first_pid=$!
 
 ready=f
 for _ in $(seq 1 30); do
-  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -v lock_key="$lock_key" \
-    -c "select not pg_try_advisory_lock(:'lock_key'::bigint);")"
+  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -v lock_key="$lock_key" <<'SQL'
+select not pg_try_advisory_lock(:'lock_key'::bigint);
+SQL
+)"
   [[ "$ready" == t ]] && break
   sleep 0.1
 done
