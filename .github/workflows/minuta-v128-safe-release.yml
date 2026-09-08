@@ -275,6 +275,7 @@ jobs:
       PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
       SHA: ${{ inputs.commit_sha }}
       APPLY: ${{ inputs.apply_run_id }}
+      AUDIT: ${{ inputs.audit_run_id }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -283,20 +284,41 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$APPLY" =~ ^[0-9]+$ ]]
+          [[ "$AUDIT" =~ ^[0-9]+$ ]]
           test -n "$SUPABASE_ACCESS_TOKEN"
           test "$PROJECT_REF" = cawexmmrqjvothcbgjxr
           run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
           test "$(jq -r .conclusion <<<"$run")" = success
-          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          APPLY_SHA="$(jq -r .head_sha <<<"$run")"
+          [[ "$APPLY_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(jq -r .head_branch <<<"$run")" = main
           test "$(jq -r .event <<<"$run")" = workflow_dispatch
           test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v128-safe-release.yml
-          test "$(jq -r .display_title <<<"$run")" = "Minuta v128 - apply-production-v128 - $SHA"
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v128 - apply-production-v128 - $APPLY_SHA"
+          git merge-base --is-ancestor "$APPLY_SHA" "$SHA"
+          git diff --quiet "$APPLY_SHA" "$SHA" -- \
+            minuta-online-booking/supabase-migration-v128.sql \
+            minuta-online-booking/supabase-migration-v128-rollback.sql \
+            supabase/config.toml \
+            supabase/functions/notification-receipt \
+            supabase/functions/notification-dispatcher
           jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY/jobs?per_page=100")"
           jq -e '[.jobs[]|select(.name=="apply-production-v128" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
           mkdir -p "$RUNNER_TEMP/v128-apply-evidence"
           gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v128-apply-$APPLY" -D "$RUNNER_TEMP/v128-apply-evidence"
-          jq -e --arg sha "$SHA" '.status=="success" and .phase=="apply-production-v128" and .commitSha==$sha and .after.claimFull and .after.failFull and .after.claimServiceOnly and .after.failServiceOnly and .channelsActivated==false and .secretsCreated==false and .messagesDispatched==false' "$RUNNER_TEMP/v128-apply-evidence/v128-apply.json" >/dev/null
+          jq -e --arg sha "$APPLY_SHA" '.status=="success" and .phase=="apply-production-v128" and .commitSha==$sha and .after.claimFull and .after.failFull and .after.claimServiceOnly and .after.failServiceOnly and .channelsActivated==false and .secretsCreated==false and .messagesDispatched==false' "$RUNNER_TEMP/v128-apply-evidence/v128-apply.json" >/dev/null
+          audit="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$AUDIT")"
+          test "$(jq -r .conclusion <<<"$audit")" = success
+          test "$(jq -r .head_sha <<<"$audit")" = "$SHA"
+          test "$(jq -r .head_branch <<<"$audit")" = main
+          test "$(jq -r .event <<<"$audit")" = workflow_dispatch
+          test "$(jq -r .path <<<"$audit")" = .github/workflows/minuta-v128-safe-release.yml
+          test "$(jq -r .display_title <<<"$audit")" = "Minuta v128 - audit-production-v128 - $SHA"
+          audit_jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$AUDIT/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="audit-production-v128" and .conclusion=="success")]|length==1' <<<"$audit_jobs" >/dev/null
+          mkdir -p "$RUNNER_TEMP/v128-audit-evidence"
+          gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v128-audit-$AUDIT" -D "$RUNNER_TEMP/v128-audit-evidence"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="audit-production-v128" and .commitSha==$sha and .productionWritten==false and .state.v126Ready==true and .state.v128Mode=="full"' "$RUNNER_TEMP/v128-audit-evidence/v128-audit.json" >/dev/null
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 22 }
@@ -310,6 +332,7 @@ jobs:
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
           supabase functions deploy notification-receipt --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
           supabase functions deploy notification-dispatcher --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - name: Verify read-only routes without dispatching messages
         run: |
           set -euo pipefail
