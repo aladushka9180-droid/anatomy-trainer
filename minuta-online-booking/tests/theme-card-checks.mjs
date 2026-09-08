@@ -38,7 +38,7 @@ export function inspectCardStates(document, options = {}) {
     }
     // Normal booking colours are user-selected, outside this marked-state fix.
     if (card.classList.contains('client-list-item') || marked) {
-      card.querySelectorAll('.client-list-main strong,.client-list-main small,.client-list-main i,.client-list-avatar,.client-badge,.provider-booking-top h3,.booking-client-name-row strong,.provider-booking-phone,.provider-booking-note-full,.provider-booking-note-full b,.timeline-booking-copy>strong,.timeline-client-name,.timeline-client-phone,.timeline-booking-note,.timeline-booking-note b').forEach(element => checkText(element));
+      card.querySelectorAll('.client-list-main strong,.client-list-main small,.client-list-main i,.client-list-avatar,.client-badge,.provider-booking-top h3,.booking-client-name-row strong,.provider-booking-phone,.provider-booking-note-presence,.timeline-booking-copy>strong,.timeline-client-name,.timeline-client-phone,.timeline-booking-note-presence').forEach(element => checkText(element));
     }
   }
   checkText(document.querySelector('.client-search input'),'::placeholder');

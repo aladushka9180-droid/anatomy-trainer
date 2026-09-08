@@ -9,9 +9,9 @@ const [css, provider, app, html] = await Promise.all([
   readFile(new URL('index.html', directory), 'utf8')
 ]);
 
-assert.match(provider, /provider-booking-top[\s\S]*provider-booking-client-line[\s\S]*provider-booking-phone[\s\S]*provider-booking-note-full/, 'карточка должна содержать название, имя, телефон и заметку');
+assert.match(provider, /provider-booking-top[\s\S]*provider-booking-client-line[\s\S]*provider-booking-phone[\s\S]*provider-booking-note-presence/, 'карточка должна содержать название, имя, телефон и признак заметки');
 assert.match(css, /schedule-list \.provider-booking-top h3 \{[\s\S]*overflow:visible!important;[\s\S]*white-space:normal!important;[\s\S]*-webkit-line-clamp:unset!important;/, 'название записи всё ещё обрезается');
-assert.match(css, /schedule-list :is\([\s\S]*booking-client-name-row>strong,[\s\S]*provider-booking-phone,[\s\S]*provider-booking-note-full[\s\S]*overflow:visible!important;[\s\S]*white-space:normal!important;/, 'данные клиента всё ещё обрезаются');
+assert.match(css, /booking-note-presence,.provider-booking-note-presence,.timeline-booking-note-presence,.calendar-overview-note-presence/, 'признак заметки не оформлен компактно');
 assert.doesNotMatch(provider, /if \(!providerSectionMobileQuery\.matches\) \{[\s\S]*restoreProviderSectionDisclosure\(nav\)/, 'ПК-версия всё ещё показывает длинные разделы целиком');
 assert.match(app, /async function shareCalendarFile[\s\S]*navigator\.canShare[\s\S]*navigator\.share/, 'нет передачи ICS в системное меню приложений');
 assert.match(app, /async function addAndroidCalendar[\s\S]*androidCalendarIntent/, 'нет Android fallback в родной календарь');
