@@ -18,13 +18,14 @@
     wellness: [['Консультация', 2000, 60], ['Индивидуальная практика', 2500, 60], ['Повторный приём', 1800, 45]],
     other: [['Основная услуга', 2000, 60], ['Короткая встреча', 1000, 30], ['Расширенная услуга', 3000, 90]]
   };
-  const DAY_LABELS = [['1', 'Пн'], ['2', 'Вт'], ['3', 'Ср'], ['4', 'Чт'], ['5', 'Пт'], ['6', 'Сб'], ['0', 'Вс']];
+  const DAY_LABELS = [['1', 'Пн'], ['2', 'Вт'], ['3', 'Ср'], ['4', 'Чт'], ['5', 'Пт'], ['6', 'Сб'], ['7', 'Вс']];
 
   let context = null;
   let root = null;
   let step = 1;
   let state = null;
   let busy = false;
+  let generation = 0;
 
   const escapeHtml = value => `${value ?? ''}`.replace(/[&<>'"]/g, symbol => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[symbol]);
   const draftKey = userId => `minuta-onboarding-v${VERSION}:${userId}`;
@@ -41,7 +42,10 @@
   function readDraft(userId) {
     try {
       const saved = JSON.parse(localStorage.getItem(draftKey(userId)) || 'null');
-      return saved && saved.version === VERSION ? { ...defaultState(), ...saved.data } : defaultState();
+      const draft = saved && saved.version === VERSION ? { ...defaultState(), ...saved.data } : defaultState();
+      draft.days = Array.isArray(draft.days) ? [...new Set(draft.days.map(day => String(day) === '0' ? '7' : String(day)).filter(day => /^[1-7]$/.test(day)))] : defaultState().days;
+      if (!Array.isArray(draft.services)) draft.services = defaultServices(draft.category);
+      return draft;
     } catch (_) {
       return defaultState();
     }
@@ -49,7 +53,7 @@
 
   function saveDraft() {
     if (!context?.user?.id || !state) return;
-    localStorage.setItem(draftKey(context.user.id), JSON.stringify({ version:VERSION, data:state }));
+    try { localStorage.setItem(draftKey(context.user.id), JSON.stringify({ version:VERSION, data:state })); } catch {}
   }
 
   function mount() {
@@ -159,16 +163,16 @@
     const category = CATEGORIES.find(([value]) => value === state.category)?.[1] || 'Услуги';
     shell(`
       <section class="onboarding-hero onboarding-hero-final">
-        <small>Всё готово</small>
+        <small>Проверьте настройки</small>
         <h1 id="providerOnboardingTitle">Посмотрите глазами клиента</h1>
         <p>После сохранения вы попадёте в расписание на сегодняшний день.</p>
       </section>
       <div class="onboarding-preview">
         <div class="onboarding-preview-brand"><i>${escapeHtml((context.user.user_metadata?.display_name || 'М').slice(0, 1).toUpperCase())}</i><span><small>${category}</small><strong>${escapeHtml(context.user.user_metadata?.display_name || 'Ваш кабинет')}</strong></span></div>
-        <div class="onboarding-preview-status"><i></i> Онлайн-запись готова</div>
+        <div class="onboarding-preview-status"><i></i> Предпросмотр страницы записи</div>
         <h2>Выберите услугу</h2>
         <div class="onboarding-preview-services">${chosen.length ? chosen.map(service => `<div><span><strong>${escapeHtml(service.name)}</strong><small>${service.duration} мин</small></span><b>${Number(service.price).toLocaleString('ru-RU')} ₽</b></div>`).join('') : '<p>Услуги можно добавить позже в кабинете.</p>'}</div>
-        <button type="button" data-copy-client-link>Скопировать ссылку для клиентов</button>
+        <p class="onboarding-link-note">Ссылка для клиентов будет доступна в кабинете после сохранения.</p>
       </div>
       <aside class="onboarding-summary"><span>Ваш график</span><strong>${state.days.length} дн. в неделю · ${state.start}–${state.end}</strong></aside>`, { nextLabel:'Сохранить и открыть мой день' });
   }
@@ -186,6 +190,7 @@
   }
 
   function handleInput(event) {
+    if (busy || !state) return;
     const target = event.target;
     if (target.name === 'onboardingFormat') state.format = target.value;
     if (target.name === 'onboardingCategory') {
@@ -206,6 +211,11 @@
 
   function validStep() {
     if (step === 2 && !state.services.some(service => service.enabled && service.name.trim())) return 'Выберите хотя бы одну услугу.';
+    if (step === 2) {
+      const chosen = state.services.filter(service => service.enabled && service.name.trim());
+      if (new Set(chosen.map(service=>service.name.trim().toLocaleLowerCase('ru-RU'))).size !== chosen.length) return 'Названия услуг должны различаться.';
+      if (chosen.some(service=>!Number.isFinite(Number(service.price)) || Number(service.price)<0 || !Number.isInteger(Number(service.duration)) || Number(service.duration)<5 || Number(service.duration)>720)) return 'Укажите цену от 0 ₽ и длительность от 5 до 720 минут.';
+    }
     if (step === 3 && !state.days.length) return 'Выберите хотя бы один рабочий день.';
     if (step === 3 && state.start >= state.end) return 'Время окончания должно быть позже начала.';
     return '';
@@ -222,58 +232,104 @@
     error.textContent = message;
   }
 
-  async function markStatus(status) {
-    const { error } = await context.db.auth.updateUser({ data:{
+  function errorMessage(error) {
+    if (!navigator.onLine) return 'Нет соединения с интернетом. Настройки сохранены в черновике. Подключитесь и повторите сохранение.';
+    const text = `${error?.code || ''} ${error?.message || ''}`;
+    if (/existing_service_conflict/.test(text)) return 'Услуга с таким названием уже существует с другими параметрами. Вернитесь к услугам и задайте другое название или прежние параметры.';
+    if (/42501|permission|row.level|forbidden/i.test(text)) return 'Недостаточно прав для сохранения. Войдите заново в кабинет исполнителя; черновик сохранён.';
+    if (/PGRST20[024]|42P01|42703|schema|column|relation/i.test(text)) return 'Версия сервера не поддерживает эти настройки. Обновите страницу; если ошибка повторится, обратитесь в поддержку.';
+    if (/23514|invalid_settings/i.test(text)) return 'Проверьте услуги и график: длительность 5–720 минут, окончание позже начала, хотя бы один рабочий день.';
+    if (/401|jwt|session|refresh.token/i.test(text)) return 'Сессия истекла. Войдите повторно; черновик сохранён.';
+    return 'Не удалось подтвердить сохранение. Повторная попытка проверит уже сохранённые услуги и график.';
+  }
+  async function serviceIdentity(userId, name) {
+    const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`minuta-onboarding-service-v1:${userId}:${name.trim().toLocaleLowerCase('ru-RU')}`))).slice(0,16);
+    bytes[6]=(bytes[6]&15)|80; bytes[8]=(bytes[8]&63)|128;
+    const hex=Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+  async function markStatus(status, operationContext = context, settings = state) {
+    let writeError;
+    try { const { error } = await operationContext.db.auth.updateUser({ data:{
       minuta_onboarding_status: status,
       minuta_onboarding_version: VERSION,
       minuta_onboarding_finished_at: new Date().toISOString(),
-      minuta_work_format: state.format,
-      minuta_business_category: state.category
-    }});
-    if (error) throw error;
+      minuta_work_format: settings.format,
+      minuta_business_category: settings.category
+    }}); writeError = error; } catch(error) { writeError = error; }
+    const {data,error} = await operationContext.db.auth.getUser();
+    const user = data?.user;
+    if (error || user?.id !== operationContext.user.id || user.user_metadata?.minuta_onboarding_status !== status || user.user_metadata?.minuta_work_format !== settings.format || user.user_metadata?.minuta_business_category !== settings.category) throw writeError || error || new Error('onboarding_status_unconfirmed');
+    operationContext.user.user_metadata = user.user_metadata;
   }
 
   async function finish() {
+    if (busy) return;
+    if (!navigator.onLine) { showError(errorMessage()); return; }
+    const operationContext = context;
+    const operationGeneration = generation;
+    const settings = structuredClone(state);
+    const assertCurrent = () => { if (generation !== operationGeneration || context?.user?.id !== operationContext.user.id) throw new Error('stale_session'); };
     busy = true;
     render();
     try {
-      const selectedServices = state.services.filter(service => service.enabled && service.name.trim());
-      const { data: existing, error: servicesReadError } = await context.db.from('services').select('name').eq('performer_id', context.user.id);
+      const selectedServices = settings.services.filter(service => service.enabled && service.name.trim());
+      if (new Set(selectedServices.map(service=>service.name.trim().toLocaleLowerCase('ru-RU'))).size!==selectedServices.length || settings.days.some(day=>!DAY_LABELS.some(([value])=>value===day))) throw new Error('invalid_settings');
+      if (!selectedServices.length || !settings.days.length || !/^\d{2}:\d{2}$/.test(settings.start) || !/^\d{2}:\d{2}$/.test(settings.end) || settings.start >= settings.end || selectedServices.some(service => !Number.isFinite(Number(service.price)) || Number(service.price)<0 || !Number.isInteger(Number(service.duration)) || Number(service.duration)<5 || Number(service.duration)>720)) throw new Error('invalid_settings');
+      const { data: existing, error: servicesReadError } = await operationContext.db.from('services').select('name,price_rub,duration_minutes,active').eq('performer_id', operationContext.user.id);
+      assertCurrent();
       if (servicesReadError) throw servicesReadError;
+      if (!Array.isArray(existing)) throw new Error('services_read_unconfirmed');
+      if(selectedServices.some(expected=>existing.some(actual=>String(actual.name).trim().toLocaleLowerCase('ru-RU')===expected.name.trim().toLocaleLowerCase('ru-RU') && (Number(actual.price_rub)!==Math.round(Number(expected.price)) || Number(actual.duration_minutes)!==Number(expected.duration) || actual.active!==true)))) throw new Error('existing_service_conflict');
       const names = new Set((existing || []).map(item => `${item.name || ''}`.trim().toLocaleLowerCase('ru-RU')));
-      const additions = selectedServices.filter(service => !names.has(service.name.trim().toLocaleLowerCase('ru-RU'))).map(service => ({
-        performer_id: context.user.id,
+      const additions = selectedServices.filter(service => { const key=service.name.trim().toLocaleLowerCase('ru-RU'); if(names.has(key))return false; names.add(key); return true; }).map(service => ({
+        performer_id: operationContext.user.id,
         name: service.name.trim(),
         price_rub: Math.round(Number(service.price) || 0),
         duration_minutes: Math.max(5, Math.round(Number(service.duration) || 60)),
         active: true
       }));
+      // A repeated insert after reload must collide on the same primary key,
+      // even if the first write is still committing and not yet readable.
+      for(const addition of additions) addition.id = await serviceIdentity(operationContext.user.id,addition.name);
+      assertCurrent();
       if (additions.length) {
-        const { error } = await context.db.from('services').insert(additions);
-        if (error) throw error;
+        let writeError;
+        try { const { error } = await operationContext.db.from('services').insert(additions); writeError=error; } catch(error) { writeError=error; }
+        assertCurrent();
+        const {data,error} = await operationContext.db.from('services').select('name,price_rub,duration_minutes,active').eq('performer_id', operationContext.user.id);
+        assertCurrent();
+        if(error || !Array.isArray(data) || !additions.every(expected=>data.some(actual=>actual.name===expected.name && Number(actual.price_rub)===expected.price_rub && Number(actual.duration_minutes)===expected.duration_minutes && actual.active===true))) throw writeError || error || new Error('services_write_unconfirmed');
       }
       const rows = DAY_LABELS.map(([weekday]) => ({
-        performer_id: context.user.id,
+        performer_id: operationContext.user.id,
         weekday: Number(weekday),
-        enabled: state.days.includes(weekday),
-        start_time: state.start,
-        end_time: state.end,
+        enabled: settings.days.includes(weekday),
+        start_time: settings.start,
+        end_time: settings.end,
         break_start: null,
         break_end: null,
         slot_interval_minutes: 30
       }));
-      const { error: scheduleError } = await context.db.from('provider_schedule').upsert(rows, { onConflict:'performer_id,weekday' });
-      if (scheduleError) throw scheduleError;
-      await markStatus('completed');
-      localStorage.removeItem(draftKey(context.user.id));
-      if (typeof context.refresh === 'function') await context.refresh();
+      let scheduleError;
+      try { const {error} = await operationContext.db.from('provider_schedule').upsert(rows, { onConflict:'performer_id,weekday' }); scheduleError=error; } catch(error) { scheduleError=error; }
+      assertCurrent();
+      const {data:savedSchedule,error:readError} = await operationContext.db.from('provider_schedule').select('weekday,enabled,start_time,end_time,break_start,break_end,slot_interval_minutes').eq('performer_id', operationContext.user.id);
+      assertCurrent();
+      if(readError || !Array.isArray(savedSchedule) || !rows.every(expected=>savedSchedule.some(actual=>Number(actual.weekday)===expected.weekday && actual.enabled===expected.enabled && String(actual.start_time).slice(0,5)===expected.start_time && String(actual.end_time).slice(0,5)===expected.end_time && actual.break_start===null && actual.break_end===null && Number(actual.slot_interval_minutes)===expected.slot_interval_minutes))) throw scheduleError || readError || new Error('schedule_write_unconfirmed');
+      await markStatus('completed',operationContext,settings);
+      assertCurrent();
+      try { localStorage.removeItem(draftKey(operationContext.user.id)); } catch {}
       close();
-      context.onComplete?.();
+      if (typeof operationContext.refresh === 'function') { try { await operationContext.refresh(); } catch {} }
+      assertCurrent();
+      busy = false;
+      operationContext.onComplete?.();
     } catch (error) {
+      if (generation !== operationGeneration || context?.user?.id !== operationContext.user.id) return;
       busy = false;
       render();
-      showError('Не удалось сохранить настройку. Проверьте интернет и попробуйте ещё раз.');
-      console.error('Provider onboarding failed', error);
+      showError(errorMessage(error));
     }
   }
 
@@ -282,7 +338,7 @@
     busy = true;
     try {
       await markStatus('skipped');
-      localStorage.removeItem(draftKey(context.user.id));
+      try { localStorage.removeItem(draftKey(context.user.id)); } catch {}
       close();
     } catch (_) {
       busy = false;
@@ -314,7 +370,7 @@
     }
     if (button.matches('[data-schedule-preset]')) {
       const preset = button.dataset.schedulePreset;
-      state.days = preset === 'weekdays' ? ['1','2','3','4','5'] : preset === 'six-days' ? ['1','2','3','4','5','6'] : ['1','2','3','4','5','6','0'];
+      state.days = preset === 'weekdays' ? ['1','2','3','4','5'] : preset === 'six-days' ? ['1','2','3','4','5','6'] : ['1','2','3','4','5','6','7'];
       saveDraft(); render(); return;
     }
     if (button.matches('[data-copy-client-link]')) { copyClientLink(button); return; }
@@ -334,6 +390,8 @@
   }
 
   async function handleSession(nextContext) {
+    if (busy && context?.user?.id === nextContext?.user?.id) { context = nextContext; return; }
+    generation += 1;
     context = nextContext;
     const status = context?.user?.user_metadata?.minuta_onboarding_status;
     if (!context?.user?.id || status !== 'pending') { close(); return; }
@@ -350,6 +408,7 @@
   }
 
   function reset() {
+    generation += 1;
     close();
     context = null;
     state = null;

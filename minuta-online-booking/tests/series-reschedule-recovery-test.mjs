@@ -14,7 +14,7 @@ function between(start, end) {
   assert.ok(from >= 0 && to > from, `Actual source boundary: ${start}`);
   return source.slice(from, to);
 }
-const realController = between('function openBookingEditor(', 'function offlineCandidateSlots(')
+const realController = between('async function updateBookingAtExpectedState(', 'function offlineCandidateSlots(')
   + between('function seriesRpcErrorMessage(', 'function stackMinuteTimelineItems(')
   + source.match(/^function sessionIsCurrent[^\n]+/m)[0];
 const metadataDependencies = between('function captureBookingMetadataContext(', '// Local completion ownership');

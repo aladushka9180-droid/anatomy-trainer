@@ -12,6 +12,110 @@
     let contextRevision = 0;
     let loadRevision = 0;
     let operationRevision = 0;
+    let refundIntent = null;
+    let refundVerifiedStatus = '';
+    let refundStorageFailed = false;
+
+    function intentKey() { return `minuta_refund_intent_v1:${organization.id}`; }
+    function restoreRefundIntent() {
+      refundIntent = null; refundVerifiedStatus = ''; refundStorageFailed = false;
+      if (!organization) return;
+      try {
+        const raw = global.localStorage.getItem(intentKey());
+        if (!raw) return;
+        const value = JSON.parse(raw);
+        if (value.organization_id !== organization.id || !value.request_id || !value.attempt_id
+          || !Number.isSafeInteger(value.amount_minor) || value.amount_minor < 100
+          || !/^[a-f0-9]{64}$/.test(value.reason_hash)) throw new Error('invalid_refund_intent');
+        refundIntent = value;
+      } catch { refundStorageFailed = true; }
+    }
+    function persistRefundIntent(value) {
+      const existing = global.localStorage.getItem(intentKey());
+      if (existing && JSON.parse(existing).request_id !== value.request_id) throw new Error('another_refund_intent');
+      const encoded = JSON.stringify(value);
+      global.localStorage.setItem(intentKey(), encoded);
+      if (global.localStorage.getItem(intentKey()) !== encoded) throw new Error('refund_intent_not_saved');
+      refundIntent = value;
+    }
+    async function reasonHash(reason) {
+      const digest = await global.crypto.subtle.digest('SHA-256', new TextEncoder().encode(reason));
+      return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    function terminalRefund() { return ['succeeded', 'canceled', 'failed'].includes(refundVerifiedStatus); }
+    function renderRefundRecovery() {
+      const form = $('#paymentRefundForm');
+      if (!form) return;
+      if (document.createElement && !document.getElementById('paymentRefundRecovery')) {
+        const recovery = document.createElement('div');
+        recovery.id = 'paymentRefundRecovery';
+        recovery.innerHTML = '<p id="paymentRefundRecoveryStatus" role="status"></p><button id="paymentRefundNew" class="secondary-button" type="button">Новый возврат</button>';
+        $('#paymentProviderWorkspace').prepend(recovery);
+      }
+      const active = Boolean(refundIntent || refundStorageFailed);
+      if ($('#paymentRefundRecovery')) $('#paymentRefundRecovery').hidden = !active;
+      // An unresolved operation is the current task; ordinary refunds remain below history.
+      if(active)$('#paymentRefundRecovery')?.after?.(form);
+      else $('#paymentProviderWorkspace')?.append?.(form);
+      if ($('#paymentRefundRecoveryStatus')) $('#paymentRefundRecoveryStatus').textContent = refundStorageFailed
+        ? 'Не удалось прочитать сохранённый возврат. Проверьте хранилище браузера перед новой операцией.'
+        : terminalRefund() ? `Предыдущий возврат: ${refundStatusLabel(refundVerifiedStatus)}. Для отдельной операции нажмите «Новый возврат».`
+          : 'Есть незавершённая проверка возврата. Сначала проверьте его статус. Для безопасного повтора понадобится прежняя причина.';
+      if ($('#paymentRefundNew')) { $('#paymentRefundNew').hidden = !terminalRefund(); $('#paymentRefundNew').disabled = busy; }
+      const submitButton = form.querySelector?.('button[type="submit"]');
+      if (submitButton) { submitButton.textContent = active ? 'Проверить возврат' : 'Вернуть через ЮKassa'; submitButton.disabled = busy || refundStorageFailed; }
+      if (refundIntent) {
+        $('#paymentRefundAmount').value = minorInputValue(refundIntent.amount_minor);
+        $('#paymentRefundAmount').max = '';
+        $('#paymentRefundAmount').readOnly = true;
+        $('#paymentRefundAttempt').disabled = true;
+        $('#paymentRefundReason').required = false;
+        form.hidden = false;
+      } else {
+        $('#paymentRefundAmount').readOnly = false;
+        $('#paymentRefundReason').required = true;
+      }
+    }
+    async function reconcileRefundIntent(intent, isCurrent) {
+      let query = db.from('payment_provider_refunds')
+        .select('id,organization_id,request_id,attempt_id,amount_minor,status')
+        .eq('organization_id', intent.organization_id);
+      query = intent.refund_id ? query.eq('id', intent.refund_id) : query.eq('request_id', intent.request_id);
+      const result = await query.maybeSingle();
+      if (!isCurrent()) return 'stale';
+      if (result.error) throw new Error('refund_check_unavailable');
+      const row = result.data;
+      if (!row) {
+        // The legacy server may reuse another in-flight refund's canonical ID.
+        // If that reply was lost, absence of our ID alone cannot authorize replay.
+        const possibleAlias = await db.from('payment_provider_refunds').select('id')
+          .eq('organization_id', intent.organization_id).eq('attempt_id', intent.attempt_id)
+          .eq('amount_minor', intent.amount_minor).in('status', ['creating','pending','succeeded']).limit(1).maybeSingle();
+        if (!isCurrent()) return 'stale';
+        if (possibleAlias.error || possibleAlias.data) throw new Error('refund_identity_unresolved');
+        refundVerifiedStatus = ''; return 'missing';
+      }
+      if (row.organization_id !== intent.organization_id || row.attempt_id !== intent.attempt_id
+        || Number(row.amount_minor) !== intent.amount_minor
+        || (!intent.refund_id && row.request_id !== intent.request_id)
+        || (intent.refund_id && row.id !== intent.refund_id)
+        || !['creating', 'pending', 'succeeded', 'canceled', 'failed'].includes(row.status)) throw new Error('refund_check_mismatch');
+      refundVerifiedStatus = row.status;
+      renderRefundRecovery();
+      return row.status;
+    }
+    function newRefund() {
+      if (!organization || busy || !manager() || !terminalRefund()) return;
+      try {
+        if (JSON.parse(global.localStorage.getItem(intentKey()) || 'null')?.request_id !== refundIntent?.request_id) throw new Error('another_refund_intent');
+        global.localStorage.removeItem(intentKey());
+        if (global.localStorage.getItem(intentKey()) !== null) throw new Error('refund_clear_failed');
+      } catch { notify('Не удалось завершить предыдущую проверку. Новый возврат пока недоступен.'); return; }
+      refundIntent = null; refundVerifiedStatus = '';
+      $('#paymentRefundForm').reset();
+      refundSelectionInitialized = false;
+      render();
+    }
 
     // UI lifetime only: these tokens do not cancel or deduplicate server refunds.
     function currentContext() {
@@ -83,9 +187,11 @@
     function setBusy(value) {
       busy = value;
       $('#paymentProviderPanel')?.querySelectorAll('button,input,select').forEach((item) => { item.disabled = value; });
+      renderRefundRecovery();
     }
     function reset() {
       organization = null; payload = null; available = null; busy = false;
+      refundIntent = null; refundVerifiedStatus = ''; refundStorageFailed = false;
       invalidateContext();
       refundSelectionInitialized = false;
       if ($('#paymentProviderPanel')) $('#paymentProviderPanel').hidden = true;
@@ -131,6 +237,7 @@
         || String(next?.current_role || '') !== currentRole();
       if (changed) invalidateContext();
       organization = next?.id ? next : null;
+      if (changed) restoreRefundIntent();
       payload = null;
       available = null;
       if (!organization) { reset(); return; }
@@ -147,6 +254,14 @@
     function render(error = null) {
       const panel = $('#paymentProviderPanel');
       if (!panel) return;
+      const guide=panel.querySelector?.('.payment-technical-details');
+      if(guide){
+        const intro=panel.querySelector(':scope > .organization-invite-help');
+        const summary=guide.querySelector('summary');
+        if(summary)summary.textContent='Подробнее о подключении';
+        if(intro&&summary)summary.after(intro);
+        panel.append(guide);
+      }
       panel.hidden = !organization || !manager() || available === false;
       if (panel.hidden) { refreshNavigation(); return; }
       $('#paymentProviderUnavailable').hidden = available !== null;
@@ -200,6 +315,10 @@
       }
       refundSelectionInitialized = true;
       $('#paymentRefundForm').hidden = !manager() || !refundable.length;
+      if (refundIntent && !refundable.some(item => item.id === refundIntent.attempt_id)) {
+        $('#paymentRefundAttempt').innerHTML += `<option value="${escapeHtml(refundIntent.attempt_id)}">Сохранённый возврат · ${escapeHtml(moneyMinor(refundIntent.amount_minor))}</option>`;
+      }
+      if (refundIntent) $('#paymentRefundAttempt').value = refundIntent.attempt_id;
       updateRefundAmount();
       setBusy(busy);
       refreshNavigation();
@@ -275,6 +394,29 @@
       if (event.target.id !== 'paymentRefundForm') return;
       event.preventDefault();
       if (!organization || busy || !manager() || !requireWrites()) return;
+      if (refundStorageFailed) { notify('Не удалось прочитать сохранённый возврат. Новая операция заблокирована.'); return; }
+      if (refundIntent) {
+        const intent = refundIntent;
+        const isCurrent = beginOperation();
+        try {
+          const status = await reconcileRefundIntent(intent, isCurrent);
+          if (!isCurrent()) return;
+          if (['succeeded','canceled','failed','pending'].includes(status)) {
+            notify(status === 'succeeded' ? 'Возврат выполнен' : status === 'pending' ? 'Возврат принят в обработку' : status === 'canceled' ? 'Возврат отменён' : 'Возврат завершился ошибкой');
+            return;
+          }
+          const reason = $('#paymentRefundReason').value.trim();
+          if (!reason || await reasonHash(reason) !== intent.reason_hash) {
+            if (isCurrent()) notify('Для повтора укажите прежнюю причину возврата. Сумма и операция сохранены.');
+            return;
+          }
+          if (!isCurrent()) return;
+          if (!global.confirm?.(`Проверка не подтвердила завершение. Повторить тот же возврат ${moneyMinor(intent.amount_minor)}? Новая операция создана не будет.`)) return;
+          await sendRefund(intent, reason, isCurrent);
+        } catch { if (isCurrent()) notify('Не удалось сверить возврат. Новая операция заблокирована; повторите проверку позже.'); }
+        finally { if (isCurrent()) setBusy(false); }
+        return;
+      }
       if (!$('#paymentRefundAttempt').value) {
         notify('Выберите платёж для возврата. Сумма и причина не изменены.');
         return;
@@ -319,19 +461,12 @@
       }
       const isCurrent = beginOperation();
       try {
-        const result = await db.functions.invoke('yookassa-refund', { body:{
-          organization_id:organization.id,
-          attempt_id:$('#paymentRefundAttempt').value,
-          request_id:requestId(),
-          amount_minor:amountMinor,
-          reason
-        }});
+        const intent = { organization_id:organization.id, attempt_id:$('#paymentRefundAttempt').value,
+          request_id:requestId(), amount_minor:amountMinor, reason_hash:await reasonHash(reason) };
         if (!isCurrent()) return;
-        setBusy(false);
-        if (result.error || !result.data?.ok) { notify('Возврат не подтверждён. Проверьте настройки и журнал операций.'); await load(); return; }
-        event.target.reset();
-        await load();
-        if (isCurrent()) notify(result.data.status === 'succeeded' ? 'Возврат выполнен' : 'Возврат принят в обработку');
+        try { persistRefundIntent(intent); }
+        catch { notify('Не удалось сохранить защиту от повторного возврата. Операция не отправлена.'); return; }
+        await sendRefund(intent, reason, isCurrent);
       } catch {
         if (isCurrent()) {
           notify('Возврат не подтверждён. Проверьте настройки и журнал операций.');
@@ -341,12 +476,32 @@
         if (isCurrent()) setBusy(false);
       }
     }
+    async function sendRefund(intent, reason, isCurrent) {
+      const result = await db.functions.invoke('yookassa-refund', { body:{
+        organization_id:intent.organization_id, attempt_id:intent.attempt_id,
+        request_id:intent.request_id, amount_minor:intent.amount_minor, reason
+      }});
+      if (!isCurrent()) return;
+      if (result.error || result.data?.ok !== true || typeof result.data.refund_id !== 'string'
+        || !result.data.refund_id || result.data.amount_minor !== intent.amount_minor
+        || !['succeeded','pending','canceled'].includes(result.data.status)) {
+        notify('Возврат не подтверждён. Сохранена та же операция; проверьте её статус перед повтором.');
+        await load();
+        return;
+      }
+      try { persistRefundIntent({ ...intent, refund_id:result.data.refund_id }); } catch { /* Original request remains durable. */ }
+      // Even an acknowledged request stays attached until an explicit new action.
+      if (['succeeded','canceled','failed','pending'].includes(result.data.status)) refundVerifiedStatus = result.data.status;
+      await load();
+      if (isCurrent()) notify(result.data.status === 'succeeded' ? 'Возврат выполнен' : result.data.status === 'pending' ? 'Возврат принят в обработку' : 'Возврат отменён');
+    }
     function change(event) {
       if (event.target.id === 'paymentFiscalizationEnabled' || event.target.id === 'paymentRefundAttempt') updateRefundAmount();
     }
     function bind() {
       document.addEventListener('submit', submit);
       document.addEventListener('change', change);
+      document.addEventListener('click', event => { if (event.target.closest?.('#paymentRefundNew')) newRefund(); });
       $('#reloadPaymentProvider')?.addEventListener('click', load);
     }
     return {

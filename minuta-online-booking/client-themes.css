@@ -20,6 +20,18 @@
 .booking-client-page[data-client-theme] .booking-context-row .status { border-color:var(--client-line); background:color-mix(in srgb,var(--client-surface) 82%,var(--client-accent-soft)); }
 .booking-client-page[data-client-theme] .option:hover { background:color-mix(in srgb,var(--client-surface) 72%,var(--client-accent-soft)); }
 .booking-client-page[data-client-theme] .option.selected { background:var(--client-accent-soft); box-shadow:inset 0 0 0 1px var(--client-line); }
+.booking-client-page[data-client-theme] .service-option-row { display:grid; grid-template-columns:minmax(0,1fr) 44px; align-items:center; gap:4px; }
+.booking-client-page[data-client-theme] .service-option-row .option { min-width:0; width:100%; }
+.booking-client-page[data-client-theme] .service-info-button { display:grid; place-items:center; width:44px; min-height:44px; padding:10px; border:0; border-radius:12px; background:transparent; color:var(--client-readable-accent); cursor:pointer; }
+.booking-client-page[data-client-theme] .service-info-button:hover { background:var(--client-accent-soft); }
+.booking-client-page[data-booking-step="2"] :is(.client-hero,.public-group-events,.public-portfolio,.public-reviews,.booking-faq),
+.booking-client-page[data-booking-step="3"] :is(.client-hero,.public-group-events,.public-portfolio,.public-reviews,.booking-faq) { display:none!important; }
+.booking-client-page[data-client-theme] .section-gap>small { font-size:12px; font-weight:500; color:var(--client-muted); }
+.booking-client-page[data-client-theme] .client-access-help { margin-top:16px; border-top:1px solid var(--client-line); padding-top:8px; }
+.booking-client-page[data-client-theme] .client-access-help summary { display:flex; align-items:center; min-height:44px; cursor:pointer; font-size:14px; font-weight:600; color:var(--client-readable-accent); }
+.booking-client-page[data-client-theme] .client-access-help p { font-size:14px; line-height:1.5; color:var(--client-muted); }
+.booking-client-page[data-client-theme] .client-access-help a { display:inline-flex; align-items:center; min-height:44px; color:var(--client-readable-accent); }
+.booking-client-page[data-client-theme] .availability-suggestion button span { color:inherit; font-size:inherit; }
 .booking-client-page[data-client-theme] :is(.back,.section-icon,.progress-labels span.active,.input-hint.valid) { color:var(--client-accent); }
 .booking-client-page[data-client-theme] input.input-valid { border-color:color-mix(in srgb,var(--client-accent) 62%,var(--client-line)); background:var(--client-surface); }
 .booking-client-page[data-client-theme] .booking-footer a { color:var(--client-muted); }
@@ -70,7 +82,7 @@
 }
 .booking-client-page[data-client-theme] .availability-suggestion strong,
 .booking-client-page[data-client-theme] .waitlist-cta strong { color:var(--client-ink); }
-.booking-client-page[data-client-theme] .availability-suggestion span,
+.booking-client-page[data-client-theme] .availability-suggestion > div span,
 .booking-client-page[data-client-theme] .waitlist-cta span { color:var(--client-readable-muted); }
 .booking-client-page[data-client-theme] .availability-suggestion button {
   background:var(--client-accent);

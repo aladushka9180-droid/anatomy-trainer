@@ -27,7 +27,7 @@ const canonical = value => JSON.stringify(Object.entries(value).sort(([a], [b]) 
 let scenario;
 let origin;
 const unexpected = [];
-const mime = { '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webp':'image/webp', '.png':'image/png', '.woff2':'font/woff2', '.webmanifest':'application/manifest+json' };
+const mime = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.svg':'image/svg+xml', '.webp':'image/webp', '.png':'image/png', '.woff2':'font/woff2', '.webmanifest':'application/manifest+json' };
 function json(res, value, status = 200) {
   res.writeHead(status, { 'content-type':'application/json', 'cache-control':'no-store' });
   res.end(JSON.stringify(value));
@@ -73,6 +73,7 @@ function rpc(name, args, res) {
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, origin);
+    if (url.pathname === '/auth/v1/settings') return json(res,{external:{phone:false}});
     if (req.method === 'POST' && url.pathname.startsWith('/rest/v1/rpc/')) {
       const parts = []; for await (const part of req) parts.push(part);
       return rpc(url.pathname.split('/').at(-1), JSON.parse(Buffer.concat(parts).toString()), res);
@@ -155,6 +156,34 @@ async function reload(page) {
   assert.match(await page.locator('#summary').innerText(), /10:00/);
 }
 const cases = [
+  ...[390,760,1440].map(width => [`public route clarity at ${width}px`, async ({page, model}) => {
+    await page.setViewportSize({width,height:900});
+    const capture = async name => { if(process.env.MINUTA_AUDIT_SCREENSHOTS) await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOTS,`public-after-${width}-${name}.png`),fullPage:true}); };
+    await capture('services');
+    await page.locator('[data-service-info]').click();
+    await page.locator('#serviceDetailsDialog').waitFor({state:'visible'});
+    assert.equal(await page.locator('.step.active').getAttribute('data-step'),'1','Reading details must not select a service');
+    await capture('details');
+    await page.locator('[data-choose-service-details]').click();
+    await page.locator('#availabilityHint').waitFor({state:'visible'});
+    assert.equal(await page.locator('.client-hero').isVisible(),false);
+    assert.match(await page.locator('[data-suggested-date]').innerText(),/Выбрать/);
+    assert.match(await page.locator('body').innerText(),/по Самаре/);
+    await capture('times');
+    await page.locator('[data-suggested-date]').click();
+    await page.locator('#bookingForm.active').waitFor();
+    assert.equal(await page.locator('.client-hero').isVisible(),false);
+    await capture('contacts');
+    assert.equal(model.creates.length,0,'Read-only route must not submit');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.goto(`${origin}/minuta-online-booking/my-bookings.html`);
+    await page.waitForFunction(()=>document.body.dataset.clientSms==='disabled');
+    assert.equal(await page.locator('.client-social-auth-buttons').isVisible(),false,'Unconfigured social methods must not compete with usable login');
+    await page.locator('.client-access-help summary').click();
+    assert.match(await page.locator('.client-access-help').innerText(),/Не создавайте повторную запись/);
+    await capture('lost-code');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  }]),
   ['lost committed reply → native reload → occupied slot → same nonce', async ({ page, model }) => {
     const original = await loseReply(page, model);
     await reload(page);
@@ -195,7 +224,7 @@ const cases = [
   }, { busy:true }]
 ];
 try {
-  browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
+  browser = await chromium.launch({ headless:true, ...(process.env.MINUTA_CHROME_PATH ? {executablePath:process.env.MINUTA_CHROME_PATH} : process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
   for (const [name, run, options] of cases) {
     let f;
     try {
@@ -209,9 +238,9 @@ try {
       console.error(`FAIL ${name}\n${error.stack}`);
       if (f) console.error('Fixture diagnostic:', JSON.stringify({ creates:f.model.creates.length, ledger:f.model.ledger.size,
         rpc:f.model.calls.map(call => call.name), dom:await f.page.evaluate(() => ({
-          error:document.querySelector('#formError').textContent, disabled:document.querySelector('#submitBooking').disabled,
-          success:!document.querySelector('#success').hidden, name:document.querySelector('#clientName').value,
-          phone:document.querySelector('#clientPhone').value, consent:document.querySelector('#dataConsent').checked
+          error:document.querySelector('#formError')?.textContent, disabled:document.querySelector('#submitBooking')?.disabled,
+          success:document.querySelector('#success')?.hidden===false, name:document.querySelector('#clientName')?.value,
+          phone:document.querySelector('#clientPhone')?.value, consent:document.querySelector('#dataConsent')?.checked
         })) }));
       if (f?.errors.length) console.error('Page errors:', f.errors);
       if (unexpected.length) console.error('Unexpected requests:', unexpected);

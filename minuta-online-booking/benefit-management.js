@@ -15,7 +15,95 @@
     let revision = 0;
     let writing = false;
     let pendingOrganization;
-    let issueRequestId = null;
+    let issueIntent = null;
+    let issueConfirmed = false;
+    let issueRejected = false;
+    let issueStorageFailed = false;
+    let issueStorageScope = '';
+    let issueCreatorHome = null;
+
+    function issueKey() { return `minuta_benefit_issue_v1:${getCurrentUser()?.id}:${organization?.id}`; }
+    function restoreIssueIntent() {
+      issueStorageScope=issueKey();issueIntent=null;issueConfirmed=false;issueRejected=false;issueStorageFailed=false;
+      try {
+        const raw=window.localStorage.getItem(issueStorageScope);if(!raw)return;
+        const value=JSON.parse(raw);
+        if(value.organization_id!==organization?.id || value.actor_id!==getCurrentUser()?.id
+          || !value.request_id || !value.product_id || !value.client_account_id
+          || !(value.expires_on===null || /^\d{4}-\d{2}-\d{2}$/.test(value.expires_on)))throw Error('invalid_issue_intent');
+        issueIntent=value;
+      } catch { issueStorageFailed=true; }
+    }
+    function persistIssueIntent(intent) {
+      const key=issueKey(),old=window.localStorage.getItem(key);
+      if(old && JSON.parse(old).request_id!==intent.request_id)throw Error('another_issue_intent');
+      // Opaque identifiers and the requested expiry only: no client details or balances.
+      const encoded=JSON.stringify(intent);window.localStorage.setItem(key,encoded);
+      if(window.localStorage.getItem(key)!==encoded)throw Error('issue_intent_not_saved');
+      issueIntent=intent;
+    }
+    function renderIssueRecovery() {
+      const form=$('#benefitIssueForm');if(!form)return;
+      if(document.createElement && !document.getElementById('benefitIssueRecovery')) {
+        const recovery=document.createElement('div');recovery.id='benefitIssueRecovery';
+        recovery.innerHTML='<p id="benefitIssueRecoveryStatus" role="status"></p><button id="benefitIssueNew" class="secondary-button" type="button" data-benefit-write>Новая выдача</button>';
+        form.before(recovery);
+        const help=form.querySelector('.benefit-form-help');
+        if(help){const details=document.createElement('details');details.className='ux-disclosure';details.innerHTML='<summary>Подробнее о сроке действия</summary>';form.append(details);details.append(help);}
+      }
+      const active=Boolean(issueIntent||issueStorageFailed);
+      const creator=$('#benefitIssueCreator');
+      if(creator?.parentElement&&!issueCreatorHome)issueCreatorHome={parent:creator.parentElement,next:creator.nextSibling};
+      if(active)$('#benefitWorkflowStatus')?.after?.(creator);
+      else if(issueCreatorHome)issueCreatorHome.parent.insertBefore(creator,issueCreatorHome.next);
+      const creatorLabel=creator?.querySelector?.('summary span');
+      if(creatorLabel)creatorLabel.textContent=active?'Проверка выдачи':'Выдать клиенту';
+      if(active&&$('#benefitWorkflowStatus'))$('#benefitWorkflowStatus').textContent=issueConfirmed
+        ? 'Выдача подтверждена. Повторная выдача — только отдельным действием.'
+        : issueRejected?'Прежняя выдача отклонена. Можно исправить параметры новой операцией.'
+          : 'Сначала проверьте результат прежней выдачи.';
+      if($('#benefitIssueRecovery'))$('#benefitIssueRecovery').hidden=!active;
+      if($('#benefitIssueRecoveryStatus'))$('#benefitIssueRecoveryStatus').textContent=issueStorageFailed
+        ? 'Не удалось прочитать сохранённую выдачу. Новая операция заблокирована до восстановления хранилища.'
+        : issueConfirmed ? 'Продукт уже выдан клиенту. Для отдельного абонемента или сертификата нажмите «Новая выдача».'
+          : issueRejected ? 'Выдача отклонена сервером и не появилась в журнале. Нажмите «Новая выдача», чтобы исправить параметры.'
+          : 'Выдача ожидает проверки. Проверим прежнюю операцию перед безопасным повтором.';
+      if($('#benefitIssueNew')){$('#benefitIssueNew').hidden=!(issueConfirmed||issueRejected);$('#benefitIssueNew').disabled=writing;}
+      const button=form.querySelector?.('button[type="submit"]');
+      if(button){button.textContent=issueIntent?'Проверить выдачу':'Выдать клиенту';button.disabled=writing||issueStorageFailed;}
+      if(active){$('#benefitIssueCreator').hidden=false;$('#benefitIssueCreator').open=true;}
+      for(const [id,key,label] of [['benefitIssueProduct','product_id','Сохранённый продукт'],['benefitIssueClient','client_account_id','Сохранённый клиент']]) {
+        const field=$(`#${id}`);if(!field)continue;
+        if(issueIntent){
+          if(![...(field.options||[])].some(option=>option.value===issueIntent[key]))field.innerHTML+=`<option value="${escapeHtml(issueIntent[key])}">${label}</option>`;
+          field.value=issueIntent[key];
+        }
+        field.disabled=writing||Boolean(issueIntent);
+      }
+      const expiry=$('#benefitIssueExpiry');
+      if(expiry){if(issueIntent)expiry.value=issueIntent.expires_on||'';expiry.disabled=writing||Boolean(issueIntent);}
+    }
+    async function checkIssueIntent(intent,isCurrent) {
+      const {data,error}=await db.from('client_benefit_instruments')
+        .select('id,organization_id,request_id,product_id,client_account_id,public_code,expires_on')
+        .eq('organization_id',intent.organization_id).eq('request_id',intent.request_id).maybeSingle();
+      if(!isCurrent())return 'stale';
+      if(error)throw Error('issue_check_unavailable');
+      if(!data)return 'missing';
+      if(!scopeMatches(data,intent.organization_id)||data.request_id!==intent.request_id
+        || data.product_id!==intent.product_id||data.client_account_id!==intent.client_account_id
+        || !data.id || !data.public_code)throw Error('issue_check_mismatch');
+      issueConfirmed=true;return 'confirmed';
+    }
+    function newIssue() {
+      if(writing||!(issueConfirmed||issueRejected)||!issueIntent||!requireWrites())return;
+      try {
+        const key=issueKey();
+        if(JSON.parse(window.localStorage.getItem(key)||'null')?.request_id!==issueIntent.request_id)throw Error('another_issue_intent');
+        window.localStorage.removeItem(key);if(window.localStorage.getItem(key)!==null)throw Error('issue_clear_failed');
+      } catch { showFormError('#benefitIssueError','Не удалось завершить проверку. Новая выдача пока недоступна.');return; }
+      issueIntent=null;issueConfirmed=false;issueRejected=false;$('#benefitIssueForm').reset();render();
+    }
 
     function unsupported(error) {
       return /PGRST202|42883|get_minuta_benefit_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`);
@@ -36,7 +124,7 @@
     }
     function uuid() {
       if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return crypto.randomUUID();
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,symbol=>{const value=Math.floor(Math.random()*16);return (symbol==='x'?value:(value&3)|8).toString(16);});
+      throw Error('secure_request_id_unavailable');
     }
     function showFormError(selector,message){const holder=$(selector);if(!holder)return;holder.textContent=message;holder.hidden=false;}
 
@@ -48,7 +136,7 @@
     }
     function reset() {
       revision+=1; organization=null; payload=null; availability=null; writing=false; pendingOrganization=undefined;
-      issueRequestId=null;
+      issueIntent=null;issueConfirmed=false;issueRejected=false;issueStorageFailed=false;issueStorageScope='';
       $('#benefitsPanel').hidden=true; $('#benefitsLoading').hidden=true; $('#benefitsUnavailable').hidden=true; $('#benefitsWorkspace').hidden=true;
     }
     async function setOrganization(next) {
@@ -56,7 +144,7 @@
       if(writing){pendingOrganization=normalized;revision+=1;$('#benefitsPanel').hidden=!normalized;$('#benefitsWorkspace').hidden=true;return {ok:false,optional:true,pending:true};}
       if(!normalized){reset();return {ok:false,optional:true};}
       if(!['owner','admin'].includes(normalized.current_role)){reset();return {ok:false,optional:true,forbidden:true};}
-      organization=normalized; pendingOrganization=undefined; return load();
+      organization=normalized;if(issueStorageScope!==issueKey())restoreIssueIntent();pendingOrganization=undefined;return load();
     }
     async function load() {
       if(writing)return {ok:false,optional:true,pending:true};
@@ -120,6 +208,10 @@
     }
     function render() {
       if(availability!=='ready'||!payload)return;
+      const panel=$('#benefitsPanel'),workflowStatus=$('#benefitWorkflowStatus');
+      const head=panel?.querySelector?.('.panel-head'),guide=panel?.querySelector?.('.benefit-guide')?.closest('details');
+      if(head&&workflowStatus)head.after(workflowStatus);
+      if(guide){const intro=panel.querySelector(':scope > .organization-invite-help');if(intro)guide.querySelector('summary').after(intro);panel.append(guide);}
       const today=todayIso();
       $('#benefitsWorkspace').hidden=false; $('#benefitsUnavailable').hidden=true; $('#benefitsEnabled').checked=Boolean(payload.enabled); $('#benefitsEnabled').disabled=payload.current_role!=='owner';
       $('#benefitProductsCount').textContent=String(payload.products.length); $('#benefitInstrumentsCount').textContent=String(payload.instruments.length);
@@ -138,7 +230,7 @@
       renderProductServices();
       const workflow=$('#benefitWorkflowStatus');
       if(workflow)workflow.textContent=!payload.enabled?'Система выключена. Включить её может владелец организации.':!payload.products.length?'Система включена. Следующий шаг: создайте первый продукт.':!payload.instruments.length?'Продукты созданы. Следующий шаг: выдайте продукт клиенту.':`Система работает. Выдано клиентам: ${payload.instruments.length}.`;
-      setBusy(false); applyWriteAvailability();
+      setBusy(false); applyWriteAvailability();renderIssueRecovery();
     }
 
     function messageFor(error) {
@@ -159,6 +251,49 @@
     function selectedServices() {
       return [...$('#benefitProductServices').querySelectorAll('[data-benefit-service]:checked')].map(input=>({service_id:input.dataset.benefitService,units:Number($(`[data-benefit-units="${input.dataset.benefitService}"]`).value)}));
     }
+    async function issueBenefit(event) {
+      if(!requireWrites()||writing||availability!=='ready'||!scopeMatches(payload,organization?.id)
+        || !['owner','admin'].includes(payload.current_role))return;
+      if(issueStorageScope!==issueKey())restoreIssueIntent();
+      if(issueStorageFailed){showFormError('#benefitIssueError','Не удалось прочитать сохранённую выдачу. Новая операция заблокирована.');return;}
+      const userId=getCurrentUser()?.id,generation=getSessionGeneration(),organizationId=organization.id,current=++revision;
+      const isCurrent=()=>sessionIsCurrent(userId,generation)&&current===revision&&organization?.id===organizationId;
+      writing=true;setBusy(true);$('#benefitIssueError').hidden=true;
+      try {
+        let intent=issueIntent;
+        if(intent){
+          const checked=await checkIssueIntent(intent,isCurrent);if(!isCurrent())return;
+          if(checked==='confirmed'){notify('Продукт уже выдан клиенту. Повторная выдача не создана.');return;}
+          if(['22023','42501','P0002','55000','23505'].includes(intent.rejection_code)){
+            issueRejected=true;showFormError('#benefitIssueError','Предыдущая выдача отклонена. Для исправления параметров нажмите «Новая выдача».');return;
+          }
+        }else{
+          intent={actor_id:userId,organization_id:organizationId,product_id:$('#benefitIssueProduct').value,
+            client_account_id:$('#benefitIssueClient').value,expires_on:$('#benefitIssueExpiry').value||null,request_id:uuid()};
+          if(!intent.product_id||!intent.client_account_id){showFormError('#benefitIssueError','Выберите продукт и клиента.');return;}
+          try{persistIssueIntent(intent);}catch{showFormError('#benefitIssueError','Не удалось сохранить защиту от повторной выдачи. Операция не отправлена.');return;}
+        }
+        renderIssueRecovery();
+        const {data,error}=await db.rpc('issue_minuta_benefit',{p_organization:intent.organization_id,
+          p_product:intent.product_id,p_client_account:intent.client_account_id,p_expires_on:intent.expires_on,p_request_id:intent.request_id});
+        if(!isCurrent())return;
+        if(error && ['22023','42501','P0002','55000','23505'].includes(error.code)) {
+          persistIssueIntent({...intent,rejection_code:error.code});
+          const checked=await checkIssueIntent(issueIntent,isCurrent);if(!isCurrent())return;
+          if(checked==='confirmed'){notify('Продукт уже выдан клиенту. Повторная выдача не создана.');return;}
+          issueRejected=true;showFormError('#benefitIssueError',`${messageFor(error)} Для исправления нажмите «Новая выдача».`);return;
+        }
+        if(error||!scopeMatches(data,organizationId)||!data?.id||!data?.public_code||!/^\d{4}-\d{2}-\d{2}$/.test(data?.expires_on||'')){
+          showFormError('#benefitIssueError','Выдача пока не подтверждена. Сохранена прежняя операция; проверьте её статус перед повтором.');return;
+        }
+        issueConfirmed=true;notify('Продукт выдан клиенту');
+      }catch{if(isCurrent())showFormError('#benefitIssueError','Не удалось сверить выдачу. Новая операция заблокирована; повторите проверку позже.');}
+      finally{
+        const stale=!isCurrent();writing=false;
+        if(stale){const next=pendingOrganization;pendingOrganization=undefined;if(next!==undefined)await setOrganization(next);}
+        else{setBusy(false);if(issueConfirmed)await load();else renderIssueRecovery();}
+      }
+    }
     async function submit(event) {
       if(!event.target.closest('#benefitsPanel'))return;
       if(event.target.id==='benefitProductForm'){
@@ -167,10 +302,11 @@
         const ok=await mutate('upsert_minuta_benefit_product',{p_organization:organization.id,p_product:null,p_name:$('#benefitProductName').value.trim(),p_kind:kind,p_sale_price_rub:Math.round(Number($('#benefitProductPrice').value)),p_face_value_rub:kind==='certificate'?Math.round(Number($('#benefitProductValue').value)):0,p_visits_count:kind==='certificate'?0:visits,p_validity_days:Math.round(Number($('#benefitProductValidity').value)),p_services:services},event.submitter,'Продукт сохранён','#benefitProductError');
         if(ok){event.target.reset();renderProductServices();$('#benefitProductCreator').open=false;}return;
       }
-      if(event.target.id==='benefitIssueForm'){event.preventDefault();issueRequestId=issueRequestId||uuid();const ok=await mutate('issue_minuta_benefit',{p_organization:organization.id,p_product:$('#benefitIssueProduct').value,p_client_account:$('#benefitIssueClient').value,p_expires_on:$('#benefitIssueExpiry').value||null,p_request_id:issueRequestId},event.submitter,'Продукт выдан клиенту','#benefitIssueError');if(ok){issueRequestId=null;$('#benefitIssueCreator').open=false;}return;}
+      if(event.target.id==='benefitIssueForm'){event.preventDefault();await issueBenefit(event);return;}
       if(event.target.id==='benefitApplyForm'){event.preventDefault();const ok=await mutate('apply_minuta_benefit',{p_organization:organization.id,p_instrument:$('#benefitApplyInstrument').value,p_booking:$('#benefitApplyBooking').value,p_action:'reserve',p_amount_rub:$('#benefitApplyAmount').value?Math.round(Number($('#benefitApplyAmount').value)):null},event.submitter,'Продукт применён к записи','#benefitApplyError');if(ok)$('#benefitApplyCreator').open=false;}
     }
     async function click(event) {
+      if(event.target.closest('#benefitIssueNew')){newIssue();return;}
       if(event.target.closest('#reloadBenefits')){await load();return;}
       const status=event.target.closest('[data-benefit-status]');if(status)await mutate('set_minuta_benefit_status',{p_organization:organization.id,p_instrument:status.dataset.benefitInstrument,p_status:status.dataset.benefitStatus},status,'Статус обновлён');
       const action=event.target.closest('[data-benefit-action]');if(action){const redemption=payload.redemptions.find(item=>item.id===action.dataset.benefitRedemption);if(redemption)await mutate('apply_minuta_benefit',{p_organization:organization.id,p_instrument:redemption.instrument_id,p_booking:redemption.booking_id,p_action:action.dataset.benefitAction,p_amount_rub:null},action,action.dataset.benefitAction==='redeem'?'Посещение погашено':'Баланс восстановлен');}
@@ -179,7 +315,7 @@
       if(event.target.id==='benefitsEnabled'){const desired=event.target.checked;const ok=await mutate('set_minuta_benefits_enabled',{p_organization:organization.id,p_enabled:desired},event.target,desired?'Абонементы включены':'Абонементы выключены');if(!ok&&payload)event.target.checked=Boolean(payload.enabled);}
       if(event.target.id==='benefitProductKind')renderProductServices();
       if(event.target.id==='benefitApplyInstrument')renderBookingOptions();
-      if(event.target.closest('#benefitIssueForm'))issueRequestId=null;
+      if(event.target.closest('#benefitIssueForm')&&issueIntent)renderIssueRecovery();
     }
     function invalid(event){
       if(!event.target.closest('#benefitsPanel'))return;

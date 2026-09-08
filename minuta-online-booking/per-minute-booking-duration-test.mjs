@@ -12,7 +12,7 @@ assert.match(provider, /duration \* Number\(service\.price_rub \|\| 0\)/, 'total
 assert.match(provider, /duration_minutes:duration,[\s\S]*original_price_rub:Number\(service\.price_rub \|\| 0\),[\s\S]*total_price_rub:totalPrice/, 'exact duration and calculated price are persisted');
 assert.match(provider, /bookingPlacementIssue\(\{ id:'new-booking-candidate', duration_minutes:duration \}/, 'available start times are filtered using the selected duration');
 assert.match(provider, /durationMinutes:item\.duration_minutes/, 'repeat booking preserves the exact duration');
-assert.match(provider, /durationMinutes:\$\('#newBookingDuration'\)\?\.value/, 'unfinished form drafts preserve the exact duration');
+assert.match(provider, /durationMinutes:newBookingDurationMinutes\(\)/, 'unfinished form drafts preserve the active client or block duration');
 assert.match(styles, /\.new-booking-minute-duration \{/, 'duration controls have a responsive visual container');
 assert.match(styles, /\.provider-body\[data-provider-theme\] \.new-booking-minute-duration/, 'duration controls inherit every provider theme');
 

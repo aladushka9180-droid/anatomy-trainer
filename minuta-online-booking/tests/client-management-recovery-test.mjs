@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
+const js=read('booking.js'), html=read('booking.html'), sql=read('supabase-migration-v122.sql');
+assert.match(js,/if \(mutationBusy \|\| !rescheduleAttempt\) return/);
+assert.match(js,/if \(\(date \|\| time\) && mutationLocked\(\)\) return/);
+assert.match(js,/p_request_id:attempt\.requestId/);
+assert.match(js,/sessionStorage\.setItem\(rescheduleStorageKey, JSON\.stringify\(attempt\)\)/);
+assert.match(js,/crypto\.subtle\.digest\('SHA-256'/);
+assert.doesNotMatch(js,/rpc\('reschedule_booking',/,'Do not downgrade an idempotent attempt to the legacy mutation');
+assert.match(html,/id="manageRecovery"[\s\S]*?id="checkManageResult"/);
+assert.match(js,/async function confirmAttendance\([\s\S]*?await loadBooking\(\{ silent:true \}\)/);
+assert.match(sql,/pg_advisory_xact_lock[\s\S]*?select \* into v_receipt[\s\S]*?return v_receipt.result_code[\s\S]*?public.reschedule_booking_v2\(p_token,p_date,p_time\)/);
+assert.match(sql,/requested_date<>p_date or v_receipt.requested_time<>p_time/);
+assert.match(sql,/enable row level security/);
+assert.match(sql,/revoke all on public.client_reschedule_requests from public,anon,authenticated,service_role/);
+assert.match(read('supabase-migration-v122-rollback.sql'),/v122_rollback_blocked_by_reschedule_receipts/);
+console.log('PASS v122 client recovery and SQL receipt contract');

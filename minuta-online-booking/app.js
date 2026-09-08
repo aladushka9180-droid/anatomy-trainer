@@ -309,17 +309,24 @@ function bookingInputChanged() {
   if (state.step === 3 && !selectionValidationBlocked) setSelectionValidationState('ready');
 }
 
-function localIsoDate(date) {
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+// Matches the deployed booking-policy and availability SQL contract.
+const BUSINESS_TIME_ZONE = 'Europe/Samara';
+function businessClock(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone:BUSINESS_TIME_ZONE, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(now).map(part => [part.type,part.value]));
+  return { date:`${parts.year}-${parts.month}-${parts.day}`, time:`${parts.hour}:${parts.minute}` };
 }
+function availableBusinessTimes(date, times) {
+  const now = businessClock();
+  return times.filter(time => `${date}T${String(time).slice(0,5)}` > `${now.date}T${now.time}`);
+}
+function localIsoDate(date) { return date.toISOString().slice(0,10); }
 function createDates() {
-  const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
-  const full = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' });
+  const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone:'UTC' });
+  const full = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', timeZone:'UTC' });
+  const first = new Date(`${businessClock().date}T12:00:00Z`);
   return Array.from({ length: 14 }, (_, index) => {
-    const date = new Date();
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() + index);
-    return { iso: localIsoDate(date), day: date.getDate(), weekday: weekday.format(date).replace('.', ''), label: full.format(date) };
+    const date = new Date(first); date.setUTCDate(date.getUTCDate() + index);
+    return { iso: localIsoDate(date), day: date.getUTCDate(), weekday: weekday.format(date).replace('.', ''), label: full.format(date) };
   });
 }
 
@@ -702,9 +709,9 @@ function renderServices() {
     const duration = Number(item.duration_minutes) === 1 ? 'Поминутная оплата' : durationLabel(item.duration_minutes);
     const performer = showPerformer ? ` · ${escapeHtml(item.performer_profiles?.display_name || 'Специалист')}` : '';
     const label = `${serviceName(item.name)}, ${duration}, ${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? ' за минуту' : ''}`;
-    return `<button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-label="${escapeHtml(label)}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${duration}${performer}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button>`;
+    return `<div class="service-option-row"><button class="option ${item.id === state.serviceId ? 'selected' : ''}" type="button" data-service="${item.id}" aria-label="${escapeHtml(label)}" aria-pressed="${item.id === state.serviceId}"><span class="option-main"><strong>${escapeHtml(serviceName(item.name))}</strong><small>${duration}${performer}</small></span><span class="option-price">${money(item.price_rub)}${Number(item.duration_minutes) === 1 ? '/мин' : ''}</span></button><button class="service-info-button" type="button" data-service-info="${escapeHtml(item.id)}" aria-label="Подробнее: ${escapeHtml(serviceName(item.name))}" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"></use></svg></button></div>`;
   }).join('');
-  $('#serviceDetailsButton').hidden = !selectedService();
+  $('#serviceDetailsButton').hidden = true;
   renderRepeatBookingNotice();
 }
 
@@ -735,14 +742,15 @@ function renderSpecialists() {
   ].join('');
 }
 
-function openServiceDetails() {
-  const service = selectedService();
+function openServiceDetails(serviceId = state.serviceId) {
+  const service = state.services.find(item => item.id === serviceId);
   if (!service) return;
   $('#serviceDetailsTitle').textContent = serviceName(service.name);
   $('#serviceDetailsText').textContent = serviceDescription(service.name);
   $('#serviceDetailsDuration').textContent = `${Number(service.duration_minutes) === 1 ? 'Поминутная оплата' : `${service.duration_minutes} мин`} · ${service.performer_profiles?.display_name || 'Мастер'}`;
   $('#serviceDetailsPrice').textContent = `${money(service.price_rub)}${Number(service.duration_minutes) === 1 ? '/мин' : ''}`;
   $('#serviceDetailsDialog').showModal();
+  $('#serviceDetailsDialog').dataset.serviceId = service.id;
 }
 
 function renderDates() {
@@ -750,7 +758,7 @@ function renderDates() {
   const visibleDates = state.moreDates ? dates : dates.slice(0, 7);
   $('#dates').innerHTML = visibleDates.map(item => {
     const hasLoaded = state.availability.has(item.iso);
-    const hasSlots = (state.availability.get(item.iso) || []).length > 0;
+    const hasSlots = availableBusinessTimes(item.iso, state.availability.get(item.iso) || []).length > 0;
     const unavailable = !state.loadingAvailability && hasLoaded && !hasSlots;
     return `<button class="date ${item.iso === state.date ? 'selected' : ''} ${unavailable ? 'unavailable' : ''}" type="button" data-date="${item.iso}" aria-label="${item.label}${unavailable ? ', нет мест — можно оставить заявку в лист ожидания' : ''}" aria-pressed="${item.iso === state.date}"><small>${item.weekday}</small><strong>${item.day}</strong>${unavailable ? '<i>нет мест</i>' : ''}</button>`;
   }).join('');
@@ -758,7 +766,7 @@ function renderDates() {
 }
 
 function renderTimes() {
-  const times = state.availability.get(state.date) || [];
+  const times = availableBusinessTimes(state.date, state.availability.get(state.date) || []);
   const service = selectedService();
   const duration = Number(service?.duration_minutes || 0);
   const durationNote = $('#durationNote');
@@ -819,17 +827,17 @@ function renderAvailabilitySuggestion(times) {
     holder.innerHTML = '';
     return false;
   }
-  const nearest = dates.find(item => item.iso !== state.date && (state.availability.get(item.iso) || []).length);
+  const nearest = dates.find(item => item.iso !== state.date && availableBusinessTimes(item.iso, state.availability.get(item.iso) || []).length);
   if (!nearest) {
     holder.hidden = true;
     holder.innerHTML = '';
     return false;
   }
-  const nearestTime = [...(state.availability.get(nearest.iso) || [])].sort()[0];
-  const isToday = state.date === dates[0].iso;
+  const nearestTime = availableBusinessTimes(nearest.iso, state.availability.get(nearest.iso) || []).sort()[0];
+  const isToday = state.date === businessClock().date;
   const isTomorrow = nearest.iso === dates[1]?.iso;
   const dateText = isTomorrow ? 'завтра' : `${nearest.weekday}, ${nearest.label}`;
-  holder.innerHTML = `<div class="availability-suggestion-icon"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></div><div><strong>${isToday ? 'Сегодня мест нет' : 'На выбранный день мест нет'}</strong><span>Ближайшее окно — ${escapeHtml(dateText)}, ${escapeHtml(nearestTime)}</span></div><button type="button" data-suggested-date="${nearest.iso}" data-suggested-time="${nearestTime}"><span>Показать это время</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>`;
+  holder.innerHTML = `<div class="availability-suggestion-icon"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-spark"></use></svg></div><div><strong>${isToday ? 'Сегодня мест нет' : 'На выбранный день мест нет'}</strong><span>Ближайшее окно — ${escapeHtml(dateText)}, ${escapeHtml(nearestTime)}</span></div><button type="button" data-suggested-date="${nearest.iso}" data-suggested-time="${nearestTime}"><span>Выбрать ${escapeHtml(dateText)}, ${escapeHtml(nearestTime)}</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"></use></svg></button>`;
   holder.hidden = false;
   return true;
 }
@@ -956,6 +964,7 @@ async function submitWaitlist(event) {
 
 async function showStep(step) {
   state.step = step;
+  document.body.dataset.bookingStep = String(step);
   const titles = { 1: 'Выберите услугу', 2: 'Выберите дату и время', 3: 'Ваши контактные данные' };
   const kickers = { 1: 'Услуга', 2: 'Время', 3: 'Контакты' };
   $$('.step').forEach(item => item.classList.toggle('active', Number(item.dataset.step) === step));
@@ -970,6 +979,9 @@ async function showStep(step) {
     block: 'start'
   }));
   if (step === 2) {
+    if (dates[0].iso !== businessClock().date) {
+      dates.splice(0, dates.length, ...createDates()); state.date = dates[0].iso; state.availability = new Map(); state.time = '';
+    }
     if (state.availabilityServiceId === state.serviceId && state.availabilityLocationId === state.locationId && state.availability.size) {
       renderDates();
       renderTimes();
@@ -1379,7 +1391,7 @@ function resetFlow() {
   $('#success').hidden = true; $('#successPayment').hidden = true; $('#clientAccessResult').hidden = true; $('#clientAccessShare').hidden = true; $('#bookingFlow').hidden = false; $('#manageBooking').hidden = true; $('#myBookingsSuccess').hidden = true; $('#telegramConnect').hidden = true; $('#bookingForm').reset(); if ($('.booking-benefit')) $('.booking-benefit').open = false; restoreClientContact(); $('#formError').hidden = true; currentSuccessCalendarEvent = null; state.time = ''; state.moreDates = false; setSelectionValidationState('ready'); updateSubmitAvailability(); showStep(1);
 }
 document.addEventListener('click', event => {
-  if ((bookingSubmissionPending || (bookingAttempt?.request && !bookingAttempt.detached)) && event.target.closest('[data-performer], [data-service], [data-date], [data-time], [data-suggested-date], [data-time-period], [data-back], [data-next], #moreDates')) {
+  if ((bookingSubmissionPending || (bookingAttempt?.request && !bookingAttempt.detached)) && event.target.closest('[data-performer], [data-service], [data-choose-service-details], [data-date], [data-time], [data-suggested-date], [data-time-period], [data-back], [data-next], #moreDates')) {
     event.preventDefault(); showError('Сначала проверьте результат исходной записи.'); return;
   }
   const performer = event.target.closest('[data-performer]');
@@ -1389,6 +1401,7 @@ document.addEventListener('click', event => {
   const period = event.target.closest('[data-time-period]');
   const moreDates = event.target.closest('#moreDates');
   const serviceDetails = event.target.closest('#serviceDetailsButton');
+  const serviceInfo = event.target.closest('[data-service-info]');
   const closeServiceDetails = event.target.closest('[data-close-service-details]');
   const chooseServiceDetails = event.target.closest('[data-choose-service-details]');
   const suggestedDate = event.target.closest('[data-suggested-date]');
@@ -1429,6 +1442,7 @@ document.addEventListener('click', event => {
   }
   if (date && !date.disabled) { bookingInputChanged(); state.date = date.dataset.date; state.time = ''; state.hour = ''; state.period = 'all'; renderDates(); renderTimes(); }
   if (suggestedDate) {
+    if (!availableBusinessTimes(suggestedDate.dataset.suggestedDate, [suggestedDate.dataset.suggestedTime]).length) { renderDates(); renderTimes(); return; }
     bookingInputChanged();
     state.date = suggestedDate.dataset.suggestedDate;
     state.time = suggestedDate.dataset.suggestedTime;
@@ -1440,9 +1454,14 @@ document.addEventListener('click', event => {
   }
   if (period && !period.disabled) { state.period = period.dataset.timePeriod; state.hour = ''; state.time = ''; renderTimes(); }
   if (moreDates) { state.moreDates = true; renderDates(); }
+  if (serviceInfo) openServiceDetails(serviceInfo.dataset.serviceInfo);
   if (serviceDetails) openServiceDetails();
   if (closeServiceDetails || chooseServiceDetails) $('#serviceDetailsDialog').close();
-  if (time && !time.disabled) { bookingInputChanged(); state.time = time.dataset.time; renderTimes(); void showStep(3); }
+  if (chooseServiceDetails) {
+    const choice = visibleServices().find(item => item.id === $('#serviceDetailsDialog').dataset.serviceId);
+    if (choice) { bookingInputChanged(); state.serviceId = choice.id; state.availability = new Map(); state.time = ''; renderServices(); void showStep(2); }
+  }
+  if (time && !time.disabled) { if (!availableBusinessTimes(state.date, [time.dataset.time]).length) { renderTimes(); return; } bookingInputChanged(); state.time = time.dataset.time; renderTimes(); void showStep(3); }
   if (next) showStep(Number(next.dataset.next));
   if (back) showStep(Number(back.dataset.back));
   if (retryServices) loadServices();

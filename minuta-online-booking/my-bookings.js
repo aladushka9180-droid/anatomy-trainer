@@ -176,8 +176,11 @@ async function bootstrapClientSocialSession(phone = null, code = null) {
 
 async function initializeSocialLogin() {
   const auth = window.MinutaSocialAuth;
-  if (!auth) return;
+  const methods = $('.client-social-auth-buttons');
+  if (!auth) { methods.hidden = true; return; }
   auth.render(document);
+  methods.querySelectorAll('button').forEach(button => { button.hidden = button.disabled; });
+  methods.hidden = !methods.querySelector('button:not(:disabled)');
   const { data } = await db.auth.getSession();
   socialAuthUser = data?.session?.user || null;
   if (!socialAuthUser || sessionToken) return;
@@ -314,7 +317,7 @@ async function initializeSmsLogin() {
   button.textContent = capability.enabled ? 'Получить код' : 'Вход по SMS пока не подключён';
   status.textContent = capability.enabled
     ? 'Код действует ограниченное время. Никому его не сообщайте.'
-    : capability.reason === 'offline' ? 'Без интернета войдите по личному коду.' : 'Введите личный код, выданный после записи.';
+    : capability.reason === 'offline' ? 'Для входа, в том числе по личному коду, требуется интернет.' : 'Введите личный код, выданный после записи.';
   if (!capability.enabled) $('#legacyClientLogin').open = true;
 }
 

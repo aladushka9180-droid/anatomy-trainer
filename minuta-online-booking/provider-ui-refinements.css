@@ -67,12 +67,42 @@
 #bookingSheet.new-booking-sheet :is(input,select,textarea,.booking-time-hours button,.booking-time-slots button,.new-booking-mode-toggle,.new-booking-mode-toggle button) { border-radius:var(--material-control-radius,10px)!important; }
 #bookingSheet.new-booking-sheet .booking-color-compact>summary { min-height:44px; padding:0; font-weight:500; }
 #bookingSheet.new-booking-sheet .new-booking-history-option { border-radius:var(--material-control-radius,10px)!important; }
+.forgot-password-button { min-height:44px; padding-block:10px; }
+.provider-body[data-provider-theme] #authCard { border-color:var(--theme-line); }
+.provider-body[data-provider-theme] #authTabs { background:var(--theme-surface); border:1px solid var(--theme-line); }
+.provider-body[data-provider-theme] #authTabs button { color:var(--theme-muted); background:transparent; }
+.provider-body[data-provider-theme] #authTabs button.active { color:var(--theme-ink); background:var(--theme-accent-soft); box-shadow:none; }
+.provider-body[data-provider-theme] #authBadge { background:transparent; color:var(--theme-muted); padding-left:0; }
+.provider-body[data-provider-theme] #authCard :is(.forgot-password-button,.auth-back-button) { color:var(--theme-accent); font-size:13px; }
+.booking-move-source { display:grid; gap:6px; min-width:0; padding-bottom:12px; border-bottom:1px solid var(--line,#ffffff20); }
+.booking-move-source strong,.session-service-name { overflow-wrap:anywhere; white-space:normal; }
+.booking-move-source small,.booking-move-selection,.booking-outcome-payment-hint { line-height:1.5; }
+.booking-edit-slot-group { display:grid; gap:8px; min-width:0; }
+.booking-move-selection { margin:0; font-weight:600; }
+.booking-move-advanced { min-width:0; padding-top:6px; }
+.booking-move-advanced > summary { min-height:44px; display:flex; align-items:center; cursor:pointer; }
+.booking-move-advanced[open] > :not(summary) { margin-top:14px; }
+.booking-edit-form-compact .booking-editor-times button { min-width:60px; min-height:44px; }
+#bookingSheet #editBookingTimes { padding:0; border:0; background:transparent; box-shadow:none; }
+#bookingSheet #editBookingTimes button { font-size:13px; }
+#bookingSheet #editBookingTimes button[aria-pressed="true"] { border-color:var(--theme-accent,#ba815f); box-shadow:inset 0 0 0 2px var(--theme-accent,#ba815f); }
+.session-service-name { display:block; font-size:13px; line-height:1.5; margin-top:6px; }
+.session-composer-item :is(label,select),.session-composer-fields > label { min-width:0; max-width:100%; }
+.booking-outcome-payment-hint { font-size:13px; }
+.provider-body .scan-field { flex-wrap:wrap; }
+.provider-body .scan-field > label { flex:1 1 220px; min-width:0; max-width:100%; }
+.provider-body .scan-field > label input { width:100%; min-width:0; box-sizing:border-box; }
+.provider-body .scan-field > button { flex:0 0 auto; }
 #bookingSheet.new-booking-sheet [hidden] { display:none!important; }
 @media(max-width:760px) {
+  .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="organization"] .organization-section-selector { position:static; z-index:auto; box-shadow:none; }
   #providerBookings.calendar-overview-month .calendar-overview-day { min-height:66px; padding:2px; }
   #providerBookings.calendar-overview-month .calendar-overview-booking { grid-template-columns:1fr; min-height:24px; padding:3px 1px; }
   #providerBookings.calendar-overview-month .calendar-overview-booking time { font-size:9px; }
   #providerBookings.calendar-overview-month .calendar-overview-more { font-size:9px; }
   .provider-body .date-navigation .schedule-date-picker { margin-left:0; }
   #bookingSheet.new-booking-sheet .new-booking-layout { gap:22px; }
+}
+@media(max-width:540px) {
+  .provider-body .scan-field > label { flex-basis:auto; }
 }

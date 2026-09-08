@@ -12,6 +12,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=581">
   <link rel="stylesheet" href="client-themes.css?v=581">
+  <style>#manageRecovery{font-size:14px;line-height:1.5}#manageRecovery p{margin:0 0 12px}#manageRecovery button{min-height:44px}</style>
 </head>
 <body class="manage-body booking-client-page" data-client-theme="sage">
   <div class="ambient ambient-left"></div><div class="ambient ambient-right"></div>
@@ -26,6 +27,7 @@
       <div id="manageContent" hidden>
         <div class="manage-title"><div><small>Ваша запись</small><h1 id="manageService">Услуга</h1></div><span class="manage-status" id="manageStatus">Новая</span></div>
         <p class="manage-freshness" id="manageFreshness" aria-live="polite">Проверяем актуальность…</p>
+        <section id="manageRecovery" class="manage-policy" role="status" hidden><p id="manageRecoveryText"></p><button id="checkManageResult" class="manage-secondary" type="button">Проверить результат</button></section>
         <div class="manage-appointment">
           <div class="manage-date-mark"><strong id="manageDay">—</strong><span id="manageMonth">—</span></div>
           <div><strong id="manageDate">—</strong><span id="manageTime">—</span></div>

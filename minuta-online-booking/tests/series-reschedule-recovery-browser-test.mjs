@@ -24,7 +24,7 @@ function listener(startText) {
   assert.ok(start >= 0 && end > start, 'Actual production listener missing');
   return source.slice(start, end + 4);
 }
-const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'closeBookingSheet',
+const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
   'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'escapeHtml',
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
@@ -103,7 +103,7 @@ async function fixture(holdAt = '') {
       booking_series:{occurrence_count:1},service_id:ids.service,services:ownServices[0],duration_minutes:60,
       booking_date:'2099-09-05',booking_time:'10:00:00',status:'confirmed',client_phone:'+7999000000'+(index+1)}));
     var $=selector=>document.querySelector(selector), $$=selector=>[...document.querySelectorAll(selector)];
-    var businessTodayIso=()=> '2099-09-05', applyClientHighlightClasses=()=>{};
+    var businessTodayIso=()=> '2099-09-04', applyClientHighlightClasses=()=>{};
     var effects=[], gates=[], slotCalls=[], notices=[];
     var boundary=(kind,value)=>{effects.push({kind});return kind===holdAt
       ?new Promise((resolve,reject)=>gates.push({kind,resolve:override=>resolve(override===undefined?value:override),reject})):Promise.resolve(value);};
@@ -135,6 +135,7 @@ async function open(page, name) {
   assert.equal(await page.locator('#editBookingService').inputValue(), ids.service);
 }
 async function edit(page, name) {
+  await page.locator('.booking-move-advanced > summary').click();
   await page.locator('#editBookingNote').fill(`Новая заметка ${name}`);
   await page.locator(`[name="editBookingColor"][value="${name==='A'?'mint':'rose'}"]`).check();
   await page.locator('[name="editBookingSeriesScope"][value="following"]').check();
@@ -247,6 +248,7 @@ for(const phase of ['rpc','color','note','refresh']){
 cases.push(['closing and reopening the same booking invalidates the old incarnation','rpc',async page=>{
   await startA(page);await page.waitForFunction(()=>gates.length===1);
   await page.keyboard.press('Escape');await open(page,'A');
+  await page.locator('.booking-move-advanced > summary').click();
   await page.locator('#editBookingNote').fill('Другая форма той же записи');
   await page.evaluate(()=>{window.newEditor=$('#bookingEditForm');});
   const before=await effectsSnapshot(page),form=await editorSnapshot(page);

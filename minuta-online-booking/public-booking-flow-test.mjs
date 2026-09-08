@@ -29,7 +29,7 @@ function runRenderTimes(times, { loading = false, suggestionShown = false } = {}
     teamMode:false
   };
   const renderTimes = Function(
-    'state', '$', 'selectedService', 'timeRange', 'durationLabel', 'escapeHtml', 'renderAvailabilitySuggestion',
+    'state', '$', 'selectedService', 'timeRange', 'durationLabel', 'escapeHtml', 'renderAvailabilitySuggestion', 'availableBusinessTimes',
     `${renderTimesSource}; return renderTimes;`
   )(
     state,
@@ -38,7 +38,8 @@ function runRenderTimes(times, { loading = false, suggestionShown = false } = {}
     (time) => `${time}–${String(Number(time.slice(0, 2)) + 1).padStart(2, '0')}:00`,
     value => `${value} мин`,
     value => String(value),
-    () => suggestionShown
+    () => suggestionShown,
+    (_date, times) => times
   );
   renderTimes();
   return elements;

@@ -11,11 +11,11 @@ const browser = await chromium.launch({ headless:true,
   ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
 const fixtureUrl = 'https://refund-amount.test/';
 const pageErrors = [], unexpectedRequests = [];
-async function fixture(captured = 1000, refunded = 0) {
-  const page = await browser.newPage({ serviceWorkers:'block', viewport:{ width:390, height:844 } });
+async function fixture(captured = 1000, refunded = 0, existingPage = null) {
+  const page = existingPage || await browser.newPage({ serviceWorkers:'block', viewport:{ width:390, height:844 } });
   page.setDefaultTimeout(5000);
   page.on('pageerror', error => pageErrors.push(error.message));
-  page.on('dialog', dialog => dialog.accept());
+  if (!existingPage) page.on('dialog', dialog => dialog.accept());
   await page.route('**/*', route => {
     if (route.request().url() !== fixtureUrl) {
       unexpectedRequests.push(route.request().url());
@@ -32,20 +32,27 @@ async function fixture(captured = 1000, refunded = 0) {
   await page.addStyleTag({ content:'label{display:block;margin:6px}input,button,select{font:16px sans-serif}svg{width:20px;height:20px}' });
   await page.addScriptTag({ content:source });
   await page.evaluate(async ({ captured, refunded }) => {
-    const state = window.testState = { calls:[], notices:[], loads:0 };
+    const state = window.testState = { calls:[], notices:[], loads:0, checks:[], order:[], checkRow:null, loseResponse:false };
     const payload = { organization_id:'org-a', current_role:'owner', settings:{ enabled:false, environment:'test' },
       recent_attempts:[{ id:'attempt-a', amount_minor:captured, captured_amount_minor:captured,
         refunded_amount_minor:refunded, status:'succeeded', created_at:'2026-09-01T12:00:00Z' }] };
     state.payload = payload;
     const db = {
+      from(name) {
+        if(name!=='payment_provider_refunds')throw Error('Unexpected table');
+        const filters=[];const query={select:()=>query,eq:(key,value)=>{filters.push([key,value]);return query;},in:()=>query,limit:()=>query,
+          maybeSingle:async()=>{state.checks.push(filters);state.order.push('check');return {data:state.checkRow,error:null};}};return query;
+      },
       rpc:async name => {
         if (name !== 'get_minuta_payment_workspace') throw new Error('Unexpected RPC: ' + name);
         state.loads += 1;
         return { data:structuredClone(payload), error:null };
       },
       functions:{ invoke:async (name, args) => {
+        state.order.push('invoke');
         state.calls.push({ name, body:structuredClone(args.body) });
-        return { data:{ ok:true, status:'pending' }, error:null };
+        if(state.loseResponse)return {data:null,error:{message:'lost response'}};
+        return { data:{ ok:true, status:'pending', refund_id:'refund-fixture', amount_minor:args.body.amount_minor }, error:null };
       } }
     };
     window.controller = window.MinutaPayments.createController({ db, $:s => document.querySelector(s),
@@ -143,9 +150,41 @@ try {
     assert.equal(await page.evaluate(() => testState.calls[0].body.attempt_id), 'attempt-a');
     assert.equal(await page.evaluate(() => testState.calls[0].body.amount_minor), 900);
   });
+  await run('lost success is checked exactly, then only explicit New refund starts another operation', async page => {
+    await page.evaluate(()=>{testState.loseResponse=true;});
+    await submit(page,'1.00');
+    await page.waitForFunction(()=>testState.notices.some(text=>text.includes('не подтверждён')));
+    const original=await page.evaluate(()=>testState.calls[0].body);
+    await page.evaluate(async original=>{
+      testState.checkRow={...original,id:'refund-exact',status:'succeeded'};
+      testState.payload.recent_attempts[0].refunded_amount_minor=100;
+      await controller.load();
+    },original);
+    await page.locator('#paymentRefundReason').fill('');
+    await page.locator('#paymentRefundForm button[type=submit]').click();
+    await page.waitForFunction(()=>testState.notices.includes('Возврат выполнен'));
+    assert.equal(await page.evaluate(()=>testState.calls.length),1);
+    assert.deepEqual(await page.evaluate(()=>testState.checks[0]),[['organization_id','org-a'],['request_id',original.request_id]]);
+    await page.locator('#paymentRefundNew').click();
+    await page.locator('#paymentRefundReason').fill('Второй отдельный возврат');
+    await submit(page,'1.00');
+    await page.waitForFunction(()=>testState.calls.length===2);
+    assert.notEqual(await page.evaluate(()=>testState.calls[1].body.request_id),original.request_id);
+  });
+  await run('real reload retains the same refund identity and performs journal lookup before retry', async page => {
+    await page.evaluate(()=>{testState.loseResponse=true;});await submit(page,'1.00');
+    await page.waitForFunction(()=>testState.notices.some(text=>text.includes('не подтверждён')));
+    const original=await page.evaluate(()=>testState.calls[0].body);
+    await fixture(1000,0,page);
+    assert.equal(await page.locator('#paymentRefundAmount').inputValue(),'1.00');
+    await page.locator('#paymentRefundForm button[type=submit]').click();
+    await page.waitForFunction(()=>testState.calls.length===1);
+    assert.equal(await page.evaluate(()=>testState.calls[0].body.request_id),original.request_id);
+    assert.deepEqual(await page.evaluate(()=>testState.order),['check','check','invoke']);
+  });
   assert.deepEqual(pageErrors, []);
   assert.deepEqual(unexpectedRequests, []);
-  console.log('Refund amount native DOM: 6/6 PASS; mocked Edge only, real payments 0');
+  console.log('Refund amount native DOM: 8/8 PASS; mocked Edge only, real payments 0');
 } finally {
   await browser.close();
 }

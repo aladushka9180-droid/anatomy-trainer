@@ -8,7 +8,7 @@
 // No invented controller session API: options come from actual provider wiring.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import { createContext, runInContext } from 'node:vm';
 import test from 'node:test';
 
@@ -35,6 +35,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 const expectedOptions = ['$', 'db', 'escapeHtml', 'notify', 'refreshNavigation', 'requireWrites'];
 
 async function harness() {
+  const refundStorage = new Map();
   const elements = new Map(), handlers = new Map(), windowHandlers = new Map();
   const rpcCalls = [], invokeCalls = [], notifications = [], resetEvents = [], deviceClears = [];
   let formResets = 0, navigationRenders = 0, optionsKeys, nextUuid = 100;
@@ -88,7 +89,8 @@ async function harness() {
     CustomEvent: class { constructor(type) { this.type = type; } },
     document: { addEventListener: (name, callback) => handlers.set(name, callback) },
     window: {
-      crypto: { randomUUID: () => id(++nextUuid) },
+      crypto: { randomUUID: () => id(++nextUuid), subtle:webcrypto.subtle },
+      localStorage:{getItem:key=>refundStorage.get(key)??null,setItem:(key,value)=>refundStorage.set(key,value),removeItem:key=>refundStorage.delete(key)},
       confirm: () => true,
       addEventListener: (type, callback) => {
         if (!windowHandlers.has(type)) windowHandlers.set(type, []);
@@ -159,6 +161,7 @@ async function harness() {
       return { select: () => ({ eq: () => ({ single: async () => ({ data: { display_name: 'Fixture' } }) }) }) };
     },
   };
+  ctx.TextEncoder = TextEncoder;
   const vm = createContext(ctx);
   runInContext(controllerSource, vm, { filename: 'actual-payment-management.js' });
   const actualCreate = ctx.window.MinutaPayments.createController;
@@ -182,12 +185,13 @@ async function harness() {
       attemptOptions: $('#paymentRefundAttempt').innerHTML,
       formResets, navigationRenders };
   }
-  function submit(organization = orgA, attempt = attemptA) {
+  async function submit(organization = orgA, attempt = attemptA) {
     $('#paymentRefundAttempt').value = attempt;
     $('#paymentRefundAmount').value = '10.00'; $('#paymentRefundReason').value = 'Возврат из контекста A';
     const index = submissions.length;
     submissions.push(Promise.resolve(handlers.get('submit')({ target: $('#paymentRefundForm'), preventDefault() {} }))
       .then(() => null, error => ({ name: error.name, message: error.message })));
+    for(let attempt=0;attempt<50 && invokeCalls.length<index+1;attempt++) await tick();
     assert.equal(invokeCalls.length, index + 1);
     assert.equal(invokeCalls[index].params.body.organization_id, organization);
     assert.equal(invokeCalls[index].params.body.attempt_id, attempt);
@@ -214,30 +218,30 @@ test('fixture evidence: options originate from actual provider construction, not
 
 for (const kind of ['success', 'error']) {
   test(`positive same actor/org: current ${kind} may update its own form`, async () => {
-    const h = await harness(); h.submit(); const before = h.rpcCalls.length;
+    const h = await harness(); await h.submit(); const before = h.rpcCalls.length;
     assert.equal(await h.settle(kind), null);
     assert.equal(h.invokeCalls.length, 1);
     assert.equal(h.rpcCalls.length - before, 1);
     assert.equal(h.notifications.length, 1);
-    assert.equal(h.ui().formResets, kind === 'success' ? 1 : 0);
-    assert.equal(h.ui().controls.every(([, disabled]) => !disabled), true);
+    assert.equal(h.ui().formResets, 0, 'Completed intent remains attached until explicit new refund');
+    assert.equal(h.ui().controls.every(([selector, disabled]) => disabled === (selector === '#paymentRefundAttempt')), true);
   });
 }
 test('positive actual same-user token refresh does not reset session generation', async () => {
-  const h = await harness(); h.submit(); const generation = h.ctx.sessionGeneration;
+  const h = await harness(); await h.submit(); const generation = h.ctx.sessionGeneration;
   await h.session(actorA);
   assert.equal(h.ctx.sessionGeneration, generation); assert.equal(h.resetEvents.length, 0);
-  assert.equal(await h.settle('success'), null); assert.equal(h.ui().formResets, 1);
+  assert.equal(await h.settle('success'), null); assert.equal(h.ui().formResets, 0);
 });
 test('positive same-org callback refresh keeps the current refund attached', async () => {
-  const h = await harness(); h.submit(); await h.switchOrg(orgA);
+  const h = await harness(); await h.submit(); await h.switchOrg(orgA);
   const beforeRpc = h.rpcCalls.length;
   assert.equal(await h.settle('success'), null);
   assert.equal(h.invokeCalls.length, 1); assert.equal(h.rpcCalls.length - beforeRpc, 1);
-  assert.equal(h.ui().formResets, 1); assert.deepEqual(h.notifications, ['Возврат выполнен']);
+  assert.equal(h.ui().formResets, 0); assert.deepEqual(h.notifications, ['Возврат выполнен']);
 });
 test('SAFETY organization switch must release the previous context busy state', async t => {
-  const h = await harness(); h.submit(); await h.switchOrg(orgB);
+  const h = await harness(); await h.submit(); await h.switchOrg(orgB);
   const controlsBeforeLateReply = h.ui().controls;
   // Resolve transport so the fixture leaves no pending operation behind; this
   // assertion concerns B's state BEFORE that late reply, not its later cleanup.
@@ -267,7 +271,7 @@ const transitions = {
 for (const [name, transition] of Object.entries(transitions)) {
   for (const kind of ['success', 'error', 'unexpected-reject']) {
     test(`SAFETY ${name}: late ${kind} must not affect the replacement context`, async t => {
-      const h = await harness(); h.submit(); await transition(h);
+      const h = await harness(); await h.submit(); await transition(h);
       const beforeUi = h.ui(), beforeMaps = h.maps(), beforeRpc = h.rpcCalls.length, beforeNotifications = h.notifications.length;
       const escaped = await h.settle(kind);
       const observed = { escaped, additionalRpc: h.rpcCalls.slice(beforeRpc),
@@ -306,7 +310,7 @@ for (const kind of ['success', 'error', 'unexpected-reject']) {
     assert.equal(h.invokeCalls.length, 0);
   });
   test(`old refund ${kind} cannot unlock a new organization B refund`, async () => {
-    const h = await harness(); h.submit(); await h.switchOrg(orgB); h.submit(orgB, attemptB);
+    const h = await harness(); await h.submit(); await h.switchOrg(orgB); await h.submit(orgB, attemptB);
     const before = h.ui(), beforeRpc = h.rpcCalls.length, notices = h.notifications.length;
     assert.ok(before.controls.every(([, disabled]) => disabled));
     assert.equal(await h.settle(kind, 0), null);
@@ -314,12 +318,12 @@ for (const kind of ['success', 'error', 'unexpected-reject']) {
     assert.deepEqual(h.notifications.slice(notices), []);
     assert.equal(h.invokeCalls.length, 2); // Two different organizations, NOT same-refund replay.
     assert.equal(await h.settle('success', 1), null);
-    assert.equal(h.ui().controls.every(([, disabled]) => !disabled), true);
+    assert.equal(h.ui().controls.every(([selector, disabled]) => disabled === (selector === '#paymentRefundAttempt')), true);
     assert.deepEqual(h.notifications.slice(notices), ['Возврат выполнен']);
   });
 }
 test('same-org workspace loads accept only the latest response without invalidating a refund', async () => {
-  const h = await harness(); h.submit();
+  const h = await harness(); await h.submit();
   const old = h.deferLoad(), oldLoad = h.load(), latest = h.deferLoad(), latestLoad = h.load();
   const latestPayload = h.payload(orgA); latestPayload.recent_attempts[0].captured_amount_minor = 9000;
   latest.resolve({ data: latestPayload, error: null }); await latestLoad;
@@ -328,7 +332,7 @@ test('same-org workspace loads accept only the latest response without invalidat
   assert.equal(await h.settle('success'), null); assert.deepEqual(h.notifications, ['Возврат выполнен']);
 });
 test('authoritative workspace role downgrade invalidates pending write authority', async () => {
-  const h = await harness(); h.submit(); const response = h.deferLoad(), load = h.load();
+  const h = await harness(); await h.submit(); const response = h.deferLoad(), load = h.load();
   response.resolve({ data: { ...h.payload(orgA), current_role: 'specialist' }, error: null }); await load;
   const before = h.ui(), beforeRpc = h.rpcCalls.length;
   assert.equal(before.panelHidden, true);
@@ -336,19 +340,19 @@ test('authoritative workspace role downgrade invalidates pending write authority
   assert.deepEqual(h.ui(), before); assert.equal(h.rpcCalls.length, beforeRpc); assert.deepEqual(h.notifications, []);
 });
 test('old refund post-success reload cannot clear a new operation busy state', async () => {
-  const h = await harness(); h.submit(); const oldLoad = h.deferLoad();
+  const h = await harness(); await h.submit(); const oldLoad = h.deferLoad();
   const oldCompletion = h.settle('success'); await tick();
-  await h.switchOrg(orgB); h.submit(orgB, attemptB);
+  await h.switchOrg(orgB); await h.submit(orgB, attemptB);
   const before = h.ui(), notices = h.notifications.length;
   oldLoad.resolve({ data: h.payload(orgA), error: null }); assert.equal(await oldCompletion, null);
   assert.deepEqual(h.ui(), before); assert.deepEqual(h.notifications.slice(notices), []);
   assert.equal(await h.settle('success', 1), null);
 });
 test('current unexpected refund rejection remains unknown and releases its own busy state', async () => {
-  const h = await harness(); h.submit();
+  const h = await harness(); await h.submit();
   assert.equal(await h.settle('unexpected-reject'), null);
   assert.equal(h.ui().formResets, 0); assert.equal(h.ui().amount, '10.00');
-  assert.ok(h.ui().controls.every(([, disabled]) => !disabled));
+  assert.ok(h.ui().controls.every(([selector, disabled]) => disabled === (selector === '#paymentRefundAttempt')));
   assert.match(h.notifications.at(-1), /не подтверждён/);
   assert.doesNotMatch(h.notifications.at(-1), /не списан|откач|отменён|не выполнен/);
 });

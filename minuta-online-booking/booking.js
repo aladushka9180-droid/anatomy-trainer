@@ -8,6 +8,54 @@ applyStoredClientTheme();
 document.querySelector('#clientDataRights')?.addEventListener('click',async event=>{const button=event.target.closest('[data-client-data-request]');if(!button||!token)return;const status=document.querySelector('#clientDataRequestStatus');button.disabled=true;if(status)status.textContent='Отправляем запрос...';try{const{data,error}=await db.rpc('submit_minuta_client_data_request_v108',{p_token:token,p_request_type:button.dataset.clientDataRequest});if(error)throw error;if(status)status.textContent=`Запрос принят. Номер: ${data}`}catch(error){if(status)status.textContent=error?.message||'Не удалось отправить запрос.'}finally{button.disabled=false}});
 const state = { booking: null, paymentCapability: null, dates: [], availability: new Map(), date: '', time: '' };
 let bookingLoadRevision = 0;
+let mutationBusy = false;
+let rescheduleAttempt = null;
+let rescheduleStorageKey = '';
+let uncertainAction = '';
+
+function mutationLocked() { return mutationBusy || Boolean(rescheduleAttempt) || Boolean(uncertainAction); }
+function applyMutationLock() {
+  if (!mutationLocked()) return;
+  for (const element of document.querySelectorAll('#openReschedule, #cancelBooking, #confirmAttendance, #confirmReschedule, #closeReschedule, [data-manage-date], [data-manage-time]')) element.disabled = true;
+  $('#checkManageResult').disabled = mutationBusy;
+}
+function showRecovery(message, action = 'reschedule') {
+  uncertainAction = action;
+  $('#manageRecoveryText').textContent = message;
+  $('#manageRecovery').hidden = false;
+  $('#reschedulePanel').hidden = true;
+  $('#manageActions').hidden = false;
+  applyMutationLock();
+  $('#manageRecovery').scrollIntoView({ block:'nearest' });
+}
+function clearRecovery() {
+  uncertainAction = '';
+  $('#manageRecovery').hidden = true;
+}
+function clearRescheduleAttempt() {
+  try { sessionStorage.removeItem(rescheduleStorageKey); } catch {}
+  rescheduleAttempt = null;
+}
+async function initializeManagement() {
+  try {
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+    rescheduleStorageKey = `minuta-reschedule-attempt-v1:${Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('')}`;
+    const saved = JSON.parse(sessionStorage.getItem(rescheduleStorageKey) || 'null');
+    if (saved && /^[0-9a-f-]{36}$/i.test(saved.requestId || '') && /^\d{4}-\d{2}-\d{2}$/.test(saved.date || '') && /^\d{2}:\d{2}$/.test(saved.time || '')) {
+      rescheduleAttempt = saved;
+      showRecovery('Предыдущий перенос ещё не проверен. Проверьте его результат перед новым действием.');
+    }
+  } catch {}
+  await loadBooking();
+}
+async function checkManagementResult() {
+  if (mutationBusy) return;
+  if (rescheduleAttempt) { await performReschedule(); return; }
+  mutationBusy = true; applyMutationLock();
+  try {
+    if (await loadBooking({ silent:true })) { clearRecovery(); renderBooking(); }
+  } finally { mutationBusy = false; if (state.booking) renderBooking(); $('#checkManageResult').disabled = false; }
+}
 
 function applyStoredClientTheme() {
   const catalog = window.MinutaThemeCatalog;
@@ -57,7 +105,17 @@ function isMissingRpc(error, name) {
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
-function localIsoDate(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-'); }
+// Matches the deployed booking-policy and availability SQL contract.
+const BUSINESS_TIME_ZONE = 'Europe/Samara';
+function businessClock(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone:BUSINESS_TIME_ZONE, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(now).map(part => [part.type,part.value]));
+  return { date:`${parts.year}-${parts.month}-${parts.day}`, time:`${parts.hour}:${parts.minute}` };
+}
+function availableBusinessTimes(date, times) {
+  const now = businessClock();
+  return times.filter(time => `${date}T${String(time).slice(0,5)}` > `${now.date}T${now.time}`);
+}
+function localIsoDate(date) { return date.toISOString().slice(0,10); }
 function notify(message) { const toast = $('#toast'); toast.textContent = message; toast.hidden = false; clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 2800); }
 function prepareTelegramAuthorization() {
   return window.MinutaTelegramAuth?.prepare({
@@ -96,6 +154,7 @@ function markBookingStale(text = 'Не удалось обновить данн�
   $('#manageActions').hidden = false;
   $('#managePaymentLink').hidden = true;
   delete $('#managePaymentLink').dataset.paymentToken;
+  showRecovery('Не удалось проверить актуальное состояние записи. Восстановите соединение и нажмите «Проверить результат».', uncertainAction || 'refresh');
 }
 
 async function startOnlinePayment(link) {
@@ -135,10 +194,11 @@ async function startOnlinePayment(link) {
 }
 
 function createDates() {
-  const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
+  const weekday = new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone:'UTC' });
+  const first = new Date(`${businessClock().date}T12:00:00Z`);
   return Array.from({ length: 14 }, (_, index) => {
-    const date = new Date(); date.setHours(12, 0, 0, 0); date.setDate(date.getDate() + index);
-    return { iso: localIsoDate(date), day: date.getDate(), weekday: weekday.format(date).replace('.', '') };
+    const date = new Date(first); date.setUTCDate(date.getUTCDate() + index);
+    return { iso: localIsoDate(date), day: date.getUTCDate(), weekday: weekday.format(date).replace('.', '') };
   });
 }
 
@@ -152,7 +212,7 @@ function renderBooking() {
   $('#manageDay').textContent = String(date.getDate());
   $('#manageMonth').textContent = date.toLocaleDateString('ru-RU', { month: 'short' }).replace('.', '');
   $('#manageDate').textContent = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  $('#manageTime').textContent = `Начало в ${String(item.booking_time).slice(0, 5)}`;
+  $('#manageTime').textContent = `Начало в ${String(item.booking_time).slice(0, 5)} по Самаре (UTC+4)`;
   $('#managePerformer').textContent = item.performer_name;
   $('#manageDuration').textContent = `${item.duration_minutes} мин`;
   $('#managePrice').textContent = money(item.price_rub);
@@ -201,23 +261,28 @@ function renderBooking() {
   }
   setFreshness('fresh', `Проверено в ${new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`);
   if (cancelled) $('#manageActions').classList.add('cancelled');
+  applyMutationLock();
 }
 
 async function confirmAttendance() {
+  if (mutationLocked()) return;
+  mutationBusy = true;
   const button = $('#confirmAttendance');
   button.disabled = true;
   button.textContent = 'Подтверждаем…';
-  const { error } = await db.rpc('confirm_booking_by_token', { p_token: token });
-  if (error) {
-    button.disabled = false;
+  applyMutationLock();
+  try {
+    try { await db.rpc('confirm_booking_by_token', { p_token: token }); } catch {}
+    const verified = await loadBooking({ silent:true });
+    if (verified && state.booking.status === 'confirmed') { clearRecovery(); notify('Визит подтверждён'); }
+    else if (verified) { clearRecovery(); notify('Подтверждение визита не найдено. Проверьте актуальный статус записи.'); }
+    else showRecovery('Результат подтверждения визита пока неизвестен. Нажмите «Проверить результат».', 'attendance');
+  } finally {
+    mutationBusy = false;
     button.textContent = 'Да, я приду';
-    notify('Не удалось подтвердить визит. Попробуйте ещё раз.');
-    return;
+    if (state.booking) renderBooking();
+    $('#checkManageResult').disabled = false;
   }
-  await loadBooking({ silent: true });
-  button.disabled = false;
-  button.textContent = 'Да, я приду';
-  notify('Визит подтверждён');
 }
 
 async function loadBooking(options = {}) {
@@ -228,8 +293,11 @@ async function loadBooking(options = {}) {
   }
   if (!/^[0-9a-f-]{36}$/i.test(token)) { if (!options.silent) showNotFound(); return false; }
   const paymentCapabilityPromise = getPaymentCapability();
-  let { data, error } = await db.rpc('get_booking_management_v2', { p_token: token });
-  if (error && isMissingRpc(error, 'get_booking_management_v2')) ({ data, error } = await db.rpc('get_booking_management', { p_token: token }));
+  let data, error;
+  try {
+    ({ data, error } = await db.rpc('get_booking_management_v2', { p_token: token }));
+    if (error && isMissingRpc(error, 'get_booking_management_v2')) ({ data, error } = await db.rpc('get_booking_management', { p_token: token }));
+  } catch (caught) { error = caught; }
   const paymentCapability = await paymentCapabilityPromise;
   if (revision !== bookingLoadRevision) return false;
   if (error) { if (!options.silent) showLoadError(); else markBookingStale(); return false; }
@@ -260,21 +328,24 @@ function showLoadError() {
 
 function renderDates() {
   $('#manageDates').innerHTML = state.dates.map(item => {
-    const slots = state.availability.get(item.iso) || [];
-    const disabled = !slots.length;
-    return `<button class="date ${item.iso === state.date ? 'selected' : ''} ${disabled ? 'unavailable' : ''}" type="button" data-manage-date="${item.iso}" ${disabled ? 'disabled' : ''}><small>${item.weekday}</small><strong>${item.day}</strong>${disabled ? '<i>нет мест</i>' : ''}</button>`;
+    const slots = availableBusinessTimes(item.iso, state.availability.get(item.iso) || []);
+    const unavailable = !slots.length;
+    const disabled = unavailable || mutationLocked();
+    return `<button class="date ${item.iso === state.date ? 'selected' : ''} ${unavailable ? 'unavailable' : ''}" type="button" data-manage-date="${item.iso}" ${disabled ? 'disabled' : ''}><small>${item.weekday}</small><strong>${item.day}</strong>${unavailable ? '<i>нет мест</i>' : ''}</button>`;
   }).join('');
 }
 
 function renderTimes() {
-  const times = state.availability.get(state.date) || [];
+  const times = availableBusinessTimes(state.date, state.availability.get(state.date) || []);
   if (!times.includes(state.time)) state.time = times[0] || '';
   $('#manageTimes').innerHTML = times.map(time => `<button class="time ${time === state.time ? 'selected' : ''}" type="button" data-manage-time="${time}">${time}</button>`).join('');
   $('#manageNoTimes').hidden = Boolean(times.length);
-  $('#confirmReschedule').disabled = !state.time;
+  $('#confirmReschedule').disabled = !state.time || mutationLocked();
+  applyMutationLock();
 }
 
 async function openReschedule() {
+  if (mutationLocked()) return;
   $('#manageFormError').hidden = true;
   $('#reschedulePanel').hidden = false;
   $('#manageActions').hidden = true;
@@ -313,44 +384,74 @@ async function openReschedule() {
   $('#reschedulePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function closeReschedule() { $('#reschedulePanel').hidden = true; $('#manageActions').hidden = false; }
+function closeReschedule() { if (mutationBusy) return; $('#reschedulePanel').hidden = true; $('#manageActions').hidden = false; }
 
 async function confirmReschedule() {
-  if (!state.time) return;
+  if (!state.time || mutationLocked()) return;
+  if (!availableBusinessTimes(state.date, [state.time]).length) { renderDates(); renderTimes(); notify('Это время уже прошло по Самаре. Выберите другое.'); return; }
+  const attempt = { requestId:createRequestId(), date:state.date, time:state.time };
+  try {
+    if (!rescheduleStorageKey) throw new Error('storage_unavailable');
+    sessionStorage.setItem(rescheduleStorageKey, JSON.stringify(attempt));
+    if (sessionStorage.getItem(rescheduleStorageKey) !== JSON.stringify(attempt)) throw new Error('storage_unavailable');
+  } catch { notify('Для безопасного переноса разрешите хранение данных сайта и обновите страницу.'); return; }
+  rescheduleAttempt = attempt;
+  await performReschedule();
+}
+
+async function performReschedule() {
+  if (mutationBusy || !rescheduleAttempt) return;
+  mutationBusy = true;
+  const attempt = rescheduleAttempt;
   const button = $('#confirmReschedule');
   button.disabled = true; button.textContent = 'Сохраняем…';
-  const requestedDate = state.date;
-  const requestedTime = state.time;
-  let { error } = await db.rpc('reschedule_booking_v2', { p_token: token, p_date: requestedDate, p_time: `${requestedTime}:00` });
-  if (error && isMissingRpc(error, 'reschedule_booking_v2')) ({ error } = await db.rpc('reschedule_booking', { p_token: token, p_date: requestedDate, p_time: `${requestedTime}:00` }));
-  button.textContent = 'Сохранить новое время';
-  button.disabled = false;
-  if (error) {
-    if (error.message?.includes('reschedule_too_late') || error.message?.includes('reschedule_limit_reached')) {
-      $('#manageFormError').textContent = error.message.includes('reschedule_too_late') ? 'Срок самостоятельного переноса уже закончился.' : 'Лимит самостоятельных переносов исчерпан.';
+  applyMutationLock();
+  let refreshSlots = false;
+  let rejectionMessage = '';
+  try {
+    let reply;
+    try { reply = await db.rpc('reschedule_booking_v2', { p_token:token, p_date:attempt.date, p_time:`${attempt.time}:00`, p_request_id:attempt.requestId }); }
+    catch (error) { reply = { error }; }
+    const error = reply?.error;
+    if (!error && typeof reply?.data === 'string' && reply.data) {
+      if (await loadBooking({ silent:true })) {
+        clearRescheduleAttempt(); clearRecovery();
+        $('#reschedulePanel').hidden = true; $('#manageActions').hidden = false;
+        notifyTelegramEvent('rescheduled'); notify('Перенос выполнен. Показано актуальное состояние записи.');
+        return;
+      }
+    }
+    const rejection = error?.code === 'P0001' && /^(slot_unavailable|booking_buffer_conflict|reschedule_too_late|reschedule_limit_reached|booking_unavailable|request_conflict)$/.test(error.message || '');
+    if (rejection || error?.code === '23P01') {
+      clearRescheduleAttempt(); clearRecovery();
+      await loadBooking({ silent:true });
+      refreshSlots = !uncertainAction && (['slot_unavailable','booking_buffer_conflict'].includes(error.message) || error.code === '23P01');
+      $('#manageFormError').textContent = error.message === 'reschedule_limit_reached' ? 'Лимит самостоятельных переносов исчерпан.' : error.message === 'reschedule_too_late' ? 'Срок самостоятельного переноса закончился.' : 'Перенос не выполнен. Проверьте запись и выберите доступное время.';
+      rejectionMessage = $('#manageFormError').textContent;
       $('#manageFormError').hidden = false;
-      await loadBooking({ silent: true });
+      notify($('#manageFormError').textContent);
       return;
     }
-    const conflict = error.message?.includes('slot_unavailable') || error.message?.includes('booking_buffer_conflict') || error.code === '23P01' || error.code === '23505';
-    if (conflict) await openReschedule();
-    if (!conflict) {
-      const verified = await loadBooking({ silent: true });
-      if (verified && state.booking.booking_date === requestedDate && String(state.booking.booking_time).slice(0, 5) === requestedTime) {
-        notifyTelegramEvent('rescheduled');
-        closeReschedule(); notify('Запись перенесена'); return;
-      }
-      if (!verified) { button.disabled = true; button.textContent = 'Сначала обновите запись'; }
-    }
-    $('#manageFormError').textContent = conflict ? (error.message?.includes('booking_buffer_conflict') ? 'Это время попадает в перерыв рядом с другой записью. Выберите другое.' : 'Это время уже занято. Выберите другое.') : 'Результат переноса не подтверждён. Не повторяйте действие сразу — сначала обновите состояние записи.';
-    $('#manageFormError').hidden = false;
-    return;
+    showRecovery('Результат переноса пока неизвестен. «Проверить результат» безопасно повторит ту же операцию и не создаст второй перенос.');
+  } finally {
+    mutationBusy = false;
+    button.textContent = 'Сохранить новое время';
+    if (state.booking) renderBooking();
+    $('#checkManageResult').disabled = false;
+    $('#closeReschedule').disabled = mutationLocked();
+    if (!$('#reschedulePanel').hidden) { renderDates(); renderTimes(); }
+    if (refreshSlots) { await openReschedule(); $('#manageFormError').textContent = rejectionMessage; $('#manageFormError').hidden = false; }
   }
-  notifyTelegramEvent('rescheduled');
-  closeReschedule(); notify('Запись перенесена'); await loadBooking();
 }
 
 async function cancelBooking() {
+  if (mutationLocked()) return;
+  mutationBusy = true; applyMutationLock();
+  try { await cancelBookingOperation(); }
+  catch { showRecovery('Результат отмены пока неизвестен. Нажмите «Проверить результат».', 'cancel'); }
+  finally { mutationBusy = false; if (state.booking) renderBooking(); $('#checkManageResult').disabled = false; }
+}
+async function cancelBookingOperation() {
   if (!confirm('Отменить эту запись?')) return;
   const button = $('#cancelBooking'); button.disabled = true; button.textContent = 'Отменяем…';
   let { error } = await db.rpc('cancel_booking_v2', { p_token: token });
@@ -439,8 +540,9 @@ function addToCalendar() {
 
 document.addEventListener('click', event => {
   const date = event.target.closest('[data-manage-date]'); const time = event.target.closest('[data-manage-time]');
+  if ((date || time) && mutationLocked()) return;
   if (date && !date.disabled) { state.date = date.dataset.manageDate; state.time = ''; renderDates(); renderTimes(); }
-  if (time) { state.time = time.dataset.manageTime; renderTimes(); }
+  if (time && !time.disabled) { if (!availableBusinessTimes(state.date, [time.dataset.manageTime]).length) { renderTimes(); return; } state.time = time.dataset.manageTime; renderTimes(); }
 });
 $('#openReschedule').addEventListener('click', openReschedule);
 $('#closeReschedule').addEventListener('click', closeReschedule);
@@ -458,7 +560,8 @@ $('#addAndroidCalendar').addEventListener('click', () => $('#calendarDialog').cl
 $('#closeCalendarDialog').addEventListener('click', () => $('#calendarDialog').close());
 $('#calendarDialog').addEventListener('click', event => { if (event.target === $('#calendarDialog')) $('#calendarDialog').close(); });
 $('#retryManage').addEventListener('click', loadBooking);
+$('#checkManageResult').addEventListener('click', checkManagementResult);
 window.addEventListener('online', () => loadBooking({ silent: Boolean(state.booking) }));
 document.addEventListener('visibilitychange', () => { if (!document.hidden && navigator.onLine) loadBooking({ silent: Boolean(state.booking) }); });
 setInterval(() => { if (!document.hidden && navigator.onLine && state.booking) loadBooking({ silent: true }); }, 60000);
-loadBooking();
+initializeManagement();

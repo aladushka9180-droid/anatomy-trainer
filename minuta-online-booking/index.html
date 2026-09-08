@@ -50,11 +50,11 @@
           </section>
           <div class="option-list" id="services"></div>
           <button class="service-details-button" id="serviceDetailsButton" type="button" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-info"/></svg><span>Подробнее об услуге</span></button>
-          <button class="primary next" id="toDate" type="button" data-next="2" disabled><span>Выбрать время</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button>
+          <button class="primary next" id="toDate" type="button" data-next="2" disabled hidden><span>Выбрать время</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button>
         </div>
         <div class="step" data-step="2">
           <h3><svg class="ui-icon section-icon" aria-hidden="true"><use href="ui-icons.svg#icon-calendar"/></svg> Дата</h3><div class="date-grid" id="dates"></div><button class="more-dates-button" id="moreDates" type="button"><span>Показать следующие даты</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button>
-          <h3 class="section-gap"><svg class="ui-icon section-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"/></svg> Свободное время</h3>
+          <h3 class="section-gap"><svg class="ui-icon section-icon" aria-hidden="true"><use href="ui-icons.svg#icon-clock"/></svg> Свободное время <small>по Самаре (UTC+4)</small></h3>
           <p class="duration-note" id="durationNote"></p>
           <div class="time-periods" id="timePeriods" aria-label="Период дня" hidden></div>
           <div class="time-hour-grid" id="timeHours" aria-label="Выберите час"></div>
@@ -62,7 +62,7 @@
           <p class="no-times" id="noTimes" hidden>На эту дату всё занято. Выберите другой день.</p>
           <div class="availability-suggestion" id="availabilityHint" hidden></div>
           <div class="waitlist-cta" id="waitlistCta" hidden><div><strong>Не подходит время?</strong><span>Оставьте заявку — мастер увидит удобную дату и свяжется, когда появится окно.</span></div><button class="secondary-button" id="openWaitlist" type="button">Встать в лист ожидания</button></div>
-          <div class="actions"><button class="back" type="button" data-back="1" aria-label="Вернуться к услугам"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"/></svg><span>Услуги</span></button><button class="primary" id="continueBooking" type="button" data-next="3"><span>Ввести контакты</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button></div>
+          <div class="actions"><button class="back" type="button" data-back="1" aria-label="Вернуться к услугам"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-left"/></svg><span>Услуги</span></button><button class="primary" id="continueBooking" type="button" data-next="3" hidden><span>Ввести контакты</span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-arrow-right"/></svg></button></div>
         </div>
         <form class="step" data-step="3" id="bookingForm" novalidate>
           <div class="summary" id="summary"></div>

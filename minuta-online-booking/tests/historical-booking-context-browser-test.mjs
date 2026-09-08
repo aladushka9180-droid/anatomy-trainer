@@ -16,7 +16,7 @@ function declaration(name){
   assert.ok(end>start,`Actual function end ${name}`);return source.slice(start,end);
 }
 function listener(prefix){const start=source.indexOf(prefix),end=source.indexOf('\n});',start);assert.ok(start>=0&&end>start);return source.slice(start,end+4);}
-const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','loadNewBookingSlots','renderNewBookingTimePicker',
+const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','setNewBookingMode','loadNewBookingSlots','renderNewBookingTimePicker','blockDurationChoices','bookingMoveTimeIsPast',
   'renderNewBookingOutsideSchedulePrompt','enableNewBookingOutsideSchedule','newBookingOutsideScheduleLabel',
   'updateNewBookingConnectivity','updateNewBookingSubmitCaption','updateNewBookingDurationControl','newBookingDurationMinutes','selectedNewBookingService',
   'normalizePerMinuteDuration','serviceDefaultDuration','serviceOptions','serviceName','money','escapeHtml','uiIcon','normalizePhone','minutesFromTime','timeFromMinutes','scheduleStepForDate','parseLocalIsoDate','localIsoDate',

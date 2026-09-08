@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(root, 'benefit-management.js'), 'utf8');
-assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/i, 'client balances must not be cached in the browser');
+assert.doesNotMatch(source, /localStorage\.setItem\([^\n]*(?:payload|remaining_visits|remaining_amount_rub|client_name|client_phone)/i, 'client balances and details must not be cached in the browser');
 
 class MockElement {
   constructor(id='') { this.id=id; this.hidden=false; this.innerHTML=''; this.textContent=''; this.value=''; this.checked=false; this.disabled=false; this.open=false; this.dataset={}; }

@@ -70,13 +70,14 @@ async function begin(page, expectedCalls=1) {
   await page.locator('#paymentRefundAmount').fill('5.00');
   await page.locator('#paymentRefundReason').fill('Возврат по просьбе клиента A');
   await page.locator('#paymentRefundForm button[type=submit]').click();
+  await page.waitForFunction(expected=>state.calls.length===expected,expectedCalls);
   assert.equal(await page.evaluate(()=>state.calls.length),expectedCalls);
 }
 async function complete(page,outcome,index=0) {
   await page.evaluate(async ({outcome,index}) => {
     const pending=state.pendingInvokes[index];
     if (outcome === 'throw') pending.reject(Error('transport_lost'));
-    else pending.resolve(outcome === 'error' ? {data:null,error:{message:'Failed to fetch'}} : {data:{ok:true,status:'succeeded'},error:null});
+    else pending.resolve(outcome === 'error' ? {data:null,error:{message:'Failed to fetch'}} : {data:{ok:true,status:'succeeded',refund_id:'refund-fixture',amount_minor:state.calls[index].body.amount_minor},error:null});
     await state.tasks[index];
   },{outcome,index});
 }

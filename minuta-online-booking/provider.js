@@ -341,6 +341,7 @@ let ownServices = [];
 let serviceDurationDefaults = {};
 let portfolioItems = [];
 let providerReviews = [];
+let providerReviewsState = 'idle';
 let portfolioRemoteAvailable = false;
 let portfolioDraggedId = '';
 let portfolioPhotoDrafts = { before: null, after: null };
@@ -377,7 +378,8 @@ let daysOff = [];
 let monthlyScheduleMonth = businessTodayIso().slice(0, 7);
 let selectedMonthlyScheduleDate = '';
 let scheduleDirty = false;
-let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
+let recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery' || new URLSearchParams(location.hash.slice(1)).has('error_code');
+let recoverySessionVerified = false;
 let bookingsChannel = null;
 let syncTimer = null;
 let bookingReloadTimer = null;
@@ -704,7 +706,7 @@ function saveNewBookingDraft() {
   if (!form || !currentUser) return;
   const draft = {
     savedAt:Date.now(), mode:newBookingMode, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule, name:$('#newBookingName')?.value || '', phone:$('#newBookingPhone')?.value || '', note:$('#newBookingNote')?.value || '',
-    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', durationMinutes:$('#newBookingDuration')?.value || '', date:$('#newBookingDate')?.value || '', time:newBookingTime || newBookingPreferredTime || '',
+    blockTitle:$('#newBookingBlockTitle')?.value || '', blockNote:$('#newBookingBlockNote')?.value || '', serviceId:$('#newBookingService')?.value || '', durationMinutes:newBookingDurationMinutes(), date:$('#newBookingDate')?.value || '', time:newBookingTime || newBookingPreferredTime || '',
     occurrences:$('#newBookingOccurrences')?.value || '1', interval:$('#newBookingInterval')?.value || '1', color:$('[name="newBookingColor"]:checked')?.value || BOOKING_COLOR_DEFAULT
   };
   try { sessionStorage.setItem(bookingDraftKey(), JSON.stringify(draft)); } catch {}
@@ -992,13 +994,14 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
       const queuedService = ownServices.find(service => service.id === item.serviceId);
       const applied = await applyPerMinuteBookingTerms([booking.id], queuedService, item.durationMinutes);
       if (!applied.ok) {
-        await rollbackCreatedBookings([booking.id]);
-        item.status = 'conflict';
+        const rollback = await rollbackCreatedBookings([booking.id]);
+        item.status = rollback.ok ? 'conflict' : 'server_check_pending';
         item.reason = /overlap|slot|occupied|resource/i.test(String(applied.error?.message || '')) ? 'slot_unavailable' : 'unexpected_error';
-        const providerNotice = stageOfflineBookingProviderNotice(item, 'conflict');
+        const providerNotice = stageOfflineBookingProviderNotice(item, item.status);
         await saveOfflineBookingQueue(userId, { generation });
         renderOfflineBookingQueue();
         deliverOfflineBookingProviderNotice(providerNotice);
+        if (!rollback.ok) break;
         continue;
       }
       if (Number(item.durationMinutes || 1) > 1) await loadBookings({ silent:true });
@@ -2307,8 +2310,12 @@ function readLocalOutcomes() {
   catch { return {}; }
 }
 function writeLocalOutcomes() {
-  try { localStorage.setItem(outcomeStorageKey(), JSON.stringify(Object.fromEntries(bookingOutcomes))); }
-  catch { notify('Не удалось сохранить результат визита'); }
+  try {
+    const key = outcomeStorageKey();
+    const value = JSON.stringify(Object.fromEntries(bookingOutcomes));
+    localStorage.setItem(key, value);
+    return localStorage.getItem(key) === value;
+  } catch { return false; }
 }
 function cleanOutcomeRecord(record) {
   const clean = { ...record };
@@ -4227,9 +4234,6 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
 function notificationTaskKey(item, type) { return `${item.id}|${type}|${item.booking_date}|${String(item.booking_time).slice(0, 5)}`; }
 function notificationMarks() { return { ...readNotificationStorage('marks', {}), ...serverNotificationMarks }; }
 async function setNotificationMark(key, status) {
-  const local = readNotificationStorage('marks', {});
-  if (status) local[key] = status; else delete local[key];
-  writeNotificationStorage('marks', local);
   if (!notificationSettingsRemoteAvailable || !currentUser) return false;
   const [bookingId, kind] = key.split('|');
   let error = null;
@@ -4240,7 +4244,11 @@ async function setNotificationMark(key, status) {
     ({ error } = await db.from('notification_marks').delete().eq('performer_id', currentUser.id).eq('task_key', key));
     if (!error) delete serverNotificationMarks[key];
   }
-  return !error;
+  if (error) return false;
+  const local = readNotificationStorage('marks', {});
+  if (status) local[key] = status; else delete local[key];
+  writeNotificationStorage('marks', local);
+  return true;
 }
 function renderAutomaticNotifications() {
   const panel = $('#automaticNotificationPanel');
@@ -4388,9 +4396,10 @@ async function markAllDueNotificationsSent(button) {
   const originalText = button.textContent;
   button.textContent = 'Отмечаем…';
   try {
-    await Promise.all(tasks.map(task => setNotificationMark(task.key, 'sent')));
+    const results = await Promise.allSettled(tasks.map(task => setNotificationMark(task.key, 'sent')));
+    const confirmed = results.filter(result => result.status === 'fulfilled' && result.value === true).length;
     renderNotifications();
-    notify(`Отмечено отправленными: ${tasks.length}`);
+    notify(confirmed === tasks.length ? `Отмечено отправленными: ${confirmed}` : `Сохранено отметок: ${confirmed} из ${tasks.length}. Неотмеченные сообщения остались в списке — повторите попытку.`);
   } finally {
     button.disabled = false;
     if (button.isConnected && !button.hidden) button.textContent = originalText;
@@ -5168,6 +5177,7 @@ function runIosTransition({ current, next, update, direction = 'forward', name =
 }
 function setAuthTabImmediate(tab) {
   recoveryMode = false;
+  recoverySessionVerified = false;
   $('#authTabs').hidden = false;
   $('#recoveryForm').hidden = true;
   $('#resetPasswordForm').hidden = true;
@@ -5198,6 +5208,7 @@ function setAuthTab(tab) {
 }
 function showRecoveryRequest() {
   recoveryMode = false;
+  recoverySessionVerified = false;
   $('#authCard').hidden = false;
   $('#dashboard').hidden = true;
   $('#authTabs').hidden = true;
@@ -5208,12 +5219,23 @@ function showRecoveryRequest() {
   $('#providerPhoneLoginForm').hidden = true;
   $('#recoveryForm').hidden = false;
   $('#authBadge').innerHTML = '<i></i> Восстановление доступа';
-  $('#authTitle').textContent = 'Задайте новый пароль.';
+  $('#authTitle').textContent = 'Восстановите доступ.';
   $('#authDescription').textContent = 'Введите email, с которым зарегистрирован кабинет исполнителя.';
   $('#recoveryEmail').value = $('#loginEmail').value.trim();
   setTimeout(() => $('#recoveryEmail').focus(), 0);
 }
-function showRecoveryReset() {
+async function showRecoveryReset() {
+  recoverySessionVerified = false;
+  let result;
+  try { result = new URLSearchParams(location.hash.slice(1)).has('error_code') ? { error: { code:'expired_link' } } : await db.auth.getUser(); }
+  catch (error) { result = { error }; }
+  if (result.error || !result.data?.user?.id) {
+    showRecoveryRequest();
+    showFormError('#recoveryError', authConnectionFailed(result.error) ? 'Не удалось проверить ссылку. Подключитесь к интернету и откройте ссылку из письма ещё раз.' : 'Ссылка недействительна или устарела. Запросите новое письмо ниже.');
+    finishProviderBoot();
+    return;
+  }
+  recoverySessionVerified = true;
   recoveryMode = true;
   $('#authCard').hidden = false;
   $('#dashboard').hidden = true;
@@ -5971,11 +5993,11 @@ async function persistTimelineBookingMove(state) {
     renderBookings();
     return;
   }
-  const { error } = await db.from('bookings').update({ booking_date:state.date, booking_time:`${targetTime}:00` }).eq('id', item.id).eq('performer_id', userId);
+  const { error } = await updateBookingAtExpectedState(item, { booking_date:state.date, booking_time:`${targetTime}:00` }, userId);
   timelineMovePending = false;
   if (!sessionIsCurrent(userId, generation)) return;
   if (error) {
-    notify('Не удалось перенести запись: время уже занято');
+    notify(error.code === 'MINUTA_BOOKING_CHANGED' ? 'Запись уже изменилась. Проверьте актуальное расписание перед переносом.' : 'Не удалось подтвердить перенос. Проверьте актуальную запись.');
     await loadBookings({ silent:true });
     return;
   }
@@ -6533,7 +6555,7 @@ function openBookingSheet(id) {
   $('#bookingSheetNoteForm')?.addEventListener('submit', saveBookingSheetNote);
   $('#outcomeVisitStatus')?.addEventListener('change', toggleOutcomePaymentFields);
   $('#outcomeActualMinutes')?.addEventListener('input', updateOutcomeMinuteCalculation);
-  $('#outcomePaymentMethod')?.addEventListener('change', updateOutcomeMinuteCalculation);
+  $('#outcomePaymentMethod')?.addEventListener('change', () => { updateOutcomeMinuteCalculation(); toggleOutcomePaymentFields(); });
   toggleOutcomePaymentFields();
   updateOutcomeMinuteCalculation();
 }
@@ -6719,6 +6741,7 @@ function selectedNewBookingService() {
 }
 
 function newBookingDurationMinutes() {
+  if (newBookingMode === 'block') return Number($('#newBookingBlockDuration')?.value || 60);
   const service = selectedNewBookingService();
   if (!service) return 0;
   return Number(service.duration_minutes) === 1
@@ -6775,12 +6798,13 @@ async function applyPerMinuteBookingTerms(bookingIds, service, durationMinutes) 
   if (Number(service?.duration_minutes) !== 1 || duration === 1 || !bookingIds.length) return { ok:true };
   const totalPrice = Math.max(0, Math.round(duration * Number(service.price_rub || 0)));
   for (const bookingId of bookingIds) {
-    const { error } = await db.from('bookings').update({
+    const { data, error } = await db.from('bookings').update({
       duration_minutes:duration,
       original_price_rub:Number(service.price_rub || 0),
       total_price_rub:totalPrice
-    }).eq('id', bookingId).eq('performer_id', currentUser.id);
+    }).eq('id', bookingId).eq('performer_id', currentUser.id).select('id,duration_minutes,total_price_rub');
     if (error) return { ok:false, error };
+    if (!Array.isArray(data) || data.length !== 1 || data[0].id !== bookingId || Number(data[0].duration_minutes) !== duration || Number(data[0].total_price_rub) !== totalPrice) return { ok:false, error:{ message:'duration_update_unconfirmed' } };
     if (sessionItemsRemoteAvailable) {
       const { error:sessionError } = await db.from('booking_session_items').update({ duration_minutes:duration, price_rub:totalPrice })
         .eq('booking_id', bookingId).eq('performer_id', currentUser.id).eq('item_kind', 'primary');
@@ -6791,7 +6815,13 @@ async function applyPerMinuteBookingTerms(bookingIds, service, durationMinutes) 
 }
 
 async function rollbackCreatedBookings(bookingIds) {
-  await Promise.all(bookingIds.map(id => db.rpc('provider_delete_booking', { p_booking:id })));
+  const results = await Promise.all(bookingIds.map(async id => {
+    try {
+      const { data, error } = await db.rpc('provider_delete_booking', { p_booking:id });
+      return !error && ['deleted', 'not_found'].includes(data) ? null : id;
+    } catch { return id; }
+  }));
+  return { ok:results.every(id => id === null), unresolvedIds:results.filter(Boolean) };
 }
 
 function blockDurationOptions(selectedId, activeOnly = false) {
@@ -6891,16 +6921,20 @@ async function loadBookingEditSlots(id, preserveCurrent = false) {
     if (!isCurrent()) return;
     if (error) throw error;
     const currentTime = String(item.booking_time).slice(0, 5);
-    const times = (data || []).map(slot => String(slot.booking_time).slice(0, 5));
-    if (movesSeveral && !times.includes(currentTime)) times.unshift(currentTime);
+    const times = (data || []).map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingMoveTimeIsPast(date, time));
+    if (movesSeveral && !times.includes(currentTime) && !bookingMoveTimeIsPast(date, currentTime)) times.unshift(currentTime);
     if (!times.length) {
+      bookingEditTime = '';
+      updateBookingMovePreview();
       holder.innerHTML = '<span>На эту дату свободного времени нет</span>';
       return;
     }
     if (preserveCurrent && service === item.service_id && date === item.booking_date && times.includes(currentTime)) bookingEditTime = currentTime;
-    holder.innerHTML = `${movesSeveral ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>' : ''}${times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" data-edit-booking-time="${time}">${time}</button>`).join('')}`;
+    if (!times.includes(bookingEditTime)) bookingEditTime = '';
+    holder.innerHTML = `${movesSeveral ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>' : ''}${times.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" aria-pressed="${time === bookingEditTime}" data-edit-booking-time="${time}">${time}</button>`).join('')}`;
+    updateBookingMovePreview();
   } catch {
-    if (isCurrent()) holder.innerHTML = '<span>Не удалось загрузить свободное время. Выберите дату ещё раз.</span>';
+    if (isCurrent()) { bookingEditTime = ''; holder.innerHTML = '<span>Не удалось загрузить свободное время. Выберите дату ещё раз.</span>'; updateBookingMovePreview(); }
   }
 }
 
@@ -6933,6 +6967,14 @@ function sessionComposerItemMarkup(entry, index) {
   const minutePrice = Number(service?.duration_minutes) === 1 ? Number(service.price_rub) : null;
   const price = minutePrice !== null ? minutePrice : entry.price_rub;
   return `<article class="session-composer-item" data-session-item="${index}"><div class="session-composer-item-head"><strong>${addon ? `Дополнительная услуга ${index}` : 'Основная услуга'}</strong>${addon ? `<button type="button" data-remove-session-item="${index}" aria-label="Удалить дополнительную услугу">${uiIcon('trash')}</button>` : ''}</div><label>${addon ? 'Источник' : 'Услуга из каталога'}<select data-session-service ${addon ? '' : 'required'}>${sessionServiceOptions(entry.service_id, addon)}</select></label>${addon ? `<label>Название<input data-session-title maxlength="120" value="${escapeHtml(entry.title)}" required></label>` : `<input data-session-title type="hidden" value="${escapeHtml(entry.title)}">`}<div class="session-composer-fields"><label>Длительность, мин<input data-session-duration type="number" min="${addon ? 0 : 5}" max="480" step="1" value="${entry.duration_minutes}" required></label><label>Стоимость, ₽<input data-session-price type="number" min="0" max="1000000" step="1" value="${price}" required></label></div>${addon ? `<label class="session-duration-toggle"><input data-session-extends type="checkbox" ${entry.extends_duration ? 'checked' : ''}><span><strong>Увеличивает продолжительность сеанса</strong><small>Если выключено, услуга добавится только к стоимости.</small></span></label>` : ''}</article>`;
+}
+
+function updateSessionServiceLabels() {
+  $$('[data-session-service]').forEach(select => {
+    let label = select.parentElement.querySelector('.session-service-name');
+    if (!label) { label = document.createElement('span'); label.className = 'session-service-name'; select.after(label); }
+    label.textContent = ownServices.find(service => service.id === select.value)?.name || 'Произвольная услуга';
+  });
 }
 
 function readSessionComposerDraft() {
@@ -6974,6 +7016,8 @@ function renderSessionComposer(id) {
   if (!item) return;
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button><small class="booking-sheet-kicker">Только для этой записи</small></div><h2 id="bookingSheetTitle">Состав сеанса</h2><p class="session-composer-lead">Каталог услуг не изменится. Здесь настраивается только этот визит.</p><form class="session-composer" id="sessionComposerForm" data-booking-id="${item.id}"><div id="sessionComposerItems">${sessionComposerDraft.map(sessionComposerItemMarkup).join('')}</div><button class="session-add-button" type="button" data-add-session-item>${uiIcon('plus')}<span>Дополнительная услуга</span></button><p class="session-composer-warning" id="sessionComposerWarning" role="alert" hidden></p><div class="session-composer-summary"><span><small>Продолжительность</small><strong id="sessionComposerDuration">0 мин</strong></span><span><small>Итого</small><strong id="sessionComposerTotal">0 ₽</strong></span></div><p class="form-error" id="sessionComposerError" hidden></p><button class="primary" id="sessionComposerSave" type="submit">Сохранить состав</button></form>`;
   $('#sessionComposerForm').addEventListener('submit', saveBookingSession);
+  updateSessionServiceLabels();
+  $('#sessionComposerForm').addEventListener('change', updateSessionServiceLabels);
   updateSessionComposerSummary(id);
 }
 
@@ -7040,6 +7084,44 @@ async function saveBookingSession(event) {
   openBookingSheet(item.id);
 }
 
+async function updateBookingAtExpectedState(item, changes, userId) {
+  let query = db.from('bookings').update(changes).eq('id', item.id).eq('performer_id', userId)
+    .eq('service_id', item.service_id).eq('booking_date', item.booking_date).eq('booking_time', item.booking_time);
+  if (item.duration_minutes != null) query = query.eq('duration_minutes', item.duration_minutes);
+  if (item.status) query = query.eq('status', item.status);
+  const { data, error } = await query.select('id,service_id,performer_id,booking_date,booking_time,duration_minutes,status,client_name');
+  if (error) return { error };
+  const row = Array.isArray(data) && data.length === 1 ? data[0] : null;
+  const matches = row?.id === item.id && row?.performer_id === userId
+    && Object.entries(changes).every(([key, value]) => key === 'booking_time'
+      ? String(row[key]).slice(0, 5) === String(value).slice(0, 5) : String(row[key]) === String(value));
+  return matches ? { data:row, error:null } : { error:{ code:'MINUTA_BOOKING_CHANGED', message:'booking_changed_or_unconfirmed' } };
+}
+
+function bookingMoveTimeIsPast(date, time) {
+  const today = businessTodayIso();
+  if (date !== today) return date < today;
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone:'Europe/Samara', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23' }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${time}:00` <= `${values.hour}:${values.minute}:${values.second}`;
+}
+
+function updateBookingMovePreview() {
+  const selected = $('#editBookingSelection');
+  if (selected) selected.textContent = bookingEditTime
+    ? `Будет: ${$('#editBookingDate')?.value || ''} в ${bookingEditTime}` : 'Выберите новое время';
+  $$('[data-edit-booking-time]').forEach(button => {
+    const active = button.dataset.editBookingTime === bookingEditTime;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+function blockDurationChoices(selected = 60) {
+  return [...new Set([15,30,45,60,90,120,Number(selected)])].filter(value => value >= 1 && value <= 480)
+    .sort((a,b) => a-b).map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${value} мин</option>`).join('');
+}
+
 function openBookingEditor(id, preset = {}) {
   const item = allBookings.find(booking => booking.id === id);
   if (!item) return;
@@ -7053,24 +7135,31 @@ function openBookingEditor(id, preset = {}) {
   $('#bookingSheetContent').innerHTML = `<div class="booking-editor-heading"><button class="booking-editor-back" type="button" data-back-booking="${item.id}">${uiIcon('arrow-left')}<span>К записи</span></button>
     <small class="booking-sheet-kicker">${block ? 'Занятое время' : 'Изменение записи'}</small></div><h2 id="bookingSheetTitle">${block ? 'Изменить перерыв' : 'Перенести или изменить'}</h2>
     <form class="booking-editor-form booking-edit-form-compact" id="bookingEditForm" data-booking-id="${item.id}">
-      ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : ''}
-      <label>${block ? 'Длительность' : 'Основная услуга'}<select id="editBookingService" required ${block ? '' : 'disabled'}>${block ? blockDurationOptions(item.service_id) : serviceOptions(item.service_id)}</select>${block ? '' : '<small>Состав, длительность и стоимость меняются в блоке «Состав сеанса».</small>'}</label>
-      <label>${block ? 'Заметка к перерыву' : 'Заметка о клиенте'}<textarea id="editBookingNote" maxlength="1000" rows="2" placeholder="${block ? 'Например, обед или личное дело' : 'Пожелания, особенности или важная информация'}">${escapeHtml(bookingDisplayNote(item))}</textarea></label>
-      ${bookingColorPicker('editBookingColor', bookingColor(item))}
+      <div class="booking-move-source"><strong>${escapeHtml(block ? item.client_name || 'Перерыв' : item.services?.name || ownServices.find(service => service.id === item.service_id)?.name || 'Запись')}</strong><small>Было: ${escapeHtml(item.booking_date)} в ${escapeHtml(String(item.booking_time).slice(0,5))} · ${Number(item.duration_minutes) || 60} мин</small></div>
+      <input id="editBookingService" type="hidden" value="${escapeHtml(item.service_id)}">
+      ${block ? `<label>Длительность<select id="editBookingBlockDuration">${blockDurationChoices(item.duration_minutes)}</select></label>` : ''}
       <label>Новая дата<input id="editBookingDate" type="date" min="${businessTodayIso()}" value="${presetDate}" required></label>
-      <label>Свободное время<div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></label>
+      <div class="booking-edit-slot-group" role="group" aria-labelledby="editBookingTimesLabel"><span id="editBookingTimesLabel">Свободное время</span><div class="repeat-times booking-editor-times" id="editBookingTimes"><span>Ищем свободное время…</span></div></div>
       ${block ? '' : bookingSeriesScopeMarkup(item, 'editBookingSeriesScope', 'Какие записи перенести')}
+      <p class="booking-move-selection" id="editBookingSelection" role="status" aria-live="polite"></p>
       <p class="form-error" id="bookingEditError" hidden></p>
       <button class="primary" type="submit">Сохранить изменения</button>
+      <details class="booking-move-advanced"><summary>Дополнительно</summary>
+        ${block ? `<label>Название<input id="editBookingBlockTitle" maxlength="80" value="${escapeHtml(item.client_name || 'Перерыв')}" required></label>` : '<p>Состав, длительность и стоимость услуги меняются в блоке «Состав сеанса».</p>'}
+        <label>${block ? 'Заметка к перерыву' : 'Заметка о клиенте'}<textarea id="editBookingNote" maxlength="1000" rows="2">${escapeHtml(bookingDisplayNote(item))}</textarea></label>
+        ${bookingColorPicker('editBookingColor', bookingColor(item))}
+      </details>
     </form>`;
   $('#bookingSheet').hidden = false;
   document.body.classList.add('booking-sheet-open');
   $('#bookingEditForm').dataset.editorRevision = String(++bookingEditorRevision);
   $('#editBookingService').addEventListener('change', () => loadBookingEditSlots(id));
   $('#editBookingDate').addEventListener('change', () => loadBookingEditSlots(id));
+  $('#editBookingBlockDuration')?.addEventListener('change', () => loadBookingEditSlots(id));
   $$('[name="editBookingSeriesScope"]').forEach(control => control.addEventListener('change', () => loadBookingEditSlots(id, true)));
   $('#bookingEditForm').addEventListener('submit', saveBookingChanges);
   loadBookingEditSlots(id, true);
+  updateBookingMovePreview();
 }
 
 async function saveBookingChanges(event) {
@@ -7099,11 +7188,12 @@ async function saveBookingChanges(event) {
     showFormError('#bookingEditError', block ? 'Выберите длительность, дату и свободное время.' : 'Выберите услугу, дату и свободное время.');
     return;
   }
+  if (bookingMoveTimeIsPast(date, bookingEditTime)) { showFormError('#bookingEditError', 'Это время уже прошло. Выберите новое время.'); return; }
   const button = event.submitter;
   form.dataset.editorPending = 'true';
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const changes = { service_id:block ? service.id : item.service_id, duration_minutes:block ? service.duration_minutes : item.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` };
+  const changes = { service_id:item.service_id, duration_minutes:block ? Number($('#editBookingBlockDuration')?.value || item.duration_minutes) : item.duration_minutes, booking_date: date, booking_time: `${bookingEditTime}:00` };
   if (block) changes.client_name = blockTitle;
   let primaryConfirmed = false;
   const unconfirmedMessage = 'Не удалось подтвердить результат. Проверьте актуальную запись перед повтором.';
@@ -7136,7 +7226,7 @@ async function saveBookingChanges(event) {
         affected = entries;
       }
     } else {
-      ({ error } = await db.from('bookings').update(changes).eq('id', id).eq('performer_id', userId));
+      ({ error } = await updateBookingAtExpectedState(item, changes, userId));
     }
     if (!isCurrent()) return;
     if (error) {
@@ -7152,7 +7242,9 @@ async function saveBookingChanges(event) {
         'P0001:series_booking_not_actionable':'Эту запись уже нельзя перенести. Обновите журнал.',
         'P0001:series_has_no_actionable_bookings':'В выбранной части серии нет записей, доступных для переноса. Обновите журнал.'
       };
-      const message = seriesId && !block ? seriesErrors[`${error.code}:${error.message}`] : null;
+      const message = error.code === 'MINUTA_BOOKING_CHANGED'
+        ? 'Запись уже изменилась или недоступна. Вернитесь к записи и проверьте актуальные данные перед переносом.'
+        : seriesId && !block ? seriesErrors[`${error.code}:${error.message}`] : null;
       showFormError('#bookingEditError', message || unconfirmedMessage);
       if (message) await loadBookingEditSlots(id);
       return;
@@ -7355,7 +7447,7 @@ async function loadNewBookingSlots() {
     renderNewBookingOutsideSchedulePrompt();
     return;
   }
-  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
+  newBookingSlots = data.map(slot => String(slot.booking_time).slice(0, 5)).filter(time => !bookingMoveTimeIsPast(date, time) && !bookingPlacementIssue({ id:'new-booking-candidate', duration_minutes:duration }, date, minutesFromTime(time)));
   if (!newBookingSlots.length) {
     holder.innerHTML = '<span>На эту дату нет окна нужной длительности</span>';
     return;
@@ -7432,7 +7524,7 @@ function updateNewBookingConnectivity() {
   newBookingHistoricalMode = historical;
   const historicalToggle = $('#newBookingHistoricalToggle');
   if (historicalToggle) {
-    historicalToggle.hidden = bookingDate > today;
+    historicalToggle.hidden = newBookingMode === 'block' || bookingDate > today;
     historicalToggle.setAttribute('aria-pressed', String(historical));
     historicalToggle.classList.toggle('active', historical);
     historicalToggle.disabled = bookingDate < today || bookingDate > today;
@@ -7602,6 +7694,14 @@ function setNewBookingMode(mode) {
     button.setAttribute('aria-pressed', String(active));
   });
   const block = newBookingMode === 'block';
+  if (block) {
+    newBookingHistoricalMode = false;
+    newBookingClientBaseTitle = 'Новая запись';
+    newBookingAutoFilledPhone = '';
+    newBookingAutoFilledName = '';
+    hideNewBookingClientSuggestions();
+  }
+  if ($('#newBookingHistoricalToggle')) $('#newBookingHistoricalToggle').hidden = block;
   $('#newBookingClientFields').hidden = block;
   $('#newBookingBlockFields').hidden = !block;
   $('#newBookingName').required = !block;
@@ -7621,7 +7721,9 @@ function setNewBookingMode(mode) {
   const defaultBlockService = enteringBlock
     ? ownServices.find(item => item.active && Number(item.duration_minutes) === 60)?.id || selectedService
     : selectedService;
-  serviceSelect.innerHTML = block ? blockDurationOptions(defaultBlockService, true) : serviceOptions(selectedService, true);
+  serviceSelect.innerHTML = block ? serviceOptions([...ownServices].filter(item => item.active).sort((a,b) => Number(a.duration_minutes)-Number(b.duration_minutes))[0]?.id || defaultBlockService, true) : serviceOptions(selectedService, true);
+  serviceSelect.closest('label').hidden = block;
+  if ($('#newBookingBlockDurationField')) $('#newBookingBlockDurationField').hidden = !block;
   updateNewBookingDurationControl();
   updateNewBookingSubmitCaption();
   clearFormError('#newBookingError');
@@ -7661,6 +7763,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
           <div class="new-booking-client-lookup" id="newBookingClientFields"><div class="booking-client-fields"><label>Имя клиента<input id="newBookingName" maxlength="80" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="Например, Анна" required></label><label>Телефон<input id="newBookingPhone" type="tel" inputmode="tel" autocomplete="off" aria-autocomplete="list" aria-controls="newBookingClientSuggestions" placeholder="+7 (___) ___-__-__" required></label></div><div class="new-booking-client-suggestions" id="newBookingClientSuggestions" role="listbox" aria-label="Найденные клиенты" hidden></div><a class="settings-help-link" href="help/article.html?slug=client-phone-autofill" target="_blank" rel="noopener noreferrer">Как определяется клиент <span aria-hidden="true">↗</span></a></div>
           <div class="new-booking-block-fields" id="newBookingBlockFields" hidden><label>Название<input id="newBookingBlockTitle" maxlength="80" value="Перерыв" placeholder="Например, Обеденный перерыв"></label><p>Телефон не нужен. Время будет занято для клиентов.</p></div>
           <label><span id="newBookingServiceCaption">Услуга</span><select id="newBookingService" required>${serviceOptions(selectedService?.id || '', true)}</select></label>
+          <label id="newBookingBlockDurationField" hidden>Длительность<select id="newBookingBlockDuration">${blockDurationChoices(60)}</select></label>
           <div class="new-booking-minute-duration" id="newBookingDurationField" hidden>
             <div class="new-booking-minute-heading"><label for="newBookingDuration">Длительность, минут</label><strong id="newBookingDurationSummary" role="status" aria-live="polite"></strong></div>
             <div class="new-booking-minute-input"><button type="button" data-new-booking-duration-step="-1" aria-label="Уменьшить длительность на минуту">−</button><input id="newBookingDuration" type="number" inputmode="numeric" min="${PER_MINUTE_BOOKING_MIN}" max="${PER_MINUTE_BOOKING_MAX}" step="1" value="${initialDuration}" aria-describedby="newBookingDurationSummary" required><button type="button" data-new-booking-duration-step="1" aria-label="Увеличить длительность на минуту">+</button></div>
@@ -7681,7 +7784,7 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
         <section class="new-booking-section"><div class="new-booking-section-title"><span>2</span><div><strong>Дата и время</strong><small id="newBookingDateTimeSubtitle">Выберите удобное свободное окно</small></div></div>
           <button class="new-booking-history-option${newBookingHistoricalMode ? ' active' : ''}" id="newBookingHistoricalToggle" type="button" aria-pressed="${newBookingHistoricalMode}"><span><strong>Клиент уже был</strong><small>Добавить фактический визит, в том числе ранее сегодня</small></span><b>${newBookingHistoricalMode ? 'Включено' : 'Включить'}</b></button>
           <label>Дата<input id="newBookingDate" type="date" value="${date}" required></label>
-          <label><span id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></label>
+          <div role="group" aria-labelledby="newBookingTimeCaption"><span id="newBookingTimeCaption">Свободное время</span><div class="booking-editor-times booking-time-picker" id="newBookingTimes"><span>Ищем свободное время…</span></div></div>
         </section>
       </div>
       <p class="new-booking-draft-status" id="newBookingDraftStatus">${draft ? 'Данные формы восстановлены · запись ещё не добавлена' : 'Данные формы сохранятся в этой вкладке · это ещё не запись'}</p><p class="form-error" id="newBookingError" role="alert" aria-live="assertive" hidden></p><button class="primary new-booking-submit" id="newBookingSubmit" type="submit">Создать запись</button>
@@ -7694,6 +7797,8 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingNote').value = String(preset.note || draft?.note || (preset.clientPhone ? clientNotes.get(normalizePhone(preset.clientPhone)) : '') || '');
   $('#newBookingBlockTitle').value = String(draft?.blockTitle || 'Перерыв');
   $('#newBookingBlockNote').value = String(draft?.blockNote || '');
+  $('#newBookingBlockDuration').value = String([15,30,45,60,90,120].includes(Number(draft?.durationMinutes)) ? Number(draft.durationMinutes) : 60);
+  $('#newBookingBlockDuration').addEventListener('change', () => { saveNewBookingDraft(); loadNewBookingSlots(); });
   $('#newBookingOccurrences').value = String(draft?.occurrences || '1');
   $('#newBookingInterval').value = String(draft?.interval || '1');
   const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
@@ -7797,8 +7902,9 @@ function bookingIdFromRpcResult(value) {
 function findCreatedBooking({ id = '', service, date, time, phone }) {
   const normalizedPhone = normalizePhone(phone);
   return [...allBookings].reverse().find(item => (
-    (id && item.id === id)
-    || (
+    id ? item.id === id : (
+      item.status !== 'cancelled'
+      &&
       item.service_id === service
       && item.booking_date === date
       && String(item.booking_time).slice(0, 5) === time
@@ -7849,6 +7955,10 @@ async function createNewBooking(event) {
   event.preventDefault();
   const submittedForm = event.currentTarget || $('#newBookingForm');
   if (submittedForm?.dataset.historicalCreateState) return;
+  if (submittedForm?.dataset.creationUncertain) {
+    showFormError('#newBookingError', 'Проверьте созданные записи в журнале. Для следующей записи откройте новую форму.');
+    return;
+  }
   if (!requireBookingWrites()) return;
   const userId = currentUser.id;
   const generation = sessionGeneration;
@@ -8130,10 +8240,11 @@ async function createNewBooking(event) {
     const createdIds = created.map(entry => entry.booking_id).filter(Boolean);
     const adjusted = await applyPerMinuteBookingTerms(createdIds, serviceModel, durationMinutes);
     if (!adjusted.ok) {
-      await rollbackCreatedBookings(createdIds);
+      const rollback = await rollbackCreatedBookings(createdIds);
       button.disabled = false;
       button.textContent = `Создать серию из ${occurrenceCount}`;
-      showFormError('#newBookingError', 'Для выбранной длительности одно из окон уже занято. Серия не создана — выберите другое время или длительность.');
+      if (!rollback.ok) submittedForm.dataset.creationUncertain = 'true';
+      showFormError('#newBookingError', rollback.ok ? 'Для выбранной длительности одно из окон уже занято. Созданные записи удалены — выберите другое время или длительность.' : 'Не удалось подтвердить удаление всех записей серии. Проверьте журнал перед повторным созданием.');
       await loadNewBookingSlots();
       return;
     }
@@ -8147,6 +8258,7 @@ async function createNewBooking(event) {
     return;
   }
   const bookingParams = { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone };
+  const bookingIdsBeforeCreate = new Set(allBookings.map(item => item.id));
   let { data:bookingRpcResult, error } = await db.rpc('provider_book_appointment', bookingParams);
   if (!sessionIsCurrent(userId, generation)) return;
   const technicalProviderError = error && (
@@ -8163,8 +8275,9 @@ async function createNewBooking(event) {
     const reason = String(error.message || '');
     const connectionError = !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch/i.test(reason);
     if (connectionError) recordConnectionEvent('error', 'Создание записи: связь прервалась');
+    if (connectionError) submittedForm.dataset.creationUncertain = 'true';
     const message = connectionError
-      ? 'Связь прервалась. Данные остались в форме — подключитесь и нажмите «Создать запись» ещё раз.'
+      ? 'Связь прервалась: создание не подтверждено. Данные остались в форме. Подключитесь и проверьте журнал перед повторным созданием.'
       : reason.includes('slot_unavailable') || reason.includes('booking_buffer_conflict')
       ? (reason.includes('booking_buffer_conflict') ? 'Это время попадает в перерыв до или после другой записи. Выберите другое.' : 'Это время уже занято. Выберите другое.')
       : reason.includes('service_unavailable')
@@ -8179,22 +8292,26 @@ async function createNewBooking(event) {
     return;
   }
   let createdBooking = null;
-  if (!block && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
+  if (block || (Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1)) {
     const refreshed = await loadBookings({ silent:true });
-    createdBooking = refreshed?.ok ? [...allBookings].reverse().find(item => item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone)) : null;
+    const createdId = bookingIdFromRpcResult(bookingRpcResult);
+    createdBooking = refreshed?.ok ? [...allBookings].reverse().find(item => (createdId ? item.id === createdId : !bookingIdsBeforeCreate.has(item.id)) && item.status !== 'cancelled' && item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone)) : null;
     if (!createdBooking) {
+      submittedForm.dataset.creationUncertain = 'true';
       button.disabled = false;
       button.textContent = 'Создать запись';
       showFormError('#newBookingError', 'Запись создана, но точную длительность не удалось подтвердить. Обновите записи и проверьте её.');
       return;
     }
-    const adjusted = await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
+    const blockUpdate = block ? await updateBookingAtExpectedState(createdBooking, { duration_minutes:durationMinutes }, userId) : null;
+    const adjusted = block ? { ok:!blockUpdate.error, error:blockUpdate.error } : await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
     if (!adjusted.ok) {
-      await rollbackCreatedBookings([createdBooking.id]);
+      const rollback = await rollbackCreatedBookings([createdBooking.id]);
       await loadBookings({ silent:true });
       button.disabled = false;
       button.textContent = 'Создать запись';
-      showFormError('#newBookingError', 'Окно не вмещает выбранную длительность. Запись не создана — выберите другое время или длительность.');
+      if (!rollback.ok) submittedForm.dataset.creationUncertain = 'true';
+      showFormError('#newBookingError', rollback.ok ? 'Окно не вмещает выбранную длительность. Созданная запись удалена — выберите другое время или длительность.' : 'Не удалось подтвердить удаление записи после ошибки длительности. Проверьте журнал перед повторным созданием.');
       await loadNewBookingSlots();
       return;
     }
@@ -8954,8 +9071,9 @@ async function loadRepeatSlots() {
   if (!service || !date) { $('#repeatTimes').innerHTML = '<span>Выберите услугу и дату</span>'; return; }
   $('#repeatTimes').innerHTML = '<span>Ищем свободное время…</span>';
   const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date });
-  if (error || !data?.length) { $('#repeatTimes').innerHTML = '<span>На эту дату свободного времени нет</span>'; return; }
-  $('#repeatTimes').innerHTML = data.map(item => `<button type="button" data-repeat-time="${String(item.booking_time).slice(0,5)}">${String(item.booking_time).slice(0,5)}</button>`).join('');
+  const times = (data || []).map(item => String(item.booking_time).slice(0,5)).filter(time => !bookingMoveTimeIsPast(date, time));
+  if (error || !times.length) { $('#repeatTimes').innerHTML = `<span>${error ? 'Не удалось загрузить время. Выберите дату ещё раз.' : 'На эту дату свободного времени нет'}</span>`; return; }
+  $('#repeatTimes').innerHTML = times.map(time => `<button type="button" data-repeat-time="${time}">${time}</button>`).join('');
 }
 
 async function loadClientNotes() {
@@ -9485,7 +9603,7 @@ function updateOutcomeMinuteCalculation() {
   const total = minutes * rate;
   output.textContent = minutes ? `${minutes} × ${money(rate)} = ${money(total)}` : `Укажите минуты · ${money(rate)}/мин`;
   const amount = $('#outcomeAmount');
-  if (amount) amount.value = String(total);
+  if (amount) amount.value = $('#outcomePaymentMethod')?.value === 'unpaid' ? '0' : String(total);
 }
 
 function toggleOutcomePaymentFields() {
@@ -9494,7 +9612,14 @@ function toggleOutcomePaymentFields() {
   const completed = $('#outcomeVisitStatus').value === 'completed';
   $('#outcomePaymentFields').hidden = !completed;
   $('#outcomePaymentMethod').disabled = !completed;
-  $('#outcomeAmount').disabled = !completed;
+  const unpaid = $('#outcomePaymentMethod').value === 'unpaid';
+  $('#outcomeAmount').disabled = !completed || unpaid;
+  if (unpaid) $('#outcomeAmount').value = '0';
+  const amountLabel = $('#outcomeAmount').closest('label');
+  if (amountLabel) amountLabel.hidden = unpaid;
+  let hint = $('#outcomePaymentHint');
+  if (!hint) { hint = document.createElement('p'); hint.id = 'outcomePaymentHint'; hint.className = 'booking-outcome-payment-hint'; $('#outcomePaymentFields').append(hint); }
+  hint.textContent = unpaid ? 'Получено 0 ₽. Стоимость визита останется в задолженности до оплаты.' : 'Укажите фактически полученную сумму. Это учёт оплаты, а не списание денег с карты.';
   if ($('#outcomeActualMinutes')) $('#outcomeActualMinutes').disabled = !completed;
 }
 
@@ -9545,10 +9670,20 @@ async function saveBookingOutcome(event) {
   button.textContent = 'Сохраняем…';
   const result = await persistBookingOutcome(record);
   if (!sessionIsCurrent(userId, generation)) return;
+  const previousOutcome = bookingOutcomes.get(item.id);
   bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
-  writeLocalOutcomes();
+  const locallySaved = writeLocalOutcomes();
   button.disabled = false;
   button.textContent = 'Сохранить результат';
+  if (!result.ok && !locallySaved) {
+    if (previousOutcome) bookingOutcomes.set(item.id, previousOutcome); else bookingOutcomes.delete(item.id);
+    let error = form.querySelector('[data-outcome-save-error]');
+    if (!error) { error = document.createElement('p'); error.dataset.outcomeSaveError = ''; error.className = 'form-error'; error.setAttribute('role', 'alert'); form.append(error); }
+    error.hidden = false;
+    error.textContent = 'Не удалось подтвердить сохранение на сервере или устройстве. Данные остались в форме — не закрывайте её и повторите после восстановления связи.';
+    notify('Результат не сохранён. Данные остались в форме.');
+    return;
+  }
   notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
@@ -10040,6 +10175,8 @@ async function handleSession(session) {
     waitlistRemoteAvailable = false;
     ownServices = [];
     portfolioItems = [];
+    providerReviews = [];
+    providerReviewsState = 'idle';
     portfolioRemoteAvailable = false;
     scheduleRows = [];
     daysOff = [];
@@ -10101,7 +10238,10 @@ async function handleSession(session) {
     user: currentUser,
     hasServices: ownServices.length > 0,
     refresh: synchronizeProvider,
-    onComplete: () => setProviderView('bookings', { historyMode:'replace', focusHeading:true })
+    onComplete: () => {
+      restoreDefaultScheduleView();
+      setProviderView('bookings', { historyMode:'replace', focusHeading:true });
+    }
   });
   if (navigator.onLine && bookingCreationReady) await flushOfflineBookings();
   if (!sessionIsCurrent(userId, generation)) return;
@@ -10123,6 +10263,10 @@ function renderProviderSocialState() {
   const auth = window.MinutaSocialAuth;
   if (!auth) return;
   auth.render(document);
+  const loginButtons = $$('#loginForm [data-social-auth-login]');
+  loginButtons.forEach(button => { button.hidden = button.disabled; });
+  const available = loginButtons.some(button => !button.hidden);
+  $('#providerSocialOptions').hidden = !available;
   $$('[data-social-auth-link]').forEach(button => {
     const linked = Boolean(currentUser) && auth.isLinked(currentUser, button.dataset.socialAuthProvider);
     button.classList.toggle('is-linked', linked);
@@ -10284,12 +10428,14 @@ async function initializePhoneAuth() {
   const loginButton = $('#showPhoneLoginButton');
   const linkButton = $('#providerPhoneLinkSubmit');
   if (!window.MinutaPhoneAuth) {
+    $('#providerPhoneOptions').hidden = true;
     loginButton.textContent = 'Вход по SMS недоступен';
     linkButton.textContent = 'SMS недоступны';
     return;
   }
   const capability = await window.MinutaPhoneAuth.capability();
   loginButton.disabled = !capability.enabled;
+  $('#providerPhoneOptions').hidden = !capability.enabled;
   loginButton.textContent = capability.enabled ? 'Войти по телефону' : 'Вход по SMS пока не подключён';
   linkButton.disabled = !capability.enabled;
   linkButton.textContent = capability.enabled ? (currentUser?.phone ? 'Изменить телефон' : 'Привязать телефон') : 'SMS пока не подключены';
@@ -10305,16 +10451,22 @@ function initializeSocialAuth() {
   renderProviderSocialState();
 }
 
+function authConnectionFailed(error) {
+  return navigator.onLine === false || error?.name === 'AuthRetryableFetchError' || error?.status === 0 || /fetch|network|connection|offline/i.test(error?.message || '');
+}
+
 async function login(event) {
   event.preventDefault();
   clearFormError('#loginError');
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Входим…';
-  const { error } = await db.auth.signInWithPassword({ email: $('#loginEmail').value.trim(), password: $('#loginPassword').value });
+  let error;
+  try { ({ error } = await db.auth.signInWithPassword({ email: $('#loginEmail').value.trim(), password: $('#loginPassword').value })); }
+  catch (failure) { error = failure; }
   button.disabled = false;
   button.textContent = 'Войти';
-  if (error) showFormError('#loginError', 'Неверный email или пароль.');
+  if (error) showFormError('#loginError', authConnectionFailed(error) ? 'Нет связи с сервером. Проверьте интернет и попробуйте снова.' : error.code === 'invalid_credentials' || /invalid login credentials/i.test(error.message || '') ? 'Неверный email или пароль.' : error.code === 'email_not_confirmed' ? 'Подтвердите email по ссылке из письма.' : 'Не удалось войти. Повторите попытку позже.');
 }
 
 async function signup(event) {
@@ -10322,6 +10474,7 @@ async function signup(event) {
   clearFormError('#signupError');
   const name = $('#signupName').value.trim();
   if (name.length < 2) { showFormError('#signupError', 'Укажите имя исполнителя.'); return; }
+  if ($('#signupPassword').value.length < 8) { showFormError('#signupError', 'Пароль должен содержать не менее 8 символов.'); return; }
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Создаём…';
@@ -10354,14 +10507,15 @@ async function requestPasswordReset(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Отправляем…';
-  const { error } = await db.auth.resetPasswordForEmail(email, {
+  let error;
+  try { ({ error } = await db.auth.resetPasswordForEmail(email, {
     redirectTo: new URL('provider.html', location.href).href
-  });
+  })); } catch (failure) { error = failure; }
   button.disabled = false;
   button.textContent = 'Отправить ссылку';
   if (error) {
     const limited = error?.status === 429 || /rate|limit|security purposes/i.test(`${error?.message || ''}`);
-    showFormError('#recoveryError', limited ? 'Слишком много запросов. Подождите минуту и попробуйте снова.' : 'Не удалось отправить письмо. Проверьте адрес и попробуйте снова.');
+    showFormError('#recoveryError', authConnectionFailed(error) ? 'Нет связи с сервером. Проверьте интернет и отправьте запрос снова.' : limited ? 'Слишком много запросов. Подождите минуту и попробуйте снова.' : 'Не удалось отправить письмо. Проверьте адрес и попробуйте снова.');
     return;
   }
   showRecoverySent();
@@ -10370,6 +10524,7 @@ async function requestPasswordReset(event) {
 async function completePasswordRecovery(event) {
   event.preventDefault();
   clearFormError('#resetPasswordError');
+  if (!recoverySessionVerified) { showRecoveryRequest(); showFormError('#recoveryError', 'Сначала откройте действующую ссылку из письма.'); return; }
   const password = $('#recoveryNewPassword').value;
   const confirmation = $('#recoveryConfirmPassword').value;
   if (password.length < 8) {
@@ -10383,11 +10538,13 @@ async function completePasswordRecovery(event) {
   const button = event.submitter;
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  const { error } = await db.auth.updateUser({ password });
+  let error;
+  try { ({ error } = await db.auth.updateUser({ password })); }
+  catch (failure) { error = failure; }
   button.disabled = false;
   button.textContent = 'Сохранить новый пароль';
   if (error) {
-    showFormError('#resetPasswordError', 'Ссылка устарела или пароль не удалось сохранить. Запросите новое письмо.');
+    showFormError('#resetPasswordError', authConnectionFailed(error) ? 'Сохранение не подтверждено: нет связи с сервером. Поля сохранены — подключитесь к интернету и повторите.' : 'Ссылка устарела или пароль не удалось сохранить. Запросите новое письмо.');
     return;
   }
   recoveryMode = false;
@@ -10983,6 +11140,7 @@ async function loadPortfolio() {
   if (!sessionIsCurrent(userId, generation)) return { ok: false, optional: true, stale: true };
   portfolioItems = (items || []).map(item => ({ ...item, photos: signedPhotos.filter(photo => photo.portfolio_item_id === item.id) }));
   portfolioRemoteAvailable = true;
+  delete $('#portfolioForm').dataset.saveUncertain;
   renderPortfolio();
   return { ok: true, optional: true };
 }
@@ -10990,12 +11148,14 @@ async function loadPortfolio() {
 function renderProviderReviews() {
   const list = $('#providerReviewsList');
   if (!list) return;
-  $('#providerReviewsCount').textContent = `${providerReviews.length} ${portfolioCountLabel(providerReviews.length, 'отзыв', 'отзыва', 'отзывов')}`;
+  $('#providerReviewsCount').textContent = providerReviewsState === 'error' && !providerReviews.length ? 'Не загружены' : `${providerReviews.length} ${portfolioCountLabel(providerReviews.length, 'отзыв', 'отзыва', 'отзывов')}`;
+  const failure = providerReviewsState === 'error' ? `<div class="provider-empty" role="status"><strong>Не удалось загрузить отзывы</strong><small>${providerReviews.length ? 'Показана последняя загруженная версия. Она может быть устаревшей.' : 'Проверьте соединение и повторите загрузку.'}</small><button type="button" class="secondary-button" data-retry-provider-reviews>Повторить</button></div>` : '';
+  if (failure && !providerReviews.length) { list.innerHTML = failure; return; }
   if (!providerReviews.length) {
     list.innerHTML = `<div class="provider-empty portfolio-empty-state provider-review-empty-state"><span class="provider-empty-icon">${uiIcon('spark')}</span><strong>Получите первый отзыв</strong><small>После завершённого визита клиент сможет поставить оценку в разделе «Мои записи». Отзыв публикуется только под вашим контролем.</small><div class="portfolio-empty-actions"><a class="primary compact-button" href="my-bookings.html" target="_blank" rel="noopener noreferrer">Открыть «Мои записи»</a></div></div>`;
     return;
   }
-  list.innerHTML = providerReviews.map(review => {
+  list.innerHTML = failure + providerReviews.map(review => {
     const rating = Math.max(1, Math.min(5, Number(review.rating) || 1));
     const created = new Date(review.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
     return `<article class="provider-review-card ${review.published ? '' : 'unpublished'}">
@@ -11011,9 +11171,12 @@ async function loadProviderReviews() {
   const userId = currentUser?.id;
   const generation = sessionGeneration;
   if (!userId) return { ok:false, optional:true };
-  const { data, error } = await db.rpc('get_provider_booking_reviews');
+  let data, error;
+  try { ({ data, error } = await db.rpc('get_provider_booking_reviews')); }
+  catch (failure) { error = failure; }
   if (!sessionIsCurrent(userId, generation)) return { ok:false, optional:true, stale:true };
-  providerReviews = error ? [] : (data || []);
+  providerReviewsState = error ? 'error' : 'ready';
+  if (!error) providerReviews = data || [];
   renderProviderReviews();
   return { ok:!error, optional:true };
 }
@@ -11125,23 +11288,36 @@ function createPortfolioPhotoId() {
 }
 
 async function savePortfolioPhoto(item, type, file, procedure, area, sessions) {
-  if (!file) return;
+  if (!file) return null;
   const prepared = await preparePortfolioImage(file);
   const photoId = createPortfolioPhotoId();
   const path = `${currentUser.id}/${item.id}/${photoId}.webp`;
   const { error: uploadError } = await db.storage.from(PORTFOLIO_BUCKET).upload(path, prepared.blob, { contentType: 'image/webp', cacheControl: '31536000', upsert: false });
   if (uploadError) throw uploadError;
-  const existing = portfolioPhoto(item, type);
   const label = type === 'before' ? 'до процедуры' : sessions ? `после ${sessions} ${portfolioAfterSessionWord(sessions)}` : 'после процедуры';
-  const record = { performer_id: currentUser.id, portfolio_item_id: item.id, photo_type: type, storage_path: path, alt_text: `${procedure}${area ? `, ${area}` : ''} — ${label}`, width: prepared.width, height: prepared.height };
-  const result = existing
-    ? await db.from('portfolio_photos').update(record).eq('id', existing.id).eq('performer_id', currentUser.id)
-    : await db.from('portfolio_photos').insert(record);
-  if (result.error) {
-    await db.storage.from(PORTFOLIO_BUCKET).remove([path]);
-    throw result.error;
-  }
-  if (existing?.storage_path) await db.storage.from(PORTFOLIO_BUCKET).remove([existing.storage_path]);
+  return { photo_type: type, storage_path: path, alt_text: `${procedure}${area ? `, ${area}` : ''} — ${label}`.slice(0, 240), width: prepared.width, height: prepared.height };
+}
+
+async function removePortfolioStorage(paths) {
+  if (!paths.length) return true;
+  try {
+    const { error } = await db.storage.from(PORTFOLIO_BUCKET).remove(paths);
+    return !error;
+  } catch { return false; }
+}
+
+async function verifyPortfolioSave(itemId, metadata, stagedPhotos, userId) {
+  try {
+    const [itemResult, photosResult] = await Promise.all([
+      db.from('portfolio_items').select('*').eq('id', itemId).eq('performer_id', userId).maybeSingle(),
+      db.from('portfolio_photos').select('photo_type,storage_path').eq('portfolio_item_id', itemId).eq('performer_id', userId)
+    ]);
+    if (itemResult.error || photosResult.error || !itemResult.data) return false;
+    const item = itemResult.data;
+    return ['procedure_name', 'body_area', 'session_count', 'description', 'published'].every(key => item[key] === metadata[key])
+      && Boolean(item.consent_confirmed_at) === Boolean(metadata.consent_confirmed_at)
+      && stagedPhotos.every(photo => photosResult.data?.some(saved => saved.photo_type === photo.photo_type && saved.storage_path === photo.storage_path));
+  } catch { return false; }
 }
 
 async function savePortfolioItem(event) {
@@ -11162,36 +11338,49 @@ async function savePortfolioItem(event) {
   if (!hasPhoto) { showFormError('#portfolioError', 'Добавьте хотя бы одну фотографию работы.'); return; }
   if (published && !consent) { showFormError('#portfolioError', 'Для публикации подтвердите согласие клиента.'); return; }
   const button = event.submitter;
+  const form = event.currentTarget;
+  if (form.dataset.saveUncertain) { showFormError('#portfolioError', 'Результат предыдущего сохранения пока не подтверждён. Закройте форму и обновите портфолио перед повтором.'); return; }
   button.disabled = true;
   button.textContent = 'Сохраняем…';
-  let createdItemId = '';
+  const stagedPhotos = [];
+  let metadataSubmitted = false;
+  let metadataConfirmed = false;
+  let retiredPaths = [];
+  const item = existing || { id: createPortfolioPhotoId(), photos: [] };
+  const nextOrder = portfolioItems.reduce((max, entry) => Math.max(max, Number(entry.sort_order) || 0), 0) + 10;
+  const metadata = { procedure_name: procedure, body_area: area, session_count: sessions, description, sort_order: existing?.sort_order ?? nextOrder, published, consent_confirmed_at: consent ? item.consent_confirmed_at || new Date().toISOString() : null };
   try {
-    let item = existing;
-    if (!item) {
-      const nextOrder = portfolioItems.reduce((max, entry) => Math.max(max, Number(entry.sort_order) || 0), 0) + 10;
-      const { data, error } = await db.from('portfolio_items').insert({ performer_id: currentUser.id, procedure_name: procedure, body_area: area, session_count: sessions, description, sort_order: nextOrder, published: false, consent_confirmed_at: consent ? new Date().toISOString() : null }).select().single();
-      if (error) throw error;
-      item = { ...data, photos: [] };
-      createdItemId = item.id;
+    for (const type of ['before', 'after']) {
+      const staged = await savePortfolioPhoto(item, type, portfolioPhotoDrafts[type], procedure, area, sessions);
+      if (staged) stagedPhotos.push(staged);
     }
-    await savePortfolioPhoto(item, 'before', portfolioPhotoDrafts.before, procedure, area, sessions);
-    await savePortfolioPhoto(item, 'after', portfolioPhotoDrafts.after, procedure, area, sessions);
-    const consentAt = consent ? item.consent_confirmed_at || new Date().toISOString() : null;
-    const { error } = await db.from('portfolio_items').update({ procedure_name: procedure, body_area: area, session_count: sessions, description, published, consent_confirmed_at: consentAt }).eq('id', item.id).eq('performer_id', currentUser.id);
-    if (error) throw error;
+    metadataSubmitted = true;
+    let data, error;
+    try { ({ data, error } = await db.rpc('save_provider_portfolio_item', { p_item_id: item.id, p_expected_updated_at: existing?.updated_at || null, p_item: metadata, p_photos: stagedPhotos })); }
+    catch (failure) { error = failure; }
+    const rpcConfirmed = !error && data?.ok === true && data.item_id === item.id;
+    metadataConfirmed = rpcConfirmed;
+    if (rpcConfirmed && Array.isArray(data.retired_paths)) {
+      retiredPaths = data.retired_paths.filter(path => typeof path === 'string' && path);
+    }
+    if (!metadataConfirmed) {
+      metadataConfirmed = await verifyPortfolioSave(item.id, metadata, stagedPhotos, currentUser.id);
+      if (!metadataConfirmed) {
+        // A database rejection rolls back the entire transaction. A lost reply does not prove rejection.
+        if (['23514', '23505', '42501', 'P0001', 'PGRST202', 'PGRST203', 'PGRST204', '22023', '40001'].includes(error?.code)) metadataSubmitted = false;
+        throw error || new Error('portfolio_save_unconfirmed');
+      }
+    }
+    const cleaned = await removePortfolioStorage(retiredPaths);
     closePortfolioEditor();
     await loadPortfolio();
-    notify(published ? 'Работа опубликована' : 'Работа сохранена');
+    notify(!cleaned ? 'Работа сохранена. Старые файлы пока не удалены из хранилища.' : published ? 'Работа опубликована' : 'Работа сохранена');
   } catch (error) {
-    if (createdItemId) {
-      const { data: createdPhotos } = await db.from('portfolio_photos').select('storage_path').eq('portfolio_item_id', createdItemId).eq('performer_id', currentUser.id);
-      const paths = (createdPhotos || []).map(photo => photo.storage_path).filter(Boolean);
-      if (paths.length) await db.storage.from(PORTFOLIO_BUCKET).remove(paths);
-      await db.from('portfolio_items').delete().eq('id', createdItemId).eq('performer_id', currentUser.id);
-    } else if (existing) {
-      await loadPortfolio();
-    }
-    const message = error?.message === 'image_too_large' ? 'После обработки фотография всё ещё слишком большая.' : 'Не удалось сохранить работу. Проверьте соединение и попробуйте снова.';
+    if (metadataConfirmed) { notify('Работа сохранена, но список не обновился. Обновите портфолио.'); return; }
+    const uncertain = metadataSubmitted && !metadataConfirmed;
+    if (uncertain) form.dataset.saveUncertain = 'true';
+    const cleaned = uncertain ? false : await removePortfolioStorage(stagedPhotos.map(photo => photo.storage_path));
+    const message = uncertain ? 'Не удалось подтвердить сохранение. Фотографии сохранены в хранилище без удаления исходных. Обновите портфолио и проверьте работу перед повтором.' : error?.message === 'image_too_large' ? 'После обработки фотография всё ещё слишком большая.' : error?.code === 'PGRST202' ? 'Безопасное сохранение ещё не установлено на сервере. Работа не изменена. Повторите после обновления.' : `Не удалось сохранить работу. Исходные фотографии не удалены.${cleaned ? ' Проверьте данные и повторите.' : ' Неиспользуемые новые файлы пока остались в хранилище.'}`;
     showFormError('#portfolioError', message);
   } finally {
     button.disabled = false;
@@ -11204,13 +11393,18 @@ async function deletePortfolioItem(id) {
   const item = portfolioItems.find(entry => entry.id === id);
   if (!item || !confirm('Удалить эту работу и связанные фотографии?')) return;
   const paths = (item.photos || []).map(photo => photo.storage_path).filter(Boolean);
-  if (paths.length) {
-    const { error } = await db.storage.from(PORTFOLIO_BUCKET).remove(paths);
-    if (error) { notify('Не удалось удалить фотографии'); return; }
-  }
-  const { error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', currentUser.id);
-  if (error) { notify('Не удалось удалить работу'); return; }
-  notify('Работа удалена');
+  let deleted = false;
+  try {
+    const { data, error } = await db.from('portfolio_items').delete().eq('id', id).eq('performer_id', currentUser.id).select('id');
+    deleted = !error && data?.length === 1 && data[0].id === id;
+    if (!deleted) {
+      const check = await db.from('portfolio_items').select('id').eq('id', id).eq('performer_id', currentUser.id).maybeSingle();
+      deleted = !check.error && !check.data;
+    }
+  } catch { /* Keep Storage intact until removal from the catalog is confirmed. */ }
+  if (!deleted) { notify('Удаление не подтверждено. Исходные фотографии не удалены. Обновите портфолио и повторите.'); return; }
+  const cleaned = await removePortfolioStorage(paths);
+  notify(cleaned ? 'Работа удалена' : 'Работа удалена из портфолио. Файлы пока остались в хранилище — очистка не подтверждена.');
   await loadPortfolio();
 }
 
@@ -11552,6 +11746,12 @@ document.addEventListener('pointercancel', event => {
 });
 
 document.addEventListener('click', async event => {
+  if (event.target.closest('[data-retry-provider-reviews]')) {
+    const retry = event.target.closest('[data-retry-provider-reviews]');
+    retry.disabled = true;
+    await loadProviderReviews();
+    return;
+  }
   if (Date.now() < gestureClickSuppressedUntil && event.target.closest('[data-open-booking],[data-create-booking-at],[data-booking-date]')) {
     event.preventDefault();
     event.stopPropagation();
@@ -11768,14 +11968,14 @@ document.addEventListener('click', async event => {
     setTimeout(renderNotifications, 0);
   }
   if (sentNotification) {
-    await setNotificationMark(sentNotification.dataset.sentNotification, 'sent');
+    const saved = await setNotificationMark(sentNotification.dataset.sentNotification, 'sent');
     renderNotifications();
-    notify('Уведомление отмечено отправленным');
+    notify(saved ? 'Уведомление отмечено отправленным' : 'Отметка не сохранена. Проверьте соединение и повторите.');
   }
   if (restoreNotification) {
-    await setNotificationMark(restoreNotification.dataset.restoreNotification, '');
+    const saved = await setNotificationMark(restoreNotification.dataset.restoreNotification, '');
     renderNotifications();
-    notify('Уведомление возвращено в очередь');
+    notify(saved ? 'Уведомление возвращено в очередь' : 'Не удалось вернуть уведомление в очередь. Проверьте соединение и повторите.');
   }
   if (retryOutboxNotification) await retryAutomaticNotification(retryOutboxNotification.dataset.retryNotificationOutbox, retryOutboxNotification);
   if (filter) setFilter(filter.dataset.filter);
@@ -11825,7 +12025,7 @@ document.addEventListener('click', async event => {
   if (backBooking) openBookingSheet(backBooking.dataset.backBooking);
   if (editTime) {
     bookingEditTime = editTime.dataset.editBookingTime;
-    $$('[data-edit-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.editBookingTime === bookingEditTime));
+    updateBookingMovePreview();
   }
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;
@@ -13300,7 +13500,7 @@ refreshSectionNavigation();
 refreshInstallAppCard();
 prepareProviderViewBeforeSession();
 db.auth.getSession().then(({ data, error }) => {
-  if (error) { showProviderStartupFailure(); return; }
+  if (error) { if (recoveryMode) return showRecoveryReset(); showProviderStartupFailure(); return; }
   return recoveryMode ? showRecoveryReset() : handleSession(data.session);
 }).catch(() => {
   if (document.documentElement.classList.contains('provider-booting')) showProviderStartupFailure();
