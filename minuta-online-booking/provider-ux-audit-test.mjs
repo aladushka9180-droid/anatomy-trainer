@@ -36,7 +36,7 @@ const end = provider.indexOf('\nfunction refreshSectionNavigation', start);
 const frameCallbacks = [];
 const buttons = [{ dataset:{sectionTarget:'first'}, classList:{toggle(){}},setAttribute(){},removeAttribute(){} }, { dataset:{sectionTarget:'last'}, classList:{toggle(){}},setAttribute(){},removeAttribute(){},getBoundingClientRect:()=>({left:600,right:700,width:100}) }];
 const nav = {clientWidth:300,scrollLeft:0,querySelectorAll:()=>buttons,getBoundingClientRect:()=>({left:0,right:300})};
-const run = new Function('preferredProviderSectionTarget','rememberedProviderSection','providerSectionElements','setProviderSectionElementVisible','syncProviderSectionSelector','requestAnimationFrame',`${provider.slice(start,end)}; return refreshProviderSectionDisclosure;`)(()=>buttons[1],()=>'',()=>[],()=>{},()=>{},cb=>frameCallbacks.push(cb));
+const run = new Function('preferredProviderSectionTarget','rememberedProviderSection','providerSectionElements','setProviderSectionElementVisible','syncProviderSectionSelector','activateOrganizationSectionFeature','document','requestAnimationFrame',`${provider.slice(start,end)}; return refreshProviderSectionDisclosure;`)(()=>buttons[1],()=>'',()=>[],()=>{},()=>{},()=>{},{ getElementById:()=>null },cb=>frameCallbacks.push(cb));
 run(nav);
 frameCallbacks.forEach(cb=>cb());
 assert.equal(nav.scrollLeft,500,'Restored section is centred within its own strip without scrolling the page');
