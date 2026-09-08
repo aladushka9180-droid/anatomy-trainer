@@ -50,7 +50,7 @@ try {
   await page.evaluate(`(() => {
     const freeSlotsController=window.controller;
     let activeClientOrganizationId='';
-    let bookingSeriesCancellationRevision=0, bookingEditorRevision=0, bookingMetadataRevision=0;
+    let bookingSeriesCancellationRevision=0, bookingEditorRevision=0, bookingMetadataRevision=0, portfolioEditorRevision=0;
     ${orgHook}
   })()`);
   const beforeSync=await text();

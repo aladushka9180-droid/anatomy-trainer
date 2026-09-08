@@ -33,7 +33,7 @@ const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots'
   'bookingColorStorageKey', 'bookingColorPendingStorageKey', 'bookingNoteStorageKey', 'bookingNotePendingStorageKey'];
 const colorConstants = source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(colorConstants, 'Use actual color-control definitions');
-const lifecycle = ['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision'].map(name => {
+const lifecycle = ['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name => {
   const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
   assert.ok(declaration, `Actual lifecycle declaration: ${name}`);
   return declaration;

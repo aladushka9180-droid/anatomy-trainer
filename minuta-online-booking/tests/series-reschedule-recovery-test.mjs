@@ -18,7 +18,7 @@ const realController = between('async function updateBookingAtExpectedState(', '
   + between('function seriesRpcErrorMessage(', 'function stackMinuteTimelineItems(')
   + source.match(/^function sessionIsCurrent[^\n]+/m)[0];
 const metadataDependencies = between('function captureBookingMetadataContext(', '// Local completion ownership');
-const lifecycleDeclarations = ['bookingEditorRevision', 'bookingSeriesCancellationRevision', 'bookingMetadataRevision']
+const lifecycleDeclarations = ['bookingEditorRevision', 'bookingSeriesCancellationRevision', 'bookingMetadataRevision', 'portfolioEditorRevision']
   .map(name => {
     const declaration = source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0];
     assert.ok(declaration, `Actual lifecycle declaration: ${name}`);

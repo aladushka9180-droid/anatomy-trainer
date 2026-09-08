@@ -24,7 +24,7 @@ const functions=['openNewBookingSheet','createNewBooking','closeBookingSheet','s
   'saveBookingColor','persistBookingColors','bookingColorStorageKey','bookingColorPendingStorageKey','requireBookingWrites','sessionIsCurrent','captureBookingMetadataContext',
   'showFormError','clearFormError'];
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];assert.ok(constants);
-const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision'].map(name=>{
+const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name=>{
   const value=source.match(new RegExp(`^let ${name} = .*;$`,'m'))?.[0];assert.ok(value,`Actual ${name}`);return value;
 }).join('\n');
 const operations=source.match(/^const bookingColorOperations = .*;$/m)?.[0]||'';if(operations)functions.push('beginBookingColorOperation');
