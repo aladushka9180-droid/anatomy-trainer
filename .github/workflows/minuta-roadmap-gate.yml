@@ -1,0 +1,125 @@
+name: PrimeTime Pro roadmap read-only gate
+
+on:
+  push:
+    paths:
+      - ".github/workflows/minuta-roadmap-gate.yml"
+      - "minuta-online-booking/PRIMETIME_PRO_ROADMAP.md"
+      - "minuta-online-booking/ROADMAP_AUTOMATION.md"
+      - "minuta-online-booking/roadmap/**"
+      - "minuta-online-booking/scripts/primetime-roadmap.mjs"
+  pull_request:
+    paths:
+      - ".github/workflows/minuta-roadmap-gate.yml"
+      - "minuta-online-booking/PRIMETIME_PRO_ROADMAP.md"
+      - "minuta-online-booking/ROADMAP_AUTOMATION.md"
+      - "minuta-online-booking/roadmap/**"
+      - "minuta-online-booking/scripts/primetime-roadmap.mjs"
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Read-only roadmap command
+        required: true
+        default: validate
+        type: choice
+        options:
+          - validate
+          - next
+          - verify-transition
+      commit_sha:
+        description: Exact 40-character SHA of the current main commit
+        required: true
+        type: string
+      before_sha:
+        description: Ancestor SHA containing the previous status (verify-transition only)
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: primetime-roadmap-readonly-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  roadmap-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ROADMAP_PLAN: minuta-online-booking/roadmap/plan.json
+      ROADMAP_STATUS: minuta-online-booking/roadmap/status.json
+      ROADMAP_RUNNER: minuta-online-booking/scripts/primetime-roadmap.mjs
+    steps:
+      - name: Check out the reviewed revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Pin a manual run to the exact current main commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$INPUT_SHA"
+          test "$(git rev-parse HEAD)" = "$INPUT_SHA"
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          test "$current_main" = "$INPUT_SHA"
+
+      - name: Validate roadmap
+        if: github.event_name != 'workflow_dispatch' || inputs.command == 'validate'
+        run: node "$ROADMAP_RUNNER" validate "$ROADMAP_PLAN" "$ROADMAP_STATUS"
+
+      - name: Resolve next roadmap item
+        if: github.event_name != 'workflow_dispatch' || inputs.command == 'next'
+        run: node "$ROADMAP_RUNNER" next "$ROADMAP_PLAN" "$ROADMAP_STATUS"
+
+      - name: Verify roadmap transition on push or pull request
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          BEFORE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous="$RUNNER_TEMP/primetime-roadmap-before.json"
+          if ! [[ "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]] || \
+             test "$BEFORE_SHA" = 0000000000000000000000000000000000000000 || \
+             ! git cat-file -e "$BEFORE_SHA:$ROADMAP_STATUS" 2>/dev/null; then
+            echo "Bootstrap state: no previous roadmap status; validate/next are sufficient."
+            exit 0
+          fi
+          git show "$BEFORE_SHA:$ROADMAP_STATUS" > "$previous"
+          if cmp -s "$previous" "$ROADMAP_STATUS"; then
+            echo "Roadmap status is unchanged; there is no transition to verify."
+            exit 0
+          fi
+          node "$ROADMAP_RUNNER" verify-transition "$ROADMAP_PLAN" "$previous" "$ROADMAP_STATUS"
+
+      - name: Verify a requested roadmap transition
+        if: github.event_name == 'workflow_dispatch' && inputs.command == 'verify-transition'
+        env:
+          BEFORE_SHA: ${{ inputs.before_sha }}
+          CURRENT_SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BEFORE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$BEFORE_SHA" != "$CURRENT_SHA"
+          git merge-base --is-ancestor "$BEFORE_SHA" "$CURRENT_SHA"
+          git cat-file -e "$BEFORE_SHA:$ROADMAP_STATUS"
+          previous="$RUNNER_TEMP/primetime-roadmap-before.json"
+          git show "$BEFORE_SHA:$ROADMAP_STATUS" > "$previous"
+          node "$ROADMAP_RUNNER" verify-transition "$ROADMAP_PLAN" "$previous" "$ROADMAP_STATUS"

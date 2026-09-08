@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "planVersion": "2026-09-08.1",
+  "updatedAt": "2026-09-08T00:00:00Z",
+  "items": {
+    "D01": {
+      "status": "awaiting_external",
+      "evidence": {},
+      "blocker": {
+        "type": "secret",
+        "reason": "Production Edge Functions и секреты тестового магазина ЮKassa ещё не подключены.",
+        "requiredAction": "Добавить секреты через защищённые интерфейсы; перед реальным платежом и возвратом получить отдельное подтверждение пользователя."
+      }
+    },
+    "D02": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D03": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D04": {
+      "status": "awaiting_external",
+      "evidence": {},
+      "blocker": {
+        "type": "device",
+        "reason": "Физические Android и iPhone не подключены к тестовому контуру.",
+        "requiredAction": "Подключить реальные устройства и вручную выполнить сценарии установки, сети, Push, камеры и загрузки."
+      }
+    },
+    "D05": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D06": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D07": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D08": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D09": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D10": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D11": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D12": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D13": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D14": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D15": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D16": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D17": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D18": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D19": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D20": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D21": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D22": { "status": "implementing", "evidence": {}, "blocker": null }
+  }
+}

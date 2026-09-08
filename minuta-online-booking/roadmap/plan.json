@@ -1,0 +1,325 @@
+{
+  "schemaVersion": 1,
+  "product": "PrimeTime Pro",
+  "version": "2026-09-08.1",
+  "statusValues": [
+    "not_started",
+    "implementing",
+    "awaiting_external",
+    "awaiting_human",
+    "verifying",
+    "done",
+    "failed"
+  ],
+  "stages": [
+    {
+      "id": "stage-0",
+      "order": 0,
+      "title": "Обязательная production-готовность",
+      "requiresAll": true,
+      "advanceOnlyWhenComplete": true
+    },
+    {
+      "id": "stage-1",
+      "order": 1,
+      "title": "Функциональное равенство",
+      "requiresAll": true,
+      "advanceOnlyWhenComplete": true
+    },
+    {
+      "id": "stage-2",
+      "order": 2,
+      "title": "Преимущества PrimeTime Pro",
+      "requiresAll": true,
+      "advanceOnlyWhenComplete": true
+    }
+  ],
+  "items": [
+    {
+      "id": "D01",
+      "stageId": "stage-0",
+      "priority": 1,
+      "title": "Реальная ЮKassa",
+      "dependsOn": [],
+      "parallelizable": false,
+      "externalActions": ["provider_credentials", "real_financial_transaction", "merchant_activation"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "payment_edge"],
+        "requiredChecks": ["test_payment", "signed_webhook", "reconciliation", "full_refund", "partial_refund", "idempotency", "live_merchant_enabled"]
+      }
+    },
+    {
+      "id": "D02",
+      "stageId": "stage-0",
+      "priority": 2,
+      "title": "Доставка уведомлений",
+      "dependsOn": [],
+      "parallelizable": true,
+      "externalActions": ["gateway_credentials", "real_message_delivery"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "notification_delivery"],
+        "requiredChecks": ["creation", "reschedule", "cancellation", "reminder", "confirmation_request", "consent", "quiet_hours", "delivery_status", "fallback_channel"]
+      }
+    },
+    {
+      "id": "D03",
+      "stageId": "stage-0",
+      "priority": 3,
+      "title": "Полное восстановление",
+      "dependsOn": [],
+      "parallelizable": true,
+      "externalActions": ["managed_auth_storage_access"],
+      "completion": {
+        "requiredCi": ["smoke", "backup", "restore_drill"],
+        "requiredChecks": ["auth_identities", "storage_metadata", "storage_files", "isolated_restore", "no_production_write", "no_secrets_or_pii_in_journal"]
+      }
+    },
+    {
+      "id": "D04",
+      "stageId": "stage-0",
+      "priority": 4,
+      "title": "Физические устройства",
+      "dependsOn": [],
+      "parallelizable": false,
+      "externalActions": ["physical_android", "physical_iphone"],
+      "completion": {
+        "requiredCi": ["smoke", "pages"],
+        "requiredChecks": ["android_install", "android_login", "android_update", "android_offline", "android_push_background", "android_camera_upload", "iphone_install", "iphone_login", "iphone_update", "iphone_offline", "iphone_push_background", "iphone_camera_upload"]
+      }
+    },
+    {
+      "id": "D05",
+      "stageId": "stage-0",
+      "priority": 5,
+      "title": "Наблюдаемость",
+      "dependsOn": [],
+      "parallelizable": true,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "production_health"],
+        "requiredChecks": ["error_slo", "latency_slo", "delivery_queue_slo", "payment_slo", "backup_slo", "dashboard", "tested_alert", "incident_runbook"]
+      }
+    },
+    {
+      "id": "D06",
+      "stageId": "stage-1",
+      "priority": 1,
+      "title": "Единый денежный журнал",
+      "dependsOn": [],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "financial_integration"],
+        "requiredChecks": ["cash_accounts", "income", "expense", "debt", "commission", "suppliers", "reconciliation", "explainable_ledger"]
+      }
+    },
+    {
+      "id": "D07",
+      "stageId": "stage-1",
+      "priority": 2,
+      "title": "Полные зарплатные расчёты",
+      "dependsOn": ["D06"],
+      "parallelizable": true,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "payroll_integration"],
+        "requiredChecks": ["auto_accrual", "advance", "partial_payment", "debt", "bonus", "deduction", "history_preserved"]
+      }
+    },
+    {
+      "id": "D08",
+      "stageId": "stage-1",
+      "priority": 3,
+      "title": "Продажа клиентских продуктов",
+      "dependsOn": ["D06", "D01"],
+      "parallelizable": true,
+      "externalActions": ["real_financial_transaction"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "benefit_payment_integration"],
+        "requiredChecks": ["sale", "redemption", "expiration", "freeze", "refund", "ledger_reconciliation"]
+      }
+    },
+    {
+      "id": "D09",
+      "stageId": "stage-1",
+      "priority": 4,
+      "title": "Межскладское перемещение",
+      "dependsOn": [],
+      "parallelizable": true,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "inventory_integration"],
+        "requiredChecks": ["atomic_document", "paired_movements", "fifo_preserved", "cost_preserved", "failure_is_atomic"]
+      }
+    },
+    {
+      "id": "D10",
+      "stageId": "stage-1",
+      "priority": 5,
+      "title": "Виджеты и глубокие ссылки",
+      "dependsOn": [],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "widget_browser"],
+        "requiredChecks": ["embeddable_widget", "service_link", "provider_link", "branch_link", "group_link", "source_analytics"]
+      }
+    },
+    {
+      "id": "D11",
+      "stageId": "stage-1",
+      "priority": 6,
+      "title": "Карты и каналы привлечения",
+      "dependsOn": ["D10"],
+      "parallelizable": false,
+      "externalActions": ["maps_provider_account"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "acquisition_integration"],
+        "requiredChecks": ["yandex_booking", "google_booking", "conversion_attribution"]
+      }
+    },
+    {
+      "id": "D12",
+      "stageId": "stage-1",
+      "priority": 7,
+      "title": "Интеграционный контур",
+      "dependsOn": ["D11"],
+      "parallelizable": false,
+      "externalActions": ["calendar_provider_credentials"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "integration_contract"],
+        "requiredChecks": ["calendar_sync", "documented_api", "signed_webhooks", "scoped_keys", "replay_protection"]
+      }
+    },
+    {
+      "id": "D13",
+      "stageId": "stage-1",
+      "priority": 8,
+      "title": "Быстрый переход с конкурентов",
+      "dependsOn": ["D12"],
+      "parallelizable": false,
+      "externalActions": ["customer_export_file"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "import_integration"],
+        "requiredChecks": ["dikidi_import", "yclients_import", "clients", "services", "employees", "future_bookings", "balances", "conflict_report", "prepublish_rollback"]
+      }
+    },
+    {
+      "id": "D14",
+      "stageId": "stage-1",
+      "priority": 9,
+      "title": "Чаевые",
+      "dependsOn": ["D06", "D01"],
+      "parallelizable": true,
+      "externalActions": ["real_financial_transaction"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "tips_payment_integration"],
+        "requiredChecks": ["payment_link", "qr_code", "provider_distribution", "organization_distribution", "payment_status", "safe_refund", "ledger_reconciliation"]
+      }
+    },
+    {
+      "id": "D15",
+      "stageId": "stage-2",
+      "priority": 1,
+      "title": "Умное заполнение расписания",
+      "dependsOn": [],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "schedule_ranking"],
+        "requiredChecks": ["gap_aware_ranking", "explanation", "confirmation_required", "no_auto_booking"]
+      }
+    },
+    {
+      "id": "D16",
+      "stageId": "stage-2",
+      "priority": 2,
+      "title": "Автозаполнение отменившихся окон",
+      "dependsOn": ["D15"],
+      "parallelizable": false,
+      "externalActions": ["real_message_delivery"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "waitlist_race"],
+        "requiredChecks": ["ranked_candidates", "limited_offer", "single_winner", "expired_offer_safe"]
+      }
+    },
+    {
+      "id": "D17",
+      "stageId": "stage-2",
+      "priority": 3,
+      "title": "Прогноз неявки",
+      "dependsOn": ["D16"],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "no_show_evaluation"],
+        "requiredChecks": ["explainable_risk", "no_sensitive_features", "advisory_only", "reminder_or_prepayment_suggestion"]
+      }
+    },
+    {
+      "id": "D18",
+      "stageId": "stage-2",
+      "priority": 4,
+      "title": "Умный возврат клиентов",
+      "dependsOn": ["D17"],
+      "parallelizable": false,
+      "externalActions": ["real_message_delivery"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "retention_integration"],
+        "requiredChecks": ["segment", "reason", "frequency_cap", "consent", "preview", "campaign_result"]
+      }
+    },
+    {
+      "id": "D19",
+      "stageId": "stage-2",
+      "priority": 5,
+      "title": "Действенная аналитика",
+      "dependsOn": ["D18"],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "analytics_reconciliation"],
+        "requiredChecks": ["one_to_three_actions", "evidence", "fill_slot_action", "return_client_action", "cost_or_price_action"]
+      }
+    },
+    {
+      "id": "D20",
+      "stageId": "stage-2",
+      "priority": 6,
+      "title": "Настройка за 10 минут",
+      "dependsOn": ["D19"],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "onboarding_e2e"],
+        "requiredChecks": ["services", "schedule", "booking_page", "test_booking", "under_ten_minutes"]
+      }
+    },
+    {
+      "id": "D21",
+      "stageId": "stage-2",
+      "priority": 7,
+      "title": "Собственный бренд",
+      "dependsOn": ["D20"],
+      "parallelizable": false,
+      "externalActions": ["custom_domain_dns"],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "brand_browser"],
+        "requiredChecks": ["custom_domain", "theme", "pwa", "messages", "documents", "no_platform_brand"]
+      }
+    },
+    {
+      "id": "D22",
+      "stageId": "stage-2",
+      "priority": 8,
+      "title": "Безопасный помощник",
+      "dependsOn": ["D21"],
+      "parallelizable": false,
+      "externalActions": [],
+      "completion": {
+        "requiredCi": ["smoke", "pages", "assistant_safety"],
+        "requiredChecks": ["booking_draft", "reschedule_draft", "message_draft", "before_after", "data_freshness", "confirmation_required"]
+      }
+    }
+  ]
+}
