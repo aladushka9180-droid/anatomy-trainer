@@ -28,6 +28,7 @@ const runOfflineSlotLoader = new Function(`
     let newBookingTime = '';
     let newBookingSlots = [];
     let newBookingHour = '';
+    let newBookingSlotsRequestId = 0;
     let newBookingHistoricalMode = false;
     let pickerRendered = false;
     let submitUpdated = false;

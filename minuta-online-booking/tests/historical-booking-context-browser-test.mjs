@@ -58,7 +58,7 @@ async function fixture(){
     var ids=${JSON.stringify(ids)},currentUser={id:'actor-A'},sessionGeneration=7,activeClientOrganizationId='org-A';
     var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
     var writesAllowed=true,bookingCreationReady=true,selectedDate='2020-01-05',editingOfflineBookingId='';
-    var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
+    var newBookingTime='',newBookingSlots=[],newBookingHour='',newBookingPreferredTime='',newBookingSlotsRequestId=0,newBookingHistoricalMode=false,newBookingOutsideSchedule=false,newBookingMode='client';
     var PER_MINUTE_BOOKING_MIN=1,PER_MINUTE_BOOKING_MAX=480,serviceDurationDefaults={},SCHEDULE_BLOCK_PHONE='0000000000',gestureClickSuppressedUntil=0;
     var ownServices=[{id:ids.service,active:true,name:'Тестовая услуга',duration_minutes:60,price_rub:1000}],scheduleRows=[];
     var allBookings=[],clientNotes=new Map(),pendingClientNotes=new Map(),bookingColors=new Map(),pendingBookingColors=new Set();

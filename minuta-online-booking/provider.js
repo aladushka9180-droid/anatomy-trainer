@@ -380,6 +380,7 @@ let newBookingOutsideSchedule = false;
 let newBookingSlots = [];
 let newBookingHour = '';
 let newBookingPreferredTime = '';
+let newBookingSlotsRequestId = 0;
 let newBookingMode = 'client';
 let recentlyCreatedBookingId = '';
 let recentlyCreatedBookingTimer = null;
@@ -6168,13 +6169,13 @@ function openTimelineBooking(stage, event) {
   if (!requireBookingWrites()) return;
   const time = timelineTimeFromClick(stage, event);
   if (!time) return;
-  openTimelineBookingAtTime(time);
+  openTimelineBookingAtTime(time, stage.dataset.timelineDate || selectedDate);
 }
 
-function openTimelineBookingAtTime(time) {
-  if (!requireBookingWrites() || !time) return;
-  const selectedStart = new Date(`${selectedDate}T${time}:00`);
-  openNewBookingSheet(time, { date:selectedDate, historical:selectedStart < new Date() });
+function openTimelineBookingAtTime(time, dateIso = selectedDate) {
+  if (!requireBookingWrites() || !/^\d{2}:\d{2}$/.test(String(time)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(dateIso))) return;
+  const selectedStart = new Date(`${dateIso}T${time}:00`);
+  openNewBookingSheet(time, { date:dateIso, historical:selectedStart < new Date() });
 }
 
 function timelineKeyboardMinute(stage) {
@@ -6215,7 +6216,7 @@ document.addEventListener('keydown', event => {
   }
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
-    openTimelineBookingAtTime(setTimelineKeyboardMinute(stage, current));
+    openTimelineBookingAtTime(setTimelineKeyboardMinute(stage, current), stage.dataset.timelineDate || selectedDate);
   }
 });
 
@@ -6447,7 +6448,7 @@ function renderTimeline(sourceItems) {
     : '';
   const nowMarker = scheduleNowMarkerMarkup(selectedDate, start, end, hourHeight, 'timeline-now-marker');
   holder.className = 'provider-bookings timeline-view';
-  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
+  holder.innerHTML = `<div class="day-timeline" style="--timeline-height:${totalHeight}px;--half-hour-offset:${hourHeight / 2}px"><div class="timeline-hours">${labels.join('')}</div><div class="timeline-stage" data-create-booking-at data-timeline-date="${selectedDate}" data-timeline-start="${start}" data-timeline-end="${end}" data-timeline-natural-height="${naturalTimelineHeight}" data-timeline-keyboard-minute="${start}" role="slider" tabindex="0" aria-valuemin="${start}" aria-valuemax="${Math.max(start, end - 5)}" aria-valuenow="${start}" aria-valuetext="${timeFromMinutes(start)}" aria-label="Выбор времени. Стрелками выберите время, Enter создаст запись">${lines.join('')}${nowMarker}<span class="timeline-create-hint">${uiIcon('plus')} Нажмите на свободное время</span>${cards || `<div class="timeline-empty-state"><span>${uiIcon('plus')}</span><strong>День свободен</strong><small>Нажмите на нужное время, чтобы записать клиента или поставить перерыв</small></div>`}</div></div>${expandTimeline}`;
   if (typeof updateScheduleNowMarkers === 'function') updateScheduleNowMarkers();
 }
 
@@ -7561,6 +7562,7 @@ async function loadNewBookingSlots() {
   const date = $('#newBookingDate')?.value;
   const holder = $('#newBookingTimes');
   if (!service || !date || !holder) return;
+  const requestId = ++newBookingSlotsRequestId;
   const preferredTime = newBookingPreferredTime;
   const duration = newBookingDurationMinutes();
   newBookingTime = '';
@@ -7621,6 +7623,14 @@ async function loadNewBookingSlots() {
     return;
   }
   holder.innerHTML = '<span>Ищем свободное время…</span>';
+  const mode = newBookingMode;
+  const locationId = $('#newBookingLocation')?.value || '';
+  const requestIsCurrent = () => requestId === newBookingSlotsRequestId
+    && $('#newBookingService')?.value === service
+    && $('#newBookingDate')?.value === date
+    && ($('#newBookingLocation')?.value || '') === locationId
+    && newBookingMode === mode
+    && newBookingDurationMinutes() === duration;
   let data, error;
   if (newBookingMode === 'block') {
     const context = activeProviderBlockContext($('#newBookingLocation')?.value || '');
@@ -7639,6 +7649,7 @@ async function loadNewBookingSlots() {
   } else {
     ({ data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date }));
   }
+  if (!requestIsCurrent()) return;
   if (error) {
     const missingUpdate = newBookingMode === 'block' && /get_provider_block_slots_v123|schema cache|could not find|does not exist/i.test(String(error.message || ''));
     holder.innerHTML = `<div class="booking-time-warning">${missingUpdate ? 'Обновление безопасного занятия времени ещё не установлено. Обновите страницу через несколько минут.' : 'Не удалось проверить рабочий график. Обновите данные и повторите попытку.'}</div>`;
@@ -8015,14 +8026,14 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
   $('#newBookingBlockNote').value = String(draft?.blockNote || '');
   $('#newBookingBlockDuration').value = String([15,30,45,60,90,120].includes(Number(draft?.durationMinutes)) ? Number(draft.durationMinutes) : 60);
   $('#newBookingBlockDuration').addEventListener('change', () => { saveNewBookingDraft(); loadNewBookingSlots(); });
-  $('#newBookingLocation')?.addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; saveNewBookingDraft(); loadNewBookingSlots(); });
+  $('#newBookingLocation')?.addEventListener('change', () => { newBookingTime = ''; saveNewBookingDraft(); loadNewBookingSlots(); });
   $('#newBookingForm').dataset.blockRequestId = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(String(draft?.blockRequestId || '')) ? draft.blockRequestId : createOfflineBookingId();
   $('#newBookingOccurrences').value = String(draft?.occurrences || '1');
   $('#newBookingInterval').value = String(draft?.interval || '1');
   const draftColor = $(`[name="newBookingColor"][value="${CSS.escape(String(preset.color || draft?.color || BOOKING_COLOR_DEFAULT))}"]`);
   if (draftColor) draftColor.checked = true;
   $$('[data-new-booking-mode]').forEach(button => button.addEventListener('click', () => { setNewBookingMode(button.dataset.newBookingMode); saveNewBookingDraft(); }));
-  $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; updateNewBookingDurationControl({ reset:true }); saveNewBookingDraft(); loadNewBookingSlots(); });
+  $('#newBookingService').addEventListener('change', () => { newBookingTime = ''; updateNewBookingDurationControl({ reset:true }); saveNewBookingDraft(); loadNewBookingSlots(); });
   $('#newBookingDuration').addEventListener('input', () => updateNewBookingDurationControl());
   $('#newBookingDuration').addEventListener('change', () => { updateNewBookingDurationControl(); saveNewBookingDraft(); loadNewBookingSlots(); });
   $$('[data-new-booking-duration]').forEach(button => button.addEventListener('click', () => {
@@ -8037,13 +8048,12 @@ function openNewBookingSheet(preferredTime = '', preset = {}) {
     saveNewBookingDraft();
     loadNewBookingSlots();
   }));
-  $('#newBookingDate').addEventListener('change', () => { newBookingTime = ''; newBookingPreferredTime = ''; newBookingOutsideSchedule = false; newBookingHistoricalMode = $('#newBookingDate').value < businessTodayIso(); saveNewBookingDraft(); updateNewBookingConnectivity(); loadNewBookingSlots(); });
+  $('#newBookingDate').addEventListener('change', () => { newBookingTime = ''; newBookingOutsideSchedule = false; newBookingHistoricalMode = $('#newBookingDate').value < businessTodayIso(); saveNewBookingDraft(); updateNewBookingConnectivity(); loadNewBookingSlots(); });
   $('#newBookingHistoricalToggle').addEventListener('click', event => {
     const dateValue = $('#newBookingDate').value;
     const requested = event.currentTarget.getAttribute('aria-pressed') !== 'true';
     newBookingHistoricalMode = dateValue < businessTodayIso() || (dateValue === businessTodayIso() && requested);
     newBookingTime = '';
-    newBookingPreferredTime = '';
     newBookingOutsideSchedule = false;
     updateNewBookingConnectivity();
     saveNewBookingDraft();
@@ -12402,6 +12412,7 @@ document.addEventListener('click', async event => {
       const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
       newBookingTime = bookingQuickTimeSlots(hourSlots)[0] || hourSlots[0] || '';
     }
+    newBookingPreferredTime = newBookingTime;
     renderNewBookingTimePicker({ offline:!navigator.onLine, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule });
     updateNewBookingDurationControl();
     clearFormError('#newBookingError');
