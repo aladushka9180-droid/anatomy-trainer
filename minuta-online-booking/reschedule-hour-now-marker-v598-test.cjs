@@ -15,6 +15,8 @@ function functionSource(name) {
 
 const loadEditSlots = functionSource('loadBookingEditSlots');
 const renderEditPicker = functionSource('renderBookingEditTimePicker');
+const quickTimeSlots = functionSource('bookingQuickTimeSlots');
+const exactTimeMarkup = functionSource('bookingExactTimeMarkup');
 const updateMovePreview = functionSource('updateBookingMovePreview');
 const renderTimeline = functionSource('renderTimeline');
 const weekTimeline = functionSource('calendarWeekTimelineMarkup');
@@ -29,8 +31,26 @@ assert.match(renderEditPicker, /new Set\(bookingEditSlots\.map\(time => time\.sl
   'Часы не группируются из реальных свободных окон');
 assert.match(renderEditPicker, /filter\(time => time\.startsWith\(`\$\{bookingEditHour\}:`\)\)/,
   'Точные варианты не ограничены выбранным часом');
-assert.match(renderEditPicker, /1\. Выберите час[\s\S]*data-edit-booking-hour[\s\S]*2\. Точное время[\s\S]*data-edit-booking-time/,
-  'В интерфейсе нет ясного порядка «час → точное время»');
+assert.match(renderEditPicker, /bookingQuickTimeSlots[\s\S]*1\. Выберите час[\s\S]*data-edit-booking-hour[\s\S]*2\. Выберите время[\s\S]*data-edit-booking-time/,
+  'В интерфейсе нет ясного порядка «час → быстрый выбор времени»');
+assert.match(quickTimeSlots, /Number\(time\.slice\(3, 5\)\) % 5 === 0/,
+  'Минутный список не сокращён до удобного шага 5 минут');
+assert.match(exactTimeMarkup, /Указать точную минуту[\s\S]*type="time"[\s\S]*step="60"/,
+  'Для редкого точного времени нет компактного раскрываемого выбора');
+assert.match(exactTimeMarkup, /if \(!exact\.length\) return ''/,
+  'Лишний точный выбор показывается даже когда дополнительных минут нет');
+assert.match(provider, /applyEditExactTime[\s\S]*bookingEditSlots\.filter[\s\S]*!input\?\.checkValidity\(\) \|\| !hourSlots\.includes\(value\)[\s\S]*bookingEditTime = value/,
+  'Точный выбор переноса не проверяет валидность и доступность минуты выбранного часа');
+assert.match(provider, /applyNewExactTime[\s\S]*newBookingSlots\.filter[\s\S]*!input\?\.checkValidity\(\) \|\| !hourSlots\.includes\(value\)[\s\S]*newBookingTime = value/,
+  'Точный выбор новой записи не проверяет валидность и доступность минуты выбранного часа');
+assert.match(provider, /if \(newTime\)[\s\S]*renderNewBookingTimePicker\(\{ offline:!navigator\.onLine, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule \}\)/,
+  'Быстрый выбор времени теряет исторический или внеплановый контекст');
+const helperApi = Function(`${quickTimeSlots}\n${exactTimeMarkup}\nreturn {bookingQuickTimeSlots,bookingExactTimeMarkup};`)();
+const denseHour = Array.from({length:60}, (_, minute) => `12:${String(minute).padStart(2, '0')}`);
+assert.deepEqual(helperApi.bookingQuickTimeSlots(denseHour), Array.from({length:12}, (_, index) => `12:${String(index * 5).padStart(2, '0')}`),
+  'Из 60 минут должны оставаться 12 быстрых вариантов');
+assert.match(helperApi.bookingExactTimeMarkup('new', denseHour, '12:13'), /<details[^>]* open[\s\S]*value="12:13"/,
+  'Выбранная точная минута должна оставаться видимой после перерисовки');
 assert.match(provider, /closest\('\[data-edit-booking-hour\]'\)[\s\S]*bookingEditHour\s*=\s*editHour\.dataset\.editBookingHour[\s\S]*renderBookingEditTimePicker\([^)]*\)/,
   'Нажатие на час не перерисовывает точные варианты');
 assert.match(renderEditPicker, /focusExact[\s\S]*querySelector\('\[data-edit-booking-time\]'\)\?\.focus\(\)/,
@@ -82,10 +102,15 @@ async function geometryCheck() {
           <div class="booking-time-hours">
             ${['10','11','12','13','14'].map((hour, index) => `<button type="button" class="${index === 0 ? 'active' : ''}">${hour}:00</button>`).join('')}
           </div>
-          <div class="booking-time-guide"><strong>2. Точное время</strong><span>12 вариантов · шаг 5 мин</span></div>
+          <div class="booking-time-guide"><strong>2. Выберите время</strong><span>12 быстрых вариантов · шаг 5 мин</span></div>
           <div class="booking-time-slots">
             ${Array.from({ length:12 }, (_, index) => `<button type="button">10:${String(index * 5).padStart(2, '0')}</button>`).join('')}
           </div>
+          <details class="booking-exact-time" open>
+            <summary><span>Указать точную минуту</span><small>Ещё 48 вариантов</small></summary>
+            <div class="booking-exact-time-controls"><label><span>Часы и минуты</span><input type="time" value="10:13"></label><button type="button">Выбрать</button></div>
+            <small class="booking-exact-time-hint">Показываются только свободные минуты выбранного часа.</small>
+          </details>
         </div>
       </main></body></html>`);
 
@@ -94,12 +119,14 @@ async function geometryCheck() {
       const measurement = await page.evaluate(() => {
         const picker = document.querySelector('#editBookingTimes');
         const rect = picker.getBoundingClientRect();
-        const buttons = [...picker.querySelectorAll('button')];
+        const buttons = [...picker.querySelectorAll('button')].filter(button => button.getClientRects().length);
         const guides = [...picker.querySelectorAll('.booking-time-guide')];
+        const exactInput = picker.querySelector('.booking-exact-time input');
         return {
           documentOverflow:document.documentElement.scrollWidth - innerWidth,
           rect:{ left:rect.left, right:rect.right, width:rect.width, height:rect.height },
           buttonCount:buttons.length,
+          exactInputHeight:exactInput.getBoundingClientRect().height,
           minButtonHeight:Math.min(...buttons.map(button => button.getBoundingClientRect().height)),
           clippedButtons:buttons.filter(button => button.scrollWidth > button.clientWidth + 1).length,
           clippedGuides:guides.filter(guide => guide.scrollWidth > guide.clientWidth + 1).length,
@@ -107,12 +134,13 @@ async function geometryCheck() {
       });
       assert.ok(measurement.documentOverflow <= 1, `${width}px: появился горизонтальный скролл`);
       assert.ok(measurement.rect.left >= 0 && measurement.rect.right <= width + 1, `${width}px: picker вышел за экран`);
-      assert.equal(measurement.buttonCount, 17, `${width}px: потеряны часы или точные варианты`);
+      assert.equal(measurement.buttonCount, 18, `${width}px: потеряны часы, быстрые варианты или точный выбор`);
       assert.ok(measurement.minButtonHeight >= 40, `${width}px: зона нажатия меньше 40px`);
+      assert.ok(measurement.exactInputHeight >= 40, `${width}px: точный ввод меньше 40px`);
       assert.equal(measurement.clippedButtons, 0, `${width}px: текст кнопок обрезан`);
       assert.equal(measurement.clippedGuides, 0, `${width}px: подписи этапов обрезаны`);
-      assert.ok(measurement.rect.height <= 430, `${width}px: двухэтапный picker снова стал чрезмерно высоким`);
       console.log(`Picker geometry ${width}px: ${Math.round(measurement.rect.width)}x${Math.round(measurement.rect.height)} OK`);
+      assert.ok(measurement.rect.height <= 600, `${width}px: раскрытый picker снова стал чрезмерно высоким`);
     }
   } finally {
     await browser.close();

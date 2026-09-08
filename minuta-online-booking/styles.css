@@ -6004,6 +6004,59 @@ html.provider-booting .provider-main {
   border-radius:18px;
   background:color-mix(in srgb,var(--theme-accent) 3%,var(--theme-surface));
 }
+.booking-exact-time {
+  margin-top:12px;
+  border-top:1px solid var(--theme-line,#dfe8e2);
+}
+.booking-exact-time>summary {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  min-height:46px;
+  color:color-mix(in srgb,var(--theme-accent,#255f43) 70%,var(--theme-ink,#173529));
+  cursor:pointer;
+  list-style:none;
+}
+.booking-exact-time>summary::-webkit-details-marker { display:none; }
+.booking-exact-time>summary::after {
+  content:'＋';
+  flex:none;
+  font-size:16px;
+}
+.booking-exact-time[open]>summary::after { content:'−'; }
+.booking-exact-time>summary span { font-size:13px;font-weight:850; }
+.booking-exact-time>summary small { margin-left:auto;color:var(--theme-muted,#60786b);font-size:10px;font-weight:700; }
+.booking-exact-time-controls {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:9px;
+  align-items:end;
+  padding-top:10px;
+}
+.booking-exact-time-controls label { margin:0;color:var(--theme-muted,#60786b);font-size:10px;font-weight:750; }
+.booking-exact-time-controls label span { display:block;margin-bottom:6px; }
+.booking-exact-time-controls input,
+.booking-exact-time-controls button {
+  box-sizing:border-box;
+  min-height:44px;
+  margin:0;
+  border:1px solid var(--theme-line,#c7d9ce);
+  border-radius:var(--material-control-radius,11px);
+  background:var(--theme-surface,#fff);
+  color:var(--theme-ink,#2f5b43);
+  font:inherit;
+  font-size:14px;
+}
+.booking-exact-time-controls input { width:100%;padding:0 12px; }
+.booking-exact-time-controls button { padding:0 18px;color:color-mix(in srgb,var(--theme-accent,#255f43) 70%,var(--theme-ink,#173529));cursor:pointer;font-weight:850; }
+.booking-exact-time-controls button:hover { border-color:var(--theme-accent,#255f43);background:var(--theme-accent-soft,#e1f0e6); }
+.booking-exact-time-hint { display:block;margin-top:7px;color:var(--theme-muted,#60786b);font-size:10px;line-height:1.4; }
+.booking-exact-time-hint.is-error { color:color-mix(in srgb,#d4433b 55%,var(--theme-ink,#173529));font-weight:800; }
+.booking-exact-time-controls input[aria-invalid="true"] { border-color:color-mix(in srgb,#d4433b 55%,var(--theme-ink,#173529));outline-color:color-mix(in srgb,#d4433b 55%,var(--theme-ink,#173529)); }
+.provider-body[data-provider-theme][data-provider-layout="linear"] :is(.booking-exact-time-controls input,.booking-exact-time-controls button),
+.provider-body[data-provider-theme][data-provider-layout="editorial"] :is(.booking-exact-time-controls input,.booking-exact-time-controls button) { border-radius:0;box-shadow:none; }
+.provider-body[data-provider-theme][data-provider-layout="capsule"] :is(.booking-exact-time-controls input,.booking-exact-time-controls button) { border-radius:999px; }
 .booking-time-selection-summary {
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;

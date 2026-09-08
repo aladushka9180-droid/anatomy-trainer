@@ -7060,16 +7060,40 @@ function renderBookingEditTimePicker({ focusExact = false } = {}) {
   const hours = [...new Set(bookingEditSlots.map(time => time.slice(0, 2)))];
   if (!hours.includes(bookingEditHour)) bookingEditHour = hours[0];
   const hourSlots = bookingEditSlots.filter(time => time.startsWith(`${bookingEditHour}:`));
-  const step = typeof scheduleStepForDate === 'function' ? scheduleStepForDate($('#editBookingDate')?.value) : 5;
+  const quickSlots = bookingQuickTimeSlots(hourSlots);
   const seriesHint = holder.dataset?.movesSeveral === 'true'
     ? '<small class="booking-series-slot-hint">Все окна серии будут проверены вместе при сохранении.</small>'
     : '';
   holder.innerHTML = `${seriesHint}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${hours.length} доступно</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === bookingEditHour ? 'active' : ''}" aria-pressed="${hour === bookingEditHour}" aria-label="Час ${hour}:00" data-edit-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
-    <div class="booking-time-guide"><strong>2. Точное время</strong><span id="editBookingExactStatus">${bookingEditTime ? `Выбрано ${bookingEditTime}` : `${hourSlots.length === 1 ? '1 вариант' : `${hourSlots.length} вариантов`} · шаг ${step} мин`}</span></div>
-    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" aria-pressed="${time === bookingEditTime}" data-edit-booking-time="${time}">${time}</button>`).join('')}</div>`;
+    <div class="booking-time-guide"><strong>2. Выберите время</strong><span id="editBookingExactStatus">${bookingEditTime ? `Выбрано ${bookingEditTime}` : `${quickSlots.length} быстрых вариантов · шаг 5 мин`}</span></div>
+    <div class="booking-time-slots">${quickSlots.map(time => `<button type="button" class="${time === bookingEditTime ? 'active' : ''}" aria-pressed="${time === bookingEditTime}" data-edit-booking-time="${time}">${time}</button>`).join('')}</div>
+    ${bookingExactTimeMarkup('edit', hourSlots, bookingEditTime)}`;
   updateBookingMovePreview();
   if (focusExact) holder.querySelector('[data-edit-booking-time]')?.focus();
+}
+
+function bookingQuickTimeSlots(slots) {
+  const available = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))].sort();
+  const quick = available.filter(time => Number(time.slice(3, 5)) % 5 === 0);
+  return quick.length ? quick : available.slice(0, 12);
+}
+
+function bookingExactTimeMarkup(kind, slots, selectedTime = '') {
+  const available = [...new Set((slots || []).filter(time => /^\d{2}:\d{2}$/.test(String(time))))].sort();
+  const quick = bookingQuickTimeSlots(available);
+  const exact = available.filter(time => !quick.includes(time));
+  if (!exact.length) return '';
+  const isEdit = kind === 'edit';
+  const inputId = isEdit ? 'editBookingExactTime' : 'newBookingExactTime';
+  const statusId = isEdit ? 'editBookingExactTimeHint' : 'newBookingExactTimeHint';
+  const value = available.includes(selectedTime) ? selectedTime : exact[0];
+  const open = selectedTime && !quick.includes(selectedTime);
+  return `<details class="booking-exact-time"${open ? ' open' : ''}>
+    <summary><span>Указать точную минуту</span><small>Ещё ${exact.length} ${exact.length === 1 ? 'вариант' : exact.length < 5 ? 'варианта' : 'вариантов'}</small></summary>
+    <div class="booking-exact-time-controls"><label for="${inputId}"><span>Часы и минуты</span><input id="${inputId}" type="time" step="60" min="${available[0]}" max="${available.at(-1)}" value="${value}" aria-describedby="${statusId}"></label><button type="button" data-apply-${isEdit ? 'edit' : 'new'}-booking-exact-time>Выбрать</button></div>
+    <small class="booking-exact-time-hint" id="${statusId}" role="status">Показываются только свободные минуты выбранного часа.</small>
+  </details>`;
 }
 
 function sessionServiceOptions(selectedId = '', allowCustom = false) {
@@ -7630,7 +7654,7 @@ async function loadNewBookingSlots() {
     holder.innerHTML = '<span>На эту дату нет окна нужной длительности</span>';
     return;
   }
-  newBookingTime = preferredTime || newBookingSlots[0];
+  newBookingTime = preferredTime || bookingQuickTimeSlots(newBookingSlots)[0] || newBookingSlots[0];
   if (preferredTime && !newBookingSlots.includes(preferredTime)) newBookingTime = '';
   newBookingHour = String(newBookingTime || preferredTime || newBookingSlots[0]).slice(0, 2);
   if (!newBookingSlots.some(time => time.startsWith(`${newBookingHour}:`))) newBookingHour = newBookingSlots[0].slice(0, 2);
@@ -7659,18 +7683,27 @@ function renderNewBookingTimePicker({ offline = false, historical = false, outsi
     const selectionSummary = newBookingTime
       ? `<div class="booking-time-selection-summary"><div><strong>Запись: ${newBookingTime}–${endTime}</strong><span>${duration} мин × ${new Intl.NumberFormat('ru-RU').format(minutePrice)} ₽</span></div><div><span>Итого</span><strong>${new Intl.NumberFormat('ru-RU').format(totalPrice)} ₽</strong></div></div>`
       : '';
-    holder.innerHTML = `${outsideSchedule ? '<div class="booking-time-warning booking-time-outside"><strong>Запись вне графика</strong><br>Она будет видна в расписании, но не откроет этот день для клиентов.</div>' : offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${newBookingPreferredTime} сейчас недоступно. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>Выберите время</strong><span>${newBookingSlots.length} свободных вариантов · шаг ${outsideSchedule ? 5 : scheduleStepForDate($('#newBookingDate')?.value)} минут</span></div>
-      <div class="booking-time-slots booking-time-slots-all">${newBookingSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>${selectionSummary}`;
+    const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
+    if (!hours.includes(newBookingHour)) newBookingHour = String(newBookingTime || newBookingSlots[0]).slice(0, 2);
+    const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
+    const quickSlots = bookingQuickTimeSlots(hourSlots);
+    holder.innerHTML = `${outsideSchedule ? '<div class="booking-time-warning booking-time-outside"><strong>Запись вне графика</strong><br>Она будет видна в расписании, но не откроет этот день для клиентов.</div>' : offline ? `<div class="booking-time-warning">${newBookingPreferredTime || newBookingTime || 'Выбранное время'} сохранится как отложенный запрос. Сервер проверит его после подключения.</div>` : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${newBookingPreferredTime} сейчас недоступно. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${hours.length} доступно</span></div>
+      <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" aria-pressed="${hour === newBookingHour}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
+      <div class="booking-time-guide"><strong>2. Выберите время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${quickSlots.length} быстрых вариантов · шаг 5 мин`}</span></div>
+      <div class="booking-time-slots">${quickSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
+      ${bookingExactTimeMarkup('new', hourSlots, newBookingTime)}${selectionSummary}`;
     return;
   }
   const hours = [...new Set(newBookingSlots.map(time => time.slice(0, 2)))];
   if (!hours.includes(newBookingHour)) newBookingHour = hours[0];
   const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
+  const quickSlots = bookingQuickTimeSlots(hourSlots);
   const preferredUnavailable = newBookingPreferredTime && !newBookingSlots.includes(newBookingPreferredTime);
   holder.innerHTML = `${outsideSchedule ? `<div class="booking-time-warning booking-time-outside"><strong>Запись вне графика</strong><br>${historical ? 'Показываем только время вне рабочих часов мастера.' : 'Онлайн-запись на этот день останется закрытой.'}</div>` : historical ? '<div class="booking-time-warning"><strong>Запись в прошлом</strong><br>Укажите фактическое время визита. После создания отметьте результат и оплату.</div>' : offline ? '<div class="booking-time-warning">Предварительные варианты из последней сохранённой копии. После подключения система обязательно проверит выбранное время на сервере.</div>' : ''}${preferredUnavailable ? `<div class="booking-time-warning">Ранее выбранное время ${escapeHtml(newBookingPreferredTime)} пересекается с другой записью. Выберите другое.</div>` : ''}<div class="booking-time-guide"><strong>1. Выберите час</strong><span>${historical || outsideSchedule ? `${outsideSchedule ? 'Вне графика' : 'По графику мастера'} · шаг 5 минут` : `Шаг записи — ${scheduleStepForDate($('#newBookingDate')?.value)} минут`}</span></div>
     <div class="booking-time-hours">${hours.map(hour => `<button type="button" class="${hour === newBookingHour ? 'active' : ''}" data-new-booking-hour="${hour}">${hour}:00</button>`).join('')}</div>
-    <div class="booking-time-guide"><strong>2. Точное время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${hourSlots.length} свободных вариантов`}</span></div>
-    <div class="booking-time-slots">${hourSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>`;
+    <div class="booking-time-guide"><strong>2. Выберите время</strong><span>${newBookingTime ? `Выбрано ${newBookingTime}` : `${quickSlots.length} быстрых вариантов · шаг 5 мин`}</span></div>
+    <div class="booking-time-slots">${quickSlots.map(time => `<button type="button" class="${time === newBookingTime ? 'active' : ''}" aria-pressed="${time === newBookingTime}" data-new-booking-time="${time}">${time}</button>`).join('')}</div>
+    ${bookingExactTimeMarkup('new', hourSlots, newBookingTime)}`;
 }
 
 function updateNewBookingSubmitCaption() {
@@ -12117,8 +12150,10 @@ document.addEventListener('click', async event => {
   const backBooking = event.target.closest('[data-back-booking]');
   const editTime = event.target.closest('[data-edit-booking-time]');
   const editHour = event.target.closest('[data-edit-booking-hour]');
+  const applyEditExactTime = event.target.closest('[data-apply-edit-booking-exact-time]');
   const newTime = event.target.closest('[data-new-booking-time]');
   const newHour = event.target.closest('[data-new-booking-hour]');
+  const applyNewExactTime = event.target.closest('[data-apply-new-booking-exact-time]');
   const closeSheet = event.target.closest('[data-close-booking-sheet]');
   const toggle = event.target.closest('[data-toggle-service]');
   const editService = event.target.closest('[data-edit-service]');
@@ -12329,19 +12364,32 @@ document.addEventListener('click', async event => {
   if (editTime) {
     bookingEditTime = editTime.dataset.editBookingTime;
     bookingEditHour = bookingEditTime.slice(0, 2);
-    const exactStatus = $('#editBookingExactStatus');
-    if (exactStatus) exactStatus.textContent = `Выбрано ${bookingEditTime}`;
-    updateBookingMovePreview();
+    renderBookingEditTimePicker();
   }
   if (editHour) {
     bookingEditHour = editHour.dataset.editBookingHour;
     if (!bookingEditTime.startsWith(`${bookingEditHour}:`)) bookingEditTime = '';
     renderBookingEditTimePicker({ focusExact:true });
   }
+  if (applyEditExactTime) {
+    const input = $('#editBookingExactTime');
+    const hint = $('#editBookingExactTimeHint');
+    const value = String(input?.value || '').slice(0, 5);
+    const hourSlots = bookingEditSlots.filter(time => time.startsWith(`${bookingEditHour}:`));
+    if (!input?.checkValidity() || !hourSlots.includes(value)) {
+      input?.setAttribute('aria-invalid', 'true');
+      if (hint) { hint.textContent = 'Это время уже занято или не подходит по длительности.'; hint.classList.add('is-error'); }
+    } else {
+      bookingEditTime = value;
+      bookingEditHour = value.slice(0, 2);
+      renderBookingEditTimePicker();
+      updateBookingMovePreview();
+    }
+  }
   if (newTime) {
     newBookingTime = newTime.dataset.newBookingTime;
     newBookingPreferredTime = newBookingTime;
-    renderNewBookingTimePicker({ offline:!navigator.onLine });
+    renderNewBookingTimePicker({ offline:!navigator.onLine, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule });
     $$('[data-new-booking-time]').forEach(button => button.classList.toggle('active', button.dataset.newBookingTime === newBookingTime));
     clearFormError('#newBookingError');
     saveNewBookingDraft();
@@ -12350,12 +12398,34 @@ document.addEventListener('click', async event => {
   }
   if (newHour) {
     newBookingHour = newHour.dataset.newBookingHour;
-    if (!newBookingTime.startsWith(`${newBookingHour}:`)) newBookingTime = newBookingSlots.find(time => time.startsWith(`${newBookingHour}:`)) || '';
-    renderNewBookingTimePicker({ offline:!navigator.onLine });
+    if (!newBookingTime.startsWith(`${newBookingHour}:`)) {
+      const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
+      newBookingTime = bookingQuickTimeSlots(hourSlots)[0] || hourSlots[0] || '';
+    }
+    renderNewBookingTimePicker({ offline:!navigator.onLine, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule });
     updateNewBookingDurationControl();
     clearFormError('#newBookingError');
     saveNewBookingDraft();
     updateNewBookingSubmitCaption();
+  }
+  if (applyNewExactTime) {
+    const input = $('#newBookingExactTime');
+    const hint = $('#newBookingExactTimeHint');
+    const value = String(input?.value || '').slice(0, 5);
+    const hourSlots = newBookingSlots.filter(time => time.startsWith(`${newBookingHour}:`));
+    if (!input?.checkValidity() || !hourSlots.includes(value)) {
+      input?.setAttribute('aria-invalid', 'true');
+      if (hint) { hint.textContent = 'Это время уже занято или не подходит по длительности.'; hint.classList.add('is-error'); }
+    } else {
+      newBookingTime = value;
+      newBookingPreferredTime = value;
+      newBookingHour = value.slice(0, 2);
+      renderNewBookingTimePicker({ offline:!navigator.onLine, historical:newBookingHistoricalMode, outsideSchedule:newBookingOutsideSchedule });
+      clearFormError('#newBookingError');
+      saveNewBookingDraft();
+      updateNewBookingDurationControl();
+      updateNewBookingSubmitCaption();
+    }
   }
   if (closeSheet) closeBookingSheet();
   if (editService) openServiceEditor(editService.dataset.editService);

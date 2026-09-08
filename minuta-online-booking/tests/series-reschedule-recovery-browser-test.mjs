@@ -24,7 +24,7 @@ function listener(startText) {
   assert.ok(start >= 0 && end > start, 'Actual production listener missing');
   return source.slice(start, end + 4);
 }
-const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
+const names = ['openBookingEditor', 'saveBookingChanges', 'loadBookingEditSlots', 'renderBookingEditTimePicker', 'bookingQuickTimeSlots', 'bookingExactTimeMarkup', 'closeBookingSheet', 'updateBookingAtExpectedState', 'bookingMoveTimeIsPast', 'updateBookingMovePreview', 'blockDurationChoices',
   'sessionIsCurrent', 'requireWrites', 'providerAssistantIsoDate', 'isScheduleBlock', 'escapeHtml',
   'serviceName', 'money', 'uiIcon', 'serviceOptions', 'bookingDisplayNote', 'bookingClientNote',
   'normalizePhone', 'bookingColor', 'validBookingColor', 'bookingColorPicker', 'bookingOutcome',
