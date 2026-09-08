@@ -80,6 +80,9 @@ jobs:
         run: |
           set -euo pipefail
           db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          if test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.process_minuta_auto_completed_visits_v106(integer)') is not null")" != t; then
+            psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v106.sql
+          fi
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v124.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/visit-outcome-defaults-v124-integration.sql
           psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v124-rollback.sql
