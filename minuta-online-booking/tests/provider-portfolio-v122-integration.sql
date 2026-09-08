@@ -39,12 +39,6 @@ do $$ begin
       <>jsonb_build_array(current_setting('minuta.v122.photo_one')) then
     raise exception 'v122_portfolio_retired_path_missing';
   end if;
-  if (select count(*) from public.portfolio_items where id=current_setting('minuta.v122.portfolio_item')::uuid
-      and performer_id=current_setting('minuta.v122.portfolio_user')::uuid and procedure_name='V122 test updated')<>1
-    or (select count(*) from public.portfolio_photos where portfolio_item_id=current_setting('minuta.v122.portfolio_item')::uuid
-      and storage_path=current_setting('minuta.v122.photo_two'))<>1 then
-    raise exception 'v122_portfolio_atomic_switch_failed';
-  end if;
   begin
     perform public.save_provider_portfolio_item(current_setting('minuta.v122.portfolio_item')::uuid,
       (current_setting('minuta.v122.portfolio_first')::jsonb->>'updated_at')::timestamptz-interval '1 second',
@@ -56,4 +50,12 @@ do $$ begin
 end $$;
 
 reset role;
+do $$ begin
+  if (select count(*) from public.portfolio_items where id=current_setting('minuta.v122.portfolio_item')::uuid
+      and performer_id=current_setting('minuta.v122.portfolio_user')::uuid and procedure_name='V122 test updated')<>1
+    or (select count(*) from public.portfolio_photos where portfolio_item_id=current_setting('minuta.v122.portfolio_item')::uuid
+      and storage_path=current_setting('minuta.v122.photo_two'))<>1 then
+    raise exception 'v122_portfolio_atomic_switch_failed';
+  end if;
+end $$;
 rollback;
