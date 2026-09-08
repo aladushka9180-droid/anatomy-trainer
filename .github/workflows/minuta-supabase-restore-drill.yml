@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: minuta-supabase-restore-drill
@@ -14,7 +15,9 @@ concurrency:
 
 jobs:
   restore-drill:
-    if: github.event_name == 'workflow_dispatch' || vars.MINUTA_RESTORE_DRILL_ENABLED == 'true'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'schedule' && vars.MINUTA_RESTORE_DRILL_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -231,3 +234,127 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MINUTA_ALERT_TOPIC: ежемесячное тестовое восстановление Supabase
         run: node minuta-online-booking/notify-health-failure.mjs
+
+  ephemeral-restore-drill:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/codex/restore-ephemeral-20260908'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Найти свежую успешную production-копию
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api --method GET \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/minuta-supabase-backup.yml/runs" \
+            -f branch=main -f status=success -F per_page=10)"
+          run="$(jq -c '[.workflow_runs[] | select(.conclusion=="success" and .head_branch=="main")][0]' <<<"$runs")"
+          test "$run" != null
+          run_id="$(jq -r '.id' <<<"$run")"
+          head_sha="$(jq -r '.head_sha' <<<"$run")"
+          created_at="$(jq -r '.created_at' <<<"$run")"
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          [[ "$head_sha" =~ ^[a-f0-9]{40}$ ]]
+          age="$(( $(date -u +%s) - $(date -u -d "$created_at" +%s) ))"
+          test "$age" -ge 0
+          test "$age" -le 86400
+
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired==false)] | length' <<<"$artifacts")" = 1
+          artifact_name="$(jq -r '.artifacts[] | select(.expired==false) | .name' <<<"$artifacts")"
+          case "$artifact_name" in minuta-*) ;; *) echo 'Unexpected backup artifact name' >&2; exit 1;; esac
+
+          {
+            echo "run_id=$run_id"
+            echo "head_sha=$head_sha"
+            echo "created_at=$created_at"
+            echo "artifact_name=$artifact_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: ${{ runner.temp }}/encrypted-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Проверить SHA-256 и расшифровать только на runner
+        shell: bash
+        env:
+          BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mapfile -t dumps < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg.sha256')
+          test "${#dumps[@]}" = 1
+          test "${#checksums[@]}" = 1
+          expected="$(tr -d '[:space:]' < "${checksums[0]}")"
+          [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
+          test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$expected"
+          printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --output "$RUNNER_TEMP/minuta-restore-source.dump" --decrypt "${dumps[0]}"
+
+      - name: Проверить защитные фильтры восстановления
+        run: |
+          node minuta-online-booking/scripts/crm-snapshot-toc-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-toc-review-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-target-sql-test.mjs
+          node minuta-online-booking/scripts/crm-snapshot-postdata-test.mjs
+
+      - name: Восстановить production-копию в одноразовый PostgreSQL без сети
+        shell: bash
+        env:
+          MINUTA_RESTORE_SOURCE_DUMP: ${{ runner.temp }}/minuta-restore-source.dump
+        run: bash minuta-online-booking/scripts/ephemeral-restore-drill.sh
+
+      - name: Записать проверяемый результат без персональных данных
+        id: result
+        shell: bash
+        env:
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
+          SOURCE_SHA: ${{ steps.source.outputs.head_sha }}
+          SOURCE_CREATED_AT: ${{ steps.source.outputs.created_at }}
+        run: |
+          set -euo pipefail
+          jq --arg run "$SOURCE_RUN_ID" --arg sha "$SOURCE_SHA" --arg created "$SOURCE_CREATED_AT" \
+            '. + {sourceBackupRunId:$run, sourceBackupSha:$sha, sourceBackupCreatedAt:$created, workflowRunId:env.GITHUB_RUN_ID}' \
+            "$RUNNER_TEMP/minuta-ephemeral-restore.json" > "$RUNNER_TEMP/minuta-ephemeral-restore.final.json"
+          mv "$RUNNER_TEMP/minuta-ephemeral-restore.final.json" "$RUNNER_TEMP/minuta-ephemeral-restore.json"
+          {
+            echo '### Одноразовое восстановление production-копии успешно'
+            echo "- Источник: backup run \`$SOURCE_RUN_ID\`, SHA \`$SOURCE_SHA\`"
+            echo "- Public-таблиц: \`$(jq -r '.publicTables' "$RUNNER_TEMP/minuta-ephemeral-restore.json")\`"
+            echo "- Услуг: \`$(jq -r '.services' "$RUNNER_TEMP/minuta-ephemeral-restore.json")\`, записей: \`$(jq -r '.bookings' "$RUNNER_TEMP/minuta-ephemeral-restore.json")\`"
+            echo '- Контейнер: PostgreSQL 17, сеть отключена, после проверки удалён'
+            echo '- Production и testDB: без записи'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Сохранить только обезличенный журнал проверки
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: minuta-ephemeral-restore-${{ github.run_id }}
+          path: ${{ runner.temp }}/minuta-ephemeral-restore.json
+          if-no-files-found: error
+          retention-days: 35
+
+      - name: Удалить расшифрованную копию и временные файлы
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$RUNNER_TEMP/minuta-restore-source.dump" "$RUNNER_TEMP/minuta-restore-private.log" \
+            "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" "$RUNNER_TEMP/public-post-data.sql" \
+            "$RUNNER_TEMP/filtered-post-data.sql" "$RUNNER_TEMP/auth-placeholders.sql"
