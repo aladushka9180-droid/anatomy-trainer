@@ -13,7 +13,7 @@ const checks = [
   [css.includes('.report-smart-actions .report-smart-action { display:none;'), 'свёрнутые мобильные рекомендации'],
   [css.includes('.notification-filters button.active { color:var(--theme-accent-contrast,#fff)!important; }'), 'контраст фильтров уведомлений'],
   [js.includes("button.hidden = selected.includes(button.dataset.providerView);"), 'синхронизация меню с нижней навигацией'],
-  [js.includes('Рекомендации · ${visibleActions.length}'), 'понятный счётчик рекомендаций'],
+  [js.includes('Ещё ${visibleActions.length - 1}'), 'понятный счётчик дополнительных рекомендаций'],
   [html.includes('Откроются контакты, история и заметки.'), 'нейтральная мобильная подсказка клиента']
 ];
 
