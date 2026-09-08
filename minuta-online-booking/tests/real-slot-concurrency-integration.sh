@@ -43,9 +43,10 @@ delete from public.performer_profiles where id=:'test_performer'::uuid;
 delete from auth.users where id=:'test_performer'::uuid;
 SQL
   rm -f -- "$first_log" "$second_log"
+  return 0
 }
 trap cleanup EXIT
-cleanup
+cleanup || true
 
 seed_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
 select organization.public_slug,
@@ -158,6 +159,7 @@ done
 if [[ "$holder_ready" != "t" ]]; then
   wait "$first_pid" || true
   echo "The first booking did not reach the concurrent hold state" >&2
+  sed -n '1,80p' "$first_log" >&2
   exit 1
 fi
 
