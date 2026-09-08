@@ -15,14 +15,14 @@
     "D02": {
       "status": "awaiting_external",
       "evidence": {
-        "releaseSha": "4c06863938c3bb10caeb2648c45e8a42192ab941",
+        "releaseSha": "4c9294b8c59e41c08641c96bae743bd684919dd9",
         "ciRuns": {
-          "smoke": 34268755938,
-          "pages": 34268754339,
+          "smoke": 34277980765,
+          "pages": 34277979044,
           "notification_delivery": 34269008328
         },
-        "productionHealthRunId": 34269923067,
-        "verifiedAt": "2026-09-08T19:36:00Z",
+        "productionHealthRunId": 34278869046,
+        "verifiedAt": "2026-09-08T21:09:00Z",
         "checks": {
           "confirmation_request": true,
           "consent": true,
@@ -33,8 +33,8 @@
       },
       "blocker": {
         "type": "secret",
-        "reason": "Миграция v128 применена и проверена в production, но новые Edge Functions не развёрнуты: в GitHub отсутствует SUPABASE_ACCESS_TOKEN. Реальная доставка на контролируемый адресат также ещё не подтверждена.",
-        "requiredAction": "Через защищённый интерфейс добавить SUPABASE_ACCESS_TOKEN и ключи выбранного провайдера, затем развернуть receipt и dispatcher и выполнить ровно одну scoped-тестовую доставку."
+        "reason": "Миграция v128 и текущее состояние production-БД подтверждены; receipt и dispatcher развёрнуты и read-only проверены запуском 34278601457. Для receipt ещё не заданы HMAC-ключи провайдера, а реальная доставка на контролируемый адресат не подтверждена.",
+        "requiredAction": "Через защищённый интерфейс добавить HMAC-ключи receipt для выбранного провайдера и выполнить ровно одну scoped-тестовую доставку на заранее подтверждённый адресат."
       }
     },
     "D03": {
