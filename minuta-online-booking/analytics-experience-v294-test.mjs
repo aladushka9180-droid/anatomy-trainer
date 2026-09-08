@@ -37,7 +37,8 @@ assert.match(provider, /data-report-action="\$\{item\.action\}"/, 'Рекоме�
 assert.match(provider, /function handleReportAction[\s\S]*action === 'quality'[\s\S]*action === 'debt'[\s\S]*action === 'lost'/, 'Типизированные действия рекомендаций обрабатываются не полностью');
 assert.match(provider, /scopedStatus === 'loading'[\s\S]*scopedStatus === 'failed'/, 'Ошибка или загрузка отчёта снова может выглядеть как подтверждённый ноль');
 assert.match(provider, /if \(error && !bookingUsesDemoData\(\)\) \{ renderAnalytics\(\); notify/, 'Ошибка реального scoped-отчёта не отрисовывается сразу');
-assert.match(provider, /if \(bookingUsesDemoData\(\)\) prepareDemoBookingContext\(reportChartDate\.dataset\.reportDate\)/, 'Демо-график не открывает изолированные учебные записи');
+assert.match(provider, /function openReportBookings[\s\S]*?prepareDemoBookingContext\(scope\?\.start/, 'Демо-график не открывает изолированные учебные записи');
+assert.match(provider, /data-report-start="\$\{openStart\}" data-report-end="\$\{openEnd\}"/, 'Детализация графика не сохраняет границы агрегированного интервала');
 assert.match(provider, /function bookingSourceItems\(\)[\s\S]*?reportScopedBookingsState\.rows[\s\S]*?: allBookings/, 'Демо-график может смешать учебные и реальные записи');
 assert.doesNotMatch(provider, /data-report-heatmap-date=/, 'Агрегированная тепловая карта не должна обещать неточный переход на одну дату');
 assert.match(styles, /#analyticsView\[data-report-tab="overview"\][\s\S]*data-report-tab="money"[\s\S]*data-report-tab="clients"[\s\S]*data-report-tab="team"/, 'Минималистичные представления не переключаются стилями');

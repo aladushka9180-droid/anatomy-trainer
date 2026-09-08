@@ -2706,6 +2706,12 @@ function reportUsesScopedBookings() {
 function loadSelectedReportData() {
   if (reportDataSource !== 'demo') {
     stopReportDemoUpdates();
+    if (reportCanViewTeam) {
+      const range = reportRange();
+      const previous = previousReportRange(range);
+      void loadReportScopedBookings({ start:previous?.start || range.start, end:reportForecastEnd(range) }, reportPerformerFilter || 'all');
+      void loadReportAvailability(range, reportPerformerFilter || 'all');
+    }
     return;
   }
   startReportDemoUpdates();
@@ -2754,6 +2760,7 @@ function resetReportSessionState() {
   reportDemoBaseReady = false;
   reportDemoLive = null;
   reportTeamMetric = 'revenue';
+  $('#reportSmartActions')?.classList.remove('is-expanded');
   document.body.classList.remove('report-scope-loading');
   const select = $('#reportPerformerFilter');
   if (select) select.disabled = false;
@@ -2859,7 +2866,15 @@ function reportClientMetrics(completed, range) {
     !organizationId || !item.organization_id || String(item.organization_id) === String(organizationId));
   const source = [...liveSource, ...importedSource];
   const previousClients = new Set(reportCompletedItems(source.filter(item => !isScheduleBlock(item) && item.booking_date < range.start)).map(reportClientIdentity).filter(Boolean));
-  completed.forEach(item => { if (item.client_had_previous) { const key = reportClientIdentity(item); if (key) previousClients.add(key); } });
+  const firstCurrentVisit = new Map();
+  completed.forEach(item => {
+    const key = reportClientIdentity(item);
+    if (!key) return;
+    const moment = `${item.booking_date || ''}T${String(item.booking_time || '00:00').slice(0, 5)}`;
+    const current = firstCurrentVisit.get(key);
+    if (!current || moment < current.moment) firstCurrentVisit.set(key, { moment, item });
+  });
+  firstCurrentVisit.forEach(({ item }, key) => { if (item.client_had_previous) previousClients.add(key); });
   let newClients = 0;
   let returningClients = 0;
   currentClients.forEach(key => {
@@ -2991,8 +3006,31 @@ function renderReportUtilization(range, workedMinutes) {
 }
 
 function renderReportRetention() {
+  const panel = $('.report-retention');
+  const setEmptyText = text => {
+    if (!panel) return;
+    let empty = panel.querySelector('.report-retention-empty');
+    if (!empty) {
+      panel.insertAdjacentHTML('beforeend', '<p class="report-retention-empty"></p>');
+      empty = panel.querySelector('.report-retention-empty');
+    }
+    empty.textContent = text;
+  };
+  const availability = retentionController?.availability || 'idle';
   const payloadValue = retentionController?.payload;
   const payload = typeof payloadValue === 'function' ? payloadValue.call(retentionController) : payloadValue;
+  const payloadMatchesScope = String(payload?.organization_id || '') === String(reportOrganizationId() || '');
+  if (reportDataSource === 'demo' || availability !== 'ready' || !payloadMatchesScope) {
+    ['#reportRetentionEligible','#reportRetentionRegular','#reportRetentionPrepared','#reportRetentionSent','#reportRetentionUnknownConsent'].forEach(selector => setReportText(selector, '—'));
+    panel?.classList.remove('is-empty');
+    setEmptyText(reportDataSource === 'demo'
+      ? 'Возврат клиентов доступен только для ваших данных'
+      : availability === 'loading' ? 'Загружаем сегмент клиентов…'
+        : availability === 'error' ? 'Не удалось загрузить сегмент клиентов'
+          : availability === 'unsupported' ? 'Сегмент возврата пока недоступен'
+            : 'Откройте вкладку «Клиенты», чтобы загрузить сегмент');
+    return;
+  }
   const clients = Array.isArray(payload?.clients) ? payload.clients : [];
   const deliveries = Array.isArray(payload?.deliveries) ? payload.deliveries : [];
   const eligible = clients.filter(item => item.eligible === true).length;
@@ -3005,17 +3043,19 @@ function renderReportRetention() {
   setReportText('#reportRetentionPrepared', prepared);
   setReportText('#reportRetentionSent', sent);
   setReportText('#reportRetentionUnknownConsent', unknownConsent);
-  const panel = $('.report-retention');
   if (panel) {
     const isEmpty = eligible + regular + prepared + sent === 0;
     panel.classList.toggle('is-empty', isEmpty);
-    let empty = panel.querySelector('.report-retention-empty');
-    if (!empty) {
-      panel.insertAdjacentHTML('beforeend', '<p class="report-retention-empty"></p>');
-      empty = panel.querySelector('.report-retention-empty');
-    }
-    empty.textContent = 'Клиентов для возвращения пока нет' + (unknownConsent ? ` · у ${unknownConsent} не указано согласие` : '');
+    setEmptyText('Клиентов для возвращения пока нет' + (unknownConsent ? ` · у ${unknownConsent} не указано согласие` : ''));
   }
+}
+
+async function ensureReportRetention() {
+  if (reportSubview !== 'clients' || reportDataSource === 'demo' || retentionController?.availability === 'ready' || retentionController?.availability === 'loading') return;
+  renderReportRetention();
+  try { await ensureOrganizationFeature('retentionPanel'); }
+  catch {}
+  if (reportSubview === 'clients') renderReportRetention();
 }
 
 let reportTeamAnalyticsState = { key:'', status:'idle', rows:[], canViewTeam:false };
@@ -3082,6 +3122,19 @@ async function loadReportAvailability(range, performerId) {
   renderAnalytics();
 }
 
+function reportQueryWindows(range, maximumSpanDays = 3600) {
+  const start = parseLocalIsoDate(range.start);
+  const end = parseLocalIsoDate(range.end);
+  if (!start || !end || end < start) return [];
+  const windows = [];
+  for (let cursor = new Date(start); cursor <= end;) {
+    const windowEnd = new Date(Math.min(end.getTime(), cursor.getTime() + maximumSpanDays * 86400000));
+    windows.push({ start:localIsoDate(cursor), end:localIsoDate(windowEnd) });
+    cursor = new Date(windowEnd.getTime() + 86400000);
+  }
+  return windows;
+}
+
 async function loadReportScopedBookings(range, performerId) {
   if (!reportCanViewTeam || !currentUser) return;
   range = reportDataQueryRange(range);
@@ -3131,30 +3184,34 @@ async function loadReportScopedBookings(range, performerId) {
   const rows = [];
   const pageSize = 1000;
   const maxRows = 100000;
-  let data = null;
   let error = null;
   let rpcName = 'get_minuta_staff_report_bookings_v97';
-  for (let offset = 0; offset <= maxRows; offset += pageSize) {
-    let response = await db.rpc(rpcName, {
-      p_organization:organizationId,
-      p_start:range.start,
-      p_end:range.end,
-      p_performer:performerId === 'all' ? null : performerId,
-      p_limit:pageSize,
-      p_offset:offset
-    });
-    const missingRpc = candidate => candidate?.error && (candidate.error.code === 'PGRST202' || /could not find.*get_minuta_staff_report_bookings|function .* does not exist/i.test(candidate.error.message || ''));
-    if (offset === 0 && missingRpc(response)) {
-      rpcName = 'get_minuta_staff_report_bookings';
-      response = await db.rpc(rpcName, { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId, p_limit:pageSize, p_offset:offset });
-      if (missingRpc(response)) response = await db.rpc(rpcName, { p_organization:organizationId, p_start:range.start, p_end:range.end, p_performer:performerId === 'all' ? null : performerId });
+  const windows = reportQueryWindows(range);
+  for (const queryWindow of windows) {
+    for (let offset = 0; offset <= maxRows; offset += pageSize) {
+      let response = await db.rpc(rpcName, {
+        p_organization:organizationId,
+        p_start:queryWindow.start,
+        p_end:queryWindow.end,
+        p_performer:performerId === 'all' ? null : performerId,
+        p_limit:pageSize,
+        p_offset:offset
+      });
+      const missingRpc = candidate => candidate?.error && (candidate.error.code === 'PGRST202' || /could not find.*get_minuta_staff_report_bookings|function .* does not exist/i.test(candidate.error.message || ''));
+      if (offset === 0 && missingRpc(response)) {
+        rpcName = 'get_minuta_staff_report_bookings';
+        response = await db.rpc(rpcName, { p_organization:organizationId, p_start:queryWindow.start, p_end:queryWindow.end, p_performer:performerId === 'all' ? null : performerId, p_limit:pageSize, p_offset:offset });
+        if (missingRpc(response)) response = await db.rpc(rpcName, { p_organization:organizationId, p_start:queryWindow.start, p_end:queryWindow.end, p_performer:performerId === 'all' ? null : performerId });
+      }
+      if (!sessionIsCurrent(userId, generation) || reportScopedBookingsState.key !== key) return;
+      const data = response.data;
+      error = response.error;
+      if (error) break;
+      rows.push(...(Array.isArray(data?.bookings) ? data.bookings : []));
+      if (!data?.has_more) break;
+      if (rows.length >= maxRows) { error = new Error('Слишком большой объём отчёта'); break; }
     }
-    if (!sessionIsCurrent(userId, generation) || reportScopedBookingsState.key !== key) return;
-    ({ data, error } = response);
     if (error) break;
-    rows.push(...(Array.isArray(data?.bookings) ? data.bookings : []));
-    if (!data?.has_more) break;
-    if (rows.length >= maxRows) { error = new Error('Слишком большой объём отчёта'); break; }
   }
   if (!sessionIsCurrent(userId, generation) || reportScopedBookingsState.key !== key) return;
   if (bookingUsesDemoData()) {
@@ -3223,6 +3280,7 @@ function renderReportTeamRows(rows) {
   };
   const rankedRows = rows.map(row => ({ row, value:metricValue(row) })).sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
   const maximum = Math.max(1, ...rankedRows.map(item => item.value || 0));
+  const showLeader = rankedRows.length > 1;
   holder.innerHTML = rankedRows.map((item, index) => {
     const row = item.row;
     const visits = Math.max(0, Number(row.completed_visits) || 0);
@@ -3231,7 +3289,7 @@ function renderReportTeamRows(rows) {
     const revenue = Math.max(0, Number(row.revenue_rub) || 0);
     const average = row.payment_known_visits ? revenue / row.payment_known_visits : null;
     const width = item.value === null ? 0 : Math.max(item.value > 0 ? 3 : 0, Math.round((item.value || 0) / maximum * 100));
-    return `<article class="report-performer-row${index === 0 && item.value !== null ? ' is-leader' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><div class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></div><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><div class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Настройте начисление</small>' : ''}</div><span class="report-team-arrow" aria-hidden="true">→</span></article>`;
+    return `<article class="report-performer-row${showLeader && index === 0 && item.value !== null ? ' is-leader' : ''}" role="button" tabindex="0" data-report-performer="${escapeHtml(String(row.performer_id || ''))}" aria-label="Открыть статистику сотрудника ${escapeHtml(row.performer_name || 'Мастер')}"><span class="report-team-rank">${index + 1}</span><div class="report-team-person"><strong>${escapeHtml(row.performer_name || 'Мастер')}${showLeader && index === 0 && item.value !== null ? '<em>Лидер</em>' : ''}</strong><small>${visits} ${reportVisitWord(visits)} · ${clients} клиентов · ${reportHours(minutes)} · ${average === null ? 'Нет данных об оплате' : `${money(Math.round(average))}/визит с данными`}</small></div><span class="report-team-bar" aria-hidden="true"><i style="width:${width}%"></i></span><div class="report-performer-value"><b>${escapeHtml(metricLabel(item.value, row))}</b>${reportTeamMetric === 'payroll' && item.value === null ? '<small>Настройте начисление</small>' : ''}</div><span class="report-team-arrow" aria-hidden="true">→</span></article>`;
   }).join('');
   holder.querySelectorAll('[data-report-performer]').forEach(row => {
     const select = () => { const control = $('#reportPerformerFilter'); if (!control) return; control.value = row.dataset.reportPerformer; control.dispatchEvent(new Event('change', { bubbles:true })); window.scrollTo({ top:$('#analyticsView')?.offsetTop || 0, behavior:'smooth' }); };
@@ -3253,6 +3311,14 @@ async function loadReportTeamAnalytics(range) {
     if (reportTeamAnalyticsState.status === 'ready') { renderReportTeamRows(reportTeamAnalyticsState.rows); renderReportPerformerFilter(range); }
     return;
   }
+  const priorCanViewTeam = reportCanViewTeam;
+  if (reportRangeDays(range) > 3661 && priorCanViewTeam) {
+    reportTeamAnalyticsState = { key, status:'ready', rows:[], canViewTeam:true, derived:true };
+    renderReportTeamRows([]);
+    renderReportPerformerFilter(range);
+    setReportText('#reportTeamMetricNote', 'Вся доступная история рассчитана по загруженным записям. Начисления доступны в периодах до 10 лет.');
+    return;
+  }
   reportTeamAnalyticsState = { key, status:'loading', rows:[], canViewTeam:false };
   panel.hidden = true;
   let response = await db.rpc('get_minuta_team_analytics', { p_organization:organizationId, p_start:range.start, p_end:range.end });
@@ -3263,8 +3329,13 @@ async function loadReportTeamAnalytics(range) {
   const { data, error } = response;
   if (!sessionIsCurrent(userId, generation) || reportTeamAnalyticsState.key !== key) return;
   if (error) {
-    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:false };
-    panel.hidden = true;
+    reportCanViewTeam = priorCanViewTeam;
+    reportTeamAnalyticsState = { key, status:'failed', rows:[], canViewTeam:priorCanViewTeam };
+    if (priorCanViewTeam) {
+      panel.hidden = false;
+      setReportText('#reportTeamMetricNote', 'Не удалось обновить рейтинг команды. Общие показатели рассчитаны по загруженным записям.');
+      renderReportPerformerFilter(range);
+    } else panel.hidden = true;
     return;
   }
   const rows = Array.isArray(data) ? data : Array.isArray(data?.performers) ? data.performers : [];
@@ -3388,18 +3459,23 @@ function reportTrendMarkup(completed, range) {
     const label = bucketDays === 1 ? reportDateText(localIsoDate(bucket.from)) : `${reportDateText(localIsoDate(bucket.from))}–${reportDateText(localIsoDate(bucket.to))}`;
     const height = bucket.value ? Math.max(8, Math.round(bucket.value / maximum * 100)) : 2;
     const stateClass = bucket.value === 0 ? ' is-zero' : index === bestIndex ? ' is-best' : '';
-    const openDate = localIsoDate(bucket.from);
-    return `<button class="report-chart-column${stateClass}" type="button" data-report-date="${openDate}" title="${escapeHtml(label)}: ${escapeHtml(money(bucket.value))}" aria-label="${escapeHtml(label)}, ${escapeHtml(money(bucket.value))}. Открыть расписание"><b>${escapeHtml(money(bucket.value))}</b><span><i style="height:${height}%"></i></span><small>${escapeHtml(label)}</small></button>`;
+    const openStart = localIsoDate(bucket.from);
+    const openEnd = localIsoDate(bucket.to);
+    return `<button class="report-chart-column${stateClass}" type="button" data-report-start="${openStart}" data-report-end="${openEnd}" title="${escapeHtml(label)}: ${escapeHtml(money(bucket.value))}" aria-label="${escapeHtml(label)}, ${escapeHtml(money(bucket.value))}. Открыть записи"><b>${escapeHtml(money(bucket.value))}</b><span><i style="height:${height}%"></i></span><small>${escapeHtml(label)}</small></button>`;
   }).join('');
 }
 
-function openReportBookings({ service = '', source = 'all', status = 'all', filter = 'all' } = {}) {
-  if (bookingUsesDemoData()) prepareDemoBookingContext();
+function reportDrilldownScope(range = reportRange()) {
+  return { start:range.start, end:range.end, performer:reportCanViewTeam ? reportPerformerFilter : '', organization:reportOrganizationId(), source:reportDataSource };
+}
+
+function openReportBookings({ service = '', source = 'all', status = 'all', filter = 'all', analytics = '', scope = reportDrilldownScope() } = {}) {
+  if (bookingUsesDemoData()) prepareDemoBookingContext(scope?.start || reportTodayIso());
   bookingSearchQuery = service;
   bookingSourceFilter = source;
   bookingStatusFilter = status;
-  bookingAnalyticsFilter = '';
-  bookingAnalyticsScope = null;
+  bookingAnalyticsFilter = analytics;
+  bookingAnalyticsScope = scope;
   bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   const search = $('#bookingSearch');
   const statusControl = $('#bookingStatusFilter');
@@ -3425,32 +3501,14 @@ function handleReportAction(action) {
     return;
   }
   if (action === 'pending') {
-    bookingAnalyticsFilter = '';
-    bookingAnalyticsScope = null;
-    bookingStatusFilter = 'needs-result';
-    const statusFilter = $('#bookingStatusFilter');
-    if (statusFilter) statusFilter.value = bookingStatusFilter;
-    setJournalMode('list');
-    setFilter('all');
-    setProviderView('bookings');
+    openReportBookings({ status:'needs-result' });
     return;
   }
-  if (action === 'debt' || action === 'lost') {
-    bookingAnalyticsFilter = action;
-    const actionRange = reportRange();
-    bookingAnalyticsScope = { start:actionRange.start, end:actionRange.end, performer:reportCanViewTeam ? reportPerformerFilter : '' };
-    bookingSearchQuery = '';
-    bookingSourceFilter = 'all';
-    bookingStatusFilter = action === 'debt' ? 'visited' : 'all';
-    const search = $('#bookingSearch');
-    const statusControl = $('#bookingStatusFilter');
-    if (search) search.value = '';
-    if (statusControl) statusControl.value = bookingStatusFilter;
-    setJournalMode('list');
-    setFilter('all');
-    updateBookingQueryTools();
-    setProviderView('bookings');
-    notify(action === 'debt' ? 'Показаны состоявшиеся визиты с неоплаченной суммой' : 'Показаны отмены и неявки выбранного периода');
+  if (action === 'debt' || action === 'lost' || action === 'payment-unknown') {
+    openReportBookings({ status:action === 'debt' ? 'visited' : 'all', analytics:action });
+    notify(action === 'debt' ? 'Показаны состоявшиеся визиты с неоплаченной суммой'
+      : action === 'payment-unknown' ? 'Показаны визиты без сохранённой отметки оплаты'
+        : 'Показаны отмены и неявки выбранного периода');
     return;
   }
   if (action === 'clients') { setProviderView('clients'); return; }
@@ -3469,6 +3527,7 @@ function setReportSubview(view = 'overview', { focus = false } = {}) {
     else button.removeAttribute('aria-current');
   });
   if (focus) $(`[data-report-view="${reportSubview}"]`)?.focus();
+  if (reportSubview === 'clients') void ensureReportRetention();
 }
 
 function reportGoalsScopeKey() {
@@ -3577,7 +3636,8 @@ function reportForecastMetrics(range, revenue, completed, items) {
   const attendanceRate = concluded ? completed.length / concluded : .8;
   const completedValue = completed.reduce((sum, item) => sum + reportServiceValue(item) - reportImportedValue(item), 0);
   const collectionRate = completedValue ? Math.min(1, revenue / completedValue) : .9;
-  const future = reportBookingPool().filter(item => item.booking_date > todayIso && item.booking_date <= targetEnd && item.status !== 'cancelled');
+  const future = reportBookingPool().filter(item => item.booking_date >= todayIso && item.booking_date <= targetEnd
+    && item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'scheduled' && !bookingIsCompleted(item));
   const pipeline = future.reduce((sum, item) => sum + reportServiceValue(item), 0) * attendanceRate * collectionRate;
   const remaining = Math.max(paceRemaining, pipeline);
   const sampleDays = weekdaySamples.flat().length;
@@ -3687,27 +3747,27 @@ function renderReportHeatmap(items, range) {
     const minutes = bookedMinutes[bandIndex][weekdayIndex];
     const available = availability?.minutes?.[bandIndex]?.[weekdayIndex] || 0;
     const percent = percentages[bandIndex][weekdayIndex];
-    const value = percent === null ? (counts[bandIndex][weekdayIndex] || '—') : `${percent}%`;
+    const value = percent === null ? (minutes ? reportHours(minutes) : '—') : `${percent}%`;
     const intensity = percent === null ? (minutes ? 18 : 4) : Math.max(percent ? 12 : 4, percent);
     const isPeak = availability ? percent !== null && percent === peak.percent && percent > 0 : minutes === peak.minutes && minutes > 0;
     const popular = popularTimes(bandIndex, weekdayIndex);
     const popularTitle = popular.length ? `; чаще начинали: ${popularTimesText(popular)}` : '';
     const title = (percent === null
-      ? `${weekday}, ${band.label}: ${seriesBookingCountLabel(counts[bandIndex][weekdayIndex])}; нет данных о доступном времени команды`
+      ? `${weekday}, ${band.label}: занято ${reportHours(minutes)}, ${seriesBookingCountLabel(counts[bandIndex][weekdayIndex])}; нет данных о доступном времени команды`
       : `${weekday}, ${band.label}: занято ${reportHours(minutes)} из ${reportHours(available)}, ${percent}%`) + popularTitle;
     const popularLabel = popular[0] ? `<small class="report-heatmap-popular-time">${escapeHtml(popularTimesText(popular.slice(0, 1)))}</small>` : '';
     return `<span class="report-heatmap-cell${isPeak ? ' is-peak' : ''}" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i>${value}</i>${popularLabel}</span>`;
   }).join('')}`).join('');
   holder.innerHTML = header + cells;
   const peakPopular = peak.minutes ? popularTimes(peak.band, peak.weekday) : [];
-  const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : seriesBookingCountLabel(counts[peak.band][peak.weekday])}${peakPopular.length ? ` · пик в ${popularTimesClockText(peakPopular)}` : ''}` : 'Пиковое время появится после записей';
+  const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : `${reportHours(peak.minutes)} занято`}${peakPopular.length ? ` · чаще начинали в ${popularTimesClockText(peakPopular)}` : ''}` : 'Пиковое время появится после записей';
   setReportText('#reportHeatmapPeak', peakText);
   holder.setAttribute('aria-label', peak.minutes ? `Пиковая загрузка: ${peakText}` : 'Записей для тепловой карты пока нет');
   const title = $('#reportHeatmapTitle');
   if (title) title.textContent = availability ? 'Загрузка по времени' : 'Спрос по времени';
 }
 
-function reportDataQualityMetrics({ items, completed, utilizationPercent }) {
+function reportDataQualityMetrics({ items, completed, utilizationPercent, unknownPaymentCount = 0 }) {
   const past = items.filter(item => item.booking_date <= reportTodayIso());
   const knownOutcomes = past.filter(item => item.status === 'cancelled' || ['completed', 'no_show'].includes(bookingOutcome(item).visit_status)).length;
   const outcomeCoverage = past.length ? knownOutcomes / past.length * 100 : null;
@@ -3715,14 +3775,16 @@ function reportDataQualityMetrics({ items, completed, utilizationPercent }) {
   const sourceCoverage = items.length ? items.filter(item => reportBookingSource(item) !== 'unknown').length / items.length * 100 : null;
   const durationCoverage = completed.length ? completed.filter(item => Number(bookingOutcome(item).actual_duration_minutes || 0) > 0).length / completed.length * 100 : null;
   const scheduleCoverage = utilizationPercent === null ? null : 100;
-  const available = [outcomeCoverage, identityCoverage, sourceCoverage, durationCoverage, scheduleCoverage].filter(Number.isFinite);
+  const paymentCoverage = completed.length ? (completed.length - unknownPaymentCount) / completed.length * 100 : null;
+  const available = [outcomeCoverage, identityCoverage, sourceCoverage, durationCoverage, scheduleCoverage, paymentCoverage].filter(Number.isFinite);
   const score = available.length ? Math.round(available.reduce((sum, value) => sum + value, 0) / available.length) : null;
   const warnings = [];
   if (outcomeCoverage !== null && outcomeCoverage < 80) warnings.push('не все прошедшие записи завершены');
   if (sourceCoverage !== null && sourceCoverage < 80) warnings.push('у старых записей нет источника');
   if (durationCoverage !== null && durationCoverage < 80) warnings.push('не у всех визитов указана фактическая длительность');
+  if (paymentCoverage !== null && paymentCoverage < 80) warnings.push(`оплата указана только для ${completed.length - unknownPaymentCount} из ${completed.length} визитов`);
   if (scheduleCoverage === null) warnings.push('загрузка без полного графика');
-  return { score, warnings, outcomeCoverage, identityCoverage, sourceCoverage, durationCoverage, scheduleCoverage };
+  return { score, warnings, outcomeCoverage, identityCoverage, sourceCoverage, durationCoverage, scheduleCoverage, paymentCoverage };
 }
 
 function renderReportCommandCenter({ range, items, completed, revenue, completedValue, importedValue = 0, unknownPaymentCount = 0, debt, pending, clients, sources, utilizationPercent, rows, cancelled, noShows, average }) {
@@ -3730,21 +3792,24 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   const concluded = completed.length + cancelled.length + noShows.length;
   const conversion = concluded ? Math.round(completed.length / concluded * 100) : null;
   const repeatRate = clients.uniqueClients ? Math.round(clients.returningClients / clients.uniqueClients * 100) : 0;
+  const knownPaymentCount = Math.max(0, completed.length - unknownPaymentCount);
+  const paymentCoverage = completed.length ? Math.round(knownPaymentCount / completed.length * 100) : null;
+  const paymentCoverageSufficient = paymentCoverage === null || paymentCoverage >= 80;
   const knownValue = completedValue - importedValue;
   const paymentRate = knownValue > 0 ? Math.min(100, Math.round(revenue / knownValue * 100)) : null;
   const goals = reportGoals();
   const visitTarget = Math.max(0, 100 - goals.cancellation_percent);
   const components = [
     { id:'visits', value:conversion, target:visitTarget, weight:.3, score:conversion === null ? null : visitTarget ? Math.min(100, Math.round(conversion / visitTarget * 100)) : 100 },
-    { id:'payments', value:paymentRate, target:100, weight:.25, score:paymentRate === null ? null : paymentRate },
+    { id:'payments', value:paymentRate, target:100, weight:.25, score:paymentRate === null || !paymentCoverageSufficient ? null : paymentRate },
     { id:'clients', value:clients.uniqueClients >= 3 ? repeatRate : null, target:goals.repeat_percent, weight:.2, score:clients.uniqueClients < 3 ? null : goals.repeat_percent ? Math.min(100, Math.round(repeatRate / goals.repeat_percent * 100)) : 100 },
     { id:'load', value:utilizationPercent, target:goals.utilization_percent, weight:.25, score:utilizationPercent === null ? null : Math.min(100, Math.round(utilizationPercent / goals.utilization_percent * 100)) }
   ];
   const availableComponents = components.filter(item => item.score !== null);
   const totalWeight = availableComponents.reduce((sum, item) => sum + item.weight, 0);
-  const hasHealthData = availableComponents.length >= 2 && concluded >= 3;
+  const hasHealthData = availableComponents.length >= 2 && concluded >= 3 && paymentCoverageSufficient;
   const healthScore = hasHealthData ? Math.round(availableComponents.reduce((sum, item) => sum + item.score * item.weight, 0) / totalWeight) : 0;
-  const healthLabel = !items.length ? 'Нужны данные' : !hasHealthData ? 'Мало данных' : healthScore >= 80 ? 'Стабильное состояние' : healthScore >= 60 ? 'Хорошее состояние' : healthScore >= 40 ? 'Есть точки роста' : 'Нужно внимание';
+  const healthLabel = !items.length ? 'Нужны данные' : !paymentCoverageSufficient ? 'Уточните оплаты' : !hasHealthData ? 'Мало данных' : healthScore >= 80 ? 'Стабильное состояние' : healthScore >= 60 ? 'Хорошее состояние' : healthScore >= 40 ? 'Есть точки роста' : 'Нужно внимание';
   setReportText('#reportForecastCaption', forecast.caption);
   setReportText('#reportForecast', money(forecast.forecast));
   // A completed period has no forecast: repeating the received total adds no information.
@@ -3755,7 +3820,9 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   setReportText('#reportHeroRevenue', money(revenue));
   const previousRange = previousReportRange(range);
   const previousRevenue = previousRange ? reportRevenue(reportBookings(previousRange)) : 0;
-  setReportText('#reportHeroRevenueTrend', previousRevenue ? `${revenue >= previousRevenue ? '+' : '−'}${Math.abs(Math.round((revenue - previousRevenue) / previousRevenue * 100))}% к прошлому периоду` : 'Фактическая оплата');
+  setReportText('#reportHeroRevenueTrend', completed.length && !paymentCoverageSufficient
+    ? `Оплата указана для ${knownPaymentCount} из ${completed.length} визитов`
+    : previousRevenue ? `${revenue >= previousRevenue ? '+' : '−'}${Math.abs(Math.round((revenue - previousRevenue) / previousRevenue * 100))}% к прошлому периоду` : 'По сохранённым отметкам оплаты');
   const periodGoal = reportGoalForRange(range, goals.revenue_rub);
   const planPercent = periodGoal ? Math.round(revenue / periodGoal * 100) : 0;
   const goalEnd = parseLocalIsoDate(reportForecastEnd(range));
@@ -3769,8 +3836,8 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   setReportText('#reportHeroUtilizationNote', utilizationPercent === null ? 'Нужен полный график' : `Цель ${goals.utilization_percent}%`);
   setReportText('#reportVisitConversion', conversion === null ? '—' : `${conversion}%`);
   setReportText('#reportVisitConversionNote', concluded ? `${completed.length} из ${concluded}; цель ${visitTarget}%` : 'Нет известных исходов');
-  setReportText('#reportPaymentRate', paymentRate === null ? '—' : `${paymentRate}%`);
-  setReportText('#reportPaymentRateNote', paymentRate === null ? 'Нет данных для сверки оплаты' : unknownPaymentCount ? `По визитам с данными; без данных: ${unknownPaymentCount}` : 'Получено из стоимости; цель 100%');
+  setReportText('#reportPaymentRate', paymentCoverage === null ? '—' : `${paymentCoverage}% данных`);
+  setReportText('#reportPaymentRateNote', paymentCoverage === null ? 'Нет состоявшихся визитов' : `${knownPaymentCount} из ${completed.length} визитов; финансовая оценка доступна от 80%`);
   setReportText('#reportRepeatRate', `${repeatRate}%`);
   setReportText('#reportRepeatRateNote', clients.uniqueClients ? `${clients.returningClients} из ${clients.uniqueClients}; цель ${goals.repeat_percent}%` : 'Появится после визитов');
   setReportText('#reportHealthUtilization', utilizationPercent === null ? '—' : `${utilizationPercent}%`);
@@ -3780,9 +3847,9 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   const ring = $('#reportHealthRing');
   if (ring) {
     ring.style.setProperty('--report-health', `${healthScore * 3.6}deg`);
-    ring.setAttribute('aria-label', hasHealthData ? `Пульс бизнеса: ${healthScore} из 100, ${healthLabel}` : 'Пульс бизнеса: недостаточно завершённых визитов');
+    ring.setAttribute('aria-label', hasHealthData ? `Оценка состояния: ${healthScore} из 100, ${healthLabel}` : `Оценка состояния недоступна: ${healthLabel}`);
   }
-  const quality = reportDataQualityMetrics({ items, completed, utilizationPercent });
+  const quality = reportDataQualityMetrics({ items, completed, utilizationPercent, unknownPaymentCount });
   setReportText('#reportDataQuality', quality.score === null ? '—' : `${quality.score}%`);
   setReportText('#reportDataQualityNote', quality.warnings.length ? `Ограничения: ${quality.warnings.join('; ')}.` : 'Ключевые поля заполнены, расчёт можно проверять по детализации.');
   const methodology = $('#reportMethodology');
@@ -3790,7 +3857,9 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   const leader = [...rows].sort((a, b) => b.revenue - a.revenue)[0];
   const narrative = !items.length
     ? 'После первых записей здесь появятся прогноз, конверсия и персональные рекомендации.'
-    : pending.length
+    : completed.length && !paymentCoverageSufficient
+      ? `Оплата указана для ${knownPaymentCount} из ${completed.length} визитов. Сумма полученного и общая оценка пока неполные.`
+      : pending.length
       ? `${pending.length} ${reportVisitWord(pending.length)} требуют завершения — после этого картина станет точнее.`
       : debt > 0
         ? `Результат выглядит устойчиво, но ${money(debt)} ещё не отмечено как полученная оплата.`
@@ -3800,10 +3869,11 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   setReportText('#reportCommandNarrative', narrative);
   const cancellationRate = concluded ? Math.round((cancelled.length + noShows.length) / concluded * 100) : 0;
   const smartActions = [];
+  if (completed.length && !paymentCoverageSufficient) smartActions.push({ priority:160 + unknownPaymentCount, tone:'attention', icon:'alert', title:'Уточнить оплаты', text:`Без отметки оплаты: ${unknownPaymentCount}`, evidence:`Известно ${knownPaymentCount} из ${completed.length} визитов`, impact:'Откроем нужные посещения', action:'payment-unknown', label:'Проверить' });
   if (pending.length) smartActions.push({ priority:100 + pending.length, tone:'attention', icon:'clock', title:'Завершить визиты', text:`${pending.length} записей без результата`, evidence:`Картина выручки и посещаемости неполная`, impact:average ? `До ${money(Math.round(pending.length * average))} требуют проверки` : 'Уточните результат визитов', action:'pending', label:'Открыть' });
   if (debt > 0) smartActions.push({ priority:120 + debt / 1000, tone:'money', icon:'alert', title:'Проверить оплаты', text:`Долг ${money(debt)}`, evidence:`Оплачено ${paymentRate ?? 0}% стоимости услуг`, impact:'Покажем состоявшиеся визиты', action:'debt', label:'Проверить' });
   if (clients.uniqueClients >= 3 && repeatRate < goals.repeat_percent) smartActions.push({ priority:60 + goals.repeat_percent - repeatRate, tone:'growth', icon:'users', title:'Вернуть клиентов', text:`Возвращаются ${repeatRate}% при цели ${goals.repeat_percent}%`, evidence:`Выборка: ${clients.uniqueClients} клиентов`, impact:'Откроем клиентов для точечного контакта', action:'clients', label:'К клиентам' });
-  if (utilizationPercent !== null && utilizationPercent < goals.utilization_percent) smartActions.push({ priority:50 + goals.utilization_percent - utilizationPercent, tone:'growth', icon:'spark', title:'Заполнить свободные часы', text:`Загрузка ${utilizationPercent}% при цели ${goals.utilization_percent}%`, evidence:`Свободно ${$('#reportFreeHours')?.textContent || '—'}`, impact:'Откроем расписание', action:'schedule', label:'К графику' });
+  if (range.end >= reportTodayIso() && utilizationPercent !== null && utilizationPercent < goals.utilization_percent) smartActions.push({ priority:50 + goals.utilization_percent - utilizationPercent, tone:'growth', icon:'spark', title:'Заполнить свободные часы', text:`Загрузка ${utilizationPercent}% при цели ${goals.utilization_percent}%`, evidence:`Свободно ${$('#reportFreeHours')?.textContent || '—'}`, impact:'Откроем расписание', action:'schedule', label:'К графику' });
   if (concluded >= 5 && cancellationRate > goals.cancellation_percent) smartActions.push({ priority:80 + cancellationRate - goals.cancellation_percent, tone:'attention', icon:'alert', title:'Снизить потери записей', text:`Отмены и неявки ${cancellationRate}%`, evidence:`Цель — не более ${goals.cancellation_percent}%`, impact:`Проверить ${cancelled.length + noShows.length} записей`, action:'lost', label:'Проверить' });
   if (quality.warnings.length) smartActions.push({ priority:40 + quality.warnings.length, tone:'attention', icon:'alert', title:'Повысить точность', text:quality.warnings[0], evidence:`Качество данных ${quality.score ?? 0}%`, impact:'Откроем методику расчёта', action:'quality', label:'Подробнее' });
   if (!smartActions.length && items.length) smartActions.push({ priority:0, tone:'success', icon:'check', title:'Главное под контролем', text:'Критичных отклонений не найдено', evidence:'Цели и заполненность данных проверены', impact:'Продолжайте следить за динамикой', action:'', label:'' });
@@ -3811,8 +3881,9 @@ function renderReportCommandCenter({ range, items, completed, revenue, completed
   const smartHolder = $('#reportSmartActions');
   if (smartHolder) {
     const visibleActions = smartActions.slice(0, 3);
-    smartHolder.classList.remove('is-expanded');
-    smartHolder.innerHTML = visibleActions.map(item => `<article class="report-smart-action is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small><i>${escapeHtml(item.evidence)}</i><b>${escapeHtml(item.impact)}</b></div>${item.action ? `<button type="button" data-report-action="${item.action}">${escapeHtml(item.label)} →</button>` : ''}</article>`).join('') + (visibleActions.length > 1 ? `<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="false">Рекомендации · ${visibleActions.length}</button>` : '');
+    const wasExpanded = smartHolder.classList.contains('is-expanded');
+    smartHolder.innerHTML = visibleActions.map(item => `<article class="report-smart-action is-${item.tone}"><span>${uiIcon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.text)}</small><i>${escapeHtml(item.evidence)}</i><b>${escapeHtml(item.impact)}</b></div>${item.action ? `<button type="button" data-report-action="${item.action}">${escapeHtml(item.label)} →</button>` : ''}</article>`).join('') + (visibleActions.length > 1 ? `<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="${wasExpanded}">Ещё ${visibleActions.length - 1}</button>` : '');
+    smartHolder.classList.toggle('is-expanded', wasExpanded);
   }
   const command = $('#reportCommandCenter');
   if (command) command.classList.toggle('is-empty', !items.length);
@@ -3890,6 +3961,9 @@ function renderAnalytics() {
   const previousClients = previousRange ? reportClientMetrics(previousCompleted, previousRange) : { uniqueClients:0 };
   const previousSources = previousRange ? reportSourceMetrics(previousItems) : { online:0 };
   const hasPreviousData = Boolean(previousRange && previousItems.length);
+  setReportText('#reportComparisonCaption', previousRange
+    ? `${reportDateText(previousRange.start, { day:'numeric', month:'short' })} — ${reportDateText(previousRange.end, { day:'numeric', month:'short' })}`
+    : 'Для всего периода сравнение недоступно');
   setReportTrend('#reportRevenueTrend', revenue, previousRevenue, hasPreviousData);
   const comparison = $('#reportComparison');
   if (comparison) comparison.hidden = !hasPreviousData;
@@ -3980,11 +4054,13 @@ function renderAnalytics() {
     const entries = bookingSession(item).filter(entry => entry.title);
     const weightTotal = entries.reduce((sum, entry) => sum + Math.max(0, Number(entry.price_rub || 0)), 0);
     const received = reportReceivedAmount(item);
+    const paymentKnown = !globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item));
     entries.forEach(entry => {
       const name = serviceName(entry.title || 'Услуга');
       const key = entry.service_id ? `service:${entry.service_id}` : `title:${name.toLowerCase()}`;
-      const row = grouped.get(key) || { name, visits:0, revenue:0 };
+      const row = grouped.get(key) || { name, visits:0, paymentKnownVisits:0, revenue:0 };
       row.visits += 1;
+      if (paymentKnown) row.paymentKnownVisits += 1;
       row.revenue += received * (weightTotal > 0 ? Math.max(0, Number(entry.price_rub || 0)) / weightTotal : 1 / entries.length);
       grouped.set(key, row);
     });
@@ -4002,8 +4078,10 @@ function renderAnalytics() {
   });
   holder.innerHTML = rows.length ? visibleServiceRows.map(row => {
     const revenueShare = revenue ? Math.round(row.revenue / revenue * 100) : 0;
-    const primaryValue = reportServiceMetric === 'visits' ? `${row.visits} ${reportVisitWord(row.visits)}` : money(Math.round(row.revenue));
-    return `<button class="report-service-row" type="button" data-report-service="${escapeHtml(row.name)}"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)} · ${revenueShare}% дохода</small><span><i style="width:${Math.max(2, Math.round(row[reportServiceMetric] / maximumServiceValue * 100))}%"></i></span></div><b>${primaryValue}</b></button>`;
+    const paymentKnown = row.paymentKnownVisits > 0;
+    const paymentNote = !paymentKnown ? 'Оплата не указана' : row.paymentKnownVisits < row.visits ? `Оплата указана для ${row.paymentKnownVisits} из ${row.visits}` : `${revenueShare}% полученного`;
+    const primaryValue = reportServiceMetric === 'visits' ? `${row.visits} ${reportVisitWord(row.visits)}` : paymentKnown ? money(Math.round(row.revenue)) : 'Нет данных';
+    return `<button class="report-service-row" type="button" data-report-service="${escapeHtml(row.name)}"><div><strong>${escapeHtml(row.name)}</strong><small>${row.visits} ${reportVisitWord(row.visits)} · ${paymentNote}</small><span><i style="width:${Math.max(2, Math.round(row[reportServiceMetric] / maximumServiceValue * 100))}%"></i></span></div><b>${primaryValue}</b></button>`;
   }).join('') : '<div class="provider-empty compact-empty"><strong>Пока нет отмеченных визитов</strong><small>После приёма откройте запись и укажите результат и оплату.</small></div>';
   const servicesExpand = $('#reportServicesExpand');
   if (servicesExpand) {
@@ -4198,7 +4276,15 @@ function reportExportEnd(item, duration) {
   const total = Math.max(0, hours * 60 + minutes + duration);
   return `${String(Math.floor(total / 60) % 24).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
 }
-function reportExportSource(item) { return item.booking_source === 'client_online' ? 'Онлайн' : item.booking_source === 'provider_manual' ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено'; }
+function reportExportSource(item) {
+  const source = String(item.booking_source || '').toLowerCase();
+  if (source === 'client_online') return 'Онлайн';
+  if (source === 'admin_manual') return 'Администратор';
+  if (source === 'provider_repeat') return 'Повторная запись мастером';
+  if (source === 'provider_series') return 'Серия мастером';
+  if (source === 'provider_manual') return 'Мастер';
+  return 'Не определено';
+}
 function reportExportVisit(item) {
   const status = bookingOutcome(item).visit_status;
   return item.status === 'cancelled' ? 'Отменён' : status === 'completed' ? 'Состоялся' : status === 'no_show' ? 'Не пришёл' : 'Запланирован';
@@ -4217,7 +4303,7 @@ function reportExportMaster(item, performers) { return performers.get(reportEffe
 function reportExportCreator(item, performers) {
   if (item.booking_source === 'client_online') return 'Клиент';
   if (item.created_by_user_id && performers.has(String(item.created_by_user_id))) return performers.get(String(item.created_by_user_id));
-  return item.booking_source === 'provider_manual' ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено';
+  return ['provider_manual','provider_repeat','provider_series'].includes(item.booking_source) ? 'Мастер' : item.booking_source === 'admin_manual' ? 'Администратор' : 'Не определено';
 }
 function reportExportData(privacy = 'masked') {
   const range = reportRange();
@@ -5886,6 +5972,7 @@ function applyBookingQuery(items) {
     if (bookingAnalyticsScope?.performer && bookingAnalyticsScope.performer !== 'all' && reportEffectivePerformerId(item) !== String(bookingAnalyticsScope.performer)) return false;
     if (bookingAnalyticsFilter === 'debt' && !(reportDebtAmount(item) > 0)) return false;
     if (bookingAnalyticsFilter === 'lost' && !(item.status === 'cancelled' || bookingOutcome(item).visit_status === 'no_show')) return false;
+    if (bookingAnalyticsFilter === 'payment-unknown' && !globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))) return false;
     if (!query) return true;
     const text = [item.client_name, item.client_phone, serviceName(item.services?.name || ''), ...bookingSession(item).map(entry => entry.title), bookingDisplayNote(item)]
       .filter(Boolean)
@@ -12109,7 +12196,7 @@ document.addEventListener('click', async event => {
   const reportFilterToggle = event.target.closest('#reportFilterToggle');
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
-  const reportChartDate = event.target.closest('[data-report-date]');
+  const reportChartDate = event.target.closest('[data-report-start]');
   const showOwnBookings = event.target.closest('#showOwnBookings');
   const reportServiceMetricButton = event.target.closest('[data-report-service-metric]');
   const reportServiceRow = event.target.closest('[data-report-service]');
@@ -12229,10 +12316,8 @@ document.addEventListener('click', async event => {
     setReportFiltersExpanded(false);
   }
   if (reportChartDate) {
-    if (bookingUsesDemoData()) prepareDemoBookingContext(reportChartDate.dataset.reportDate);
-    else selectScheduleDate(reportChartDate.dataset.reportDate);
-    setProviderView('bookings');
-    if (bookingUsesDemoData()) notify('Показаны демо-записи выбранного дня');
+    openReportBookings({ scope:{ ...reportDrilldownScope(), start:reportChartDate.dataset.reportStart, end:reportChartDate.dataset.reportEnd || reportChartDate.dataset.reportStart } });
+    notify(bookingUsesDemoData() ? 'Показаны демо-записи выбранного периода' : 'Показаны записи выбранного периода');
   }
   if (showOwnBookings) {
     reportDataSource = 'own';
@@ -12263,7 +12348,7 @@ document.addEventListener('click', async event => {
     holder?.classList.toggle('is-expanded', expanded);
     reportActionsToggle.setAttribute('aria-expanded', String(expanded));
     const actionCount = holder?.querySelectorAll('.report-smart-action').length || 0;
-    reportActionsToggle.textContent = expanded ? 'Скрыть рекомендации' : `Рекомендации · ${actionCount}`;
+    reportActionsToggle.textContent = expanded ? 'Скрыть рекомендации' : `Ещё ${Math.max(0, actionCount - 1)}`;
   }
   if (openReportGoalsButton) openReportGoals();
   if (closeReportGoalsButton) $('#reportGoalsDialog')?.close();

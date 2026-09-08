@@ -557,20 +557,20 @@
               <p class="provider-display-status" id="reportGoalsStatus" role="status" aria-live="polite"></p>
             </form>
           </dialog>
+          <div class="report-data-source" id="reportDataSource" hidden aria-label="Источник статистики">
+            <span>Показывать</span>
+            <div role="group" aria-label="Выберите данные для статистики">
+              <button class="active" type="button" data-report-source="own" aria-pressed="true">Мои данные</button>
+              <button type="button" data-report-source="demo" aria-pressed="false">Демо-режим</button>
+            </div>
+            <small id="reportDataSourceStatus">Ваши реальные записи и оплаты</small>
+          </div>
           <section class="report-filters" aria-label="Фильтры статистики">
             <button class="report-filter-toggle" id="reportFilterToggle" type="button" aria-expanded="false" aria-controls="reportFilterContent">
               <span><small>Период и сотрудник</small><strong id="reportFilterSummary">30 дней · Вся команда</strong></span>
               <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </button>
             <div class="report-filter-content" id="reportFilterContent">
-              <div class="report-data-source" id="reportDataSource" hidden aria-label="Источник статистики">
-                <span>Данные</span>
-                <div role="group" aria-label="Выберите данные для статистики">
-                  <button class="active" type="button" data-report-source="own" aria-pressed="true">Мои данные</button>
-                  <button type="button" data-report-source="demo" aria-pressed="false">Демо-режим</button>
-                </div>
-                <small id="reportDataSourceStatus">Ваши реальные записи и оплаты</small>
-              </div>
               <div class="report-toolbar"><div class="report-periods" aria-label="Период отчёта"><button type="button" data-report-period="week">7 дней</button><button class="active" type="button" data-report-period="last30">30 дней</button><button type="button" data-report-period="quarter">90 дней</button><button type="button" data-report-period="month">Этот месяц</button><button type="button" data-report-period="year">Год</button><button type="button" data-report-period="all">Всё время</button><button type="button" data-report-period="custom">Свои даты</button></div><label class="report-performer-filter" id="reportPerformerFilterWrap" hidden><span>Сотрудник</span><select id="reportPerformerFilter" aria-label="Выберите сотрудника"></select></label></div>
               <form class="report-custom-period" id="reportCustomPeriod" hidden><label>С<input id="reportDateFrom" type="date" required></label><label>По<input id="reportDateTo" type="date" required></label><button class="secondary-button" type="submit">Показать</button></form>
               <p class="report-period-label" id="reportPeriodLabel" role="status" aria-live="polite"></p>
@@ -585,32 +585,38 @@
           </nav>
           <section class="report-command-center" id="reportCommandCenter" data-report-section="overview" aria-labelledby="reportCommandTitle">
             <div class="report-command-copy">
-              <div class="report-command-heading"><div><span class="report-command-kicker"><i></i> Ключевое за период</span><h3 id="reportCommandTitle">Пульс бизнеса</h3></div><button class="report-goals-open" id="reportGoalsOpen" type="button">Настроить цели</button></div>
+              <div class="report-command-heading">
+                <div><span class="report-command-kicker"><i></i> Состояние бизнеса</span><h3 id="reportCommandTitle">Главное за период</h3></div>
+                <div class="report-command-status">
+                  <div class="report-health" id="reportHealthRing" role="img" aria-label="Оценка: недостаточно данных"><div><strong id="reportHealthScore">—</strong><small>из 100</small></div><span id="reportHealthLabel">Нужны данные</span></div>
+                  <button class="report-goals-open" id="reportGoalsOpen" type="button">Цели</button>
+                </div>
+              </div>
               <p id="reportCommandNarrative">Собираем показатели и ищем точки роста.</p>
               <div class="report-command-metrics">
-                <article><small>Получено</small><strong id="reportHeroRevenue">0 ₽</strong><span id="reportHeroRevenueTrend">Фактическая оплата</span></article>
-                <article><small id="reportPlanCaption">План месяца</small><strong id="reportPlanProgress">Не задан</strong><span id="reportPlanProgressNote">Добавьте цель</span></article>
-                <article><small id="reportForecastCaption">Прогноз к концу месяца</small><strong id="reportForecast">0 ₽</strong><span id="reportForecastTrend">По текущему темпу</span></article>
+                <article class="report-primary-metric"><small>Отмечено полученным</small><strong id="reportHeroRevenue">0 ₽</strong><span id="reportHeroRevenueTrend">Нет данных об оплате</span></article>
+                <article><small>Состоялось</small><strong id="reportCompleted">0</strong><span id="reportWorkload">0 минут работы</span></article>
                 <article><small>Загрузка</small><strong id="reportHeroUtilization">—</strong><span id="reportHeroUtilizationNote">По рабочему времени</span></article>
               </div>
+              <div class="report-plan-forecast" aria-label="План и прогноз">
+                <article><small id="reportPlanCaption">План периода</small><strong id="reportPlanProgress">Не задан</strong><span id="reportPlanProgressNote">Добавьте цель</span></article>
+                <article><small id="reportForecastCaption">Прогноз</small><strong id="reportForecast">0 ₽</strong><span id="reportForecastTrend">Оценка, не гарантия</span></article>
+              </div>
             </div>
-            <div class="report-health" id="reportHealthRing" role="img" aria-label="Пульс бизнеса: недостаточно данных">
-              <div><strong id="reportHealthScore">—</strong><small>из 100</small></div>
-              <span id="reportHealthLabel">Нужны данные</span>
-            </div>
-            <details class="report-health-details" id="reportHealthDetails"><summary>Почему такая оценка</summary><div class="report-health-factors"><span><small>Посещения</small><strong id="reportVisitConversion">—</strong><i id="reportVisitConversionNote">Нет данных</i></span><span><small>Оплаты</small><strong id="reportPaymentRate">—</strong><i id="reportPaymentRateNote">Нет данных</i></span><span><small>Клиенты</small><strong id="reportRepeatRate">—</strong><i id="reportRepeatRateNote">Нет данных</i></span><span><small>Загрузка</small><strong id="reportHealthUtilization">—</strong><i id="reportHealthUtilizationNote">Нет данных</i></span></div><p>Итог — среднее четырёх доступных показателей относительно заданных целей. Недоступные данные не снижают оценку.</p></details>
+            <details class="report-health-details" id="reportHealthDetails"><summary>Почему такая оценка</summary><div class="report-health-factors"><span><small>Посещения</small><strong id="reportVisitConversion">—</strong><i id="reportVisitConversionNote">Нет данных</i></span><span><small>Полнота оплат</small><strong id="reportPaymentRate">—</strong><i id="reportPaymentRateNote">Нет данных</i></span><span><small>Клиенты</small><strong id="reportRepeatRate">—</strong><i id="reportRepeatRateNote">Нет данных</i></span><span><small>Загрузка</small><strong id="reportHealthUtilization">—</strong><i id="reportHealthUtilizationNote">Нет данных</i></span></div><p>Оценка строится по посещениям, оплатам, клиентам и загрузке относительно целей. Если оплата указана менее чем для 80% состоявшихся визитов, общая оценка не показывается.</p></details>
             <div class="report-smart-actions" id="reportSmartActions" aria-live="polite"></div>
           </section>
-          <section class="report-insight" id="reportInsight" data-report-section="overview" aria-live="polite"><small>Главное за период</small><p>Статистика появится после первых завершённых визитов.</p></section>
+          <details class="report-period-details" data-report-section="overview"><summary>Подробнее за период</summary><section class="report-insight" id="reportInsight" aria-live="polite"><small>Главное за период</small><p>Статистика появится после первых завершённых визитов.</p></section></details>
           <section class="report-last-change" id="reportLastChange" data-report-section="money" hidden aria-live="polite"><div class="report-last-change-label"><small>Последнее изменение</small><time id="reportLastChangeTime"></time></div><div class="report-last-change-main"><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><small id="reportLastChangeActor"></small></div><details class="report-event-history"><summary>Последние 100 изменений</summary><div class="report-event-list" id="reportEventList"></div></details></section>
-          <div class="report-summary" data-report-section="overview">
-            <article><small>Получено от клиентов</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
+          <div class="report-summary" data-report-section="money">
+            <article hidden><small>Отмечено полученным</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
             <article><small>Стоимость оказанных услуг</small><strong id="reportCompletedValue">0 ₽</strong><span>По состоявшимся визитам</span></article>
             <article><small>Долг клиентов</small><strong id="reportDebt">0 ₽</strong><span id="reportUnpaid">Нет визитов с долгом</span></article>
-            <article><small>Состоялось</small><strong id="reportCompleted">0</strong><span id="reportWorkload">0 минут работы</span></article>
           </div>
           <div class="report-secondary" data-report-section="overview" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article></div>
           <section class="report-reconciliation" id="reportReconciliation" data-report-section="overview" aria-live="polite"></section>
+          <section class="panel report-trend" data-report-section="overview"><div class="panel-head"><div><small>Динамика</small><h3 id="reportTrendTitle">Получено по дням</h3><p id="reportTrendPeriod">Выбранный период</p></div><div class="report-chart-context"><strong id="reportTrendTotal">0 ₽</strong><small>Нажмите столбец, чтобы открыть записи</small></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
+          <details class="report-analytics-details" data-report-section="overview"><summary>Подробная аналитика</summary><div class="report-analytics-details-content">
           <div class="report-visual-grid" data-report-section="overview">
             <section class="panel report-funnel-card" aria-labelledby="reportFunnelTitle">
               <div class="report-section-heading"><div><small>Статусы периода</small><h3 id="reportFunnelTitle">Путь записей</h3></div><span id="reportFunnelCaption">Без имитации маркетинговой воронки</span></div>
@@ -629,7 +635,7 @@
             <div class="report-utm-sources" id="reportUtmFunnelSources" hidden></div>
           </section>
           <section class="report-comparison" id="reportComparison" data-report-section="overview" aria-label="Сравнение с предыдущим периодом">
-            <div class="report-section-heading"><div><small>Изменения</small><h3>Сравнение периода</h3></div><span>К предыдущему периоду</span></div>
+            <div class="report-section-heading"><div><small>Изменения</small><h3>Сравнение периода</h3></div><span id="reportComparisonCaption">К предыдущему периоду</span></div>
             <div class="report-comparison-list">
               <article><span>Получено</span><strong id="reportComparisonRevenue">Без сравнения</strong></article>
               <article><span>Состоялось</span><strong id="reportComparisonVisits">Без сравнения</strong></article>
@@ -637,6 +643,7 @@
               <article><span>Записи онлайн</span><strong id="reportComparisonOnline">Без сравнения</strong></article>
             </div>
           </section>
+          </div></details>
           <section class="report-decision-section" data-report-section="money" aria-labelledby="reportDecisionTitle">
             <div class="report-section-heading report-decision-heading"><div><small>Структура результата</small><h3 id="reportDecisionTitle">Что влияет на результат</h3></div><span id="reportDecisionHint">Нажмите показатель, чтобы открыть записи</span></div>
             <div class="report-decision-grid">
@@ -707,15 +714,12 @@
             <p class="report-team-note" id="reportTeamMetricNote">Фактически полученная оплата за состоявшиеся визиты.</p>
             <div class="report-performer-list" id="reportPerformersList"><p class="report-empty-inline">Данные по мастерам появятся после завершённых визитов.</p></div>
           </section>
-          <div class="report-insights-grid" data-report-section="money">
-            <section class="panel report-trend"><div class="panel-head"><div><small>Динамика</small><h3 id="reportTrendTitle">Получено по дням</h3><p id="reportTrendPeriod">Выбранный период</p></div><div class="report-chart-context"><strong id="reportTrendTotal">0 ₽</strong><small>Нажмите столбец, чтобы открыть расписание</small></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
-            <section class="panel report-payments"><div class="panel-head"><div><small>Оплата</small><h3>Способы оплаты</h3></div></div><div id="reportPaymentsList"></div></section>
-          </div>
+          <section class="panel report-payments" data-report-section="money"><div class="panel-head"><div><small>Оплата</small><h3>Способы оплаты</h3></div></div><div id="reportPaymentsList"></div></section>
           <details class="report-methodology" id="reportMethodology">
             <summary>Как считаются показатели и насколько полны данные</summary>
             <div class="report-methodology-grid">
               <article><strong id="reportDataQuality">—</strong><span>Качество данных</span><small id="reportDataQualityNote">Проверяем заполненность результатов и источников.</small></article>
-              <article><strong>Получено</strong><span>Фактическая оплата</span><small>Сумма оплат только по состоявшимся визитам.</small></article>
+              <article><strong>Получено</strong><span>Сохранённые отметки оплаты</span><small>Сумма относится к датам визитов, а не банковских операций.</small></article>
               <article><strong>Посещаемость</strong><span>Состоявшиеся из завершённых</span><small>Будущие записи не входят в расчёт.</small></article>
               <article><strong>Возвращаемость</strong><span>Повторные среди уникальных</span><small>Определяется по аккаунту клиента или нормализованному телефону.</small></article>
               <article><strong>Загрузка</strong><span>Занятое время из доступного</span><small>Учитываются график, перерывы, выходные и закрытое время.</small></article>
