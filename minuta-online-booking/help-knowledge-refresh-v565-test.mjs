@@ -44,10 +44,39 @@ for (const slug of ['client-search-filters', 'client-card-notes-and-labels', 'no
   assert.ok(providerHtml.includes(slug), `В интерфейсе нет контекстной ссылки ${slug}`);
 }
 
+const contextualLabels = new Map([
+  ['client-search-filters', 'Как найти клиента?'],
+  ['client-card-notes-and-labels', 'Что есть в карточке?'],
+  ['notification-queue', 'Как это работает?'],
+  ['organization-structure', 'С чего начать?'],
+  ['roles-access-safety', 'Как работают права?'],
+  ['service-resources', 'Почему время недоступно?'],
+  ['setup-yookassa', 'Как подключить оплату?'],
+  ['inventory-setup', 'Как настроить склад?'],
+  ['client-retention', 'Кто попадёт в список?'],
+  ['subscription-plans', 'Как выбрать тариф?'],
+  ['cabinet-layout-theme', 'Как выбрать оформление?'],
+  ['visitor-alerts', 'Какие данные видны?'],
+  ['install-app', 'Как установить?'],
+  ['account-security', 'Как защитить аккаунт?']
+]);
+for (const [slug, label] of contextualLabels) {
+  const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(
+    providerHtml,
+    new RegExp(`data-contextual-help[^>]*data-help-label="${escapedLabel}"[^>]*data-help-slug="${escapedSlug}"`),
+    `${slug}: контекстная подсказка названа слишком общо`
+  );
+}
+
 assert.doesNotMatch(read('help/article.html'), /article-feedback/, 'Неподключённая форма обратной связи не должна вводить пользователя в заблуждение');
-assert.match(read('contextual-help.js'), /'Первый шаг'/, 'Короткая подсказка должна объяснять первый шаг');
-assert.match(read('contextual-help.js'), /'Важно'/, 'Короткая подсказка должна выделять ограничение');
+const contextualHelp = read('contextual-help.js');
+assert.match(contextualHelp, /'Первый шаг'/, 'Короткая подсказка должна объяснять первый шаг');
+assert.match(contextualHelp, /'Важно'/, 'Короткая подсказка должна выделять ограничение');
+assert.match(contextualHelp, /danger \? 'Что произойдёт\?' : 'Как это работает\?'/, 'Запасные подписи подсказок не отражают контекст');
+assert.doesNotMatch(contextualHelp, /Не совсем понятно\?/, 'Общая подпись «Не совсем понятно?» не должна возвращаться');
 assert.match(read('help/help.css'), /@media \(max-width: 900px\)[\s\S]*\.article-shell[^}]*display: block;/,
   'Статья должна переходить в одну колонку на контрольной ширине 760 px');
 
-console.log(`Help knowledge refresh v628: PASS (${articles.length} articles)`);
+console.log(`Help knowledge refresh v629: PASS (${articles.length} articles)`);

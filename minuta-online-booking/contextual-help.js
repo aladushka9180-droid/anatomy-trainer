@@ -51,7 +51,7 @@
       example,
       change,
       danger,
-      label: customLabel || (danger ? 'Что произойдёт?' : 'Не совсем понятно?'),
+      label: customLabel || (danger ? 'Что произойдёт?' : 'Как это работает?'),
       article: compactText(option(overrides.article, data.helpArticle) || (slug ? `help/article.html?slug=${encodeURIComponent(slug)}` : ''), 2000),
       articleTarget: compactText(option(overrides.articleTarget, data.helpArticleTarget), 20) || '_blank',
       question,
