@@ -53,9 +53,11 @@ try{
     await page.addScriptTag({content:script});
     await page.evaluate(()=>renderAnalytics());
     const number=async id=>Number((await page.locator(id).textContent()).replace(/[^0-9-]/g,''));
-    assert.equal(await number('#reportRevenue'),700);assert.equal(await number('#reportCompletedValue'),2300);assert.equal(await number('#reportDebt'),600);assert.equal(await number('#reportAverage'),350);
+    assert.equal(await number('#reportRevenue'),700);assert.equal(await number('#reportCompletedValue'),2300);assert.equal(await number('#reportPaymentUnknownValue'),1000);assert.equal(await number('#reportDebt'),600);assert.equal(await number('#reportAverage'),350);
+    assert.match(await page.locator('#reportPaymentUnknown').textContent(),/1 визит/);
+    assert.match(await page.locator('#reportUnpaid').textContent(),/2 визитов.*подтверждённым долгом/);
     assert.match(await page.locator('#reportPaymentEvidence').textContent(),/2 из 3/);
-    assert.match(await page.locator('#reportPaymentEvidence').textContent(),/нет данных об оплате/);
+    assert.match(await page.locator('#reportPaymentEvidence').textContent(),/Оплата не указана/);
     assert.match(await page.locator('#reportTrendTitle').textContent(),/^Фактически получено/);
     assert.match(await page.locator('#reportTrendCoverage').textContent(),/2 из 3 визитов/);
     assert.equal(await page.locator('#reportRevenueChart .report-chart-column').count(),5);
@@ -76,8 +78,8 @@ try{
     await page.evaluate(()=>{exportBookingsCsv('full');exportBookingsXlsx('full');exportBookingsPdf('full');});
     const artifacts=await page.evaluate(async()=>{const csv=await exports[0].blob.text(),xlsx=new Uint8Array(await exports[1].blob.arrayBuffer()),pdf=await exports[2].blob.text();return {csv,zip:[...xlsx.slice(0,4)],pdf:pdf.slice(0,8),pdfText,xml:reportExportSheets(reportExportData()).map(sheet=>reportExportSheet(sheet.rows,sheet.options))};});
     assert.match(artifacts.csv,/Нет данных об оплате \(история\)/);assert.deepEqual(artifacts.zip,[80,75,3,4]);assert.match(artifacts.pdf,/^%PDF-1.4/);
-    assert.ok(artifacts.pdfText.some(text=>text==='Нет данных'));assert.ok(artifacts.pdfText.some(text=>text.includes('История:')));
-    assert.ok(artifacts.xml[0].includes('Данные об оплате'));assert.ok(artifacts.xml[0].includes('2 из 3'));
+    assert.ok(artifacts.pdfText.some(text=>text==='Нет данных'));assert.ok(artifacts.pdfText.some(text=>text.includes('Оплата не указана:')));
+    assert.ok(artifacts.xml[0].includes('Оплата не указана'));assert.ok(artifacts.xml[0].includes('Подтверждённый долг'));assert.ok(artifacts.xml[0].includes('2 из 3'));
     assert.equal(await page.evaluate(xml=>xml.some(text=>new DOMParser().parseFromString(text,'application/xml').querySelector('parsererror')),artifacts.xml),false);
     assert.deepEqual(errors,[]);
     console.log('PASS '+width+'px: actual analytics DOM totals, CSV/XLSX/PDF generation, unknown payment labels; synthetic data, secondary charts/network stubbed');

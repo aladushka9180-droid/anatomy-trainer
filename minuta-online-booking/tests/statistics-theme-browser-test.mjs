@@ -52,7 +52,9 @@ try {
       reportHeroUtilization:'68%', reportHeroUtilizationNote:'По рабочему времени', reportPlanProgress:'64%',
       reportPlanProgressNote:'Из цели 300 000 ₽', reportForecast:'278 000 ₽', reportForecastTrend:'250 000–292 000 ₽ · средняя уверенность',
       reportHealthScore:'76', reportHealthLabel:'Хорошее состояние', reportAverage:'3 239 ₽', reportPending:'3',
-      reportComparisonCaption:'10 июля — 8 августа'
+      reportComparisonCaption:'10 июля — 8 августа', reportCompletedValue:'191 100 ₽',
+      reportPaymentUnknownValue:'18 500 ₽', reportPaymentUnknown:'6 визитов без отметки',
+      reportDebt:'4 200 ₽', reportUnpaid:'2 визита с подтверждённым долгом'
     };
     for (const [id, value] of Object.entries(values)) { const element = document.getElementById(id); if (element) element.textContent = value; }
     document.querySelector('#reportSmartActions').innerHTML = [
@@ -109,6 +111,14 @@ try {
         const trendDetail = document.querySelector('#reportTrendDetail');
         const trendAction = trendDetail.querySelector('.report-trend-open');
         const trendCopy = trendDetail.querySelector(':scope > div');
+        analytics.dataset.reportTab = 'money';
+        const summary = analytics.querySelector('.report-summary[data-report-section="money"]');
+        const summaryCards = [...summary.children].filter(visible);
+        const summaryOverflow = summary.getBoundingClientRect().right > innerWidth + 2
+          || summaryCards.some(element => element.getBoundingClientRect().right > innerWidth + 2);
+        const summaryLabels = summaryCards.map(element => element.querySelector('small')?.textContent?.trim() || '');
+        const summaryTracks = getComputedStyle(summary).gridTemplateColumns.split(' ').length;
+        analytics.dataset.reportTab = 'overview';
         analyticsDetails.open = false;
         return {
           pageOverflow:document.documentElement.scrollWidth > innerWidth + 1,
@@ -129,14 +139,23 @@ try {
           chartTracksTransparent:chartTracks.every(element => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'),
           trendDetailOverflow:trendDetail.getBoundingClientRect().right > trend.getBoundingClientRect().right + 2,
           trendActionTooWide:innerWidth > 760 && trendAction.getBoundingClientRect().width > trendDetail.getBoundingClientRect().width * .5,
-          trendCopyTooNarrow:innerWidth > 760 && trendCopy.getBoundingClientRect().width < 220
+          trendCopyTooNarrow:innerWidth > 760 && trendCopy.getBoundingClientRect().width < 220,
+          summaryOverflow,
+          summaryLabels,
+          summaryTracks
         };
       });
       const expectedChartHeight = width <= 760 ? 168 : 210;
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow) {
+      const expectedSummaryTracks = width <= 760 ? 2 : 3;
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
         failures.push({ width, theme, ...metrics });
       }
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });
+      if (output && theme === 'warm') {
+        await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'money'; });
+        await page.locator('.report-summary[data-report-section="money"]').screenshot({ path:path.join(output, `payment-separation-${width}.png`) });
+        await page.evaluate(() => { document.querySelector('#analyticsView').dataset.reportTab = 'overview'; });
+      }
     }
   }
   assert.deepEqual(failures, [], `Ошибки статистики в матрице тем: ${JSON.stringify(failures.slice(0, 8))}`);

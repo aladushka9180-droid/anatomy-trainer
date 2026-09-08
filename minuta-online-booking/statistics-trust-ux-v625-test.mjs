@@ -34,6 +34,8 @@ assert.equal((html.match(/class="report-primary-metric"/g) || []).length, 1, 'О
 assert.match(html, /report-command-metrics[\s\S]*Отмечено полученным[\s\S]*Состоялось[\s\S]*Загрузка/, 'Первый экран не содержит три главных показателя');
 assert.match(html, /<details class="report-analytics-details"[\s\S]*Подробная аналитика/, 'Вторичная аналитика не убрана в раскрываемый блок');
 assert.match(html, /Полнота оплат[\s\S]*менее чем для 80%/, 'Не объяснён порог доверия к оценке');
+assert.match(html, /Оплата не указана[\s\S]*id="reportPaymentUnknownValue"[\s\S]*Не считается долгом/, 'Неизвестная оплата не отделена от долга');
+assert.match(html, /Подтверждённый долг[\s\S]*id="reportDebt"[\s\S]*Отмечено «Не оплачено»/, 'Долг не объяснён как подтверждённая отметка');
 assert.match(ux, /report-command-metrics\s*\{[\s\S]*grid-template-columns:1\.35fr repeat\(2,minmax\(0,1fr\)\)/, 'Три KPI не собраны в компактную сетку');
 assert.match(ux, /@media\(max-width:760px\)[\s\S]*report-primary-metric[\s\S]*grid-column:1\/-1/, 'Главный KPI не выделен на мобильном экране');
 assert.match(ux, /report-actions-toggle\s*\{[^}]*order:initial/, 'Кнопка раскрытия рекомендаций снова оказывается выше главной рекомендации');
@@ -81,6 +83,8 @@ assert.match(provider, /hasHealthData = [^\n]*paymentCoverageSufficient/, 'Не�
 assert.match(provider, /booking_date >= todayIso[\s\S]*visit_status === 'scheduled'[\s\S]*!bookingIsCompleted/, 'Прогноз не учитывает оставшиеся записи текущего дня');
 assert.match(provider, /function reportDrilldownScope[\s\S]*performer:[\s\S]*organization:[\s\S]*source:/, 'Переход из статистики теряет область отчёта');
 assert.match(provider, /payment-unknown[\s\S]*MinutaReportReconciliation\.paymentUnknown/, 'Нет перехода к визитам с неизвестной оплатой');
+assert.match(provider, /reportPaymentUnknownValue[\s\S]*reportPaymentUnknown[\s\S]*без отметки/, 'Карточка неизвестной оплаты не получает сумму и число визитов');
+assert.match(provider, /Подтверждённый долг, ₽/, 'Экспорт снова называет неизвестную оплату долгом');
 assert.match(provider, /paymentKnownVisits[\s\S]*Оплата не указана[\s\S]*Нет данных/, 'Услуги с неизвестной оплатой всё ещё выглядят как нулевая выручка');
 assert.match(provider, /valueLabel = bucket\.visits === 0 \? 'Нет визитов' : bucket\.known === 0 \? 'Нет данных'/, 'Пустой период и неизвестная оплата снова неразличимы');
 assert.match(provider, /partial \? ` · \$\{durationDays\}/, 'Неполный последний интервал не обозначен');

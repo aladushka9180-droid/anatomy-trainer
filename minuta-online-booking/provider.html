@@ -317,7 +317,7 @@
                   <div><strong>Обратите внимание</strong><small id="clientReliabilityText"></small></div>
                 </section>
                 <section class="client-birthday-info" id="clientBirthdayInfo" hidden><div><small>День рождения</small><strong id="clientBirthdayDisplay"></strong></div><button id="clientBirthdayEdit" type="button">Изменить</button></section>
-                <p class="client-debt-status" id="clientDebtStatus" hidden>Долг по завершённым визитам <strong id="clientDebt">0 ₽</strong></p>
+                <p class="client-debt-status" id="clientDebtStatus" hidden>Подтверждённый долг по завершённым визитам <strong id="clientDebt">0 ₽</strong></p>
                 <section class="client-favorite-services" id="clientFavoriteServices" aria-labelledby="clientFavoriteServicesTitle" hidden>
                   <strong id="clientFavoriteServicesTitle">Любимые услуги</strong>
                   <div id="clientFavoriteServicesList"></div>
@@ -618,8 +618,9 @@
           <section class="report-last-change" id="reportLastChange" data-report-section="money" hidden aria-live="polite"><div class="report-last-change-label"><small>Последнее изменение</small><time id="reportLastChangeTime"></time></div><div class="report-last-change-main"><strong id="reportLastChangeTitle"></strong><span id="reportLastChangeEffect"></span><small id="reportLastChangeActor"></small></div><details class="report-event-history"><summary>Последние 100 изменений</summary><div class="report-event-list" id="reportEventList"></div></details></section>
           <div class="report-summary" data-report-section="money">
             <article hidden><small>Отмечено полученным</small><strong id="reportRevenue">0 ₽</strong><span id="reportRevenueTrend">Без сравнения</span></article>
-            <article><small>Стоимость оказанных услуг</small><strong id="reportCompletedValue">0 ₽</strong><span>По состоявшимся визитам</span></article>
-            <article><small>Долг клиентов</small><strong id="reportDebt">0 ₽</strong><span id="reportUnpaid">Нет визитов с долгом</span></article>
+            <article class="report-summary-primary"><small>Стоимость оказанных услуг</small><strong id="reportCompletedValue">0 ₽</strong><span>По состоявшимся визитам</span></article>
+            <button class="report-summary-action" type="button" data-report-action="payment-unknown" title="Открыть визиты, где оплата ещё не отмечена"><small>Оплата не указана</small><strong id="reportPaymentUnknownValue">0 ₽</strong><span id="reportPaymentUnknown">Все оплаты отмечены</span><i>Не считается долгом</i></button>
+            <button class="report-summary-action" type="button" data-report-action="debt" title="Открыть визиты с подтверждённой неоплаченной суммой"><small>Подтверждённый долг</small><strong id="reportDebt">0 ₽</strong><span id="reportUnpaid">Нет подтверждённого долга</span><i>Отмечено «Не оплачено»</i></button>
           </div>
           <div class="report-secondary" data-report-section="overview" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article></div>
           <section class="report-reconciliation" id="reportReconciliation" data-report-section="overview" aria-live="polite"></section>
