@@ -71,7 +71,7 @@ jobs:
           order by conrelid::regclass::text,conname;
           select '-- trigger '||class.relname||'.'||trigger.tgname
             ||E'\nfunction='||proc.oid::regprocedure
-            ||E'\nenabled='||trigger.tgenabled
+            ||E'\nenabled='||trigger.tgenabled::text
             ||E'\ntiming='||(case when trigger.tgtype & 2=2 then 'BEFORE' when trigger.tgtype & 64=64 then 'INSTEAD OF' else 'AFTER' end)
             ||E'\nevents='||concat_ws(',',case when trigger.tgtype & 4=4 then 'INSERT' end,case when trigger.tgtype & 8=8 then 'DELETE' end,case when trigger.tgtype & 16=16 then 'UPDATE' end,case when trigger.tgtype & 32=32 then 'TRUNCATE' end)
             ||E'\nwhen='||coalesce(pg_get_expr(trigger.tgqual,trigger.tgrelid),'')
