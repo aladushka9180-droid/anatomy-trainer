@@ -74,6 +74,13 @@ for phase in pre-data data auth-placeholders post-data; do
 done
 
 stage=validate-query
+relations="$(docker exec "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 \
+  -c "select (to_regclass('public.services') is not null)::int||'|'||(to_regclass('public.bookings') is not null)::int;" \
+  2>>"$private_log")"
+if [[ "$relations" != "1|1" ]]; then
+  echo "Required restored tables present (services|bookings): $relations" >&2
+  exit 1
+fi
 if ! docker exec "$container" psql -U postgres -X -q -At -v ON_ERROR_STOP=1 \
   -v VERBOSITY=sqlstate <<'SQL' > "$result" 2>>"$private_log"
 select jsonb_build_object(
