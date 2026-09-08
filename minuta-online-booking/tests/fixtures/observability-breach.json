@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-09-08T16:00:00.000Z",
+  "coverage": {
+    "completeDaysWithAvailabilitySamples": 30
+  },
+  "availability": {
+    "scheduledRuns": 8640,
+    "successfulRuns": 8590,
+    "failedRuns": 50,
+    "truncated": false
+  },
+  "bookingLatency": {
+    "samplesMs": [310, 420, 480, 510, 560, 590, 620, 650, 690, 720, 760, 790, 830, 870, 910, 960, 1010, 1120, 1410, 1750],
+    "windowDays": 30
+  },
+  "notifications": {
+    "available": true,
+    "eligible": 200,
+    "finalWithinTarget": 190,
+    "nonFinalOlderTarget": 4
+  },
+  "payments": {
+    "available": true,
+    "eligible": 1000,
+    "processedWithinTarget": 995,
+    "unreconciledOlderTarget": 2
+  },
+  "backup": {
+    "lastSuccessAt": "2026-09-07T06:00:00.000Z"
+  },
+  "restore": {
+    "lastSuccessAt": "2026-07-20T10:00:00.000Z"
+  },
+  "sources": {
+    "github": { "status": "available" },
+    "database": { "status": "available", "transactionMode": "read_only" }
+  },
+  "sourceLimitations": []
+}

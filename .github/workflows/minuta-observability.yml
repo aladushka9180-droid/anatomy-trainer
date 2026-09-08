@@ -1,0 +1,51 @@
+name: PrimeTime Pro observability snapshot
+
+on:
+  schedule:
+    - cron: "29 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: primetime-pro-observability
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Проверить пороги и синтетическую тревогу без отправки
+        run: node minuta-online-booking/tests/observability-snapshot-test.mjs
+
+      - name: Сформировать read-only SLO snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINUTA_OBSERVABILITY_DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MINUTA_OBSERVABILITY_MAX_API_PAGES_PER_DAY: "4"
+        run: >-
+          node minuta-online-booking/scripts/observability-snapshot.mjs
+          --json-out "${{ runner.temp }}/primetime-observability.json"
+          --markdown-out "${{ runner.temp }}/primetime-observability.md"
+
+      - name: Сохранить обезличенный snapshot
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: primetime-observability-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/primetime-observability.json
+            ${{ runner.temp }}/primetime-observability.md
+          if-no-files-found: error
+          retention-days: 35

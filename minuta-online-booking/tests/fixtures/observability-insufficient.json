@@ -1,0 +1,41 @@
+{
+  "observedAt": "2026-09-08T16:00:00.000Z",
+  "coverage": {
+    "completeDaysWithAvailabilitySamples": 8
+  },
+  "availability": {
+    "scheduledRuns": 821,
+    "successfulRuns": 761,
+    "failedRuns": 60,
+    "truncated": false
+  },
+  "bookingLatency": {
+    "samplesMs": [],
+    "windowDays": 0
+  },
+  "notifications": {
+    "available": true,
+    "eligible": 12,
+    "finalWithinTarget": 12,
+    "nonFinalOlderTarget": 0
+  },
+  "payments": {
+    "available": true,
+    "eligible": 0,
+    "processedWithinTarget": 0,
+    "unreconciledOlderTarget": 0
+  },
+  "backup": {
+    "lastSuccessAt": "2026-09-08T14:56:26.000Z"
+  },
+  "restore": {
+    "lastSuccessAt": "2026-09-08T15:01:00.000Z"
+  },
+  "sources": {
+    "github": { "status": "available" },
+    "database": { "status": "available", "transactionMode": "read_only" }
+  },
+  "sourceLimitations": [
+    "История health-проб короче обязательных 30 дней."
+  ]
+}
