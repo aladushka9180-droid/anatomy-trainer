@@ -185,10 +185,20 @@ returns text language sql immutable security definer set search_path to '' as $$
 $$;
 
 create or replace function public.require_minuta_financial_manager_v129(p_organization uuid)
-returns uuid language plpgsql stable security definer set search_path to '' as $$
-declare v_actor uuid:=auth.uid();
+returns uuid language plpgsql volatile security definer set search_path to '' as $$
+declare
+  v_actor uuid:=auth.uid();
+  v_allowed boolean:=false;
 begin
-  if v_actor is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+  if v_actor is not null then
+    select membership.active and membership.role in('owner','admin') and organization.status='active'
+    into v_allowed
+    from public.organization_memberships membership
+    join public.organizations organization on organization.id=membership.organization_id
+    where membership.organization_id=p_organization and membership.user_id=v_actor
+    for update of membership;
+  end if;
+  if not coalesce(v_allowed,false) then
     raise exception using errcode='42501',message='financial_manager_role_required';
   end if;
   return v_actor;
@@ -268,8 +278,13 @@ create or replace function public.set_minuta_finance_enabled_v129(
 returns jsonb language plpgsql security definer set search_path to '' as $$
 declare v_actor uuid;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  if auth.uid() is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='financial_manager_role_required';
+  end if;
   if p_enabled is null then raise exception using errcode='22023',message='invalid_finance_setting'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':financial-ledger',129));
+  perform 1 from public.organization_finance_settings where organization_id=p_organization for update;
+  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
   insert into public.organization_finance_settings(organization_id,enabled,enabled_at,enabled_by,updated_at)
   values(p_organization,p_enabled,case when p_enabled then now() end,case when p_enabled then v_actor end,now())
   on conflict(organization_id) do update set enabled=excluded.enabled,
@@ -297,9 +312,8 @@ declare
   v_fingerprint text;
   v_account public.financial_accounts%rowtype;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
-  if not coalesce((select enabled from public.organization_finance_settings where organization_id=p_organization),false) then
-    raise exception using errcode='55000',message='finance_disabled';
+  if auth.uid() is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='financial_manager_role_required';
   end if;
   if p_request_id is null or char_length(v_name) not between 2 and 120
      or p_account_type not in('cash','bank') then
@@ -308,10 +322,16 @@ begin
   v_fingerprint:=public.minuta_financial_sha256_v129(jsonb_build_array(
     p_organization,p_request_id,v_name,p_account_type,'RUB'
   ));
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':financial-ledger',129));
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':'||p_request_id::text,129));
   select * into v_account from public.financial_accounts
   where organization_id=p_organization and creation_request_id=p_request_id for update;
-  if found then
+  perform 1 from public.organization_finance_settings where organization_id=p_organization for update;
+  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  if not coalesce((select enabled from public.organization_finance_settings where organization_id=p_organization),false) then
+    raise exception using errcode='55000',message='finance_disabled';
+  end if;
+  if v_account.id is not null then
     if v_account.request_fingerprint<>v_fingerprint then
       raise exception using errcode='23505',message='financial_account_idempotency_conflict';
     end if;
@@ -343,13 +363,13 @@ declare
   v_existing public.financial_transactions%rowtype;
   v_transaction uuid;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  if auth.uid() is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='financial_manager_role_required';
+  end if;
   if p_booking is null or p_request_id is null then
     raise exception using errcode='22023',message='invalid_financial_visit_request';
   end if;
-  if not coalesce((select enabled from public.organization_finance_settings where organization_id=p_organization),false) then
-    raise exception using errcode='55000',message='finance_disabled';
-  end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':financial-ledger',129));
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':'||p_request_id::text,129));
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':booking:'||p_booking::text,129));
   perform 1 from public.bookings where id=p_booking and organization_id=p_organization for update;
@@ -385,7 +405,12 @@ begin
   ));
   select * into v_existing from public.financial_transactions
   where organization_id=p_organization and request_id=p_request_id for update;
-  if found then
+  perform 1 from public.organization_finance_settings where organization_id=p_organization for update;
+  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  if not coalesce((select enabled from public.organization_finance_settings where organization_id=p_organization),false) then
+    raise exception using errcode='55000',message='finance_disabled';
+  end if;
+  if v_existing.id is not null then
     if v_existing.request_fingerprint<>v_request_fingerprint then
       raise exception using errcode='23505',message='financial_transaction_idempotency_conflict';
     end if;
@@ -448,11 +473,14 @@ declare
   v_source_fingerprint text;
   v_reversal uuid;
 begin
-  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  if auth.uid() is null or not public.has_organization_role(p_organization,array['owner','admin']) then
+    raise exception using errcode='42501',message='financial_manager_role_required';
+  end if;
   if p_transaction is null or p_request_id is null
      or p_reason_code not in('source_corrected','duplicate_entry','account_correction') then
     raise exception using errcode='22023',message='invalid_financial_reversal';
   end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':financial-ledger',129));
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':'||p_request_id::text,129));
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':transaction:'||p_transaction::text,129));
   select * into v_original from public.financial_transactions
@@ -465,7 +493,12 @@ begin
   ));
   select * into v_existing from public.financial_transactions
   where organization_id=p_organization and request_id=p_request_id for update;
-  if found then
+  perform 1 from public.organization_finance_settings where organization_id=p_organization for update;
+  v_actor:=public.require_minuta_financial_manager_v129(p_organization);
+  if not coalesce((select enabled from public.organization_finance_settings where organization_id=p_organization),false) then
+    raise exception using errcode='55000',message='finance_disabled';
+  end if;
+  if v_existing.id is not null then
     if v_existing.request_fingerprint<>v_request_fingerprint then
       raise exception using errcode='23505',message='financial_transaction_idempotency_conflict';
     end if;
@@ -499,7 +532,7 @@ end
 $$;
 
 create or replace function public.get_minuta_financial_workspace_v129(p_organization uuid)
-returns jsonb language plpgsql stable security definer set search_path to '' as $$
+returns jsonb language plpgsql volatile security definer set search_path to '' as $$
 declare v_actor uuid;
 begin
   v_actor:=public.require_minuta_financial_manager_v129(p_organization);

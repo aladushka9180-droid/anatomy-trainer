@@ -193,6 +193,41 @@ begin
 end
 $$;
 
+-- Disabling is serialized with every write. Even exact retries fail closed
+-- while disabled instead of returning or appending a journal result.
+set local role authenticated;
+select public.set_minuta_finance_enabled_v129(current_setting('minuta.v129_org')::uuid,false);
+do $$
+begin
+  begin
+    perform public.create_minuta_financial_account_v129(
+      current_setting('minuta.v129_org')::uuid,'00000000-0000-4000-8000-000000129008',
+      'Disabled account','cash');
+    raise exception 'v129_disabled_account_write_was_allowed';
+  exception when sqlstate '55000' then
+    if sqlerrm<>'finance_disabled' then raise; end if;
+  end;
+  begin
+    perform public.post_minuta_visit_finance_v129(
+      current_setting('minuta.v129_org')::uuid,current_setting('minuta.v129_booking')::uuid,
+      current_setting('minuta.v129_account')::uuid,'00000000-0000-4000-8000-000000129002');
+    raise exception 'v129_disabled_post_retry_was_allowed';
+  exception when sqlstate '55000' then
+    if sqlerrm<>'finance_disabled' then raise; end if;
+  end;
+  begin
+    perform public.reverse_minuta_financial_transaction_v129(
+      current_setting('minuta.v129_org')::uuid,current_setting('minuta.v129_transaction')::uuid,
+      '00000000-0000-4000-8000-000000129003','source_corrected');
+    raise exception 'v129_disabled_reverse_retry_was_allowed';
+  exception when sqlstate '55000' then
+    if sqlerrm<>'finance_disabled' then raise; end if;
+  end;
+end
+$$;
+select public.set_minuta_finance_enabled_v129(current_setting('minuta.v129_org')::uuid,true);
+reset role;
+
 -- Source guards are fail-closed.
 update public.booking_outcomes set completion_source='auto',updated_at=clock_timestamp()
 where booking_id=current_setting('minuta.v129_booking')::uuid;

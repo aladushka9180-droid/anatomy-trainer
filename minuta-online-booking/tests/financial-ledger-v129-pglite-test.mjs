@@ -30,7 +30,7 @@ try{
       $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     grant usage on schema public,auth to authenticated,anon,service_role;
     create table auth.users(id uuid primary key);
-    create table public.organizations(id uuid primary key);
+    create table public.organizations(id uuid primary key,status text not null default 'active');
     create table public.organization_memberships(
       organization_id uuid not null references public.organizations(id),
       user_id uuid not null references auth.users(id),role text not null,active boolean not null,
@@ -97,6 +97,15 @@ try{
     from public.financial_postings posting join public.financial_transactions transaction_row
       on transaction_row.id=posting.transaction_id
     where transaction_row.id='${posted.id}' or transaction_row.reversal_of='${posted.id}'`)),0);
+
+  await db.exec(`select public.set_minuta_finance_enabled_v129('${org}',false)`);
+  await error(`select public.create_minuta_financial_account_v129(
+    '${org}',gen_random_uuid(),'Disabled cash','cash')`,'finance_disabled');
+  await error(`select public.post_minuta_visit_finance_v129(
+    '${org}','${booking}','${account.id}','${postRequest}')`,'finance_disabled');
+  await error(`select public.reverse_minuta_financial_transaction_v129(
+    '${org}','${posted.id}','${reverseRequest}','source_corrected')`,'finance_disabled');
+  await db.exec(`select public.set_minuta_finance_enabled_v129('${org}',true)`);
 
   await db.exec('reset role;');
   await db.exec(`update public.booking_outcomes set completion_source='auto',updated_at=now() where booking_id='${booking}'`);

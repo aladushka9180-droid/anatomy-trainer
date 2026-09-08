@@ -10,6 +10,10 @@ account_request="00000000-0000-4000-8000-000000129103"
 post_one="00000000-0000-4000-8000-000000129104"
 post_two="00000000-0000-4000-8000-000000129105"
 hold_key="129129101"
+role_request="00000000-0000-4000-8000-000000129106"
+disable_request="00000000-0000-4000-8000-000000129107"
+role_signal="129129102"
+disable_signal="129129103"
 
 cleanup() {
   psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=0 \
@@ -43,13 +47,18 @@ delete from public.organization_finance_settings setting where setting.organizat
 set session_replication_role=origin;
 commit;
 SQL
+  if [[ -n "${owner_id:-}" && -n "${organization_id:-}" && -n "${original_role:-}" ]]; then
+    psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=0 \
+      -v owner_id="$owner_id" -v organization_id="$organization_id" -v original_role="$original_role" \
+      -c "update public.organization_memberships set role=:'original_role' where organization_id=:'organization_id'::uuid and user_id=:'owner_id'::uuid" >/dev/null
+  fi
 }
 trap cleanup EXIT
 cleanup
 
-IFS='|' read -r owner_id organization_id seed_booking < <(
+IFS='|' read -r owner_id organization_id original_role seed_booking < <(
   psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -F '|' -v ON_ERROR_STOP=1 <<'SQL'
-select membership.user_id,membership.organization_id,booking.id
+select membership.user_id,membership.organization_id,membership.role,booking.id
 from public.organization_memberships membership
 join public.bookings booking on booking.organization_id=membership.organization_id
 where membership.active and membership.role in('owner','admin')
@@ -97,6 +106,134 @@ SQL
 account_id="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v account_request="$account_request" \
   -c "select id from public.financial_accounts where creation_request_id=:'account_request'::uuid")"
 test -n "$account_id"
+
+# A writer that passed the optimistic role check must fail if the membership is
+# revoked while it is waiting for the organization-wide ledger lock.
+psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v organization_id="$organization_id" -v signal="$role_signal" <<'SQL' >/dev/null &
+begin;
+select pg_advisory_xact_lock(hashtextextended(:'organization_id'::text||':financial-ledger',129));
+select pg_advisory_xact_lock(:'signal'::bigint);
+select pg_sleep(8);
+commit;
+SQL
+role_blocker_pid=$!
+
+role_ready="f"
+for _ in {1..100}; do
+  role_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v signal="$role_signal" \
+    -c "select not pg_try_advisory_lock(:'signal'::bigint)")"
+  [[ "$role_ready" == "t" ]] && break
+  sleep 0.05
+done
+if [[ "$role_ready" != "t" ]]; then
+  wait "$role_blocker_pid" || true
+  echo "v129 role-race blocker did not acquire the organization lock" >&2
+  exit 1
+fi
+
+role_output_file="$(mktemp)"
+set +e
+PGAPPNAME="minuta-v129-role-race" psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v owner_id="$owner_id" -v organization_id="$organization_id" -v request_id="$role_request" \
+  >"$role_output_file" 2>&1 <<'SQL' &
+select set_config('request.jwt.claim.sub',:'owner_id',false);
+set role authenticated;
+select public.create_minuta_financial_account_v129(
+  :'organization_id'::uuid,:'request_id'::uuid,'V129 revoked role cash','cash'
+);
+SQL
+role_writer_pid=$!
+set -e
+
+role_waiting="0"
+for _ in {1..100}; do
+  role_waiting="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+    "select count(*) from pg_stat_activity where application_name='minuta-v129-role-race' and state='active' and wait_event_type='Lock'")"
+  [[ "$role_waiting" == "1" ]] && break
+  sleep 0.05
+done
+if [[ "$role_waiting" != "1" ]]; then
+  wait "$role_writer_pid" || true
+  wait "$role_blocker_pid" || true
+  rm -f -- "$role_output_file"
+  echo "v129 role-race writer did not wait on the organization lock" >&2
+  exit 1
+fi
+
+psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v owner_id="$owner_id" -v organization_id="$organization_id" \
+  -c "update public.organization_memberships set role='specialist' where organization_id=:'organization_id'::uuid and user_id=:'owner_id'::uuid" >/dev/null
+set +e
+wait "$role_writer_pid"
+role_status=$?
+set -e
+wait "$role_blocker_pid"
+role_output="$(<"$role_output_file")"
+rm -f -- "$role_output_file"
+if [[ "$role_status" -eq 0 ]] || ! grep -q 'financial_manager_role_required' <<<"$role_output"; then
+  echo "v129 revoked role completed a ledger write after waiting" >&2
+  exit 1
+fi
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v request_id="$role_request" \
+  -c "select count(*) from public.financial_accounts where creation_request_id=:'request_id'::uuid")" = "0"
+psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v owner_id="$owner_id" -v organization_id="$organization_id" -v original_role="$original_role" \
+  -c "update public.organization_memberships set role=:'original_role' where organization_id=:'organization_id'::uuid and user_id=:'owner_id'::uuid" >/dev/null
+
+# Disabling finance owns the same organization lock. A writer queued behind it
+# must re-read the setting and fail instead of committing after the disable.
+psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v owner_id="$owner_id" -v organization_id="$organization_id" -v signal="$disable_signal" <<'SQL' >/dev/null &
+begin;
+select set_config('request.jwt.claim.sub',:'owner_id',true);
+set local role authenticated;
+select public.set_minuta_finance_enabled_v129(:'organization_id'::uuid,false);
+reset role;
+select pg_advisory_xact_lock(:'signal'::bigint);
+select pg_sleep(5);
+commit;
+SQL
+disable_pid=$!
+
+disable_ready="f"
+for _ in {1..100}; do
+  disable_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v signal="$disable_signal" \
+    -c "select not pg_try_advisory_lock(:'signal'::bigint)")"
+  [[ "$disable_ready" == "t" ]] && break
+  sleep 0.05
+done
+if [[ "$disable_ready" != "t" ]]; then
+  wait "$disable_pid" || true
+  echo "v129 disable-race session did not reach the concurrent state" >&2
+  exit 1
+fi
+
+set +e
+disable_output="$(psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v owner_id="$owner_id" -v organization_id="$organization_id" -v request_id="$disable_request" 2>&1 <<'SQL'
+select set_config('request.jwt.claim.sub',:'owner_id',false);
+set role authenticated;
+select public.create_minuta_financial_account_v129(
+  :'organization_id'::uuid,:'request_id'::uuid,'V129 disabled cash','cash'
+);
+SQL
+)"
+disable_status=$?
+set -e
+wait "$disable_pid"
+if [[ "$disable_status" -eq 0 ]] || ! grep -q 'finance_disabled' <<<"$disable_output"; then
+  echo "v129 ledger write completed after finance was disabled" >&2
+  exit 1
+fi
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v request_id="$disable_request" \
+  -c "select count(*) from public.financial_accounts where creation_request_id=:'request_id'::uuid")" = "0"
+psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
+  -v owner_id="$owner_id" -v organization_id="$organization_id" <<'SQL' >/dev/null
+select set_config('request.jwt.claim.sub',:'owner_id',false);
+set role authenticated;
+select public.set_minuta_finance_enabled_v129(:'organization_id'::uuid,true);
+SQL
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
   -v owner_id="$owner_id" -v organization_id="$organization_id" \
