@@ -38,7 +38,8 @@ assert.doesNotMatch(provider, /fitMobileTimelineCards|card\.style\.height = 'aut
 assert.match(provider, /const tightMobile = mobileTimeline && !minuteOnly && duration <= 60;/, 'Короткие мобильные записи не получают компактный режим содержимого');
 assert.match(css, /В мобильной ленте высота записи всегда равна её реальной длительности[\s\S]*?timeline-booking\[data-mobile-timeline-top\] \.timeline-booking-note \{\s*display:none!important;/, 'Полная заметка снова может растянуть карточку по высоте');
 assert.match(css, /timeline-booking\[data-mobile-timeline-top\]\.timeline-tight\.compact:not\(\.minute-only\) \.timeline-booking-client-row \{\s*display:none!important;/, 'В записи до часа вторичный текст снова вытесняет временную шкалу');
-assert.match(provider, /const renderedNote = !mobileTimeline && visibleNote/, 'Текст заметки всё ещё попадает в мобильную карточку и обрезает название');
+assert.match(provider, /const renderedNote = !mobileTimeline && \(visibleNote/, 'Текст заметки всё ещё попадает в мобильную карточку и обрезает название');
+assert.match(provider, /compactBookingNoteMarkup\(note, 'timeline-booking-note-presence'\)/, 'Компактный режим не показывает спокойный признак заметки на ПК');
 assert.match(provider, /const timelineClientRow = compactMobile\s*\? ''/, 'В короткой мобильной записи остаётся лишняя строка под названием');
 assert.match(provider, /const renderedStatus = mobileTimeline \? '' : timelineStatus;/, 'Статус мобильной записи всё ещё может вытеснить название');
 assert.match(provider, /mobileTimeline \? \{ limit:1, showLabels:true \}/, 'Длинная мобильная запись снова выводит несколько конкурирующих меток');
