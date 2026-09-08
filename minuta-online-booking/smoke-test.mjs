@@ -422,8 +422,8 @@ assert.equal(timelineTimeFromClick(timelineStage, { clientY: 240 }), '14:00', '�
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 515 }), '18:30', 'Клик в 18:35 должен округляться до 18:30');
 assert.equal(timelineTimeFromClick(timelineStage, { clientY: 530 }), '19:00', 'Клик в 18:50 должен округляться до 19:00');
 assert.match(provider, /enteringBlock[\s\S]*?duration_minutes\) === 60/, 'Новый перерыв не выбирает 60 минут по умолчанию');
-assert.match(provider, /timeline-client-phone-separator/, 'Телефон в мобильной карточке нельзя отделить от имени клиента');
-assert.match(styles, /timeline-client-phone[^}]*display:block;[^}]*white-space:nowrap;/, 'Телефон не переносится на отдельную строку мобильной карточки');
+assert.doesNotMatch(provider, /timeline-client-phone-separator/, 'Телефон снова перегружает карточку временной шкалы');
+assert.match(provider, /class="provider-booking-phone"/, 'Телефон исчез из подробного дневного списка');
 assert.match(provider, /const timelineStatus = block\s*\? ''/, 'Перерыв дублируется меткой «Занято»');
 assert.match(provider, /\$\{timeRange\}\$\{block \? '' : ' · '\}/, 'Перерыв дублирует подпись «Занятое время» после диапазона времени');
 assert.match(provider, /providerAccessAllowed\(currentUser\.id\)[\s\S]*const cachedBookings = await hydrateCachedBookings\(userId\)/, 'Локальная копия должна показываться онлайн только после проверки доступа');
@@ -678,10 +678,10 @@ assert.doesNotMatch(providerHtml, /id="(?:newBookingsBadge|clientsBadge|services
 assert.match(styles, /calendar-overview-week \.calendar-overview-booking strong[\s\S]*-webkit-line-clamp:2/, 'Название записи в недельном календаре не получает две строки');
 assert.match(styles, /Навигация и рабочие поверхности:[\s\S]*background-image:linear-gradient\(180deg,[^}]*!important;/, 'Внутренние поверхности Luxury не отделены от мраморного фона');
 assert.match(provider, /const completedValue = completed\.reduce[\s\S]*bookingSessionTotal\(item\)/, 'Стоимость состоявшихся визитов считается без итогового состава сеанса');
-assert.match(provider, /timeline-client-phone/, 'Телефон клиента нельзя независимо разместить в мобильной карточке');
+assert.doesNotMatch(provider, /timeline-client-phone/, 'Телефон клиента снова занимает место во временной шкале');
 assert.match(provider, /function timelineServiceNameMarkup/, 'Название услуги нельзя адаптировать для мобильной карточки');
 assert.match(provider, /timeline-service-variant/, 'Уточнение услуги не отделено от основной части названия');
-assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт телефону всю доступную ширину');
+assert.match(styles, /timeline-booking-copy\s*\{\s*display:contents/, 'Мобильная карточка не отдаёт названию всю доступную ширину');
 assert.match(styles, /timeline-service-variant\s*\{\s*display:none/, 'На мобильном экране второстепенное уточнение продолжает сокращать основное название');
 assert.match(styles, /-webkit-line-clamp:2/, 'Длинное основное название услуги не может занять две строки');
 assert.match(styles, /timeline-booking:not\(\.compact\):not\(\.minute-only\) \.timeline-client-duration\s*\{\s*display:none!important/, 'На мобильном экране второстепенная длительность продолжает занимать место телефона');
