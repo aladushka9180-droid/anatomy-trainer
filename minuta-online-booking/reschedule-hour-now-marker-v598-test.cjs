@@ -51,6 +51,12 @@ assert.deepEqual(helperApi.bookingQuickTimeSlots(denseHour), Array.from({length:
   'Из 60 минут должны оставаться 12 быстрых вариантов');
 assert.match(helperApi.bookingExactTimeMarkup('new', denseHour, '12:13'), /<details[^>]* open[\s\S]*value="12:13"/,
   'Выбранная точная минута должна оставаться видимой после перерисовки');
+const offsetHour = Array.from({length:15}, (_, minute) => `12:${String(minute + 1).padStart(2, '0')}`);
+const offsetQuick = helperApi.bookingQuickTimeSlots(offsetHour);
+const offsetExact = helperApi.bookingExactTimeMarkup('new', offsetHour);
+assert.equal(offsetQuick.length, 3, 'Смещённая сетка должна показывать только удобные пятиминутные варианты');
+assert.match(offsetExact, /Ещё 12 вариантов/, 'Счётчик точных минут не исключает уже показанные быстрые варианты');
+for (const time of offsetQuick) assert.doesNotMatch(offsetExact, new RegExp(`value="${time}"`), `Быстрое время ${time} продублировано в точном выборе`);
 assert.match(provider, /closest\('\[data-edit-booking-hour\]'\)[\s\S]*bookingEditHour\s*=\s*editHour\.dataset\.editBookingHour[\s\S]*renderBookingEditTimePicker\([^)]*\)/,
   'Нажатие на час не перерисовывает точные варианты');
 assert.match(renderEditPicker, /focusExact[\s\S]*querySelector\('\[data-edit-booking-time\]'\)\?\.focus\(\)/,
