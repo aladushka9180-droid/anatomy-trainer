@@ -106,7 +106,7 @@ begin
 
   for v_photo in select value from jsonb_array_elements(coalesce(p_photos,'[]'::jsonb)) value loop
     v_type:=v_photo->>'photo_type'; v_path:=v_photo->>'storage_path';
-    if v_path !~ ('^'||v_user::text||'/'||p_item_id::text||'/[0-9a-f-]{36}\\.webp$') then
+    if v_path !~ ('^'||v_user::text||'/'||p_item_id::text||'/[0-9a-f-]{36}[.]webp$') then
       raise exception using errcode='22023',message='invalid_portfolio_storage_path';
     end if;
     select storage_path into v_previous from public.portfolio_photos
