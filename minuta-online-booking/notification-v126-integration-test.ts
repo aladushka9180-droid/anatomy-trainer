@@ -13,10 +13,10 @@ const rollback = psqlBody(
     new URL("./supabase-migration-v126-rollback.sql", import.meta.url),
   ),
 );
-const database = new PGlite();
-const organization = "00000000-0000-4000-8000-000000000001";
-const performer = "00000000-0000-4000-8000-000000000002";
-const service = "00000000-0000-4000-8000-000000000003";
+export const database = new PGlite();
+export const organization = "00000000-0000-4000-8000-000000000001";
+export const performer = "00000000-0000-4000-8000-000000000002";
+export const service = "00000000-0000-4000-8000-000000000003";
 const receiptOutbox = "10000000-0000-4000-8000-000000000001";
 const otherReceiptOutbox = "10000000-0000-4000-8000-000000000002";
 

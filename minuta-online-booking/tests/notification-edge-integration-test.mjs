@@ -8,12 +8,14 @@ const job={outbox_id:id(1),lock_token:id(2),event_key:'fixture-event',organizati
 function fixture({environment=env,mode='accepted',jobs=[job]}={}){
   return edgeFixture('notification-dispatcher/index.ts',{env:environment,fetch:async r=>{
     const url=new URL(r.url);
-    if(url.hostname==='api.telegram.org'){if(mode==='unknown')throw new TypeError('fixture ambiguous timeout');return reply({ok:true,result:{message_id:42}});}
+    if(url.hostname==='api.telegram.org'){if(mode==='unknown')throw new TypeError('fixture ambiguous timeout');if(mode==='blocked')return reply({ok:false,error_code:403},403);return reply({ok:true,result:{message_id:42}});}
     assert.equal(url.hostname,'db.fixture.invalid');
     const name=url.pathname.split('/').at(-1);
     if(name==='enqueue_due_minuta_booking_reminders'||name==='enqueue_due_minuta_booking_confirmation_requests_v126')return reply(0);
     if(name==='claim_minuta_notification_outbox')return reply(jobs);
+    if(name==='claim_minuta_notification_test_outbox_v128')return reply(jobs);
     if(name==='ack_minuta_notification_outbox_v114'&&mode==='ack-failed')return reply({message:'fixture failed'},503);
+    if(name==='fail_minuta_notification_test_outbox_v128')return reply('failed');
     if(name==='fail_notification_outbox')return reply('failed');
     return reply('sent');
   }});
@@ -44,8 +46,37 @@ test('accepted Telegram but failed database acknowledgement retains uncertain le
 test('missing client endpoint never sends to a fallback recipient',async()=>{
   const f=fixture({jobs:[{...job,destination:null}]});const response=await f.call({},{'x-worker-secret':secret});assert.equal((await response.json()).sent,0);assert.equal(f.requests.some(r=>r.url.includes('api.telegram.org')),false);
 });
+test('scoped test claims exactly one event and skips both schedulers',async()=>{
+  const f=fixture();
+  const response=await f.call({channels:['telegram'],limit:1,skip_schedulers:true,test_scope:{organization_id:job.organization_id,event_key:job.event_key}},{'x-worker-secret':secret});
+  assert.equal(response.status,200);const result=await response.json();assert.equal(result.test_mode,true);assert.equal(result.schedulers_skipped,true);assert.equal(result.claimed,1);assert.equal(result.sent,1);
+  assert.equal(f.requests.some(r=>r.url.includes('/enqueue_due_minuta_')),false);assert.equal(f.requests.some(r=>r.url.endsWith('/claim_minuta_notification_outbox')),false);
+  const claim=f.requests.find(r=>r.url.endsWith('/claim_minuta_notification_test_outbox_v128'));assert.deepEqual(claim.body,{p_organization:job.organization_id,p_event_key:job.event_key,p_channel:'telegram'});
+});
+test('scoped test rejects incomplete or broad scopes before any RPC',async()=>{
+  for(const body of [
+    {channels:['telegram'],test_scope:{organization_id:job.organization_id,event_key:job.event_key}},
+    {channels:['telegram','sms'],limit:1,skip_schedulers:true,test_scope:{organization_id:job.organization_id,event_key:job.event_key}},
+    {channels:['telegram'],limit:2,skip_schedulers:true,test_scope:{organization_id:job.organization_id,event_key:job.event_key}},
+    {channels:['telegram'],limit:1,skip_schedulers:true,test_scope:{organization_id:job.organization_id,event_key:''}},
+  ]){const f=fixture();const response=await f.call(body,{'x-worker-secret':secret});assert.equal(response.status,400);assert.equal(f.requests.length,0);}
+});
+test('scoped test fails closed when the exact claim is absent or mismatched',async()=>{
+  for(const jobs of [[],[{...job,event_key:'other-event'}]]){
+    const f=fixture({jobs});const response=await f.call({channels:['telegram'],limit:1,skip_schedulers:true,test_scope:{organization_id:job.organization_id,event_key:job.event_key}},{'x-worker-secret':secret});
+    assert.equal(response.status,502);assert.equal((await response.json()).error,'claim_failed');assert.equal(f.requests.some(r=>r.url.includes('api.telegram.org')),false);
+  }
+});
+test('scoped test failure is terminal and cannot create a normal fallback',async()=>{
+  const f=fixture({mode:'blocked'});const response=await f.call({channels:['telegram'],limit:1,skip_schedulers:true,test_scope:{organization_id:job.organization_id,event_key:job.event_key}},{'x-worker-secret':secret});
+  assert.equal(response.status,207);assert.equal((await response.json()).failed,1);assert.equal(f.requests.some(r=>r.url.endsWith('/fail_notification_outbox')),false);
+  const failure=f.requests.find(r=>r.url.endsWith('/fail_minuta_notification_test_outbox_v128'));assert.equal(failure.body.p_outbox,job.outbox_id);assert.equal(failure.body.p_event_key,job.event_key);assert.equal(failure.body.p_organization,job.organization_id);assert.equal(failure.body.p_channel,job.channel);
+  assert.equal(f.requests.some(r=>r.url.endsWith('/deactivate_minuta_notification_endpoint_v114')),false);
+});
 for(const receipt of [false,true])test(`gateway delivered requires receipt evidence=${receipt}`,async()=>{
   const f=edgeFixture('notification-dispatcher/adapters.ts',{fetch:async()=>reply({id:'fixture-mail',delivery_status:'delivered',...(receipt?{delivered_at:'2026-09-08T10:00:00Z',receipt_source:'gateway_webhook'}:{})})});
   const result=await f.exported.deliverNotification({...job,channel:'email',destination:{email:'fixture@example.invalid'}},{email:{url:'https://gateway.fixture.invalid/send',token:'fixture-token'}});
   assert.equal(result.ok,true);assert.equal(result.deliveryState,receipt?'delivered':'sent');assert.equal(f.requests[0].headers.get('idempotency-key'),job.event_key);
+  assert.equal(f.requests[0].body.outbox_id,job.outbox_id);assert.equal(f.requests[0].body.event_key,job.event_key);
+  assert.deepEqual(f.requests[0].body.metadata,{outbox_id:job.outbox_id,event_key:job.event_key,organization_id:job.organization_id,booking_id:job.booking_id});
 });

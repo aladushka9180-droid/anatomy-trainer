@@ -213,6 +213,8 @@ async function gatewayDelivery(job: NotificationJob, configuration: GatewayConfi
         "idempotency-key": job.event_key,
       },
       body: JSON.stringify({
+        outbox_id: job.outbox_id,
+        event_key: job.event_key,
         idempotency_key: job.event_key,
         channel: job.channel,
         audience: job.audience,
@@ -222,6 +224,8 @@ async function gatewayDelivery(job: NotificationJob, configuration: GatewayConfi
         text: message.text,
         event: job.kind,
         metadata: {
+          outbox_id: job.outbox_id,
+          event_key: job.event_key,
           organization_id: job.organization_id,
           booking_id: job.booking_id,
         },

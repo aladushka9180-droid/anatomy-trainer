@@ -73,6 +73,26 @@ function requestedChannels(value: unknown, available: NotificationChannel[]): No
   return available.filter(channel => requested.has(channel));
 }
 
+type ScopedTest = { organizationId: string; eventKey: string; channel: NotificationChannel };
+
+function scopedTest(
+  body: { limit?: unknown; channels?: unknown; skip_schedulers?: unknown; test_scope?: unknown },
+  available: NotificationChannel[],
+): ScopedTest | null {
+  if (body.skip_schedulers !== true || !body.test_scope || typeof body.test_scope !== "object") return null;
+  const scope = body.test_scope as Record<string, unknown>;
+  const organizationId = typeof scope.organization_id === "string" ? scope.organization_id.trim() : "";
+  const eventKey = typeof scope.event_key === "string" ? scope.event_key.trim() : "";
+  const requested = Array.isArray(body.channels) ? body.channels : [];
+  const channel = requested.length === 1 && typeof requested[0] === "string"
+    ? requested[0] as NotificationChannel
+    : null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(organizationId)
+    || !eventKey || eventKey.length > 240 || !channel || !available.includes(channel)
+    || (body.limit !== undefined && Number(body.limit) !== 1)) return null;
+  return { organizationId, eventKey, channel };
+}
+
 Deno.serve(async request => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: jsonHeaders });
 
@@ -109,8 +129,20 @@ Deno.serve(async request => {
     missing_channels: notificationChannels,
   }, 503);
 
-  let body: { limit?: unknown; channels?: unknown; dry_run?: unknown; activate_organization?: unknown } = {};
+  let body: {
+    limit?: unknown;
+    channels?: unknown;
+    dry_run?: unknown;
+    activate_organization?: unknown;
+    skip_schedulers?: unknown;
+    test_scope?: unknown;
+  } = {};
   try { body = await request.json(); } catch { /* safe defaults */ }
+  const scopedTestRequested = body.test_scope !== undefined || body.skip_schedulers !== undefined;
+  const test = scopedTestRequested ? scopedTest(body, available) : null;
+  if (scopedTestRequested && (!test || body.dry_run === true || body.activate_organization !== undefined)) {
+    return json({ ok: false, error: "invalid_test_scope" }, 400);
+  }
   const channels = requestedChannels(body.channels, available);
   if (!channels.length) return json({
     ok: false, error: "not_configured", component: "requested_channels",
@@ -142,21 +174,33 @@ Deno.serve(async request => {
 
   let remindersQueued = 0;
   let confirmationRequestsQueued = 0;
-  try {
-    remindersQueued = Number(await rpc<number>("enqueue_due_minuta_booking_reminders", { p_limit: 500 }, secretKey) || 0);
-    confirmationRequestsQueued = Number(await rpc<number>(
-      "enqueue_due_minuta_booking_confirmation_requests_v126", { p_limit: 500 }, secretKey,
-    ) || 0);
-  } catch {
-    return json({ ok: false, error: "notification_enqueue_failed" }, 502);
+  if (!test) {
+    try {
+      remindersQueued = Number(await rpc<number>("enqueue_due_minuta_booking_reminders", { p_limit: 500 }, secretKey) || 0);
+      confirmationRequestsQueued = Number(await rpc<number>(
+        "enqueue_due_minuta_booking_confirmation_requests_v126", { p_limit: 500 }, secretKey,
+      ) || 0);
+    } catch {
+      return json({ ok: false, error: "notification_enqueue_failed" }, 502);
+    }
   }
 
   let jobs: NotificationJob[];
   try {
-    jobs = await rpc<NotificationJob[]>("claim_minuta_notification_outbox", {
-      p_channels: channels, p_limit: limit,
-    }, secretKey);
-    if (!Array.isArray(jobs) || jobs.some(job => !channels.includes(job.channel))) throw new Error("invalid_claim_scope");
+    jobs = test
+      ? await rpc<NotificationJob[]>("claim_minuta_notification_test_outbox_v128", {
+        p_organization: test.organizationId,
+        p_event_key: test.eventKey,
+        p_channel: test.channel,
+      }, secretKey)
+      : await rpc<NotificationJob[]>("claim_minuta_notification_outbox", {
+        p_channels: channels, p_limit: limit,
+      }, secretKey);
+    if (!Array.isArray(jobs) || jobs.some(job => !channels.includes(job.channel))
+      || (test && (jobs.length !== 1 || jobs[0].organization_id !== test.organizationId
+        || jobs[0].event_key !== test.eventKey || jobs[0].channel !== test.channel))) {
+      throw new Error("invalid_claim_scope");
+    }
   } catch {
     return json({ ok: false, error: "claim_failed" }, 502);
   }
@@ -185,15 +229,25 @@ Deno.serve(async request => {
       continue;
     }
     try {
-      const state = await rpc<string>("fail_notification_outbox", {
-        p_outbox: job.outbox_id,
-        p_lock_token: job.lock_token,
-        p_error_code: result.errorCode || "delivery_failed",
-        p_error: result.errorMessage || "Ошибка доставки",
-        p_retryable: result.retryable === true,
-        p_retry_after_seconds: result.retryAfterSeconds || null,
-      }, secretKey);
-      if (result.errorCode === "telegram_403") {
+      const state = test
+        ? await rpc<string>("fail_minuta_notification_test_outbox_v128", {
+          p_outbox: job.outbox_id,
+          p_lock_token: job.lock_token,
+          p_event_key: test.eventKey,
+          p_organization: test.organizationId,
+          p_channel: test.channel,
+          p_error_code: result.errorCode || "delivery_failed",
+          p_error: result.errorMessage || "Ошибка доставки",
+        }, secretKey)
+        : await rpc<string>("fail_notification_outbox", {
+          p_outbox: job.outbox_id,
+          p_lock_token: job.lock_token,
+          p_error_code: result.errorCode || "delivery_failed",
+          p_error: result.errorMessage || "Ошибка доставки",
+          p_retryable: result.retryable === true,
+          p_retry_after_seconds: result.retryAfterSeconds || null,
+        }, secretKey);
+      if (!test && result.errorCode === "telegram_403") {
         await rpc("deactivate_minuta_notification_endpoint_v114", {
           p_outbox: job.outbox_id,
           p_reason: "telegram_recipient_blocked_bot",
@@ -208,6 +262,8 @@ Deno.serve(async request => {
 
   return json({
     ok: failed === 0,
+    test_mode: Boolean(test),
+    schedulers_skipped: Boolean(test),
     configured_channels: available,
     reminders_queued: remindersQueued,
     confirmation_requests_queued: confirmationRequestsQueued,
