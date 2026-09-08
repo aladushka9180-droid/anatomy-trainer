@@ -8,12 +8,15 @@ test -d "${RUNNER_TEMP:?}"
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 container="minuta-restore-$GITHUB_RUN_ID"
+container_active=true
 private_log="$RUNNER_TEMP/minuta-restore-private.log"
 result="$RUNNER_TEMP/minuta-ephemeral-restore.json"
 stage=container-start
 
 cleanup() {
-  docker rm -f "$container" >/dev/null 2>&1 || true
+  if [[ "$container_active" == true ]]; then
+    docker rm -f "$container" >/dev/null 2>&1 || true
+  fi
   rm -f -- "$private_log" "$RUNNER_TEMP/source.toc" "$RUNNER_TEMP/public.toc" \
     "$RUNNER_TEMP/public-post-data.sql" "$RUNNER_TEMP/filtered-post-data.sql" \
     "$RUNNER_TEMP/auth-placeholders.sql"
@@ -89,7 +92,8 @@ select jsonb_build_object(
   'operation', 'ephemeral-production-backup-restore',
   'databaseEngine', current_setting('server_version'),
   'networkMode', 'none',
-  'sourceScope', 'public-schema-and-data-plus-auth-uuid-placeholders',
+  'sourceScope', 'public-schema-and-data-with-inert-auth-uuid-placeholders',
+  'restoredSchemas', jsonb_build_array('public'),
   'publicTables', (select count(*) from pg_tables where schemaname='public'),
   'publicFunctions', (select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'),
   'publicIndexes', (select count(*) from pg_indexes where schemaname='public'),
@@ -100,9 +104,15 @@ select jsonb_build_object(
   ),
   'services', (select count(*) from public.services),
   'bookings', (select count(*) from public.bookings),
+  'authUuidPlaceholders', (select count(*) from auth.users),
+  'authUsersRestored', false,
+  'managedSchemasRestored', false,
+  'storageMetadataRestored', false,
+  'storageObjectsRestored', false,
+  'outboundWebhooksRestored', false,
   'productionWritten', false,
   'testDatabaseWritten', false,
-  'ephemeralContainerDestroyed', true
+  'ephemeralContainerDestroyed', false
 )
 where to_regclass('public.services') is not null
   and to_regclass('public.bookings') is not null;
@@ -125,6 +135,12 @@ if ! jq -e '
   .services > 0 and
   .bookings >= 0 and
   .networkMode == "none" and
+  .restoredSchemas == ["public"] and
+  .authUsersRestored == false and
+  .managedSchemasRestored == false and
+  .storageMetadataRestored == false and
+  .storageObjectsRestored == false and
+  .outboundWebhooksRestored == false and
   .productionWritten == false and
   .testDatabaseWritten == false
 ' "$result" >/dev/null; then
@@ -133,4 +149,16 @@ if ! jq -e '
   exit 1
 fi
 
-echo "Ephemeral production backup restore validated; container cleanup is armed"
+stage=destroy-container
+docker rm -f "$container" >/dev/null
+if docker inspect "$container" >/dev/null 2>&1; then
+  echo 'Ephemeral restore container still exists after removal' >&2
+  exit 1
+fi
+container_active=false
+jq '.ephemeralContainerDestroyed = true' "$result" > "$result.final"
+chmod 600 "$result.final"
+mv "$result.final" "$result"
+jq -e '.ephemeralContainerDestroyed == true' "$result" >/dev/null
+
+echo "Ephemeral production backup restore validated; isolated container destroyed"

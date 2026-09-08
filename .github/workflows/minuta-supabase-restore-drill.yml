@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "43 2 1 * *"
   workflow_dispatch:
+    inputs:
+      restore_target:
+        description: Safe restore destination
+        required: true
+        type: choice
+        default: ephemeral
+        options:
+          - ephemeral
+          - dedicated-recovery
 
 permissions:
   contents: read
@@ -16,7 +25,7 @@ concurrency:
 jobs:
   restore-drill:
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.restore_target == 'dedicated-recovery') ||
       (github.event_name == 'schedule' && vars.MINUTA_RESTORE_DRILL_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -238,7 +247,8 @@ jobs:
   ephemeral-restore-drill:
     if: >-
       github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/codex/restore-ephemeral-20260908'
+      (inputs.restore_target == 'ephemeral' || inputs.restore_target == '') &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/restore-ephemeral-20260908')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -271,10 +281,20 @@ jobs:
           test "$age" -ge 0
           test "$age" -le 86400
 
+          details="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+          test "$(jq -r '.path' <<<"$details")" = '.github/workflows/minuta-supabase-backup.yml'
+          test "$(jq -r '.head_repository.full_name' <<<"$details")" = "$GITHUB_REPOSITORY"
+          test "$(jq -r '.head_sha' <<<"$details")" = "$head_sha"
+          comparison="$(gh api "repos/$GITHUB_REPOSITORY/compare/$head_sha...main")"
+          case "$(jq -r '.status' <<<"$comparison")" in
+            ahead|identical) ;;
+            *) echo 'Backup SHA is not an ancestor of current main' >&2; exit 1;;
+          esac
+
           artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts")"
           test "$(jq '[.artifacts[] | select(.expired==false)] | length' <<<"$artifacts")" = 1
           artifact_name="$(jq -r '.artifacts[] | select(.expired==false) | .name' <<<"$artifacts")"
-          case "$artifact_name" in minuta-*) ;; *) echo 'Unexpected backup artifact name' >&2; exit 1;; esac
+          [[ "$artifact_name" =~ ^minuta-[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}Z$ ]]
 
           {
             echo "run_id=$run_id"
@@ -295,16 +315,31 @@ jobs:
         shell: bash
         env:
           BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         run: |
           set -euo pipefail
           umask 077
           mapfile -t dumps < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg')
           mapfile -t checksums < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journals < <(find "$RUNNER_TEMP/encrypted-source" -type f -name '*.json')
           test "${#dumps[@]}" = 1
           test "${#checksums[@]}" = 1
+          test "${#journals[@]}" = 1
           expected="$(tr -d '[:space:]' < "${checksums[0]}")"
           [[ "$expected" =~ ^[a-f0-9]{64}$ ]]
           test "$(sha256sum "${dumps[0]}" | awk '{print $1}')" = "$expected"
+          jq -e --arg digest "$expected" --arg run "$SOURCE_RUN_ID" --arg repository "$GITHUB_REPOSITORY" '
+            .schemaVersion == 1 and
+            .operation == "backup" and
+            .status == "success" and
+            .repository == $repository and
+            .workflowRunId == $run and
+            .encryptedSha256 == $digest and
+            .encryptedBytes > 0 and
+            .archiveEntries > 0 and
+            .archiveFormat == "PostgreSQL custom" and
+            .encryption == "OpenPGP symmetric AES-256"
+          ' "${journals[0]}" >/dev/null
           printf '%s' "$BACKUP_ENCRYPTION_PASSWORD" | gpg --batch --yes --pinentry-mode loopback \
             --passphrase-fd 0 --output "$RUNNER_TEMP/minuta-restore-source.dump" --decrypt "${dumps[0]}"
 
@@ -340,6 +375,7 @@ jobs:
             echo "- Public-таблиц: \`$(jq -r '.publicTables' "$RUNNER_TEMP/minuta-ephemeral-restore.json")\`"
             echo "- Услуг: \`$(jq -r '.services' "$RUNNER_TEMP/minuta-ephemeral-restore.json")\`, записей: \`$(jq -r '.bookings' "$RUNNER_TEMP/minuta-ephemeral-restore.json")\`"
             echo '- Контейнер: PostgreSQL 17, сеть отключена, после проверки удалён'
+            echo '- Восстановлены только public schema/data; Auth и Storage не восстанавливались'
             echo '- Production и testDB: без записи'
           } >> "$GITHUB_STEP_SUMMARY"
 
