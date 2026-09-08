@@ -9282,7 +9282,8 @@ function renderClients() {
     const knownCount = facts.visits;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
     const hasPhoto = Boolean(clientAvatar(client.phone)?.signed_url);
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
+    const displayPhone = newBookingClientPhoneLabel(client.phone, client.displayPhone);
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -9421,7 +9422,7 @@ function clientBirthdayLabel(value) {
 function renderClientProfileDetails(client, state = clientProfileDetailsState) {
   if (!client || selectedClientPhone !== client.phone) return;
   const digits = normalizePhone(client.phone);
-  const displayPhone = String(client.displayPhone || client.phone || '');
+  const displayPhone = newBookingClientPhoneLabel(client.phone, client.displayPhone);
   const phoneCopy = $('#clientCopyPhone');
   if (phoneCopy) phoneCopy.disabled = !digits;
   const contactButton = $('#clientContactButton');
@@ -9623,7 +9624,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   avatarRemove.dataset.removeClientAvatar = client.phone;
   avatarRemove.hidden = !avatarAvailable || !clientAvatar(client.phone);
   $('#clientName').textContent = client.name;
-  $('#clientPhone').textContent = client.displayPhone;
+  $('#clientPhone').textContent = newBookingClientPhoneLabel(client.phone, client.displayPhone);
   $('#clientPhone').href = `tel:${client.phone}`;
   $('#clientQuickRepeat').dataset.quickRepeatClient = client.phone;
   $('#clientProfileBadges').innerHTML = clientBadgeMarkup(client.phone, { limit:4, showLabels:true });
@@ -9657,9 +9658,11 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   profileOrbit.setAttribute('aria-label', facts.level ? `${facts.title}, ${facts.level} уровень` : facts.title);
   $('#clientRelationshipTitle').textContent = facts.title;
   $('#clientRelationshipLevel').textContent = facts.level ? `${facts.level} уровень` : '';
+  const milestoneCard = $('#clientMilestoneCard');
   $('#clientMilestoneText').textContent = facts.milestone;
   const milestoneProgress = Math.round(facts.progress * 100);
-  $('#clientMilestoneCard').style.setProperty('--client-level-width', `${milestoneProgress}%`);
+  milestoneCard.classList.toggle('is-max-level', facts.level === 4);
+  milestoneCard.style.setProperty('--client-level-width', `${milestoneProgress}%`);
   $('#clientMilestoneProgress').setAttribute('aria-valuenow', String(milestoneProgress));
   const reliabilityCard = $('#clientReliabilityCard');
   reliabilityCard.hidden = !facts.reliability?.needsAttention;
@@ -9681,7 +9684,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   populateRepeatServices();
   loadRepeatSlots();
   const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
-  $('#clientHistorySummary').textContent = history.length ? `Визитов: ${history.length}` : 'История пока пуста';
+  $('#clientHistorySummary').textContent = history.length ? `Записей: ${history.length}` : 'История пока пуста';
   $('#clientHistory').innerHTML = history.map(item => {
     const status = bookingStatus(item);
     return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;

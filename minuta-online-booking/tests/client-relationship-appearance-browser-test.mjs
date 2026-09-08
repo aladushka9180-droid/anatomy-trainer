@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { themes } from './theme-card-fixture.mjs';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('provider.html', root), 'utf8');
@@ -20,6 +21,8 @@ try {
   await page.setContent(shell);
   await page.addStyleTag({ content:css });
   await page.evaluate(() => {
+    document.documentElement.classList.remove('provider-booting');
+    document.documentElement.classList.add('top-level', 'provider-ready');
     document.querySelector('#providerBoot')?.setAttribute('hidden', '');
     const dashboard = document.querySelector('#dashboard');
     dashboard.hidden = false;
@@ -66,7 +69,6 @@ try {
     document.querySelector('#clientReliabilityText').textContent = '1 отмена клиентом и 1 неявка из последних 8 записей';
   });
 
-  const themes = ['sage', 'graphite', 'luxury', 'noir-safari'];
   const layouts = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
   const widths = [390, 760, 761, 981, 1100, 1440];
   for (const theme of themes) for (const layout of layouts) for (const width of widths) {
@@ -81,16 +83,21 @@ try {
       const directoryDisplay = getComputedStyle(document.querySelector('.clients-directory')).display;
       const profileDisplay = getComputedStyle(document.querySelector('.client-profile')).display;
       const ring = getComputedStyle(document.querySelector('#clientProfileOrbit'));
+      const orbit = document.querySelector('#clientProfileOrbit').getBoundingClientRect();
       const summary = getComputedStyle(document.querySelector('.client-summary'));
+      const summaryBox = document.querySelector('.client-summary').getBoundingClientRect();
+      const summaryArticles = [...document.querySelectorAll('.client-summary article')].map(node => node.getBoundingClientRect().height);
+      const milestone = document.querySelector('#clientMilestoneCard').getBoundingClientRect();
       const actions = [...document.querySelectorAll('.client-profile-primary-actions button:not([hidden])')].map(node => ({
-        height:node.getBoundingClientRect().height,
-        minHeight:parseFloat(getComputedStyle(node).minHeight) || 0
+        id:node.id,
+        height:node.getBoundingClientRect().height
       }));
       return {
         scrollWidth:document.documentElement.scrollWidth,
         profile:{ left:profile.left, right:profile.right, width:profile.width },
         directoryDisplay, profileDisplay,
-        ringBackground:ring.backgroundImage,
+        ringBackground:ring.backgroundImage, orbitSize:orbit.width,
+        summaryHeight:summaryBox.height, summaryArticles, milestoneHeight:milestone.height,
         summaryColumns:summary.gridTemplateColumns.split(' ').length,
         actions
       };
@@ -99,12 +106,36 @@ try {
     assert.equal(state.profileDisplay, 'block', `${theme}/${layout}/${width}: selected client profile stays visible`);
     assert.ok(state.profile.left >= -0.5 && state.profile.right <= width + 1, `${theme}/${layout}/${width}: profile remains inside viewport`);
     assert.match(state.ringBackground, /conic-gradient/, `${theme}/${layout}/${width}: relationship ring remains visible`);
+    assert.ok(state.orbitSize <= 108.5, `${theme}/${layout}/${width}: profile avatar stays compact (${state.orbitSize})`);
+    assert.ok(state.summaryArticles.every(height => height <= 76), `${theme}/${layout}/${width}: facts stay compact (${state.summaryArticles})`);
+    assert.ok(state.milestoneHeight <= 78, `${theme}/${layout}/${width}: milestone stays compact (${state.milestoneHeight})`);
     if (width <= 980) assert.equal(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: detail uses a single pane`);
     if (width >= 1100) assert.notEqual(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: desktop keeps client context`);
+    if (width <= 1199) assert.equal(state.summaryColumns, 2, `${theme}/${layout}/${width}: narrow profile uses a compact 2x2 fact grid`);
     if (width <= 760) {
-      assert.equal(state.summaryColumns, 2, `${theme}/${layout}/${width}: client facts use a compact 2x2 grid`);
-      assert.ok(state.actions.every(item => item.minHeight >= 44 && item.height >= 43.5), `${theme}/${layout}/${width}: actions remain touch friendly (${JSON.stringify(state.actions)})`);
+      assert.ok(state.actions.every(item => item.height >= 43.5), `${theme}/${layout}/${width}: actions remain touch friendly (${JSON.stringify(state.actions)})`);
     }
+  }
+
+  await page.evaluate(() => document.querySelector('#clientMilestoneCard').classList.add('is-max-level'));
+  const maximumMilestone = await page.locator('#clientMilestoneCard').boundingBox();
+  assert.ok(maximumMilestone.height <= 52, `Maximum level becomes a quiet compact status (${maximumMilestone.height})`);
+  if (process.env.CLIENT_RELATIONSHIP_SCREENSHOT) {
+    const screenshotWidth = Number(process.env.CLIENT_RELATIONSHIP_SCREENSHOT_WIDTH) || 1440;
+    await page.setViewportSize({ width:screenshotWidth, height:1000 });
+    await page.locator('body').evaluate(body => {
+      body.dataset.providerTheme = 'warm';
+      body.dataset.providerLayout = 'bento';
+      document.querySelector('#clientProfileOrbit').classList.remove('has-photo');
+      document.querySelector('#clientRelationshipTitle').textContent = 'С нами давно';
+      document.querySelector('#clientRelationshipLevel').textContent = '4 уровень';
+      document.querySelector('#clientMilestoneText').textContent = 'Максимальный уровень — спасибо, что вы с нами';
+      document.querySelector('#clientHistorySummary').textContent = 'Записей: 32';
+      const favorites = document.querySelector('#clientFavoriteServices');
+      favorites.hidden = false;
+      document.querySelector('#clientFavoriteServicesList').innerHTML = '<span class="client-favorite-service is-imported"><span>Массаж спины + ШВЗ — базовый</span><small>из импорта</small></span><span class="client-favorite-service is-imported"><span>Общий массаж с обеих сторон</span><small>из импорта</small></span>';
+    });
+    await page.screenshot({ path:process.env.CLIENT_RELATIONSHIP_SCREENSHOT, fullPage:true });
   }
   console.log(`Client relationship appearance: PASS (${themes.length * layouts.length * widths.length} theme/layout/width checks)`);
 } finally {
