@@ -8,6 +8,10 @@ on:
       - "minuta-online-booking/ROADMAP_AUTOMATION.md"
       - "minuta-online-booking/roadmap/**"
       - "minuta-online-booking/scripts/primetime-roadmap.mjs"
+      - "minuta-online-booking/recovery/d03-auth-storage-contract.json"
+      - "minuta-online-booking/scripts/d03-auth-storage-fixture-drill.mjs"
+      - "minuta-online-booking/tests/d03-auth-storage-*.mjs"
+      - "minuta-online-booking/tests/fixtures/d03-auth-storage/**"
   pull_request:
     paths:
       - ".github/workflows/minuta-roadmap-gate.yml"
@@ -15,6 +19,10 @@ on:
       - "minuta-online-booking/ROADMAP_AUTOMATION.md"
       - "minuta-online-booking/roadmap/**"
       - "minuta-online-booking/scripts/primetime-roadmap.mjs"
+      - "minuta-online-booking/recovery/d03-auth-storage-contract.json"
+      - "minuta-online-booking/scripts/d03-auth-storage-fixture-drill.mjs"
+      - "minuta-online-booking/tests/d03-auth-storage-*.mjs"
+      - "minuta-online-booking/tests/fixtures/d03-auth-storage/**"
   workflow_dispatch:
     inputs:
       command:
@@ -86,6 +94,12 @@ jobs:
       - name: Resolve next roadmap item
         if: github.event_name != 'workflow_dispatch' || inputs.command == 'next'
         run: node "$ROADMAP_RUNNER" next "$ROADMAP_PLAN" "$ROADMAP_STATUS"
+
+      - name: Verify fail-closed D03 Auth and Storage preparation
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          node minuta-online-booking/tests/d03-auth-storage-static-test.mjs
+          node minuta-online-booking/tests/d03-auth-storage-fixture-drill-test.mjs
 
       - name: Verify roadmap transition on push or pull request
         if: github.event_name != 'workflow_dispatch'
