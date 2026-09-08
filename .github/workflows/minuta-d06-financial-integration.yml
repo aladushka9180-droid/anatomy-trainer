@@ -1,0 +1,74 @@
+name: Minuta D06 financial integration
+run-name: Minuta D06 financial integration - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character commit SHA to test
+        required: true
+        type: string
+
+permissions: { contents: read }
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  financial_integration:
+    name: financial_integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact commit
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_SHA" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Static contract
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/financial-ledger-v129-static-test.mjs
+          bash -n minuta-online-booking/tests/financial-ledger-v129-concurrency-test.sh
+      - name: PGlite contract
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock @electric-sql/pglite@0.3.14
+          node minuta-online-booking/tests/financial-ledger-v129-pglite-test.mjs
+      - name: Guard isolated test database
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+      - name: Apply twice, integration, real concurrency, rollback and reapply
+        env: { PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000" }
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          export MINUTA_TEST_DATABASE_URL="$db"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v129.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v129.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/financial-ledger-v129-integration.sql
+          bash minuta-online-booking/tests/financial-ledger-v129-concurrency-test.sh
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v129-rollback.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regclass('public.financial_transactions') is null and to_regprocedure('public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)') is null")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v129.sql
