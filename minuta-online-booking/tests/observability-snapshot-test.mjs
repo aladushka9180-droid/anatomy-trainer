@@ -4,12 +4,25 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { evaluateSnapshot, PROPOSED_SLO, renderMarkdown } from '../scripts/observability-snapshot.mjs';
+import { evaluateSnapshot, postgresConnectionEnv, PROPOSED_SLO, renderMarkdown } from '../scripts/observability-snapshot.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const fixedNow = '2026-09-08T16:00:00.000Z';
 const insufficient = JSON.parse(await readFile(new URL('./fixtures/observability-insufficient.json', import.meta.url), 'utf8'));
 const breach = JSON.parse(await readFile(new URL('./fixtures/observability-breach.json', import.meta.url), 'utf8'));
+
+const postgresEnv = postgresConnectionEnv('postgresql://observer%40example:secret%2Fvalue@db.example.test:6543/postgres?sslmode=verify-full');
+assert.deepEqual(postgresEnv, {
+  PGHOST: 'db.example.test',
+  PGPORT: '6543',
+  PGUSER: 'observer@example',
+  PGPASSWORD: 'secret/value',
+  PGDATABASE: 'postgres',
+  PGSSLMODE: 'verify-full',
+  PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=15000'
+});
+assert.throws(() => postgresConnectionEnv('https://db.example.test/postgres'), /invalid/);
+assert.throws(() => postgresConnectionEnv('not-a-database-url'), /invalid/);
 
 const insufficientReport = evaluateSnapshot(insufficient, { now: fixedNow });
 assert.equal(insufficientReport.policy.approvalStatus, 'proposed_pending_approval');

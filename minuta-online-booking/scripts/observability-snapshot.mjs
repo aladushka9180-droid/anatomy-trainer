@@ -282,13 +282,33 @@ async function collectGithubMetrics(now) {
   };
 }
 
+export function postgresConnectionEnv(databaseUrl) {
+  let parsed;
+  try { parsed = new URL(String(databaseUrl || '').trim()); } catch { throw new Error('MINUTA_OBSERVABILITY_DATABASE_URL is invalid'); }
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol) || !parsed.hostname || !parsed.username || parsed.pathname.length < 2) {
+    throw new Error('MINUTA_OBSERVABILITY_DATABASE_URL is invalid');
+  }
+  try {
+    return {
+      PGHOST: parsed.hostname,
+      PGPORT: parsed.port || '5432',
+      PGUSER: decodeURIComponent(parsed.username),
+      PGPASSWORD: decodeURIComponent(parsed.password),
+      PGDATABASE: decodeURIComponent(parsed.pathname.slice(1)),
+      PGSSLMODE: parsed.searchParams.get('sslmode') || 'require',
+      PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=15000'
+    };
+  } catch {
+    throw new Error('MINUTA_OBSERVABILITY_DATABASE_URL is invalid');
+  }
+}
+
 async function psqlJson(sql) {
   const databaseUrl = (process.env.MINUTA_OBSERVABILITY_DATABASE_URL || '').trim();
   if (!databaseUrl) throw new Error('MINUTA_OBSERVABILITY_DATABASE_URL is not configured');
   const env = {
     ...process.env,
-    PGDATABASE: databaseUrl,
-    PGOPTIONS: '-c default_transaction_read_only=on -c statement_timeout=15000'
+    ...postgresConnectionEnv(databaseUrl)
   };
   delete env.MINUTA_OBSERVABILITY_DATABASE_URL;
   const { stdout } = await execFileAsync('psql', ['-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', sql], {
