@@ -6,6 +6,7 @@ const migration=read('./supabase-migration-v128.sql');
 const rollback=read('./supabase-migration-v128-rollback.sql');
 const dispatcher=read('../supabase/functions/notification-dispatcher/index.ts');
 const adapters=read('../supabase/functions/notification-dispatcher/adapters.ts');
+const workflow=read('../.github/workflows/minuta-v128-safe-release.yml');
 
 assert.match(migration,/v128_requires_notification_v126/i);
 assert.match(migration,/claim_minuta_notification_test_outbox_v128\(\s*p_organization uuid,p_event_key text,p_channel text/i);
@@ -36,5 +37,21 @@ assert.match(dispatcher,/fail_minuta_notification_test_outbox_v128/);
 assert.match(dispatcher,/schedulers_skipped: Boolean\(test\)/);
 assert.match(adapters,/body: JSON\.stringify\(\{\s*outbox_id: job\.outbox_id,\s*event_key: job\.event_key,/);
 assert.match(adapters,/metadata:\s*{\s*outbox_id: job\.outbox_id,\s*event_key: job\.event_key,/);
+
+assert.match(workflow,/options: \[test-local-v128, audit-production-v128, apply-production-v128, deploy-functions-v128\]/);
+assert.match(workflow,/gh api "repos\/\$GITHUB_REPOSITORY\/git\/ref\/heads\/main"/);
+assert.match(workflow,/deno test --allow-read minuta-online-booking\/notification-v114-integration-test\.ts/);
+assert.match(workflow,/cycle:\["apply","apply","behavior","rollback","compatibility-shims","reapply"\]/);
+assert.match(workflow,/v126Ready[\s\S]*v128Mode/);
+assert.match(workflow,/v126_fallback_rpc[\s\S]*v126_quiet_rpc[\s\S]*v126_kind[\s\S]*v126_receipt_service_only/);
+assert.match(workflow,/test "\$CONFIRMATION" = BACKUP_VERIFIED/);
+assert.ok((workflow.match(/test "\$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr/g)||[]).length>=2);
+assert.match(workflow,/\.github\/workflows\/minuta-v128-safe-release\.yml/g);
+assert.match(workflow,/encryption=="OpenPGP symmetric AES-256"/);
+assert.match(workflow,/supabase-migration-v128\.sql/);
+assert.match(workflow,/claimServiceOnly[\s\S]*failServiceOnly/);
+assert.match(workflow,/supabase functions deploy notification-receipt[\s\S]*supabase functions deploy notification-dispatcher/);
+assert.doesNotMatch(workflow,/supabase secrets set|curl[^\n]*--request POST/i);
+assert.doesNotMatch(workflow,/\.outboxCount==\$before|\.attemptCount==\$before|\.enabledChannels==\$before/);
 
 console.log('Notification v128 scoped test-mode static checks passed.');
