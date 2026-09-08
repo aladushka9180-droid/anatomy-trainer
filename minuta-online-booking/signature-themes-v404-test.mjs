@@ -71,8 +71,8 @@ for (const [key, color, group] of [
   assert.match(script, new RegExp(`defineTheme\\('${key}'[\\s\\S]*?themeColor:'${color}'`), `Нет системного цвета ${key}`);
   assert.match(provider, new RegExp(`theme-${key}" data-theme-groups="${group}"`), `Неверная категория ${key}`);
 }
-assert.match(provider, /provider-themes-signature\.css\?v=636/, 'Кабинет не подключает Signature Collection v636');
-assert.match(worker, /\.\/provider-themes-signature\.css\?v=636/, 'Service Worker не кэширует Signature Collection v636');
+assert.match(provider, /provider-themes-signature\.css\?v=637/, 'Кабинет не подключает Signature Collection v637');
+assert.match(worker, /\.\/provider-themes-signature\.css\?v=637/, 'Service Worker не кэширует Signature Collection v637');
 
 // Mobile Snow Leopard reveals the canvas without making booking cards translucent.
 const mobileTiger = css.match(/@media \(max-width:760px\) \{\s*\.provider-body\[data-provider-theme="apricot-tiger"\]\[data-provider-layout\] \{([\s\S]*?)\n  \}/)?.[1] || '';
@@ -99,13 +99,13 @@ assert.match(mobileSnow, /\.provider-view>\.view-title[^}]*background:var\(--the
 assert.doesNotMatch(mobileSnow, /\.provider-booking\s*\{[^}]*background:transparent/);
 
 const snowCanvas = css.match(/\.provider-body\[data-provider-theme="snow-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(snowCanvas, /provider-snow-leopard-continuous-4k-v3\.webp\?v=636/);
+assert.match(snowCanvas, /provider-snow-leopard-continuous-4k-v3\.webp\?v=637/);
 assert.match(snowCanvas, /--snow-print-veil:rgba\(255,255,255,\.86\)/);
 assert.match(snowCanvas, /background-size:auto,cover!important/);
 assert.match(snowCanvas, /background-repeat:no-repeat!important/);
 assert.match(snowCanvas, /background-position:center!important/);
 assert.match(snowCanvas, /background-attachment:fixed!important/, 'Snow Leopard keeps one continuous desktop canvas');
-assert.match(mobileSnow, /provider-snow-leopard-mobile-v1\.png\?v=636/);
+assert.match(mobileSnow, /provider-snow-leopard-mobile-v1\.png\?v=637/);
 assert.match(mobileSnow, /background-size:100% 100%,100% 100%!important/);
 assert.match(mobileSnow, /background-repeat:no-repeat!important/);
 assert.doesNotMatch(snowCanvas, /background-repeat:repeat|snow-print-size|natural-v2|unified-landscape-v5|crisp-seamless/);
@@ -113,4 +113,4 @@ assert.match(worker, /assetResponse[\s\S]*caches\.open\(CACHE\)\)\.put\(request,
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-sidebar\s*\{\s*background:#fff!important/, 'Snow Leopard keeps its desktop navigation opaque');
 assert.match(css, /data-provider-theme="snow-leopard"[^}]*\.provider-view\s*\{\s*background:transparent!important/, 'Snow Leopard must continue the page canvas through unused desktop workspace');
 
-console.log('Signature themes v636: Snow Leopard canvas OK');
+console.log('Signature themes v637: Snow Leopard canvas OK');

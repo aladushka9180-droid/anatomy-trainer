@@ -267,6 +267,16 @@
   border-color:var(--theme-line);
 }
 
+.client-favorite-services>strong,
+.client-favorite-services>div {
+  min-width:0;
+}
+
+.client-favorite-services :is(button,.client-favorite-service) {
+  flex:0 1 320px;
+  min-width:0;
+}
+
 @media (max-width:1099px) {
   .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"] .clients-layout {
     grid-template-columns:1fr;
