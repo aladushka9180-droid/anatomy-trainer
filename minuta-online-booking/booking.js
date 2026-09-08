@@ -315,7 +315,7 @@ function showNotFound() {
   $('#manageLoading').hidden = true;
   $('#manageError').hidden = false;
   $('#manageErrorTitle').textContent = 'Запись не найдена';
-  $('#manageErrorText').textContent = 'Проверьте ссылку или создайте новую запись.';
+  $('#manageErrorText').textContent = 'Проверьте полную ссылку из подтверждения или откройте «Мои записи». Не создавайте повторную запись для восстановления доступа.';
   $('#retryManage').hidden = true;
 }
 function showLoadError() {

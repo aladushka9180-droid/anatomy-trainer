@@ -26,6 +26,8 @@ try {
     const service={id:'service-a',name:'Массаж',duration_minutes:90,performer_profiles:{display_name:'Мастер А'}};
     const selectedService=()=>service,selectedDate=()=>dates[0],serviceName=name=>name,escapeHtml=value=>value;
     const timeRange=time=>time+'–15:30',durationLabel=()=> '90 мин',renderAvailabilitySuggestion=()=>false;
+    // This fixture tests waiting-list state; business-clock boundaries have their own suite.
+    const availableBusinessTimes=(_date,times)=>times;
     window.rpcCalls=[];
     const db={rpc:async(name,args)=>{window.rpcCalls.push({name,args});if(window.hold)await new Promise(resolve=>window.release=resolve);
       if(window.fail==='throw')throw Error('Offline');return window.fail ? {error:{code:window.fail}} : {data:[{request_code:'WAIT-TEST',manage_token:'12345678-1234-1234-1234-123456789012'}]};}};

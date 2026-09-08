@@ -33,6 +33,7 @@ async function fixture(){
     if(!panel)throw Error('Actual loyalty panel missing');
     panel.hidden=false;
     panel.querySelector('#loyaltyWorkspace').hidden=false;
+    panel.querySelectorAll('.loyalty-operation').forEach(item=>item.open=true);
     document.body.append(document.importNode(panel,true));
   },html);
   await page.addScriptTag({content:source});

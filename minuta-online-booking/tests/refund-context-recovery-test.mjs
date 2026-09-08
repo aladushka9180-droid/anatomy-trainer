@@ -34,12 +34,12 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const expectedOptions = ['$', 'db', 'escapeHtml', 'notify', 'refreshNavigation', 'requireWrites'];
 
-async function harness() {
+async function harness({ digestTicks = 0 } = {}) {
   const refundStorage = new Map();
   const elements = new Map(), handlers = new Map(), windowHandlers = new Map();
   const rpcCalls = [], invokeCalls = [], notifications = [], resetEvents = [], deviceClears = [];
   let formResets = 0, navigationRenders = 0, optionsKeys, nextUuid = 100;
-  const invocations = [], submissions = [], loadQueue = [], settingsQueue = [];
+  const invocations = [], invocationStarts = [], submissions = [], loadQueue = [], settingsQueue = [];
   function deferred() {
     let resolve, reject;
     const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
@@ -89,7 +89,10 @@ async function harness() {
     CustomEvent: class { constructor(type) { this.type = type; } },
     document: { addEventListener: (name, callback) => handlers.set(name, callback) },
     window: {
-      crypto: { randomUUID: () => id(++nextUuid), subtle:webcrypto.subtle },
+      crypto: { randomUUID: () => id(++nextUuid), subtle:{ digest:async (...args) => {
+        for (let turn = 0; turn < digestTicks; turn++) await tick();
+        return webcrypto.subtle.digest(...args);
+      } } },
       localStorage:{getItem:key=>refundStorage.get(key)??null,setItem:(key,value)=>refundStorage.set(key,value),removeItem:key=>refundStorage.delete(key)},
       confirm: () => true,
       addEventListener: (type, callback) => {
@@ -153,6 +156,7 @@ async function harness() {
     },
     functions: { invoke: (name, params) => {
       assert.equal(name, 'yookassa-refund'); invokeCalls.push({ name, params: clone(params), actor: ctx.currentUser?.id ?? null });
+      invocationStarts[invokeCalls.length - 1]?.resolve();
       const operation = deferred(); invocations.push(operation); return operation.promise;
     } },
     auth: { signOut: async () => {} },
@@ -189,9 +193,20 @@ async function harness() {
     $('#paymentRefundAttempt').value = attempt;
     $('#paymentRefundAmount').value = '10.00'; $('#paymentRefundReason').value = 'Возврат из контекста A';
     const index = submissions.length;
+    const started = deferred();
+    invocationStarts.push(started);
     submissions.push(Promise.resolve(handlers.get('submit')({ target: $('#paymentRefundForm'), preventDefault() {} }))
       .then(() => null, error => ({ name: error.name, message: error.message })));
-    for(let attempt=0;attempt<50 && invokeCalls.length<index+1;attempt++) await tick();
+    // WebCrypto completes on a worker pool, not after a bounded number of event
+    // loop turns. Wait for the actual invoke boundary before changing context.
+    let deadline;
+    try {
+      await Promise.race([
+        started.promise,
+        submissions[index].then(result => { throw new Error(`Refund submit completed before invoke: ${JSON.stringify(result)}`); }),
+        new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error('Timed out waiting for refund invoke')), 10000); })
+      ]);
+    } finally { clearTimeout(deadline); }
     assert.equal(invokeCalls.length, index + 1);
     assert.equal(invokeCalls[index].params.body.organization_id, organization);
     assert.equal(invokeCalls[index].params.body.attempt_id, attempt);
@@ -214,6 +229,17 @@ test('fixture evidence: options originate from actual provider construction, not
   for (const key of expectedOptions) assert.ok(h.optionsKeys.includes(key));
   t.diagnostic(`actual controller option keys=${JSON.stringify(h.optionsKeys)}`);
   t.diagnostic(`controller sha256=${createHash('sha256').update(controllerSource).digest('hex')}; provider sha256=${createHash('sha256').update(providerSource).digest('hex')}`);
+});
+
+test('fixture waits for real invoke when WebCrypto needs more than 50 event-loop turns', async () => {
+  const h = await harness({ digestTicks:100 });
+  await h.submit();
+  assert.equal(h.invokeCalls.length, 1);
+  await h.switchOrg(orgA, 'specialist');
+  const before = h.ui(), notices = h.notifications.length;
+  assert.equal(await h.settle('error'), null);
+  assert.deepEqual(h.ui(), before);
+  assert.deepEqual(h.notifications.slice(notices), []);
 });
 
 for (const kind of ['success', 'error']) {

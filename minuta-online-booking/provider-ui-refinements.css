@@ -89,6 +89,7 @@
 .session-service-name { display:block; font-size:13px; line-height:1.5; margin-top:6px; }
 .session-composer-item :is(label,select),.session-composer-fields > label { min-width:0; max-width:100%; }
 .booking-outcome-payment-hint { font-size:13px; }
+.loyalty-management-grid > .loyalty-operation { align-self:start; }
 .provider-body .scan-field { flex-wrap:wrap; }
 .provider-body .scan-field > label { flex:1 1 220px; min-width:0; max-width:100%; }
 .provider-body .scan-field > label input { width:100%; min-width:0; box-sizing:border-box; }
