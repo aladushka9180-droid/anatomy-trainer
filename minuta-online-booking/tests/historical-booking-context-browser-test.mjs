@@ -318,7 +318,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
     await page.locator('#bookingSheetTitle').scrollIntoViewIfNeeded();
     if(process.env.MINUTA_UI_SCREENSHOT)await page.screenshot({path:`${process.env.MINUTA_UI_SCREENSHOT}-booking-${theme}-${width}.png`});
     await page.evaluate(()=>closeBookingSheet());
-    await page.addScriptTag({content:['renderCalendarOverview','calendarOverviewBookingMarkup','calendarMonthMobileAgendaMarkup'].map(declaration).join('\n')});
+    await page.addScriptTag({content:['bookingClientNote','bookingDisplayNote','compactBookingCardsEnabled','compactBookingNoteMarkup','renderCalendarOverview','calendarOverviewBookingMarkup','calendarMonthMobileAgendaMarkup'].map(declaration).join('\n')});
     await page.evaluate(()=>{
       document.body.insertAdjacentHTML('beforeend','<div id="selectedDateTitle"></div><div id="selectedDateSummary"></div><div id="providerBookings"></div>');
       window.calendarRange=()=>({start:'2026-09-01',end:'2026-09-30'});
