@@ -9608,33 +9608,41 @@ function returnFromClientProfile() {
 
 function activateClientProfileJump(name, { scroll = true } = {}) {
   const targetName = ['history','services','notes','files'].includes(name) ? name : 'history';
+  const profile = $('#clientProfileContent');
+  if (profile) profile.dataset.clientProfileSection = targetName;
   $$('[data-client-profile-jump]').forEach(button => {
     const active = button.dataset.clientProfileJump === targetName;
     button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
   });
-  let target = null;
+  let target = $(`[data-client-profile-panel="${targetName}"]`);
+  $$('[data-client-profile-panel]').forEach(panel => { panel.hidden = panel !== target; });
+  const records = $('#clientRecords');
   if (targetName === 'history') {
-    const records = $('#clientRecords');
+    const historyPanel = $('#clientProfilePanelHistory');
+    const legacyHistory = $('#clientHistoryDisclosure');
+    if (records && historyPanel && records.parentElement !== historyPanel) historyPanel.insertBefore(records, legacyHistory || null);
     const modernHistory = records?.querySelector('[data-cr-panel="history"]');
     if (records && !records.hidden && modernHistory) {
       modernHistory.open = true;
-      target = records;
+      records.querySelector('[data-cr-panel="files"]')?.removeAttribute('open');
     } else {
-      target = $('#clientHistoryDisclosure');
-      if (target) target.open = true;
+      if (legacyHistory) legacyHistory.open = true;
     }
   } else if (targetName === 'services') {
-    target = $('#clientFavoriteServices');
+    target = $('#clientProfilePanelServices');
   } else if (targetName === 'notes') {
-    target = $('#clientPreferencesDisclosure');
-    if (target) target.open = true;
+    $('#clientPreferencesDisclosure')?.setAttribute('open', '');
   } else {
-    target = $('#clientRecords');
-    const files = target?.querySelector('[data-cr-panel="files"]');
-    if (files) files.open = true;
+    const filesPanel = $('#clientProfilePanelFiles');
+    if (records && filesPanel && records.parentElement !== filesPanel) filesPanel.prepend(records);
+    const files = records?.querySelector('[data-cr-panel="files"]');
+    if (files) {
+      files.open = true;
+      records.querySelector('[data-cr-panel="history"]')?.removeAttribute('open');
+    }
   }
-  if (!target || target.hidden) target = $('#clientRecords') || $('#clientHistoryDisclosure');
   if (scroll) target?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
@@ -13051,6 +13059,18 @@ document.addEventListener('change', async event => {
 });
 
 document.addEventListener('keydown', event => {
+  const profileTab = event.target.closest?.('[data-client-profile-jump][role="tab"]');
+  if (profileTab && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
+    event.preventDefault();
+    const tabs = $$('[data-client-profile-jump][role="tab"]');
+    const current = tabs.indexOf(profileTab);
+    const next = event.key === 'Home' ? tabs[0]
+      : event.key === 'End' ? tabs.at(-1)
+      : tabs[(current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+    next?.focus();
+    if (next) activateClientProfileJump(next.dataset.clientProfileJump, { scroll:false });
+    return;
+  }
   if (event.key !== 'Escape') return;
   if ($('#portfolioEditorDialog').open) closePortfolioEditor();
   else if (!$('#bookingSheet').hidden) closeBookingSheet();

@@ -257,6 +257,17 @@
 .client-profile-tabs button.is-active::after { opacity:1; transform:scaleX(1); }
 .client-profile-tabs button:focus-visible { outline:2px solid var(--theme-accent); outline-offset:-2px; }
 
+.client-profile-tabpanels { min-width:0; }
+.client-profile-tabpanel { min-width:0; padding-top:10px; scroll-margin-top:14px; }
+.client-profile-tabpanel[hidden] { display:none!important; }
+.client-profile-tab-empty { margin:0; padding:20px 2px; color:var(--theme-muted); font-size:10px; line-height:1.5; }
+#clientProfilePanelServices:has(#clientFavoriteServices:not([hidden]))>.client-profile-tab-empty,
+#clientProfilePanelFiles:has(#clientRecords:not([hidden]))>.client-profile-tab-empty { display:none; }
+#clientProfileContent[data-client-profile-section="history"] #clientRecords [data-cr-panel="files"],
+#clientProfileContent[data-client-profile-section="files"] #clientRecords [data-cr-panel="history"] { display:none; }
+#clientProfileContent[data-client-profile-section="history"] #clientRecords,
+#clientProfileContent[data-client-profile-section="files"] #clientRecords { margin-top:0; }
+
 .provider-body[data-provider-theme][data-provider-layout] .client-disclosure { border-color:var(--theme-line); scroll-margin-top:14px; }
 .client-favorite-services { scroll-margin-top:14px; }
 .client-favorite-services>strong,.client-favorite-services>div { min-width:0; }

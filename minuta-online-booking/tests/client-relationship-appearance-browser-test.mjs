@@ -5,11 +5,13 @@ import { themes } from './theme-card-fixture.mjs';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('provider.html', root), 'utf8');
+const providerSource = readFileSync(new URL('provider.js', root), 'utf8');
 const cssFiles = [...html.matchAll(/<link[^>]+href="([^"?]+\.css)(?:\?[^"#]*)?"/g)].map(match => match[1]);
 const css = cssFiles.map(file => readFileSync(new URL(file, root), 'utf8')).join('\n');
 const shell = html
   .replace(/<script\b[\s\S]*?<\/script>/gi, '')
-  .replace(/<link\b[^>]+rel="stylesheet"[^>]*>/gi, '');
+  .replace(/<link\b[^>]+rel="stylesheet"[^>]*>/gi, '')
+  .replace(/<meta\b[^>]+http-equiv="Content-Security-Policy"[^>]*>/gi, '');
 
 const modulePath = process.env.MINUTA_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.MINUTA_PLAYWRIGHT_MODULE).href : 'playwright';
 const playwright = await import(modulePath);
@@ -20,6 +22,10 @@ try {
   const page = await browser.newPage({ viewport:{ width:1440, height:1000 } });
   await page.setContent(shell);
   await page.addStyleTag({ content:css });
+  const tabFunctionStart = providerSource.indexOf('function activateClientProfileJump');
+  const tabFunctionEnd = providerSource.indexOf('\nfunction renderClientDetail', tabFunctionStart);
+  assert.ok(tabFunctionStart >= 0 && tabFunctionEnd > tabFunctionStart, 'Client profile tab controller can be isolated for browser checks');
+  await page.addScriptTag({ content:`const $ = selector => document.querySelector(selector); const $$ = selector => [...document.querySelectorAll(selector)];\n${providerSource.slice(tabFunctionStart, tabFunctionEnd)}` });
   await page.evaluate(() => {
     document.documentElement.classList.remove('provider-booting');
     document.documentElement.classList.add('top-level', 'provider-ready');
@@ -35,6 +41,7 @@ try {
     const profile = document.querySelector('#clientProfileContent');
     profile.hidden = false;
     document.body.classList.add('client-profile-detail-open');
+    document.querySelector('#clientProfileContent').dataset.clientProfileSection = 'history';
 
     document.querySelector('#clientsCount').textContent = '37';
     document.querySelector('#clientsList').innerHTML = [
@@ -67,6 +74,10 @@ try {
     const reliability = document.querySelector('#clientReliabilityCard');
     reliability.hidden = false;
     document.querySelector('#clientReliabilityText').textContent = '1 отмена клиентом и 1 неявка из последних 8 записей';
+    const records = document.querySelector('#clientRecords');
+    records.hidden = false;
+    records.innerHTML = '<details data-cr-panel="files"><summary>Файлы и фотографии</summary></details><details data-cr-panel="history"><summary>История клиента</summary></details>';
+    document.querySelector('#clientHistoryDisclosure').hidden = true;
   });
 
   const layouts = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
@@ -94,7 +105,13 @@ try {
       }));
       const tabs = [...document.querySelectorAll('[data-client-profile-jump]')].map(node => ({
         active:node.classList.contains('is-active'),
+        selected:node.getAttribute('aria-selected'),
         height:node.getBoundingClientRect().height
+      }));
+      const panels = [...document.querySelectorAll('[data-client-profile-panel]')].map(node => ({
+        name:node.dataset.clientProfilePanel,
+        hidden:node.hidden,
+        display:getComputedStyle(node).display
       }));
       return {
         scrollWidth:document.documentElement.scrollWidth,
@@ -103,7 +120,7 @@ try {
         ringBackground:ring.backgroundImage, orbitSize:orbit.width,
         summaryHeight:summaryBox.height, summaryArticles, milestoneHeight:milestone.height,
         summaryColumns:summary.gridTemplateColumns.split(' ').length,
-        actions, tabs
+        actions, tabs, panels
       };
     });
     assert.ok(state.scrollWidth <= width + 1, `${theme}/${layout}/${width}: no horizontal overflow`);
@@ -114,6 +131,8 @@ try {
     assert.ok(state.summaryArticles.every(height => height <= 96), `${theme}/${layout}/${width}: facts stay compact (${state.summaryArticles})`);
     assert.ok(state.milestoneHeight <= 84, `${theme}/${layout}/${width}: milestone stays compact (${state.milestoneHeight})`);
     assert.equal(state.tabs.filter(item => item.active).length, 1, `${theme}/${layout}/${width}: profile navigation has one active section`);
+    assert.equal(state.tabs.filter(item => item.selected === 'true').length, 1, `${theme}/${layout}/${width}: profile navigation exposes one selected tab`);
+    assert.equal(state.panels.filter(item => item.display !== 'none').length, 1, `${theme}/${layout}/${width}: only one profile panel is visible`);
     if (width <= 980) assert.equal(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: detail uses a single pane`);
     if (width >= 1100) assert.notEqual(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: desktop keeps client context`);
     if (width <= 1199) assert.equal(state.summaryColumns, 2, `${theme}/${layout}/${width}: narrow profile uses a compact 2x2 fact grid`);
@@ -122,6 +141,36 @@ try {
       assert.ok(state.tabs.every(item => item.height >= 43.5), `${theme}/${layout}/${width}: profile navigation remains touch friendly (${JSON.stringify(state.tabs)})`);
     }
   }
+
+  const tabStates = [];
+  for (const name of ['files','services','notes','history']) {
+    tabStates.push(await page.evaluate(section => {
+      activateClientProfileJump(section, { scroll:false });
+      const records = document.querySelector('#clientRecords');
+      return {
+        section,
+        active:[...document.querySelectorAll('[data-client-profile-jump].is-active')].map(node => node.dataset.clientProfileJump),
+        selected:[...document.querySelectorAll('[data-client-profile-jump][aria-selected="true"]')].map(node => node.dataset.clientProfileJump),
+        visible:[...document.querySelectorAll('[data-client-profile-panel]')].filter(node => !node.hidden).map(node => node.dataset.clientProfilePanel),
+        recordsParent:records.parentElement.dataset.clientProfilePanel,
+        recordsCount:document.querySelectorAll('#clientRecords').length,
+        filesOpen:records.querySelector('[data-cr-panel="files"]').open,
+        historyOpen:records.querySelector('[data-cr-panel="history"]').open,
+        notesOpen:document.querySelector('#clientPreferencesDisclosure').open
+      };
+    }, name));
+  }
+  for (const state of tabStates) {
+    assert.deepEqual(state.active, [state.section], `${state.section}: one tab is visually active`);
+    assert.deepEqual(state.selected, [state.section], `${state.section}: one tab is semantically selected`);
+    assert.deepEqual(state.visible, [state.section], `${state.section}: only its content panel is visible`);
+    assert.equal(state.recordsCount, 1, `${state.section}: private records are never duplicated`);
+  }
+  assert.equal(tabStates[0].recordsParent, 'files', 'Files tab owns the private records host');
+  assert.equal(tabStates[0].filesOpen, true, 'Files tab opens the files panel');
+  assert.equal(tabStates[2].notesOpen, true, 'Notes tab opens preferences and notes');
+  assert.equal(tabStates[3].recordsParent, 'history', 'History tab regains the private records host');
+  assert.equal(tabStates[3].historyOpen, true, 'History tab opens the timeline');
 
   await page.evaluate(() => document.querySelector('#clientMilestoneCard').classList.add('is-max-level'));
   const maximumMilestone = await page.locator('#clientMilestoneCard').boundingBox();
