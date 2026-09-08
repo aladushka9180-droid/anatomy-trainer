@@ -52,3 +52,106 @@ jobs:
           set -euo pipefail
           export MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
           bash minuta-online-booking/tests/real-slot-concurrency-v125-integration.sh
+      - name: Verify PrimeTime handoff static contract
+        run: node minuta-online-booking/primetime-handoff-v127-static-test.mjs
+      - name: Rehearse PrimeTime handoff in test only
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v127-rollback.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v127.sql
+          actor="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select user_id from public.organization_memberships where active order by created_at limit 1")"
+          [[ "$actor" =~ ^[0-9a-f-]{36}$ ]]
+          state="$(openssl rand -hex 32)"
+          ticket="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" -v state="$state" <<'SQL'
+          begin;
+          select set_config('request.jwt.claim.sub', :'actor', true) as configured \gset
+          set local role authenticated;
+          select public.create_primetime_handoff(:'state') ->> 'ticket';
+          commit;
+          SQL
+          )"
+          ticket="$(tr -d '[:space:]' <<<"$ticket")"
+          [[ "$ticket" =~ ^[0-9a-f]{64}$ ]]
+          mismatch="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v ticket="$ticket" <<'SQL'
+          begin;
+          set local role anon;
+          select coalesce(public.consume_primetime_handoff(:'ticket',repeat('0',64))::text,'null');
+          commit;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$mismatch")" = null
+          result="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v ticket="$ticket" -v state="$state" <<'SQL'
+          begin;
+          set local role anon;
+          select public.consume_primetime_handoff(:'ticket',:'state');
+          commit;
+          SQL
+          )"
+          jq -e --arg actor "$actor" '
+            .user_id==$actor and .workspace.available==true
+            and (.workspace.organizations|type)=="array"
+            and (.workspace.organizations|length)<=20
+            and all(.workspace.organizations[];
+              .status=="active" and .public_booking_enabled==true
+              and (.locations|length)<=50 and all(.locations[];.active==true)
+              and (.members|length)<=100 and all(.members[];.active==true and .is_bookable==true)
+            )' <<<"$result" >/dev/null
+          replay="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v ticket="$ticket" -v state="$state" <<'SQL'
+          begin;
+          set local role anon;
+          select coalesce(public.consume_primetime_handoff(:'ticket',:'state')::text,'null');
+          commit;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$replay")" = null
+      - name: Race PrimeTime handoffs and verify latest-wins TTL
+        shell: bash
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          actor="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select user_id from public.organization_memberships where active order by created_at limit 1")"
+          [[ "$actor" =~ ^[0-9a-f-]{36}$ ]]
+          create_ticket() {
+            local handoff_state="$1"
+            psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" -v state="$handoff_state" <<'SQL'
+          begin;
+          select set_config('request.jwt.claim.sub', :'actor', true) as configured \gset
+          set local role authenticated;
+          select public.create_primetime_handoff(:'state') ->> 'ticket';
+          commit;
+          SQL
+          }
+          consume_ticket() {
+            local handoff_ticket="$1" handoff_state="$2"
+            psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v ticket="$handoff_ticket" -v state="$handoff_state" <<'SQL'
+          begin;
+          set local role anon;
+          select coalesce(public.consume_primetime_handoff(:'ticket',:'state')::text,'null');
+          commit;
+          SQL
+          }
+          state_a="$(openssl rand -hex 32)"
+          state_b="$(openssl rand -hex 32)"
+          (create_ticket "$state_a" > "$RUNNER_TEMP/v127-ticket-a") & pid_a=$!
+          (create_ticket "$state_b" > "$RUNNER_TEMP/v127-ticket-b") & pid_b=$!
+          wait "$pid_a" "$pid_b"
+          ticket_a="$(tr -d '[:space:]' < "$RUNNER_TEMP/v127-ticket-a")"
+          ticket_b="$(tr -d '[:space:]' < "$RUNNER_TEMP/v127-ticket-b")"
+          [[ "$ticket_a" =~ ^[0-9a-f]{64}$ && "$ticket_b" =~ ^[0-9a-f]{64}$ && "$ticket_a" != "$ticket_b" ]]
+          rows="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" -c "select count(*) from public.primetime_handoffs where user_id=:'actor'")"
+          test "$(tr -d '[:space:]' <<<"$rows")" = 1
+          ttl="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -v actor="$actor" -c "select expires_at > clock_timestamp()+interval '90 seconds' and expires_at <= clock_timestamp()+interval '125 seconds' from public.primetime_handoffs where user_id=:'actor'")"
+          test "$(tr -d '[:space:]' <<<"$ttl")" = t
+          valid=0
+          result_a="$(consume_ticket "$ticket_a" "$state_a")"
+          result_b="$(consume_ticket "$ticket_b" "$state_b")"
+          if jq -e --arg actor "$actor" '.user_id==$actor' <<<"$result_a" >/dev/null 2>&1; then valid=$((valid+1)); fi
+          if jq -e --arg actor "$actor" '.user_id==$actor' <<<"$result_b" >/dev/null 2>&1; then valid=$((valid+1)); fi
+          test "$valid" = 1
+          state_expired="$(openssl rand -hex 32)"
+          ticket_expired="$(create_ticket "$state_expired" | tr -d '[:space:]')"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -v actor="$actor" -c "update public.primetime_handoffs set expires_at=clock_timestamp()-interval '1 second' where user_id=:'actor'"
+          expired="$(consume_ticket "$ticket_expired" "$state_expired")"
+          test "$(tr -d '[:space:]' <<<"$expired")" = null
