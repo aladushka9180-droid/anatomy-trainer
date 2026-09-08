@@ -115,6 +115,8 @@ fi
 
 stage=validate-contract
 test -s "$result"
+jq '{status,publicTables,publicFunctions,publicIndexes,publicForeignKeys,services,bookings,networkMode,productionWritten,testDatabaseWritten}' \
+  "$result"
 if ! jq -e '
   .status == "success" and
   .publicTables > 0 and
