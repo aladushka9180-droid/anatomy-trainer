@@ -5,6 +5,7 @@ const read = name => readFileSync(new URL(name, import.meta.url), 'utf8').replac
 const migration = read('./supabase-migration-v129.sql');
 const rollback = read('./supabase-migration-v129-rollback.sql');
 const contract = read('./design/FINANCIAL_LEDGER_V129_CONTRACT.md');
+const concurrency = read('./tests/financial-ledger-v129-concurrency-test.sh');
 
 for (const table of [
   'organization_finance_settings','financial_accounts','financial_transactions','financial_postings',
@@ -22,7 +23,16 @@ assert.match(migration, /financial_ledger_is_append_only/);
 assert.match(migration, /unique\(organization_id,request_id\)/);
 assert.match(migration, /pg_advisory_xact_lock[\s\S]*:booking:/);
 assert.equal((migration.match(/p_organization::text\|\|':financial-ledger'/g)||[]).length,4);
-assert.match(migration, /from public\.organization_memberships membership[\s\S]*for update of membership/);
+const authorization = migration.match(/create or replace function public\.require_minuta_financial_manager_v129[\s\S]*?\n\$\$;/)?.[0]||'';
+assert.match(authorization, /from public\.organization_memberships membership[\s\S]*?for update;/);
+assert.match(authorization, /from public\.organizations organization[\s\S]*?for update;/);
+assert.ok(authorization.indexOf('from public.organization_memberships membership') <
+  authorization.indexOf('from public.organizations organization'), 'membership must lock before organization');
+assert.match(concurrency, /values\(:'organization_id'::uuid,:'actor_id'::uuid,'admin'/);
+assert.match(concurrency, /set role='specialist'[\s\S]*user_id=:'actor_id'::uuid/);
+assert.doesNotMatch(concurrency, /set role='specialist'[\s\S]{0,180}user_id=:'owner_id'::uuid/);
+assert.match(concurrency, /minuta-v129-organization-race/);
+assert.match(concurrency, /set status='suspended'/);
 assert.equal((migration.match(/v_actor:=public\.require_minuta_financial_manager_v129\(p_organization\)/g)||[]).length,5);
 assert.equal((migration.match(/message='finance_disabled'/g)||[]).length,3);
 assert.match(migration, /financial_account_idempotency_conflict/);

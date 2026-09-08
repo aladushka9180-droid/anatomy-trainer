@@ -188,17 +188,28 @@ create or replace function public.require_minuta_financial_manager_v129(p_organi
 returns uuid language plpgsql volatile security definer set search_path to '' as $$
 declare
   v_actor uuid:=auth.uid();
-  v_allowed boolean:=false;
+  v_member_active boolean:=false;
+  v_member_role text;
+  v_organization_status text;
 begin
   if v_actor is not null then
-    select membership.active and membership.role in('owner','admin') and organization.status='active'
-    into v_allowed
+    -- Keep the v66 lock order used by membership mutation triggers:
+    -- membership first, then the parent organization row.
+    select membership.active,membership.role
+    into v_member_active,v_member_role
     from public.organization_memberships membership
-    join public.organizations organization on organization.id=membership.organization_id
     where membership.organization_id=p_organization and membership.user_id=v_actor
-    for update of membership;
+    for update;
+    if found then
+      select organization.status into v_organization_status
+      from public.organizations organization
+      where organization.id=p_organization
+      for update;
+    end if;
   end if;
-  if not coalesce(v_allowed,false) then
+  if not coalesce(v_member_active,false)
+     or v_member_role not in('owner','admin')
+     or v_organization_status is distinct from 'active' then
     raise exception using errcode='42501',message='financial_manager_role_required';
   end if;
   return v_actor;

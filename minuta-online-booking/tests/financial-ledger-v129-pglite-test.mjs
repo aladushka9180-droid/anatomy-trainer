@@ -107,6 +107,12 @@ try{
     '${org}','${posted.id}','${reverseRequest}','source_corrected')`,'finance_disabled');
   await db.exec(`select public.set_minuta_finance_enabled_v129('${org}',true)`);
 
+  await db.exec(`reset role;update public.organizations set status='suspended' where id='${org}';set role authenticated;`);
+  await error(`select public.create_minuta_financial_account_v129(
+    '${org}',gen_random_uuid(),'Suspended organization cash','cash')`,'financial_manager_role_required');
+  await error(`select public.get_minuta_financial_workspace_v129('${org}')`,'financial_manager_role_required');
+  await db.exec(`reset role;update public.organizations set status='active' where id='${org}';set role authenticated;`);
+
   await db.exec('reset role;');
   await db.exec(`update public.booking_outcomes set completion_source='auto',updated_at=now() where booking_id='${booking}'`);
   await db.exec('set role authenticated;');
