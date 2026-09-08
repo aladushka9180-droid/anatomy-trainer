@@ -1,7 +1,14 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T21:11:00Z",
+  "updatedAt": "2026-09-08T22:05:59Z",
+  "stageGateOverride": {
+    "type": "allow_early_stage_work",
+    "approvedBy": "user",
+    "approvedAt": "2026-09-08T22:05:59Z",
+    "reason": "Пользователь явно разрешил независимо продолжить D06 и D09, пока внешние блокеры этапа 0 остаются открытыми.",
+    "allowedItems": ["D06", "D09"]
+  },
   "items": {
     "D01": {
       "status": "awaiting_external",

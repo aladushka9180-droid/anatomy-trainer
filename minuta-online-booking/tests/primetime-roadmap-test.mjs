@@ -17,20 +17,33 @@ const PLAN_PATH = resolve(APP_DIR, 'roadmap', 'plan.json');
 const STATUS_PATH = resolve(APP_DIR, 'roadmap', 'status.json');
 const CLI_PATH = resolve(APP_DIR, 'scripts', 'primetime-roadmap.mjs');
 const clone = value => structuredClone(value);
+const completeEvidence = (item, marker = 'a') => ({
+  releaseSha: marker.repeat(40),
+  releaseVersion: `test-${item.id.toLowerCase()}`,
+  ciRuns: Object.fromEntries(item.completion.requiredCi.map((name, index) => [name, 1000 + index])),
+  productionHealthRunId: 2000,
+  verifiedAt: '2026-09-08T22:05:59Z',
+  liveChecks: { '390':true, '760':true, '1440':true },
+  checks: Object.fromEntries(item.completion.requiredChecks.map(name => [name, true]))
+});
 
-test('published roadmap contract is valid and stops at declared stage-0 gates', () => {
+test('published override exposes only D06 and D09 while stage-0 remains blocked', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
   const result = validateRoadmap(plan, status);
   assert.equal(result.valid, true);
   assert.equal(result.items, 22);
+  assert.equal(status.items.D01.status, 'awaiting_external');
 
   const next = selectNext(plan, status);
-  assert.equal(next.decision, 'blocked');
-  assert.equal(next.stage.id, 'stage-0');
-  assert.equal(next.primary, null);
-  assert.deepEqual(next.parallelCandidates, []);
+  assert.equal(next.decision, 'work');
+  assert.equal(next.stage.id, 'stage-1');
+  assert.equal(next.blockedStage.id, 'stage-0');
+  assert.equal(next.primary.id, 'D06');
+  assert.deepEqual(next.parallelCandidates.map(item => item.id), ['D09']);
+  assert.deepEqual(next.override.allowedItems, ['D06', 'D09']);
   assert.deepEqual(next.blockers.map(item => item.id), ['D01', 'D02', 'D03', 'D04', 'D05']);
+  assert(![next.primary.id, ...next.parallelCandidates.map(item => item.id)].some(id => ['D08', 'D14'].includes(id)));
 });
 
 test('validator fails closed on undeclared evidence and dependency cycles', () => {
@@ -62,7 +75,65 @@ test('transition accepts one monotonic item update and rejects multiple updates'
   });
 
   after.items.D09.status = 'implementing';
-  assert.throws(() => verifyTransition(plan, before, after), /exactly one roadmap item must change/);
+  assert.throws(() => verifyTransition(plan, before, after), /exactly one roadmap item or stage-gate override must change/);
+});
+
+test('override activation is an isolated transition and requires explicit user approval', () => {
+  const plan = readJson(PLAN_PATH);
+  const after = readJson(STATUS_PATH);
+  const before = clone(after);
+  before.schemaVersion = 1;
+  before.updatedAt = new Date(Date.parse(after.updatedAt) - 1000).toISOString();
+  delete before.stageGateOverride;
+  assert.deepEqual(verifyTransition(plan, before, after), {
+    valid: true,
+    change: 'stage_gate_override',
+    from: 'inactive',
+    to: 'active',
+    allowedItems: ['D06', 'D09'],
+    planVersion: plan.version
+  });
+
+  const combined = clone(after);
+  combined.updatedAt = new Date(Date.parse(after.updatedAt) + 1000).toISOString();
+  combined.items.D06.status = 'implementing';
+  combined.stageGateOverride = null;
+  assert.throws(() => verifyTransition(plan, after, combined), /exactly one roadmap item or stage-gate override must change/);
+
+  const forged = clone(after);
+  forged.stageGateOverride.approvedBy = 'automation';
+  assert.throws(() => validateRoadmap(plan, forged), /explicit user approval is required/);
+});
+
+test('override scope cannot expand or bypass dependency and external-action contracts', () => {
+  const plan = readJson(PLAN_PATH);
+  const status = readJson(STATUS_PATH);
+  for (const allowedItems of [['D06', 'D10'], ['D06', 'D09', 'D14'], ['D06', 'UNKNOWN']]) {
+    const expanded = clone(status);
+    expanded.stageGateOverride.allowedItems = allowedItems;
+    assert.throws(() => validateRoadmap(plan, expanded), /scope must be exactly D06 and D09/);
+  }
+
+  const dependencyDrift = clone(plan);
+  dependencyDrift.items.find(item => item.id === 'D09').dependsOn = ['D01'];
+  assert.throws(() => validateRoadmap(dependencyDrift, status), /explicit dependencies cannot be bypassed/);
+
+  const externalDrift = clone(plan);
+  externalDrift.items.find(item => item.id === 'D09').externalActions = ['real_financial_transaction'];
+  assert.throws(() => validateRoadmap(externalDrift, status), /external actions cannot be bypassed/);
+});
+
+test('ordinary work in the blocked stage keeps priority over the override', () => {
+  const plan = readJson(PLAN_PATH);
+  const status = readJson(STATUS_PATH);
+  status.items.D05.status = 'not_started';
+  status.items.D05.blocker = null;
+  const next = selectNext(plan, status);
+  assert.equal(next.decision, 'work');
+  assert.equal(next.stage.id, 'stage-0');
+  assert.equal(next.primary.id, 'D05');
+  assert.equal(next.override, undefined);
+  assert.equal(next.blockedStage, undefined);
 });
 
 test('transition cannot mark an item ready without complete production evidence', () => {
@@ -74,6 +145,35 @@ test('transition cannot mark an item ready without complete production evidence'
   after.items.D02.evidence = {};
   after.items.D02.blocker = null;
   assert.throws(() => verifyTransition(plan, before, after), /completion requires releaseSha/);
+
+  const early = clone(before);
+  early.updatedAt = new Date(Date.parse(before.updatedAt) + 1000).toISOString();
+  early.items.D06.status = 'verifying';
+  assert.throws(() => verifyTransition(plan, before, early), /completion requires releaseSha/);
+});
+
+test('override permits fully evidenced D06 and D09 only, then returns to stage-0', () => {
+  const plan = readJson(PLAN_PATH);
+  const status = readJson(STATUS_PATH);
+  for (const [index, id] of ['D06', 'D09'].entries()) {
+    const item = plan.items.find(candidate => candidate.id === id);
+    status.items[id].status = 'done';
+    status.items[id].evidence = completeEvidence(item, index ? 'b' : 'a');
+  }
+  const next = selectNext(plan, status);
+  assert.equal(next.decision, 'blocked');
+  assert.equal(next.stage.id, 'stage-0');
+  assert.equal(next.primary, null);
+  assert.deepEqual(next.parallelCandidates, []);
+  assert.deepEqual(next.blockers.map(item => item.id), ['D01', 'D02', 'D03', 'D04', 'D05']);
+
+  for (const id of ['D08', 'D14']) {
+    const attempted = clone(status);
+    const item = plan.items.find(candidate => candidate.id === id);
+    attempted.items[id].status = 'verifying';
+    attempted.items[id].evidence = completeEvidence(item, id === 'D08' ? 'c' : 'd');
+    assert.throws(() => validateRoadmap(plan, attempted), new RegExp(`status ${id}: dependency D01 is not done`));
+  }
 });
 
 test('CLI validate and next are read-only and return JSON', () => {

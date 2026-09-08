@@ -11,6 +11,8 @@ const DEFAULT_STATUS = resolve(APP_DIR, 'roadmap', 'status.json');
 const EVIDENCE_KEYS = ['releaseSha', 'releaseVersion', 'ciRuns', 'productionHealthRunId', 'verifiedAt', 'liveChecks', 'checks'];
 const LIVE_WIDTHS = ['390', '760', '1440'];
 const BLOCKER_TYPES = ['secret', 'account', 'provider', 'device', 'human_decision', 'human_confirmation', 'production_access', 'legal'];
+const STAGE_GATE_OVERRIDE_ITEMS = ['D06', 'D09'];
+const STAGE_GATE_OVERRIDE_TYPE = 'allow_early_stage_work';
 
 function object(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -43,6 +45,29 @@ function isoTimestamp(value, label) {
   nonEmptyString(value, label);
   assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value), `${label}: expected UTC ISO timestamp`);
   assert(Number.isFinite(Date.parse(value)), `${label}: invalid timestamp`);
+}
+
+function validateStageGateOverride(plan, status) {
+  if (status.schemaVersion === 1) return new Set();
+  const override = status.stageGateOverride;
+  if (override === null) return new Set();
+  exactKeys(override, ['type', 'approvedBy', 'approvedAt', 'reason', 'allowedItems'], 'status.stageGateOverride');
+  assert.equal(override.type, STAGE_GATE_OVERRIDE_TYPE, 'status.stageGateOverride.type: unsupported type');
+  assert.equal(override.approvedBy, 'user', 'status.stageGateOverride.approvedBy: explicit user approval is required');
+  isoTimestamp(override.approvedAt, 'status.stageGateOverride.approvedAt');
+  assert(Date.parse(override.approvedAt) <= Date.parse(status.updatedAt), 'status.stageGateOverride.approvedAt: cannot be later than status.updatedAt');
+  nonEmptyString(override.reason, 'status.stageGateOverride.reason');
+  stringList(override.allowedItems, 'status.stageGateOverride.allowedItems', { allowEmpty: false });
+  assert.deepEqual([...override.allowedItems].sort(), [...STAGE_GATE_OVERRIDE_ITEMS].sort(), 'status.stageGateOverride.allowedItems: scope must be exactly D06 and D09');
+
+  const itemById = new Map(plan.items.map(item => [item.id, item]));
+  for (const id of override.allowedItems) {
+    const item = itemById.get(id);
+    assert(item, `status.stageGateOverride.allowedItems: unknown item ${id}`);
+    assert.equal(item.dependsOn.length, 0, `status.stageGateOverride ${id}: explicit dependencies cannot be bypassed`);
+    assert.equal(item.externalActions.length, 0, `status.stageGateOverride ${id}: external actions cannot be bypassed`);
+  }
+  return new Set(override.allowedItems);
 }
 
 export function readJson(path) {
@@ -179,8 +204,10 @@ function validateEvidence(item, evidence, complete) {
 
 export function validateStatus(plan, status) {
   validatePlan(plan);
-  exactKeys(status, ['schemaVersion', 'planVersion', 'updatedAt', 'items'], 'status');
-  assert.equal(status.schemaVersion, 1, 'status.schemaVersion: unsupported version');
+  assert([1, 2].includes(status.schemaVersion), 'status.schemaVersion: unsupported version');
+  exactKeys(status, status.schemaVersion === 1
+    ? ['schemaVersion', 'planVersion', 'updatedAt', 'items']
+    : ['schemaVersion', 'planVersion', 'updatedAt', 'items', 'stageGateOverride'], 'status');
   assert.equal(status.planVersion, plan.version, 'status.planVersion: does not match plan');
   isoTimestamp(status.updatedAt, 'status.updatedAt');
   assert(object(status.items), 'status.items: expected object');
@@ -190,6 +217,7 @@ export function validateStatus(plan, status) {
   const statusValues = new Set(plan.statusValues);
   const itemById = new Map(plan.items.map(item => [item.id, item]));
   const stageById = new Map(plan.stages.map(stage => [stage.id, stage]));
+  const overrideItems = validateStageGateOverride(plan, status);
 
   for (const item of plan.items) {
     const record = status.items[item.id];
@@ -209,9 +237,11 @@ export function validateStatus(plan, status) {
 
     if (record.status === 'verifying' || record.status === 'done') {
       for (const dependency of item.dependsOn) assert.equal(status.items[dependency].status, 'done', `status ${item.id}: dependency ${dependency} is not done`);
-      const itemStageOrder = stageById.get(item.stageId).order;
-      for (const earlier of plan.items) {
-        if (stageById.get(earlier.stageId).order < itemStageOrder) assert.equal(status.items[earlier.id].status, 'done', `status ${item.id}: earlier stage item ${earlier.id} is not done`);
+      if (!overrideItems.has(item.id)) {
+        const itemStageOrder = stageById.get(item.stageId).order;
+        for (const earlier of plan.items) {
+          if (stageById.get(earlier.stageId).order < itemStageOrder) assert.equal(status.items[earlier.id].status, 'done', `status ${item.id}: earlier stage item ${earlier.id} is not done`);
+        }
       }
     }
   }
@@ -232,7 +262,7 @@ export function validateRoadmap(plan, status) {
 export function selectNext(plan, status) {
   validateStatus(plan, status);
   const stageByOrder = [...plan.stages].sort((a, b) => a.order - b.order);
-  const itemById = new Map(plan.items.map(item => [item.id, item]));
+  const stageById = new Map(plan.stages.map(stage => [stage.id, stage]));
   const stageComplete = stage => plan.items.filter(item => item.stageId === stage.id).every(item => status.items[item.id].status === 'done');
   const stage = stageByOrder.find(candidate => !stageComplete(candidate));
   if (!stage) return { decision: 'complete', planVersion: plan.version, stage: null, primary: null, parallelCandidates: [], blockers: [] };
@@ -249,22 +279,52 @@ export function selectNext(plan, status) {
     .sort((a, b) => a.priority - b.priority)
     .map(item => ({ id: item.id, title: item.title, ...status.items[item.id].blocker }));
 
-  if (!actionable.length) {
+  let selectedStage = stage;
+  let selected = actionable;
+  let override = null;
+  if (!selected.length && status.schemaVersion === 2 && status.stageGateOverride) {
+    const allowed = new Set(status.stageGateOverride.allowedItems);
+    const overrideCandidates = plan.items
+      .filter(item => stageById.get(item.stageId).order > stage.order
+        && allowed.has(item.id)
+        && Object.hasOwn(stateRank, status.items[item.id].status)
+        && dependenciesDone(item))
+      .sort((a, b) => stageById.get(a.stageId).order - stageById.get(b.stageId).order
+        || stateRank[status.items[a.id].status] - stateRank[status.items[b.id].status]
+        || a.priority - b.priority
+        || a.id.localeCompare(b.id));
+    if (overrideCandidates.length) {
+      selectedStage = stageById.get(overrideCandidates[0].stageId);
+      selected = overrideCandidates.filter(item => item.stageId === selectedStage.id);
+      override = {
+        type: status.stageGateOverride.type,
+        approvedAt: status.stageGateOverride.approvedAt,
+        allowedItems: [...status.stageGateOverride.allowedItems]
+      };
+    }
+  }
+
+  if (!selected.length) {
     return { decision: 'blocked', planVersion: plan.version, stage: { id: stage.id, title: stage.title }, primary: null, parallelCandidates: [], blockers };
   }
-  const primary = actionable[0];
-  const parallelCandidates = actionable
+  const primary = selected[0];
+  const parallelCandidates = selected
     .slice(1)
     .filter(item => item.parallelizable)
     .map(item => ({ id: item.id, title: item.title, status: status.items[item.id].status }));
-  return {
+  const result = {
     decision: 'work',
     planVersion: plan.version,
-    stage: { id: stage.id, title: stage.title },
+    stage: { id: selectedStage.id, title: selectedStage.title },
     primary: { id: primary.id, title: primary.title, status: status.items[primary.id].status, externalActions: primary.externalActions },
     parallelCandidates,
     blockers
   };
+  if (override) {
+    result.blockedStage = { id: stage.id, title: stage.title };
+    result.override = override;
+  }
+  return result;
 }
 
 const TRANSITIONS = {
@@ -288,7 +348,25 @@ export function verifyTransition(plan, before, after) {
   validateStatus(plan, after);
   assert(Date.parse(after.updatedAt) > Date.parse(before.updatedAt), 'transition: updatedAt must increase');
   const changed = plan.items.filter(item => canonical(before.items[item.id]) !== canonical(after.items[item.id]));
-  assert.equal(changed.length, 1, 'transition: exactly one roadmap item must change');
+  const beforeOverride = before.schemaVersion === 2 ? before.stageGateOverride : null;
+  const afterOverride = after.schemaVersion === 2 ? after.stageGateOverride : null;
+  const overrideChanged = canonical(beforeOverride) !== canonical(afterOverride);
+  assert(after.schemaVersion >= before.schemaVersion, 'transition: status schema cannot move backwards');
+  assert.equal(changed.length + Number(overrideChanged), 1, 'transition: exactly one roadmap item or stage-gate override must change');
+  if (overrideChanged) {
+    assert.equal(changed.length, 0, 'transition: stage-gate override and roadmap item cannot change together');
+    assert(beforeOverride === null || afterOverride === null, 'transition: stage-gate override must be removed before replacement');
+    if (afterOverride) assert.equal(afterOverride.approvedAt, after.updatedAt, 'transition: activation approval must match updatedAt');
+    return {
+      valid: true,
+      change: 'stage_gate_override',
+      from: beforeOverride ? 'active' : 'inactive',
+      to: afterOverride ? 'active' : 'inactive',
+      allowedItems: afterOverride?.allowedItems ?? [],
+      planVersion: plan.version
+    };
+  }
+  assert.equal(after.schemaVersion, before.schemaVersion, 'transition: schema change requires a stage-gate override change');
   const item = changed[0];
   const previous = before.items[item.id];
   const next = after.items[item.id];
