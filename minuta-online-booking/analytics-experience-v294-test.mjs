@@ -36,14 +36,14 @@ assert.match(provider, /actual_duration_minutes \|\| 0/, 'Качество фа�
 assert.match(provider, /data-report-action="\$\{item\.action\}"/, 'Рекомендации используют небезопасные HTML-действия');
 assert.match(provider, /function handleReportAction[\s\S]*action === 'quality'[\s\S]*action === 'debt'[\s\S]*action === 'lost'/, 'Типизированные действия рекомендаций обрабатываются не полностью');
 assert.match(provider, /scopedStatus === 'loading'[\s\S]*scopedStatus === 'failed'/, 'Ошибка или загрузка отчёта снова может выглядеть как подтверждённый ноль');
-assert.match(provider, /if \(error\) \{ renderAnalytics\(\); notify/, 'Ошибка scoped-отчёта не отрисовывается сразу');
+assert.match(provider, /if \(error && !bookingUsesDemoData\(\)\) \{ renderAnalytics\(\); notify/, 'Ошибка реального scoped-отчёта не отрисовывается сразу');
 assert.match(provider, /if \(bookingUsesDemoData\(\)\) prepareDemoBookingContext\(reportChartDate\.dataset\.reportDate\)/, 'Демо-график не открывает изолированные учебные записи');
 assert.match(provider, /function bookingSourceItems\(\)[\s\S]*?reportScopedBookingsState\.rows[\s\S]*?: allBookings/, 'Демо-график может смешать учебные и реальные записи');
 assert.doesNotMatch(provider, /data-report-heatmap-date=/, 'Агрегированная тепловая карта не должна обещать неточный переход на одну дату');
 assert.match(styles, /#analyticsView\[data-report-tab="overview"\][\s\S]*data-report-tab="money"[\s\S]*data-report-tab="clients"[\s\S]*data-report-tab="team"/, 'Минималистичные представления не переключаются стилями');
 assert.match(styles, /report-periods[\s\S]*overflow-x:auto[\s\S]*scroll-snap-type/, 'Периоды не помещаются безопасно на телефоне');
 assert.match(styles, /@media \(max-width:760px\)[\s\S]*report-command-metrics[\s\S]*grid-template-columns:1fr 1fr/, 'Ключевые показатели не адаптированы к телефону');
-assert.match(worker, /v594/, 'Кэш приложения не обновлён для новой статистики');
+assert.match(worker, /v595/, 'Кэш приложения не обновлён для новой статистики');
 
 assert.match(migration, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 must be atomic');
 assert.match(rollback, /^--[^\n]*\nbegin;[\s\S]*commit;\s*$/i, 'v103 rollback must be atomic');

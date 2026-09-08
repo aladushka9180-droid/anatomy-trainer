@@ -2262,7 +2262,7 @@ function timelineServiceNameMarkup(value) {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=594#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=595#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2412,6 +2412,7 @@ let reportDataSource = 'own';
 let reportUtmFunnelState = { key:'', status:'idle', data:null };
 let ownBookingContextBeforeDemo = null;
 let reportDemoBaseRows = [];
+let reportDemoBaseReady = false;
 let reportDemoLive = null;
 let reportDemoLiveTimer = null;
 const REPORT_DEMO_SLUG = 'minuta-demo-statistics';
@@ -2434,14 +2435,6 @@ function reportTodayIso() {
   return controller.todayIso();
 }
 
-function reportDemoRangeCovered(range) {
-  const earliest = reportDemoBaseRows
-    .map(item => item?.booking_date)
-    .filter(Boolean)
-    .sort()[0];
-  return !earliest || earliest <= range.start;
-}
-
 function mergeReportDemoRows(rows) {
   const merged = new Map(reportDemoBaseRows.map(item => [String(item.id), item]));
   rows.forEach(item => { if (item?.id) merged.set(String(item.id), item); });
@@ -2460,7 +2453,7 @@ function reportDemoRowsSignature(rows) {
 }
 
 function applyReportDemoLiveRows(range = reportRange(), queryRange = reportDataQueryRange(range)) {
-  if (!bookingUsesDemoData() || !reportDemoBaseRows.length) return { changed:false };
+  if (!bookingUsesDemoData()) return { changed:false };
   const controller = reportDemoLiveController();
   if (!controller) return { changed:false };
   const previousRows = reportScopedBookingsState.rows || [];
@@ -2478,9 +2471,8 @@ function applyReportDemoLiveRows(range = reportRange(), queryRange = reportDataQ
 }
 
 function refreshReportDemoLive({ force = false } = {}) {
-  if (!bookingUsesDemoData() || !reportDemoBaseRows.length) return false;
+  if (!bookingUsesDemoData()) return false;
   const currentRange = reportRange();
-  if (!reportDemoRangeCovered(currentRange)) return false;
   const previous = previousReportRange(currentRange);
   const queryRange = reportDataQueryRange({
     start:previous?.start || currentRange.start,
@@ -2665,6 +2657,7 @@ function resetReportSessionState() {
   reportEventState = { key:'', rows:[], status:'idle' };
   reportUtmFunnelState = { key:'', status:'idle', data:null };
   reportDemoBaseRows = [];
+  reportDemoBaseReady = false;
   reportDemoLive = null;
   reportTeamMetric = 'revenue';
   document.body.classList.remove('report-scope-loading');
@@ -2996,14 +2989,14 @@ async function loadReportAvailability(range, performerId) {
 }
 
 async function loadReportScopedBookings(range, performerId) {
-  if (!reportCanViewTeam || !currentUser || !navigator.onLine) return;
+  if (!reportCanViewTeam || !currentUser) return;
   range = reportDataQueryRange(range);
   const userId = currentUser.id;
   const generation = sessionGeneration;
   const organizationId = reportOrganizationId();
   const key = reportSessionKey(organizationId, range.start, range.end, performerId);
   if (!organizationId || reportScopedBookingsState.key === key && ['loading','ready'].includes(reportScopedBookingsState.status)) return;
-  if (bookingUsesDemoData() && reportDemoBaseRows.length && reportDemoRangeCovered(range)) {
+  if (bookingUsesDemoData() && reportDemoBaseReady) {
     const applied = applyReportDemoLiveRows(reportRange(), range);
     if (applied.result) {
       document.body.classList.remove('report-scope-loading');
@@ -3020,6 +3013,21 @@ async function loadReportScopedBookings(range, performerId) {
       return;
     }
   }
+  if (!navigator.onLine && bookingUsesDemoData()) {
+    const applied = applyReportDemoLiveRows(reportRange(), range);
+    if (applied.result) {
+      reportScopedBookingsState = { key, status:'ready', rows:applied.rows };
+      document.body.classList.remove('report-scope-loading');
+      renderAnalytics();
+      if ($('#dashboard')?.dataset.activeView === 'bookings') {
+        prepareDemoBookingContext();
+        updateBookingStats();
+        renderBookings();
+      }
+    }
+    return;
+  }
+  if (!navigator.onLine) return;
   reportScopedBookingsState = { key, status:'loading', rows:[] };
   document.body.classList.add('report-scope-loading');
   const select = $('#reportPerformerFilter');
@@ -3055,17 +3063,18 @@ async function loadReportScopedBookings(range, performerId) {
     if (rows.length >= maxRows) { error = new Error('Слишком большой объём отчёта'); break; }
   }
   if (!sessionIsCurrent(userId, generation) || reportScopedBookingsState.key !== key) return;
-  if (error) reportScopedBookingsState = { key, status:'failed', rows:[] };
-  else if (bookingUsesDemoData()) {
-    reportDemoBaseRows = mergeReportDemoRows(rows);
+  if (bookingUsesDemoData()) {
+    if (!error) reportDemoBaseRows = mergeReportDemoRows(rows);
+    reportDemoBaseReady = !error;
     const applied = applyReportDemoLiveRows(reportRange(), range);
-    reportScopedBookingsState = applied.result ? { key, status:'ready', rows:applied.rows } : { key, status:'ready', rows };
-  } else reportScopedBookingsState = { key, status:'ready', rows };
+    reportScopedBookingsState = applied.result ? { key, status:'ready', rows:applied.rows } : { key, status:error ? 'failed' : 'ready', rows };
+  } else if (error) reportScopedBookingsState = { key, status:'failed', rows:[] };
+  else reportScopedBookingsState = { key, status:'ready', rows };
   document.body.classList.remove('report-scope-loading');
   if (select) select.disabled = false;
   if (exportButton) exportButton.disabled = false;
   if (error && bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') renderBookings();
-  if (error) { renderAnalytics(); notify('Не удалось загрузить статистику сотрудника'); return; }
+  if (error && !bookingUsesDemoData()) { renderAnalytics(); notify('Не удалось загрузить статистику сотрудника'); return; }
   renderAnalytics();
   if (bookingUsesDemoData() && $('#dashboard')?.dataset.activeView === 'bookings') {
     prepareDemoBookingContext();
@@ -4212,7 +4221,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=594');
+    worker = new Worker('./report-worker.js?v=595');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {

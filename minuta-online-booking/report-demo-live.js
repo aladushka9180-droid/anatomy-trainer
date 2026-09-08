@@ -3,7 +3,10 @@
 
   const DAY_MS = 86400000;
   const DEFAULT_SPEED = 60;
-  const MAX_ADVANCE_MS = DAY_MS * 365;
+  const STATE_VERSION = 2;
+  const START_MINUTE = 8 * 60;
+  const LAST_MINUTE = 23 * 60 + 59;
+  const HISTORY_DAYS = 90;
   const FORECAST_DAYS = 14;
   const STORAGE_PREFIX = 'minuta-demo-live-v1:';
   const TIMEZONE = 'Europe/Samara';
@@ -82,6 +85,24 @@
     }));
   }
 
+  function dailyCandidates(templates, slots, seed) {
+    const candidates = [];
+    const seen = new Set();
+    const templateOffset = integer(`${seed}:template-offset`, 0, templates.length - 1);
+    const slotOffset = integer(`${seed}:slot-offset`, 0, slots.length - 1);
+    for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+      const time = slots[(slotIndex + slotOffset) % slots.length];
+      for (let templateIndex = 0; templateIndex < templates.length; templateIndex += 1) {
+        const template = templates[(templateIndex + templateOffset + slotIndex) % templates.length];
+        const key = `${template.performer_id}:${time}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        candidates.push({ template, time });
+      }
+    }
+    return candidates;
+  }
+
   function advanceExistingRow(row, virtualNowMs) {
     const outcome = row?.booking_outcomes;
     if (!outcome || outcome.visit_status !== 'scheduled' || row.status === 'cancelled') return row;
@@ -111,11 +132,21 @@
   }
 
   function loadState(storageKey, nowMs) {
-    const initial = { version:1, virtualNowMs:nowMs, realAtMs:nowMs };
+    const initial = {
+      version:STATE_VERSION,
+      dayIso:businessDate(nowMs),
+      virtualMinute:START_MINUTE,
+      realAtMs:nowMs
+    };
     try {
       const stored = JSON.parse(localStorage.getItem(`${STORAGE_PREFIX}${storageKey}`) || 'null');
-      if (!stored || stored.version !== 1 || !Number.isFinite(Number(stored.virtualNowMs)) || !Number.isFinite(Number(stored.realAtMs))) return initial;
-      return { ...initial, virtualNowMs:Number(stored.virtualNowMs), realAtMs:Number(stored.realAtMs) };
+      if (!stored || stored.version !== STATE_VERSION || stored.dayIso !== initial.dayIso
+        || !Number.isFinite(Number(stored.virtualMinute)) || !Number.isFinite(Number(stored.realAtMs))) return initial;
+      return {
+        ...initial,
+        virtualMinute:Math.min(LAST_MINUTE, Math.max(START_MINUTE, Number(stored.virtualMinute))),
+        realAtMs:Number(stored.realAtMs)
+      };
     } catch {
       return initial;
     }
@@ -133,43 +164,51 @@
 
     function advance() {
       const currentMs = now();
+      const currentDayIso = businessDate(currentMs);
+      if (state.dayIso !== currentDayIso) {
+        state = { version:STATE_VERSION, dayIso:currentDayIso, virtualMinute:START_MINUTE, realAtMs:currentMs };
+        persist();
+        return true;
+      }
       const elapsedMs = currentMs - state.realAtMs;
       if (elapsedMs < 0) {
         state.realAtMs = currentMs;
         persist();
         return false;
       }
-      const deltaMs = Math.min(elapsedMs * speed, MAX_ADVANCE_MS);
-      state.virtualNowMs += deltaMs;
+      const previousMinute = state.virtualMinute;
+      state.virtualMinute = Math.min(LAST_MINUTE, state.virtualMinute + elapsedMs * speed / 60000);
       state.realAtMs = currentMs;
-      if (deltaMs > 0) persist();
-      return deltaMs > 0;
+      if (elapsedMs > 0) persist();
+      return state.virtualMinute > previousMinute;
     }
 
     function materialize(baseRows = [], { organizationId = '', seed = 'minuta-demo-statistics' } = {}) {
       const changed = advance();
       const source = Array.isArray(baseRows) ? baseRows.filter(row => row && validDate(row.booking_date)) : [];
       const datesWithRows = new Set(source.map(row => row.booking_date));
-      const sourceDates = [...datesWithRows].sort();
-      const todayIso = businessDate(state.virtualNowMs);
-      const startIso = sourceDates[0] || addDays(todayIso, -90);
+      const todayIso = state.dayIso;
+      const virtualNowMs = dateTime(todayIso, `${String(Math.floor(state.virtualMinute / 60)).padStart(2, '0')}:${String(Math.floor(state.virtualMinute % 60)).padStart(2, '0')}`);
+      const startIso = addDays(todayIso, -HISTORY_DAYS);
       const endIso = addDays(todayIso, FORECAST_DAYS);
       const templates = normalizeTemplates(source);
       const generated = [];
-      const slots = ['09:30', '11:30', '14:30', '17:00'];
+      const slots = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30', '18:00', '19:30'];
 
       for (let date = startIso, dayIndex = 0; date <= endIso; date = addDays(date, 1), dayIndex += 1) {
         if (datesWithRows.has(date)) continue;
         const daySeed = `${seed}:${date}`;
-        const count = date === todayIso ? 3 : integer(`${daySeed}:count`, 1, 3);
+        const count = date === todayIso ? 6 : integer(`${daySeed}:count`, 1, 3);
+        const candidates = dailyCandidates(templates, slots, daySeed);
         for (let slotIndex = 0; slotIndex < count; slotIndex += 1) {
-          const template = templates[integer(`${daySeed}:template:${slotIndex}`, 0, templates.length - 1)];
-          const time = slots[(integer(`${daySeed}:slot:${slotIndex}`, 0, slots.length - 1) + slotIndex) % slots.length];
+          const candidate = candidates[slotIndex % candidates.length];
+          const template = candidate.template;
+          const time = candidate.time;
           const id = `demo-live:${date}:${slotIndex + 1}`;
           const price = Math.max(0, Number(template.price_rub || template.service.price_rub) || 0);
           const duration = Math.max(30, Number(template.duration_minutes || template.service.duration_minutes) || 60);
           const startMs = dateTime(date, time);
-          const completed = startMs + duration * 60000 <= state.virtualNowMs;
+          const completed = startMs + duration * 60000 <= virtualNowMs;
           const cancelled = integer(`${daySeed}:cancel:${slotIndex}`, 1, 19) === 1;
           const noShow = !cancelled && completed && integer(`${daySeed}:noshow:${slotIndex}`, 1, 12) === 1;
           const visitStatus = completed && !cancelled ? (noShow ? 'no_show' : 'completed') : 'scheduled';
@@ -219,12 +258,12 @@
         }
       }
 
-      const advancedSource = source.map(row => advanceExistingRow(row, state.virtualNowMs));
+      const advancedSource = source.map(row => advanceExistingRow(row, virtualNowMs));
       return {
         rows:sortRows([...advancedSource, ...generated]),
         generatedRows:generated,
         todayIso,
-        virtualNowMs:state.virtualNowMs,
+        virtualNowMs,
         changed
       };
     }
@@ -232,11 +271,11 @@
     return Object.freeze({
       materialize,
       advance,
-      todayIso:() => businessDate(state.virtualNowMs),
-      virtualNow:() => state.virtualNowMs,
+      todayIso:() => state.dayIso,
+      virtualNow:() => dateTime(state.dayIso, `${String(Math.floor(state.virtualMinute / 60)).padStart(2, '0')}:${String(Math.floor(state.virtualMinute % 60)).padStart(2, '0')}`),
       speed
     });
   }
 
-  window.MinutaDemoLive = Object.freeze({ create, DEFAULT_SPEED, FORECAST_DAYS });
+  window.MinutaDemoLive = Object.freeze({ create, DEFAULT_SPEED, HISTORY_DAYS, FORECAST_DAYS });
 })();
