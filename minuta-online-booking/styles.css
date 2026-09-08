@@ -2486,6 +2486,8 @@ html.provider-booting .provider-main {
 .provider-body .service-more>summary::-webkit-details-marker { display:none; }
 .provider-body .service-more>summary .ui-icon { width:16px; height:16px; }
 .provider-body .service-more>div { position:absolute; z-index:8; top:38px; right:0; min-width:128px; padding:5px; border:1px solid #dfe5e1; border-radius:10px; background:#fff; box-shadow:0 12px 30px rgba(22,46,34,.12); }
+.provider-body .service-manage-list { position:relative; isolation:isolate; }
+.provider-body .managed-service { position:relative; z-index:0; }
 .provider-body .managed-service:has(.service-more[open]) { position:relative; z-index:20; }
 .provider-body .service-more[open] { z-index:21; }
 .provider-body .service-more[open]>div { z-index:22; }
