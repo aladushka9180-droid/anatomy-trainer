@@ -8,6 +8,9 @@ request_two="00000000-0000-4000-8000-000000009002"
 lock_key="900090"
 first_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-first.log"
 second_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-second.log"
+schedule_performer=""
+schedule_weekday=""
+schedule_snapshot=""
 
 cleanup() {
   psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=0 \
@@ -30,86 +33,92 @@ begin
   end loop;
 end $$;
 SQL
+  if [[ -n "$schedule_performer" && -n "$schedule_weekday" ]]; then
+    psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+      -v performer_id="$schedule_performer" -v weekday="$schedule_weekday" <<'SQL' >/dev/null
+delete from public.provider_schedule
+where performer_id=:'performer_id'::uuid and weekday=:'weekday'::integer;
+SQL
+    if [[ -n "$schedule_snapshot" ]]; then
+      psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+        -v schedule_snapshot="$schedule_snapshot" <<'SQL' >/dev/null
+insert into public.provider_schedule
+select (jsonb_populate_record(null::public.provider_schedule, :'schedule_snapshot'::jsonb)).*;
+SQL
+    fi
+  fi
   rm -f -- "$first_log" "$second_log"
 }
 trap cleanup EXIT
 cleanup
 
-slot_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
-with chosen as (
-  select service.id,
-         organization.public_slug,
-         location.id as location_id
-  from public.services service
-  join public.organization_memberships membership
-    on membership.user_id = service.performer_id
-   and membership.active
-   and membership.is_bookable
-  join public.organizations organization
-    on organization.id = membership.organization_id
-   and organization.status = 'active'
-   and organization.public_booking_enabled
-  join public.locations location
-    on location.organization_id = organization.id
-   and location.active
-   and location.is_primary
-   and location.timezone = 'Europe/Samara'
-  where service.active
-    and exists (
-      select 1
-      from public.provider_schedule schedule
-      where schedule.performer_id = service.performer_id
-        and schedule.enabled
-    )
-  order by service.id
-  limit 1
-)
-select chosen.public_slug,
-       chosen.location_id,
-       chosen.id,
-       slot.booking_date,
-       slot.booking_time
-from chosen
-cross join lateral public.get_available_slots(
-  chosen.id,
-  current_date + 1,
-  current_date + 62
-) slot
-order by slot.booking_date, slot.booking_time
+seed_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
+select organization.public_slug,
+       location.id,
+       service.id,
+       service.performer_id,
+       current_date + 7,
+       extract(dow from current_date + 7)::integer
+from public.services service
+join public.organization_memberships membership
+  on membership.user_id = service.performer_id
+ and membership.active
+ and membership.is_bookable
+join public.organizations organization
+  on organization.id = membership.organization_id
+ and organization.status = 'active'
+ and organization.public_booking_enabled
+join public.locations location
+  on location.organization_id = organization.id
+ and location.active
+ and location.is_primary
+ and location.timezone = 'Europe/Samara'
+where service.active
+order by service.id
 limit 1;
 SQL
 )"
 
-if [[ -z "$slot_row" ]]; then
-  echo "No real test-project slot is available for the concurrency check" >&2
-  psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL' >&2
-select
-  (select count(*) from public.organizations where status='active' and public_booking_enabled),
-  (select count(*) from public.organization_memberships where active and is_bookable),
-  (select count(*) from public.locations where active and is_primary and timezone='Europe/Samara'),
-  (select count(*) from public.services where active),
-  (select count(*) from public.provider_schedule where enabled);
-with chosen as (
-  select service.id, service.performer_id, service.duration_minutes
-  from public.services service
-  join public.organization_memberships membership
-    on membership.user_id=service.performer_id and membership.active and membership.is_bookable
-  join public.organizations organization
-    on organization.id=membership.organization_id and organization.status='active' and organization.public_booking_enabled
-  where service.active
-    and exists(select 1 from public.provider_schedule schedule where schedule.performer_id=service.performer_id and schedule.enabled)
-  order by service.id
-  limit 1
-)
-select current_date,current_setting('TimeZone'),chosen.duration_minutes,
-  coalesce(string_agg(schedule.weekday::text||':'||schedule.start_time::text||'-'||schedule.end_time::text,',' order by schedule.weekday),'')
-from chosen
-left join public.provider_schedule schedule on schedule.performer_id=chosen.performer_id and schedule.enabled
-group by chosen.duration_minutes;
-SQL
+if [[ -z "$seed_row" ]]; then
+  echo "No active public test-project service is available for the concurrency check" >&2
   exit 1
 fi
-IFS='|' read -r slug location_id service_id target_date target_time <<<"$slot_row"
+IFS='|' read -r slug location_id service_id schedule_performer target_date schedule_weekday <<<"$seed_row"
+
+schedule_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At \
+  -v performer_id="$schedule_performer" -v weekday="$schedule_weekday" <<'SQL'
+select row_to_json(schedule)::text
+from public.provider_schedule schedule
+where schedule.performer_id=:'performer_id'::uuid and schedule.weekday=:'weekday'::integer;
+SQL
+)"
+
+psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+  -v performer_id="$schedule_performer" -v weekday="$schedule_weekday" <<'SQL' >/dev/null
+delete from public.provider_schedule
+where performer_id=:'performer_id'::uuid and weekday=:'weekday'::integer;
+insert into public.provider_schedule(
+  performer_id,weekday,enabled,start_time,end_time,break_start,break_end,slot_interval_minutes
+) values (
+  :'performer_id'::uuid,:'weekday'::integer,true,'12:00','14:00',null,null,30
+);
+SQL
+
+slot_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' \
+  -v service_id="$service_id" -v target_date="$target_date" <<'SQL'
+select booking_date,booking_time
+from public.get_available_slots(
+  :'service_id'::uuid,:'target_date'::date,:'target_date'::date
+)
+order by booking_time
+limit 1;
+SQL
+)"
+if [[ -z "$slot_row" ]]; then
+  echo "The isolated test schedule did not produce a bookable slot" >&2
+  exit 1
+fi
+IFS='|' read -r target_date target_time <<<"$slot_row"
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v request_id="$request_one" -v slug="$slug" -v location_id="$location_id" \
