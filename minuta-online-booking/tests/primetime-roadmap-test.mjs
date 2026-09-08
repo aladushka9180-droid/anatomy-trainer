@@ -49,7 +49,7 @@ test('transition accepts one monotonic item update and rejects multiple updates'
   const plan = readJson(PLAN_PATH);
   const before = readJson(STATUS_PATH);
   const after = clone(before);
-  after.updatedAt = '2026-09-08T18:23:00Z';
+  after.updatedAt = new Date(Date.parse(before.updatedAt) + 1000).toISOString();
   after.items.D06.status = 'implementing';
   const result = verifyTransition(plan, before, after);
   assert.deepEqual(result, {
@@ -69,7 +69,7 @@ test('transition cannot mark an item ready without complete production evidence'
   const plan = readJson(PLAN_PATH);
   const before = readJson(STATUS_PATH);
   const after = clone(before);
-  after.updatedAt = '2026-09-08T18:23:00Z';
+  after.updatedAt = new Date(Date.parse(before.updatedAt) + 1000).toISOString();
   after.items.D02.status = 'verifying';
   after.items.D02.evidence = {};
   after.items.D02.blocker = null;
