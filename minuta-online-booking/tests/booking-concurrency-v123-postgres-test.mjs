@@ -21,6 +21,8 @@ const apply=read('supabase-migration-v123.sql');
 const undo=read('supabase-migration-v123-rollback.sql');
 let fixture;
 let syntheticWebhook=false;
+let syntheticWebhookFunction=false;
+let syntheticWebhookSchema=false;
 const blockSQL='select public.create_provider_block_v123($1,$2,$3,$4,$5,$6,$7,$8,$9) result';
 const seriesSQL='select public.manage_minuta_booking_series_v123($1,$2,$3,$4,$5,$6,$7) result';
 const args=(time,id,duration=15)=>[fixture.org,fixture.loc,fixture.service,fixture.date,time,duration,id,'Перерыв',''];
@@ -37,6 +39,12 @@ const outcome=p=>p.then(value=>({value}),error=>({error}));
 try{
  const webhook=(await admin.query("select exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='new_booking_telegram') present")).rows[0].present;
  if(!webhook){
+  if(!(await admin.query("select exists(select 1 from pg_namespace where nspname='supabase_functions') present")).rows[0].present){
+   await admin.query('create schema supabase_functions');syntheticWebhookSchema=true;
+  }
+  if(!(await admin.query("select to_regprocedure('supabase_functions.http_request()') is not null present")).rows[0].present){
+   await admin.query("create function supabase_functions.http_request() returns trigger language plpgsql as 'begin return new; end'");syntheticWebhookFunction=true;
+  }
   await admin.query(`create trigger new_booking_telegram after insert on public.bookings for each row execute function supabase_functions.http_request('https://127.0.0.1.invalid/v123-isolated-test','POST','{"Content-Type":"application/json"}','{}','1000')`);
   syntheticWebhook=true;
  }
@@ -140,5 +148,7 @@ try{
    end $$;`);
  }
  if(syntheticWebhook)await admin.query('drop trigger if exists new_booking_telegram on public.bookings');
+ if(syntheticWebhookFunction)await admin.query('drop function if exists supabase_functions.http_request()');
+ if(syntheticWebhookSchema)await admin.query('drop schema if exists supabase_functions');
  for(const c of clients)await c.end();
 }
