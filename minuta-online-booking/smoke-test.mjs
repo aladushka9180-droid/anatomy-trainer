@@ -790,7 +790,7 @@ assert.match(app, /availabilityServiceId === state\.serviceId/, 'При возв
 assert.doesNotMatch(app, /firstAvailable/, 'Расписание всё ещё молча переключает клиента на другую дату');
 assert.match(app, /data-suggested-date/, 'Нет однокнопочной подсказки ближайшего времени');
 assert.match(app, /Сегодня мест нет/, 'Подсказка не объясняет отсутствие мест сегодня');
-assert.match(app, /Показать это время/, 'Подсказка ближайшего времени не содержит понятного действия');
+assert.match(app, /Выбрать \$\{escapeHtml\(dateText\)\}, \$\{escapeHtml\(nearestTime\)\}/, 'Подсказка ближайшего времени не содержит точных даты и времени действия');
 assert.match(app, /join_booking_waitlist/, 'Клиент не может оставить заявку в листе ожидания');
 assert.doesNotMatch(app, /(?:^|\n)\s*loadPublicPortfolio\(\);/m, 'Портфолио отвлекает клиента во время записи');
 assert.doesNotMatch(app, /· нельзя начать/, 'Серые интервалы перегружены повторяющейся подписью');
@@ -828,7 +828,7 @@ const suggestionDates = [
   { iso: '2026-09-01', weekday: 'вт', label: '1 сентября' },
   { iso: '2026-09-02', weekday: 'ср', label: '2 сентября' }
 ];
-const renderSuggestion = Function('state', 'dates', 'holder', `const $ = () => holder; const escapeHtml = value => String(value); ${suggestionFunctionSource}; return renderAvailabilitySuggestion([]);`);
+const renderSuggestion = Function('state', 'dates', 'holder', `const $ = () => holder; const escapeHtml = value => String(value); const availableBusinessTimes = (_date, times) => times; const businessClock = () => ({ date:state.date }); ${suggestionFunctionSource}; return renderAvailabilitySuggestion([]);`);
 assert.equal(renderSuggestion({ loadingAvailability: false, date: '2026-09-01', availability: new Map([['2026-09-01', []], ['2026-09-02', ['12:00']]]) }, suggestionDates, suggestionHolder), true, 'Подсказка не находит ближайшее окно');
 assert.match(suggestionHolder.innerHTML, /Сегодня мест нет[\s\S]*завтра, 12:00[\s\S]*data-suggested-date="2026-09-02"/, 'Подсказка не ведёт одним кликом на ближайшее время');
 
@@ -887,8 +887,8 @@ assert.match(durationMigration, /duration_minutes >= 1/, 'Сервер не ра
 assert.match(durationMigration, /actual_duration_minutes/, 'Фактическое время поминутной услуги не сохраняется');
 assert.match(providerHtml, /option value="1">1 мин \(цена за минуту\)/, 'В создании услуги нет поминутного тарифа');
 assert.match(provider, /actualMinutes \* bookingMinuteRate\(item\)/, 'Итог поминутной услуги не рассчитывается');
-assert.match(provider, /if \(amount\) amount\.value = String\(total\)/, 'Полученная сумма не обновляется при изменении фактического времени');
-assert.doesNotMatch(provider, /if \(amount && \$\('#outcomePaymentMethod'\)\?\.value !== 'unpaid'\)/, 'Пересчёт полученной суммы всё ещё зависит от способа оплаты');
+assert.match(provider, /if \(amount\) amount\.value = \$\('#outcomePaymentMethod'\)\?\.value === 'unpaid' \? '0' : String\(total\)/, 'Полученная сумма не обновляется при изменении фактического времени и способа оплаты');
+assert.match(provider, /hint\.textContent = unpaid \? 'Получено 0 ₽\./, 'Неоплаченный визит не объясняет нулевую полученную сумму');
 
 const idempotencyMigration = readFileSync(join(root, 'supabase-migration-v43.sql'), 'utf8');
 assert.match(idempotencyMigration, /add column if not exists request_id uuid/, 'В записях нет идентификатора идемпотентности');
