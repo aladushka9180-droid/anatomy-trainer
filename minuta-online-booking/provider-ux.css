@@ -820,6 +820,24 @@
 }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-period-details .report-insight { margin:0 8px 8px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-trend { margin-top:8px; }
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-heatmap-legend {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  margin-top:9px;
+  color:var(--theme-muted);
+  font-size:9px;
+  font-weight:800;
+}
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-heatmap-legend[hidden] { display:none!important; }
+.provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-heatmap-legend > i {
+  width:min(138px,34vw);
+  height:8px;
+  border:1px solid var(--theme-line);
+  border-radius:999px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--theme-accent) 3%,var(--theme-surface)),color-mix(in srgb,var(--theme-accent) 58%,var(--theme-surface)));
+}
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-analytics-details-content { display:grid; gap:8px; padding:0 8px 8px; }
 .provider-body[data-provider-theme][data-provider-layout] #analyticsView .report-summary[data-report-section="money"] {
   grid-template-columns:repeat(2,minmax(0,1fr));

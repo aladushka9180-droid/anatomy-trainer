@@ -57,6 +57,9 @@ try {
       ['Уточнить оплаты','У 3 визитов не указана оплата','payment-unknown'],
       ['Вернуть клиентов','8 клиентов давно не записывались','clients']
     ].map(([title,text,action]) => `<article class="report-smart-action is-attention"><span>!</span><div><strong>${title}</strong><small>${text}</small><i>Проверено по выбранному периоду</i><b>Откроем нужные записи</b></div><button type="button" data-report-action="${action}">Проверить →</button></article>`).join('') + '<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="false">Ещё 2</button>';
+    document.querySelector('#reportHeatmap').innerHTML = [3, 16, 36, 58]
+      .map((heat, index) => `<span class="report-heatmap-cell${index === 3 ? ' is-peak' : ''}" style="--heat:${heat}%"><i>${index ? `${index * 6} ч` : '—'}</i></span>`).join('');
+    document.querySelector('#reportHeatmapLegend').hidden = false;
   });
 
   const failures = [];
@@ -76,6 +79,14 @@ try {
         const overflowing = [...analytics.querySelectorAll('*')].filter(element => visible(element)
           && !element.closest('.report-periods,.report-heatmap,.report-comparison-list')
           && element.getBoundingClientRect().right > innerWidth + 2);
+        const detailsClosed = ![...document.querySelectorAll('.report-period-details,.report-analytics-details')].some(element => element.open);
+        const analyticsDetails = document.querySelector('.report-analytics-details');
+        analyticsDetails.open = true;
+        const heatmap = document.querySelector('#reportHeatmap');
+        const heatColors = [...heatmap.querySelectorAll('.report-heatmap-cell')].map(element => getComputedStyle(element).backgroundColor);
+        const heatmapOverflow = innerWidth > 430 && heatmap.getBoundingClientRect().right > innerWidth + 2;
+        const heatLegendVisible = visible(document.querySelector('#reportHeatmapLegend'));
+        analyticsDetails.open = false;
         return {
           pageOverflow:document.documentElement.scrollWidth > innerWidth + 1,
           panelOverflow:rect.right > innerWidth + 2,
@@ -83,10 +94,13 @@ try {
           demoVisible:visible(document.querySelector('[data-report-source="demo"]')),
           visibleKpis:[...document.querySelectorAll('.report-command-metrics > article')].filter(visible).length,
           visibleActions:[...document.querySelectorAll('#reportSmartActions > .report-smart-action')].filter(visible).length,
-          detailsClosed:![...document.querySelectorAll('.report-period-details,.report-analytics-details')].some(element => element.open)
+          detailsClosed,
+          heatmapOverflow,
+          heatLegendVisible,
+          heatColorSteps:new Set(heatColors).size
         };
       });
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed) {
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4) {
         failures.push({ width, theme, ...metrics });
       }
     }

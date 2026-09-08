@@ -37,6 +37,8 @@ assert.match(html, /Полнота оплат[\s\S]*менее чем для 80%
 assert.match(ux, /report-command-metrics\s*\{[\s\S]*grid-template-columns:1\.35fr repeat\(2,minmax\(0,1fr\)\)/, 'Три KPI не собраны в компактную сетку');
 assert.match(ux, /@media\(max-width:760px\)[\s\S]*report-primary-metric[\s\S]*grid-column:1\/-1/, 'Главный KPI не выделен на мобильном экране');
 assert.match(ux, /report-actions-toggle\s*\{[^}]*order:initial/, 'Кнопка раскрытия рекомендаций снова оказывается выше главной рекомендации');
+assert.match(html, /id="reportHeatmapLegend"[\s\S]*Меньше[\s\S]*Больше/, 'У тепловой карты нет понятной шкалы интенсивности');
+assert.match(ux, /report-heatmap-legend[\s\S]*linear-gradient\([^)]*var\(--theme-accent\)/, 'Шкала спроса не использует цвет текущей темы');
 assert.doesNotMatch(statisticsUx, /#[0-9a-f]{3,8}\b|rgba?\(/i, 'Новая статистика содержит цвет вне переменных темы');
 
 const parseLocalIsoDate = value => new Date(`${value}T00:00:00`);
@@ -79,5 +81,13 @@ assert.match(provider, /paymentKnownVisits[\s\S]*Оплата не указан�
 assert.match(provider, /function ensureReportRetention[\s\S]*ensureOrganizationFeature\('retentionPanel'\)/, 'Возврат клиентов не загружается по требованию');
 assert.match(provider, /range\.end >= reportTodayIso\(\)[\s\S]*Заполнить свободные часы/, 'Прошлые периоды всё ещё получают несвоевременную рекомендацию заполнять часы');
 assert.match(provider, /showLeader = rankedRows\.length > 1/, 'Один сотрудник всё ещё объявляется лидером');
+assert.doesNotMatch(provider, /percent === null \? \(minutes \? 18 : 4\)/, 'Все непустые ячейки спроса снова имеют одинаковую яркость');
+
+const heatmapScale = new Function(`${declaration('reportHeatmapScale')}; return reportHeatmapScale;`)();
+const heatmapIntensity = new Function(`${declaration('reportHeatmapIntensity')}; return reportHeatmapIntensity;`)();
+assert.equal(heatmapScale([30, 600, 900, 1200, 10000]), 1200, 'Единичный выброс делает остальную карту слишком бледной');
+const heatLevels = [0, 30, 600, 1200].map(value => heatmapIntensity(value, 1200));
+assert.ok(heatLevels.every((value, index) => index === 0 || value > heatLevels[index - 1]), 'Яркость не растёт вместе со спросом');
+assert.ok(heatLevels.at(-1) <= 58, 'Максимальная подсветка может ухудшить контраст текста');
 
 console.log('Statistics trust and compact UX checks passed.');

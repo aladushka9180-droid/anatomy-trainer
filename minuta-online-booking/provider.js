@@ -2457,7 +2457,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=627#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=628#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -3823,6 +3823,19 @@ function reportHeatmapAvailability(range, bands) {
   return { minutes:result };
 }
 
+function reportHeatmapScale(values) {
+  const positive = values.filter(value => Number(value) > 0).map(Number).sort((left, right) => left - right);
+  if (!positive.length) return 1;
+  return Math.max(1, positive[Math.floor((positive.length - 1) * .9)]);
+}
+
+function reportHeatmapIntensity(value, scale) {
+  const amount = Math.max(0, Number(value) || 0);
+  if (!amount) return 3;
+  const ratio = Math.min(1, amount / Math.max(1, Number(scale) || 1));
+  return Math.round(10 + Math.pow(ratio, .72) * 48);
+}
+
 function renderReportHeatmap(items, range) {
   const holder = $('#reportHeatmap');
   if (!holder) return;
@@ -3855,6 +3868,7 @@ function renderReportHeatmap(items, range) {
   });
   const availability = reportHeatmapAvailability(range, bands);
   const percentages = bookedMinutes.map((row, bandIndex) => row.map((minutes, weekday) => availability?.minutes?.[bandIndex]?.[weekday] ? Math.min(100, Math.round(minutes / availability.minutes[bandIndex][weekday] * 100)) : null));
+  const demandScale = reportHeatmapScale(bookedMinutes.flat());
   const popularTimes = (bandIndex, weekdayIndex, limit = 2) => [...popularStarts[bandIndex][weekdayIndex].entries()]
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'ru'))
     .slice(0, limit);
@@ -3871,7 +3885,7 @@ function renderReportHeatmap(items, range) {
     const available = availability?.minutes?.[bandIndex]?.[weekdayIndex] || 0;
     const percent = percentages[bandIndex][weekdayIndex];
     const value = percent === null ? (minutes ? reportHours(minutes) : '—') : `${percent}%`;
-    const intensity = percent === null ? (minutes ? 18 : 4) : Math.max(percent ? 12 : 4, percent);
+    const intensity = reportHeatmapIntensity(percent === null ? minutes : percent, percent === null ? demandScale : 100);
     const isPeak = availability ? percent !== null && percent === peak.percent && percent > 0 : minutes === peak.minutes && minutes > 0;
     const popular = popularTimes(bandIndex, weekdayIndex);
     const popularTitle = popular.length ? `; чаще начинали: ${popularTimesText(popular)}` : '';
@@ -3886,6 +3900,13 @@ function renderReportHeatmap(items, range) {
   const peakText = peak.minutes ? `${weekdays[peak.weekday]}, ${bands[peak.band].label} · ${availability && peak.percent >= 0 ? `${peak.percent}% занято` : `${reportHours(peak.minutes)} занято`}${peakPopular.length ? ` · чаще начинали в ${popularTimesClockText(peakPopular)}` : ''}` : 'Пиковое время появится после записей';
   setReportText('#reportHeatmapPeak', peakText);
   holder.setAttribute('aria-label', peak.minutes ? `Пиковая загрузка: ${peakText}` : 'Записей для тепловой карты пока нет');
+  const legend = $('#reportHeatmapLegend');
+  if (legend) {
+    legend.hidden = !peak.minutes;
+    legend.setAttribute('aria-label', availability
+      ? 'Чем насыщеннее цвет, тем выше процент занятого рабочего времени'
+      : 'Чем насыщеннее цвет, тем больше занятых часов относительно выбранного периода');
+  }
   const title = $('#reportHeatmapTitle');
   if (title) title.textContent = availability ? 'Загрузка по времени' : 'Спрос по времени';
 }
@@ -4524,7 +4545,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=627');
+    worker = new Worker('./report-worker.js?v=628');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
