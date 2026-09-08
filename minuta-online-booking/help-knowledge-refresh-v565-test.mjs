@@ -38,7 +38,7 @@ assert.match(helpData, /Статус «отправлено» означает �
 
 const providerHtml = read('provider.html');
 const providerJs = read('provider.js');
-assert.match(providerJs, /client-phone-autofill/, 'В форме записи нет ссылки на объяснение автоподстановки');
+assert.doesNotMatch(providerJs, /client-phone-autofill/, 'Очевидная подсказка не должна перегружать форму записи');
 assert.match(providerJs, /client-private-results/, 'В результате визита нет ссылки на приватность');
 for (const slug of ['client-search-filters', 'client-card-notes-and-labels', 'notification-queue', 'client-retention', 'client-page-appearance', 'share-free-slots']) {
   assert.ok(providerHtml.includes(slug), `В интерфейсе нет контекстной ссылки ${slug}`);
@@ -50,4 +50,4 @@ assert.match(read('contextual-help.js'), /'Важно'/, 'Короткая по�
 assert.match(read('help/help.css'), /@media \(max-width: 900px\)[\s\S]*\.article-shell[^}]*display: block;/,
   'Статья должна переходить в одну колонку на контрольной ширине 760 px');
 
-console.log(`Help knowledge refresh v603: PASS (${articles.length} articles)`);
+console.log(`Help knowledge refresh v604: PASS (${articles.length} articles)`);
