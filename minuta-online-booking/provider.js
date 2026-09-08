@@ -418,6 +418,9 @@ let benefitController = null;
 let loyaltyController = null;
 let inventoryController = null;
 let retentionController = null;
+const organizationFeatureRequests = new Map();
+let organizationFeatureContext = '';
+let organizationFeatureContextRevision = 0;
 let providerFeedbackController = { bind() {}, refreshAvailability() {}, reset() {} };
 let timelineBookingDrag = null;
 let timelineMovePending = false;
@@ -5059,6 +5062,7 @@ function refreshProviderSectionDisclosure(nav) {
     providerSectionElements(button).forEach(element => setProviderSectionElementVisible(element, active));
   });
   syncProviderSectionSelector(nav, selected);
+  if (selected) activateOrganizationSectionFeature(document.getElementById(selectedTarget));
   if (selectionChanged && selectedTarget === 'accountSettingsCard') {
     const accountDetails = document.getElementById('accountSettingsCard')?.nextElementSibling;
     if (accountDetails?.matches('details')) accountDetails.open = true;
@@ -5101,13 +5105,7 @@ function scrollToProviderSection(button) {
   const target = document.getElementById(button?.dataset.sectionTarget || '');
   if (!target) return;
   if (target.dataset.lazyOrganizationFeature) {
-    target.hidden = false;
-    const loading = target.querySelector('.loading-state');
-    if (loading) loading.hidden = false;
-    void ensureOrganizationFeature(target.id).catch(() => {
-      if (loading) loading.hidden = true;
-      notify('Раздел не загрузился. Проверьте интернет и повторите.');
-    });
+    activateOrganizationSectionFeature(target, { retry:true });
   }
   if (target.hidden) return;
   const nav = button.closest('.provider-section-nav')
@@ -12480,6 +12478,12 @@ function organizationFeatureOptions() {
 }
 
 function prepareOrganizationFeatures(organization) {
+  const context = `${currentUser?.id || ''}:${sessionGeneration}:${organization?.id || ''}:${organization?.current_role || ''}`;
+  if (organizationFeatureContext !== context) {
+    organizationFeatureContext = context;
+    organizationFeatureContextRevision += 1;
+    organizationFeatureRequests.clear();
+  }
   const allowedAdmin = ['owner', 'admin'].includes(organization?.current_role);
   organizationFeatureDefinitions.forEach((definition, sectionId) => {
     const section = document.getElementById(sectionId);
@@ -12491,17 +12495,48 @@ function prepareOrganizationFeatures(organization) {
   });
 }
 
+function activateOrganizationSectionFeature(section, { retry = false } = {}) {
+  if (!section?.dataset.lazyOrganizationFeature || $('#dashboard')?.hidden
+    || section.closest('[data-provider-panel]')?.hidden) return;
+  const definition = organizationFeatureDefinitions.get(section.id);
+  const organization = organizationController?.getActiveOrganization?.();
+  if (!definition || !currentUser?.id || !organization?.id
+    || (definition.admin && !['owner', 'admin'].includes(organization.current_role))) return;
+  const existing = organizationFeatureRequests.get(section.id);
+  // Hidden-attribute observers also refresh navigation; only an explicit choice
+  // may retry a failed attempt in the same organization/session context.
+  if (existing && (existing.pending || !retry)) return existing.promise;
+  const revision = organizationFeatureContextRevision;
+  const request = { pending:true, promise:null };
+  organizationFeatureRequests.set(section.id, request);
+  section.hidden = false;
+  const loading = section.querySelector('.loading-state');
+  if (loading) loading.hidden = false;
+  request.promise = Promise.resolve().then(() => revision === organizationFeatureContextRevision
+    ? ensureOrganizationFeature(section.id) : null).catch(() => {
+    if (revision !== organizationFeatureContextRevision) return;
+    if (loading) loading.hidden = true;
+    if (!section.closest('[data-provider-panel]')?.hidden && section.getAttribute('aria-hidden') !== 'true') {
+      notify('Раздел не загрузился. Откройте его ещё раз, чтобы повторить.');
+    }
+  }).finally(() => { request.pending = false; });
+  return request.promise;
+}
+
 async function ensureOrganizationFeature(sectionId) {
   const definition = organizationFeatureDefinitions.get(sectionId);
   if (!definition) return null;
   const userId = currentUser?.id;
   const generation = sessionGeneration;
+  const revision = organizationFeatureContextRevision;
   const organization = organizationController?.getActiveOrganization?.();
-  if (!userId || !organization?.id) return null;
+  if (!userId || !organization?.id
+    || (definition.admin && !['owner', 'admin'].includes(organization.current_role))) return null;
   let controller = definition.get();
   if (!controller) {
     await loadProviderFeatureScript(definition.script);
-    if (!sessionIsCurrent(userId, generation) || organizationController.getActiveOrganization()?.id !== organization.id) return null;
+    if (!sessionIsCurrent(userId, generation) || revision !== organizationFeatureContextRevision
+      || organizationController.getActiveOrganization()?.id !== organization.id) return null;
     const api = definition.api();
     if (!api?.createController) throw new Error(`Модуль ${definition.script} недоступен`);
     controller = api.createController(organizationFeatureOptions());
@@ -12509,8 +12544,9 @@ async function ensureOrganizationFeature(sectionId) {
     definition.set(controller);
   }
   const section = document.getElementById(sectionId);
-  if (section) delete section.dataset.lazyOrganizationFeature;
   await controller.setOrganization(organization);
+  if (!sessionIsCurrent(userId, generation) || revision !== organizationFeatureContextRevision) return null;
+  if (section) delete section.dataset.lazyOrganizationFeature;
   refreshSectionNavigation();
   return controller;
 }
