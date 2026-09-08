@@ -32,7 +32,7 @@ assert.doesNotMatch(css, /repeating-linear-gradient|#8077e8|#7773c7|Arial Narrow
 assert.match(css, /\.provider-body\[data-provider-theme="loft"\] :is\(\*,button,input,select,textarea\) \{[\s\S]*?text-shadow:none!important/);
 assert.match(css, /\.provider-body\[data-provider-theme="loft"\] \.provider-nav button\.active \{[\s\S]*?border-left:3px solid var\(--theme-accent\)!important;[\s\S]*?background:#272c29!important/);
 assert.match(css, /\.provider-body\[data-provider-theme="loft"\] \.date-strip button\.active \{[\s\S]*?background:#c48765!important;[\s\S]*?color:#1f1510!important/);
-assert.match(provider, /provider-theme-loft-modern\.css\?v=597/);
-assert.match(worker, /\.\/provider-theme-loft-modern\.css\?v=597/);
+assert.match(provider, /provider-theme-loft-modern\.css\?v=598/);
+assert.match(worker, /\.\/provider-theme-loft-modern\.css\?v=598/);
 
-console.log('Modern Loft v597: OK');
+console.log('Modern Loft v598: OK');

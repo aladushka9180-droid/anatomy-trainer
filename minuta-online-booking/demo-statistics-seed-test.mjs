@@ -18,6 +18,8 @@ assert.match(seed, /visit_status/, 'visit outcomes must be present');
 assert.match(seed, /payment_method/, 'payment methods must be present');
 
 assert.match(cleanup, /demo_organization_id_collision/, 'cleanup must refuse an organization ID collision');
+assert.match(cleanup, /Minuta Demo — статистика \[demo_statistics\]/, 'cleanup must accept the legacy demo organization during rebrand');
+assert.match(cleanup, /PrimeTime Pro Demo — статистика \[demo_statistics\]/, 'cleanup must accept the current demo organization');
 assert.match(cleanup, /demo_user_id_collision/, 'cleanup must refuse a user ID collision');
 assert.match(cleanup, /session_replication_role = replica/, 'cleanup must remove the complete isolated graph');
 assert.doesNotMatch(cleanup, /truncate\s/i, 'cleanup must never truncate shared tables');

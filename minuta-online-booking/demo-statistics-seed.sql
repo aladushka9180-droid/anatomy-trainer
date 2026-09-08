@@ -59,7 +59,7 @@ insert into public.organizations(
 )
 values(
   'd3500000-0000-4000-8000-000000000001',
-  'Minuta Demo — статистика [demo_statistics]',
+  'PrimeTime Pro Demo — статистика [demo_statistics]',
   'minuta-demo-statistics', 'active', false,
   current_setting('minuta.demo_owner')::uuid
 );

@@ -23,6 +23,7 @@ jobs:
           node-version: 22
       - run: node minuta-online-booking/provider-ux-audit-test.mjs
       - run: node minuta-online-booking/help-knowledge-refresh-v565-test.mjs
+      - run: node minuta-online-booking/primetime-pro-brand-v598-test.mjs
       - run: node minuta-online-booking/client-theme-selection-v511-test.mjs
       - run: node minuta-online-booking/client-phone-autofill-v515-test.mjs
       - run: node minuta-online-booking/client-page-settings-v118-static-test.mjs

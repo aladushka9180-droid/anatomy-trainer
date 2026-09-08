@@ -318,7 +318,7 @@
       const prepare = event.target.closest('[data-retention-prepare]');
       if (prepare) { await mutate('prepare_minuta_retention_delivery', { p_organization: organization.id, p_client_account: prepare.dataset.retentionPrepare, p_channel: 'whatsapp' }, prepare, 'Сообщение подготовлено'); return; }
       const finish = event.target.closest('[data-retention-finish]');
-      if (finish) await mutate('finish_minuta_retention_delivery', { p_organization: organization.id, p_delivery: finish.dataset.retentionFinish, p_action: finish.dataset.retentionAction }, finish, finish.dataset.retentionAction === 'sent' ? 'Отмечено вручную; Minuta не подтверждает доставку' : 'Сообщение отменено');
+      if (finish) await mutate('finish_minuta_retention_delivery', { p_organization: organization.id, p_delivery: finish.dataset.retentionFinish, p_action: finish.dataset.retentionAction }, finish, finish.dataset.retentionAction === 'sent' ? 'Отмечено вручную; PrimeTime Pro не подтверждает доставку' : 'Сообщение отменено');
     }
     function bind() {
       if (bound) return;

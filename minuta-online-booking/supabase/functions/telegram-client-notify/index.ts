@@ -373,7 +373,7 @@ async function authorizeTelegram(req: Request) {
   try {
     await telegram("sendMessage", {
       chat_id: auth.id,
-      text: "Проверка доступа к уведомлениям Minuta.",
+      text: "Проверка доступа к уведомлениям PrimeTime Pro.",
     });
   } catch (error) {
     if ((error as any).telegram?.error_code === 403) {

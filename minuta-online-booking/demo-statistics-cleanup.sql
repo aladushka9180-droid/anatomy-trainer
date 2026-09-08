@@ -12,7 +12,10 @@ begin
     select 1
     from public.organizations
     where id = v_org
-      and (name <> 'Minuta Demo — статистика [demo_statistics]'
+      and (name not in (
+          'PrimeTime Pro Demo — статистика [demo_statistics]',
+          'Minuta Demo — статистика [demo_statistics]'
+        )
         or public_slug <> 'minuta-demo-statistics')
   ) then
     raise exception using errcode = 'P0001', message = 'demo_organization_id_collision';

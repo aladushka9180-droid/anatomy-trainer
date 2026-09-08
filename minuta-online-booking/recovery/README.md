@@ -1,4 +1,4 @@
-# Восстановление Minuta
+# Восстановление PrimeTime Pro
 
 Перед установкой v64 текущее production-определение `public.provider_delete_booking(uuid)` и его ACL сохранены в `rollback-provider-delete-before-v64.sql`.
 

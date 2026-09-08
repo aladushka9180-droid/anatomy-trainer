@@ -58,7 +58,7 @@ function requireInteger(value: unknown, field: string): number {
   return value;
 }
 
-// This generic adapter is safe for a gateway controlled by Minuta. A real
+// This generic adapter is safe for a gateway controlled by PrimeTime Pro. A real
 // payment provider normally defines its own canonical string and signature
 // headers, so add a separate named adapter before selecting that provider.
 export async function verifyAndMapPaymentWebhook(

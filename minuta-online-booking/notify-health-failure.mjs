@@ -3,7 +3,7 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 const alertTopic = process.env.MINUTA_ALERT_TOPIC || 'проверка рабочего сайта';
 
 if (!token || !chatId) {
-  console.log('Minuta alert: Telegram secrets are not configured, notification skipped');
+  console.log('PrimeTime Pro alert: Telegram secrets are not configured, notification skipped');
   process.exit(0);
 }
 
@@ -12,7 +12,7 @@ const runUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY &&
   ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
   : '';
 const message = [
-  `⚠️ Minuta: сбой — ${alertTopic}.`,
+  `⚠️ PrimeTime Pro: сбой — ${alertTopic}.`,
   `Репозиторий: ${repository}`,
   runUrl ? `Подробности: ${runUrl}` : ''
 ].filter(Boolean).join('\n');
@@ -34,4 +34,4 @@ if (!response.ok) {
   throw new Error(`Telegram notification failed: ${response.status} ${body}`);
 }
 
-console.log('Minuta alert: Telegram notification sent');
+console.log('PrimeTime Pro alert: Telegram notification sent');

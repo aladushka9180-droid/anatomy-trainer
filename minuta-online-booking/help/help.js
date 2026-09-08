@@ -175,7 +175,7 @@
     if (productLink) {
       productLink.href = audience === 'client' ? '../index.html' : '../provider.html';
       const label = productLink.querySelector('span');
-      if (label) label.textContent = audience === 'client' ? 'К онлайн-записи' : 'Открыть Minuta';
+      if (label) label.textContent = audience === 'client' ? 'К онлайн-записи' : 'Открыть PrimeTime Pro';
     }
     if (footerProductLink) {
       footerProductLink.href = audience === 'client' ? '../index.html' : '../provider.html';

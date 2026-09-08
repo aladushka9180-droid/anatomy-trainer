@@ -11,7 +11,7 @@
   const categoryUrl = item => `category.html?category=${encodeURIComponent(item.categorySlug)}`;
 
   if (!article) {
-    document.title = 'Инструкция не найдена — Minuta';
+    document.title = 'Инструкция не найдена — PrimeTime Pro';
     setText('#articleMeta', 'База знаний');
     setText('#articleTitle', 'Инструкция не найдена');
     setText('#articleIntro', 'Возможно, ссылка устарела. Вернитесь к разделам или воспользуйтесь поиском.');
@@ -21,7 +21,7 @@
     return;
   }
 
-  document.title = `${article.title} — Minuta`;
+  document.title = `${article.title} — PrimeTime Pro`;
   document.querySelector('meta[name="description"]')?.setAttribute('content', article.excerpt);
   setText('#articleCategory', article.category);
   const categoryLink = document.querySelector('#articleCategory');
@@ -41,7 +41,7 @@
   if (productLink) {
     productLink.href = article.audience === 'client' ? '../index.html' : '../provider.html';
     const label = productLink.querySelector('span');
-    if (label) label.textContent = article.audience === 'client' ? 'К онлайн-записи' : 'Открыть Minuta';
+    if (label) label.textContent = article.audience === 'client' ? 'К онлайн-записи' : 'Открыть PrimeTime Pro';
   }
   if (footerProductLink) {
     footerProductLink.href = article.audience === 'client' ? '../index.html' : '../provider.html';

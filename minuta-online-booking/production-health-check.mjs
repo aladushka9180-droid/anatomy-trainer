@@ -225,8 +225,8 @@ if (process.env.MINUTA_EXPECT_IDEMPOTENCY === '1') {
   assert.match(probe?.message || '', /invalid input syntax for type uuid/i, 'Идемпотентная RPC версии 43 не подтвердила UUID-параметр');
 }
 
-console.log(`Minuta production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; auth-settings ${authSettingsResult.elapsed}мс; edge-functions ${Math.max(...edgeFunctionTimings)}мс; edge-config ${Math.max(...configuredEdgeFunctionTimings)}мс; protected-rpc ${Math.max(...protectedRpcTimings)}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
+console.log(`PrimeTime Pro production health: OK; version ${liveVersion}; ${timings.join(', ')}; assets ${assetUrls.size}; config ${configResult.elapsed}мс; worker ${workerResult.elapsed}мс; auth ${authResult.elapsed}мс; auth-settings ${authSettingsResult.elapsed}мс; edge-functions ${Math.max(...edgeFunctionTimings)}мс; edge-config ${Math.max(...configuredEdgeFunctionTimings)}мс; protected-rpc ${Math.max(...protectedRpcTimings)}мс; services ${servicesResult.elapsed}мс; portfolio ${portfolioResult.elapsed}мс; photos ${portfolioPhotosResult.elapsed}мс; slots ${slotsResult.elapsed}мс; management ${managementResult.elapsed}мс; reviews ${reviewsResult.elapsed}мс; client-v2 ${clientBookingsV2Result.elapsed}мс`);
 } catch (error) {
-  console.error(`Minuta production health: FAIL; ${error?.message || error}`);
+  console.error(`PrimeTime Pro production health: FAIL; ${error?.message || error}`);
   process.exitCode = 1;
 }

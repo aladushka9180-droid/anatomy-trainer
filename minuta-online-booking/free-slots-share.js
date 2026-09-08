@@ -1008,7 +1008,7 @@
     downloadQrButton.addEventListener('click', () => {
       if (!publicationIsCurrent() || qrCanvas.hidden || qrWrap.hidden) return;
       const link = document.createElement('a');
-      link.download = 'minuta-online-booking-qr.png';
+      link.download = 'primetime-pro-booking-qr.png';
       link.href = qrCanvas.toDataURL('image/png');
       link.click();
     });

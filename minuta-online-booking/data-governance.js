@@ -194,11 +194,11 @@
           const headers = ['Дата', 'Время', 'Клиент', 'Телефон', 'Услуга', 'Филиал', 'Статус', 'Стоимость', 'Комментарий'];
           const bookingsSheet = XLSX.utils.json_to_sheet(rows, { header: headers });
           bookingsSheet['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 24 }, { wch: 18 }, { wch: 32 }, { wch: 24 }, { wch: 16 }, { wch: 14 }, { wch: 38 }];
-          const summarySheet = XLSX.utils.aoa_to_sheet([['Отчёт Minuta', 'Записи'], ['Организация', safeCell(organization.name || '')], ['Период', `${range.from} — ${range.to}`], ['Количество записей', rows.length], ['Сформирован', new Date().toLocaleString('ru-RU')]]);
+          const summarySheet = XLSX.utils.aoa_to_sheet([['Отчёт PrimeTime Pro', 'Записи'], ['Организация', safeCell(organization.name || '')], ['Период', `${range.from} — ${range.to}`], ['Количество записей', rows.length], ['Сформирован', new Date().toLocaleString('ru-RU')]]);
           XLSX.utils.book_append_sheet(workbook, bookingsSheet, 'Записи');
           XLSX.utils.book_append_sheet(workbook, summarySheet, 'Сводка');
           const bytes = XLSX.write(workbook, { type: 'array', bookType: 'xlsx', compression: true });
-          downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `minuta-bookings-${range.from}-${range.to}.xlsx`);
+          downloadBlob(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `primetime-pro-bookings-${range.from}-${range.to}.xlsx`);
           setStatus(`Excel готов: ${rows.length} записей за ${range.days} дней. Выгрузка добавлена в журнал.`, 'success');
           await load();
         } finally { setBusy(excelExportButton, false, '', 'Скачать Excel'); }
@@ -211,9 +211,9 @@
         try {
           const payload = await call('export_minuta_organization_data_v110', { p_organization: organization.id });
           const date = localIsoDate(new Date());
-          const readme = `Резервная копия Minuta\nОрганизация: ${organization.name || organization.id}\nСоздана: ${new Date().toLocaleString('ru-RU')}\n\nАрхив содержит персональные данные. Храните его в защищённом месте.\n`;
-          const archive = zipStore([{ name: `minuta-data-${date}.json`, data: JSON.stringify(payload, null, 2) }, { name: 'README.txt', data: readme }]);
-          downloadBlob(archive, `minuta-backup-${date}.zip`);
+          const readme = `Резервная копия PrimeTime Pro\nОрганизация: ${organization.name || organization.id}\nСоздана: ${new Date().toLocaleString('ru-RU')}\n\nАрхив содержит персональные данные. Храните его в защищённом месте.\n`;
+          const archive = zipStore([{ name: `primetime-pro-data-${date}.json`, data: JSON.stringify(payload, null, 2) }, { name: 'README.txt', data: readme }]);
+          downloadBlob(archive, `primetime-pro-backup-${date}.zip`);
           exportDialog.close();
           exportConfirm.checked = false;
           setStatus('Полная резервная копия скачана. Выгрузка добавлена в журнал.', 'success');

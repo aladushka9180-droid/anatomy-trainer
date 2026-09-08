@@ -68,7 +68,7 @@ async function load(relativePath) {
     });
     const ribbon = document.createElement('div');
     ribbon.className = 'kb-shot-ribbon';
-    ribbon.textContent = 'Интерфейс Minuta · учебные данные';
+    ribbon.textContent = 'Интерфейс PrimeTime Pro · учебные данные';
     document.body.append(ribbon);
   });
 }
@@ -190,7 +190,7 @@ async function individualGuideShot(article) {
     card.innerHTML = `
       <header class="kb-guide-head">
         <div><small>${articleData.category}</small><h1>${articleData.title}</h1></div>
-        <span class="kb-guide-path">Minuta · наглядно по шагам</span>
+        <span class="kb-guide-path">PrimeTime Pro · наглядно по шагам</span>
       </header>
       <div class="kb-guide-steps">
         ${steps.map((step, index) => `<article class="kb-guide-step${index >= articleData.steps.length ? ' is-empty' : ''}"><b>${index + 1}</b><strong>${step.title}</strong><p>${step.text}</p>${step.action ? `<em>${step.action}</em>` : ''}</article>`).join('')}
@@ -283,7 +283,7 @@ await page.evaluate(() => {
   dialog.setAttribute('open', '');
   document.querySelector('#freeSlotsFrom').value = '2026-09-12';
   document.querySelector('#freeSlotsText').value = 'Свободное время на 12 сентября: 10:30, 12:00, 16:15';
-  document.querySelector('#freeSlotsBookingLink').textContent = 'minuta.online/book/demo';
+  document.querySelector('#freeSlotsBookingLink').textContent = 'primetime-pro.online/book/demo';
   document.querySelector('.free-slots-help').hidden = true;
   document.querySelector('.free-slots-text-label').hidden = true;
   document.querySelector('.free-slots-preview').hidden = true;

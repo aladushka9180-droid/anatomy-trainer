@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f7f8f7">
   <meta name="robots" content="noindex,nofollow">
   <title>Страница не найдена</title>
-  <link rel="stylesheet" href="/anatomy-trainer/minuta-online-booking/legal-ux.css?v=554">
+  <link rel="stylesheet" href="/anatomy-trainer/minuta-online-booking/legal-ux.css?v=598">
 </head>
 <body class="not-found-body">
   <a class="legal-skip" href="#notFoundContent">Перейти к содержанию</a>
@@ -25,12 +25,18 @@
   </main>
   <script>
     if (location.pathname.includes('/minuta-online-booking/')) {
-      document.title = 'Страница не найдена — Minuta';
+      document.title = 'Страница не найдена — PrimeTime Pro';
       const base = '/anatomy-trainer/minuta-online-booking/';
       const brand = document.getElementById('notFoundBrand');
       brand.href = base;
-      brand.setAttribute('aria-label', 'Minuta — к онлайн-записи');
-      brand.querySelector('strong').textContent = 'Minuta';
+      const icon = document.createElement('link');
+      icon.rel = 'icon';
+      icon.type = 'image/svg+xml';
+      icon.href = base + 'provider-icon.svg?v=598';
+      document.head.append(icon);
+      brand.querySelector('span').textContent = 'PT';
+      brand.setAttribute('aria-label', 'PrimeTime Pro — к онлайн-записи');
+      brand.querySelector('strong').textContent = 'PrimeTime Pro';
       document.getElementById('notFoundActions').innerHTML =
         '<a class="legal-primary-action" href="' + base + '">Записаться</a>' +
         '<a href="' + base + 'my-bookings.html">Мои записи</a>' +
