@@ -74,11 +74,12 @@ try{
         const columns=new Set(rects.map(rect=>Math.round(rect.left)));
         if(rows.size!==2||columns.size!==2)errors.push('menu is not a 2x2 grid');
         for(let index=0;index<items.length;index++){
-          const item=items[index],rect=rects[index],label=item.querySelector('span');
+          const item=items[index],rect=rects[index];
           if(rect.width<44||rect.height<44)errors.push(`small menu control ${item.id}`);
           if(rect.left<menuRect.left||rect.right>menuRect.right||rect.top<menuRect.top||rect.bottom>menuRect.bottom)errors.push(`menu control overflow ${item.id}`);
-          if(label.scrollWidth>label.clientWidth+1)errors.push(`clipped menu label ${item.id}`);
+          if(item.scrollWidth>item.clientWidth+1)errors.push(`clipped menu label ${item.id}`);
           if(!item.getAttribute('aria-label'))errors.push(`missing menu label ${item.id}`);
+          if(!item.dataset.compactLabel)errors.push(`missing compact menu label ${item.id}`);
         }
         for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){
           const a=rects[i],b=rects[j];
