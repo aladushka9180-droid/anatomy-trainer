@@ -783,7 +783,7 @@ function renderTimes() {
     const filtered = times;
     $('#timePeriods').innerHTML = '';
     if (!filtered.includes(state.time)) state.time = '';
-    const roundHours = Array.from({ length: 10 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`);
+    const roundHours = availableBusinessTimes(state.date, Array.from({ length: 10 }, (_, index) => `${String(index + 10).padStart(2, '0')}:00`));
     $('#timeHours').innerHTML = roundHours.map(slot => {
       const available = filtered.includes(slot);
       const selected = slot === state.time;

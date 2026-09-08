@@ -42,7 +42,7 @@ function rpc(name, args, res) {
       price_rub:1000, location_ids:[ids.a, ids.b], performer_profiles:{ display_name:'Тестовый мастер' } }]
   });
   if (name === 'get_public_minuta_available_slots_v101') return json(res,
-    scenario.busy ? [] : [{ booking_date:day, booking_time:'10:00:00' }]);
+    scenario.busy ? [] : scenario.todaySlots ? [...['10:00','15:00','16:00','16:15','19:00'].map(time=>({booking_date:'2026-09-08',booking_time:time+':00'})),{booking_date:'2026-09-09',booking_time:'10:00:00'}] : [{ booking_date:day, booking_time:'10:00:00' }]);
   if (name === 'book_minuta_appointment') {
     scenario.creates.push(args);
     const previous = scenario.ledger.get(args.p_request_id);
@@ -156,6 +156,22 @@ async function reload(page) {
   assert.match(await page.locator('#summary').innerText(), /10:00/);
 }
 const cases = [
+  ...[390,760,1440].map(width => [`past-hour visibility at ${width}px`, async ({page, model}) => {
+    model.todaySlots = true;
+    await page.setViewportSize({width,height:900});
+    await page.clock.setFixedTime(new Date('2026-09-08T11:30:00Z'));
+    await page.reload();
+    await page.locator(`[data-service="${ids.service}"]`).click();
+    await page.locator('#timeHours [data-time="16:00"]').waitFor();
+    assert.equal(await page.locator('#timeHours button').filter({hasText:'15:00'}).count(),process.env.MINUTA_EXPECT_PAST_HOURS ? 1 : 0);
+    assert.equal(await page.locator('#timeHours [data-time="16:00"]').isEnabled(),true);
+    assert.equal(await page.locator('#times [data-time="16:15"]').count(),1,'Non-round future time remains available');
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    if(process.env.MINUTA_AUDIT_SCREENSHOTS)await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOTS,`past-hours-${process.env.MINUTA_EXPECT_PAST_HOURS?'before':'after'}-${width}.png`),fullPage:true});
+    await page.locator('[data-date="2026-09-09"]').click();
+    assert.equal(await page.locator('#timeHours [data-time="10:00"]').isEnabled(),true,'Future day morning must not be filtered');
+    assert.equal(model.creates.length,0);
+  }]),
   ...[390,760,1440].map(width => [`public route clarity at ${width}px`, async ({page, model}) => {
     await page.setViewportSize({width,height:900});
     const capture = async name => { if(process.env.MINUTA_AUDIT_SCREENSHOTS) await page.screenshot({path:resolve(process.env.MINUTA_AUDIT_SCREENSHOTS,`public-after-${width}-${name}.png`),fullPage:true}); };

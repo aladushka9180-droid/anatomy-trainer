@@ -9,6 +9,7 @@ let currentReviewEditing = false;
 let smsPhone = '';
 let smsCodeRequested = false;
 let socialAuthUser = null;
+let accountRestoreAttempt = null;
 
 function applyStoredClientTheme() {
   const catalog = window.MinutaThemeCatalog;
@@ -140,16 +141,53 @@ async function submitReview(event) {
 
 async function openAccount() {
   if (!sessionToken) return false;
+  if (accountRestoreAttempt?.token === sessionToken) return false;
+  const attempt = { token:sessionToken };
+  accountRestoreAttempt = attempt;
+  const isCurrent = () => accountRestoreAttempt === attempt && sessionToken === attempt.token;
   $('#clientLoginCard').hidden = true;
-  $('#clientBookingsCard').hidden = false;
-  $('#clientBookingsLoading').hidden = false;
-  const { data, error } = await db.rpc('restore_client_session', { p_session_token: sessionToken });
-  const account = data?.[0];
-  if (error || !account) { clearSessionToken(); $('#clientBookingsCard').hidden = true; $('#clientLoginCard').hidden = false; return false; }
-  $('#clientAccountPhone').textContent = displayPhone(account.normalized_phone);
-  $('#clientSocialLink').hidden = true;
-  await loadBookings();
-  return true;
+  $('#clientBookingsCard').hidden = true;
+  $('#clientRestoreCard').hidden = false;
+  $('#clientRestoreMessage').textContent = 'Проверяем сохранённый вход…';
+  $('#clientRestoreRetry').hidden = true;
+  $('#clientRestoreRetry').disabled = true;
+  try {
+    if (!navigator.onLine) throw new Error('offline');
+    const { data, error, status } = await db.rpc('restore_client_session', { p_session_token:attempt.token });
+    if (!isCurrent()) return false;
+    if (error || (Number(status) >= 400)) throw new Error('restore_unavailable');
+    // v54 returns an empty table only when the saved session cannot be resolved.
+    // Network, server and malformed replies are not proof of an invalid session.
+    if (Array.isArray(data) && data.length === 0) {
+      clearSessionToken();
+      $('#clientRestoreCard').hidden = true;
+      $('#clientLoginCard').hidden = false;
+      showError($('#clientSocialAuthError'), 'Сохранённый вход больше не действует. Войдите снова.');
+      return false;
+    }
+    const account = Array.isArray(data) && data.length === 1 ? data[0] : null;
+    if (!account?.normalized_phone || !Number.isFinite(Date.parse(account.session_expires_at))) throw new Error('restore_unconfirmed');
+    $('#clientAccountPhone').textContent = displayPhone(account.normalized_phone);
+    $('#clientSocialLink').hidden = true;
+    $('#clientRestoreCard').hidden = true;
+    $('#clientBookingsCard').hidden = false;
+    await loadBookings();
+    return isCurrent();
+  } catch {
+    if (!isCurrent()) return false;
+    $('#clientRestoreMessage').textContent = navigator.onLine
+      ? 'Не удалось проверить вход. Доступ сохранён — повторите попытку.'
+      : 'Нет соединения с интернетом. Доступ сохранён — повторите попытку после подключения.';
+    $('#clientRestoreCard').hidden = false;
+    $('#clientBookingsCard').hidden = true;
+    $('#clientRestoreRetry').hidden = false;
+    return false;
+  } finally {
+    if (accountRestoreAttempt === attempt) {
+      accountRestoreAttempt = null;
+      $('#clientRestoreRetry').disabled = false;
+    }
+  }
 }
 
 function socialSessionError(error, result) {
@@ -336,6 +374,7 @@ async function rotateCode() {
 async function logout(options = {}) {
   const current = sessionToken;
   clearSessionToken();
+  $('#clientRestoreCard').hidden = true;
   if (current && !options.localOnly) db.rpc('revoke_client_session', { p_session_token: current });
   $('#clientBookingsCard').hidden = true;
   $('#clientLoginCard').hidden = false;
@@ -361,13 +400,14 @@ $('#clientLoginPhone').addEventListener('input', event => { event.target.value =
 $('#clientLoginCode').addEventListener('input', event => { event.target.value = formatCode(event.target.value); });
 $('#clientLoginForm').addEventListener('submit', login);
 $('#clientRefresh').addEventListener('click', loadBookings);
+$('#clientRestoreRetry').addEventListener('click', openAccount);
 $('#clientRotateCode').addEventListener('click', rotateCode);
 $('#clientLogout').addEventListener('click', logout);
 $('#clientBookingsList').addEventListener('click', event => { const button = event.target.closest('[data-open-review]'); if (button) openReview(button.dataset.openReview); });
 document.querySelectorAll('[data-review-rating]').forEach(button => button.addEventListener('click', () => setReviewRating(button.dataset.reviewRating)));
 $('#reviewForm').addEventListener('submit', submitReview);
 $('#closeReview').addEventListener('click', () => $('#reviewDialog').close());
-window.addEventListener('online', () => { if (sessionToken) loadBookings(); });
+window.addEventListener('online', () => { if (sessionToken) openAccount(); });
 applyStoredClientTheme();
 openAccount();
 initializeSmsLogin();

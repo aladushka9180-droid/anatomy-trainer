@@ -20,6 +20,11 @@
     <a class="provider-link" href="index.html"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Новая запись</span></a>
   </header>
   <main class="client-account-layout">
+    <section class="client-login-card" id="clientRestoreCard" hidden aria-labelledby="clientRestoreTitle">
+      <small>Личный раздел</small><h1 id="clientRestoreTitle">Мои записи</h1>
+      <p id="clientRestoreMessage" role="status">Проверяем сохранённый вход…</p>
+      <button class="primary" id="clientRestoreRetry" type="button" hidden>Повторить</button>
+    </section>
     <section class="client-login-card" id="clientLoginCard">
       <span class="client-login-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg></span>
       <small>Личный раздел</small><h1>Мои записи</h1>
