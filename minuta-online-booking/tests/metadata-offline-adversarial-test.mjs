@@ -144,7 +144,7 @@ test('actual device cleanup removes actor A private note queue and preserves act
   Object.defineProperty(storage,'removeItem',{value:key => {delete storage[key];},enumerable:false});
   Object.assign(h.state,{localStorage:storage,reliability:{removePrefix:async () => {},remove:async () => {}},
     offlineBookingSavePromise:Promise.resolve(),offlineBookingQueueKey:() => '',clearNewBookingDraft:() => {}});
-  for (const name of ['sessionItemsStorageKey','connectionLogKey','serviceDurationDefaultsStorageKey','autoCompleteStorageKey']) h.state[name]=() => name;
+  for (const name of ['sessionItemsStorageKey','connectionLogKey','serviceDurationDefaultsStorageKey','serviceScheduleNamesStorageKey','autoCompleteStorageKey']) h.state[name]=() => name;
   vm.runInContext(section('async function clearProviderDeviceData(', 'async function logout('),h.context);
   await h.context.clearProviderDeviceData('actor-A');
   assert.equal(storage[labelKey],undefined,'Existing metadata cleanup really executed (positive control)');
