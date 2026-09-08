@@ -11,19 +11,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  idempotency:
+  real-slot-concurrency:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      MINUTA_TEST_CONFIRM: "1"
-      MINUTA_TEST_SUPABASE_URL: ${{ secrets.MINUTA_TEST_SUPABASE_URL }}
-      MINUTA_TEST_ANON_KEY: ${{ secrets.MINUTA_TEST_ANON_KEY }}
-      MINUTA_TEST_SERVICE_ROLE_KEY: ${{ secrets.MINUTA_TEST_SERVICE_ROLE_KEY }}
-      MINUTA_TEST_SERVICE_ID: ${{ secrets.MINUTA_TEST_SERVICE_ID }}
-      MINUTA_TEST_PROJECT_REF: ${{ secrets.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: 22
-      - run: node minuta-online-booking/idempotency-integration-test.mjs
+          persist-credentials: false
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Refuse production and verify the isolated test project
+        shell: bash
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          guard_count="$(psql "$MINUTA_TEST_DATABASE_URL" \
+            --set=ON_ERROR_STOP=1 \
+            --set=expected_ref="$MINUTA_TEST_PROJECT_REF" \
+            --tuples-only --no-align <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref = :'expected_ref'
+            and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$guard_count")" = "1"
+      - name: Race two independent clients for one real database slot
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MINUTA_TEST_DATABASE_URL="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          bash minuta-online-booking/tests/real-slot-concurrency-integration.sh
