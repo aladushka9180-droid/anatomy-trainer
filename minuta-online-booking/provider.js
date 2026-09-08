@@ -4439,8 +4439,13 @@ async function saveNotificationTemplates(event) {
   $('#notificationTemplatesDialog').close();
   notify(remoteSaved ? 'Шаблоны сохранены на всех устройствах' : 'Шаблоны сохранены на этом устройстве');
 }
-function showFormError(id, message) { const element = $(id); element.textContent = message; element.hidden = false; }
-function clearFormError(id) { $(id).hidden = true; }
+function showFormError(id, message) { const element = $(id); element.hidden = false; element.textContent = message; }
+function clearFormError(id) {
+  const element = $(id);
+  element.hidden = true;
+  // Hidden aria-describedby targets still contribute accessible descriptions.
+  if (['#loginError','#signupError','#recoveryError','#resetPasswordError'].includes(id)) element.textContent = '';
+}
 function notify(message) {
   const toast = $('#toast');
   toast.hidden = false;

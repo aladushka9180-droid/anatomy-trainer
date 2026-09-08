@@ -68,6 +68,7 @@
 #bookingSheet.new-booking-sheet .booking-color-compact>summary { min-height:44px; padding:0; font-weight:500; }
 #bookingSheet.new-booking-sheet .new-booking-history-option { border-radius:var(--material-control-radius,10px)!important; }
 .forgot-password-button { min-height:44px; padding-block:10px; }
+#authCard :is(.auth-tabs button,.auth-back-button,.back-to-booking) { min-height:44px; }
 .provider-body[data-provider-theme] #authCard { border-color:var(--theme-line); }
 .provider-body[data-provider-theme] #authTabs { background:var(--theme-surface); border:1px solid var(--theme-line); }
 .provider-body[data-provider-theme] #authTabs button { color:var(--theme-muted); background:transparent; }
