@@ -43,7 +43,7 @@ function harness() {
     canQueueOfflineBooking:()=>false, reliability:{savedAtLabel:()=>''},
     organizationController:{load:async()=>({ok:true})}, teamCalendarController:{load:async()=>({ok:true})},
     loads:0, loadNames:[],
-    renderTopbarDateTime(){},renderNotifications(){},queueDisplayPreferencesSync(){},
+    renderTopbarDateTime(){},renderNotifications(){},refreshReportDemoLive(){},queueDisplayPreferencesSync(){},
     renderOfflineBookingQueue(){},updateNewBookingConnectivity(){},notify(){},$:()=>null,
   };
   for (const name of ['loadBookings','loadOwnServices','loadSchedule','loadDaysOff','loadBookingSettings','loadClientNotes','loadClientLabels','loadClientAvatars','loadBookingSessionItems','loadBookingOutcomes','loadPortfolio','loadWaitlist','loadProviderReviews']) context[name] = async()=>{context.loads++;context.loadNames.push(name);return {ok:true};};
