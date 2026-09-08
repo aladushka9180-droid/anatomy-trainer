@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const workflow=readFileSync(new URL('../../.github/workflows/minuta-v122-safe-release.yml',import.meta.url),'utf8');
+const migration=readFileSync(new URL('../supabase-migration-v122.sql',import.meta.url),'utf8');
+const rollback=readFileSync(new URL('../supabase-migration-v122-rollback.sql',import.meta.url),'utf8');
+for(const required of ['minuta-production-database','minuta-test-database','APPLY_V122_TO_PRODUCTION','default_transaction_read_only=on','minuta-supabase-backup.yml','test "$age" -le 7200','client-reschedule-v122-integration.sql','provider-portfolio-v122-integration.sql','supabase-migration-v122-rollback.sql','.head_sha','.head_branch','.display_title','persist-credentials: false'])assert.ok(workflow.includes(required),required);
+assert.doesNotMatch(workflow,/v121|payroll_adjustments/);
+assert.match(migration,/create table if not exists public\.client_reschedule_requests/i);
+assert.match(migration,/reschedule_booking_v2\([\s\S]*p_request_id uuid/i);
+assert.match(migration,/on delete cascade/i);
+assert.match(migration,/save_provider_portfolio_item/i);
+assert.match(migration,/portfolio_item_changed/i);
+assert.match(rollback,/v122_rollback_blocked_by_reschedule_receipts/i);
+console.log('PASS v122 pinned release, isolated rehearsal, rollback, fresh backup and read-only validation gates');
