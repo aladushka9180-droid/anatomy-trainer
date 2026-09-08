@@ -42,6 +42,8 @@ const ephemeralJob = restore.slice(ephemeralJobIndex);
 assert.doesNotMatch(ephemeralJob, /SUPABASE_DB_URL|MINUTA_RESTORE_TEST_DB_URL/,
   'Ephemeral restore must not receive any remote database URL');
 assert.match(ephemeralJob, /Auth и Storage не восстанавливались/);
+assert.doesNotMatch(ephemeralJob, /refs\/heads\/codex\//,
+  'Integration-ready restore job must not expose repository secrets to a branch checkout');
 assert.ok(restore.indexOf('secrets.') > restore.indexOf('steps:'), 'Секреты restore не должны быть доступны всему job');
 assert.doesNotMatch(restore, /actions\/(?:checkout|upload-artifact)@v\d/);
 
