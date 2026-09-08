@@ -26,7 +26,7 @@ function declaration(name) {
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics',
   'reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange','reportImportedValue',
   'reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId',
-  'reportExportPerformers','reportExportMaster','reportExportCreator','reportBookingSource','reportSourceMetrics','applyBookingQuery'];
+  'reportExportPerformers','reportExportMaster','reportExportCreator','reportBookingSource','reportSourceMetrics','bookingMatchesAnalyticsScope','applyBookingQuery'];
 // The fixed source delegates name gating to this actual helper; old baseline
 // has no such declaration. Never substitute a model for either implementation.
 if (/^function reportCurrentTeamRows\(/m.test(source)) names.push('reportCurrentTeamRows');
@@ -47,6 +47,7 @@ function fixture(items=[booking('visit-A')]) {
       rows:[{performer_id:'master-A',performer_name:'Current master A',payroll_rub:-321}]},reportEventState:{rows:[]},
     isScheduleBlock:item=>Boolean(item.is_schedule_block),bookingOutcome:item=>item.booking_outcomes,
     normalizePhone:value=>String(value||'').replace(/\D/g,''),parseLocalIsoDate:value=>new Date(`${value}T00:00:00Z`),
+    minutesFromTime:value=>{const [hours,minutes]=String(value||'00:00').slice(0,5).split(':').map(Number);return hours*60+minutes;},
     reportExportValue:item=>item.value,bookingSessionTotal:item=>item.value,reportExportDuration:item=>item.duration_minutes,
     reportExportDate:value=>value,reportExportEnd:()=> '11:00',reportExportPhone:value=>value,
     bookingSession:()=>[{title:'Service'}],serviceName:value=>value,isPerMinuteBooking:()=>false,bookingMinuteRate:()=>0,

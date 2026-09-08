@@ -38,6 +38,9 @@ assert.match(ux, /report-command-metrics\s*\{[\s\S]*grid-template-columns:1\.35f
 assert.match(ux, /@media\(max-width:760px\)[\s\S]*report-primary-metric[\s\S]*grid-column:1\/-1/, 'Главный KPI не выделен на мобильном экране');
 assert.match(ux, /report-actions-toggle\s*\{[^}]*order:initial/, 'Кнопка раскрытия рекомендаций снова оказывается выше главной рекомендации');
 assert.match(html, /id="reportHeatmapLegend"[\s\S]*Меньше[\s\S]*Больше/, 'У тепловой карты нет понятной шкалы интенсивности');
+assert.match(html, /id="reportHeatmap" role="group"/, 'Интерактивная тепловая карта скрыта от клавиатурной навигации ролью изображения');
+assert.match(html, /Нажмите ячейку — откроются записи/, 'Не объяснено, что ячейки открывают точные записи');
+assert.match(html, /id="bookingAnalyticsFilterChip"/, 'В журнале нет понятного возврата к тепловой карте');
 assert.match(ux, /report-heatmap-legend[\s\S]*linear-gradient\([^)]*var\(--theme-accent\)/, 'Шкала спроса не использует цвет текущей темы');
 assert.doesNotMatch(statisticsUx, /#[0-9a-f]{3,8}\b|rgba?\(/i, 'Новая статистика содержит цвет вне переменных темы');
 
@@ -82,6 +85,24 @@ assert.match(provider, /function ensureReportRetention[\s\S]*ensureOrganizationF
 assert.match(provider, /range\.end >= reportTodayIso\(\)[\s\S]*Заполнить свободные часы/, 'Прошлые периоды всё ещё получают несвоевременную рекомендацию заполнять часы');
 assert.match(provider, /showLeader = rankedRows\.length > 1/, 'Один сотрудник всё ещё объявляется лидером');
 assert.doesNotMatch(provider, /percent === null \? \(minutes \? 18 : 4\)/, 'Все непустые ячейки спроса снова имеют одинаковую яркость');
+assert.match(provider, /data-report-heatmap-weekday[\s\S]*Открыть записи/, 'Непустые ячейки тепловой карты не являются доступными кнопками');
+assert.match(provider, /analytics:'heatmap'[\s\S]*weekday[\s\S]*timeFrom[\s\S]*timeTo/, 'Переход из тепловой карты теряет день недели или интервал');
+assert.match(provider, /function bookingSourceItems[\s\S]*bookingAnalyticsScope && reportCanViewTeam[\s\S]*reportScopedBookingsState\.rows/, 'Детализация команды снова показывает только записи текущего мастера');
+
+const matchesAnalyticsScope = new Function(
+  'bookingAnalyticsScope', 'reportEffectivePerformerId', 'isScheduleBlock', 'parseLocalIsoDate', 'minutesFromTime',
+  `${declaration('bookingMatchesAnalyticsScope')}; return bookingMatchesAnalyticsScope;`
+)(null, item => String(item.performer_id || ''), item => Boolean(item.block), parseLocalIsoDate, value => {
+  const [hours, minutes] = String(value).split(':').map(Number);
+  return hours * 60 + minutes;
+});
+const heatScope = { analytics:'heatmap', start:'2026-09-01', end:'2026-09-30', weekday:1, timeFrom:600, timeTo:720, performer:'master-1' };
+const heatBooking = { booking_date:'2026-09-08', booking_time:'11:30', duration_minutes:60, performer_id:'master-1', status:'confirmed' };
+assert.equal(matchesAnalyticsScope(heatBooking, heatScope), true, 'Запись, пересекающая выбранную ячейку, потеряна');
+assert.equal(matchesAnalyticsScope({ ...heatBooking, booking_time:'12:00' }, heatScope), false, 'Граница соседнего интервала ошибочно попала в список');
+assert.equal(matchesAnalyticsScope({ ...heatBooking, booking_date:'2026-09-09' }, heatScope), false, 'Запись другого дня недели ошибочно попала в список');
+assert.equal(matchesAnalyticsScope({ ...heatBooking, performer_id:'master-2' }, heatScope), false, 'Запись другого сотрудника ошибочно попала в список');
+assert.equal(matchesAnalyticsScope({ ...heatBooking, status:'cancelled' }, heatScope), false, 'Отменённая запись не должна появляться в детализации спроса');
 
 const heatmapScale = new Function(`${declaration('reportHeatmapScale')}; return reportHeatmapScale;`)();
 const heatmapIntensity = new Function(`${declaration('reportHeatmapIntensity')}; return reportHeatmapIntensity;`)();

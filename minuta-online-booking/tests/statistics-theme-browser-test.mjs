@@ -58,7 +58,7 @@ try {
       ['Вернуть клиентов','8 клиентов давно не записывались','clients']
     ].map(([title,text,action]) => `<article class="report-smart-action is-attention"><span>!</span><div><strong>${title}</strong><small>${text}</small><i>Проверено по выбранному периоду</i><b>Откроем нужные записи</b></div><button type="button" data-report-action="${action}">Проверить →</button></article>`).join('') + '<button class="report-actions-toggle" type="button" data-report-actions-toggle aria-expanded="false">Ещё 2</button>';
     document.querySelector('#reportHeatmap').innerHTML = [3, 16, 36, 58]
-      .map((heat, index) => `<span class="report-heatmap-cell${index === 3 ? ' is-peak' : ''}" style="--heat:${heat}%"><i>${index ? `${index * 6} ч` : '—'}</i></span>`).join('');
+      .map((heat, index) => index ? `<button class="report-heatmap-cell${index === 3 ? ' is-peak' : ''}" type="button" style="--heat:${heat}%"><i>${index * 6} ч</i></button>` : `<span class="report-heatmap-cell" style="--heat:${heat}%"><i>—</i></span>`).join('');
     document.querySelector('#reportHeatmapLegend').hidden = false;
   });
 
@@ -97,10 +97,12 @@ try {
           detailsClosed,
           heatmapOverflow,
           heatLegendVisible,
-          heatColorSteps:new Set(heatColors).size
+          heatColorSteps:new Set(heatColors).size,
+          heatButtons:heatmap.querySelectorAll('button.report-heatmap-cell').length,
+          heatHint:document.querySelector('#reportHeatmapLegend small')?.textContent?.trim() || ''
         };
       });
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4) {
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint) {
         failures.push({ width, theme, ...metrics });
       }
     }

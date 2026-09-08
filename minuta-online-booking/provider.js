@@ -2457,7 +2457,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=631#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=632#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -2738,7 +2738,10 @@ function importedHistoryForBookingView() {
 
 function bookingSourceItems() {
   if (bookingUsesDemoData()) return reportScopedBookingsState.status === 'ready' ? reportScopedBookingsState.rows : [];
-  return [...allBookings, ...importedHistoryForBookingView()].sort((left, right) =>
+  const liveRows = bookingAnalyticsScope && reportCanViewTeam && reportScopedBookingsState.status === 'ready'
+    ? reportScopedBookingsState.rows
+    : allBookings;
+  return [...liveRows, ...importedHistoryForBookingView()].sort((left, right) =>
     `${left.booking_date || ''}${left.booking_time || ''}${left.id || ''}`.localeCompare(`${right.booking_date || ''}${right.booking_time || ''}${right.id || ''}`));
 }
 
@@ -3836,6 +3839,26 @@ function reportHeatmapIntensity(value, scale) {
   return Math.round(10 + Math.pow(ratio, .72) * 48);
 }
 
+function bookingMatchesAnalyticsScope(item, scope = bookingAnalyticsScope) {
+  if (!scope) return true;
+  if (scope.start && item.booking_date < scope.start) return false;
+  if (scope.end && item.booking_date > scope.end) return false;
+  if (scope.performer && scope.performer !== 'all' && reportEffectivePerformerId(item) !== String(scope.performer)) return false;
+  if (scope.analytics !== 'heatmap') return true;
+  if (item.status === 'cancelled' || isScheduleBlock(item)) return false;
+  const date = parseLocalIsoDate(item.booking_date);
+  const weekday = Number(scope.weekday);
+  if (!date || !Number.isInteger(weekday) || (date.getDay() + 6) % 7 !== weekday) return false;
+  const time = String(item.booking_time || '').slice(0, 5);
+  if (!/^\d{2}:\d{2}$/.test(time)) return false;
+  const from = Number(scope.timeFrom);
+  const to = Number(scope.timeTo);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return false;
+  const visitStart = minutesFromTime(time);
+  const visitEnd = Math.min(1440, visitStart + Math.max(1, Number(item.duration_minutes || item.services?.duration_minutes || 60)));
+  return Math.min(visitEnd, to) > Math.max(visitStart, from);
+}
+
 function renderReportHeatmap(items, range) {
   const holder = $('#reportHeatmap');
   if (!holder) return;
@@ -3893,7 +3916,12 @@ function renderReportHeatmap(items, range) {
       ? `${weekday}, ${band.label}: занято ${reportHours(minutes)}, ${seriesBookingCountLabel(counts[bandIndex][weekdayIndex])}; нет данных о доступном времени команды`
       : `${weekday}, ${band.label}: занято ${reportHours(minutes)} из ${reportHours(available)}, ${percent}%`) + popularTitle;
     const popularLabel = popular[0] ? `<small class="report-heatmap-popular-time">${escapeHtml(popularTimesText(popular.slice(0, 1)))}</small>` : '';
-    return `<span class="report-heatmap-cell${isPeak ? ' is-peak' : ''}" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i>${value}</i>${popularLabel}</span>`;
+    if (!minutes) return `<span class="report-heatmap-cell" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i>${value}</i></span>`;
+    const selected = bookingAnalyticsFilter === 'heatmap'
+      && bookingAnalyticsScope?.start === range.start && bookingAnalyticsScope?.end === range.end
+      && Number(bookingAnalyticsScope?.weekday) === weekdayIndex
+      && Number(bookingAnalyticsScope?.timeFrom) === band.from && Number(bookingAnalyticsScope?.timeTo) === band.to;
+    return `<button class="report-heatmap-cell${isPeak ? ' is-peak' : ''}${selected ? ' is-selected' : ''}" type="button" data-report-heatmap-weekday="${weekdayIndex}" data-report-heatmap-from="${band.from}" data-report-heatmap-to="${band.to}" style="--heat:${intensity}%" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}. Открыть записи" aria-pressed="${selected}"><i>${value}</i>${popularLabel}</button>`;
   }).join('')}`).join('');
   holder.innerHTML = header + cells;
   const peakPopular = peak.minutes ? popularTimes(peak.band, peak.weekday) : [];
@@ -4545,7 +4573,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=631');
+    worker = new Worker('./report-worker.js?v=632');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6088,7 +6116,7 @@ function filteredBookings() {
 }
 
 function bookingQueryIsActive() {
-  return Boolean(bookingSearchQuery.trim()) || bookingStatusFilter !== 'all' || bookingSourceFilter !== 'all' || Boolean(bookingAnalyticsFilter);
+  return Boolean(bookingSearchQuery.trim()) || bookingStatusFilter !== 'all' || bookingSourceFilter !== 'all' || Boolean(bookingAnalyticsFilter) || Boolean(bookingAnalyticsScope);
 }
 
 function updateBookingQueryTools() {
@@ -6103,6 +6131,14 @@ function updateBookingQueryTools() {
     sourceChip.hidden = bookingSourceFilter === 'all';
     sourceChip.textContent = bookingSourceFilter === 'all' ? '' : `Создано: ${labels[bookingSourceFilter] || bookingSourceFilter} ×`;
   }
+  const analyticsChip = $('#bookingAnalyticsFilterChip');
+  if (analyticsChip) {
+    const label = String(bookingAnalyticsScope?.label || '').trim();
+    analyticsChip.hidden = !label;
+    analyticsChip.textContent = label ? `← Статистика · ${label}` : '';
+    if (label) analyticsChip.setAttribute('aria-label', `Вернуться к тепловой карте. Сейчас показаны записи: ${label}`);
+    else analyticsChip.removeAttribute('aria-label');
+  }
 }
 
 function applyBookingQuery(items) {
@@ -6112,8 +6148,7 @@ function applyBookingQuery(items) {
   return items.filter(item => {
     if (bookingStatusFilter !== 'all' && bookingStatusClass(item) !== bookingStatusFilter) return false;
     if (bookingSourceFilter !== 'all' && reportBookingSource(item) !== bookingSourceFilter) return false;
-    if (bookingAnalyticsScope && (item.booking_date < bookingAnalyticsScope.start || item.booking_date > bookingAnalyticsScope.end)) return false;
-    if (bookingAnalyticsScope?.performer && bookingAnalyticsScope.performer !== 'all' && reportEffectivePerformerId(item) !== String(bookingAnalyticsScope.performer)) return false;
+    if (!bookingMatchesAnalyticsScope(item)) return false;
     if (bookingAnalyticsFilter === 'debt' && !(reportDebtAmount(item) > 0)) return false;
     if (bookingAnalyticsFilter === 'lost' && !(item.status === 'cancelled' || bookingOutcome(item).visit_status === 'no_show')) return false;
     if (bookingAnalyticsFilter === 'payment-unknown' && !globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))) return false;
@@ -12368,6 +12403,7 @@ document.addEventListener('click', async event => {
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
   const reportChartDate = event.target.closest('[data-report-start]');
+  const reportHeatmapCell = event.target.closest('[data-report-heatmap-weekday]');
   const showOwnBookings = event.target.closest('#showOwnBookings');
   const reportServiceMetricButton = event.target.closest('[data-report-service-metric]');
   const reportServiceRow = event.target.closest('[data-report-service]');
@@ -12489,6 +12525,18 @@ document.addEventListener('click', async event => {
   if (reportChartDate) {
     openReportBookings({ scope:{ ...reportDrilldownScope(), start:reportChartDate.dataset.reportStart, end:reportChartDate.dataset.reportEnd || reportChartDate.dataset.reportStart } });
     notify(bookingUsesDemoData() ? 'Показаны демо-записи выбранного периода' : 'Показаны записи выбранного периода');
+  }
+  if (reportHeatmapCell) {
+    const weekday = Number(reportHeatmapCell.dataset.reportHeatmapWeekday);
+    const timeFrom = Number(reportHeatmapCell.dataset.reportHeatmapFrom);
+    const timeTo = Number(reportHeatmapCell.dataset.reportHeatmapTo);
+    const weekdays = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    const label = `${weekdays[weekday] || 'День'}, ${timeFromMinutes(timeFrom)}–${timeFromMinutes(timeTo)}`;
+    openReportBookings({
+      analytics:'heatmap',
+      scope:{ ...reportDrilldownScope(), analytics:'heatmap', weekday, timeFrom, timeTo, label }
+    });
+    notify(`Показаны записи: ${label}`);
   }
   if (showOwnBookings) {
     reportDataSource = 'own';
@@ -13913,6 +13961,18 @@ $('#bookingSourceFilterChip').addEventListener('click', () => {
   bookingRenderLimit = BOOKING_RENDER_PAGE_SIZE;
   updateBookingQueryTools();
   renderBookings();
+});
+$('#bookingAnalyticsFilterChip')?.addEventListener('click', () => {
+  const scope = bookingAnalyticsScope;
+  Promise.resolve(setProviderView('analytics')).then(() => requestAnimationFrame(() => {
+    const details = $('.report-analytics-details');
+    if (details) details.open = true;
+    const target = scope?.analytics === 'heatmap'
+      ? $(`[data-report-heatmap-weekday="${Number(scope.weekday)}"][data-report-heatmap-from="${Number(scope.timeFrom)}"][data-report-heatmap-to="${Number(scope.timeTo)}"]`)
+      : $('#reportHeatmap');
+    target?.scrollIntoView({ behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'center' });
+    target?.focus?.({ preventScroll:true });
+  }));
 });
 $('#providerBookings').addEventListener('click', event => {
   if (!event.target.closest('[data-load-more-bookings]')) return;

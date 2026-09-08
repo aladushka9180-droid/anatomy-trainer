@@ -80,4 +80,4 @@ assert.doesNotMatch(contextualHelp, /Не совсем понятно\?/, 'Об�
 assert.match(read('help/help.css'), /@media \(max-width: 900px\)[\s\S]*\.article-shell[^}]*display: block;/,
   'Статья должна переходить в одну колонку на контрольной ширине 760 px');
 
-console.log(`Help knowledge refresh v631: PASS (${articles.length} articles)`);
+console.log(`Help knowledge refresh v632: PASS (${articles.length} articles)`);
