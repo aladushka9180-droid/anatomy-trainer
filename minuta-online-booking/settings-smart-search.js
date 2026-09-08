@@ -43,21 +43,31 @@
 
   function swapKeyboardLayout(value) {
     return String(value || '').toLocaleLowerCase('ru-RU').split('').map(char => {
-      const index = EN_LAYOUT.indexOf(char);
-      return index >= 0 ? RU_LAYOUT[index] : char;
+      const englishIndex = EN_LAYOUT.indexOf(char);
+      if (englishIndex >= 0) return RU_LAYOUT[englishIndex];
+      const russianIndex = RU_LAYOUT.indexOf(char);
+      return russianIndex >= 0 ? EN_LAYOUT[russianIndex] : char;
     }).join('');
   }
 
   function queryVariants(value) {
-    const original = normalize(value);
+    const raw = String(value || '').toLocaleLowerCase('ru-RU');
+    const original = normalize(raw);
     const variants = [original];
-    if (/[a-z]/.test(original) && !/[а-я]/.test(original)) variants.push(normalize(swapKeyboardLayout(original)));
+    if (/[a-zа-яё]/.test(raw)) variants.push(normalize(swapKeyboardLayout(raw)));
     return [...new Set(variants.filter(Boolean))];
+  }
+
+  function isStopWord(token) {
+    if (STOP_WORDS.has(token)) return true;
+    if (token.length < 5) return false;
+    const allowed = token.length >= 9 ? 2 : 1;
+    return [...STOP_WORDS].some(word => Math.abs(word.length - token.length) <= allowed && damerauDistance(token, word, allowed) <= allowed);
   }
 
   function usefulTokens(value) {
     const tokens = normalize(value).split(' ').filter(Boolean);
-    const useful = tokens.filter(token => !STOP_WORDS.has(token));
+    const useful = tokens.filter(token => !isStopWord(token));
     return useful.length ? useful : tokens;
   }
 
@@ -86,6 +96,19 @@
       if (Math.min(word.length, token.length) >= 4 && (word.startsWith(token) || token.startsWith(word))) best = Math.max(best, 22);
       const allowed = token.length >= 7 ? 2 : token.length >= 4 ? 1 : 0;
       if (allowed && damerauDistance(token, word, allowed) <= allowed) best = Math.max(best, 18 - allowed);
+    }
+    return best;
+  }
+
+  function suggestionTokenScore(token, words) {
+    const strict = tokenScore(token, words);
+    if (strict) return strict;
+    const allowed = token.length >= 9 ? 3 : token.length >= 5 ? 2 : token.length >= 3 ? 1 : 0;
+    if (!allowed) return 0;
+    let best = 0;
+    for (const word of words) {
+      const distance = damerauDistance(token, word, allowed);
+      if (distance <= allowed) best = Math.max(best, 13 - distance);
     }
     return best;
   }
@@ -157,6 +180,17 @@
       + (phrase.length >= 3 && record.corpus.includes(phrase) ? 48 : 0)
       + (record.type === 'item' ? 14 : 0)
       + Math.round((matched / tokens.length) * 12);
+  }
+
+  function suggestionScore(record, query) {
+    const tokens = usefulTokens(query);
+    const words = record.corpus.split(' ').filter(Boolean);
+    const tokenScores = tokens.map(token => suggestionTokenScore(token, words));
+    const matched = tokenScores.filter(Boolean).length;
+    if (!matched || matched / tokens.length < 0.5) return 0;
+    return tokenScores.reduce((sum, score) => sum + score, 0)
+      + (record.type === 'item' ? 5 : 0)
+      + Math.round((matched / tokens.length) * 8);
   }
 
   function findSettings(value) {
@@ -352,15 +386,15 @@
 
     const VIEW_ALIASES = Object.freeze({
       settings:'настройки кабинет тема стиль оформление интерфейс правила предоплата пароль подписка безопасность приложение',
-      bookings:'записи запись визит календарь расписание создать прием сеанс клиент сегодня завтра',
+      bookings:'записи запись визит календарь расписание создать прием приемы сеанс клиент сегодня завтра журнал новая добавить запись',
       clients:'клиенты клиент карточка история контакты телефон заметки метки база',
       notifications:'уведомления сообщение сообщения шаблон whatsapp telegram телеграм рассылка напоминание',
       schedule:'график расписание рабочие часы время доступность перерыв выходной смена',
-      services:'услуги услуга прайс цена стоимость длительность процедура сеанс',
+      services:'услуги услуга прайс цена стоимость длительность процедура сеанс добавить создать новая услуга',
       organization:'организация команда сотрудник специалист филиал ресурсы роли доступ выплаты зарплата склад товар',
       portfolio:'портфолио фото фотографии работа работы галерея примеры',
-      analytics:'статистика отчет отчеты аналитика доход выручка визиты показатели экспорт',
-      waitlist:'лист ожидания ожидание свободное окно занята дата заявка очередь',
+      analytics:'статистика отчет отчеты аналитика доход выручка визиты показатели экспорт деньги заработок прибыль сколько заработал посмотреть доход',
+      waitlist:'лист ожидания ожидание свободное окно занята дата заявка очередь клиентов жду освободилось место занято нет мест свободное время окно освободится',
       help:'база знаний помощь инструкция инструкции подсказка как сделать',
       feedback:'обратная связь помощь проблема ошибка баг предложение улучшение написать'
     });
@@ -383,7 +417,7 @@
     let sectionsVoiceRendered = false;
 
     function buildSectionsIndex() {
-      return [...grid.querySelectorAll(':scope > button, :scope > a')].flatMap(element => {
+      return [...grid.querySelectorAll(':scope > button, :scope > a, :scope > .mobile-more-group > button, :scope > .mobile-more-group > a')].flatMap(element => {
         const view = element.dataset.providerView || (element.matches('.mobile-help-shortcut') ? 'help' : element.matches('[data-open-product-feedback]') ? 'feedback' : '');
         if (!view || (view === 'feedback' && element.hidden)) return [];
         const label = element.querySelector('strong')?.textContent.replace(/\s+/g, ' ').trim() || element.textContent.replace(/\s+/g, ' ').trim();
@@ -392,19 +426,25 @@
       });
     }
 
-    function findSections(value) {
+    function rankSections(value, scorer) {
       const variants = queryVariants(value);
       const sectionScore = (record, query) => {
-        const base = recordScore(record, query);
+        const base = scorer(record, query);
         if (!base) return 0;
         const labelWords = normalize(record.label).split(' ').filter(Boolean);
-        const labelBoost = usefulTokens(query).reduce((sum, token) => sum + tokenScore(token, labelWords), 0);
+        const labelBoost = usefulTokens(query).reduce((sum, token) => sum + (scorer === recordScore ? tokenScore(token, labelWords) : suggestionTokenScore(token, labelWords)), 0);
         return base + labelBoost * 3;
       };
       return buildSectionsIndex().map(record => ({ ...record, score:Math.max(...variants.map(query => sectionScore(record, query))) }))
         .filter(record => record.score > 0)
         .sort((left, right) => right.score - left.score || left.label.localeCompare(right.label, 'ru'))
         .slice(0, 6);
+    }
+
+    function findSections(value) {
+      const matches = rankSections(value, recordScore);
+      if (matches.length) return matches;
+      return rankSections(value, suggestionScore).map(record => ({ ...record, suggested:true }));
     }
 
     function closeSectionsResults() {
@@ -455,7 +495,7 @@
         button.setAttribute('role', 'option');
         button.setAttribute('aria-selected', 'false');
         const path = document.createElement('small');
-        path.textContent = 'Разделы';
+        path.textContent = record.suggested ? 'Возможно, вы искали' : 'Разделы';
         const title = document.createElement('strong');
         title.textContent = record.label;
         const description = document.createElement('span');
@@ -466,7 +506,9 @@
       });
       sectionsResults.hidden = false;
       sectionsInput.setAttribute('aria-expanded', 'true');
-      sectionsStatus.textContent = `Найдено разделов: ${sectionMatches.length}.`;
+      sectionsStatus.textContent = sectionMatches[0]?.suggested
+        ? `Возможно, вы искали: ${sectionMatches.map(record => record.label).join(', ')}.`
+        : `Найдено разделов: ${sectionMatches.length}.`;
       return sectionMatches.length;
     }
 
