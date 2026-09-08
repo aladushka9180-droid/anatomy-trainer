@@ -24,7 +24,7 @@ try {
     await writeFile(path.join(process.env.MINUTA_THEME_OUTPUT,'theme-card-failures.json'),JSON.stringify(result,null,2));
     await page.screenshot({path:path.join(process.env.MINUTA_THEME_OUTPUT,'theme-card-failure.png'),fullPage:true});
   }
-  assert.equal(result.combinations,312);
+  assert.equal(result.combinations,themes.length * 6 * 2);
   assert.equal(result.foreignColorCanary,true);
   assert.deepEqual(result.failures,[]);
   // Actual :hover and keyboard :focus-visible, not synthetic class substitutes.
