@@ -276,3 +276,61 @@
   opacity:.72;
   vertical-align:-1px;
 }
+
+/* Velvet Leopard keeps the print outside the work surface, not behind labels. */
+.provider-body[data-provider-theme="velvet-leopard"][data-provider-layout]
+  .schedule-card:has(#dateStrip:not([hidden])) {
+  border:1px solid color-mix(in srgb,var(--theme-line) 48%,transparent)!important;
+  border-radius:18px!important;
+  background:color-mix(in srgb,var(--theme-surface) 94%,transparent)!important;
+  box-shadow:0 10px 28px rgba(74,45,28,.055)!important;
+  backdrop-filter:blur(9px);
+}
+
+.provider-body[data-provider-theme="velvet-leopard"][data-provider-layout]
+  .schedule-card:has(#dateStrip:not([hidden])) :is(.date-navigation,.date-strip,.schedule-toolbar) {
+  background:transparent!important;
+}
+
+.provider-body[data-provider-theme="velvet-leopard"][data-provider-layout]
+  .schedule-card:has(#dateStrip:not([hidden])) .schedule-toolbar>div:first-child {
+  padding:0;
+  background:transparent!important;
+  box-shadow:none;
+  backdrop-filter:none;
+}
+
+.provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .timeline-hours {
+  background:color-mix(in srgb,var(--theme-surface) 97%,transparent)!important;
+  color:var(--theme-ink)!important;
+  text-shadow:none;
+}
+
+@media(max-width:760px) {
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout]
+    [data-provider-panel="bookings"]>.schedule-view-title {
+    background:color-mix(in srgb,var(--theme-surface) 94%,transparent)!important;
+  }
+
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line {
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr);
+    align-items:start!important;
+    gap:8px!important;
+  }
+
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line h2 {
+    white-space:nowrap;
+  }
+
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line .dashboard-summary {
+    margin:0;
+    background:var(--theme-surface-alt)!important;
+  }
+
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout]
+    .schedule-card:has(#dateStrip:not([hidden])) {
+    border-radius:18px!important;
+    background:color-mix(in srgb,var(--theme-surface) 93%,transparent)!important;
+  }
+}

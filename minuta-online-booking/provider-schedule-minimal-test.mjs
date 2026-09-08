@@ -26,6 +26,9 @@ assert.match(styles, /timeline-booking-client[\s\S]*provider-booking-note-full[\
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking\.status-block[\s\S]*var\(--schedule-break-surface-weight\)[\s\S]*background-image:none!important;[\s\S]*color:color-mix\(in srgb,var\(--theme-muted\) 72%,var\(--theme-ink\)\)!important;/s);
 assert.match(styles, /data-provider-theme\][\s\S]*timeline-booking\.status-block[\s\S]*timeline-booking-copy>strong::before[\s\S]*linear-gradient\(90deg,currentColor/s);
 assert.match(styles, /#providerBookings\.calendar-overview-month \.calendar-overview-booking\.status-block[\s\S]*var\(--schedule-break-surface-weight\)[\s\S]*box-shadow:none!important;/s);
+assert.match(styles, /data-provider-theme="velvet-leopard"[\s\S]*\.schedule-card:has\(#dateStrip:not\(\[hidden\]\)\)[\s\S]*background:color-mix\(in srgb,var\(--theme-surface\) 94%,transparent\)!important;/s);
+assert.match(styles, /data-provider-theme="velvet-leopard"[\s\S]*\.timeline-hours[\s\S]*background:color-mix\(in srgb,var\(--theme-surface\) 97%,transparent\)!important;/s);
+assert.match(styles, /@media\(max-width:760px\)[\s\S]*data-provider-theme="velvet-leopard"[\s\S]*\.schedule-title-line h2[\s\S]*white-space:nowrap;/s);
 assert.match(script, /const swipeSurface = event\.target\.closest\('#providerBookings'\)/);
 assert.match(script, /if \(dateShift\) shiftScheduleDate\(Number\(dateShift\.dataset\.dateShift\)\)/);
 assert.doesNotMatch(styles, /#[0-9a-f]{3,8}\b/i, 'Новая геометрия не должна добавлять отдельную палитру');
