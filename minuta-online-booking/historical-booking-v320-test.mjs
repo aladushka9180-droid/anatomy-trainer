@@ -5,7 +5,7 @@ const provider = readFileSync(new URL('./provider.js', import.meta.url), 'utf8')
 const styles = readFileSync(new URL('./styles.css', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('./supabase-migration-v98.sql', import.meta.url), 'utf8');
 
-assert.match(provider, /openNewBookingSheet\(time, \{ date:selectedDate, historical:selectedStart < new Date\(\) \}\)/, 'Нажатие на прошлое время не передаёт выбранную дату в форму');
+assert.match(provider, /openNewBookingSheet\(time, \{ date:dateIso, historical:selectedStart < new Date\(\) \}\)/, 'Нажатие на прошлое время не передаёт выбранную дату в форму');
 assert.match(provider, /#newBookingButton'\)\.addEventListener\('click', \(\) => openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)\)/, 'Основная кнопка не открывает выбранный прошедший день');
 assert.match(provider, /#mobileNewBookingButton'\)\.addEventListener\('click', \(\) => openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)\)/, 'Мобильная кнопка не открывает выбранный прошедший день');
 assert.match(provider, /id="newBookingHistoricalToggle"[^>]*aria-pressed=/, 'Нет явного режима прошедшего визита');
