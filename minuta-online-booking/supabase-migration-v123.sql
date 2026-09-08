@@ -251,7 +251,12 @@ begin
   and member.active and member.is_bookable
  join public.services service on service.id=p_service and service.performer_id=v_actor and service.active
  where location.id=p_location and location.organization_id=p_organization and location.active;
- if v_zone is null or not exists(select 1 from pg_catalog.pg_timezone_names where name=v_zone) then return false; end if;
+ if v_zone is null then return false; end if;
+ begin
+  perform pg_catalog.timezone(v_zone,p_date::timestamp);
+ exception when invalid_parameter_value then
+  return false;
+ end;
  v_end:=p_date+p_time+make_interval(mins=>p_duration);
  if p_date+p_time<=timezone(v_zone,now()) or p_date>timezone(v_zone,now())::date+730 or v_end>p_date+1 then return false; end if;
  select * into v_schedule from public.provider_schedule
