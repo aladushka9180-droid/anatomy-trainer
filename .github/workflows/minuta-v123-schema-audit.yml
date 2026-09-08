@@ -51,7 +51,7 @@ jobs:
           from pg_proc p
           join pg_namespace n on n.oid=p.pronamespace
           where n.nspname='public'
-            and (p.proname in ('get_available_slots','get_available_slots_v101','book_appointment','provider_book_appointment','manage_minuta_booking_series','minuta_slot_respects_booking_buffer')
+            and (p.proname in ('get_available_slots','get_available_slots_v101','book_appointment','provider_book_appointment','manage_minuta_booking_series','minuta_slot_respects_booking_buffer','minuta_booking_fits_active_shift','allocate_minuta_booking_resources','enqueue_minuta_booking_notification','cancel_minuta_booking_core')
               or p.oid in (select trigger.tgfoid from pg_trigger trigger where trigger.tgrelid in
                 ('public.bookings'::regclass,'public.services'::regclass,'public.provider_schedule'::regclass,'public.provider_days_off'::regclass)))
           order by p.proname,pg_get_function_identity_arguments(p.oid);
@@ -69,7 +69,12 @@ jobs:
           where connamespace='public'::regnamespace
             and conrelid in ('public.bookings'::regclass,'public.services'::regclass,'public.provider_schedule'::regclass,'public.provider_days_off'::regclass)
           order by conrelid::regclass::text,conname;
-          select '-- trigger '||class.relname||'.'||trigger.tgname||E'\nfunction='||proc.oid::regprocedure
+          select '-- trigger '||class.relname||'.'||trigger.tgname
+            ||E'\nfunction='||proc.oid::regprocedure
+            ||E'\nenabled='||trigger.tgenabled
+            ||E'\ntiming='||(case when trigger.tgtype & 2=2 then 'BEFORE' when trigger.tgtype & 64=64 then 'INSTEAD OF' else 'AFTER' end)
+            ||E'\nevents='||concat_ws(',',case when trigger.tgtype & 4=4 then 'INSERT' end,case when trigger.tgtype & 8=8 then 'DELETE' end,case when trigger.tgtype & 16=16 then 'UPDATE' end,case when trigger.tgtype & 32=32 then 'TRUNCATE' end)
+            ||E'\nwhen='||coalesce(pg_get_expr(trigger.tgqual,trigger.tgrelid),'')
           from pg_trigger trigger
           join pg_class class on class.oid=trigger.tgrelid
           join pg_namespace namespace on namespace.oid=class.relnamespace
