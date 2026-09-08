@@ -9,8 +9,8 @@ const [html, provider, css, worker] = await Promise.all([
   read('provider.html'), read('provider.js'), read('provider-clients-premium.css'), read('sw.js')
 ]);
 
-assert.match(html, /provider-schedule-minimal\.css\?v=640[\s\S]*provider-clients-premium\.css\?v=640/, 'Client layer must load after all provider appearance layers');
-assert.match(html, /client-results\.js\?v=640[\s\S]*client-relationship\.js\?v=640[\s\S]*provider\.js\?v=640/, 'Relationship rules must load before provider rendering');
+assert.match(html, /provider-schedule-minimal\.css\?v=641[\s\S]*provider-clients-premium\.css\?v=641/, 'Client layer must load after all provider appearance layers');
+assert.match(html, /client-results\.js\?v=641[\s\S]*client-relationship\.js\?v=641[\s\S]*provider\.js\?v=641/, 'Relationship rules must load before provider rendering');
 for (const id of [
   'clientProfileOrbit', 'clientRelationshipTitle', 'clientRelationshipLevel', 'clientMilestoneCard',
   'clientMilestoneProgress', 'clientReliabilityCard', 'clientReliabilityText', 'clientVisits',
@@ -31,10 +31,10 @@ assert.match(css, /\.client-list-avatar-orbit\.has-photo[\s\S]*--client-photo-to
 assert.match(css, /@media \(max-width:760px\)/);
 assert.match(css, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 
-assert.match(worker, /CACHE_PREFIX}v640/);
+assert.match(worker, /CACHE_PREFIX}v641/);
 assert.match(worker, /assetResponse\(request\)[\s\S]*caches\.open\(CACHE\)\)\.put\(request, response\.clone\(\)\)/, 'Secondary client assets must enter the runtime cache after their first online load');
 
 const relationshipCard = html.slice(html.indexOf('id="clientMilestoneCard"'), html.indexOf('id="clientBirthdayInfo"'));
 assert.ok(!/Скидка\s*\d|бесплатн(?:ый|ая)\s+(?:сеанс|услуг)/i.test(relationshipCard), 'The relationship UI must not promise rewards that were not configured');
 
-console.log('Provider clients premium v640 static checks: PASS');
+console.log('Provider clients premium v641 static checks: PASS');
