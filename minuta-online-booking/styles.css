@@ -8919,9 +8919,9 @@ html.provider-booting .provider-main {
   background:var(--theme-line);
   content:"";
 }
-.report-trend .report-chart-column.is-empty>span::after { height:2px; opacity:.55; }
+.report-trend .report-chart-column.is-empty>span::after { display:none; }
 .report-trend .report-chart-column.is-zero>span::after { height:4px; background:color-mix(in srgb,var(--theme-accent) 52%,var(--theme-line)); }
-.report-trend .report-chart-column.is-unknown>span::after { height:2px; background:var(--theme-muted); opacity:.72; }
+.report-trend .report-chart-column.is-unknown>span::after { display:none; }
 .report-trend .report-chart-column.is-empty>b { color:color-mix(in srgb,var(--theme-muted) 68%,transparent); }
 .report-trend .report-chart-column.is-unknown>b { color:var(--theme-muted); }
 .report-trend .report-chart-column.is-partial-data i { background:color-mix(in srgb,var(--theme-accent) 70%,var(--theme-surface)); }
