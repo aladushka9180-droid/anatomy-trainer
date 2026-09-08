@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T00:00:00Z",
+  "updatedAt": "2026-09-08T18:20:00Z",
   "items": {
     "D01": {
       "status": "awaiting_external",
@@ -12,7 +12,31 @@
         "requiredAction": "Добавить секреты через защищённые интерфейсы; перед реальным платежом и возвратом получить отдельное подтверждение пользователя."
       }
     },
-    "D02": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D02": {
+      "status": "awaiting_external",
+      "evidence": {
+        "releaseSha": "77485bd4e8726f480e0afc08d9254fc2c265e701",
+        "ciRuns": {
+          "smoke": 34260711653,
+          "pages": 34260710186,
+          "notification_delivery": 34261189745
+        },
+        "productionHealthRunId": 34261849496,
+        "verifiedAt": "2026-09-08T18:16:00Z",
+        "checks": {
+          "confirmation_request": true,
+          "consent": true,
+          "quiet_hours": true,
+          "delivery_status": true,
+          "fallback_channel": true
+        }
+      },
+      "blocker": {
+        "type": "secret",
+        "reason": "Миграция v126 применена с выключенными по умолчанию каналами, но Edge Functions не развёрнуты: в GitHub отсутствует SUPABASE_ACCESS_TOKEN. Реальные каналы и доставка также ещё не подтверждены.",
+        "requiredAction": "Безопасно добавить SUPABASE_ACCESS_TOKEN и ключи выбранных провайдеров, затем отдельно подтвердить контролируемую отправку реальных уведомлений."
+      }
+    },
     "D03": { "status": "implementing", "evidence": {}, "blocker": null },
     "D04": {
       "status": "awaiting_external",
