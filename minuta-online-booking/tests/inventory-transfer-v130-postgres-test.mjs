@@ -13,12 +13,13 @@ const Client = pg.Client || pg.default?.Client;
 assert.equal(typeof Client, 'function', 'PostgreSQL Client constructor unavailable');
 
 const read = name => readFileSync(new URL(name, root), 'utf8');
-const migration = read('supabase-migration-v130.sql');
-const rollback = read('supabase-migration-v130-operational-rollback.sql');
+const executableSql = sql => sql.replace(/^\\set[^\r\n]*(?:\r?\n|$)/gm,'');
+const migration = executableSql(read('supabase-migration-v130.sql'));
+const rollback = executableSql(read('supabase-migration-v130-operational-rollback.sql'));
 const rollbackInTransaction = rollback
-  .replace(/^\\set ON_ERROR_STOP on\s*/m,'')
   .replace(/^begin;\s*/m,'')
   .replace(/\s*notify pgrst,'reload schema';\s*commit;\s*$/m,'');
+const schemaRollback = executableSql(read('supabase-migration-v130-schema-rollback.sql'));
 const clients = [];
 const tls = process.env.MINUTA_TEST_PG_TLS_NO_VERIFY === 'MIGRATION_TEST_ONLY' ? { rejectUnauthorized:false } : undefined;
 const connect = async () => {
@@ -34,7 +35,7 @@ const connect = async () => {
 const admin = await connect();
 const actor = randomUUID(), organization = randomUUID(), sourceLocation = randomUUID(), destinationLocation = randomUUID();
 const sourceWarehouse = randomUUID(), destinationWarehouse = randomUUID();
-const item = randomUUID(), mixedItem = randomUUID(), fifoItem = randomUUID();
+const item = randomUUID(), mixedItem = randomUUID(), fifoItem = randomUUID(), legacyItem = randomUUID();
 const receipt = 'select public.apply_minuta_stock_movement_v130($1,$2,$3,$4,$5,$6,$7,$8,$9) result';
 const transfer = 'select public.transfer_minuta_inventory_stock_v130($1,$2,$3,$4,$5,$6,$7) result';
 const transferArgs = (requestId, quantity=3, from=sourceWarehouse, to=destinationWarehouse, target=item, reason='Перемещение для смены') =>
@@ -44,6 +45,7 @@ const asActor = async client => {
   await client.query('set role authenticated');
 };
 const outcome = promise => promise.then(value => ({ value }), error => ({ error }));
+const canonicalSql = value => String(value || '').toLowerCase().replace(/\s+/g,'');
 const awaitBlocked = async (observer,pid) => {
   for (let attempt=0;attempt<100;attempt+=1) {
     const row = (await observer.query("select wait_event_type='Lock' blocked from pg_stat_activity where pid=$1",[pid])).rows[0];
@@ -55,6 +57,16 @@ const awaitBlocked = async (observer,pid) => {
 let fixtureCreated = false;
 
 try {
+  if ((await admin.query("select to_regclass('public.organization_inventory_transfer_settings') is not null present")).rows[0].present) {
+    await admin.query(schemaRollback);
+  }
+  const v108Baseline = (await admin.query(`select
+    pg_get_functiondef('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'::regprocedure) apply_definition,
+    pg_get_functiondef('public.consume_minuta_inventory_for_booking(uuid)'::regprocedure) consume_definition,
+    (select coalesce(proacl::text,'') from pg_proc where oid='public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'::regprocedure) apply_acl,
+    (select coalesce(proacl::text,'') from pg_proc where oid='public.consume_minuta_inventory_for_booking(uuid)'::regprocedure) consume_acl,
+    (select pg_get_constraintdef(oid) from pg_constraint where conrelid='public.inventory_movements'::regclass
+      and conname='inventory_movements_movement_type_check') movement_constraint`)).rows[0];
   await admin.query(migration);
   await admin.query(migration);
   assert.equal((await admin.query("select to_regprocedure('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)') is not null ok")).rows[0].ok,true);
@@ -74,14 +86,57 @@ try {
   await admin.query(`insert into public.organization_inventory_settings(organization_id,enabled,auto_deduct_completed_visits,enabled_at,enabled_by)
     values($1,true,false,now(),$2)`,[organization,actor]);
   await admin.query(`insert into public.inventory_items(id,organization_id,name,sku,unit,active,created_by)
-    values($1,$4,'D09 known FIFO','D09-KNOWN','piece',true,$5),
-      ($2,$4,'D09 mixed FIFO','D09-MIXED','piece',true,$5),
-      ($3,$4,'D09 chronology FIFO','D09-CHRONOLOGY','piece',true,$5)`,
-    [item,mixedItem,fifoItem,organization,actor]);
+    values($1,$5,'D09 known FIFO','D09-KNOWN','piece',true,$6),
+      ($2,$5,'D09 mixed FIFO','D09-MIXED','piece',true,$6),
+      ($3,$5,'D09 chronology FIFO','D09-CHRONOLOGY','piece',true,$6),
+      ($4,$5,'D09 legacy rollback','D09-LEGACY','piece',true,$6)`,
+    [item,mixedItem,fifoItem,legacyItem,organization,actor]);
   await admin.query(`insert into public.inventory_warehouses(id,organization_id,location_id,name,active,created_by)
     values($1,$3,$4,'D09 source',true,$6),($2,$3,$5,'D09 destination',true,$6)`,
     [sourceWarehouse,destinationWarehouse,organization,sourceLocation,destinationLocation,actor]);
   await admin.query('commit'); fixtureCreated=true;
+
+  await admin.query(schemaRollback);
+  assert.equal((await admin.query("select to_regclass('public.inventory_transfer_documents') is null ok")).rows[0].ok,true);
+  assert.equal((await admin.query("select to_regprocedure('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)') is null ok")).rows[0].ok,true);
+  assert.equal((await admin.query(`select count(*)::integer n from pg_attribute
+    where attrelid='public.inventory_movements'::regclass
+      and attname in('purchase_total_cost_kopecks','transfer_document_id') and not attisdropped`)).rows[0].n,0);
+  const v108MovementCheck = (await admin.query(`select pg_get_constraintdef(oid) definition from pg_constraint
+    where conrelid='public.inventory_movements'::regclass
+      and conname='inventory_movements_movement_type_check'`)).rows[0].definition;
+  assert.match(v108MovementCheck,/receipt.*write_off.*inventory.*service_use/i);
+  assert.doesNotMatch(v108MovementCheck,/transfer_out|transfer_in/i);
+  const legacyApply = (await admin.query(`select lower(pg_get_functiondef(
+    'public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'::regprocedure)) definition`)).rows[0].definition;
+  assert.doesNotMatch(legacyApply,/13000|13001|inventory_transfer/i);
+  const v108Restored = (await admin.query(`select
+    pg_get_functiondef('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'::regprocedure) apply_definition,
+    pg_get_functiondef('public.consume_minuta_inventory_for_booking(uuid)'::regprocedure) consume_definition,
+    (select coalesce(proacl::text,'') from pg_proc where oid='public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'::regprocedure) apply_acl,
+    (select coalesce(proacl::text,'') from pg_proc where oid='public.consume_minuta_inventory_for_booking(uuid)'::regprocedure) consume_acl,
+    (select pg_get_constraintdef(oid) from pg_constraint where conrelid='public.inventory_movements'::regclass
+      and conname='inventory_movements_movement_type_check') movement_constraint`)).rows[0];
+  assert.equal(canonicalSql(v108Restored.apply_definition),canonicalSql(v108Baseline.apply_definition));
+  assert.equal(canonicalSql(v108Restored.consume_definition),canonicalSql(v108Baseline.consume_definition));
+  assert.equal(v108Restored.apply_acl,v108Baseline.apply_acl);
+  assert.equal(v108Restored.consume_acl,v108Baseline.consume_acl);
+  assert.equal(canonicalSql(v108Restored.movement_constraint),canonicalSql(v108Baseline.movement_constraint));
+  assert.equal((await admin.query('select count(*)::integer n from public.inventory_items where organization_id=$1',[organization])).rows[0].n,4);
+  assert.equal((await admin.query('select count(*)::integer n from public.inventory_warehouses where organization_id=$1',[organization])).rows[0].n,2);
+  assert.equal((await admin.query('select count(*)::integer n from public.organization_memberships where organization_id=$1',[organization])).rows[0].n,1);
+
+  const legacyClient = await connect(); await asActor(legacyClient);
+  const legacyReceipt = (await legacyClient.query(
+    'select public.apply_minuta_stock_movement($1,$2,$3,$4,$5,$6,$7,$8) result',
+    [organization,sourceWarehouse,legacyItem,'receipt',1,null,'V108 rollback receipt',randomUUID()]
+  )).rows[0].result;
+  assert.equal(legacyReceipt.quantity_after,1);
+  await legacyClient.query('select public.consume_minuta_inventory_for_booking($1)',[randomUUID()]);
+
+  await admin.query(migration);
+  await admin.query(migration);
+  assert.equal((await admin.query("select to_regprocedure('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)') is not null ok")).rows[0].ok,true);
 
   const a = await connect(), b = await connect(), observer = await connect(); await asActor(a); await asActor(b);
   await a.query('select public.enable_minuta_inventory_transfers_v130($1)',[organization]);
@@ -212,6 +267,12 @@ try {
   assert.equal(revoked.error?.code,'42501'); assert.equal(revoked.error?.message,'inventory_management_denied');
   await admin.query('update public.organization_memberships set active=true where organization_id=$1 and user_id=$2',[organization,actor]);
 
+  const refusedSchemaRollback = await outcome(admin.query(schemaRollback));
+  assert.equal(refusedSchemaRollback.error?.code,'55000');
+  assert.equal(refusedSchemaRollback.error?.message,'v130_schema_rollback_refused_ledger_not_empty');
+  await admin.query('rollback');
+  assert.equal((await admin.query("select to_regclass('public.inventory_transfer_documents') is not null ok")).rows[0].ok,true);
+
   // Exercise the global operational rollback inside an outer transaction.
   // A process crash closes the connection and PostgreSQL rolls it back, so a
   // persistent shared test database cannot leave unrelated organizations
@@ -235,18 +296,21 @@ try {
   try { await admin.query('drop trigger if exists wait_d09_legacy_insert_test on public.inventory_movements'); } catch {}
   try { await admin.query('drop function if exists public.wait_d09_legacy_insert_test()'); } catch {}
   if (fixtureCreated) {
+    const hasD09Schema = (await admin.query("select to_regclass('public.inventory_cost_allocations') is not null ok")).rows[0].ok;
     await admin.query('begin');
     await admin.query("set local session_replication_role='replica'");
     await admin.query('delete from public.inventory_audit_log where organization_id=$1',[organization]);
-    await admin.query('delete from public.inventory_cost_allocations where organization_id=$1',[organization]);
-    await admin.query('delete from public.inventory_movement_cost_snapshots where organization_id=$1',[organization]);
-    await admin.query('delete from public.inventory_cost_layers where organization_id=$1',[organization]);
+    if (hasD09Schema) {
+      await admin.query('delete from public.inventory_cost_allocations where organization_id=$1',[organization]);
+      await admin.query('delete from public.inventory_movement_cost_snapshots where organization_id=$1',[organization]);
+      await admin.query('delete from public.inventory_cost_layers where organization_id=$1',[organization]);
+    }
     await admin.query('delete from public.inventory_movements where organization_id=$1',[organization]);
-    await admin.query('delete from public.inventory_transfer_documents where organization_id=$1',[organization]);
+    if (hasD09Schema) await admin.query('delete from public.inventory_transfer_documents where organization_id=$1',[organization]);
     await admin.query('delete from public.inventory_stock_balances where organization_id=$1',[organization]);
     await admin.query('delete from public.inventory_warehouses where organization_id=$1',[organization]);
     await admin.query('delete from public.inventory_items where organization_id=$1',[organization]);
-    await admin.query('delete from public.organization_inventory_transfer_settings where organization_id=$1',[organization]);
+    if (hasD09Schema) await admin.query('delete from public.organization_inventory_transfer_settings where organization_id=$1',[organization]);
     await admin.query('delete from public.organization_inventory_settings where organization_id=$1',[organization]);
     await admin.query('delete from public.organization_memberships where organization_id=$1',[organization]);
     await admin.query('delete from public.locations where organization_id=$1',[organization]);

@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 const root = new URL('.', import.meta.url);
 const migration = await readFile(new URL('supabase-migration-v130.sql', root), 'utf8');
 const rollback = await readFile(new URL('supabase-migration-v130-operational-rollback.sql', root), 'utf8');
+const schemaRollback = await readFile(new URL('supabase-migration-v130-schema-rollback.sql', root), 'utf8');
+const v82 = await readFile(new URL('supabase-migration-v82.sql', root), 'utf8');
 
 for (const table of [
   'organization_inventory_transfer_settings',
@@ -66,5 +68,35 @@ assert.match(rollback, /enabled=false[\s\S]*suspended_at=coalesce\(suspended_at,
 assert.match(rollback, /revoke execute on function public\.transfer_minuta_inventory_stock_v130/i);
 assert.match(rollback, /inventory_movement_cost_v130/i);
 assert.doesNotMatch(rollback, /\bdrop\s+(?:table|column|constraint)\b|\btruncate\b|\bdelete\s+from\b/i);
+
+assert.match(schemaRollback, /select pg_advisory_xact_lock\(13000\)[\s\S]*v130_schema_rollback_refused_ledger_not_empty/i);
+assert.ok(schemaRollback.indexOf('v130_schema_rollback_refused_ledger_not_empty') < schemaRollback.indexOf('drop trigger'),
+  'schema rollback evidence gate must precede destructive DDL');
+for (const evidence of [
+  'initialized_at is not null',
+  'inventory_transfer_documents',
+  'inventory_cost_allocations',
+  'inventory_movement_cost_snapshots',
+  'inventory_cost_layers',
+  'transfer_document_id is not null',
+  'purchase_total_cost_kopecks is not null',
+  "movement_type in ('transfer_out','transfer_in')"
+]) assert.ok(schemaRollback.includes(evidence), `schema rollback must refuse on ${evidence}`);
+assert.match(schemaRollback, /drop table public\.inventory_cost_allocations[\s\S]*drop table public\.organization_inventory_transfer_settings/i);
+assert.match(schemaRollback, /drop column purchase_total_cost_kopecks,[\s\S]*drop column transfer_document_id/i);
+assert.match(schemaRollback, /add constraint inventory_movements_movement_type_check[\s\S]*'receipt','write_off','inventory','service_use'/i);
+assert.doesNotMatch(schemaRollback, /\bdelete\s+from\b|\btruncate\b/i);
+for (const legacy of ['apply_minuta_stock_movement', 'consume_minuta_inventory_for_booking']) {
+  const pattern = new RegExp(`create or replace function public\\.${legacy}\\([\\s\\S]*?end \\$\\$;`, 'i');
+  const body = schemaRollback.match(pattern)?.[0] || '';
+  const original = v82.match(pattern)?.[0] || '';
+  assert.ok(body, `${legacy} v108 restoration must exist`);
+  assert.doesNotMatch(body, /13000|13001|transfer_minuta_inventory_stock_v130/i);
+  assert.equal(body.toLowerCase().replace(/\s+/g,''), original.toLowerCase().replace(/\s+/g,''),
+    `${legacy} must be restored exactly to v82/v108 semantics`);
+}
+assert.match(schemaRollback, /revoke all on function public\.apply_minuta_stock_movement[\s\S]*grant execute on function public\.apply_minuta_stock_movement[\s\S]*to authenticated/i);
+assert.match(schemaRollback, /revoke all on function public\.consume_minuta_inventory_for_booking\(uuid\)[\s\S]*from public,anon,authenticated,service_role/i);
+assert.match(schemaRollback, /v130_schema_rollback_postcondition_failed/i);
 
 console.log('inventory transfer v130 static contract: OK');
