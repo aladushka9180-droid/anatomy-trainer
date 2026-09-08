@@ -1,35 +1,37 @@
 name: Minuta v130 inventory integration
+run-name: Minuta v130 inventory integration - ${{ inputs.commit_sha }}
 
 on:
-  push:
-    paths:
-      - '.github/workflows/minuta-v130-inventory-transfer.yml'
-      - 'minuta-online-booking/supabase-migration-v130.sql'
-      - 'minuta-online-booking/supabase-migration-v130-operational-rollback.sql'
-      - 'minuta-online-booking/inventory-transfer-v130-static-test.mjs'
-      - 'minuta-online-booking/tests/inventory-transfer-v130-postgres-test.mjs'
   workflow_dispatch:
     inputs:
-      run_postgres:
-        description: Run the guarded two-connection test on the isolated test database
+      commit_sha:
+        description: Exact 40-character commit SHA to test
         required: true
-        default: false
-        type: boolean
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: minuta-v130-inventory-test-database
+  group: minuta-test-database
   cancel-in-progress: false
 
 jobs:
   inventory_static:
+    environment: minuta-test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact commit
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_SHA" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
       - run: node --check minuta-online-booking/inventory-transfer-v130-static-test.mjs
@@ -37,18 +39,26 @@ jobs:
       - run: node minuta-online-booking/inventory-transfer-v130-static-test.mjs
 
   inventory_integration:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_postgres
     needs: inventory_static
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: minuta-test
     env:
       MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
       MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
       MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
       MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact commit
+        env: { SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_SHA" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
       - run: npm install --no-save --ignore-scripts pg@8
