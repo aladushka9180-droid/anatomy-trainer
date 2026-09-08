@@ -67,6 +67,7 @@ for (const rpc of [
 assert.match(migration, /has_organization_role\(p_organization,array\['owner','admin'\]\)/);
 assert.match(migration, /revoke all on public\.organization_finance_settings,[\s\S]*from public,anon,authenticated,service_role/);
 assert.match(migration, /grant select on public\.organization_finance_settings,[\s\S]*to authenticated/);
+assert.match(migration, /grant execute on function public\.has_organization_role\(uuid,text\[\]\) to authenticated/);
 
 assert.match(rollback, /v129_rollback_disable_finance_first/);
 assert.match(rollback, /v129_rollback_export_and_remove_financial_data_first/);

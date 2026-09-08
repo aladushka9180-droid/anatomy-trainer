@@ -608,6 +608,11 @@ revoke all on public.organization_finance_settings,public.financial_accounts,
 grant select on public.organization_finance_settings,public.financial_accounts,
   public.financial_transactions,public.financial_postings to authenticated;
 
+-- v65 defines this helper as the shared RLS boundary and grants it to
+-- authenticated. Reassert the canonical ACL because a drifted deployment
+-- otherwise makes every manager-read policy fail with permission_denied.
+grant execute on function public.has_organization_role(uuid,text[]) to authenticated;
+
 revoke all on function public.protect_minuta_financial_ledger_v129() from public,anon,authenticated,service_role;
 revoke all on function public.assert_minuta_financial_transaction_balanced_v129() from public,anon,authenticated,service_role;
 revoke all on function public.assert_minuta_financial_postings_balanced_v129() from public,anon,authenticated,service_role;
