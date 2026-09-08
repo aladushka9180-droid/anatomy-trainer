@@ -92,6 +92,10 @@ try {
         id:node.id,
         height:node.getBoundingClientRect().height
       }));
+      const tabs = [...document.querySelectorAll('[data-client-profile-jump]')].map(node => ({
+        active:node.classList.contains('is-active'),
+        height:node.getBoundingClientRect().height
+      }));
       return {
         scrollWidth:document.documentElement.scrollWidth,
         profile:{ left:profile.left, right:profile.right, width:profile.width },
@@ -99,34 +103,37 @@ try {
         ringBackground:ring.backgroundImage, orbitSize:orbit.width,
         summaryHeight:summaryBox.height, summaryArticles, milestoneHeight:milestone.height,
         summaryColumns:summary.gridTemplateColumns.split(' ').length,
-        actions
+        actions, tabs
       };
     });
     assert.ok(state.scrollWidth <= width + 1, `${theme}/${layout}/${width}: no horizontal overflow`);
     assert.equal(state.profileDisplay, 'block', `${theme}/${layout}/${width}: selected client profile stays visible`);
     assert.ok(state.profile.left >= -0.5 && state.profile.right <= width + 1, `${theme}/${layout}/${width}: profile remains inside viewport`);
     assert.match(state.ringBackground, /conic-gradient/, `${theme}/${layout}/${width}: relationship ring remains visible`);
-    assert.ok(state.orbitSize <= 108.5, `${theme}/${layout}/${width}: profile avatar stays compact (${state.orbitSize})`);
-    assert.ok(state.summaryArticles.every(height => height <= 76), `${theme}/${layout}/${width}: facts stay compact (${state.summaryArticles})`);
-    assert.ok(state.milestoneHeight <= 78, `${theme}/${layout}/${width}: milestone stays compact (${state.milestoneHeight})`);
+    assert.ok(state.orbitSize <= 122.5, `${theme}/${layout}/${width}: profile avatar stays prominent but contained (${state.orbitSize})`);
+    assert.ok(state.summaryArticles.every(height => height <= 96), `${theme}/${layout}/${width}: facts stay compact (${state.summaryArticles})`);
+    assert.ok(state.milestoneHeight <= 84, `${theme}/${layout}/${width}: milestone stays compact (${state.milestoneHeight})`);
+    assert.equal(state.tabs.filter(item => item.active).length, 1, `${theme}/${layout}/${width}: profile navigation has one active section`);
     if (width <= 980) assert.equal(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: detail uses a single pane`);
     if (width >= 1100) assert.notEqual(state.directoryDisplay, 'none', `${theme}/${layout}/${width}: desktop keeps client context`);
     if (width <= 1199) assert.equal(state.summaryColumns, 2, `${theme}/${layout}/${width}: narrow profile uses a compact 2x2 fact grid`);
     if (width <= 760) {
       assert.ok(state.actions.every(item => item.height >= 43.5), `${theme}/${layout}/${width}: actions remain touch friendly (${JSON.stringify(state.actions)})`);
+      assert.ok(state.tabs.every(item => item.height >= 43.5), `${theme}/${layout}/${width}: profile navigation remains touch friendly (${JSON.stringify(state.tabs)})`);
     }
   }
 
   await page.evaluate(() => document.querySelector('#clientMilestoneCard').classList.add('is-max-level'));
   const maximumMilestone = await page.locator('#clientMilestoneCard').boundingBox();
-  assert.ok(maximumMilestone.height <= 52, `Maximum level becomes a quiet compact status (${maximumMilestone.height})`);
+  assert.ok(maximumMilestone.height <= 84, `Maximum level remains a compact premium status (${maximumMilestone.height})`);
   if (process.env.CLIENT_RELATIONSHIP_SCREENSHOT) {
     const screenshotWidth = Number(process.env.CLIENT_RELATIONSHIP_SCREENSHOT_WIDTH) || 1440;
     await page.setViewportSize({ width:screenshotWidth, height:1000 });
     await page.locator('body').evaluate(body => {
       body.dataset.providerTheme = 'warm';
       body.dataset.providerLayout = 'bento';
-      document.querySelector('#clientProfileOrbit').classList.remove('has-photo');
+      document.querySelector('#clientProfileOrbit').classList.add('is-max-level');
+      document.querySelector('.client-profile').classList.add('client-profile-vip');
       document.querySelector('#clientRelationshipTitle').textContent = 'С нами давно';
       document.querySelector('#clientRelationshipLevel').textContent = '4 уровень';
       document.querySelector('#clientMilestoneText').textContent = 'Максимальный уровень — спасибо, что вы с нами';
@@ -135,6 +142,7 @@ try {
       favorites.hidden = false;
       document.querySelector('#clientFavoriteServicesList').innerHTML = '<span class="client-favorite-service is-imported"><span>Массаж спины + ШВЗ — базовый</span><small>из импорта</small></span><span class="client-favorite-service is-imported"><span>Общий массаж с обеих сторон</span><small>из импорта</small></span>';
     });
+    await page.waitForTimeout(250);
     await page.screenshot({ path:process.env.CLIENT_RELATIONSHIP_SCREENSHOT, fullPage:true });
   }
   console.log(`Client relationship appearance: PASS (${themes.length * layouts.length * widths.length} theme/layout/width checks)`);

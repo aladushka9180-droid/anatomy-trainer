@@ -295,18 +295,24 @@
                 <div class="client-profile-head">
                   <div class="client-profile-orbit" id="clientProfileOrbit" style="--client-level-progress:0turn" role="img" aria-label="Уровень клиента пока не определён">
                     <div class="client-avatar-control client-profile-avatar-control"><span class="client-avatar" id="clientAvatar">К</span><label class="client-avatar-picker client-profile-avatar-picker" aria-label="Добавить или сменить фото клиента"><input id="clientAvatarInput" type="file" accept="image/jpeg,image/png,image/webp" data-client-avatar-input><span><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-image"></use></svg></span></label><button class="client-avatar-remove" id="clientAvatarRemove" type="button" data-remove-client-avatar="" aria-label="Удалить фото клиента" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-close"></use></svg></button></div>
+                    <span class="client-orbit-jewel" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-crown"></use></svg></span>
                   </div>
                   <div class="client-profile-identity"><small>Карточка клиента</small><h3 id="clientName">Клиент</h3><div class="client-relationship-status"><strong id="clientRelationshipTitle">Новый клиент</strong><span id="clientRelationshipLevel"></span></div><div id="clientProfileBadges"></div></div>
                   <div class="client-profile-contact"><a id="clientPhone" href="tel:">Телефон</a><button id="clientCopyPhone" type="button" aria-label="Скопировать номер телефона" title="Скопировать номер">Копировать</button></div>
                   <span class="client-online-block-badge" id="clientOnlineBlockBadge" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg> Онлайн-запись заблокирована</span>
-                </div>
-                <div class="client-profile-primary-actions" aria-label="Действия с клиентом">
-                  <button class="primary client-quick-repeat" id="clientQuickRepeat" type="button" data-quick-repeat-client><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Записать клиента</span></button>
-                  <button class="secondary-button" id="clientContactButton" type="button" aria-haspopup="dialog">Связаться</button>
-                  <button class="secondary-button client-more-action" id="clientMoreButton" type="button" aria-haspopup="dialog" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Ещё</span></button>
+                  <div class="client-profile-primary-actions" aria-label="Действия с клиентом">
+                    <button class="primary client-quick-repeat" id="clientQuickRepeat" type="button" data-quick-repeat-client><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Записать клиента</span></button>
+                    <button class="secondary-button" id="clientContactButton" type="button" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-telegram"></use></svg><span>Связаться</span></button>
+                    <button class="secondary-button client-more-action" id="clientMoreButton" type="button" aria-haspopup="dialog" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Ещё</span></button>
+                  </div>
                 </div>
                 <div data-contextual-help data-help-label="Что есть в карточке?" data-help-slug="client-card-notes-and-labels" data-help-question="Объясни данные карточки клиента, метки, заметки, историю, приватные материалы и блокировку онлайн-записи."></div>
-                <div class="client-summary"><article><strong id="clientVisits">0</strong><small>визитов</small></article><article><strong id="clientSpent">0 ₽</strong><small>получено</small></article><article><strong id="clientLastVisit">—</strong><small>последний визит</small></article><article class="client-summary-next"><strong id="clientNext">Нет</strong><small id="clientNextLabel">следующая запись</small><span id="clientNextDetails">Будущих записей нет</span></article></div>
+                <div class="client-summary">
+                  <article><span class="client-summary-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-check"></use></svg></span><div><strong id="clientVisits">0</strong><small>визитов</small></div></article>
+                  <article><span class="client-summary-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-chart"></use></svg></span><div><strong id="clientSpent">0 ₽</strong><small>получено</small></div></article>
+                  <article><span class="client-summary-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></span><div><strong id="clientLastVisit">—</strong><small>последний визит</small></div></article>
+                  <article class="client-summary-next"><span class="client-summary-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-clock"></use></svg></span><div><strong id="clientNext">Нет</strong><small id="clientNextLabel">следующая запись</small><span id="clientNextDetails">Будущих записей нет</span></div></article>
+                </div>
                 <section class="client-milestone-card" id="clientMilestoneCard" aria-labelledby="clientMilestoneTitle">
                   <span class="client-milestone-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-star"></use></svg></span>
                   <div><small id="clientMilestoneTitle">Уровень отношений</small><strong id="clientMilestoneText">До первого визита — 1 визит</strong><span>Учитываются только завершённые визиты</span></div>
@@ -316,6 +322,12 @@
                   <span aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-alert"></use></svg></span>
                   <div><strong>Обратите внимание</strong><small id="clientReliabilityText"></small></div>
                 </section>
+                <nav class="client-profile-tabs" aria-label="Разделы карточки клиента">
+                  <button type="button" class="is-active" data-client-profile-jump="history" aria-pressed="true">История</button>
+                  <button type="button" data-client-profile-jump="services" aria-pressed="false">Услуги</button>
+                  <button type="button" data-client-profile-jump="notes" aria-pressed="false">Заметки</button>
+                  <button type="button" data-client-profile-jump="files" aria-pressed="false">Файлы</button>
+                </nav>
                 <section class="client-birthday-info" id="clientBirthdayInfo" hidden><div><small>День рождения</small><strong id="clientBirthdayDisplay"></strong></div><button id="clientBirthdayEdit" type="button">Изменить</button></section>
                 <p class="client-debt-status" id="clientDebtStatus" hidden>Подтверждённый долг по завершённым визитам <strong id="clientDebt">0 ₽</strong></p>
                 <section class="client-favorite-services" id="clientFavoriteServices" aria-labelledby="clientFavoriteServicesTitle" hidden>

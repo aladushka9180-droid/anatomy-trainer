@@ -9283,7 +9283,7 @@ function renderClients() {
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
     const hasPhoto = Boolean(clientAvatar(client.phone)?.signed_url);
     const displayPhone = newBookingClientPhoneLabel(client.phone, client.displayPhone);
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}${facts.level === 4 ? ' is-max-level' : ''}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-orbit-jewel">${uiIcon('crown')}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -9605,6 +9605,31 @@ function returnFromClientProfile() {
   else showBooking();
 }
 
+function activateClientProfileJump(name, { scroll = true } = {}) {
+  const targetName = ['history','services','notes','files'].includes(name) ? name : 'history';
+  $$('[data-client-profile-jump]').forEach(button => {
+    const active = button.dataset.clientProfileJump === targetName;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  let target = null;
+  if (targetName === 'history') {
+    target = $('#clientHistoryDisclosure');
+    if (target) target.open = true;
+  } else if (targetName === 'services') {
+    target = $('#clientFavoriteServices');
+  } else if (targetName === 'notes') {
+    target = $('#clientPreferencesDisclosure');
+    if (target) target.open = true;
+  } else {
+    target = $('#clientRecords');
+    const files = target?.querySelector('[data-cr-panel="files"]');
+    if (files) files.open = true;
+  }
+  if (!target || target.hidden) target = $('#clientRecords') || $('#clientHistoryDisclosure');
+  if (scroll) target?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
 function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const client = buildClients().find(item => item.phone === phone);
   if (!client) return;
@@ -9645,6 +9670,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   if (clientChanged) {
     $('#clientPreferencesDisclosure').open = false;
     $('#clientHistoryDisclosure').open = false;
+    activateClientProfileJump('history', { scroll:false });
   }
   clearFormError('#clientLabelsError');
   const completedVisits = clientCompletedVisits(client);
@@ -9655,6 +9681,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const profileOrbit = $('#clientProfileOrbit');
   profileOrbit.style.setProperty('--client-level-progress', `${facts.progress.toFixed(4)}turn`);
   profileOrbit.classList.toggle('has-photo', Boolean(clientAvatar(client.phone)?.signed_url));
+  profileOrbit.classList.toggle('is-max-level', facts.level === 4);
   profileOrbit.setAttribute('aria-label', facts.level ? `${facts.title}, ${facts.level} уровень` : facts.title);
   $('#clientRelationshipTitle').textContent = facts.title;
   $('#clientRelationshipLevel').textContent = facts.level ? `${facts.level} уровень` : '';
@@ -12562,6 +12589,7 @@ document.addEventListener('click', async event => {
   const reviewVisibility = event.target.closest('[data-review-visibility]');
   const client = event.target.closest('[data-client-phone]');
   const clientProfileBack = event.target.closest('#clientProfileBack');
+  const clientProfileJump = event.target.closest('[data-client-profile-jump]');
   const clientContactButton = event.target.closest('#clientContactButton');
   const clientMoreButton = event.target.closest('#clientMoreButton');
   const clientCopyPhoneButton = event.target.closest('#clientCopyPhone,#clientCopyPhoneMenu');
@@ -12746,6 +12774,7 @@ document.addEventListener('click', async event => {
   if (clientContactButton) openClientContactDialog();
   if (clientMoreButton) openClientMoreDialog();
   if (clientCopyPhoneButton) await copySelectedClientPhone();
+  if (clientProfileJump) activateClientProfileJump(clientProfileJump.dataset.clientProfileJump);
   if (clientBirthdayButton) openClientBirthdayDialog();
   if (clientBirthdayClear) await saveClientBirthday(event, true);
   if (clientBlockAction) openClientBlockConfirmation();
