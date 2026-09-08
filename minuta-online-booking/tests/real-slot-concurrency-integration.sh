@@ -5,16 +5,17 @@ set -euo pipefail
 
 request_one="00000000-0000-4000-8000-000000009001"
 request_two="00000000-0000-4000-8000-000000009002"
+test_performer="00000000-0000-4000-8000-000000009003"
+test_service="00000000-0000-4000-8000-000000009004"
 lock_key="900090"
 first_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-first.log"
 second_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-second.log"
-schedule_performer=""
 schedule_weekday=""
-schedule_snapshot=""
 
 cleanup() {
   psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=0 \
-    -v request_one="$request_one" -v request_two="$request_two" <<'SQL' >/dev/null
+    -v request_one="$request_one" -v request_two="$request_two" \
+    -v test_performer="$test_performer" -v test_service="$test_service" <<'SQL' >/dev/null
 select set_config('minuta.test_request_one', :'request_one', false);
 select set_config('minuta.test_request_two', :'request_two', false);
 do $$
@@ -32,21 +33,12 @@ begin
     perform public.provider_delete_booking(booking.id);
   end loop;
 end $$;
+delete from public.services where id=:'test_service'::uuid;
+delete from public.provider_schedule where performer_id=:'test_performer'::uuid;
+delete from public.organization_memberships where user_id=:'test_performer'::uuid;
+delete from public.performer_profiles where id=:'test_performer'::uuid;
+delete from auth.users where id=:'test_performer'::uuid;
 SQL
-  if [[ -n "$schedule_performer" && -n "$schedule_weekday" ]]; then
-    psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
-      -v performer_id="$schedule_performer" -v weekday="$schedule_weekday" <<'SQL' >/dev/null
-delete from public.provider_schedule
-where performer_id=:'performer_id'::uuid and weekday=:'weekday'::integer;
-SQL
-    if [[ -n "$schedule_snapshot" ]]; then
-      psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
-        -v schedule_snapshot="$schedule_snapshot" <<'SQL' >/dev/null
-insert into public.provider_schedule
-select (jsonb_populate_record(null::public.provider_schedule, :'schedule_snapshot'::jsonb)).*;
-SQL
-    fi
-  fi
   rm -f -- "$first_log" "$second_log"
 }
 trap cleanup EXIT
@@ -55,26 +47,25 @@ cleanup
 seed_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
 select organization.public_slug,
        location.id,
-       service.id,
-       service.performer_id,
+       organization.id,
+       coalesce(
+         organization.legacy_performer_id,
+         (select membership.user_id from public.organization_memberships membership
+          where membership.organization_id=organization.id and membership.role='owner'
+          order by membership.created_at limit 1)
+       ),
+       (select service.id from public.services service order by service.id limit 1),
        current_date + 7,
        extract(dow from current_date + 7)::integer
-from public.services service
-join public.organization_memberships membership
-  on membership.user_id = service.performer_id
- and membership.active
- and membership.is_bookable
-join public.organizations organization
-  on organization.id = membership.organization_id
- and organization.status = 'active'
- and organization.public_booking_enabled
+from public.organizations organization
 join public.locations location
   on location.organization_id = organization.id
  and location.active
  and location.is_primary
  and location.timezone = 'Europe/Samara'
-where service.active
-order by service.id
+where organization.status = 'active'
+  and organization.public_booking_enabled
+order by organization.id
 limit 1;
 SQL
 )"
@@ -83,20 +74,35 @@ if [[ -z "$seed_row" ]]; then
   echo "No active public test-project service is available for the concurrency check" >&2
   exit 1
 fi
-IFS='|' read -r slug location_id service_id schedule_performer target_date schedule_weekday <<<"$seed_row"
-
-schedule_snapshot="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At \
-  -v performer_id="$schedule_performer" -v weekday="$schedule_weekday" <<'SQL'
-select row_to_json(schedule)::text
-from public.provider_schedule schedule
-where schedule.performer_id=:'performer_id'::uuid and schedule.weekday=:'weekday'::integer;
-SQL
-)"
+IFS='|' read -r slug location_id organization_id owner_id seed_service target_date schedule_weekday <<<"$seed_row"
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
-  -v performer_id="$schedule_performer" -v weekday="$schedule_weekday" <<'SQL' >/dev/null
-delete from public.provider_schedule
-where performer_id=:'performer_id'::uuid and weekday=:'weekday'::integer;
+  -v performer_id="$test_performer" -v service_id="$test_service" \
+  -v organization_id="$organization_id" -v owner_id="$owner_id" \
+  -v seed_service="$seed_service" -v weekday="$schedule_weekday" <<'SQL' >/dev/null
+set session_replication_role=replica;
+insert into auth.users(
+  id,instance_id,aud,role,email,email_confirmed_at,
+  raw_app_meta_data,raw_user_meta_data,created_at,updated_at
+) values (
+  :'performer_id'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+  'primetime-concurrency@example.invalid',now(),'{}'::jsonb,'{}'::jsonb,now(),now()
+);
+set session_replication_role=origin;
+insert into public.performer_profiles(id,display_name)
+values(:'performer_id'::uuid,'PrimeTime Concurrency Specialist');
+insert into public.organization_memberships(
+  organization_id,user_id,role,is_bookable,active,created_by
+) values (
+  :'organization_id'::uuid,:'performer_id'::uuid,'specialist',true,true,:'owner_id'::uuid
+);
+insert into public.services
+select (jsonb_populate_record(null::public.services,to_jsonb(service)||jsonb_build_object(
+  'id',:'service_id','performer_id',:'performer_id','name','PrimeTime concurrency service',
+  'active',true,'created_at',now(),'updated_at',now()
+))).*
+from public.services service
+where service.id=:'seed_service'::uuid;
 insert into public.provider_schedule(
   performer_id,weekday,enabled,start_time,end_time,break_start,break_end,slot_interval_minutes
 ) values (
@@ -105,7 +111,7 @@ insert into public.provider_schedule(
 SQL
 
 slot_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' \
-  -v service_id="$service_id" -v target_date="$target_date" <<'SQL'
+  -v service_id="$test_service" -v target_date="$target_date" <<'SQL'
 select booking_date,booking_time
 from public.get_available_slots(
   :'service_id'::uuid,:'target_date'::date,:'target_date'::date
@@ -119,6 +125,7 @@ if [[ -z "$slot_row" ]]; then
   exit 1
 fi
 IFS='|' read -r target_date target_time <<<"$slot_row"
+service_id="$test_service"
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v request_id="$request_one" -v slug="$slug" -v location_id="$location_id" \
