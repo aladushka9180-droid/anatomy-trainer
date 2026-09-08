@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T19:42:49Z",
+  "updatedAt": "2026-09-08T19:42:50Z",
   "items": {
     "D01": {
       "status": "awaiting_external",
@@ -40,12 +40,12 @@
     "D03": {
       "status": "awaiting_external",
       "evidence": {
-        "releaseSha": "77485bd4e8726f480e0afc08d9254fc2c265e701",
+        "releaseSha": "4c06863938c3bb10caeb2648c45e8a42192ab941",
         "ciRuns": {
-          "smoke": 34260711653,
-          "backup": 34261303858
+          "smoke": 34268755938,
+          "backup": 34269179975
         },
-        "verifiedAt": "2026-09-08T18:16:00Z",
+        "verifiedAt": "2026-09-08T19:36:00Z",
         "checks": {
           "no_production_write": true,
           "no_secrets_or_pii_in_journal": true
@@ -53,8 +53,8 @@
       },
       "blocker": {
         "type": "production_access",
-        "reason": "Fail-closed контракт и синтетический Auth/Storage drill опубликованы, но реальное изолированное восстановление управляемых Auth и Storage ещё не выполнялось.",
-        "requiredAction": "Предоставить административный доступ к отдельному Supabase recovery-проекту и подтвердить реальный Auth/Storage restore drill без записи в production."
+        "reason": "Fail-closed managed preflight опубликован, но существующий общий test project непустой и намеренно отклоняется; реальное изолированное восстановление Auth и Storage не выполнялось.",
+        "requiredAction": "Создать новый одноразовый Supabase recovery-проект и предоставить административный доступ только к нему, затем выполнить guarded Auth/Storage restore drill без записи в production."
       }
     },
     "D04": {
