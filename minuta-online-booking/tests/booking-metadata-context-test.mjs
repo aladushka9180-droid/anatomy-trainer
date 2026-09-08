@@ -21,7 +21,7 @@ const handlers = between("document.addEventListener('change', async event => {",
   + between('async function finalizeQueuedBooking(', 'async function flushOfflineBookings(');
 const constants = ['BOOKING_COLOR_KEYS', 'BOOKING_COLOR_DEFAULT']
   .map(name => source.match(new RegExp(`^const ${name} = .*;$`, 'm'))?.[0]).join('\n');
-const lifecycleDeclarations = ['bookingMetadataRevision', 'bookingEditorRevision', 'bookingSeriesCancellationRevision']
+const lifecycleDeclarations = ['bookingMetadataRevision', 'bookingEditorRevision', 'bookingSeriesCancellationRevision', 'portfolioEditorRevision']
   .map(name => source.match(new RegExp(`^let ${name} = .*;$`, 'm'))?.[0] || '').join('\n');
 const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
   .map(match => match[0]).join('\n');

@@ -27,7 +27,7 @@ const actual = between('async function createNewBooking(', 'function closeBookin
   + ['sessionIsCurrent', 'bookingDraftKey', 'clearNewBookingDraft'].map(oneLine).join('\n')
   + '\n' + source.match(/^function captureBookingMetadataContext\(\) \{[\s\S]*?^\}/m)[0]
   + '\n' + between('// Background replay', '// Local completion ownership');
-const lifecycle = ['bookingMetadataRevision', 'bookingEditorRevision', 'bookingSeriesCancellationRevision']
+const lifecycle = ['bookingMetadataRevision', 'bookingEditorRevision', 'bookingSeriesCancellationRevision', 'portfolioEditorRevision']
   .map(name => source.match(new RegExp(`^let ${name} = .*;$`, 'm'))[0]).join('\n');
 const resetHooks = [...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)]
   .map(match => match[0]).join('\n');
