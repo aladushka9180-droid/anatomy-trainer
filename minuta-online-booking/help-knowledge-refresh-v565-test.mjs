@@ -40,6 +40,7 @@ const providerHtml = read('provider.html');
 const providerJs = read('provider.js');
 assert.doesNotMatch(providerJs, /client-phone-autofill/, 'Очевидная подсказка не должна перегружать форму записи');
 assert.match(providerJs, /client-private-results/, 'В результате визита нет ссылки на приватность');
+assert.match(providerJs, /\['clients', 'notifications', 'settings', 'organization', 'more'\]\.includes\(view\).*loadProviderGuidance/, 'Контекстные подсказки не загружаются в разделах клиентов и уведомлений');
 for (const slug of ['client-search-filters', 'client-card-notes-and-labels', 'notification-queue', 'client-retention', 'client-page-appearance', 'share-free-slots']) {
   assert.ok(providerHtml.includes(slug), `В интерфейсе нет контекстной ссылки ${slug}`);
 }

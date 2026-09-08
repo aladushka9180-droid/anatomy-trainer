@@ -71,7 +71,7 @@ const siteUpdate = readFileSync(join(root, 'site-update.js'), 'utf8');
 assert.match(siteUpdate, new RegExp(`sw\\.js\\?v=${version}`), 'Регистрация service worker использует другую версию');
 assert.match(settingsSmartSearch, /cabinetSectionsSearchInput[\s\S]*VIEW_ALIASES[\s\S]*findSections/, 'В меню «Разделы» нет умного поиска');
 assert.match(settingsSmartSearch, /startSectionsVoiceSearch[\s\S]*SpeechRecognition/, 'В меню «Разделы» нет голосового поиска');
-assert.match(provider, /view === 'settings' \|\| view === 'organization' \|\| view === 'more'[\s\S]*loadProviderGuidance/, 'Умный поиск не загружается при прямом открытии раздела «Ещё»');
+assert.match(provider, /\['clients', 'notifications', 'settings', 'organization', 'more'\]\.includes\(view\)[\s\S]*loadProviderGuidance/, 'Контекстные подсказки и умный поиск не загружаются в нужных разделах');
 assert.match(settingsNavScroll, /settings-section-picker/, 'На телефоне нет компактного выбора раздела настроек');
 assert.match(settingsNavScroll, /button\?\.click\(\)/, 'Выбор раздела не открывает соответствующую настройку');
 assert.match(indexHtml, /id="specialistFilter"[\s\S]*id="specialists"[\s\S]*role="group"/, 'На клиентской странице нет выбора специалиста');

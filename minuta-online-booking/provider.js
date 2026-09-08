@@ -5633,7 +5633,7 @@ function setProviderViewImmediate(view, focusHeading = false) {
     renderWaitlist();
     if (currentUser && navigator.onLine && !waitlistLoaded) void loadWaitlist();
   }
-  if (view === 'settings' || view === 'organization' || view === 'more') void loadProviderGuidance().catch(() => {});
+  if (['clients', 'notifications', 'settings', 'organization', 'more'].includes(view)) void loadProviderGuidance().catch(() => {});
   if (view === 'organization') {
     if (organizationController.availability === null) organizationController.load();
     else organizationController.render();
