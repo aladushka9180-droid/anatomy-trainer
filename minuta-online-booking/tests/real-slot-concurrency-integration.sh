@@ -228,7 +228,7 @@ if [[ "$second_status" -eq 0 ]]; then
   echo "Both authenticated clients acquired the same slot" >&2
   exit 1
 fi
-if ! grep -Eqi 'booking_slot_unavailable|exclusion|conflict|bookings_performer_active_no_overlap' "$second_log"; then
+if ! grep -Eqi '(^|[^[:alnum:]_])slot_unavailable|booking_slot_unavailable|exclusion|conflict|bookings_performer_active_no_overlap' "$second_log"; then
   echo "The rejected authenticated client did not receive a recognized slot-conflict result" >&2
   sed -n '1,40p' "$second_log" >&2
   exit 1
