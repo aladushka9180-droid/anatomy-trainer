@@ -13,5 +13,8 @@ verify_jwt = false
 [functions.notification-dispatcher]
 verify_jwt = false
 
+[functions.notification-receipt]
+verify_jwt = false
+
 [functions.telegram-booking-notify]
 verify_jwt = false

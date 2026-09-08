@@ -134,16 +134,21 @@ Deno.serve(async request => {
     return json({
       ok:true,dry_run:true,worker_version:"v114",configured_channels:channels,
       reminders_queued:0,claimed:0,sent:0,retried:0,failed:0,cutover,
+      confirmation_requests_queued:0,
     });
   }
   const parsedLimit = Number(body.limit);
   const limit = Number.isInteger(parsedLimit) ? Math.max(1, Math.min(parsedLimit, 100)) : 20;
 
   let remindersQueued = 0;
+  let confirmationRequestsQueued = 0;
   try {
     remindersQueued = Number(await rpc<number>("enqueue_due_minuta_booking_reminders", { p_limit: 500 }, secretKey) || 0);
+    confirmationRequestsQueued = Number(await rpc<number>(
+      "enqueue_due_minuta_booking_confirmation_requests_v126", { p_limit: 500 }, secretKey,
+    ) || 0);
   } catch {
-    return json({ ok: false, error: "reminder_enqueue_failed" }, 502);
+    return json({ ok: false, error: "notification_enqueue_failed" }, 502);
   }
 
   let jobs: NotificationJob[];
@@ -205,6 +210,7 @@ Deno.serve(async request => {
     ok: failed === 0,
     configured_channels: available,
     reminders_queued: remindersQueued,
+    confirmation_requests_queued: confirmationRequestsQueued,
     claimed: jobs.length,
     sent, retried, failed,
   }, failed ? 207 : 200);

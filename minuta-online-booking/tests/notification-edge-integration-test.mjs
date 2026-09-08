@@ -11,7 +11,7 @@ function fixture({environment=env,mode='accepted',jobs=[job]}={}){
     if(url.hostname==='api.telegram.org'){if(mode==='unknown')throw new TypeError('fixture ambiguous timeout');return reply({ok:true,result:{message_id:42}});}
     assert.equal(url.hostname,'db.fixture.invalid');
     const name=url.pathname.split('/').at(-1);
-    if(name==='enqueue_due_minuta_booking_reminders')return reply(0);
+    if(name==='enqueue_due_minuta_booking_reminders'||name==='enqueue_due_minuta_booking_confirmation_requests_v126')return reply(0);
     if(name==='claim_minuta_notification_outbox')return reply(jobs);
     if(name==='ack_minuta_notification_outbox_v114'&&mode==='ack-failed')return reply({message:'fixture failed'},503);
     if(name==='fail_notification_outbox')return reply('failed');

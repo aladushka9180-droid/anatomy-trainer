@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+await import('./notification-v126-static-test.mjs');
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 

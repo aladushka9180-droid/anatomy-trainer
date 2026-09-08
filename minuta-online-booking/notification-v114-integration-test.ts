@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 import { PGlite } from "npm:@electric-sql/pglite@0.3.10";
+await import("./notification-v126-integration-test.ts");
 
 const migration = await Deno.readTextFile(new URL("./supabase-migration-v114.sql", import.meta.url));
 const rollback = await Deno.readTextFile(new URL("./supabase-migration-v114-rollback.sql", import.meta.url));

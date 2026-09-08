@@ -8,7 +8,7 @@ export type NotificationJob = {
   organization_id: string;
   performer_id: string;
   booking_id: string;
-  kind: "booking_created" | "booking_confirmed" | "booking_rescheduled" | "booking_cancelled" | "booking_reminder";
+  kind: "booking_created" | "booking_confirmed" | "booking_confirmation_request" | "booking_rescheduled" | "booking_cancelled" | "booking_reminder";
   channel: NotificationChannel;
   audience: "provider" | "client";
   attempt_no: number;
@@ -90,6 +90,7 @@ function eventTitle(job: NotificationJob): string {
   return ({
     booking_created: "Запись создана",
     booking_confirmed: "Запись подтверждена",
+    booking_confirmation_request: "Подтвердите посещение",
     booking_rescheduled: "Запись перенесена",
     booking_cancelled: "Запись отменена",
     booking_reminder: "Напоминание о записи",
@@ -109,6 +110,9 @@ function plainMessage(job: NotificationJob): { subject: string; text: string } {
   lines.push(`Время: ${String(payload.booking_time || "").slice(0, 5)}`);
   lines.push(`Исполнитель: ${String(payload.performer_name || "Специалист")}`);
   if (payload.booking_code) lines.push(`Код: ${String(payload.booking_code)}`);
+  if (job.kind === "booking_confirmation_request") {
+    lines.push("", "Пожалуйста, подтвердите, что придёте, на странице управления записью.");
+  }
   return { subject, text: lines.join("\n") };
 }
 
