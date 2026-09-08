@@ -2457,7 +2457,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=635#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=636#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4624,7 +4624,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=635');
+    worker = new Worker('./report-worker.js?v=636');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -6826,6 +6826,27 @@ function clientCompletedVisits(client, now = new Date()) {
     if (outcome.visit_status === 'no_show') return false;
     return item.status !== 'cancelled' && new Date(`${item.booking_date}T${String(item.booking_time).slice(0,8)}`) < now;
   });
+}
+
+function clientRelationshipFacts(client, completedVisits = clientCompletedVisits(client)) {
+  const importedRows = completedVisits.filter(item => item.is_imported_history).length;
+  const visits = completedVisits.length - importedRows + Math.max(importedRows, Number(client?.imported?.visit_count || 0));
+  const relationship = window.PrimeTimeClientRelationship;
+  if (!relationship) return {
+    visits,
+    level:0,title:'Новый клиент',progress:0,milestone:'До первого визита — 1 визит'
+  };
+  const facts = relationship.relationship({
+    completedVisits:visits
+  });
+  const reliability = relationship.reliability((client?.bookings || []).map(item => ({
+    bookingDate:item.booking_date,
+    bookingTime:item.booking_time,
+    status:item.status,
+    cancellationReason:item.cancellation_reason || '',
+    visitStatus:bookingOutcome(item).visit_status
+  })));
+  return { ...facts, reliability };
 }
 
 function clientNextBookingAfter(client, currentItem, now = new Date()) {
@@ -9255,10 +9276,11 @@ function renderClients() {
   }
   $('#clientsList').innerHTML = visibleClients.map(client => {
     const upcoming = clientUpcoming(client);
-    const activeCount = client.bookings.filter(item => item.status !== 'cancelled').length;
-    const knownCount = client.directoryVisitCount ?? Math.max(activeCount, Number(client.imported?.visit_count || 0));
+    const facts = clientRelationshipFacts(client);
+    const knownCount = facts.visits;
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i></span><b>${knownCount}</b></button>`;
+    const hasPhoto = Boolean(clientAvatar(client.phone)?.signed_url);
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(client.displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -9623,10 +9645,24 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   }
   clearFormError('#clientLabelsError');
   const completedVisits = clientCompletedVisits(client);
-  const visits = completedVisits.length;
+  const facts = clientRelationshipFacts(client, completedVisits);
+  const visits = facts.visits;
   renderClientFavoriteServices(completedVisits);
   const upcoming = clientUpcoming(client);
-  $('#clientVisits').textContent = String(Math.max(visits, Number(client.imported?.visit_count || 0)));
+  const profileOrbit = $('#clientProfileOrbit');
+  profileOrbit.style.setProperty('--client-level-progress', `${facts.progress.toFixed(4)}turn`);
+  profileOrbit.classList.toggle('has-photo', Boolean(clientAvatar(client.phone)?.signed_url));
+  profileOrbit.setAttribute('aria-label', facts.level ? `${facts.title}, ${facts.level} уровень` : facts.title);
+  $('#clientRelationshipTitle').textContent = facts.title;
+  $('#clientRelationshipLevel').textContent = facts.level ? `${facts.level} уровень` : '';
+  $('#clientMilestoneText').textContent = facts.milestone;
+  const milestoneProgress = Math.round(facts.progress * 100);
+  $('#clientMilestoneCard').style.setProperty('--client-level-width', `${milestoneProgress}%`);
+  $('#clientMilestoneProgress').setAttribute('aria-valuenow', String(milestoneProgress));
+  const reliabilityCard = $('#clientReliabilityCard');
+  reliabilityCard.hidden = !facts.reliability?.needsAttention;
+  $('#clientReliabilityText').textContent = facts.reliability?.needsAttention ? facts.reliability.label : '';
+  $('#clientVisits').textContent = String(visits);
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
   $('#clientNextDetails').textContent = upcoming ? serviceName(upcoming.services?.name || 'Услуга') : 'Будущих записей нет';
   $('#clientSpent').textContent = money(completedVisits.reduce((sum, item) => sum + Math.max(0, Number(bookingOutcome(item).amount_rub || 0)), 0));
@@ -12249,8 +12285,8 @@ async function loadBookings(options = {}) {
     const offlineCache = await showCached();
     return offlineCache ? { ok: false, cached: true, savedAt: offlineCache.savedAt } : { ok: false };
   }
-  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
-  if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,organization_id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
+  let { data, error } = await queryAllProviderBookings(userId, 'id,organization_id,booking_code,request_id,service_id,series_id,series_occurrence,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes),booking_series(occurrence_count)');
+  if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,organization_id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,cancellation_reason,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,booking_source,created_by_user_id,created_by_role,services(name,price_rub,duration_minutes)'));
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,original_price_rub,total_price_rub,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   if (shouldTryCompatibleProviderRead(error)) ({ data, error } = await queryAllProviderBookings(userId, 'id,booking_code,request_id,service_id,client_name,client_phone,booking_date,booking_time,duration_minutes,status,created_at,reschedule_count,deposit_amount_rub,payment_status,payment_url,services(name,price_rub,duration_minutes)'));
   networkFinished = true;
