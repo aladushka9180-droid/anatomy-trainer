@@ -36,6 +36,7 @@ assert.match(html, /<details class="report-analytics-details"[\s\S]*Подроб
 assert.match(html, /Полнота оплат[\s\S]*менее чем для 80%/, 'Не объяснён порог доверия к оценке');
 assert.match(ux, /report-command-metrics\s*\{[\s\S]*grid-template-columns:1\.35fr repeat\(2,minmax\(0,1fr\)\)/, 'Три KPI не собраны в компактную сетку');
 assert.match(ux, /@media\(max-width:760px\)[\s\S]*report-primary-metric[\s\S]*grid-column:1\/-1/, 'Главный KPI не выделен на мобильном экране');
+assert.match(ux, /report-actions-toggle\s*\{[^}]*order:initial/, 'Кнопка раскрытия рекомендаций снова оказывается выше главной рекомендации');
 assert.doesNotMatch(statisticsUx, /#[0-9a-f]{3,8}\b|rgba?\(/i, 'Новая статистика содержит цвет вне переменных темы');
 
 const parseLocalIsoDate = value => new Date(`${value}T00:00:00`);
