@@ -342,3 +342,19 @@
     background:color-mix(in srgb,var(--theme-surface) 93%,transparent)!important;
   }
 }
+
+@media(max-width:360px) {
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line {
+    flex-direction:column!important;
+    align-items:stretch!important;
+  }
+
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line h2 {
+    width:100%;
+  }
+
+  .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] .schedule-title-line .dashboard-summary {
+    width:100%!important;
+    justify-content:space-between;
+  }
+}
