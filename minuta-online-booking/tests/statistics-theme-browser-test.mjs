@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { themes } from './theme-card-fixture.mjs';
@@ -23,6 +24,8 @@ const url = `http://127.0.0.1:${server.address().port}`;
 const playwrightModule = process.env.MINUTA_PLAYWRIGHT_MODULE || 'playwright';
 const { chromium } = await import(playwrightModule.startsWith('.') || path.isAbsolute(playwrightModule) ? pathToFileURL(playwrightModule).href : playwrightModule);
 const browser = await chromium.launch({ headless:true, ...(process.env.BROWSER_CHANNEL ? { channel:process.env.BROWSER_CHANNEL } : {}) });
+const output = process.env.MINUTA_STATISTICS_OUTPUT ? path.resolve(process.env.MINUTA_STATISTICS_OUTPUT) : '';
+if (output) await mkdir(output, { recursive:true });
 
 try {
   const page = await browser.newPage({ viewport:{ width:390, height:900 } });
@@ -60,6 +63,20 @@ try {
     document.querySelector('#reportHeatmap').innerHTML = [3, 16, 36, 58]
       .map((heat, index) => index ? `<button class="report-heatmap-cell${index === 3 ? ' is-peak' : ''}" type="button" style="--heat:${heat}%"><i>${index * 6} ч</i></button>` : `<span class="report-heatmap-cell" style="--heat:${heat}%"><i>—</i></span>`).join('');
     document.querySelector('#reportHeatmapLegend').hidden = false;
+    document.querySelector('#reportTrendTitle').textContent = 'Фактически получено по неделям';
+    document.querySelector('#reportTrendTotal').textContent = '10 300 ₽';
+    document.querySelector('#reportTrendCoverage').textContent = 'Оплата указана у 3 из 49 визитов';
+    document.querySelector('#reportTrendCoverage').classList.add('is-incomplete');
+    document.querySelector('#reportRevenueChart').innerHTML = [
+      ['Нет данных','10 авг.–16 авг.','is-unknown',0],
+      ['Нет визитов','17 авг.–23 авг.','is-empty',0],
+      ['Нет визитов','24 авг.–30 авг.','is-empty',0],
+      ['7 300 ₽','31 авг.–6 сент.','is-best is-selected',100],
+      ['3 000 ₽','7 сент.–8 сент. · 2 дня','',41]
+    ].map(([value,label,state,height], index) => `<button class="report-chart-column ${state}" type="button" data-report-trend-bucket aria-pressed="${index === 3}"><b>${value}</b><span aria-hidden="true"><i style="height:${height}%"></i></span><small>${label}</small></button>`).join('');
+    const trendDetail = document.querySelector('#reportTrendDetail');
+    trendDetail.hidden = false;
+    trendDetail.innerHTML = '<div><small>31 авг.–6 сент.</small><strong>7 300 ₽</strong><p>Данные об оплате заполнены полностью: 2 из 2.</p></div><button class="secondary-button report-trend-open" type="button">Открыть записи периода</button>';
   });
 
   const failures = [];
@@ -77,7 +94,7 @@ try {
         const analytics = document.querySelector('#analyticsView');
         const rect = analytics.getBoundingClientRect();
         const overflowing = [...analytics.querySelectorAll('*')].filter(element => visible(element)
-          && !element.closest('.report-periods,.report-heatmap,.report-comparison-list')
+          && !element.closest('.report-periods,.report-heatmap,.report-comparison-list,.report-chart')
           && element.getBoundingClientRect().right > innerWidth + 2);
         const detailsClosed = ![...document.querySelectorAll('.report-period-details,.report-analytics-details')].some(element => element.open);
         const analyticsDetails = document.querySelector('.report-analytics-details');
@@ -86,6 +103,12 @@ try {
         const heatColors = [...heatmap.querySelectorAll('.report-heatmap-cell')].map(element => getComputedStyle(element).backgroundColor);
         const heatmapOverflow = innerWidth > 430 && heatmap.getBoundingClientRect().right > innerWidth + 2;
         const heatLegendVisible = visible(document.querySelector('#reportHeatmapLegend'));
+        const trend = document.querySelector('.report-trend');
+        const chart = document.querySelector('#reportRevenueChart');
+        const chartTracks = [...chart.querySelectorAll('.report-chart-column > span')];
+        const trendDetail = document.querySelector('#reportTrendDetail');
+        const trendAction = trendDetail.querySelector('.report-trend-open');
+        const trendCopy = trendDetail.querySelector(':scope > div');
         analyticsDetails.open = false;
         return {
           pageOverflow:document.documentElement.scrollWidth > innerWidth + 1,
@@ -99,12 +122,20 @@ try {
           heatLegendVisible,
           heatColorSteps:new Set(heatColors).size,
           heatButtons:heatmap.querySelectorAll('button.report-heatmap-cell').length,
-          heatHint:document.querySelector('#reportHeatmapLegend small')?.textContent?.trim() || ''
+          heatHint:document.querySelector('#reportHeatmapLegend small')?.textContent?.trim() || '',
+          trendOverflow:trend.getBoundingClientRect().right > innerWidth + 2,
+          chartHeight:Math.round(chart.getBoundingClientRect().height),
+          chartTracksTransparent:chartTracks.every(element => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)'),
+          trendDetailOverflow:trendDetail.getBoundingClientRect().right > trend.getBoundingClientRect().right + 2,
+          trendActionTooWide:innerWidth > 760 && trendAction.getBoundingClientRect().width > trendDetail.getBoundingClientRect().width * .5,
+          trendCopyTooNarrow:innerWidth > 760 && trendCopy.getBoundingClientRect().width < 220
         };
       });
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint) {
+      const expectedChartHeight = width <= 760 ? 168 : 210;
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow) {
         failures.push({ width, theme, ...metrics });
       }
+      if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });
     }
   }
   assert.deepEqual(failures, [], `Ошибки статистики в матрице тем: ${JSON.stringify(failures.slice(0, 8))}`);

@@ -9,7 +9,7 @@ const names=['reportBookings','reportCompletedItems','reportRevenue','reportClie
   'reportServiceValue','reportReceivedAmount','reportImportedValue','reportDebtAmount','reportEffectivePerformerId','reportReconciledTeamRows','reportExportValue','reportExportDuration',
   'reportExportSheets','reportExportCell','reportExportPhone','reportExportMaster','reportExportPerformers','reportExportCreator','reportCurrentTeamRows','reportCurrentEventRows','renderAnalytics',
   'reportExportSheet','reportProfessionalWorkbook','reportZip','reportCrc32','reportXmlText','reportColumnName','exportBookingsXlsx','exportBookingsCsv',
-  'exportBookingsPdf','reportPdfText','reportPdfPage','reportPdfImageBytes','reportPdfBlob'];
+  'exportBookingsPdf','reportPdfText','reportPdfPage','reportPdfImageBytes','reportPdfBlob','reportTrendMarkup','selectReportTrendBucket'];
 const script=`
   var $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
   var currentUser={id:'master-A'},sessionGeneration=1,reportDataSource='own',reportPeriod='month',reportCanViewTeam=false,reportPerformerFilter='all';
@@ -18,19 +18,19 @@ const script=`
   var row=(id,changes={})=>({id,booking_date:'2026-09-10',booking_time:'10:00:00',duration_minutes:60,performer_id:'master-A',organization_id:'org-A',client_name:'Тестовый клиент',client_phone:'79990000000',status:'confirmed',value:1000,booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:600},...changes});
   var allBookings=[row('paid'),row('minute',{minute:true,value:600,booking_outcomes:{visit_status:'completed',payment_method:'cash',amount_rub:100,actual_duration_minutes:30}}),
     row('cancelled',{status:'cancelled'}),row('scheduled',{booking_outcomes:{visit_status:'scheduled',payment_method:'cash',amount_rub:400}}),row('old',{booking_date:'2026-08-10'})];
-  var importedBookingHistory=[row('import',{is_imported_history:true,booking_outcomes:{visit_status:'completed',payment_method:'imported',amount_rub:1000,completion_source:'imported'}})];
+  var importedBookingHistory=[row('import',{booking_date:'2026-09-02',is_imported_history:true,booking_outcomes:{visit_status:'completed',payment_method:'imported',amount_rub:1000,completion_source:'imported'}})];
   var reportScopedBookingsState={status:'ready',rows:allBookings},reportTeamAnalyticsState={status:'ready',key:'1:master-A:org-A:2026-09-01:2026-09-30',rows:[{performer_id:'master-A',performer_name:'Тестовый мастер',payroll_rub:-321}]},reportEventState={rows:[]};
   var reportRange=()=>range,reportOrganizationId=()=> 'org-A',reportUsesScopedBookings=()=>false;
   var bookingOutcome=i=>i.booking_outcomes,isScheduleBlock=i=>Boolean(i.is_schedule_block),isPerMinuteBooking=i=>Boolean(i.minute),bookingMinuteRate=i=>i.minute?10:0;
   var bookingSessionTotal=i=>i.value,bookingSession=i=>[{title:'Тестовая услуга',price_rub:i.value}],bookingSessionDuration=()=>60;
-  var normalizePhone=v=>String(v||'').replace(/\\D/g,''),parseLocalIsoDate=v=>new Date(v+'T00:00:00Z');
+  var normalizePhone=v=>String(v||'').replace(/\\D/g,''),parseLocalIsoDate=v=>new Date(v+'T00:00:00Z'),localIsoDate=v=>new Date(v).toISOString().slice(0,10);
   var money=v=>new Intl.NumberFormat('ru-RU').format(v)+' ₽',serviceName=v=>v,escapeHtml=v=>String(v).replaceAll('&','&amp;').replaceAll('<','&lt;');
   var reportExportDate=v=>v,reportExportEnd=()=> '11:00',reportExportSource=()=> 'Мастер',reportExportCreator=()=> 'Мастер',bookingDisplayNote=()=>'',paymentMethodLabel=v=>v;
   var reportSourceMetrics=()=>({online:0,manual:0,unknown:0}),reportDateText=v=>v,reportVisitWord=()=> 'визитов',reportShare=(v,total)=>total?Math.round(v/total*100)+'%':'0%';
   var reportPerformerName=()=> 'Тестовый мастер',reportHours=v=>v/60+' ч',reportEventTitle=()=>'';
   var setReportText=(s,v)=>{const n=$(s);if(n)n.textContent=v;},setReportSubview=()=>{},updateReportFilterSummary=()=>{},previousReportRange=()=>null,setReportTrend=()=>{};
   var bookingIsCompleted=()=>true,renderReportUtilization=()=>40,renderReportRetention=()=>{},loadReportTeamAnalytics=()=>{},renderReportUtmFunnel=()=>{},loadReportUtmFunnel=()=>{},loadReportEvents=()=>{};
-  var reportTrendMarkup=()=>{},renderReportFunnel=()=>{},renderReportHeatmap=()=>{},renderReportCommandCenter=()=>{},providerPerformance={measure:()=>1,record(){}};
+  var renderReportFunnel=()=>{},renderReportHeatmap=()=>{},renderReportCommandCenter=()=>{},providerPerformance={measure:()=>1,record(){}};
   var notify=()=>{},reportExportFilename=(r,ext)=>'synthetic-report.'+ext;
   window.exports=[];var reportExportDownload=(blob,filename)=>exports.push({blob,filename});
   window.pdfText=[];const originalFillText=CanvasRenderingContext2D.prototype.fillText;
@@ -56,6 +56,18 @@ try{
     assert.equal(await number('#reportRevenue'),700);assert.equal(await number('#reportCompletedValue'),2300);assert.equal(await number('#reportDebt'),600);assert.equal(await number('#reportAverage'),350);
     assert.match(await page.locator('#reportPaymentEvidence').textContent(),/2 из 3/);
     assert.match(await page.locator('#reportPaymentEvidence').textContent(),/нет данных об оплате/);
+    assert.match(await page.locator('#reportTrendTitle').textContent(),/^Фактически получено/);
+    assert.match(await page.locator('#reportTrendCoverage').textContent(),/2 из 3 визитов/);
+    assert.equal(await page.locator('#reportRevenueChart .report-chart-column').count(),5);
+    assert.match(await page.locator('#reportRevenueChart .is-unknown').first().textContent(),/Нет данных/);
+    assert.match(await page.locator('#reportRevenueChart .is-empty').first().textContent(),/Нет визитов/);
+    assert.match(await page.locator('#reportRevenueChart .report-chart-column').last().textContent(),/2 дня/);
+    await page.locator('#reportRevenueChart .is-best').first().evaluate(button=>selectReportTrendBucket(button));
+    assert.equal(await page.locator('#reportTrendDetail').isVisible(),true);
+    assert.match(await page.locator('#reportTrendDetail').textContent(),/Оплата указана у 2 из 2|Данные об оплате заполнены полностью/);
+    assert.equal(await page.locator('#reportTrendDetail [data-report-open-range]').count(),1);
+    await page.locator('#reportRevenueChart .is-unknown').first().evaluate(button=>selectReportTrendBucket(button));
+    assert.match(await page.locator('#reportTrendDetail').textContent(),/Нет данных об оплате/);
     const data=await page.evaluate(()=>reportExportData('full'));
     assert.equal(data.rows.reduce((sum,row)=>sum+Number(row[10]||0),0),700);
     assert.equal(data.rows.reduce((sum,row)=>sum+Number(row[11]||0),0),600);

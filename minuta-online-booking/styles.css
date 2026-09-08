@@ -8821,3 +8821,143 @@ html.provider-booting .provider-main {
   .client-profile .client-summary strong { font-size:14px; }
   .client-profile .client-summary small { font-size:7px; }
 }
+
+/* Weekly received chart: compact, truthful, and actionable. */
+.report-trend .report-chart {
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  align-items:stretch;
+  gap:12px;
+  height:210px;
+  min-height:210px;
+  margin-top:8px;
+  padding-top:4px;
+}
+.report-trend .report-chart::before {
+  position:absolute;
+  z-index:-1;
+  inset:31px 0 27px;
+  border-bottom:1px solid var(--theme-line);
+  background:repeating-linear-gradient(to bottom,var(--theme-line) 0 1px,transparent 1px 33.333%);
+  content:"";
+  opacity:.62;
+  pointer-events:none;
+}
+.report-trend .report-chart-column {
+  position:relative;
+  z-index:1;
+  display:grid;
+  flex:1 1 0;
+  grid-template-rows:24px 1fr minmax(26px,auto);
+  gap:7px;
+  min-width:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  font:inherit;
+  opacity:1;
+  scroll-snap-align:center;
+}
+.report-trend .report-chart-column>b {
+  align-self:end;
+  overflow:hidden;
+  color:var(--theme-muted);
+  font-size:9px;
+  font-weight:850;
+  line-height:1.2;
+  text-align:center;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.report-trend .report-chart-column>span {
+  display:flex;
+  align-items:end;
+  justify-content:center;
+  min-height:0;
+  overflow:visible;
+  border-radius:0;
+  background:transparent;
+}
+.report-trend .report-chart-column i {
+  display:block;
+  width:min(60px,68%);
+  min-height:0;
+  border-radius:8px 8px 2px 2px;
+  background:var(--theme-accent,var(--green));
+  opacity:.7;
+  transition:opacity .16s ease,filter .16s ease,transform .16s ease;
+  transform-origin:bottom;
+}
+.report-trend .report-chart-column small {
+  align-self:start;
+  overflow:hidden;
+  color:var(--theme-muted,#718178);
+  font-size:8px;
+  line-height:1.25;
+  text-align:center;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.report-trend .report-chart-column:hover i,
+.report-trend .report-chart-column:focus-visible i,
+.report-trend .report-chart-column.is-best i,
+.report-trend .report-chart-column.is-selected i { opacity:1; }
+.report-trend .report-chart-column:hover i,
+.report-trend .report-chart-column.is-selected i { transform:scaleX(1.06); }
+.report-trend .report-chart-column.is-best>b,
+.report-trend .report-chart-column.is-selected>b,
+.report-trend .report-chart-column.is-selected small { color:var(--theme-accent); }
+.report-trend .report-chart-column.is-empty>span::after,
+.report-trend .report-chart-column.is-zero>span::after,
+.report-trend .report-chart-column.is-unknown>span::after {
+  width:min(34px,46%);
+  border-radius:99px;
+  background:var(--theme-line);
+  content:"";
+}
+.report-trend .report-chart-column.is-empty>span::after { height:2px; opacity:.55; }
+.report-trend .report-chart-column.is-zero>span::after { height:4px; background:color-mix(in srgb,var(--theme-accent) 52%,var(--theme-line)); }
+.report-trend .report-chart-column.is-unknown>span::after { height:0; border-top:2px dashed var(--theme-muted); background:transparent; opacity:.72; }
+.report-trend .report-chart-column.is-empty>b { color:color-mix(in srgb,var(--theme-muted) 68%,transparent); }
+.report-trend .report-chart-column.is-unknown>b { color:var(--theme-muted); }
+.report-trend .report-chart-column.is-partial-data i { background:color-mix(in srgb,var(--theme-accent) 70%,var(--theme-surface)); }
+.report-trend .report-chart-column:focus-visible { outline:2px solid var(--theme-accent); outline-offset:3px; border-radius:7px; }
+.report-trend .report-chart-hint { margin:10px 0 0; color:var(--theme-muted); font-size:8px; }
+.report-trend .report-chart-context span { max-width:240px; color:var(--theme-muted); font-size:8px; line-height:1.35; }
+.report-trend .report-chart-context span.is-incomplete { color:color-mix(in srgb,var(--theme-accent) 72%,var(--theme-muted)); }
+.report-trend-detail {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid var(--theme-line);
+}
+.report-trend-detail[hidden] { display:none; }
+.report-trend-detail>div { display:grid; flex:1 1 auto; gap:3px; min-width:0; }
+.report-trend-detail small { color:var(--theme-muted); font-size:8px; }
+.report-trend-detail strong { font-size:14px; }
+.report-trend-detail p { margin:0; color:var(--theme-muted); font-size:8px; line-height:1.4; }
+.report-trend-open { flex:0 0 auto; width:auto; min-height:38px; padding-inline:14px; white-space:nowrap; }
+
+@media (max-width:760px) {
+  .report-trend .report-chart {
+    gap:8px;
+    height:168px;
+    min-height:168px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    padding:4px 2px 5px;
+    scroll-snap-type:x proximity;
+    scrollbar-width:thin;
+  }
+  .report-trend .report-chart::before { inset:31px 2px 31px; }
+  .report-trend .report-chart-column { flex:1 0 78px; grid-template-rows:24px 1fr minmax(30px,auto); }
+  .report-trend .report-chart-column small { white-space:normal; }
+  .report-trend-detail { align-items:stretch; flex-direction:column; gap:10px; }
+  .report-trend-open { width:100%; }
+}

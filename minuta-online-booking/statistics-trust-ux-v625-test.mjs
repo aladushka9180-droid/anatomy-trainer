@@ -41,6 +41,7 @@ assert.match(html, /id="reportHeatmapLegend"[\s\S]*Меньше[\s\S]*Больш
 assert.match(html, /id="reportHeatmap" role="group"/, 'Интерактивная тепловая карта скрыта от клавиатурной навигации ролью изображения');
 assert.match(html, /Нажмите ячейку — откроются записи/, 'Не объяснено, что ячейки открывают точные записи');
 assert.match(html, /id="bookingAnalyticsFilterChip"/, 'В журнале нет понятного возврата к тепловой карте');
+assert.match(html, /id="reportTrendCoverage"[\s\S]*id="reportTrendDetail"/, 'У динамики нет сведений о полноте оплат и контекстной расшифровки');
 assert.match(ux, /report-heatmap-legend[\s\S]*linear-gradient\([^)]*var\(--theme-accent\)/, 'Шкала спроса не использует цвет текущей темы');
 assert.doesNotMatch(statisticsUx, /#[0-9a-f]{3,8}\b|rgba?\(/i, 'Новая статистика содержит цвет вне переменных темы');
 
@@ -81,6 +82,9 @@ assert.match(provider, /booking_date >= todayIso[\s\S]*visit_status === 'schedul
 assert.match(provider, /function reportDrilldownScope[\s\S]*performer:[\s\S]*organization:[\s\S]*source:/, 'Переход из статистики теряет область отчёта');
 assert.match(provider, /payment-unknown[\s\S]*MinutaReportReconciliation\.paymentUnknown/, 'Нет перехода к визитам с неизвестной оплатой');
 assert.match(provider, /paymentKnownVisits[\s\S]*Оплата не указана[\s\S]*Нет данных/, 'Услуги с неизвестной оплатой всё ещё выглядят как нулевая выручка');
+assert.match(provider, /valueLabel = bucket\.visits === 0 \? 'Нет визитов' : bucket\.known === 0 \? 'Нет данных'/, 'Пустой период и неизвестная оплата снова неразличимы');
+assert.match(provider, /partial \? ` · \$\{durationDays\}/, 'Неполный последний интервал не обозначен');
+assert.match(provider, /function selectReportTrendBucket[\s\S]*data-report-open-range/, 'Столбец не раскрывает контекст перед переходом к записям');
 assert.match(provider, /function ensureReportRetention[\s\S]*ensureOrganizationFeature\('retentionPanel'\)/, 'Возврат клиентов не загружается по требованию');
 assert.match(provider, /range\.end >= reportTodayIso\(\)[\s\S]*Заполнить свободные часы/, 'Прошлые периоды всё ещё получают несвоевременную рекомендацию заполнять часы');
 assert.match(provider, /showLeader = rankedRows\.length > 1/, 'Один сотрудник всё ещё объявляется лидером');

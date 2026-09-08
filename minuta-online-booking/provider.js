@@ -3557,8 +3557,15 @@ function reportVisitWord(count) {
 function reportTrendMarkup(completed, range) {
   const chart = $('#reportRevenueChart');
   if (!chart) return;
+  const detail = $('#reportTrendDetail');
+  if (detail) { detail.hidden = true; detail.innerHTML = ''; }
   const total = completed.reduce((sum, item) => sum + reportReceivedAmount(item), 0);
   setReportText('#reportTrendTotal', money(total));
+  const unknownPaymentCount = completed.filter(item => globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))).length;
+  const knownPaymentCount = completed.length - unknownPaymentCount;
+  setReportText('#reportTrendCoverage', completed.length ? `Оплата указана у ${knownPaymentCount} из ${completed.length} визитов` : 'Нет завершённых визитов');
+  const coverage = $('#reportTrendCoverage');
+  if (coverage) coverage.classList.toggle('is-incomplete', unknownPaymentCount > 0);
   if (!completed.length) {
     chart.innerHTML = '<div class="report-empty-inline">После завершённых визитов здесь появится динамика.</div>';
     return;
@@ -3568,27 +3575,71 @@ function reportTrendMarkup(completed, range) {
   const totalDays = Math.max(1, Math.round((end - start) / 86400000) + 1);
   const bucketDays = totalDays <= 14 ? 1 : totalDays <= 90 ? 7 : totalDays <= 730 ? 30 : 365;
   const bucketCount = Math.ceil(totalDays / bucketDays);
-  setReportText('#reportTrendTitle', `Получено ${bucketDays === 1 ? 'по дням' : bucketDays === 7 ? 'по неделям' : bucketDays === 30 ? 'по месяцам' : 'по годам'}`);
+  setReportText('#reportTrendTitle', `Фактически получено ${bucketDays === 1 ? 'по дням' : bucketDays === 7 ? 'по неделям' : bucketDays === 30 ? 'по месяцам' : 'по годам'}`);
   const buckets = Array.from({ length:bucketCount }, (_, index) => {
     const from = new Date(start.getTime() + index * bucketDays * 86400000);
     const to = new Date(Math.min(end.getTime(), from.getTime() + (bucketDays - 1) * 86400000));
-    return { from, to, value:0 };
+    return { from, to, value:0, visits:0, known:0, unknown:0 };
   }).filter(bucket => bucket.from <= end);
   completed.forEach(item => {
     const offset = Math.max(0, Math.floor((parseLocalIsoDate(item.booking_date) - start) / 86400000));
     const bucket = buckets[Math.min(buckets.length - 1, Math.floor(offset / bucketDays))];
-    if (bucket) bucket.value += reportReceivedAmount(item);
+    if (!bucket) return;
+    bucket.visits += 1;
+    if (globalThis.MinutaReportReconciliation.paymentUnknown(item, bookingOutcome(item))) bucket.unknown += 1;
+    else bucket.known += 1;
+    bucket.value += reportReceivedAmount(item);
   });
-  const maximum = Math.max(...buckets.map(item => item.value), 1);
-  const bestIndex = buckets.reduce((best, bucket, index) => bucket.value > buckets[best].value ? index : best, 0);
+  const maximumValue = Math.max(...buckets.map(item => item.value), 0);
+  const maximum = Math.max(maximumValue, 1);
+  const bestIndex = maximumValue > 0 ? buckets.reduce((best, bucket, index) => bucket.value > buckets[best].value ? index : best, 0) : -1;
   chart.innerHTML = buckets.map((bucket, index) => {
     const label = bucketDays === 1 ? reportDateText(localIsoDate(bucket.from)) : `${reportDateText(localIsoDate(bucket.from))}–${reportDateText(localIsoDate(bucket.to))}`;
-    const height = bucket.value ? Math.max(8, Math.round(bucket.value / maximum * 100)) : 2;
-    const stateClass = bucket.value === 0 ? ' is-zero' : index === bestIndex ? ' is-best' : '';
+    const durationDays = Math.max(1, Math.round((bucket.to - bucket.from) / 86400000) + 1);
+    const partial = bucketDays > 1 && durationDays < bucketDays;
+    const periodLabel = `${label}${partial ? ` · ${durationDays} ${durationDays === 1 ? 'день' : durationDays < 5 ? 'дня' : 'дней'}` : ''}`;
+    const valueLabel = bucket.visits === 0 ? 'Нет визитов' : bucket.known === 0 ? 'Нет данных' : money(bucket.value);
+    const accessibleValue = bucket.visits === 0 ? 'нет завершённых визитов' : bucket.known === 0 ? 'нет данных об оплате' : money(bucket.value);
+    const height = bucket.value ? Math.max(10, Math.round(bucket.value / maximum * 100)) : 0;
+    const stateClass = [bucket.visits === 0 ? 'is-empty' : '', bucket.visits > 0 && bucket.known === 0 ? 'is-unknown' : '', bucket.known > 0 && bucket.value === 0 ? 'is-zero' : '', bucket.unknown > 0 && bucket.known > 0 ? 'is-partial-data' : '', index === bestIndex ? 'is-best' : ''].filter(Boolean).map(name => ` ${name}`).join('');
     const openStart = localIsoDate(bucket.from);
     const openEnd = localIsoDate(bucket.to);
-    return `<button class="report-chart-column${stateClass}" type="button" data-report-start="${openStart}" data-report-end="${openEnd}" title="${escapeHtml(label)}: ${escapeHtml(money(bucket.value))}" aria-label="${escapeHtml(label)}, ${escapeHtml(money(bucket.value))}. Открыть записи"><b>${escapeHtml(money(bucket.value))}</b><span><i style="height:${height}%"></i></span><small>${escapeHtml(label)}</small></button>`;
+    return `<button class="report-chart-column${stateClass}" type="button" data-report-start="${openStart}" data-report-end="${openEnd}" data-report-trend-bucket data-report-label="${escapeHtml(periodLabel)}" data-report-value="${bucket.value}" data-report-visits="${bucket.visits}" data-report-known="${bucket.known}" data-report-unknown="${bucket.unknown}" aria-pressed="false" title="${escapeHtml(periodLabel)}: ${escapeHtml(accessibleValue)}" aria-label="${escapeHtml(periodLabel)}, ${escapeHtml(accessibleValue)}. Показать состав периода"><b>${escapeHtml(valueLabel)}</b><span aria-hidden="true"><i style="height:${height}%"></i></span><small>${escapeHtml(periodLabel)}</small></button>`;
   }).join('');
+  requestAnimationFrame(() => {
+    if (chart.scrollWidth > chart.clientWidth) chart.scrollLeft = chart.scrollWidth;
+  });
+}
+
+function selectReportTrendBucket(button) {
+  const detail = $('#reportTrendDetail');
+  if (!button || !detail) return;
+  $$('#reportRevenueChart [data-report-trend-bucket]').forEach(item => {
+    const selected = item === button;
+    item.classList.toggle('is-selected', selected);
+    item.setAttribute('aria-pressed', String(selected));
+  });
+  const label = button.dataset.reportLabel || '';
+  const visits = Math.max(0, Number(button.dataset.reportVisits) || 0);
+  const known = Math.max(0, Number(button.dataset.reportKnown) || 0);
+  const unknown = Math.max(0, Number(button.dataset.reportUnknown) || 0);
+  const value = Math.max(0, Number(button.dataset.reportValue) || 0);
+  let headline = money(value);
+  let evidence = known === visits
+    ? `Данные об оплате заполнены полностью: ${visits} из ${visits}.`
+    : `Оплата указана у ${known} из ${visits} визитов. Остальные не включены в сумму.`;
+  if (visits === 0) {
+    headline = 'Завершённых визитов нет';
+    evidence = 'В этом периоде нет завершённых визитов для финансовой проверки.';
+  } else if (known === 0) {
+    headline = 'Нет данных об оплате';
+    evidence = `${visits} ${reportVisitWord(visits)} завершено, но оплата не указана.`;
+  } else if (value === 0 && unknown === 0) {
+    evidence = 'Оплата заполнена, но полученная сумма не отмечена.';
+  }
+  const action = visits ? `<button class="secondary-button report-trend-open" type="button" data-report-open-range data-report-start="${escapeHtml(button.dataset.reportStart || '')}" data-report-end="${escapeHtml(button.dataset.reportEnd || button.dataset.reportStart || '')}">Открыть записи периода</button>` : '';
+  detail.innerHTML = `<div><small>${escapeHtml(label)}</small><strong>${escapeHtml(headline)}</strong><p>${escapeHtml(evidence)}</p></div>${action}`;
+  detail.hidden = false;
 }
 
 function reportDrilldownScope(range = reportRange()) {
@@ -12402,7 +12453,8 @@ document.addEventListener('click', async event => {
   const reportFilterToggle = event.target.closest('#reportFilterToggle');
   const reportSourceButton = event.target.closest('[data-report-source]');
   const reportPeriodButton = event.target.closest('[data-report-period]');
-  const reportChartDate = event.target.closest('[data-report-start]');
+  const reportChartBucket = event.target.closest('[data-report-trend-bucket]');
+  const reportChartDate = event.target.closest('[data-report-open-range]');
   const reportHeatmapCell = event.target.closest('[data-report-heatmap-weekday]');
   const showOwnBookings = event.target.closest('#showOwnBookings');
   const reportServiceMetricButton = event.target.closest('[data-report-service-metric]');
@@ -12522,6 +12574,7 @@ document.addEventListener('click', async event => {
     renderBookingDataSourceNotice();
     setReportFiltersExpanded(false);
   }
+  if (reportChartBucket) selectReportTrendBucket(reportChartBucket);
   if (reportChartDate) {
     openReportBookings({ scope:{ ...reportDrilldownScope(), start:reportChartDate.dataset.reportStart, end:reportChartDate.dataset.reportEnd || reportChartDate.dataset.reportStart } });
     notify(bookingUsesDemoData() ? 'Показаны демо-записи выбранного периода' : 'Показаны записи выбранного периода');

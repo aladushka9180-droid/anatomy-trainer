@@ -616,7 +616,15 @@
           </div>
           <div class="report-secondary" data-report-section="overview" aria-label="Дополнительные показатели"><article><small>Средняя оплата за визит</small><strong id="reportAverage">0 ₽</strong></article><article class="report-action-metric" id="reportPendingMetric" role="button" tabindex="0" title="Открыть записи, требующие завершения"><small>Требуют завершения</small><strong id="reportPending">0</strong><span>Открыть записи</span></article><article class="report-zero-summary" id="reportZeroSummary" hidden><small>В порядке</small><strong id="reportZeroSummaryText">Все визиты отмечены</strong></article></div>
           <section class="report-reconciliation" id="reportReconciliation" data-report-section="overview" aria-live="polite"></section>
-          <section class="panel report-trend" data-report-section="overview"><div class="panel-head"><div><small>Динамика</small><h3 id="reportTrendTitle">Получено по дням</h3><p id="reportTrendPeriod">Выбранный период</p></div><div class="report-chart-context"><strong id="reportTrendTotal">0 ₽</strong><small>Нажмите столбец, чтобы открыть записи</small></div></div><div class="report-chart" id="reportRevenueChart"></div></section>
+          <section class="panel report-trend" data-report-section="overview" aria-labelledby="reportTrendTitle">
+            <div class="panel-head">
+              <div><small>Динамика</small><h3 id="reportTrendTitle">Фактически получено по дням</h3><p id="reportTrendPeriod">Выбранный период</p></div>
+              <div class="report-chart-context"><strong id="reportTrendTotal">0 ₽</strong><small>за выбранный период</small><span id="reportTrendCoverage">Нет завершённых визитов</span></div>
+            </div>
+            <p class="report-chart-hint">Выберите период, чтобы увидеть состав</p>
+            <div class="report-chart" id="reportRevenueChart"></div>
+            <div class="report-trend-detail" id="reportTrendDetail" hidden aria-live="polite"></div>
+          </section>
           <details class="report-analytics-details" data-report-section="overview"><summary>Подробная аналитика</summary><div class="report-analytics-details-content">
           <div class="report-visual-grid" data-report-section="overview">
             <section class="panel report-funnel-card" aria-labelledby="reportFunnelTitle">
