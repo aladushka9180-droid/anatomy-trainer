@@ -53,6 +53,18 @@ Markdown и GitHub Step Summary. Пороговая оценка не меняе
 Владелец реакции и резервный адресат пока не утверждены. До этого реальная
 доставка тревог остаётся выключенной и D05 нельзя считать завершённым.
 
+Webhook-адаптер также выключен по умолчанию. Для его явного включения одновременно
+нужны repository variables `MINUTA_OBSERVABILITY_ALERT_ENABLED=true` и
+`MINUTA_OBSERVABILITY_ALERT_CONFIRMATION=DELIVER_PRIMETIME_ALERTS`, а также secrets
+`MINUTA_OBSERVABILITY_ALERT_WEBHOOK_URL` и
+`MINUTA_OBSERVABILITY_ALERT_WEBHOOK_SECRET` (не менее 32 символов). Неполная
+конфигурация завершает доставку ошибкой до сетевого запроса. Endpoint должен быть
+HTTPS и обязан дедуплицировать запросы по `Idempotency-Key`; тело дополнительно
+подписано HMAC-SHA256 в `X-PrimeTime-Signature`. Получатель проверяет значение
+`sha256=<hex HMAC(secret, "<X-PrimeTime-Timestamp>.<raw body>")>`, допустимое
+расхождение времени не более пяти минут и никогда не пишет секрет или полное
+тело запроса в журнал.
+
 ## Первые 15 минут
 
 1. Зафиксировать время обнаружения, SHA production, ссылку на run и затронутый
@@ -117,6 +129,20 @@ node minuta-online-booking/scripts/observability-snapshot.mjs \
 `externalDeliveryAttempted=false`. Реальный drill разрешён только после выбора
 адресатов и явного подтверждения пользователя; затем фиксируются время начала,
 время доставки и время реакции.
+
+Тест адаптера использует только подменённый transport и не выполняет внешний
+запрос:
+
+```bash
+node minuta-online-booking/tests/observability-alert-webhook-test.mjs
+```
+
+Состояние активного инцидента хранит только fingerprint, generation и технический
+event id. Один и тот же набор нарушенных SLO повторно не отправляется; после
+зафиксированного восстановления новая такая же тревога получает новый event id.
+При timeout, HTTP/network error или повреждённом состоянии событие не помечается
+доставленным. Повтор использует тот же `Idempotency-Key`, поэтому принимающий
+webhook обязан считать его идемпотентным.
 
 ## Завершение инцидента
 

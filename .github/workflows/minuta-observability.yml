@@ -28,7 +28,9 @@ jobs:
           node-version: 22
 
       - name: Проверить пороги и синтетическую тревогу без отправки
-        run: node minuta-online-booking/tests/observability-snapshot-test.mjs
+        run: |
+          node minuta-online-booking/tests/observability-snapshot-test.mjs
+          node minuta-online-booking/tests/observability-alert-webhook-test.mjs
 
       - name: Сформировать read-only SLO snapshot
         env:
@@ -49,3 +51,31 @@ jobs:
             ${{ runner.temp }}/primetime-observability.md
           if-no-files-found: error
           retention-days: 35
+
+      - name: Восстановить состояние дедупликации тревог
+        if: vars.MINUTA_OBSERVABILITY_ALERT_ENABLED == 'true' && vars.MINUTA_OBSERVABILITY_ALERT_CONFIRMATION == 'DELIVER_PRIMETIME_ALERTS'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/primetime-observability-alert-state.json
+          key: primetime-observability-alert-state-${{ github.run_id }}
+          restore-keys: |
+            primetime-observability-alert-state-
+
+      - name: Проверить opt-in и при необходимости доставить тревогу
+        env:
+          MINUTA_OBSERVABILITY_ALERT_ENABLED: ${{ vars.MINUTA_OBSERVABILITY_ALERT_ENABLED }}
+          MINUTA_OBSERVABILITY_ALERT_CONFIRMATION: ${{ vars.MINUTA_OBSERVABILITY_ALERT_CONFIRMATION }}
+          MINUTA_OBSERVABILITY_ALERT_WEBHOOK_URL: ${{ secrets.MINUTA_OBSERVABILITY_ALERT_WEBHOOK_URL }}
+          MINUTA_OBSERVABILITY_ALERT_WEBHOOK_SECRET: ${{ secrets.MINUTA_OBSERVABILITY_ALERT_WEBHOOK_SECRET }}
+          MINUTA_OBSERVABILITY_ALERT_TIMEOUT_MS: "10000"
+        run: >-
+          node minuta-online-booking/scripts/observability-alert-webhook.mjs
+          --report "${{ runner.temp }}/primetime-observability.json"
+          --state "${{ runner.temp }}/primetime-observability-alert-state.json"
+
+      - name: Сохранить состояние дедупликации тревог
+        if: success() && vars.MINUTA_OBSERVABILITY_ALERT_ENABLED == 'true' && vars.MINUTA_OBSERVABILITY_ALERT_CONFIRMATION == 'DELIVER_PRIMETIME_ALERTS'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/primetime-observability-alert-state.json
+          key: primetime-observability-alert-state-${{ github.run_id }}
