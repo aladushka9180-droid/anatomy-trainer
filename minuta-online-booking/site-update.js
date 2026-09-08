@@ -4,7 +4,7 @@
   if (!('serviceWorker' in navigator)) return;
 
   const scriptUrl = document.currentScript?.src || location.href;
-  const workerUrl = new URL('./sw.js?v=589', scriptUrl).href;
+  const workerUrl = new URL('./sw.js?v=590', scriptUrl).href;
   const CHECK_INTERVAL_MS = 15 * 60 * 1000;
   let registration = null;
   let currentController = navigator.serviceWorker.controller;
@@ -66,7 +66,7 @@
     currentController = nextController;
   });
 
-  window.addEventListener('load', () => checkForUpdate({ registerOnly:true }), { once:true });
+  window.addEventListener('load', () => checkForUpdate({ force:true }), { once:true });
   window.addEventListener('online', () => checkForUpdate({ force:true }));
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) checkForUpdate();

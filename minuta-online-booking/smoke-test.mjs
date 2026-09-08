@@ -876,6 +876,7 @@ assert.doesNotMatch(booking, /link\.download = file\.name/, 'iPhone по-пре�
 assert.match(booking, /typeof dialog\.showModal !== 'function'/, 'Старые мобильные браузеры не получают запасной календарный файл');
 assert.doesNotMatch(booking, /controllerchange[\s\S]*location\.reload/, 'Обновление Service Worker перезагружает страницу вместо открытия календаря');
 assert.match(readFileSync(join(root, 'site-update.js'), 'utf8'), /Доступно обновление интерфейса[\s\S]*Обновить страницу[\s\S]*button\.addEventListener\('click', \(\) => location\.reload\(\)\)/, 'Обновление интерфейса не предлагает безопасную ручную перезагрузку');
+assert.match(siteUpdate, /window\.addEventListener\('load', \(\) => checkForUpdate\(\{ force:true \}\)/, 'При открытии страницы не запускается немедленная проверка обновления');
 
 const migration = readFileSync(join(root, 'supabase-migration-v41.sql'), 'utf8');
 assert.match(migration, /create table if not exists public\.booking_policies/, 'Нет серверного хранения правил записи');
