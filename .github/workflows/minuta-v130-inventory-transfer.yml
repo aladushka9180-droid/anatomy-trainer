@@ -60,5 +60,5 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
-      - run: npm install --no-save --ignore-scripts pg@8
+      - run: npm install --no-save --no-package-lock --ignore-scripts pg@8.16.3
       - run: node minuta-online-booking/tests/inventory-transfer-v130-postgres-test.mjs
