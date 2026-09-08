@@ -161,6 +161,7 @@ psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v lock_key="$lock_key" >"$first_log" 2>&1 <<'SQL' &
 begin;
 select set_config('request.jwt.claim.sub', :'client_id', true);
+set local session_replication_role=replica;
 select * from public.book_minuta_appointment(
   :'request_id'::uuid, :'slug', :'location_id'::uuid, :'service_id'::uuid,
   :'booking_date'::date, :'booking_time'::time,
@@ -198,6 +199,7 @@ psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v booking_date="$target_date" -v booking_time="$target_time" >"$second_log" 2>&1 <<'SQL'
 begin;
 select set_config('request.jwt.claim.sub', :'client_id', true);
+set local session_replication_role=replica;
 select * from public.book_minuta_appointment(
   :'request_id'::uuid, :'slug', :'location_id'::uuid, :'service_id'::uuid,
   :'booking_date'::date, :'booking_time'::time,
