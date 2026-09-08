@@ -1755,6 +1755,7 @@ details[open]>summary .schedule-disclosure-control b::before { content:"Свер
 .legacy-client-login>summary::-webkit-details-marker { display:none; }
 .legacy-client-login>summary::after { content:'  +'; }
 .legacy-client-login[open]>summary::after { content:'  −'; }
+.legacy-client-login form label+label { display:block; margin-top:14px; }
 .legacy-client-login .client-login-note { margin:12px 0 0; color:#63766c; font-size:11px!important; line-height:1.5; }
 .client-bookings-head { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
 .client-bookings-head small { margin-top:0; }
@@ -8672,11 +8673,8 @@ html.provider-booting .provider-main {
 .client-social-auth-buttons { margin-top:18px; padding-top:16px; border-top:1px solid var(--client-line,#e2e9e4); }
 .client-social-auth-buttons .social-auth-button:disabled { display:none; }
 .client-social-auth-buttons:not(:has(.social-auth-button:not(:disabled))) { display:none; }
-.client-account-body[data-client-sms="disabled"] #clientSmsButton { display:none; }
-.client-account-body[data-client-sms="disabled"] #clientSmsStatus { margin:10px 0 0; padding:0; border:0; }
-.client-account-body[data-client-sms="disabled"] .legacy-client-login { margin-top:12px; padding-top:0; border-top:0; }
-.client-account-body[data-client-sms="disabled"] .legacy-client-login>summary { display:none; }
-.client-account-body[data-client-sms="disabled"] .legacy-client-login form { margin-top:8px; }
+.client-account-body[data-client-sms="disabled"] #clientSmsLoginForm { display:none; }
+.client-account-body[data-client-sms="disabled"] .legacy-client-login { margin-top:14px; }
 
 .manage-error { padding:24px 10px; }
 .manage-error>span { width:46px; height:46px; margin-bottom:14px; border-radius:14px; font-size:20px; }

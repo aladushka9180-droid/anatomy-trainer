@@ -28,7 +28,7 @@
     <section class="client-login-card" id="clientLoginCard">
       <span class="client-login-mark"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-lock"></use></svg></span>
       <small>Личный раздел</small><h1>Мои записи</h1>
-      <p>Введите номер телефона, указанный при записи.</p>
+      <p id="clientLoginIntro">Введите номер телефона — пришлём короткий код подтверждения.</p>
       <p class="form-error" id="clientSocialAuthError" role="alert" hidden></p>
       <section class="client-social-link" id="clientSocialLink" hidden>
         <strong>Найдём ваши записи</strong>
@@ -52,16 +52,16 @@
       </form>
       <p class="client-login-note" id="clientSmsStatus">Для входа по SMS требуется интернет.</p>
       <details class="legacy-client-login" id="legacyClientLogin">
-        <summary>Войти по личному коду</summary>
+        <summary>Другой способ входа</summary>
         <form id="clientLoginForm" novalidate>
-          <input id="clientLoginPhone" type="hidden">
+          <label>Номер телефона<input id="clientLoginPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 (___) ___-__-__" maxlength="18" required></label>
           <label>Личный код<input id="clientLoginCode" type="text" inputmode="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="19" required></label>
           <p class="form-error" id="clientLoginError" role="alert" hidden></p>
           <button class="primary" id="clientLoginButton" type="submit">Открыть мои записи</button>
         </form>
-        <p class="client-login-note">Личный код выдаётся после первой онлайн-записи. Сохраните его для следующего входа.</p>
+        <p class="client-login-note">Используйте личный код, только если вход по SMS недоступен.</p>
       </details>
-      <details class="client-access-help"><summary>Не помню личный код</summary><p>Найдите подтверждение записи: код мог сохраниться в файле или сообщении, которое вы отправили себе.</p><p>Личная ссылка из подтверждения открывает конкретную запись без кода — там доступны перенос и отмена.</p><p>Если код и ссылка потеряны, свяжитесь с исполнителем в вашей переписке и попросите помочь восстановить доступ. Не создавайте повторную запись для восстановления.</p><a href="help/index.html">Помощь со входом</a></details>
+      <details class="client-access-help"><summary>Не получается войти?</summary><p>Личная ссылка из подтверждения открывает конкретную запись без кода.</p><p>Если ссылка и код потеряны, свяжитесь с исполнителем. Не создавайте повторную запись для восстановления.</p><a href="help/index.html">Помощь со входом</a></details>
       <div class="social-auth-buttons client-social-auth-buttons" aria-label="Другие способы входа">
         <button class="social-auth-button social-auth-telegram" type="button" data-social-auth-login data-social-auth-provider="telegram" disabled><span class="social-auth-mark">➤</span><strong>Telegram</strong><small data-social-auth-state>Не подключён</small></button>
         <button class="social-auth-button social-auth-vk" type="button" data-social-auth-login data-social-auth-provider="vk" disabled><span class="social-auth-mark">VK</span><strong>VK ID</strong><small data-social-auth-state>Не подключён</small></button>

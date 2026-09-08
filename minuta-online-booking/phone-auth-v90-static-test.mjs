@@ -27,6 +27,10 @@ assert.match(provider, /has_minuta_provider_access/);
 assert.match(providerHtml, /id="providerPhoneLinkForm"/);
 assert.match(clientHtml, /id="clientSmsLoginForm"/);
 assert.match(clientHtml, /id="legacyClientLogin"/);
+assert.match(clientHtml, /<summary>Другой способ входа<\/summary>/);
+assert.match(clientHtml, /id="clientLoginPhone" type="tel"/);
+assert.match(client, /explicitClientFlow = auth\.flow\(\)\?\.mode === 'client-login'/);
+assert.doesNotMatch(client, /\$\('#legacyClientLogin'\)\.open = true/);
 
 const sandbox = {
   window:{ MINUTA_CONFIG:{ supabaseUrl:'https://example.supabase.co', supabaseKey:'public-key' } },

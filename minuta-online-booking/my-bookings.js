@@ -222,11 +222,12 @@ async function initializeSocialLogin() {
   const { data } = await db.auth.getSession();
   socialAuthUser = data?.session?.user || null;
   if (!socialAuthUser || sessionToken) return;
+  const explicitClientFlow = auth.flow()?.mode === 'client-login';
   const result = await bootstrapClientSocialSession();
   if (result.ok) return;
   const notLinked = result.result?.error_code === 'client_identity_not_linked';
-  $('#clientSocialLink').hidden = !notLinked;
-  if (!notLinked) showError($('#clientSocialAuthError'), socialSessionError(result.error, result.result));
+  $('#clientSocialLink').hidden = !(explicitClientFlow && notLinked);
+  if (explicitClientFlow && !notLinked) showError($('#clientSocialAuthError'), socialSessionError(result.error, result.result));
 }
 
 async function startClientSocialLogin(button) {
@@ -260,7 +261,7 @@ async function linkClientSocialProfile(event) {
 
 async function login(event) {
   event.preventDefault();
-  const phone = $('#clientSmsPhone').value || $('#clientLoginPhone').value;
+  const phone = $('#clientLoginPhone').value;
   const code = $('#clientLoginCode').value;
   const button = $('#clientLoginButton');
   $('#clientLoginError').hidden = true;
@@ -342,21 +343,25 @@ async function clientSmsLogin(event) {
 async function initializeSmsLogin() {
   const button = $('#clientSmsButton');
   const status = $('#clientSmsStatus');
+  const intro = $('#clientLoginIntro');
   if (!window.MinutaPhoneAuth) {
     button.textContent = 'Вход по SMS недоступен';
-    status.textContent = 'Введите личный код, выданный после записи.';
+    intro.textContent = 'Вход по SMS пока недоступен. Используйте другой способ входа.';
+    status.hidden = true;
     document.body.dataset.clientSms = 'disabled';
-    $('#legacyClientLogin').open = true;
     return;
   }
   const capability = await window.MinutaPhoneAuth.capability();
   document.body.dataset.clientSms = capability.enabled ? 'enabled' : 'disabled';
   button.disabled = !capability.enabled;
   button.textContent = capability.enabled ? 'Получить код' : 'Вход по SMS пока не подключён';
+  intro.textContent = capability.enabled
+    ? 'Введите номер телефона — пришлём короткий код подтверждения.'
+    : capability.reason === 'offline' ? 'Для входа требуется интернет.' : 'Вход по SMS пока недоступен. Используйте другой способ входа.';
+  status.hidden = !capability.enabled;
   status.textContent = capability.enabled
     ? 'Код действует ограниченное время. Никому его не сообщайте.'
-    : capability.reason === 'offline' ? 'Для входа, в том числе по личному коду, требуется интернет.' : 'Введите личный код, выданный после записи.';
-  if (!capability.enabled) $('#legacyClientLogin').open = true;
+    : '';
 }
 
 async function rotateCode() {
@@ -391,7 +396,7 @@ document.querySelectorAll('[data-social-auth-login]').forEach(button => button.a
 $('#clientSocialLinkForm').addEventListener('submit', linkClientSocialProfile);
 $('#clientSocialPhone').addEventListener('input', event => { event.target.value = formatPhone(event.target.value); });
 $('#clientSocialCode').addEventListener('input', event => { event.target.value = formatCode(event.target.value); });
-$('#clientSmsPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || formatPhone(event.target.value); $('#clientLoginPhone').value = event.target.value; });
+$('#clientSmsPhone').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatPhone(event.target.value) || formatPhone(event.target.value); });
 $('#clientSmsCode').addEventListener('input', event => { event.target.value = window.MinutaPhoneAuth?.formatCode(event.target.value) || event.target.value.replace(/\D/g, '').slice(0, 6); });
 $('#clientSmsLoginForm').addEventListener('submit', clientSmsLogin);
 $('#clientSmsResend').addEventListener('click', resendClientSmsCode);

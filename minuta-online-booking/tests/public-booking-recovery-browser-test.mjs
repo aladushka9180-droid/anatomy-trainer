@@ -195,6 +195,9 @@ const cases = [
     await page.goto(`${origin}/minuta-online-booking/my-bookings.html`);
     await page.waitForFunction(()=>document.body.dataset.clientSms==='disabled');
     assert.equal(await page.locator('.client-social-auth-buttons').isVisible(),false,'Unconfigured social methods must not compete with usable login');
+    assert.equal(await page.locator('#clientSmsLoginForm').isVisible(),false,'Unavailable SMS form must not leave a dead phone field');
+    assert.equal(await page.locator('#legacyClientLogin').getAttribute('open'),null,'Personal-code fallback must stay collapsed');
+    assert.equal(await page.locator('#legacyClientLogin summary').isVisible(),true,'Fallback remains available as a secondary action');
     await page.locator('.client-access-help summary').click();
     assert.match(await page.locator('.client-access-help').innerText(),/Не создавайте повторную запись/);
     await capture('lost-code');
