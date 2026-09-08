@@ -21,7 +21,11 @@ const ids = {
   a:'33333333-3333-4333-8333-333333333333', b:'44444444-4444-4444-8444-444444444444',
   token:'55555555-5555-4555-8555-555555555555', performer:'66666666-6666-4666-8666-666666666666'
 };
-const day = new Date(Date.now() + 86400000).toLocaleDateString('en-CA', { timeZone:'UTC' });
+const businessParts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+  timeZone:'Europe/Samara', year:'numeric', month:'2-digit', day:'2-digit'
+}).formatToParts(new Date()).map(part => [part.type, part.value]));
+const day = new Date(Date.UTC(Number(businessParts.year), Number(businessParts.month) - 1, Number(businessParts.day) + 1))
+  .toISOString().slice(0, 10);
 const attemptKey = 'minuta-booking-attempt-v1';
 const canonical = value => JSON.stringify(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)));
 let scenario;
