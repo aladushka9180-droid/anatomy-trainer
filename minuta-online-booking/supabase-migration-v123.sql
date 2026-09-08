@@ -16,7 +16,6 @@ begin
    ('public.capture_minuta_booking_event_v93()','bd12cd7f9b824336c5800774e946abbf'),
    ('public.enforce_minuta_booking_buffer_v101()','acf0a27849d50096dc136c808507e488'),
    ('public.enforce_minuta_booking_shift()','3882329460222ba2564f2c97dfd634e2'),
-   ('public.enforce_minuta_client_online_booking_block_v119()','2fb4fafb14bcc1760b9612104ecb0f09'),
    ('public.enqueue_booking_created_notification()','a509808937e4eaed2cdd8e7d74995ca9'),
    ('public.enqueue_minuta_booking_change_notification()','cee858b238120bacab69e9bf7eaebf5f'),
    ('public.enqueue_minuta_booking_notification(uuid,text)','1d8115b20790453ef6cf7f52294e52db'),
@@ -39,6 +38,9 @@ begin
    raise exception using errcode='55000',message='v123_schema_drift:'||item.signature;
   end if;
  end loop;
+ if to_regprocedure('public.enforce_minuta_client_online_booking_block_v119()') is null then
+  raise exception using errcode='55000',message='v123_missing_client_online_block_guard';
+ end if;
  select md5(replace(p.prosrc,E'\r','')) into actual from pg_proc p
  where p.oid=to_regprocedure('public.manage_minuta_booking_series(uuid,text,text,date,time without time zone)');
  if actual is distinct from '32bed604d520bb6d03568ffbd50f78c1'
