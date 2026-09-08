@@ -55,6 +55,12 @@ with chosen as (
    and location.is_primary
    and location.timezone = 'Europe/Samara'
   where service.active
+    and exists (
+      select 1
+      from public.provider_schedule schedule
+      where schedule.performer_id = service.performer_id
+        and schedule.enabled
+    )
   order by service.id
   limit 1
 )
