@@ -96,3 +96,7 @@ Workflow `.github/workflows/minuta-v118-safe-release.yml` запускается
 ## Узкий выпуск карточки клиента v119
 
 Workflow `.github/workflows/minuta-v119-safe-release.yml` применяет только `supabase-migration-v119.sql`. Последовательность обязательна: `test-v119` (apply/integration/rollback/reapply на изолированной базе), `validate-production-v119` (read-only), свежий зашифрованный backup на том же SHA, `apply-production-v119` с подтверждением `APPLY_V119_TO_PRODUCTION` и точными run ID, затем `observe-production-v119` (read-only). Откат сохраняет персональные данные и запрещён при активных блокировках онлайн-записи.
+
+## Узкий выпуск автоучёта визитов v124
+
+Workflow `.github/workflows/minuta-v124-safe-release.yml` применяет только `supabase-migration-v124.sql`. Последовательность обязательна: `test-v124` (apply/integration/rollback/reapply на изолированной базе), `validate-production-v124` (read-only), свежий зашифрованный backup на том же SHA, `apply-production-v124` с подтверждением `APPLY_V124_TO_PRODUCTION` и точными run ID, затем `observe-production-v124` (read-only). Откат сохраняет пользовательские настройки и записи, возвращая только прежнее серверное поведение с оплатой наличными.

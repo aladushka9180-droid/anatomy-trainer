@@ -34,13 +34,22 @@ async function startFixture() {
           <section data-provider-panel="more">
             <p class="mobile-more-intro">Выберите нужный раздел.</p>
             <div class="mobile-more-grid">
-              <button type="button" data-provider-view="settings"><strong>Настройки кабинета</strong><small>Стиль, правила и пароль</small></button>
-              <button type="button" data-provider-view="bookings"><strong>Записи</strong><small>Лента времени и визиты</small></button>
-              <button type="button" data-provider-view="clients"><strong>Клиенты</strong><small>История, контакты и заметки</small></button>
-              <button type="button" data-provider-view="schedule"><strong>Рабочие часы</strong><small>Доступность, перерывы и выходные</small></button>
-              <button type="button" data-provider-view="services"><strong>Услуги</strong><small>Цены и длительность</small></button>
-              <button type="button" data-provider-view="analytics"><strong>Статистика</strong><small>Доход, визиты и показатели</small></button>
-              <a class="mobile-help-shortcut" href="#help"><strong>База знаний</strong><small>Инструкции по разделам</small></a>
+              <section class="mobile-more-group">
+                <button type="button" data-provider-view="bookings"><strong>Записи</strong><small>Лента времени и визиты</small></button>
+                <button type="button" data-provider-view="clients"><strong>Клиенты</strong><small>История, контакты и заметки</small></button>
+                <button type="button" data-provider-view="waitlist"><strong>Лист ожидания</strong><small>Заявки клиентов на занятые даты</small></button>
+              </section>
+              <section class="mobile-more-group">
+                <button type="button" data-provider-view="schedule"><strong>Рабочие часы</strong><small>Доступность, перерывы и выходные</small></button>
+                <button type="button" data-provider-view="services"><strong>Услуги</strong><small>Цены и длительность</small></button>
+              </section>
+              <section class="mobile-more-group">
+                <button type="button" data-provider-view="analytics"><strong>Статистика</strong><small>Доход, визиты и показатели</small></button>
+              </section>
+              <section class="mobile-more-group">
+                <button type="button" data-provider-view="settings"><strong>Настройки кабинета</strong><small>Стиль, правила и пароль</small></button>
+                <a class="mobile-help-shortcut" href="#help"><strong>База знаний</strong><small>Инструкции по разделам</small></a>
+              </section>
             </div>
           </section>
           <script>document.addEventListener('click', event => { const view = event.target.closest('[data-provider-view]'); if (view) document.body.dataset.openedView = view.dataset.providerView; const tab = event.target.closest('[data-section-target]'); if (tab) document.body.dataset.tabClicks = String(Number(document.body.dataset.tabClicks) + 1); });</script>
@@ -66,7 +75,7 @@ const browser = await chromium.launch({
   ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } : {})
 });
 try {
-  const page = await browser.newPage({ viewport:{ width:1600, height:900 } });
+  const page = await browser.newPage({ viewport:{ width:1440, height:900 } });
   await page.goto(fixture.url);
 
   const search = page.locator('#cabinetSectionsSearchInput');
@@ -90,11 +99,43 @@ try {
   assert.ok(Math.abs(alignment.searchIcon - alignment.field) <= 1, `Иконка поиска смещена относительно центра контейнера: ${JSON.stringify(alignment)}`);
   assert.ok(Math.abs(alignment.voice - alignment.field) <= 1, `Иконка микрофона смещена относительно центра контейнера: ${JSON.stringify(alignment)}`);
 
+  for (const width of [390, 760, 1440]) {
+    await page.setViewportSize({ width, height:900 });
+    await search.fill('Лист');
+    assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Лист ожидания/);
+    const layout = await page.locator('.cabinet-sections-search').evaluate(element => {
+      const box = element.getBoundingClientRect();
+      return { left:box.left, right:box.right, viewport:window.innerWidth, pageWidth:document.documentElement.scrollWidth };
+    });
+    assert.ok(layout.left >= 0 && layout.right <= layout.viewport, `Поиск вышел за экран на ширине ${width}: ${JSON.stringify(layout)}`);
+    assert.ok(layout.pageWidth <= layout.viewport, `Появился горизонтальный скролл на ширине ${width}: ${JSON.stringify(layout)}`);
+  }
+
   await search.fill('клиетны');
   assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Клиенты/);
 
   await search.fill('rkbytyns');
   assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Клиенты/);
+
+  for (const query of ['Лист', 'лист ожыдания', 'очередь', 'kbcn j;blfybz']) {
+    await search.fill(query);
+    assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Лист ожидания/, `Не найден лист ожидания по запросу: ${query}`);
+  }
+
+  for (const query of ['статисика', 'пасматреть дохот']) {
+    await search.fill(query);
+    assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Статистика/, `Не найдена статистика по запросу: ${query}`);
+  }
+
+  await search.fill('добавить услугу');
+  assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Услуги/);
+
+  await search.fill('лист ажыданя');
+  assert.match(await page.locator('#cabinetSectionsSearchResults button').first().innerText(), /Лист ожидания/);
+  assert.match(await page.locator('.cabinet-sections-search .settings-search-status').innerText(), /Возможно, вы искали/);
+
+  await search.fill('абракадабра');
+  assert.equal(await page.locator('#cabinetSectionsSearchResults button').count(), 0, 'Поиск не должен предлагать случайный раздел');
 
   await search.fill('посмотреть доход');
   assert.match(await page.locator('#cabinetSectionsSearchResults').innerText(), /Статистика/);
