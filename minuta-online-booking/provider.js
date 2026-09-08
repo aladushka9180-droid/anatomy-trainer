@@ -347,6 +347,9 @@ let visitorNotificationAudioContext = null;
 let visitorPresenceTimer = null;
 let ownServices = [];
 let serviceDurationDefaults = {};
+let serviceScheduleNames = {};
+let serviceScheduleNamesUpdatedAt = 0;
+let serviceScheduleNamesPending = false;
 let portfolioItems = [];
 let providerReviews = [];
 let providerReviewsState = 'idle';
@@ -1364,6 +1367,7 @@ function applyClientHighlightClasses(element, phone, prefix = 'client-') {
 }
 function providerDisplayStorageKey(userId = currentUser?.id) { return `massage-provider-display-v1:${userId || 'guest'}`; }
 function serviceDurationDefaultsStorageKey(userId = currentUser?.id) { return `massage-service-duration-defaults-v1:${userId || 'guest'}`; }
+function serviceScheduleNamesStorageKey(userId = currentUser?.id) { return `massage-service-schedule-names-v1:${userId || 'guest'}`; }
 function normalizeServiceDurationDefaults(value = {}) {
   const source = value?.values && typeof value.values === 'object' ? value.values : value;
   return Object.fromEntries(Object.entries(source && typeof source === 'object' ? source : {})
@@ -1389,6 +1393,125 @@ async function saveServiceDefaultDuration(serviceId, duration) {
   const { data, error } = await db.auth.updateUser({ data:{ provider_service_duration_defaults:snapshot } });
   if (data?.user) currentUser = data.user;
   return !error;
+}
+function normalizeServiceScheduleNames(value = {}) {
+  const source = value?.values && typeof value.values === 'object' ? value.values : value;
+  return Object.fromEntries(Object.entries(source && typeof source === 'object' ? source : {})
+    .slice(0, 500)
+    .map(([serviceId, scheduleName]) => [String(serviceId), String(scheduleName || '').replace(/\s+/g, ' ').trim().slice(0, 64)])
+    .filter(([, scheduleName]) => scheduleName.length >= 2));
+}
+function restoreServiceScheduleNames(user = currentUser) {
+  let localRecord = {};
+  try { localRecord = JSON.parse(localStorage.getItem(serviceScheduleNamesStorageKey(user?.id)) || '{}'); } catch {}
+  const local = normalizeServiceScheduleNames(localRecord);
+  const remoteRecord = user?.user_metadata?.provider_service_schedule_names;
+  const remote = normalizeServiceScheduleNames(remoteRecord || {});
+  const localPending = localRecord?.pending === true;
+  const localUpdatedAt = Math.max(0, Number(localRecord?.updated_at) || 0);
+  const remoteUpdatedAt = Math.max(0, Number(remoteRecord?.updated_at) || 0);
+  const sameValues = JSON.stringify(local) === JSON.stringify(remote);
+  const remoteExists = Boolean(remoteRecord && typeof remoteRecord === 'object');
+  const useLocal = localPending && !sameValues || !remoteExists || localUpdatedAt > remoteUpdatedAt;
+  serviceScheduleNames = useLocal ? local : remote;
+  serviceScheduleNamesUpdatedAt = useLocal ? localUpdatedAt : remoteUpdatedAt;
+  serviceScheduleNamesPending = useLocal ? localPending : false;
+  persistLocalServiceScheduleNames(user?.id);
+  return serviceScheduleNamesPending;
+}
+function persistLocalServiceScheduleNames(userId = currentUser?.id) {
+  if (!userId) return;
+  try { localStorage.setItem(serviceScheduleNamesStorageKey(userId), JSON.stringify({ version:1, values:serviceScheduleNames, updated_at:serviceScheduleNamesUpdatedAt, pending:serviceScheduleNamesPending })); } catch {}
+}
+function serviceScheduleName(fullName, serviceId = '') {
+  return serviceScheduleNames[String(serviceId)] || serviceName(fullName || 'Услуга');
+}
+function serviceScheduleNameRecommended(value) {
+  const name = serviceName(String(value || '').replace(/\s+/g, ' ').trim());
+  return name.length > 32 || /[().]|\s[—–-]\s/.test(name);
+}
+function suggestServiceScheduleName(value) {
+  const fullName = serviceName(String(value || '').replace(/\s+/g, ' ').trim());
+  const suggestion = fullName
+    .replace(/\s*[.!?]\s+.*/, '')
+    .replace(/\s*\([^)]{6,}\)\s*$/, '')
+    .replace(/^Массаж спины(?=\s|\+|$)/i, 'Спина')
+    .replace(/^Массаж ног или рук$/i, 'Ноги или руки')
+    .replace(/^Массаж спины,\s*рук и головы$/i, 'Спина, руки и голова')
+    .replace(/^Массаж задней поверхности тела$/i, 'Задняя поверхность тела')
+    .replace(/^Комплексный массаж всего тела$/i, 'Комплексный массаж тела')
+    .replace(/\s+с обеих сторон$/i, ' · обе стороны')
+    .replace(/\s+[—–-]\s+/, ' · ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (suggestion.length < 2 || suggestion.length > 64) return '';
+  return suggestion;
+}
+async function syncServiceScheduleNames() {
+  if (!currentUser?.id || !serviceScheduleNamesPending || !navigator.onLine) return false;
+  const userId = currentUser.id;
+  const snapshot = { version:1, values:serviceScheduleNames, updated_at:serviceScheduleNamesUpdatedAt };
+  const { data, error } = await db.auth.updateUser({ data:{ provider_service_schedule_names:snapshot } });
+  if (currentUser?.id !== userId) return false;
+  if (data?.user) currentUser = data.user;
+  if (error) return false;
+  if (serviceScheduleNamesUpdatedAt === snapshot.updated_at && JSON.stringify(serviceScheduleNames) === JSON.stringify(snapshot.values)) {
+    serviceScheduleNamesPending = false;
+    persistLocalServiceScheduleNames(userId);
+  }
+  return true;
+}
+async function saveServiceScheduleName(serviceId, enabled, value) {
+  if (!currentUser?.id || !serviceId) return false;
+  const normalized = String(value || '').replace(/\s+/g, ' ').trim().slice(0, 64);
+  if (enabled && normalized.length >= 2) serviceScheduleNames[String(serviceId)] = normalized;
+  else delete serviceScheduleNames[String(serviceId)];
+  serviceScheduleNamesUpdatedAt = Math.max(Date.now(), serviceScheduleNamesUpdatedAt + 1);
+  serviceScheduleNamesPending = true;
+  persistLocalServiceScheduleNames();
+  return syncServiceScheduleNames();
+}
+function serviceScheduleNameSettingMarkup({ prefix, fullName = '', serviceId = '' }) {
+  const savedName = serviceScheduleNames[String(serviceId)] || '';
+  const recommended = serviceScheduleNameRecommended(fullName);
+  const suggestion = suggestServiceScheduleName(fullName);
+  const enabled = Boolean(savedName);
+  return `<section class="service-schedule-name-setting" data-service-schedule-name-setting>
+    <label class="service-schedule-name-toggle"><input id="${prefix}ServiceScheduleNameEnabled" type="checkbox" ${enabled ? 'checked' : ''}><span><span class="service-schedule-name-title"><strong>Короткое название в расписании</strong><em data-service-schedule-name-recommended ${recommended ? '' : 'hidden'}>Рекомендуется</em></span><small>Полное название сохранится в услуге и карточке записи.</small></span></label>
+    <div class="service-schedule-name-details" data-service-schedule-name-details ${enabled ? '' : 'hidden'}>
+      <label>Название в расписании<input id="${prefix}ServiceScheduleName" maxlength="64" value="${escapeHtml(savedName || suggestion)}" placeholder="Например, Спина + ШВЗ"></label>
+      <div class="service-schedule-name-preview" aria-live="polite"><small>Предпросмотр</small><span><time>12:00</time><strong data-service-schedule-name-preview>${escapeHtml(savedName || suggestion || fullName || 'Название услуги')}</strong></span></div>
+    </div>
+  </section>`;
+}
+function bindServiceScheduleNameSetting({ prefix, nameSelector }) {
+  const nameInput = $(nameSelector);
+  const enabled = $(`#${prefix}ServiceScheduleNameEnabled`);
+  const input = $(`#${prefix}ServiceScheduleName`);
+  const setting = enabled?.closest('[data-service-schedule-name-setting]');
+  if (!nameInput || !enabled || !input || !setting) return;
+  if (typeof setting.renderServiceScheduleName === 'function') {
+    setting.renderServiceScheduleName();
+    return;
+  }
+  const details = setting.querySelector('[data-service-schedule-name-details]');
+  const badge = setting.querySelector('[data-service-schedule-name-recommended]');
+  const preview = setting.querySelector('[data-service-schedule-name-preview]');
+  const render = () => {
+    const fullName = nameInput.value.trim();
+    badge.hidden = !serviceScheduleNameRecommended(fullName);
+    details.hidden = !enabled.checked;
+    preview.textContent = input.value.trim() || fullName || 'Название услуги';
+  };
+  enabled.addEventListener('change', () => {
+    if (enabled.checked && !input.value.trim()) input.value = suggestServiceScheduleName(nameInput.value) || nameInput.value.trim();
+    render();
+    if (enabled.checked) input.focus();
+  });
+  nameInput.addEventListener('input', render);
+  input.addEventListener('input', render);
+  setting.renderServiceScheduleName = render;
+  render();
 }
 function normalizeMobileNavigation(value) {
   const allowed = new Set(PROVIDER_MOBILE_NAV_ITEMS.map(item => item.key));
@@ -2329,8 +2452,8 @@ function escapeHtml(value) {
 }
 function money(value) { return `${new Intl.NumberFormat('ru-RU').format(value)} ₽`; }
 function serviceName(value) { return value === 'Общий массаж задней поверхности' ? 'Массаж задней поверхности тела' : value; }
-function timelineServiceNameMarkup(value) {
-  const name = serviceName(value || 'Услуга');
+function timelineServiceNameMarkup(value, serviceId = '') {
+  const name = serviceScheduleName(value || 'Услуга', serviceId);
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
@@ -6513,7 +6636,7 @@ function renderTimeline(sourceItems) {
       : statusClass === 'visited'
       ? `<span class="timeline-booking-status timeline-booking-status-icon"><span aria-hidden="true">${uiIcon('check')}</span><span class="sr-only">Статус: ${escapeHtml(statusText)}</span></span>`
       : `<span class="timeline-booking-status">${escapeHtml(statusText)}</span>`;
-    const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга');
+    const serviceMarkup = block ? escapeHtml(item.client_name || 'Перерыв') : timelineServiceNameMarkup(item.services?.name || 'Услуга', item.service_id);
     const serviceTitleMarkup = block ? serviceMarkup : `${serviceMarkup}<wbr><span class="timeline-service-duration"> · ${duration} мин</span>`;
     const renderedNote = mobileTimeline ? '' : bookingNotePresenceMarkup(note, 'timeline-booking-note-presence');
     const renderedStatus = mobileTimeline ? '' : timelineStatus;
@@ -6564,10 +6687,11 @@ function renderBookingList(items, emptyMessage = 'На выбранный пер
     const note = bookingDisplayNote(item);
     const notePresence = bookingNotePresenceMarkup(note, 'provider-booking-note-presence');
     const visitMarkup = block ? '' : bookingVisitSummaryMarkup(item);
-    const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+    const fullTitle = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+    const title = block ? fullTitle : serviceScheduleName(fullTitle, item.service_id);
     const details = block ? `Занятое время · ${duration} мин` : [item.client_name, displayPreferences.show_phone ? item.client_phone : '', bookingVisitSummaryText(item)].filter(Boolean).join(', ');
     return `<article class="provider-booking status-${statusClass} color-${bookingColor(item)}${item.is_imported_history ? ' is-imported-history' : ''}${block ? '' : clientHighlightClasses(item.client_phone)}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}">
-      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(title)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
+      <button class="provider-booking-open" type="button" data-open-booking="${item.id}" aria-label="${escapeHtml(fullTitle)}, с ${time} до ${endTime}, ${escapeHtml(details)}. Открыть подробности">
         <span class="booking-time-column"><strong>${time}<small>до ${endTime}</small></strong><span>${dateFormat.format(itemDate)}</span></span>
         <span class="booking-main"><span class="provider-booking-top"><h3>${escapeHtml(title)}</h3><span class="booking-status">${statusText}</span></span>
         ${block ? `<span class="provider-booking-client-line"><strong>Занятое время</strong><span>${duration} мин</span></span>` : `<span class="provider-booking-client-line"><span class="booking-client-name-row"><strong>${escapeHtml(item.client_name)}</strong>${displayPreferences.show_client_labels ? clientBadgeMarkup(item.client_phone, { limit:1, showLabels:mobileList }) : ''}</span>${displayPreferences.show_phone ? `<span class="provider-booking-phone">${phone}</span>` : ''}${visitMarkup}</span>`}
@@ -7046,6 +7170,7 @@ function openServiceEditor(id) {
   $('#bookingSheetContent').innerHTML = `<small class="booking-sheet-kicker">Редактирование услуги</small><h2 id="bookingSheetTitle">Настройте услугу</h2>
     <form class="booking-editor-form service-edit-form" id="serviceEditForm" data-service-id="${item.id}">
       <label>Название услуги<input id="editServiceName" maxlength="120" value="${escapeHtml(item.name)}" required></label>
+      ${serviceScheduleNameSettingMarkup({ prefix:'edit', fullName:item.name, serviceId:item.id })}
       <div class="service-edit-row"><label>Длительность<select id="editServiceDuration" required>${durationOptions(item.duration_minutes)}</select></label><label>Цена, ₽<input id="editServicePrice" type="number" min="0" max="1000000" step="1" value="${item.price_rub}" required></label></div>
       <div class="service-default-duration" id="editServiceDefaultDurationField" ${Number(item.duration_minutes) === 1 ? '' : 'hidden'}><div><label for="editServiceDefaultDuration">Обычная длительность, минут</label><small>Автоматически подставляется при новой записи.</small></div><input id="editServiceDefaultDuration" type="number" inputmode="numeric" min="1" max="480" step="1" value="${serviceDefaultDuration(item.id)}"><div class="service-default-duration-presets"><button type="button" data-edit-service-default-duration="30">30</button><button type="button" data-edit-service-default-duration="45">45</button><button type="button" data-edit-service-default-duration="60">60</button><button type="button" data-edit-service-default-duration="90">90</button></div></div>
       <label class="service-visibility-option"><input id="editServiceActive" type="checkbox" ${item.active ? 'checked' : ''}><span><strong>Показывать в онлайн-записи</strong><small>${item.active ? 'Клиенты могут выбрать эту услугу' : 'Сейчас услуга скрыта от клиентов'}</small></span></label>
@@ -7057,6 +7182,7 @@ function openServiceEditor(id) {
   $('#serviceEditForm').addEventListener('submit', saveServiceChanges);
   $('#editServiceDuration').addEventListener('change', () => updateServiceDefaultDurationField('#editServiceDuration', '#editServiceDefaultDurationField', '#editServiceDefaultDuration'));
   $('#editServiceActive').addEventListener('change', updateEditServiceVisibilityHint);
+  bindServiceScheduleNameSetting({ prefix:'edit', nameSelector:'#editServiceName' });
   bindServiceDefaultDurationPresets('[data-edit-service-default-duration]', '#editServiceDefaultDuration');
   setTimeout(() => $('#editServiceName')?.focus(), 0);
 }
@@ -7071,8 +7197,14 @@ async function saveServiceChanges(event) {
   const defaultDuration = normalizePerMinuteDuration($('#editServiceDefaultDuration')?.value, serviceDefaultDuration(id));
   const price = Number($('#editServicePrice').value);
   const active = $('#editServiceActive').checked;
+  const scheduleNameEnabled = $('#editServiceScheduleNameEnabled')?.checked === true;
+  const scheduleName = $('#editServiceScheduleName')?.value.trim() || '';
   if (name.length < 2 || !Number.isFinite(duration) || duration < 1 || duration > 480 || !Number.isFinite(price) || price < 0) {
     showFormError('#serviceEditError', 'Проверьте название, длительность и цену.');
+    return;
+  }
+  if (scheduleNameEnabled && scheduleName.length < 2) {
+    showFormError('#serviceEditError', 'Укажите короткое название для расписания.');
     return;
   }
   const button = event.submitter;
@@ -7086,9 +7218,10 @@ async function saveServiceChanges(event) {
     return;
   }
   if (duration === 1) await saveServiceDefaultDuration(id, defaultDuration);
+  const scheduleNameSynced = await saveServiceScheduleName(id, scheduleNameEnabled, scheduleName);
   closeBookingSheet();
   await refreshAfterWrite();
-  notify('Услуга обновлена');
+  notify(scheduleNameSynced ? 'Услуга обновлена' : 'Услуга обновлена · короткое название синхронизируется');
 }
 
 async function loadBookingEditSlots(id, preserveCurrent = false) {
@@ -8743,7 +8876,8 @@ function calendarRangeTitle(view = calendarView) {
 function calendarOverviewBookingMarkup(item, compact) {
   const time = String(item.booking_time || '').slice(0, 5);
   const block = isScheduleBlock(item);
-  const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+  const fullTitle = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+  const title = block ? fullTitle : serviceScheduleName(fullTitle, item.service_id);
   const client = block ? 'Занятое время' : item.client_name;
   const statusClass = bookingStatusClass(item);
   const phone = '';
@@ -8753,7 +8887,7 @@ function calendarOverviewBookingMarkup(item, compact) {
   const badgeText = block || !displayPreferences.show_client_labels ? '' : clientBadgeText(item.client_phone);
   const badgeMarkup = block || !displayPreferences.show_client_labels ? '' : clientBadgeMarkup(item.client_phone, { limit:1, showLabels:true });
   const importedText = item.is_imported_history ? 'Импортировано, только просмотр' : '';
-  const details = [title, client, time, visitText, badgeText, importedText, displayPreferences.show_notes && rawNote ? `заметка: ${rawNote}` : rawNote ? 'есть заметка' : ''].filter(Boolean).join(', ');
+  const details = [fullTitle, client, time, visitText, badgeText, importedText, displayPreferences.show_notes && rawNote ? `заметка: ${rawNote}` : rawNote ? 'есть заметка' : ''].filter(Boolean).join(', ');
   const cardDetails = compact ? '' : `<span class="calendar-overview-booking-details">
     <span class="calendar-overview-client-row"><b>${escapeHtml(client)}${item.is_imported_history ? ' · Импортировано' : ''}</b>${badgeMarkup}</span>
     ${phone ? `<small class="calendar-overview-phone">${escapeHtml(phone)}</small>` : ''}
@@ -8833,10 +8967,11 @@ function calendarWeekTimelineMarkup(days, byDate, today) {
       const startTime = String(item.booking_time || '').slice(0, 5);
       const endTime = timeFromMinutes(minutesFromTime(startTime) + duration);
       const block = isScheduleBlock(item);
-      const title = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+      const fullTitle = block ? (item.client_name || 'Перерыв') : serviceName(item.services?.name || 'Услуга');
+      const title = block ? fullTitle : serviceScheduleName(fullTitle, item.service_id);
       const client = block ? 'Занятое время' : item.client_name;
       const statusClass = bookingStatusClass(item);
-      const details = `${title}, ${client}, с ${startTime} до ${endTime}`;
+      const details = `${fullTitle}, ${client}, с ${startTime} до ${endTime}`;
       return `<button class="calendar-week-booking status-${statusClass} color-${bookingColor(item)}${block ? ' is-block' : ''}${item.is_imported_history ? ' is-imported-history' : ''}${cardHeight < 54 ? ' is-compact' : ''}${item.id === recentlyCreatedBookingId ? ' booking-created-highlight' : ''}" type="button" data-open-booking="${escapeHtml(item.id)}" style="top:${visualTop + 2}px;height:${cardHeight}px" aria-label="${escapeHtml(details)}. ${item.is_imported_history ? 'Импортировано, только просмотр' : 'Открыть запись'}"><time>${escapeHtml(startTime)}–${escapeHtml(endTime)}</time><strong>${escapeHtml(title)}</strong><small>${escapeHtml(client)}${item.is_imported_history ? ' · Импортировано' : ''}</small></button>`;
     }).join('');
     const nowMarker = scheduleNowMarkerMarkup(iso, start, end, hourHeight, 'calendar-week-now-marker');
@@ -10425,6 +10560,7 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
         || key === sessionItemsStorageKey(userId)
         || key === connectionLogKey(userId)
         || key === serviceDurationDefaultsStorageKey(userId)
+        || key === serviceScheduleNamesStorageKey(userId)
         || key === autoCompleteStorageKey(userId)) localStorage.removeItem(key);
     });
   } catch {}
@@ -10456,6 +10592,7 @@ async function logout() {
 async function handleSession(session) {
   if (session?.user?.id && session.user.id === currentUser?.id) {
     currentUser = session.user;
+    if (restoreServiceScheduleNames(currentUser)) void syncServiceScheduleNames();
     void providerFeedbackController.refreshAvailability();
     restoreTelegramClientSettings(currentUser);
     renderTelegramClientSettings();
@@ -10532,12 +10669,14 @@ async function handleSession(session) {
     window.MinutaSocialAuth.clearFlow();
   }
   let displayPreferencesNeedSync = false;
+  let serviceScheduleNamesNeedSync = false;
   if (currentUser) {
     loadBookingColors(currentUser.id);
     loadBookingNotes(currentUser.id);
     loadLocalClientLabels(currentUser.id);
     loadPendingClientNotes(currentUser.id);
     restoreServiceDurationDefaults(currentUser);
+    serviceScheduleNamesNeedSync = restoreServiceScheduleNames(currentUser);
     displayPreferencesNeedSync = restoreDisplayPreferences(currentUser).pending;
     restoreTelegramClientSettings(currentUser);
   } else {
@@ -10547,6 +10686,9 @@ async function handleSession(session) {
     clientLabels = new Map();
     pendingClientLabels = new Set();
     serviceDurationDefaults = {};
+    serviceScheduleNames = {};
+    serviceScheduleNamesUpdatedAt = 0;
+    serviceScheduleNamesPending = false;
     displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
     displayPreferencesUpdatedAt = 0;
     displayPreferencesPending = false;
@@ -10557,6 +10699,7 @@ async function handleSession(session) {
   renderTelegramClientSettings();
   renderProviderSocialState();
   if (displayPreferencesNeedSync) queueDisplayPreferencesSync();
+  if (serviceScheduleNamesNeedSync) void syncServiceScheduleNames();
   scheduleDirty = false;
   updateScheduleSaveState();
   if (previousUserId && currentUser?.id && previousUserId !== currentUser.id) await clearProviderDeviceData(previousUserId);
@@ -10965,8 +11108,14 @@ async function addService(event) {
   const price = Number($('#servicePrice').value);
   const duration = Number($('#serviceDuration').value);
   const defaultDuration = normalizePerMinuteDuration($('#serviceDefaultDuration')?.value, 60);
+  const scheduleNameEnabled = $('#createServiceScheduleNameEnabled')?.checked === true;
+  const scheduleName = $('#createServiceScheduleName')?.value.trim() || '';
   if (name.length < 2 || !Number.isFinite(duration) || duration < 1 || duration > 480 || !Number.isFinite(price) || price < 0) {
     showFormError('#serviceError', 'Укажите название, длительность и корректную цену.');
+    return;
+  }
+  if (scheduleNameEnabled && scheduleName.length < 2) {
+    showFormError('#serviceError', 'Укажите короткое название для расписания.');
     return;
   }
   const button = event.submitter;
@@ -10975,12 +11124,13 @@ async function addService(event) {
   button.disabled = false;
   if (error) { showFormError('#serviceError', 'Не удалось добавить услугу.'); return; }
   if (duration === 1 && createdService?.id) await saveServiceDefaultDuration(createdService.id, defaultDuration);
+  const scheduleNameSynced = createdService?.id && scheduleNameEnabled ? await saveServiceScheduleName(createdService.id, true, scheduleName) : true;
   event.target.reset();
   $('#serviceDuration').value = '60';
   $('#serviceDefaultDuration').value = '60';
   updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
   $('#serviceCreatorDialog').close();
-  notify('Услуга добавлена');
+  notify(scheduleNameSynced ? 'Услуга добавлена' : 'Услуга добавлена · короткое название синхронизируется');
   await refreshAfterWrite();
 }
 
@@ -12388,6 +12538,7 @@ document.addEventListener('click', async event => {
     updateServiceDefaultDurationField('#serviceDuration', '#serviceDefaultDurationField', '#serviceDefaultDuration');
     clearFormError('#serviceError');
     $('#serviceCreatorDialog').showModal();
+    bindServiceScheduleNameSetting({ prefix:'create', nameSelector:'#serviceName' });
   }
   if (closeServiceCreator) $('#serviceCreatorDialog').close();
   if (openPortfolioEditorButton) openPortfolioEditor();
@@ -12561,7 +12712,10 @@ document.addEventListener('click', async event => {
       data = 'archived';
     }
     if (error) notify('Не удалось удалить услугу');
-    else notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
+    else {
+      if (data === 'deleted') await saveServiceScheduleName(remove.dataset.deleteService, false, '');
+      notify(data === 'deleted' ? 'Услуга удалена' : 'Услуга скрыта: сохранена история клиентов');
+    }
     await refreshAfterWrite();
   }
   if (removeDayOff) {
