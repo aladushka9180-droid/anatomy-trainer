@@ -177,7 +177,7 @@
 
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
   background-color:#d8c0a0!important;
-  background-image:radial-gradient(ellipse 105% 120% at 50% 48%,transparent 52%,rgba(70,48,32,.06) 100%),linear-gradient(rgba(246,235,219,.22),rgba(246,235,219,.22)),url("provider-golden-cheetah-matte-v2.webp?v=585")!important;
+  background-image:radial-gradient(ellipse 105% 120% at 50% 48%,transparent 52%,rgba(70,48,32,.06) 100%),linear-gradient(rgba(246,235,219,.22),rgba(246,235,219,.22)),url("provider-golden-cheetah-matte-v2.webp?v=586")!important;
   background-size:100% 100%,100% 100%,cover!important;
   background-position:center,center,center!important;
   background-repeat:no-repeat,no-repeat,no-repeat!important;
@@ -185,13 +185,13 @@
 }
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f7f4ef!important;
-  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=585")!important;
+  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=586")!important;
   background-size:100% 100%,100% 100%!important;
   background-position:center top!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
 }
 .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] {
   background-color:#f2dfc7!important;
-  background-image:linear-gradient(rgba(255,250,243,.16),rgba(255,250,243,.16)),url("provider-velvet-leopard-desktop-v1.webp?v=585")!important;
+  background-image:linear-gradient(rgba(255,250,243,.16),rgba(255,250,243,.16)),url("provider-velvet-leopard-desktop-v1.webp?v=586")!important;
   background-size:100% 100%,cover!important;
   background-position:center,center top!important;
   background-repeat:no-repeat,no-repeat!important;
@@ -241,7 +241,7 @@
 }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] {
-    background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-mobile-v1.webp?v=585")!important;
+    background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-mobile-v1.webp?v=586")!important;
     background-size:100% 100%,cover!important;
     background-position:center,center top!important;
     background-repeat:no-repeat,no-repeat!important;
@@ -265,7 +265,7 @@
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .provider-sidebar { border-right-color:transparent!important;box-shadow:none!important; }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
-    background-image:radial-gradient(ellipse 130% 115% at 50% 45%,transparent 58%,rgba(70,48,32,.05) 100%),linear-gradient(rgba(246,235,219,.25),rgba(246,235,219,.25)),url("provider-golden-cheetah-matte-v2.webp?v=585")!important;
+    background-image:radial-gradient(ellipse 130% 115% at 50% 45%,transparent 58%,rgba(70,48,32,.05) 100%),linear-gradient(rgba(246,235,219,.25),rgba(246,235,219,.25)),url("provider-golden-cheetah-matte-v2.webp?v=586")!important;
     background-size:100% 100%,100% 100%,cover!important;
     background-position:center,center,center!important;
     background-repeat:no-repeat,no-repeat,no-repeat!important;
@@ -302,8 +302,8 @@
   }
 }
 .theme-golden-cheetah { --theme-preview-bg:#d8c0a0;--theme-preview-surface:#fffdf8;--theme-preview-line:#ae9785;--theme-preview-accent:#805033;--theme-preview-radius:14px; }
-.theme-golden-cheetah .theme-swatch { background-image:linear-gradient(rgba(246,235,219,.22),rgba(246,235,219,.22)),url("provider-golden-cheetah-matte-v2.webp?v=585")!important;background-size:100% 100%,cover!important;background-position:center!important;background-repeat:no-repeat!important; }
+.theme-golden-cheetah .theme-swatch { background-image:linear-gradient(rgba(246,235,219,.22),rgba(246,235,219,.22)),url("provider-golden-cheetah-matte-v2.webp?v=586")!important;background-size:100% 100%,cover!important;background-position:center!important;background-repeat:no-repeat!important; }
 .theme-pearl-zebra { --theme-preview-bg:#f7f4ef;--theme-preview-surface:#fffdfb;--theme-preview-line:#a39b93;--theme-preview-accent:#4f4944;--theme-preview-radius:14px; }
-.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=585") center/cover no-repeat!important; }
+.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=586") center/cover no-repeat!important; }
 .theme-velvet-leopard { --theme-preview-bg:#f2dfc7;--theme-preview-surface:#fffaf3;--theme-preview-line:#c5a991;--theme-preview-accent:#6e442d;--theme-preview-radius:14px; }
-.theme-velvet-leopard .theme-swatch { background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-desktop-v1.webp?v=585")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
+.theme-velvet-leopard .theme-swatch { background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-desktop-v1.webp?v=586")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
