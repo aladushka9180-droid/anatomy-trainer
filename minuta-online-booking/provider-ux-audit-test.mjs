@@ -21,7 +21,7 @@ assert.match(read('sw.js'), /provider-ux.css\?v=\d+/);
 assert.match(provider, /block \? 'Занять время' : 'Новая запись'/);
 assert.match(provider, /toolbar\.append\(search\);[\s\S]*if \(filters\) toolbar\.append\(filters\);[\s\S]*toolbar\.append\(tools\);/, 'Компактная панель клиентов должна сохранять порядок: поиск, доступные фильтры, дополнительные инструменты');
 assert.match(provider, /panel\.hidden/);
-assert.match(provider, /Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено и долг/);
+assert.match(provider, /Стоимость сохранена в оказанных услугах; без отметки оплаты она не входит в получено или подтверждённый долг/);
 assert.match(provider, /forecastCard.hidden = forecast.caption === 'Получено за период'/);
 assert.match(baseCss, /\.schedule-quick-days input \{[^}]*width:1px!important;[^}]*height:1px!important/);
 assert.match(css, /#newBookingButton>span \{ display:inline!important/);
