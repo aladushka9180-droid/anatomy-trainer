@@ -28,7 +28,7 @@ assert.match(provider, /Ожидает синхронизации/);
 assert.match(provider, /_sync_pending/);
 assert.doesNotMatch(provider, /delete compatibleRecord\.auto_complete_visits/);
 assert.match(expiry, /process_minuta_auto_completed_visits_v106/);
-assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v586`/);
-assert.match(html, /provider\.js\?v=586/);
+assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v587`/);
+assert.match(html, /provider\.js\?v=587/);
 
 console.log('Visit outcomes v106 static checks passed.');

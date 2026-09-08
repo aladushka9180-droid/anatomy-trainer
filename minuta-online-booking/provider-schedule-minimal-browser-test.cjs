@@ -257,6 +257,22 @@ const server = http.createServer((request, response) => {
       }
     }
 
+    await page.setViewportSize({ width:320, height:900 });
+    const velvetNarrowTitle = await page.evaluate(() => {
+      document.body.dataset.providerTheme = 'velvet-leopard';
+      document.body.dataset.providerLayout = 'bento';
+      const title = document.querySelector('.schedule-title-line h2');
+      const summary = document.querySelector('.schedule-title-line .dashboard-summary');
+      return {
+        titleFits:title.scrollWidth <= title.clientWidth + 1,
+        summaryFits:summary.scrollWidth <= summary.clientWidth + 1,
+        overflow:document.documentElement.scrollWidth > innerWidth + 2
+      };
+    });
+    assert.equal(velvetNarrowTitle.titleFits, true, 'velvet-leopard 320px: заголовок расписания обрезан');
+    assert.equal(velvetNarrowTitle.summaryFits, true, 'velvet-leopard 320px: сводка расписания обрезана');
+    assert.equal(velvetNarrowTitle.overflow, false, 'velvet-leopard 320px: появился горизонтальный overflow');
+
     if (output) {
       await page.evaluate(() => {
         document.body.dataset.providerLayout = 'soft';
@@ -264,7 +280,7 @@ const server = http.createServer((request, response) => {
       });
       for (const theme of ['sage','graphite','midnight','butter','snow-leopard','golden-cheetah','velvet-leopard','noir-safari']) {
         await page.evaluate(themeKey => { document.body.dataset.providerTheme = themeKey; }, theme);
-        for (const width of [390, 760, 1440]) {
+        for (const width of theme === 'velvet-leopard' ? [320, 390, 760, 1440] : [390, 760, 1440]) {
           await page.setViewportSize({ width, height:900 });
           await page.screenshot({ path:path.join(output, `${theme}-soft-${width}.png`), fullPage:false });
         }
