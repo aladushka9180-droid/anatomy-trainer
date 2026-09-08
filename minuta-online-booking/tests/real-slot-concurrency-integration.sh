@@ -7,7 +7,9 @@ request_one="$(cat /proc/sys/kernel/random/uuid)"
 request_two="$(cat /proc/sys/kernel/random/uuid)"
 client_one="$(cat /proc/sys/kernel/random/uuid)"
 client_two="$(cat /proc/sys/kernel/random/uuid)"
+test_performer="$(cat /proc/sys/kernel/random/uuid)"
 test_service="$(cat /proc/sys/kernel/random/uuid)"
+test_location="$(cat /proc/sys/kernel/random/uuid)"
 lock_key="900090"
 first_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-first.log"
 second_log="${RUNNER_TEMP:-/tmp}/primetime-concurrency-second.log"
@@ -21,7 +23,8 @@ cleanup() {
   psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=0 \
     -v request_one="$request_one" -v request_two="$request_two" \
     -v client_one="$client_one" -v client_two="$client_two" \
-    -v test_service="$test_service" <<'SQL' >/dev/null 2>&1 || true
+    -v test_performer="$test_performer" -v test_service="$test_service" \
+    -v test_location="$test_location" <<'SQL' >/dev/null 2>&1 || true
 select set_config('minuta.test_request_one', :'request_one', false);
 select set_config('minuta.test_request_two', :'request_two', false);
 do $$
@@ -39,9 +42,14 @@ begin
     perform public.provider_delete_booking(booking.id);
   end loop;
 end $$;
-delete from public.services where id=:'test_service'::uuid;
 set session_replication_role=replica;
-delete from auth.users where id in (:'client_one'::uuid, :'client_two'::uuid);
+delete from public.bookings where request_id in (:'request_one'::uuid, :'request_two'::uuid);
+delete from public.services where id=:'test_service'::uuid;
+delete from public.provider_schedule where performer_id=:'test_performer'::uuid;
+delete from public.organization_memberships where user_id=:'test_performer'::uuid;
+delete from public.locations where id=:'test_location'::uuid;
+delete from public.performer_profiles where id=:'test_performer'::uuid;
+delete from auth.users where id in (:'client_one'::uuid, :'client_two'::uuid, :'test_performer'::uuid);
 set session_replication_role=origin;
 SQL
   rm -f -- "$first_log" "$second_log"
@@ -52,44 +60,44 @@ trap cleanup EXIT
 seed_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' <<'SQL'
 select organization.public_slug,
        organization.id,
-       membership.user_id,
-       location.id,
+       seed_location.id,
        seed_service.id,
-       current_date + ((schedule.weekday - extract(isodow from current_date)::integer + 7) % 7) + 7
+       current_date + 7,
+       extract(isodow from current_date + 7)::integer
 from public.organizations organization
-join public.organization_memberships membership
-  on membership.organization_id=organization.id
- and membership.active
- and membership.is_bookable
-join public.provider_schedule schedule
-  on schedule.performer_id=membership.user_id
- and schedule.enabled
-join public.locations location
-  on location.organization_id=organization.id
- and location.active
 cross join lateral (
   select service.id
   from public.services service
   order by service.id
   limit 1
 ) seed_service
+cross join lateral (
+  select location.id
+  from public.locations location
+  order by location.id
+  limit 1
+) seed_location
 where organization.status='active'
   and organization.public_booking_enabled
-order by organization.id,membership.user_id,schedule.weekday,location.is_primary desc
+order by organization.id
 limit 1;
 SQL
 )"
 
 if [[ -z "$seed_row" ]]; then
-  echo "No active public organization with a bookable scheduled performer is available" >&2
+  echo "No active public organization or seed fixture is available" >&2
   exit 1
 fi
-IFS='|' read -r slug organization_id performer_id location_id seed_service target_date <<<"$seed_row"
+IFS='|' read -r slug organization_id seed_location seed_service target_date schedule_weekday <<<"$seed_row"
+performer_id="$test_performer"
+location_id="$test_location"
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 \
   -v client_one="$client_one" -v client_two="$client_two" \
-  -v service_id="$test_service" -v performer_id="$performer_id" \
-  -v seed_service="$seed_service" <<'SQL' >/dev/null
+  -v performer_id="$test_performer" -v service_id="$test_service" \
+  -v location_id="$test_location" -v organization_id="$organization_id" \
+  -v seed_location="$seed_location" -v seed_service="$seed_service" \
+  -v weekday="$schedule_weekday" <<'SQL' >/dev/null
 set session_replication_role=replica;
 insert into auth.users(
   id,instance_id,aud,role,email,email_confirmed_at,
@@ -98,8 +106,23 @@ insert into auth.users(
   (:'client_one'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
    'primetime-concurrency-a@example.invalid',now(),'{}'::jsonb,'{}'::jsonb,now(),now()),
   (:'client_two'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
-   'primetime-concurrency-b@example.invalid',now(),'{}'::jsonb,'{}'::jsonb,now(),now());
-set session_replication_role=origin;
+   'primetime-concurrency-b@example.invalid',now(),'{}'::jsonb,'{}'::jsonb,now(),now()),
+  (:'performer_id'::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+   'primetime-concurrency-provider@example.invalid',now(),'{}'::jsonb,'{}'::jsonb,now(),now());
+insert into public.performer_profiles(id,display_name)
+values(:'performer_id'::uuid,'PrimeTime Concurrency Specialist');
+insert into public.locations
+select (jsonb_populate_record(null::public.locations,to_jsonb(location)||jsonb_build_object(
+  'id',:'location_id','organization_id',:'organization_id','name','PrimeTime concurrency location',
+  'timezone','Europe/Samara','active',true,'is_primary',false,'created_at',now(),'updated_at',now()
+))).*
+from public.locations location
+where location.id=:'seed_location'::uuid;
+insert into public.organization_memberships(
+  organization_id,user_id,role,is_bookable,active,created_by
+) values (
+  :'organization_id'::uuid,:'performer_id'::uuid,'specialist',true,true,:'performer_id'::uuid
+);
 insert into public.services
 select (jsonb_populate_record(null::public.services,to_jsonb(service)||jsonb_build_object(
   'id',:'service_id','performer_id',:'performer_id','name','PrimeTime concurrency service',
@@ -107,6 +130,12 @@ select (jsonb_populate_record(null::public.services,to_jsonb(service)||jsonb_bui
 ))).*
 from public.services service
 where service.id=:'seed_service'::uuid;
+insert into public.provider_schedule(
+  performer_id,weekday,enabled,start_time,end_time,break_start,break_end,slot_interval_minutes
+) values (
+  :'performer_id'::uuid,:'weekday'::integer,true,'12:00','14:00',null,null,30
+);
+set session_replication_role=origin;
 SQL
 
 slot_row="$(psql "$MINUTA_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -At -F '|' \
