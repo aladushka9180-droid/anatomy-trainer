@@ -65,4 +65,4 @@ assert.match(updates, /const CHECK_INTERVAL_MS = 15 \* 60 \* 1000;/, 'Update int
 assert.ok(!updates.includes("addEventListener('focus'"), 'Focus must not trigger update storms');
 assert.ok(!updates.includes("addEventListener('pageshow'"), 'Pageshow must not trigger update storms');
 
-console.log(`Provider startup performance v639: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
+console.log(`Provider startup performance v640: PASS (${assets.length} core files, ${precacheBytes} bytes)`);
