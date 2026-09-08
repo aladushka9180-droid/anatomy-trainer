@@ -130,7 +130,7 @@ jobs:
           node --check minuta-online-booking/privacy.js
           bash -n minuta-online-booking/visitor-presence-v105-integration-test.sh
           node --check minuta-online-booking/analytics-experience-v294-test.mjs
-          node --check minuta-online-booking/statistics-trust-ux-v624-test.mjs
+          node --check minuta-online-booking/statistics-trust-ux-v625-test.mjs
           node --check minuta-online-booking/mobile-minimalism-v310-test.mjs
           node --check minuta-online-booking/booking-history-organization-regression-test.mjs
           node --check minuta-online-booking/report-decision-analytics-test.mjs
@@ -206,7 +206,7 @@ jobs:
           node minuta-online-booking/inventory-warehouse-v108-static-test.mjs
           node minuta-online-booking/product-feedback-v109-static-test.mjs
           node minuta-online-booking/analytics-experience-v294-test.mjs
-          node minuta-online-booking/statistics-trust-ux-v624-test.mjs
+          node minuta-online-booking/statistics-trust-ux-v625-test.mjs
           node minuta-online-booking/mobile-minimalism-v310-test.mjs
           node minuta-online-booking/booking-history-organization-regression-test.mjs
           node minuta-online-booking/report-decision-analytics-test.mjs
