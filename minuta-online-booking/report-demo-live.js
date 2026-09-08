@@ -3,7 +3,7 @@
 
   const DAY_MS = 86400000;
   const DEFAULT_SPEED = 60;
-  const STATE_VERSION = 2;
+  const STATE_VERSION = 3;
   const START_MINUTE = 8 * 60;
   const LAST_MINUTE = 23 * 60 + 59;
   const HISTORY_DAYS = 90;
@@ -89,10 +89,9 @@
     const candidates = [];
     const seen = new Set();
     const templateOffset = integer(`${seed}:template-offset`, 0, templates.length - 1);
-    const slotOffset = integer(`${seed}:slot-offset`, 0, slots.length - 1);
-    for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
-      const time = slots[(slotIndex + slotOffset) % slots.length];
-      for (let templateIndex = 0; templateIndex < templates.length; templateIndex += 1) {
+    for (let templateIndex = 0; templateIndex < templates.length; templateIndex += 1) {
+      for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+        const time = slots[slotIndex];
         const template = templates[(templateIndex + templateOffset + slotIndex) % templates.length];
         const key = `${template.performer_id}:${time}`;
         if (seen.has(key)) continue;
@@ -187,6 +186,7 @@
       const changed = advance();
       const source = Array.isArray(baseRows) ? baseRows.filter(row => row && validDate(row.booking_date)) : [];
       const datesWithRows = new Set(source.map(row => row.booking_date));
+      const occupiedSlots = new Set(source.map(row => `${row.performer_id}:${row.booking_date}:${String(row.booking_time || '').slice(0, 5)}`));
       const todayIso = state.dayIso;
       const virtualNowMs = dateTime(todayIso, `${String(Math.floor(state.virtualMinute / 60)).padStart(2, '0')}:${String(Math.floor(state.virtualMinute % 60)).padStart(2, '0')}`);
       const startIso = addDays(todayIso, -HISTORY_DAYS);
@@ -196,12 +196,13 @@
       const slots = ['09:00', '10:30', '12:00', '13:30', '15:00', '16:30', '18:00', '19:30'];
 
       for (let date = startIso, dayIndex = 0; date <= endIso; date = addDays(date, 1), dayIndex += 1) {
-        if (datesWithRows.has(date)) continue;
+        if (date !== todayIso && datesWithRows.has(date)) continue;
         const daySeed = `${seed}:${date}`;
-        const count = date === todayIso ? 6 : integer(`${daySeed}:count`, 1, 3);
-        const candidates = dailyCandidates(templates, slots, daySeed);
-        for (let slotIndex = 0; slotIndex < count; slotIndex += 1) {
-          const candidate = candidates[slotIndex % candidates.length];
+        const count = date === todayIso ? 4 : integer(`${daySeed}:count`, 1, 3);
+        const candidates = dailyCandidates(templates, slots, daySeed)
+          .filter(candidate => !occupiedSlots.has(`${candidate.template.performer_id}:${date}:${candidate.time}`));
+        for (let slotIndex = 0; slotIndex < Math.min(count, candidates.length); slotIndex += 1) {
+          const candidate = candidates[slotIndex];
           const template = candidate.template;
           const time = candidate.time;
           const id = `demo-live:${date}:${slotIndex + 1}`;

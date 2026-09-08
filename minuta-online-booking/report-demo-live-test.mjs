@@ -34,14 +34,18 @@ assert.equal(first.todayIso, '2026-09-08', 'Демо-календарь не п�
 assert.ok(first.generatedRows.some(row => row.booking_date === '2026-06-10'), 'Три месяца истории не заполнены');
 assert.ok(first.generatedRows.some(row => row.booking_date === '2026-09-02'), 'Пропущенный день не дозаполнен');
 assert.ok(first.generatedRows.some(row => row.booking_date === '2026-09-10' && row.booking_outcomes.visit_status === 'scheduled'), 'Будущие демо-записи не созданы');
+assert.equal(first.generatedRows.filter(row => row.booking_date === '2026-09-08').length, 4, 'Сегодняшний день не получил живые демо-события поверх исходных записей');
 assert.equal(first.rows.some(row => row.id === 'base-1'), true, 'Исходные демо-записи потеряны');
 assert.equal(first.rows.find(row => row.id === 'base-future')?.booking_outcomes.visit_status, 'scheduled', 'Будущая исходная запись завершилась слишком рано');
 assert.equal(first.rows.find(row => row.id === 'base-today')?.booking_outcomes.visit_status, 'scheduled', 'Сегодняшняя запись завершилась до хода демо-времени');
+const firstSlots = new Set(first.rows.map(row => `${row.performer_id}:${row.booking_date}:${row.booking_time}`));
+assert.equal(firstSlots.size, first.rows.length, 'Живые события пересекаются с исходными слотами сотрудника');
 
 nowMs += 2 * 60 * 1000;
 const second = controller.materialize(baseRows, { organizationId:'demo-org' });
 assert.equal(second.todayIso, '2026-09-08', 'Ускорение ошибочно сдвинуло календарную дату');
 assert.ok(['completed', 'no_show'].includes(second.rows.find(row => row.id === 'base-today')?.booking_outcomes.visit_status), 'Сегодняшние демо-исходы не меняются с ускоренным временем');
+assert.ok(second.generatedRows.filter(row => row.booking_date === '2026-09-08').every(row => row.booking_outcomes.visit_status !== 'scheduled'), 'Сегодняшние живые события не изменили показатели');
 assert.equal(second.rows.find(row => row.id === 'base-future')?.booking_outcomes.visit_status, 'scheduled', 'Завтрашняя запись завершилась в текущем календарном дне');
 
 const restored = context.window.MinutaDemoLive.create({ storageKey:'test-user', speed:1440, now:() => nowMs });
