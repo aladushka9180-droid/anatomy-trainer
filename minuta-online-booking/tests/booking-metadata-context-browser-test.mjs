@@ -23,7 +23,7 @@ function listener(prefix){
 }
 const constants=source.match(/^const BOOKING_COLOR_KEYS = [\s\S]*?^const BOOKING_COLOR_DEFAULT = [^\n]+/m)?.[0];
 assert.ok(constants,'Actual color definitions');
-const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision'].map(name=>
+const revisions=['bookingSeriesCancellationRevision','bookingEditorRevision','bookingMetadataRevision','portfolioEditorRevision'].map(name=>
   source.match(new RegExp(`^let ${name} = .*;$`,'m'))?.[0]||'').join('\n');
 const resets=[...source.matchAll(/^window\.addEventListener\('minuta:provider-session-reset', \(\) => (?:\{[\s\S]*?^\}\);|[^\n]*\);)/gm)].map(m=>m[0]).join('\n');
 const orgStart=source.indexOf('  onActiveOrganizationChange: organization => {');
