@@ -127,8 +127,8 @@ select public.create_minuta_financial_account_v129(
 reset role;
 SQL
 
-account_id="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v account_request="$account_request" \
-  -c "select id from public.financial_accounts where creation_request_id=:'account_request'::uuid")"
+account_id="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+  -c "select id from public.financial_accounts where creation_request_id='$account_request'::uuid")"
 test -n "$account_id"
 
 # A writer that passed the optimistic role check must fail if the membership is
@@ -145,8 +145,8 @@ role_blocker_pid=$!
 
 role_ready="f"
 for _ in {1..100}; do
-  role_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v signal="$role_signal" \
-    -c "select not pg_try_advisory_lock(:'signal'::bigint)")"
+  role_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+    -c "select not pg_try_advisory_lock($role_signal::bigint)")"
   [[ "$role_ready" == "t" ]] && break
   sleep 0.05
 done
@@ -186,8 +186,7 @@ if [[ "$role_waiting" != "1" ]]; then
 fi
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
-  -v actor_id="$actor_id" -v organization_id="$organization_id" \
-  -c "update public.organization_memberships set role='specialist' where organization_id=:'organization_id'::uuid and user_id=:'actor_id'::uuid" >/dev/null
+  -c "update public.organization_memberships set role='specialist' where organization_id='$organization_id'::uuid and user_id='$actor_id'::uuid" >/dev/null
 set +e
 wait "$role_writer_pid"
 role_status=$?
@@ -199,11 +198,10 @@ if [[ "$role_status" -eq 0 ]] || ! grep -q 'financial_manager_role_required' <<<
   echo "v129 revoked role completed a ledger write after waiting" >&2
   exit 1
 fi
-test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v request_id="$role_request" \
-  -c "select count(*) from public.financial_accounts where creation_request_id=:'request_id'::uuid")" = "0"
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+  -c "select count(*) from public.financial_accounts where creation_request_id='$role_request'::uuid")" = "0"
 psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
-  -v actor_id="$actor_id" -v organization_id="$organization_id" \
-  -c "update public.organization_memberships set role='admin' where organization_id=:'organization_id'::uuid and user_id=:'actor_id'::uuid" >/dev/null
+  -c "update public.organization_memberships set role='admin' where organization_id='$organization_id'::uuid and user_id='$actor_id'::uuid" >/dev/null
 
 # Organization suspension is checked under a parent-row lock after the writer
 # acquires the ledger lock. A queued writer must observe the committed change.
@@ -219,8 +217,8 @@ organization_blocker_pid=$!
 
 organization_ready="f"
 for _ in {1..100}; do
-  organization_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v signal="$organization_signal" \
-    -c "select not pg_try_advisory_lock(:'signal'::bigint)")"
+  organization_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+    -c "select not pg_try_advisory_lock($organization_signal::bigint)")"
   [[ "$organization_ready" == "t" ]] && break
   sleep 0.05
 done
@@ -260,8 +258,7 @@ if [[ "$organization_waiting" != "1" ]]; then
 fi
 
 psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
-  -v organization_id="$organization_id" \
-  -c "update public.organizations set status='suspended' where id=:'organization_id'::uuid" >/dev/null
+  -c "update public.organizations set status='suspended' where id='$organization_id'::uuid" >/dev/null
 set +e
 wait "$organization_writer_pid"
 organization_status=$?
@@ -273,11 +270,10 @@ if [[ "$organization_status" -eq 0 ]] || ! grep -q 'financial_manager_role_requi
   echo "v129 suspended organization completed a queued ledger write" >&2
   exit 1
 fi
-test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v request_id="$organization_request" \
-  -c "select count(*) from public.financial_accounts where creation_request_id=:'request_id'::uuid")" = "0"
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+  -c "select count(*) from public.financial_accounts where creation_request_id='$organization_request'::uuid")" = "0"
 psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
-  -v organization_id="$organization_id" \
-  -c "update public.organizations set status='active' where id=:'organization_id'::uuid" >/dev/null
+  -c "update public.organizations set status='active' where id='$organization_id'::uuid" >/dev/null
 
 # Disabling finance owns the same organization lock. A writer queued behind it
 # must re-read the setting and fail instead of committing after the disable.
@@ -296,8 +292,8 @@ disable_pid=$!
 
 disable_ready="f"
 for _ in {1..100}; do
-  disable_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v signal="$disable_signal" \
-    -c "select not pg_try_advisory_lock(:'signal'::bigint)")"
+  disable_ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+    -c "select not pg_try_advisory_lock($disable_signal::bigint)")"
   [[ "$disable_ready" == "t" ]] && break
   sleep 0.05
 done
@@ -324,8 +320,8 @@ if [[ "$disable_status" -eq 0 ]] || ! grep -q 'finance_disabled' <<<"$disable_ou
   echo "v129 ledger write completed after finance was disabled" >&2
   exit 1
 fi
-test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v request_id="$disable_request" \
-  -c "select count(*) from public.financial_accounts where creation_request_id=:'request_id'::uuid")" = "0"
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+  -c "select count(*) from public.financial_accounts where creation_request_id='$disable_request'::uuid")" = "0"
 psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
   -v actor_id="$actor_id" -v organization_id="$organization_id" <<'SQL' >/dev/null
 select set_config('request.jwt.claim.sub',:'actor_id',false);
@@ -352,8 +348,8 @@ first_pid=$!
 
 ready="f"
 for _ in {1..100}; do
-  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v hold_key="$hold_key" \
-    -c "select not pg_try_advisory_lock(:'hold_key'::bigint)")"
+  ready="$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+    -c "select not pg_try_advisory_lock($hold_key::bigint)")"
   [[ "$ready" == "t" ]] && break
   sleep 0.05
 done
@@ -382,9 +378,9 @@ if [[ "$second_status" -eq 0 ]] || ! grep -q 'financial_visit_already_posted' <<
   exit 1
 fi
 
-test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v booking_id="$booking_id" \
-  -c "select count(*) from public.financial_transactions where operation_type='visit_service' and source_id=:'booking_id'::uuid")" = "1"
-test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt -v booking_id="$booking_id" \
-  -c "select coalesce(sum(case side when 'debit' then amount_minor else -amount_minor end),0) from public.financial_postings where transaction_id=(select id from public.financial_transactions where source_id=:'booking_id'::uuid)")" = "0"
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+  -c "select count(*) from public.financial_transactions where operation_type='visit_service' and source_id='$booking_id'::uuid")" = "1"
+test "$(psql "$MINUTA_TEST_DATABASE_URL" -X -qAt \
+  -c "select coalesce(sum(case side when 'debit' then amount_minor else -amount_minor end),0) from public.financial_postings where transaction_id=(select id from public.financial_transactions where source_id='$booking_id'::uuid)")" = "0"
 
 echo "financial ledger v129 real PostgreSQL concurrency: OK"

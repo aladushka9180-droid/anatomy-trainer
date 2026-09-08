@@ -29,7 +29,7 @@ assert.match(authorization, /from public\.organizations organization[\s\S]*?for 
 assert.ok(authorization.indexOf('from public.organization_memberships membership') <
   authorization.indexOf('from public.organizations organization'), 'membership must lock before organization');
 assert.match(concurrency, /values\(:'organization_id'::uuid,:'actor_id'::uuid,'admin'/);
-assert.match(concurrency, /set role='specialist'[\s\S]*user_id=:'actor_id'::uuid/);
+assert.match(concurrency, /set role='specialist'[\s\S]*user_id='\$actor_id'::uuid/);
 assert.doesNotMatch(concurrency, /set role='specialist'[\s\S]{0,180}user_id=:'owner_id'::uuid/);
 assert.match(concurrency, /minuta-v129-organization-race/);
 assert.match(concurrency, /set status='suspended'/);
