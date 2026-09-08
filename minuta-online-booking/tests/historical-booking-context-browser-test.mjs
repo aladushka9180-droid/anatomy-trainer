@@ -324,6 +324,7 @@ for(const theme of ['snow-leopard','pearl-zebra','luxury']) for(const width of [
       window.calendarRange=()=>({start:'2026-09-01',end:'2026-09-30'});
       window.calendarRangeTitle=()=> 'Сентябрь 2026';window.calendarView='month';selectedDate='2026-09-08';
       window.displayPreferences={};window.recentlyCreatedBookingId='';window.isScheduleBlock=()=>false;
+      window.bookingDisplayNote=()=>'';window.compactBookingNoteMarkup=()=>'';
       window.bookingStatusClass=()=> 'confirmed';window.bookingVisitSummaryText=()=>'';window.seriesBookingCountLabel=n=>`${n} записи`;
       window.bookingSourceItems=()=>[1,2,3].map((n)=>({id:`fixture-${n}`,booking_date:'2026-09-08',booking_time:`${9+n}:00`,services:{name:'Общий массаж с обеих сторон'},client_name:'Тестовый клиент'}));
       renderCalendarOverview('month');
