@@ -15,7 +15,7 @@ function declaration(name){
 }
 const names=['reportBookings','reportCompletedItems','reportRevenue','reportClientIdentity','reportClientMetrics','reportExportData','reportExportVisit','reportSessionKey','reportDataQueryRange','reportExportPerformers','reportExportMaster','reportExportCreator','applyBookingQuery'];
 // New shared report helpers are loaded verbatim when implemented, not stubbed.
-const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId','reportCurrentTeamRows','reportCurrentEventRows'];
+const optional=['reportImportedValue','reportReceivedAmount','reportDebtAmount','reportServiceValue','reportReconciledTeamRows','reportEffectivePerformerId','reportCurrentTeamRows','reportCurrentEventRows','bookingMatchesAnalyticsScope'];
 const actual=[...optional.filter(name=>source.includes(`function ${name}(`)),...names].map(declaration).join('\n');
 const range={start:'2026-09-01',end:'2026-09-30',period:'month'};
 function booking(id, overrides={}){
