@@ -264,7 +264,8 @@ assert.match(provider, /setInterval\(\(\) =>/, 'Нет резервной пер
 assert.match(provider, /sessionIsCurrent/, 'Нет защиты от ответов старой пользовательской сессии');
 assert.match(provider, /function bookingClientNote\(item\)/, 'Расписание не получает заметку клиента');
 assert.match(provider, /class="provider-booking-open"[\s\S]*data-open-booking/, 'Компактная запись не открывает подробности по нажатию');
-assert.match(provider, /class="provider-booking-note-full"[\s\S]*Заметка:/, 'Компактная запись не показывает заметку');
+assert.match(provider, /bookingNotePresenceMarkup\(note, 'provider-booking-note-presence'\)/, 'Список записей не показывает компактную отметку о заметке');
+assert.doesNotMatch(provider, /class="provider-booking-note-full"/, 'Полный текст заметки снова перегружает список записей');
 assert.doesNotMatch(provider.match(/function renderBookingList\(items\)[\s\S]*?\n\}/)?.[0] || '', /class="booking-actions"/, 'В компактном списке постоянно показаны вторичные действия');
 assert.match(provider, /class="timeline-booking-client"[\s\S]*item\.client_phone/, 'Телефон клиента не показывается в ленте расписания');
 assert.match(provider, /const timeRange = `\$\{startTime\}–\$\{endTime\}`/, 'Карточка записи не рассчитывает интервал начала и окончания');
@@ -278,7 +279,7 @@ assert.ok(providerTimeFromMinutesSource, 'Не удалось извлечь р�
 const providerTimeFromMinutes = Function(`${providerTimeFromMinutesSource}; return timeFromMinutes;`)();
 assert.equal(providerTimeFromMinutes((13 * 60) + 60), '14:00', 'Часовая запись с 13:00 должна заканчиваться в 14:00');
 assert.equal(providerTimeFromMinutes((14 * 60) + 50 + 90), '16:20', 'Запись на 90 минут с 14:50 должна заканчиваться в 16:20');
-assert.match(provider, /class="timeline-booking-note"[\s\S]*Заметка:/, 'Заметка клиента не показывается в ленте расписания');
+assert.match(provider, /timeline-booking-client-row[\s\S]*есть заметка/, 'Заметка клиента не обозначается в мобильной ленте расписания');
 assert.match(provider, /\$\{visual\}<small aria-hidden="true">\$\{uiIcon\('image'\)\}<\/small>/, 'Кнопка фотографии в карточке записи снова смещает содержимое аватара');
 assert.match(providerHtml, new RegExp(`rel="manifest" href="provider\\.webmanifest\\?v=${version}"`), 'Кабинет не подключает собственный устанавливаемый манифест');
 assert.match(provider, /data-create-empty-booking/, 'В пустом расписании нет кнопки создания записи');
@@ -363,9 +364,11 @@ assert.match(providerHtml, /value="sage"[\s\S]*value="nordic"[\s\S]*value="warm"
 assert.match(providerHtml, /name="bookingCardDensity" value="compact"[\s\S]*name="bookingCardDensity" value="detailed"[\s\S]*name="bookingCardDensity" value="custom"/, 'В карточках записей нет компактного, подробного и ручного режима');
 assert.match(providerHtml, /id="showBookingPhone"[\s\S]*id="showBookingVisitNumber"[\s\S]*id="showBookingClientType"/, 'Нельзя выбирать данные карточки записи');
 assert.match(providerHtml, /id="bookingCardCustomOptions" hidden/, 'Ручные галочки карточки перегружают рекомендуемый режим');
-assert.match(provider, /compactBookingNoteMarkup[\s\S]*Есть заметка/, 'Компактная карточка не сообщает о наличии заметки');
+assert.match(provider, /bookingNotePresenceMarkup[\s\S]*Есть заметка/, 'Карточка не сообщает о наличии заметки компактно');
+assert.match(provider, /mobileTimeline \? '' : bookingNotePresenceMarkup/, 'Мобильная лента снова выводит служебное значение вместо текста');
+assert.match(provider, /compactClientTypeLabel[\s\S]*context\.visitNumber}-й визит/, 'Тип и номер визита снова не объединены в короткую подпись');
 assert.match(provider, /clientBadgeMarkup\(item\.client_phone, \{ limit:1, showLabels:mobileList \}\)/, 'Мобильная карточка показывает больше одной личной метки');
-assert.match(styles, /\.provider-booking-note-full \{[^}]*-webkit-line-clamp:2;/, 'Длинная заметка не ограничена двумя строками');
+assert.match(styles, /\.booking-note-presence,\.provider-booking-note-presence,\.timeline-booking-note-presence,\.calendar-overview-note-presence/, 'Компактная отметка о заметке не оформлена');
 assert.doesNotMatch(providerHtml, /class="provider-display-hint"[^>]*>«Постоянный клиент»/, 'Подсказка о постоянном клиенте осталась отдельным несвязанным блоком');
 assert.match(providerHtml, /class="provider-display-save-state"[\s\S]{0,240}id="providerDisplayStatus"/, 'Статус автосохранения оформления не находится в шапке формы');
 assert.match(provider, /const moreOrder=viewOrderForRole\(role\)\.filter\(key=>!selected\.includes\(key\)\)/, 'Редактор меню «Разделы» показывает пункты нижней панели');
@@ -480,7 +483,7 @@ assert.match(styles, /\.provider-body \.journal-mode-toggle:not\(\[hidden\]\) \{
 assert.doesNotMatch(styles, /\.provider-body \.journal-mode-toggle \{ display:none!important; \}/, 'Переключатель режима расписания принудительно скрыт');
 assert.match(styles, /data-provider-theme\] \.timeline-view :is\([^)]*\.timeline-booking\.status-confirmed\.color-auto/, 'Автоматические карточки не продолжают выбранную тему');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy>strong[\s\S]*?white-space:normal[\s\S]*?-webkit-line-clamp:2/, 'Длинное название мобильной записи не переносится на две строки');
-assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-note[\s\S]*?text-overflow:ellipsis;[\s\S]*?white-space:nowrap/, 'Длинная заметка не ограничена одной строкой на телефоне');
+assert.match(provider, /mobileTimeline \? '' : bookingNotePresenceMarkup/, 'Мобильная лента выводит отдельный блок заметки поверх карточки');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking-copy[\s\S]*?position:absolute;[\s\S]*?top:8px;/, 'Содержимое длинной мобильной записи снова плавает по высоте');
 assert.match(styles, /Мобильная лента:[\s\S]*?timeline-booking \.client-badges \{[\s\S]*?top:0;[\s\S]*?right:9px;/, 'Метка клиента перекрывает текст длинной мобильной карточки');
 assert.match(styles, /timeline-booking\.compact \.client-badges \{ top:50%; transform:translateY\(-50%\); \}/, 'Метка короткой записи не выровнена по центру');
