@@ -51,10 +51,15 @@ function harness(pendingStage = null) {
   };
   nodes['#bookingSheetContent'] = {
     set innerHTML(html) {
-      const bookingId = html.match(/id="bookingEditForm" data-booking-id="([^"]+)"/)[1];
+      const formMarkup = html.match(/<form class="booking-editor-form booking-edit-form-compact"[^>]+>/)?.[0] || '';
+      const bookingId = formMarkup.match(/data-booking-id="([^"]+)"/)?.[1];
       const date = html.match(/id="editBookingDate"[^>]+value="([^"]+)"/)[1];
       nodes['#bookingEditForm'] = {
-        dataset:{ bookingId }, elements:{ editBookingSeriesScope:{ value:'following' } },
+        dataset:{ bookingId,
+          expectedBookingDate:formMarkup.match(/data-expected-booking-date="([^"]+)"/)?.[1],
+          expectedBookingTime:formMarkup.match(/data-expected-booking-time="([^"]+)"/)?.[1],
+          expectedSeriesId:formMarkup.match(/data-expected-series-id="([^"]+)"/)?.[1]
+        }, elements:{ editBookingSeriesScope:{ value:'following' } },
         button:{ disabled:false, textContent:'Сохранить изменения' },
         addEventListener(name, listener) { this[name] = listener; }
       };
@@ -130,13 +135,25 @@ test('current editor completes the real series RPC and auxiliary writes', async 
   const h = harness(); const form = h.open(); const result = await h.submit(form);
   assert.equal(result.error, null);
   assert.deepEqual(h.effects.find(e => e[0] === 'rpc')[1], {
-    name:'manage_minuta_booking_series', params:{ p_booking:ids.A, p_action:'reschedule',
-      p_scope:'following', p_date:'2026-09-20', p_time:'12:00:00' }
+    name:'manage_minuta_booking_series_v123', params:{ p_booking:ids.A, p_action:'reschedule',
+      p_scope:'following', p_date:'2026-09-20', p_time:'12:00:00',
+      p_expected_date:'2026-09-15', p_expected_time:'10:00:00' }
   });
   assert.deepEqual(h.effects.filter(e => ['color', 'note', 'refresh'].includes(e[0])).map(e => e[0]), ['color', 'note', 'refresh']);
   assert.deepEqual(h.effects.at(-1), ['openBookingSheet', ids.A]);
   assert.equal(h.effects.find(e => e[0] === 'note')[1].note, 'Исходная заметка A');
   assert.equal(h.effects.filter(e => e[0] === 'toast').length, 1);
+});
+
+test('realtime refresh cannot replace the editor expected anchor', async () => {
+  const h = harness(); const form = h.open();
+  h.context.allBookings.find(item => item.id === ids.A).booking_date = '2026-09-16';
+  h.context.allBookings.find(item => item.id === ids.A).booking_time = '11:00:00';
+  const result = await h.submit(form);
+  assert.equal(result.error, null);
+  const params = h.effects.find(effect => effect[0] === 'rpc')[1].params;
+  assert.equal(params.p_expected_date, '2026-09-15');
+  assert.equal(params.p_expected_time, '10:00:00');
 });
 
 test('current explicit RPC refusal restores the editor button', async () => {

@@ -110,7 +110,7 @@ async function fixture(holdAt = '') {
     var db={rpc:(name,args)=>{
       if(name==='set_booking_color')return boundary('color',{data:args.p_color,error:null});
       if(name==='set_booking_note')return boundary('booking-note',{data:args.p_note,error:null});
-      if(name!=='manage_minuta_booking_series')throw new Error('Unexpected RPC '+name);
+      if(name!=='manage_minuta_booking_series_v123')throw new Error('Unexpected RPC '+name);
       effects.push({kind:'rpc-args',name,args:structuredClone(args)});return boundary('rpc',responseFixture);},
       from:name=>{if(name!=='client_notes')throw new Error('Unexpected table '+name);return {upsert:args=>{
         effects.push({kind:'note-args',args:structuredClone(args)});return boundary('note',{error:null});}};}};
@@ -171,7 +171,7 @@ const cases = [
     await page.waitForFunction(() => effects.some(e=>e.kind==='open-sheet'));
     const output = await page.evaluate(() => ({effects,notes:[...clientNotes],notices}));
     assert.deepEqual(output.effects.map(e=>e.kind), ['rpc-args','rpc','telegram','color-args','color','note-args','note','select-date','refresh','notify','open-sheet']);
-    assert.deepEqual(output.effects[0].args, {p_booking:ids.A,p_action:'reschedule',p_scope:'following',p_date:'2099-09-06',p_time:'11:00:00'});
+    assert.deepEqual(output.effects[0].args, {p_booking:ids.A,p_action:'reschedule',p_scope:'following',p_date:'2099-09-06',p_time:'11:00:00',p_expected_date:'2099-09-05',p_expected_time:'10:00:00'});
     assert.equal(output.effects.find(e=>e.kind==='color-args').color,'mint');
     assert.deepEqual(output.effects.find(e=>e.kind==='note-args').args.client_phone,'79990000001');
     assert.deepEqual(output.effects.find(e=>e.kind==='note-args').args.note,'Новая заметка A');
