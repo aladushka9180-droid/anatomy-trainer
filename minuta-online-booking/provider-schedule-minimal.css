@@ -232,6 +232,13 @@
   opacity:1;
 }
 
+/* Keep the compact note signal readable even in themes that tint every
+   secondary line inside the schedule. */
+.provider-body[data-provider-theme] .timeline-view .timeline-booking-copy .timeline-booking-note-presence {
+  color:var(--theme-ink)!important;
+  opacity:1;
+}
+
 .provider-body[data-provider-theme] :is(
   .timeline-view .timeline-booking.status-block,
   .timeline-view .timeline-booking.automatic-break,
