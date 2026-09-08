@@ -20,6 +20,7 @@ const admin=await connect();
 const apply=read('supabase-migration-v123.sql');
 const undo=read('supabase-migration-v123-rollback.sql');
 let fixture;
+let syntheticWebhook=false;
 const blockSQL='select public.create_provider_block_v123($1,$2,$3,$4,$5,$6,$7,$8,$9) result';
 const seriesSQL='select public.manage_minuta_booking_series_v123($1,$2,$3,$4,$5,$6,$7) result';
 const args=(time,id,duration=15)=>[fixture.org,fixture.loc,fixture.service,fixture.date,time,duration,id,'Перерыв',''];
@@ -34,6 +35,11 @@ const awaitBlocked=async(c,pid)=>{
 };
 const outcome=p=>p.then(value=>({value}),error=>({error}));
 try{
+ const webhook=(await admin.query("select exists(select 1 from pg_trigger where tgrelid='public.bookings'::regclass and tgname='new_booking_telegram') present")).rows[0].present;
+ if(!webhook){
+  await admin.query(`create trigger new_booking_telegram after insert on public.bookings for each row execute function supabase_functions.http_request('https://127.0.0.1.invalid/v123-isolated-test','POST','{"Content-Type":"application/json"}','{}','1000')`);
+  syntheticWebhook=true;
+ }
  // Byte-exact existing management source is restored by rollback. Migration may
  // already have been applied by the outer release job; normalize to its baseline.
  await admin.query(undo);
@@ -133,5 +139,6 @@ try{
     delete from auth.users where id=v_actor;
    end $$;`);
  }
+ if(syntheticWebhook)await admin.query('drop trigger if exists new_booking_telegram on public.bookings');
  for(const c of clients)await c.end();
 }
