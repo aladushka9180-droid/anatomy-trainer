@@ -72,7 +72,6 @@ const ASSETS = [
   './client-directory.js?v=633',
   './client-results.js?v=633',
   './provider.js?v=633',
-  './primetime-handoff.js?v=633',
   './client-records.js?v=633',
   './code-scanner.js?v=633',
 ];

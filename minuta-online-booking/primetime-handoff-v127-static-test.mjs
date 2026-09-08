@@ -31,7 +31,7 @@ assert.match(rollback, /drop table if exists public\.primetime_handoffs/i);
 
 assert.match(provider, /id="openPrimeTime"/);
 assert.match(provider, /primetime-handoff\.js\?v=633/);
-assert.match(worker, /primetime-handoff\.js\?v=633/);
+assert.doesNotMatch(worker, /primetime-handoff\.js/, 'handoff script must stay runtime-cached');
 assert.match(worker, /CACHE_PREFIX}v633/);
 assert.equal((provider.match(/\?v=630/g) || []).length, 0);
 
