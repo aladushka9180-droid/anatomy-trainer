@@ -233,11 +233,12 @@
 }
 .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] header.provider-topbar {
   padding-inline:16px!important;
-  border:1px solid color-mix(in srgb,var(--theme-line) 48%,transparent);
-  border-radius:18px;
-  background:color-mix(in srgb,var(--theme-surface) 90%,transparent)!important;
-  box-shadow:0 8px 24px rgba(74,45,28,.055);
-  backdrop-filter:blur(9px);
+  border:0!important;
+  border-radius:0!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  backdrop-filter:none;
 }
 .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] :is(.provider-view,.schedule-card) { background:transparent!important;border-color:transparent!important;box-shadow:none!important; }
 .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] :is(.provider-booking,.timeline-stage,.date-navigation,.date-strip,.schedule-toolbar) { background:var(--theme-surface)!important; }
@@ -277,8 +278,7 @@
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] header.provider-topbar {
     margin-inline:4px;
     padding-inline:10px!important;
-    border-radius:16px;
-    background:color-mix(in srgb,var(--theme-surface) 88%,transparent)!important;
+    background:linear-gradient(180deg,var(--theme-surface),color-mix(in srgb,var(--theme-surface) 82%,transparent) 80%,transparent)!important;
   }
 }
 .provider-body:is([data-provider-theme="golden-cheetah"],[data-provider-theme="pearl-zebra"])[data-provider-layout] :is(.provider-view,.schedule-card) { background:transparent!important;border-color:transparent!important;box-shadow:none!important; }
