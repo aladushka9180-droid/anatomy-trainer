@@ -1,6 +1,6 @@
 /* Golden Cheetah and Pearl Zebra: approved muted page canvases. */
 .provider-body[data-provider-theme="golden-cheetah"] {
-  --theme-bg:#fff7ec;
+  --theme-bg:#d8c0a0;
   --theme-surface:#fffdf8;
   --theme-surface-alt:#f8ecdc;
   --theme-ink:#34271f;
@@ -176,45 +176,22 @@
 
 
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
-  --wildlife-spots:radial-gradient(ellipse 5px 4px at 4% 8%,#2e241d 0 72%,transparent 78%),
-        radial-gradient(ellipse 3px 5px at 15% 17%,#49372a 0 70%,transparent 78%),
-        radial-gradient(ellipse 5px 6px at 30% 6%,#33271f 0 68%,transparent 76%),
-        radial-gradient(ellipse 4px 3px at 43% 21%,#503a2b 0 70%,transparent 79%),
-        radial-gradient(ellipse 3px 5px at 58% 10%,#30241d 0 72%,transparent 80%),
-        radial-gradient(ellipse 6px 4px at 75% 19%,#443226 0 69%,transparent 77%),
-        radial-gradient(ellipse 4px 5px at 91% 7%,#2d231c 0 70%,transparent 78%),
-        radial-gradient(ellipse 3px 4px at 8% 37%,#3c2d23 0 70%,transparent 79%),
-        radial-gradient(ellipse 5px 4px at 22% 48%,#2e241d 0 72%,transparent 80%),
-        radial-gradient(ellipse 3px 3px at 36% 34%,#523c2c 0 68%,transparent 78%),
-        radial-gradient(ellipse 5px 6px at 51% 44%,#34271f 0 71%,transparent 79%),
-        radial-gradient(ellipse 4px 3px at 66% 32%,#4b3729 0 70%,transparent 78%),
-        radial-gradient(ellipse 3px 5px at 82% 46%,#2e241d 0 72%,transparent 80%),
-        radial-gradient(ellipse 5px 4px at 97% 31%,#443125 0 68%,transparent 77%),
-        radial-gradient(ellipse 4px 5px at 2% 70%,#2f241d 0 72%,transparent 79%),
-        radial-gradient(ellipse 6px 4px at 17% 83%,#4b3728 0 70%,transparent 78%),
-        radial-gradient(ellipse 3px 5px at 32% 66%,#33271f 0 72%,transparent 80%),
-        radial-gradient(ellipse 5px 3px at 47% 79%,#513b2b 0 68%,transparent 76%),
-        radial-gradient(ellipse 4px 6px at 61% 62%,#2d231c 0 72%,transparent 79%),
-        radial-gradient(ellipse 3px 4px at 76% 76%,#463327 0 69%,transparent 78%),
-        radial-gradient(ellipse 6px 5px at 92% 66%,#30251d 0 71%,transparent 79%),
-        radial-gradient(ellipse 4px 3px at 7% 96%,#513a2b 0 70%,transparent 79%),
-        radial-gradient(ellipse 3px 5px at 39% 95%,#30251d 0 72%,transparent 80%),
-        radial-gradient(ellipse 5px 4px at 68% 92%,#4a3628 0 69%,transparent 77%),
-        radial-gradient(ellipse 4px 5px at 96% 91%,#2e241d 0 72%,transparent 79%);
-  background-color:#eab878!important;
-  background-image:radial-gradient(ellipse 100% 120% at 50% 50%,transparent 40%,rgba(83,57,39,.1) 100%),linear-gradient(rgba(249,226,193,.76),rgba(249,226,193,.76)),var(--wildlife-spots)!important;
-  background-size:100% 100%,100% 100%,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px,205px 205px!important;
-  background-position:0 0!important;background-repeat:repeat!important;background-attachment:fixed!important;
+  background-color:#d8c0a0!important;
+  background-image:radial-gradient(ellipse 105% 120% at 50% 48%,transparent 52%,rgba(70,48,32,.06) 100%),linear-gradient(rgba(246,235,219,.22),rgba(246,235,219,.22)),url("provider-golden-cheetah-matte-v2.webp?v=584")!important;
+  background-size:100% 100%,100% 100%,cover!important;
+  background-position:center,center,center!important;
+  background-repeat:no-repeat,no-repeat,no-repeat!important;
+  background-attachment:fixed,fixed,fixed!important;
 }
 .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] {
   background-color:#f7f4ef!important;
-  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=583")!important;
+  background-image:linear-gradient(rgba(247,244,239,.12),rgba(247,244,239,.12)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=584")!important;
   background-size:100% 100%,100% 100%!important;
   background-position:center top!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
 }
 .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] {
   background-color:#f2dfc7!important;
-  background-image:linear-gradient(rgba(255,250,243,.16),rgba(255,250,243,.16)),url("provider-velvet-leopard-desktop-v1.webp?v=583")!important;
+  background-image:linear-gradient(rgba(255,250,243,.16),rgba(255,250,243,.16)),url("provider-velvet-leopard-desktop-v1.webp?v=584")!important;
   background-size:100% 100%,cover!important;
   background-position:center,center top!important;
   background-repeat:no-repeat,no-repeat!important;
@@ -264,7 +241,7 @@
 }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="velvet-leopard"][data-provider-layout] {
-    background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-mobile-v1.webp?v=583")!important;
+    background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-mobile-v1.webp?v=584")!important;
     background-size:100% 100%,cover!important;
     background-position:center,center top!important;
     background-repeat:no-repeat,no-repeat!important;
@@ -288,13 +265,45 @@
 .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .provider-sidebar { border-right-color:transparent!important;box-shadow:none!important; }
 @media(max-width:760px) {
   .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] {
-    background-image:radial-gradient(ellipse 120% 120% at 50% 50%,transparent 48%,rgba(83,57,39,.08) 100%),linear-gradient(rgba(249,226,193,.79),rgba(249,226,193,.79)),var(--wildlife-spots)!important;
-    background-attachment:scroll!important;
+    background-image:radial-gradient(ellipse 130% 115% at 50% 45%,transparent 58%,rgba(70,48,32,.05) 100%),linear-gradient(rgba(246,235,219,.25),rgba(246,235,219,.25)),url("provider-golden-cheetah-matte-v2.webp?v=584")!important;
+    background-size:100% 100%,100% 100%,cover!important;
+    background-position:center,center,center!important;
+    background-repeat:no-repeat,no-repeat,no-repeat!important;
+    background-attachment:fixed,fixed,fixed!important;
+  }
+
+  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .provider-view>.view-description {
+    margin:6px 4px 14px!important;
+    padding:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    color:var(--theme-ink)!important;
   }
 }
-.theme-golden-cheetah { --theme-preview-bg:#f7e4c9;--theme-preview-surface:#fffdf8;--theme-preview-line:#ae9785;--theme-preview-accent:#805033;--theme-preview-radius:14px; }
-.theme-golden-cheetah .theme-swatch { background:radial-gradient(ellipse 3px 4px at 70% 30%,#aa8b67 70%,transparent 80%) 0 0/22px 24px,linear-gradient(100deg,#fffdf8,#eab878)!important; }
+@media(max-width:480px) {
+  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .clients-search-tools {
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  }
+  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .clients-search-tools .client-search {
+    grid-column:1/-1!important;
+    grid-row:1!important;
+  }
+  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .clients-search-tools>#clientDirectoryFilters {
+    grid-column:1!important;
+    grid-row:2!important;
+  }
+  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .clients-search-tools .clients-tools {
+    grid-column:2!important;
+    grid-row:2!important;
+  }
+  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] .clients-search-tools :is([data-client-filters],.clients-tools>summary) {
+    width:100%!important;
+    justify-content:center!important;
+  }
+}
+.theme-golden-cheetah { --theme-preview-bg:#d8c0a0;--theme-preview-surface:#fffdf8;--theme-preview-line:#ae9785;--theme-preview-accent:#805033;--theme-preview-radius:14px; }
+.theme-golden-cheetah .theme-swatch { background-image:linear-gradient(rgba(246,235,219,.22),rgba(246,235,219,.22)),url("provider-golden-cheetah-matte-v2.webp?v=584")!important;background-size:100% 100%,cover!important;background-position:center!important;background-repeat:no-repeat!important; }
 .theme-pearl-zebra { --theme-preview-bg:#f7f4ef;--theme-preview-surface:#fffdfb;--theme-preview-line:#a39b93;--theme-preview-accent:#4f4944;--theme-preview-radius:14px; }
-.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=583") center/cover no-repeat!important; }
+.theme-pearl-zebra .theme-swatch { background:linear-gradient(rgba(247,244,239,.08),rgba(247,244,239,.08)),url("provider-pearl-zebra-smooth-4k-v4.webp?v=584") center/cover no-repeat!important; }
 .theme-velvet-leopard { --theme-preview-bg:#f2dfc7;--theme-preview-surface:#fffaf3;--theme-preview-line:#c5a991;--theme-preview-accent:#6e442d;--theme-preview-radius:14px; }
-.theme-velvet-leopard .theme-swatch { background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-desktop-v1.webp?v=583")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }
+.theme-velvet-leopard .theme-swatch { background-image:linear-gradient(rgba(255,250,243,.18),rgba(255,250,243,.18)),url("provider-velvet-leopard-desktop-v1.webp?v=584")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important; }

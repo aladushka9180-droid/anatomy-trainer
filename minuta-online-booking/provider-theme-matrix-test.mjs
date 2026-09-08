@@ -14,7 +14,7 @@ const [baseCss, signatureCss, provider, catalogSource, calmCss, wildlifeCss, noi
   readFile(path.join(directory, 'provider-themes-wildlife.css'), 'utf8'),
   readFile(path.join(directory, 'provider-theme-noir-safari.css'), 'utf8'),
   readFile(path.join(directory, 'provider-pearl-zebra-smooth-4k-v4.webp')),
-  readFile(path.join(directory, 'provider-golden-cheetah-matte-v1.svg'), 'utf8'),
+  readFile(path.join(directory, 'provider-golden-cheetah-matte-v2.webp')),
   readFile(path.join(directory, 'provider-snow-leopard-mobile-v1.png')),
   readFile(path.join(directory, 'provider-velvet-leopard-desktop-v1.webp')),
   readFile(path.join(directory, 'provider-velvet-leopard-mobile-v1.webp')),
@@ -133,7 +133,7 @@ assert.match(css, /\.provider-body\[data-provider-theme\] \.provider-mobile-nav 
 assert.match(css, /\.provider-view\[data-provider-panel="notifications"\] \.view-title-actions\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) 44px/s);
 
 const pearlZebraBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="pearl-zebra"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=583"\)/);
+assert.match(pearlZebraBackground, /url\("provider-pearl-zebra-smooth-4k-v4\.webp\?v=584"\)/);
 assert.match(pearlZebraBackground, /background-size:100% 100%,100% 100%!important/);
 assert.match(pearlZebraBackground, /background-repeat:no-repeat!important/);
 assert.match(pearlZebraBackground, /background-attachment:scroll!important/);
@@ -141,20 +141,23 @@ assert.doesNotMatch(pearlZebraBackground, /340px 340px/, 'Pearl Zebra must not s
 assert.doesNotMatch(pearlZebraBackground, /repeating-radial-gradient/, 'Pearl Zebra must use the approved natural stripe artwork');
 
 const goldenCheetahBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="golden-cheetah"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(goldenCheetahBackground, /background-color:#eab878!important/);
-assert.match(goldenCheetahBackground, /var\(--wildlife-spots\)/);
-assert.match(goldenCheetahBackground, /background-size:100% 100%,100% 100%,205px 205px/);
-assert.match(goldenCheetahBackground, /background-repeat:repeat!important/);
-assert.match(goldenCheetahBackground, /background-attachment:fixed!important/);
-assert.doesNotMatch(goldenCheetahBackground, /provider-leopard-premium-bg\.webp|provider-golden-cheetah-matte-v1\.svg/);
+assert.match(goldenCheetahBackground, /background-color:#d8c0a0!important/);
+assert.match(goldenCheetahBackground, /url\("provider-golden-cheetah-matte-v2\.webp\?v=584"\)/);
+assert.match(goldenCheetahBackground, /background-size:100% 100%,100% 100%,cover!important/);
+assert.match(goldenCheetahBackground, /background-repeat:no-repeat,no-repeat,no-repeat!important/);
+assert.match(goldenCheetahBackground, /background-attachment:fixed,fixed,fixed!important/);
+assert.doesNotMatch(goldenCheetahBackground, /var\(--wildlife-spots\)|205px 205px|background-repeat:repeat!important|provider-leopard-premium-bg\.webp|provider-golden-cheetah-matte-v1\.svg/);
 assert.doesNotMatch(goldenCheetahBackground, /#fffdf8|255,253,248/, 'Golden Cheetah must not add a white spotlight over the sand base');
+assert.equal(goldenCheetahAsset.toString('ascii', 0, 4), 'RIFF', 'Golden Cheetah must use the approved WebP canvas');
+assert.ok(goldenCheetahAsset.byteLength < 150_000, 'Golden Cheetah background must stay lightweight');
+assert.match(wildlifeCss, /@media\(max-width:480px\)[\s\S]*?golden-cheetah[\s\S]*?\.clients-search-tools \{[\s\S]*?grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)!important;[\s\S]*?\.client-search \{[\s\S]*?grid-column:1\/-1!important;/, 'Golden Cheetah mobile client search must use a readable two-row toolbar');
 
 const velvetLeopardBackground = wildlifeCss.match(/\.provider-body\[data-provider-theme="velvet-leopard"\]\[data-provider-layout\]\s*\{([^}]*)\}/)?.[1] || '';
-assert.match(velvetLeopardBackground, /url\("provider-velvet-leopard-desktop-v1\.webp\?v=583"\)/);
+assert.match(velvetLeopardBackground, /url\("provider-velvet-leopard-desktop-v1\.webp\?v=584"\)/);
 assert.match(velvetLeopardBackground, /background-size:100% 100%,cover!important/);
 assert.match(velvetLeopardBackground, /background-repeat:no-repeat,no-repeat!important/);
 assert.doesNotMatch(velvetLeopardBackground, /background-repeat:[^;]*(?:^|,)\s*repeat(?:,|!important)|520px auto/, 'Velvet Leopard must not use repeated background tiles');
-assert.match(wildlifeCss, /@media\(max-width:760px\)[\s\S]*?provider-velvet-leopard-mobile-v1\.webp\?v=583/);
+assert.match(wildlifeCss, /@media\(max-width:760px\)[\s\S]*?provider-velvet-leopard-mobile-v1\.webp\?v=584/);
 assert.equal(velvetLeopardDesktopAsset.toString('ascii', 0, 4), 'RIFF', 'Velvet Leopard desktop artwork must remain a WebP asset');
 assert.equal(velvetLeopardMobileAsset.toString('ascii', 0, 4), 'RIFF', 'Velvet Leopard mobile artwork must remain a WebP asset');
 assert.ok(velvetLeopardDesktopAsset.length > 200000, 'Velvet Leopard desktop artwork must retain enough detail for wide screens');
@@ -170,8 +173,8 @@ assert.equal(pearlZebraAsset.readUInt16LE(28) & 0x3fff, 2160, 'Pearl Zebra must 
 assert.equal(snowLeopardMobileAsset.toString('ascii', 1, 4), 'PNG', 'Snow Leopard mobile artwork must remain a PNG asset');
 assert.equal(snowLeopardMobileAsset.readUInt32BE(16), 941, 'Snow Leopard mobile artwork width must stay high-resolution');
 assert.equal(snowLeopardMobileAsset.readUInt32BE(20), 1672, 'Snow Leopard mobile artwork height must stay portrait');
-assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=583/);
-assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=583"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
+assert.match(signatureCss, /@media \(max-width:760px\)[\s\S]*?provider-snow-leopard-mobile-v1\.png\?v=584/);
+assert.match(signatureCss, /provider-snow-leopard-mobile-v1\.png\?v=584"\)!important;\s*background-size:100% 100%,100% 100%!important;\s*background-repeat:no-repeat!important;\s*background-position:center top!important;\s*background-attachment:scroll!important/s);
 
 // The modal lives outside the themed panels: both foreground and background
 // must be assigned together, otherwise dark themes inherit the light base.
