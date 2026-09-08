@@ -231,7 +231,6 @@
   }
   .provider-body[data-provider-theme][data-provider-layout] .provider-topbar-tools>summary span { display:none; }
   .provider-body[data-provider-theme="apricot-tiger"][data-provider-layout] header.provider-topbar,
-  .provider-body[data-provider-theme="golden-cheetah"][data-provider-layout] header.provider-topbar,
   .provider-body[data-provider-theme="pearl-zebra"][data-provider-layout] header.provider-topbar {
     background-image:linear-gradient(180deg,var(--theme-surface),transparent)!important;
   }
