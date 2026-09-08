@@ -50,4 +50,4 @@ assert.match(read('contextual-help.js'), /'Важно'/, 'Короткая по�
 assert.match(read('help/help.css'), /@media \(max-width: 900px\)[\s\S]*\.article-shell[^}]*display: block;/,
   'Статья должна переходить в одну колонку на контрольной ширине 760 px');
 
-console.log(`Help knowledge refresh v612: PASS (${articles.length} articles)`);
+console.log(`Help knowledge refresh v613: PASS (${articles.length} articles)`);
