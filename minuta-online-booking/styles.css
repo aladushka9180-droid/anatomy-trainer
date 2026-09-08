@@ -8913,14 +8913,15 @@ html.provider-booting .provider-main {
 .report-trend .report-chart-column.is-empty>span::after,
 .report-trend .report-chart-column.is-zero>span::after,
 .report-trend .report-chart-column.is-unknown>span::after {
-  width:min(34px,46%);
+  flex:0 0 32px;
+  width:32px;
   border-radius:99px;
   background:var(--theme-line);
   content:"";
 }
 .report-trend .report-chart-column.is-empty>span::after { height:2px; opacity:.55; }
 .report-trend .report-chart-column.is-zero>span::after { height:4px; background:color-mix(in srgb,var(--theme-accent) 52%,var(--theme-line)); }
-.report-trend .report-chart-column.is-unknown>span::after { height:0; border-top:2px dashed var(--theme-muted); background:transparent; opacity:.72; }
+.report-trend .report-chart-column.is-unknown>span::after { height:2px; background:var(--theme-muted); opacity:.72; }
 .report-trend .report-chart-column.is-empty>b { color:color-mix(in srgb,var(--theme-muted) 68%,transparent); }
 .report-trend .report-chart-column.is-unknown>b { color:var(--theme-muted); }
 .report-trend .report-chart-column.is-partial-data i { background:color-mix(in srgb,var(--theme-accent) 70%,var(--theme-surface)); }
