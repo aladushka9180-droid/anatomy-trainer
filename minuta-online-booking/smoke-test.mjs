@@ -629,10 +629,10 @@ assert.match(provider, /function applyAutomaticVisitOutcomes/, 'Прошедши
 assert.match(provider, /completion_source:'auto'/, 'Автоматическое завершение нельзя отличить от ручного');
 assert.match(provider, /Будет учтён автоматически/, 'Карточка не объясняет автоматический учёт визита');
 assert.match(provider, /const calculatedAmount = isPerMinuteBooking\(item\) \? bookedMinutes \* bookingMinuteRate\(item\) : bookingCalculatedValue\(item\)/, 'Автоматический визит не рассчитывает полную стоимость');
-assert.match(provider, /amount_rub:calculatedAmount, completion_source:'auto'/, 'Автоматический визит не получает рассчитанную оплату');
+assert.match(provider, /amount_rub:paymentMethod === 'unpaid' \? 0 : calculatedAmount/, 'Автоматический визит не учитывает выбранный способ оплаты');
 assert.match(provider, /Сохранено на устройстве · ожидает синхронизации/, 'Сбой сети не объясняет отложенную синхронизацию результата');
-assert.match(provider, /outcome\.completion_source === 'auto' && \(outcome\.payment_method === 'unpaid' \|\| Number\(outcome\.amount_rub \|\| 0\) <= 0\)/, 'Старые автоматически завершённые визиты не исправляются');
-assert.match(provider, /completionSource === 'auto' && method !== 'unpaid'\) return 'Оплачено'/, 'Автоматически завершённый визит не показывает оплату');
+assert.match(provider, /method !== 'unpaid' && outcome\.visit_status === 'completed' && outcome\.completion_source === 'auto'/, 'Старая неоплата не исправляется при выбранном платном автоучёте');
+assert.match(provider, /cash: 'Наличные'.*card: 'Карта'.*transfer: 'Перевод'/, 'Карточка не показывает фактический способ оплаты');
 assert.match(provider, /function bookingSessionMarkup/, 'В карточке записи нет состава сеанса');
 assert.match(provider, /const addons = items\.slice\(1\)/, 'Основная услуга повторно выводится в составе сеанса');
 assert.match(provider, /booking-session-addons/, 'Дополнительные услуги не отделены от основной');

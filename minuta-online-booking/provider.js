@@ -313,7 +313,7 @@ let pendingBookingColors = new Set();
 let bookingNotes = new Map();
 let pendingBookingNotes = new Set();
 let outcomesRemoteAvailable = false;
-let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
+let bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, auto_complete_payment_method: 'cash', visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
 let displayPreferences = { ...DEFAULT_DISPLAY_PREFERENCES };
 let displayPreferencesUpdatedAt = 0;
 let displayPreferencesPending = false;
@@ -2377,6 +2377,23 @@ function bookingCalculatedValue(item) {
   const outcome = bookingOutcome(item);
   return isPerMinuteBooking(item) && Number(outcome.calculated_amount_rub) > 0 ? Number(outcome.calculated_amount_rub) : bookingSessionTotal(item);
 }
+function normalizedOutcomePaymentMethod(value, fallback = 'cash') {
+  return ['unpaid', 'cash', 'transfer', 'card'].includes(value) ? value : fallback;
+}
+function autoCompletePaymentMethod() {
+  return normalizedOutcomePaymentMethod(bookingPolicy.auto_complete_payment_method);
+}
+function completedOutcomeDraft(item, completionSource = 'auto') {
+  const paymentMethod = autoCompletePaymentMethod();
+  const bookedMinutes = Math.max(1, Math.min(1440, Math.round(Number(item.duration_minutes || item.services?.duration_minutes || 60))));
+  const calculatedAmount = isPerMinuteBooking(item) ? bookedMinutes * bookingMinuteRate(item) : bookingCalculatedValue(item);
+  const record = { booking_id:item.id, performer_id:item.performer_id || currentUser.id, visit_status:'completed', payment_method:paymentMethod, amount_rub:paymentMethod === 'unpaid' ? 0 : calculatedAmount, completion_source:completionSource, updated_at:new Date().toISOString() };
+  if (isPerMinuteBooking(item)) {
+    record.actual_duration_minutes = bookedMinutes;
+    record.calculated_amount_rub = calculatedAmount;
+  }
+  return record;
+}
 function bookingSessionEnd(item) {
   const time = String(item.booking_time || '00:00').slice(0, 5);
   const start = new Date(`${item.booking_date}T${time}:00+04:00`);
@@ -2422,9 +2439,14 @@ function bookingStatusClass(item) {
   if (outcome.visit_status === 'no_show') return 'no-show';
   return bookingIsCompleted(item) ? 'needs-result' : item.status;
 }
-function paymentMethodLabel(method, completionSource = 'manual') {
-  if (completionSource === 'auto' && method !== 'unpaid') return 'Оплачено';
+function paymentMethodLabel(method) {
   return ({ cash: 'Наличные', card: 'Карта', transfer: 'Перевод', imported:'Стоимость из журнала', unpaid: 'Не оплачено' })[method] || 'Не оплачено';
+}
+function quickVisitOutcomeMarkup(item) {
+  if (item.status === 'cancelled' || bookingOutcome(item).visit_status !== 'scheduled' || bookingSessionEnd(item) > new Date()) return '';
+  const draft = completedOutcomeDraft(item, 'manual');
+  const amount = draft.payment_method === 'unpaid' ? '' : ` · ${money(draft.amount_rub)}`;
+  return `<div class="booking-outcome-quick"><button class="primary" type="button" data-quick-complete-booking="${item.id}">${uiIcon('check')}Состоялся · ${paymentMethodLabel(draft.payment_method)}${amount}</button><small>Одним нажатием. При необходимости результат можно исправить ниже.</small></div>`;
 }
 function outcomeVisitLabel(outcome) {
   if (outcome.visit_status === 'completed') return outcome.completion_source === 'auto' ? 'Состоялся автоматически' : 'Состоялся';
@@ -6588,6 +6610,7 @@ function openBookingSheet(id) {
     </details>
     ${Number(item.deposit_amount_rub || 0) > 0 ? `<form class="booking-prepayment-form" id="bookingPrepaymentForm" data-booking-id="${item.id}"><div><small>До визита</small><h3>Предоплата ${money(item.deposit_amount_rub)}</h3></div><label>Статус<select id="bookingPrepaymentStatus"><option value="pending" ${item.payment_status === 'pending' ? 'selected' : ''}>Ожидается</option><option value="paid" ${item.payment_status === 'paid' ? 'selected' : ''}>Оплачено</option><option value="refunded" ${item.payment_status === 'refunded' ? 'selected' : ''}>Возвращено</option></select></label><button class="secondary-button" type="submit">Сохранить предоплату</button></form>` : ''}
     ${bookingClientResultMarkup(item)}
+    ${quickVisitOutcomeMarkup(item)}
     ${item.status !== 'cancelled' ? `<details class="booking-sheet-disclosure booking-outcome-disclosure" ${outcome.visit_status === 'scheduled' ? '' : 'open'}><summary><div><small>После визита</small><strong>Результат и оплата</strong></div><span>${uiIcon(outcome.visit_status === 'completed' ? 'check' : outcome.visit_status === 'no_show' ? 'close' : 'clock')}${automaticOutcomeHint(item) || outcomeVisitLabel(outcome)}</span></summary><form class="booking-outcome-form" id="bookingOutcomeForm" data-booking-id="${item.id}" data-minute-rate="${minuteRate}"><label>Результат визита<select id="outcomeVisitStatus"><option value="scheduled" ${outcome.visit_status === 'scheduled' ? 'selected' : ''}>Запланирован</option><option value="completed" ${outcome.visit_status === 'completed' ? 'selected' : ''}>Состоялся</option><option value="no_show" ${outcome.visit_status === 'no_show' ? 'selected' : ''}>Не пришёл</option></select></label><div id="outcomePaymentFields" ${outcome.visit_status === 'completed' ? '' : 'hidden'}>${isPerMinuteBooking(item) ? `<div class="booking-minute-calculator"><label>Фактическое время, мин<input id="outcomeActualMinutes" type="number" min="1" max="1440" step="1" value="${actualMinutes || ''}" placeholder="Например, 37" required></label><div><small>Расчёт</small><strong id="outcomeCalculatedAmount">${actualMinutes ? `${actualMinutes} × ${money(minuteRate)} = ${money(calculatedAmount)}` : `Укажите минуты · ${money(minuteRate)}/мин`}</strong></div></div>` : ''}<div class="booking-outcome-payment"><label>Оплата<select id="outcomePaymentMethod"><option value="unpaid" ${outcome.payment_method === 'unpaid' ? 'selected' : ''}>Не оплачено</option><option value="cash" ${outcome.payment_method === 'cash' ? 'selected' : ''}>Наличные</option><option value="transfer" ${outcome.payment_method === 'transfer' ? 'selected' : ''}>Перевод</option><option value="card" ${outcome.payment_method === 'card' ? 'selected' : ''}>Карта</option></select></label><label>Получено, ₽<input id="outcomeAmount" type="number" min="0" max="1000000" step="1" value="${amount}"></label></div></div><button class="primary" type="submit">Сохранить результат</button></form></details>` : ''}
     </div>
     ${messageButton ? `<div class="booking-sheet-actions booking-message-actions">${messageButton}</div>` : ''}
@@ -6599,7 +6622,6 @@ function openBookingSheet(id) {
     $('#bookingSheetContent').querySelectorAll('.booking-repeat-actions,.booking-sheet-secondary,.booking-sheet-actions,.booking-delete-zone').forEach(element => { element.hidden = true; });
     return;
   }
-  if (outcome.completion_source === 'auto' && outcome.payment_method === 'cash') $('#outcomePaymentMethod option[value="cash"]').textContent = 'Оплачено';
   clientResultsController.mount({ form:$('#bookingVisitResultForm'), booking:item, expandEditor:true });
   $('#bookingVisitResultForm')?.addEventListener('submit', saveBookingVisitResult);
   $('#bookingOutcomeForm')?.addEventListener('submit', saveBookingOutcome);
@@ -9604,20 +9626,14 @@ async function applyAutomaticVisitOutcomes() {
     if (isScheduleBlock(item) || item.status === 'cancelled') return false;
     const outcome = bookingOutcome(item);
     const needsAutomaticCompletion = bookingPolicy.auto_complete_visits && outcome.visit_status === 'scheduled' && bookingSessionEnd(item) <= now;
-    const needsPaymentRepair = outcome.visit_status === 'completed' && outcome.completion_source === 'auto' && (outcome.payment_method === 'unpaid' || Number(outcome.amount_rub || 0) <= 0);
+    const method = autoCompletePaymentMethod();
+    const needsPaymentRepair = method !== 'unpaid' && outcome.visit_status === 'completed' && outcome.completion_source === 'auto' && (outcome.payment_method === 'unpaid' || Number(outcome.amount_rub || 0) <= 0);
     return needsAutomaticCompletion || needsPaymentRepair;
   });
   if (!items.length) return 0;
   const updatedAt = now.toISOString();
   for (const item of items) {
-    const outcome = bookingOutcome(item);
-    const bookedMinutes = Math.max(1, Math.min(1440, Math.round(Number(item.duration_minutes || item.services?.duration_minutes || 60))));
-    const calculatedAmount = isPerMinuteBooking(item) ? bookedMinutes * bookingMinuteRate(item) : bookingCalculatedValue(item);
-    const record = { booking_id:item.id, performer_id:item.performer_id || currentUser.id, visit_status:'completed', payment_method:outcome.payment_method === 'unpaid' ? 'cash' : outcome.payment_method, amount_rub:calculatedAmount, completion_source:'auto', updated_at:updatedAt };
-    if (isPerMinuteBooking(item)) {
-      record.actual_duration_minutes = bookedMinutes;
-      record.calculated_amount_rub = calculatedAmount;
-    }
+    const record = { ...completedOutcomeDraft(item, 'auto'), completion_source:'auto', updated_at:updatedAt };
     const result = await persistBookingOutcome(record);
     bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
   }
@@ -9637,10 +9653,22 @@ function renderBookingPolicyForm() {
   $('#depositAmount').value = String(bookingPolicy.deposit_amount_rub || 0);
   $('#paymentUrlTemplate').value = bookingPolicy.payment_url_template || '';
   $('#autoCompleteVisits').checked = Boolean(bookingPolicy.auto_complete_visits);
+  $('#autoCompletePaymentMethod').value = autoCompletePaymentMethod();
+  renderAutoCompletePaymentField();
   $('#bookingBufferEnabled').checked = Boolean(bookingPolicy.booking_buffer_enabled);
   $('#bookingBufferMinutes').value = String(Math.min(1440, Math.max(1, Number(bookingPolicy.booking_buffer_minutes) || 60)));
   $('#bookingBufferDuration').hidden = !$('#bookingBufferEnabled').checked;
   $('#depositSettings').hidden = !$('#depositEnabled').checked;
+}
+
+function renderAutoCompletePaymentField() {
+  const enabled = Boolean($('#autoCompleteVisits')?.checked);
+  const field = $('#autoCompletePaymentField');
+  if (field) field.hidden = !enabled;
+  const hint = $('#autoCompletePaymentHint');
+  if (hint) hint.textContent = $('#autoCompletePaymentMethod')?.value === 'unpaid'
+    ? 'Визит попадёт в статистику, но доход будет 0 ₽ до указания оплаты.'
+    : 'Полная стоимость услуги будет учтена как полученная.';
 }
 
 async function loadBookingSettings() {
@@ -9649,7 +9677,7 @@ async function loadBookingSettings() {
   if (!userId) return { ok: false, optional: true };
   const [policyResult, templatesResult, marksResult, outboxResult, visitorVisitsResult] = await Promise.all([
     (async () => {
-      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits,visitor_notifications_enabled,booking_buffer_enabled,booking_buffer_minutes').eq('performer_id', userId).maybeSingle();
+      let result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits,auto_complete_payment_method,visitor_notifications_enabled,booking_buffer_enabled,booking_buffer_minutes').eq('performer_id', userId).maybeSingle();
       if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template,auto_complete_visits').eq('performer_id', userId).maybeSingle();
       if (result.error) result = await db.from('booking_policies').select('cancel_cutoff_hours,reschedule_cutoff_hours,max_reschedules,deposit_enabled,deposit_amount_rub,payment_url_template').eq('performer_id', userId).maybeSingle();
       return result;
@@ -9723,6 +9751,7 @@ async function saveBookingPolicy(event) {
     deposit_amount_rub: Math.max(0, Math.round(Number($('#depositAmount').value) || 0)),
     payment_url_template: $('#paymentUrlTemplate').value.trim(),
     auto_complete_visits: $('#autoCompleteVisits').checked,
+    auto_complete_payment_method: normalizedOutcomePaymentMethod($('#autoCompletePaymentMethod').value),
     booking_buffer_enabled: bookingBufferEnabled,
     booking_buffer_minutes: bookingBufferEnabled ? bookingBufferMinutes : (bookingBufferMinutes >= 1 && bookingBufferMinutes <= 1440 ? bookingBufferMinutes : 60)
   };
@@ -9746,7 +9775,7 @@ async function saveBookingPolicy(event) {
   const { error } = await db.from('booking_policies').upsert(record, { onConflict: 'performer_id' });
   button.disabled = false;
   button.textContent = buttonLabel;
-  if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : /auto_complete_visits/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматическое завершение ещё не установлено на сервере.' : 'Не удалось сохранить правила.'); return; }
+  if (error) { showFormError('#bookingPolicyError', /booking_buffer/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоматические перерывы ещё не установлены на сервере.' : /auto_complete/i.test(`${error.message || ''} ${error.details || ''}`) ? 'Автоучёт визитов ещё не обновлён на сервере.' : 'Не удалось сохранить правила.'); return; }
   bookingPolicy = record;
   localStorage.setItem(autoCompleteStorageKey(), String(record.auto_complete_visits));
   renderBookingPolicyForm();
@@ -9862,6 +9891,35 @@ async function saveBookingOutcome(event) {
     return;
   }
   notify(result.ok ? 'Результат визита сохранён' : 'Сохранено на устройстве · ожидает синхронизации');
+  renderBookings();
+  renderClients();
+  renderAnalytics();
+  openBookingSheet(item.id);
+}
+
+async function quickCompleteBookingOutcome(button) {
+  if (!requireWrites()) return;
+  const userId = currentUser.id;
+  const generation = sessionGeneration;
+  const item = allBookings.find(booking => booking.id === button.dataset.quickCompleteBooking);
+  if (!item || bookingOutcome(item).visit_status !== 'scheduled' || bookingSessionEnd(item) > new Date()) return;
+  const record = completedOutcomeDraft(item, 'manual');
+  const previousLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Сохраняем…';
+  const result = await persistBookingOutcome(record);
+  if (!sessionIsCurrent(userId, generation)) return;
+  const previousOutcome = bookingOutcomes.get(item.id);
+  bookingOutcomes.set(item.id, result.ok ? cleanOutcomeRecord({ ...record, ...(result.outcome || {}) }) : pendingOutcomeRecord(record, result.error));
+  const locallySaved = writeLocalOutcomes();
+  if (!result.ok && !locallySaved) {
+    if (previousOutcome) bookingOutcomes.set(item.id, previousOutcome); else bookingOutcomes.delete(item.id);
+    button.disabled = false;
+    button.textContent = previousLabel;
+    notify('Результат не сохранён. Повторите после восстановления связи.');
+    return;
+  }
+  notify(result.ok ? 'Визит и оплата учтены' : 'Сохранено на устройстве · ожидает синхронизации');
   renderBookings();
   renderClients();
   renderAnalytics();
@@ -10366,7 +10424,7 @@ async function handleSession(session) {
     bookingOutcomes = new Map();
     bookingSessionItems = new Map();
     sessionItemsRemoteAvailable = false;
-    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
+    bookingPolicy = { cancel_cutoff_hours: 12, reschedule_cutoff_hours: 12, max_reschedules: 2, deposit_enabled: false, deposit_amount_rub: 0, payment_url_template: '', auto_complete_visits: false, auto_complete_payment_method: 'cash', visitor_notifications_enabled: false, booking_buffer_enabled: false, booking_buffer_minutes: 60 };
     serverNotificationTemplates = {};
     serverNotificationMarks = {};
     notificationSettingsRemoteAvailable = false;
@@ -12007,6 +12065,7 @@ document.addEventListener('click', async event => {
   const openBooking = event.target.closest('[data-open-booking]');
   const openClientProfile = event.target.closest('[data-open-client-profile]');
   const repeatBookingButton = event.target.closest('[data-repeat-booking]');
+  const quickCompleteBookingButton = event.target.closest('[data-quick-complete-booking]');
   const quickRepeatClient = event.target.closest('[data-quick-repeat-client]');
   const favoriteServiceButton = event.target.closest('[data-client-favorite-service]');
   const removeClientAvatarButton = event.target.closest('[data-remove-client-avatar]');
@@ -12201,6 +12260,7 @@ document.addEventListener('click', async event => {
   if (openBooking) openBookingSheet(openBooking.dataset.openBooking);
   if (openClientProfile) openClientProfileFromBooking(openClientProfile.dataset.clientBookingId, openClientProfile.dataset.openClientProfile);
   if (repeatBookingButton) openRepeatBookingFromSheet(repeatBookingButton.dataset.repeatBooking);
+  if (quickCompleteBookingButton) await quickCompleteBookingOutcome(quickCompleteBookingButton);
   if (quickRepeatClient) openQuickRepeatForClient(quickRepeatClient.dataset.quickRepeatClient);
   if (clientContactButton) openClientContactDialog();
   if (clientMoreButton) openClientMoreDialog();
@@ -13342,6 +13402,8 @@ clientAppearanceForm?.addEventListener('change', event => {
   renderClientAppearancePreview(clientAppearanceDraftFromForm());
 });
 $('#bookingBufferEnabled').addEventListener('change', event => { $('#bookingBufferDuration').hidden = !event.target.checked; });
+$('#autoCompleteVisits').addEventListener('change', renderAutoCompletePaymentField);
+$('#autoCompletePaymentMethod').addEventListener('change', renderAutoCompletePaymentField);
 $$('[data-booking-buffer-minutes]').forEach(button => button.addEventListener('click', () => {
   $('#bookingBufferMinutes').value = button.dataset.bookingBufferMinutes;
   $('#bookingBufferMinutes').focus();
