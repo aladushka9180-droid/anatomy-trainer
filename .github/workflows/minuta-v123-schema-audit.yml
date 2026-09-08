@@ -69,10 +69,14 @@ jobs:
           where connamespace='public'::regnamespace
             and conrelid in ('public.bookings'::regclass,'public.services'::regclass,'public.provider_schedule'::regclass,'public.provider_days_off'::regclass)
           order by conrelid::regclass::text,conname;
-          select '-- trigger '||event_object_table||'.'||trigger_name||E'\n'||action_statement
-          from information_schema.triggers
-          where trigger_schema='public' and event_object_table in ('bookings','services','provider_schedule','provider_days_off')
-          order by event_object_table,trigger_name;
+          select '-- trigger '||class.relname||'.'||trigger.tgname||E'\nfunction='||proc.oid::regprocedure
+          from pg_trigger trigger
+          join pg_class class on class.oid=trigger.tgrelid
+          join pg_namespace namespace on namespace.oid=class.relnamespace
+          join pg_proc proc on proc.oid=trigger.tgfoid
+          where namespace.nspname='public' and not trigger.tgisinternal
+            and class.relname in ('bookings','services','provider_schedule','provider_days_off')
+          order by class.relname,trigger.tgname;
           select '-- index '||schemaname||'.'||tablename||'.'||indexname||E'\n'||indexdef
           from pg_indexes
           where schemaname='public' and tablename in ('bookings','services','provider_schedule','provider_days_off')
