@@ -544,7 +544,8 @@ assert.match(providerHtml, /Без данных об источнике[\s\S]*id
 assert.match(provider, /function setReportComparison\([\s\S]*?formatDelta\(Math\.abs\(difference\)\)[\s\S]*?Math\.abs\(percent\)/, 'Сравнение периодов не показывает абсолютное изменение');
 assert.match(provider, /data-report-start="\$\{openStart\}" data-report-end="\$\{openEnd\}"[\s\S]*?Открыть записи/, 'Столбцы дохода нельзя открыть в записи выбранного интервала');
 assert.match(provider, /reportZeroSummary[\s\S]*?clearMetrics\.map/, 'Нулевые проблемные показатели снова перегружают отчёт');
-assert.match(provider, /revenueShare[\s\S]*?% дохода/, 'В услугах не показывается доля дохода');
+assert.match(provider, /revenueShare[\s\S]*?% полученного/, 'В услугах не показывается доля подтверждённого получения');
+assert.match(provider, /paymentKnownVisits[\s\S]*?Оплата не указана/, 'Неизвестная оплата услуги снова выглядит как нулевая выручка');
 assert.match(provider, /Главное за период[\s\S]*?messages(?:\.map\([\s\S]*?\))?\.join/, 'В статистике нет автоматического вывода за период');
 assert.match(styles, /\.benefits-enable-field \{[\s\S]*?grid-template-columns:22px minmax\(0,1fr\)[\s\S]*?\.benefits-enable-field>input \{[\s\S]*?width:20px!important;[\s\S]*?\.benefits-enable-field>span \{ display:grid; gap:4px;/, 'Переключатель абонементов снова распался или склеил текст');
 assert.match(styles, /\.organization-section \.settings-check \{[\s\S]*?grid-template-columns:22px minmax\(0,1fr\)[\s\S]*?\.organization-section \.settings-check>input \{[\s\S]*?width:20px!important/, 'Переключатели раздела «Команда» снова распались');
