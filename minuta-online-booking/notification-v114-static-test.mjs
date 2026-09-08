@@ -81,8 +81,8 @@ assert.match(clientFunction, /mark_minuta_notification_worker_ready_v114/);
 assert.match(clientFunction, /telegram_write_access_required/);
 assert.match(clientFunction, /Deno\.serve\(/);
 
-assert.match(center, /sent:'отправлено'/);
-assert.match(center, /item\.delivered_at \? 'доставлено'/);
+assert.match(center, /sent:'передано каналу'/);
+assert.match(center, /if \(item\.delivered_at\) return/);
 assert.match(center, /Шлюз канала не настроен/);
 assert.match(center, /Клиент подключает канал сам/);
 assert.doesNotMatch(dispatcher + adapters + clientFunction, /\b\d{6,}:[A-Za-z0-9_-]{20,}\b/);

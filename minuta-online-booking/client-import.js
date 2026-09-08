@@ -265,7 +265,7 @@
   }
 
   function createController(options = {}) {
-    const { db, $, escapeHtml, notify, requireWrites, onLoaded } = options;
+    const { db, $, escapeHtml, notify, requireWrites, onLoaded, getExistingPhones = () => [] } = options;
     let organization = null;
     let workspace = null;
     let preview = null;
@@ -292,7 +292,11 @@
     }
 
     function contactsPreview(contacts) {
-      const existing = new Set((workspace?.clients || []).map(item => normalizePhone(item.phone)));
+      const currentPhones = getExistingPhones();
+      const existing = new Set([
+        ...(workspace?.clients || []).map(item => normalizePhone(item.phone)),
+        ...(Array.isArray(currentPhones) ? currentPhones : []).map(normalizePhone)
+      ].filter(Boolean));
       const rows = new Map();
       let invalidCount = 0;
       let existingCount = 0;
@@ -392,7 +396,8 @@
         $('#clientImportSubmit').textContent = 'Импортировать историю';
       } else {
         $('#clientImportPreviewList').innerHTML = sample.map(item => `<li><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.display_phone)}</span></li>`).join('');
-        $('#clientImportPreviewSummary').textContent = `${preview.rows.length} клиентов готово${preview.duplicateCount ? ` · дублей в файле: ${preview.duplicateCount}` : ''}${preview.invalid.length ? ` · пропущено строк: ${preview.invalid.length}` : ''}`;
+        const skipped = preview.fileName === 'phone-contacts' ? 'пропущено контактов' : 'дублей в файле';
+        $('#clientImportPreviewSummary').textContent = `${preview.rows.length} клиентов готово${preview.duplicateCount ? ` · ${skipped}: ${preview.duplicateCount}` : ''}${preview.invalid.length ? ` · пропущено строк: ${preview.invalid.length}` : ''}`;
         $('#clientImportSubmit').textContent = 'Импортировать клиентов';
       }
       $('#clientImportPreview').hidden = false;

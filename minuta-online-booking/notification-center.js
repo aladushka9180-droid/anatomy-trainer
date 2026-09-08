@@ -3,12 +3,54 @@
 
   const CHANNEL_LABELS = { telegram:'Telegram', email:'Email', sms:'SMS', max:'MAX', push:'Push' };
   const AUDIENCE_LABELS = { provider:'Команде', client:'Клиентам' };
-  const STATUS_LABELS = { pending:'в очереди', sending:'отправляется', sent:'отправлено', failed:'ошибка', cancelled:'отменено' };
+  const STATUS_LABELS = { pending:'в очереди', sending:'передаётся каналу', sent:'передано каналу', failed:'ошибка', cancelled:'отменено' };
   const EVENT_LABELS = {
     booking_created:'Запись создана', booking_confirmed:'Запись подтверждена',
     booking_rescheduled:'Запись перенесена', booking_cancelled:'Запись отменена',
-    booking_reminder:'Напоминание'
+    booking_reminder:'Напоминание', booking_confirmation_request:'Запрос подтверждения записи'
   };
+
+  function formatMoment(value) {
+    if (!value) return '';
+    const moment = new Date(value);
+    return Number.isNaN(moment.getTime()) ? '' : moment.toLocaleString('ru-RU', { dateStyle:'short', timeStyle:'short' });
+  }
+
+  function deliveryStatus(item) {
+    const deliveryUnknown = item.status === 'failed' && item.last_error_code === 'telegram_delivery_unknown';
+    const attempts = Math.max(0, Number(item.attempts) || 0);
+    if (item.delivered_at) return {
+      label:'доставлено',
+      detail:`Подтверждено каналом${formatMoment(item.delivered_at) ? ` · ${formatMoment(item.delivered_at)}` : ''}`,
+      deliveryUnknown:false
+    };
+    if (deliveryUnknown) return {
+      label:'нужна проверка',
+      detail:'Telegram мог принять сообщение; автоматический повтор отключён',
+      deliveryUnknown:true
+    };
+    if (item.status === 'sent') return {
+      label:'передано каналу',
+      detail:`Подтверждения доставки нет${formatMoment(item.sent_at) ? ` · передано ${formatMoment(item.sent_at)}` : ''}`,
+      deliveryUnknown:false
+    };
+    if (item.status === 'sending') return {
+      label:STATUS_LABELS.sending,
+      detail:`Попытка ${Math.max(1, attempts)}`,
+      deliveryUnknown:false
+    };
+    if (item.status === 'pending') return {
+      label:STATUS_LABELS.pending,
+      detail:`Попыток: ${attempts}${formatMoment(item.next_attempt_at) ? ` · следующая ${formatMoment(item.next_attempt_at)}` : ''}`,
+      deliveryUnknown:false
+    };
+    if (item.status === 'failed') return {
+      label:STATUS_LABELS.failed,
+      detail:`Попыток: ${attempts}${formatMoment(item.updated_at) ? ` · ${formatMoment(item.updated_at)}` : ''}`,
+      deliveryUnknown:false
+    };
+    return { label:STATUS_LABELS[item.status] || item.status, detail:'', deliveryUnknown:false };
+  }
 
   function createController(options) {
     const { db, $, escapeHtml, notify, requireWrites } = options;
@@ -143,19 +185,24 @@
         return `<label class="unified-channel-card"><input type="checkbox" data-manager-only="true" data-unified-audience="${escapeHtml(item.audience)}" data-unified-channel="${escapeHtml(item.channel)}" ${item.enabled ? 'checked' : ''} ${canToggle ? '' : 'disabled data-requires-endpoint="true"'}><span><strong>${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(state.note)}</small></span></label>`;
       }).join('');
       const outbox = Array.isArray(payload.outbox) ? payload.outbox : [];
+      const outboxById = new Map(outbox.map(item => [String(item.id || ''), item]));
       $('#unifiedNotificationDeliveries').innerHTML = outbox.length ? outbox.map((item) => {
-        const deliveryUnknown = item.status === 'failed' && item.last_error_code === 'telegram_delivery_unknown';
-        const status = deliveryUnknown ? 'Нужна проверка' : (item.delivered_at ? 'доставлено' : (STATUS_LABELS[item.status] || item.status));
+        const state = deliveryStatus(item);
         const context = item.context || {};
         const appointment = [context.client_name, context.service_name, context.booking_date, String(context.booking_time || '').slice(0,5)].filter(Boolean).join(' · ');
-        const failureText = deliveryUnknown
-          ? 'Telegram мог принять сообщение. Проверьте чат; автоматический повтор отключён'
+        const failureText = state.deliveryUnknown
+          ? 'Проверьте чат вручную'
           : item.last_error;
         const error = item.status === 'failed' && failureText ? ` · ${failureText}` : '';
-        const retry = item.status === 'failed' && !deliveryUnknown
+        const fallbackSource = item.fallback_of ? outboxById.get(String(item.fallback_of)) : null;
+        const fallback = item.fallback_depth === 1 || item.fallback_of
+          ? `Резервный канал${fallbackSource ? ` после ${CHANNEL_LABELS[fallbackSource.channel] || fallbackSource.channel}` : ''}`
+          : '';
+        const details = [appointment || formatMoment(item.created_at), state.detail, fallback].filter(Boolean).join(' · ');
+        const retry = item.status === 'failed' && !state.deliveryUnknown
           ? `<button class="secondary-button" style="min-height:44px" type="button" data-unified-retry="${escapeHtml(item.id)}">Повторить</button>`
           : '';
-        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(appointment || new Date(item.created_at).toLocaleString('ru-RU'))}${escapeHtml(error)}</small></div><span><em>${escapeHtml(status)}</em>${retry}</span></article>`;
+        return `<article class="organization-audit-data-row"><div><strong>${escapeHtml(EVENT_LABELS[item.kind] || item.kind)} · ${escapeHtml(CHANNEL_LABELS[item.channel] || item.channel)} · ${escapeHtml(AUDIENCE_LABELS[item.audience] || item.audience)}</strong><small>${escapeHtml(details)}${escapeHtml(error)}</small></div><span><em>${escapeHtml(state.label)}</em>${retry}</span></article>`;
       }).join('')
         : '<div class="provider-empty compact-empty"><strong>Единая очередь пока пуста</strong><small>Сообщения появятся после подключения хотя бы одного канала.</small></div>';
       setBusy(busy);

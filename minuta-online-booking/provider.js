@@ -13335,6 +13335,7 @@ const clientResultsController = window.MinutaClientResults?.createController({
 
 const clientImportController = window.MinutaClientImport?.createController ? window.MinutaClientImport.createController({
   db, $, escapeHtml, notify, requireWrites,
+  getExistingPhones: () => collectClients().map(client => client.phone),
   onLoaded: (clients, historyRows) => {
     importedClients = Array.isArray(clients) ? clients : [];
     importedBookingHistory = (Array.isArray(historyRows) ? historyRows : []).map(item => ({
