@@ -14,7 +14,8 @@ assert.equal(typeof Client,'function','PostgreSQL Client constructor unavailable
 const read=name=>readFileSync(new URL(name,root),'utf8');
 const transactionBody=sql=>sql.replace(/^\s*(?:begin|commit);\s*$/gmi,'');
 const clients=[];
-const connect=async()=>{const c=new Client({connectionString:process.env.MINUTA_TEST_DATABASE_URL,application_name:'minuta-v123-isolated-test'});await c.connect();clients.push(c);await c.query("set statement_timeout='20s'; set lock_timeout='15s'");return c;};
+const testTls=process.env.MINUTA_TEST_PG_TLS_NO_VERIFY==='MIGRATION_TEST_ONLY'?{rejectUnauthorized:false}:undefined;
+const connect=async()=>{const c=new Client({connectionString:process.env.MINUTA_TEST_DATABASE_URL,application_name:'minuta-v123-isolated-test',...(testTls?{ssl:testTls}:{})});await c.connect();clients.push(c);await c.query("set statement_timeout='20s'; set lock_timeout='15s'");return c;};
 const admin=await connect();
 const apply=read('supabase-migration-v123.sql');
 const undo=read('supabase-migration-v123-rollback.sql');
