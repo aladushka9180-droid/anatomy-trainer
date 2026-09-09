@@ -1,0 +1,375 @@
+name: Minuta v129 safe release
+run-name: Minuta v129 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v129
+        required: true
+        default: audit-production-v129
+        type: choice
+        options: [audit-production-v129, apply-production-v129, observe-production-v129]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked successful ephemeral restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Successful D06 integration run ID, required: false, default: "", type: string }
+      audit_run_id: { description: Successful read-only v129 audit run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v129 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter BACKUP_VERIFIED for apply, required: false, default: "", type: string }
+
+permissions: { contents: read, actions: read }
+concurrency: { group: minuta-production-database, cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            audit-production-v129) ;;
+            apply-production-v129) test "$CONFIRMATION" = BACKUP_VERIFIED ;;
+            observe-production-v129) ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Verify migration and release contracts
+        run: |
+          node minuta-online-booking/financial-ledger-v129-static-test.mjs
+          node minuta-online-booking/financial-ledger-v129-release-static-test.mjs
+          node minuta-online-booking/scripts/production-db-target-guard-test.mjs
+          bash -n minuta-online-booking/scripts/production-db-schema-guard.sh
+
+  audit-production-v129:
+    if: inputs.phase == 'audit-production-v129'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Audit v129 prerequisites and fail closed on partial schema
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          with flags as(
+            select
+              to_regclass('public.organizations') is not null
+                and to_regclass('public.organization_memberships') is not null
+                and to_regclass('public.bookings') is not null
+                and to_regclass('public.booking_outcomes') is not null
+                and to_regclass('public.payments') is not null
+                and to_regclass('public.payment_provider_attempts') is not null
+                and to_regprocedure('public.has_organization_role(uuid,text[])') is not null
+                and to_regprocedure('extensions.digest(bytea,text)') is not null prerequisites,
+              to_regclass('public.organization_finance_settings') is not null settings_table,
+              to_regclass('public.financial_accounts') is not null accounts_table,
+              to_regclass('public.financial_transactions') is not null transactions_table,
+              to_regclass('public.financial_postings') is not null postings_table,
+              to_regprocedure('public.set_minuta_finance_enabled_v129(uuid,boolean)') is not null set_rpc,
+              to_regprocedure('public.create_minuta_financial_account_v129(uuid,uuid,text,text)') is not null account_rpc,
+              to_regprocedure('public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)') is not null post_rpc,
+              to_regprocedure('public.reverse_minuta_financial_transaction_v129(uuid,uuid,uuid,text)') is not null reverse_rpc,
+              to_regprocedure('public.get_minuta_financial_workspace_v129(uuid)') is not null workspace_rpc
+          ), mode as(
+            select *,case
+              when not settings_table and not accounts_table and not transactions_table and not postings_table
+                and not set_rpc and not account_rpc and not post_rpc and not reverse_rpc and not workspace_rpc then 'absent'
+              when settings_table and accounts_table and transactions_table and postings_table
+                and set_rpc and account_rpc and post_rpc and reverse_rpc and workspace_rpc then 'full'
+              else 'partial' end v129_mode
+            from flags
+          )
+          select json_build_object(
+            'prerequisitesReady',prerequisites,
+            'v129Mode',v129_mode
+          ) from mode;
+          SQL
+          )"
+          if test "$(jq -r .v129Mode <<<"$state")" = full; then
+            enabled="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select exists(select 1 from public.organization_finance_settings where enabled)")"
+            test "$enabled" = f || test "$enabled" = t
+            test "$enabled" = t && enabled=true || enabled=false
+            state="$(jq --argjson enabled "$enabled" '. + {financeEnabled:$enabled}' <<<"$state")"
+          else
+            state="$(jq '. + {financeEnabled:false}' <<<"$state")"
+          fi
+          jq -e '.prerequisitesReady and (.v129Mode=="absent" or .v129Mode=="full") and (.financeEnabled|not)' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"audit-production-v129",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v129-audit.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v129-audit-${{ github.run_id }}", path: "${{ runner.temp }}/v129-audit.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v129:
+    if: inputs.phase == 'apply-production-v129'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify exact D06 test, audit, backup, linked restore and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          RESTORE: ${{ inputs.restore_run_id }}
+          TEST: ${{ inputs.test_run_id }}
+          AUDIT: ${{ inputs.audit_run_id }}
+        run: |
+          set -euo pipefail
+          for id in "$BACKUP" "$RESTORE" "$TEST" "$AUDIT"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            test "$(jq -r .conclusion <<<"$run")" = success
+            test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+            test "$(jq -r .head_branch <<<"$run")" = main
+            test "$(jq -r .event <<<"$run")" = workflow_dispatch
+            test "$(jq -r .path <<<"$run")" = "$2"
+          }
+          check_run "$TEST" .github/workflows/minuta-d06-financial-integration.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta D06 financial integration - $SHA"
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="pglite" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          jq -e '[.jobs[]|select(.name=="financial_integration" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          mkdir -p "$RUNNER_TEMP/v129-evidence/test" "$RUNNER_TEMP/v129-evidence/audit" "$RUNNER_TEMP/v129-evidence/backup" "$RUNNER_TEMP/v129-evidence/restore"
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v129-test-$TEST" -D "$RUNNER_TEMP/v129-evidence/test"
+          jq -e --arg sha "$SHA" --arg run "$TEST" '
+            .status=="success" and .phase=="test-v129" and .commitSha==$sha and .workflowRunId==$run and
+            .isolatedDatabase==true and .productionWritten==false and .currentMainVerified==true and
+            .pglitePassed==true and .postgresIntegrationPassed==true and .rlsAclVerified==true and
+            .concurrencyPassed==true and .rollbackVerified==true and .reapplyVerified==true and
+            (.schemaFingerprint|test("^[0-9a-f]{64}$")) and
+            .cycle==["apply","apply","integration","concurrency","rollback","reapply"]
+          ' "$RUNNER_TEMP/v129-evidence/test/v129-test.json" >/dev/null
+          check_run "$AUDIT" .github/workflows/minuta-v129-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v129 - audit-production-v129 - $SHA"
+          gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v129-audit-$AUDIT" -D "$RUNNER_TEMP/v129-evidence/audit"
+          jq -e --arg sha "$SHA" '.status=="success" and .phase=="audit-production-v129" and .commitSha==$sha and .productionWritten==false and .state.prerequisitesReady and .state.v129Mode=="absent" and (.state.financeEnabled|not)' "$RUNNER_TEMP/v129-evidence/audit/v129-audit.json" >/dev/null
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length==1' <<<"$artifacts" >/dev/null
+          artifact="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$artifacts")"
+          [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v129-evidence/backup"
+          shopt -s nullglob
+          journals=("$RUNNER_TEMP/v129-evidence/backup/"*.json)
+          encrypted=("$RUNNER_TEMP/v129-evidence/backup/"*.dump.gpg)
+          checksums=("$RUNNER_TEMP/v129-evidence/backup/"*.dump.gpg.sha256)
+          test "${#journals[@]}" = 1 && test "${#encrypted[@]}" = 1 && test "${#checksums[@]}" = 1
+          jq -e --arg run "$BACKUP" --arg repo "$GITHUB_REPOSITORY" '.operation=="backup" and .status=="success" and .workflowRunId==$run and .repository==$repo and .encryption=="OpenPGP symmetric AES-256" and .archiveFormat=="PostgreSQL custom" and .archiveEntries>0' "${journals[0]}" >/dev/null
+          expected="$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(sha256sum "${encrypted[0]}" | cut -d' ' -f1)" = "$expected"
+          test "$(tr -d '[:space:]' < "${checksums[0]}")" = "$expected"
+          test "$(stat -c %s "${encrypted[0]}")" = "$(jq -r .encryptedBytes "${journals[0]}")"
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          restore_age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$restore_age" -ge 0 && test "$restore_age" -le 7200
+          restore_jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="ephemeral-restore-drill" and .conclusion=="success")]|length==1' <<<"$restore_jobs" >/dev/null
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v129-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" --arg run "$RESTORE" '
+            .status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed==true and
+            .productionWritten==false and .testDatabaseWritten==false and
+            .sourceBackupRunId==$backup and .sourceBackupSha==$sha and .workflowRunId==$run
+          ' "$RUNNER_TEMP/v129-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Recheck guard, apply v129 atomically and verify default-off schema
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          before="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          with flags as(
+            select
+              to_regclass('public.organization_finance_settings') is not null settings,
+              to_regclass('public.financial_accounts') is not null accounts,
+              to_regclass('public.financial_transactions') is not null transactions,
+              to_regclass('public.financial_postings') is not null postings,
+              to_regprocedure('public.set_minuta_finance_enabled_v129(uuid,boolean)') is not null set_rpc,
+              to_regprocedure('public.create_minuta_financial_account_v129(uuid,uuid,text,text)') is not null account_rpc,
+              to_regprocedure('public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)') is not null post_rpc,
+              to_regprocedure('public.reverse_minuta_financial_transaction_v129(uuid,uuid,uuid,text)') is not null reverse_rpc,
+              to_regprocedure('public.get_minuta_financial_workspace_v129(uuid)') is not null workspace_rpc
+          )
+          select json_build_object(
+            'mode',case
+              when not settings and not accounts and not transactions and not postings and not set_rpc and not account_rpc and not post_rpc and not reverse_rpc and not workspace_rpc then 'absent'
+              when settings and accounts and transactions and postings and set_rpc and account_rpc and post_rpc and reverse_rpc and workspace_rpc then 'full'
+              else 'partial' end
+          ) from flags;
+          SQL
+          )"
+          jq -e '.mode=="absent" or .mode=="full"' <<<"$before" >/dev/null
+          expected_fingerprint="$(jq -r .schemaFingerprint "$RUNNER_TEMP/v129-evidence/test/v129-test.json")"
+          [[ "$expected_fingerprint" =~ ^[0-9a-f]{64}$ ]]
+          if test "$(jq -r .mode <<<"$before")" = full; then
+            before_fingerprint="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/financial-ledger-v129-schema-fingerprint.sql | tr -d '[:space:]')"
+            test "$before_fingerprint" = "$expected_fingerprint"
+            before="$(jq --arg fingerprint "$before_fingerprint" '. + {schemaFingerprint:$fingerprint}' <<<"$before")"
+          else
+            before="$(jq '. + {schemaFingerprint:null}' <<<"$before")"
+          fi
+          if test "$(jq -r .mode <<<"$before")" = absent; then
+            PGOPTIONS='-c statement_timeout=120000 -c lock_timeout=10000' psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v129.sql
+            recovered=false
+          else
+            recovered=true
+          fi
+          after="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000' psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'tables',(
+              select count(*)=4 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+              where n.nspname='public' and c.relname in('organization_finance_settings','financial_accounts','financial_transactions','financial_postings') and c.relkind='r'
+            ),
+            'rls',(
+              select count(*)=4 from pg_class c join pg_namespace n on n.oid=c.relnamespace
+              where n.nspname='public' and c.relname in('organization_finance_settings','financial_accounts','financial_transactions','financial_postings') and c.relrowsecurity
+            ),
+            'rpcs',to_regprocedure('public.set_minuta_finance_enabled_v129(uuid,boolean)') is not null
+              and to_regprocedure('public.create_minuta_financial_account_v129(uuid,uuid,text,text)') is not null
+              and to_regprocedure('public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)') is not null
+              and to_regprocedure('public.reverse_minuta_financial_transaction_v129(uuid,uuid,uuid,text)') is not null
+              and to_regprocedure('public.get_minuta_financial_workspace_v129(uuid)') is not null,
+            'grants',has_function_privilege('authenticated','public.set_minuta_finance_enabled_v129(uuid,boolean)','EXECUTE')
+              and has_function_privilege('authenticated','public.create_minuta_financial_account_v129(uuid,uuid,text,text)','EXECUTE')
+              and has_function_privilege('authenticated','public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)','EXECUTE')
+              and has_function_privilege('authenticated','public.reverse_minuta_financial_transaction_v129(uuid,uuid,uuid,text)','EXECUTE')
+              and has_function_privilege('authenticated','public.get_minuta_financial_workspace_v129(uuid)','EXECUTE')
+              and not has_function_privilege('anon','public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)','EXECUTE'),
+            'ledgerTriggers',(
+              select count(*)=4 from pg_trigger where not tgisinternal and tgenabled<>'D'
+                and tgname in('financial_transactions_immutable_v129','financial_postings_immutable_v129','financial_transactions_balanced_v129','financial_postings_balanced_v129')
+            ),
+            'financeEnabled',exists(select 1 from public.organization_finance_settings where enabled),
+            'settingsRows',(select count(*) from public.organization_finance_settings),
+            'accountsRows',(select count(*) from public.financial_accounts),
+            'transactionsRows',(select count(*) from public.financial_transactions),
+            'postingsRows',(select count(*) from public.financial_postings)
+          );
+          SQL
+          )"
+          after_fingerprint="$(PGOPTIONS='-c default_transaction_read_only=on' psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/financial-ledger-v129-schema-fingerprint.sql | tr -d '[:space:]')"
+          test "$after_fingerprint" = "$expected_fingerprint"
+          after="$(jq --arg fingerprint "$after_fingerprint" '. + {schemaFingerprint:$fingerprint}' <<<"$after")"
+          jq -e '.tables and .rls and .rpcs and .grants and .ledgerTriggers and (.financeEnabled|not) and .settingsRows==0 and .accountsRows==0 and .transactionsRows==0 and .postingsRows==0' <<<"$after" >/dev/null
+          jq -n --arg sha "$SHA" --argjson before "$before" --argjson after "$after" --argjson recovered "$recovered" '{status:"success",phase:"apply-production-v129",commitSha:$sha,before:$before,after:$after,recoveredFromCommittedFull:$recovered,financeActivated:false,financialRowsCreated:false}' > "$RUNNER_TEMP/v129-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v129-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v129-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v129:
+    if: inputs.phase == 'observe-production-v129'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: "-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000"
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify exact apply attestation and current main
+        env:
+          APPLY: ${{ inputs.apply_run_id }}
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .head_branch <<<"$run")" = main
+          test "$(jq -r .event <<<"$run")" = workflow_dispatch
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v129-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v129 - apply-production-v129 - $SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          mkdir -p "$RUNNER_TEMP/v129-observation/apply"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v129-apply-$APPLY" -D "$RUNNER_TEMP/v129-observation/apply"
+          jq -e --arg sha "$SHA" '
+            .status=="success" and .phase=="apply-production-v129" and .commitSha==$sha and
+            .financeActivated==false and .financialRowsCreated==false and
+            ((.before.mode=="absent" and .recoveredFromCommittedFull==false) or (.before.mode=="full" and .recoveredFromCommittedFull==true)) and
+            .after.tables and .after.rls and .after.rpcs and .after.grants and
+            .after.ledgerTriggers and (.after.financeEnabled|not) and .after.settingsRows==0 and
+            .after.accountsRows==0 and .after.transactionsRows==0 and .after.postingsRows==0
+          ' "$RUNNER_TEMP/v129-observation/apply/v129-apply.json" >/dev/null
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe production v129 read-only and fail on activation or drift
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'tables',(select count(*)=4 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in('organization_finance_settings','financial_accounts','financial_transactions','financial_postings') and c.relkind='r'),
+            'rls',(select count(*)=4 from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname in('organization_finance_settings','financial_accounts','financial_transactions','financial_postings') and c.relrowsecurity),
+            'rpcs',to_regprocedure('public.set_minuta_finance_enabled_v129(uuid,boolean)') is not null and to_regprocedure('public.create_minuta_financial_account_v129(uuid,uuid,text,text)') is not null and to_regprocedure('public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)') is not null and to_regprocedure('public.reverse_minuta_financial_transaction_v129(uuid,uuid,uuid,text)') is not null and to_regprocedure('public.get_minuta_financial_workspace_v129(uuid)') is not null,
+            'grants',has_function_privilege('authenticated','public.set_minuta_finance_enabled_v129(uuid,boolean)','EXECUTE') and has_function_privilege('authenticated','public.create_minuta_financial_account_v129(uuid,uuid,text,text)','EXECUTE') and has_function_privilege('authenticated','public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)','EXECUTE') and has_function_privilege('authenticated','public.reverse_minuta_financial_transaction_v129(uuid,uuid,uuid,text)','EXECUTE') and has_function_privilege('authenticated','public.get_minuta_financial_workspace_v129(uuid)','EXECUTE') and not has_function_privilege('anon','public.post_minuta_visit_finance_v129(uuid,uuid,uuid,uuid)','EXECUTE'),
+            'ledgerTriggers',(select count(*)=4 from pg_trigger where not tgisinternal and tgenabled<>'D' and tgname in('financial_transactions_immutable_v129','financial_postings_immutable_v129','financial_transactions_balanced_v129','financial_postings_balanced_v129')),
+            'financeEnabled',exists(select 1 from public.organization_finance_settings where enabled),
+            'settingsRows',(select count(*) from public.organization_finance_settings),
+            'accountsRows',(select count(*) from public.financial_accounts),
+            'transactionsRows',(select count(*) from public.financial_transactions),
+            'postingsRows',(select count(*) from public.financial_postings)
+          );
+          SQL
+          )"
+          expected_fingerprint="$(jq -r .after.schemaFingerprint "$RUNNER_TEMP/v129-observation/apply/v129-apply.json")"
+          [[ "$expected_fingerprint" =~ ^[0-9a-f]{64}$ ]]
+          state_fingerprint="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/financial-ledger-v129-schema-fingerprint.sql | tr -d '[:space:]')"
+          test "$state_fingerprint" = "$expected_fingerprint"
+          state="$(jq --arg fingerprint "$state_fingerprint" '. + {schemaFingerprint:$fingerprint}' <<<"$state")"
+          jq -e '.tables and .rls and .rpcs and .grants and .ledgerTriggers and (.financeEnabled|not) and .settingsRows==0 and .accountsRows==0 and .transactionsRows==0 and .postingsRows==0' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"observe-production-v129",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v129-observe.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v129-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v129-observe.json", if-no-files-found: error, retention-days: 90 }
