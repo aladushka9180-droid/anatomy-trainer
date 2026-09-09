@@ -11,7 +11,16 @@ const DEFAULT_STATUS = resolve(APP_DIR, 'roadmap', 'status.json');
 const EVIDENCE_KEYS = ['releaseSha', 'releaseVersion', 'ciRuns', 'productionHealthRunId', 'verifiedAt', 'liveChecks', 'checks'];
 const LIVE_WIDTHS = ['390', '760', '1440'];
 const BLOCKER_TYPES = ['secret', 'account', 'provider', 'device', 'human_decision', 'human_confirmation', 'production_access', 'legal'];
-const STAGE_GATE_OVERRIDE_ITEMS = ['D06', 'D09'];
+const STAGE_GATE_OVERRIDE_ITEMS = ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13'];
+const STAGE_GATE_OVERRIDE_CONTRACTS = {
+  D06: { dependsOn: [], externalActions: [] },
+  D07: { dependsOn: ['D06'], externalActions: [] },
+  D09: { dependsOn: [], externalActions: [] },
+  D10: { dependsOn: [], externalActions: [] },
+  D11: { dependsOn: ['D10'], externalActions: ['maps_provider_account'] },
+  D12: { dependsOn: ['D11'], externalActions: ['calendar_provider_credentials'] },
+  D13: { dependsOn: ['D12'], externalActions: ['customer_export_file'] }
+};
 const STAGE_GATE_OVERRIDE_TYPE = 'allow_early_stage_work';
 
 function object(value) {
@@ -58,14 +67,20 @@ function validateStageGateOverride(plan, status) {
   assert(Date.parse(override.approvedAt) <= Date.parse(status.updatedAt), 'status.stageGateOverride.approvedAt: cannot be later than status.updatedAt');
   nonEmptyString(override.reason, 'status.stageGateOverride.reason');
   stringList(override.allowedItems, 'status.stageGateOverride.allowedItems', { allowEmpty: false });
-  assert.deepEqual([...override.allowedItems].sort(), [...STAGE_GATE_OVERRIDE_ITEMS].sort(), 'status.stageGateOverride.allowedItems: scope must be exactly D06 and D09');
+  const unsupported = override.allowedItems.filter(id => !STAGE_GATE_OVERRIDE_ITEMS.includes(id));
+  assert.equal(unsupported.length, 0, `status.stageGateOverride.allowedItems: unsupported early-work items ${unsupported.join(', ')}`);
 
   const itemById = new Map(plan.items.map(item => [item.id, item]));
+  const allowed = new Set(override.allowedItems);
   for (const id of override.allowedItems) {
     const item = itemById.get(id);
     assert(item, `status.stageGateOverride.allowedItems: unknown item ${id}`);
-    assert.equal(item.dependsOn.length, 0, `status.stageGateOverride ${id}: explicit dependencies cannot be bypassed`);
-    assert.equal(item.externalActions.length, 0, `status.stageGateOverride ${id}: external actions cannot be bypassed`);
+    const contract = STAGE_GATE_OVERRIDE_CONTRACTS[id];
+    assert.deepEqual(item.dependsOn, contract.dependsOn, `status.stageGateOverride ${id}: dependency contract changed`);
+    assert.deepEqual(item.externalActions, contract.externalActions, `status.stageGateOverride ${id}: external-action contract changed`);
+    for (const dependency of item.dependsOn) {
+      assert(status.items[dependency].status === 'done' || allowed.has(dependency), `status.stageGateOverride ${id}: dependency ${dependency} is neither done nor included`);
+    }
   }
   return new Set(override.allowedItems);
 }
@@ -372,6 +387,9 @@ export function verifyTransition(plan, before, after) {
   const next = after.items[item.id];
   assert(TRANSITIONS[previous.status].has(next.status), `transition ${item.id}: ${previous.status} -> ${next.status} is forbidden`);
   assert.notEqual(previous.status, 'done', `transition ${item.id}: completed evidence is immutable`);
+  if (next.status === 'verifying' && item.externalActions.length > 0) {
+    assert(['awaiting_external', 'awaiting_human'].includes(previous.status), `transition ${item.id}: external actions require a recorded stop-gate before verifying`);
+  }
   if (next.status === 'done') assert.equal(previous.status, 'verifying', `transition ${item.id}: done requires verifying`);
   return {
     valid: true,

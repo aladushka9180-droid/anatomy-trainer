@@ -27,7 +27,7 @@ const completeEvidence = (item, marker = 'a') => ({
   checks: Object.fromEntries(item.completion.requiredChecks.map(name => [name, true]))
 });
 
-test('override exposes only D06 and D09 while stage-0 remains blocked', () => {
+test('current override exposes its approved subset while stage-0 remains blocked', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
   for (const id of ['D06', 'D09']) status.items[id] = { status:'not_started', evidence:{}, blocker:null };
@@ -105,27 +105,72 @@ test('override activation is an isolated transition and requires explicit user a
   combined.stageGateOverride = null;
   assert.throws(() => verifyTransition(plan, published, combined), /exactly one roadmap item or stage-gate override must change/);
 
+  const replaced = clone(published);
+  replaced.updatedAt = new Date(Date.parse(published.updatedAt) + 1000).toISOString();
+  replaced.stageGateOverride.approvedAt = replaced.updatedAt;
+  replaced.stageGateOverride.allowedItems = ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13'];
+  assert.throws(() => verifyTransition(plan, published, replaced), /must be removed before replacement/);
+
   const forged = clone(published);
   forged.stageGateOverride.approvedBy = 'automation';
   assert.throws(() => validateRoadmap(plan, forged), /explicit user approval is required/);
 });
 
-test('override scope cannot expand or bypass dependency and external-action contracts', () => {
+test('override scope expands only within the approved stage-1 chain and preserves contracts', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
-  for (const allowedItems of [['D06', 'D10'], ['D06', 'D09', 'D14'], ['D06', 'UNKNOWN']]) {
+  const expanded = clone(status);
+  expanded.stageGateOverride.allowedItems = ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13'];
+  assert.equal(validateRoadmap(plan, expanded).valid, true);
+  const next = selectNext(plan, expanded);
+  assert.equal(next.primary.id, 'D07');
+  assert.deepEqual(next.parallelCandidates, []);
+  assert.deepEqual(next.override.allowedItems, expanded.stageGateOverride.allowedItems);
+
+  for (const allowedItems of [['D06', 'D08'], ['D06', 'D14'], ['D06', 'D15'], ['D06', 'UNKNOWN']]) {
     const expanded = clone(status);
     expanded.stageGateOverride.allowedItems = allowedItems;
-    assert.throws(() => validateRoadmap(plan, expanded), /scope must be exactly D06 and D09/);
+    assert.throws(() => validateRoadmap(plan, expanded), /unsupported early-work items/);
   }
 
   const dependencyDrift = clone(plan);
   dependencyDrift.items.find(item => item.id === 'D09').dependsOn = ['D01'];
-  assert.throws(() => validateRoadmap(dependencyDrift, status), /explicit dependencies cannot be bypassed/);
+  assert.throws(() => validateRoadmap(dependencyDrift, status), /dependency contract changed/);
 
   const externalDrift = clone(plan);
   externalDrift.items.find(item => item.id === 'D09').externalActions = ['real_financial_transaction'];
-  assert.throws(() => validateRoadmap(externalDrift, status), /external actions cannot be bypassed/);
+  assert.throws(() => validateRoadmap(externalDrift, status), /external-action contract changed/);
+
+  const missingDependency = clone(expanded);
+  missingDependency.items.D06.status = 'implementing';
+  missingDependency.stageGateOverride.allowedItems = ['D07'];
+  assert.throws(() => validateRoadmap(plan, missingDependency), /dependency D06 is neither done nor included/);
+
+  const chain = clone(expanded);
+  chain.items.D07.status = 'done';
+  assert.equal(selectNext(plan, chain).primary.id, 'D10');
+  const d10 = plan.items.find(item => item.id === 'D10');
+  chain.items.D10 = { status:'done', evidence:completeEvidence(d10, 'e'), blocker:null };
+  const d11Next = selectNext(plan, chain);
+  assert.equal(d11Next.primary.id, 'D11');
+  assert.deepEqual(d11Next.primary.externalActions, ['maps_provider_account']);
+
+  const d11 = plan.items.find(item => item.id === 'D11');
+  const unsafeBefore = clone(chain);
+  unsafeBefore.items.D11 = { status:'implementing', evidence:{}, blocker:null };
+  const unsafeAfter = clone(unsafeBefore);
+  unsafeAfter.updatedAt = new Date(Date.parse(unsafeBefore.updatedAt) + 1000).toISOString();
+  unsafeAfter.items.D11 = { status:'verifying', evidence:completeEvidence(d11, 'f'), blocker:null };
+  assert.throws(() => verifyTransition(plan, unsafeBefore, unsafeAfter), /recorded stop-gate/);
+
+  const gatedBefore = clone(unsafeBefore);
+  gatedBefore.items.D11 = {
+    status:'awaiting_external',
+    evidence:{},
+    blocker:{ type:'account', reason:'Test external gate', requiredAction:'Test approved provider action' }
+  };
+  const gatedAfter = clone(unsafeAfter);
+  assert.equal(verifyTransition(plan, gatedBefore, gatedAfter).to, 'verifying');
 });
 
 test('ordinary work in the blocked stage keeps priority over the override', () => {
