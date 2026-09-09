@@ -103,7 +103,13 @@ try {
         analyticsDetails.open = true;
         const heatmap = document.querySelector('#reportHeatmap');
         const heatColors = [...heatmap.querySelectorAll('.report-heatmap-cell')].map(element => getComputedStyle(element).backgroundColor);
-        const heatmapOverflow = innerWidth > 430 && heatmap.getBoundingClientRect().right > innerWidth + 2;
+        const visualGrid = document.querySelector('.report-visual-grid');
+        const funnel = document.querySelector('#reportFunnel');
+        const visualGridOverflow = visualGrid.getBoundingClientRect().right > rect.right + 2;
+        const funnelOverflow = funnel.getBoundingClientRect().right > rect.right + 2;
+        const heatmapOverflow = heatmap.getBoundingClientRect().right > rect.right + 2;
+        const visualGridWidth = Math.round(visualGrid.getBoundingClientRect().width);
+        const analyticsWidth = Math.round(rect.width);
         const heatLegendVisible = visible(document.querySelector('#reportHeatmapLegend'));
         const trend = document.querySelector('.report-trend');
         const chart = document.querySelector('#reportRevenueChart');
@@ -128,7 +134,11 @@ try {
           visibleKpis:[...document.querySelectorAll('.report-command-metrics > article')].filter(visible).length,
           visibleActions:[...document.querySelectorAll('#reportSmartActions > .report-smart-action')].filter(visible).length,
           detailsClosed,
+          visualGridOverflow,
+          funnelOverflow,
           heatmapOverflow,
+          visualGridWidth,
+          analyticsWidth,
           heatLegendVisible,
           heatColorSteps:new Set(heatColors).size,
           heatButtons:heatmap.querySelectorAll('button.report-heatmap-cell').length,
@@ -147,7 +157,7 @@ try {
       });
       const expectedChartHeight = width <= 760 ? 168 : 210;
       const expectedSummaryTracks = width <= 760 ? 2 : 3;
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
         failures.push({ width, theme, ...metrics });
       }
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });

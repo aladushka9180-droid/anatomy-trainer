@@ -6776,7 +6776,7 @@ html.provider-booting .provider-main {
 .report-heatmap-cell.is-peak { border-color:var(--theme-accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--theme-accent) 12%,transparent),0 8px 18px color-mix(in srgb,var(--theme-shadow) 45%,transparent); }
 .provider-view[data-provider-panel="analytics"][data-report-empty="true"] .report-visual-grid { display:none!important; }
 @media (prefers-reduced-motion:reduce) { .report-command-kicker i { animation:none; } }
-@media (max-width:900px) { .report-visual-grid { grid-template-columns:1fr; } }
+@media (max-width:900px) { .report-visual-grid { grid-template-columns:minmax(0,1fr); } }
 @media (max-width:760px) {
   .report-command-center { grid-template-columns:1fr 104px; gap:13px; padding:18px 14px; border-radius:20px; }
   .report-command-copy>h3 { font-size:27px; }
@@ -6788,7 +6788,17 @@ html.provider-booting .provider-main {
   .report-health>div { width:96px; }.report-health>div::before { width:72px; }.report-health>div>strong { font-size:25px; }.report-health>div>small { margin-top:28px; }
   .report-smart-actions { grid-template-columns:1fr; }
   .report-smart-actions article { grid-template-columns:34px minmax(0,1fr) auto; }
-  .report-visual-grid { grid-template-columns:1fr; }
+  .report-visual-grid {
+    grid-template-columns:minmax(0,1fr);
+    width:calc(100vw - 56px);
+    min-width:0;
+    max-width:calc(100vw - 56px);
+  }
+  .report-visual-grid>.panel {
+    width:100%;
+    min-width:0;
+    max-width:100%;
+  }
   .report-heatmap-card { overflow:hidden; }
   .report-heatmap { grid-template-columns:42px repeat(7,minmax(25px,1fr)); gap:3px; overflow-x:auto; }
   .report-heatmap-cell { min-height:34px; border-radius:7px; }
@@ -6935,7 +6945,7 @@ html.provider-booting .provider-main {
   .report-command-metrics,.report-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .report-health-factors { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .report-methodology-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .report-visual-grid { grid-template-columns:1fr; }
+  .report-visual-grid { grid-template-columns:minmax(0,1fr); }
 }
 @media (max-width:760px) {
   #analyticsView .report-head { grid-template-columns:minmax(0,1fr) 44px; }
@@ -7807,6 +7817,19 @@ html.provider-booting .provider-main {
   .provider-body .timeline-day-expand {
     min-height:44px;
     margin-bottom:12px;
+  }
+
+  .provider-body #analyticsView .report-visual-grid {
+    grid-template-columns:minmax(0,1fr)!important;
+    width:calc(100vw - 56px)!important;
+    min-width:0!important;
+    max-width:calc(100vw - 56px)!important;
+  }
+
+  .provider-body #analyticsView .report-visual-grid>.panel {
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
   }
 
   .provider-body .report-heatmap-card {
