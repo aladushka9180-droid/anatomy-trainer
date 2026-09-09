@@ -1,5 +1,19 @@
 -- TEST DATABASE ONLY. The isolated database intentionally keeps an older CRM
 -- baseline; these transactional fixtures reproduce the columns used by v134.
+create table if not exists public.client_import_batches(
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  request_id uuid not null,
+  source_system text not null,
+  payload_hash text not null,
+  input_count integer not null,
+  created_count integer not null default 0,
+  updated_count integer not null default 0,
+  actor_id uuid not null references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  unique(organization_id,request_id)
+);
+
 create table if not exists public.organization_imported_clients(
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete restrict,
