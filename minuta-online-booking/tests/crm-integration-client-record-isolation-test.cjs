@@ -80,9 +80,9 @@ async function harness(browser, gates = {}) {
 }
 
 async function openClient(page, phone) {
-  await page.evaluate(phone => clientRecords.setClient({phone,bookings:[]}), phone);
+  await page.evaluate(phone => { clientRecords.setClient({phone,bookings:[]}); clientRecords.setView('files'); }, phone);
   await page.waitForFunction(phone => document.querySelector('#clientRecords')?.textContent.includes(phone.endsWith('1') ? 'Только-клиент-A.pdf' : 'Только-клиент-B.pdf'), phone);
-  await page.locator('[data-cr-panel="files"]>summary').click();
+  await page.locator('[data-cr-panel="upload"]>summary').click();
 }
 
 async function switchScope(page, kind) {
@@ -196,7 +196,7 @@ async function staleArchive(browser) {
     await staleFinalize(browser);
     await staleArchive(browser);
     assert.doesNotMatch(clientRecordsSource,/localStorage|sessionStorage|indexedDB|caches\.|createSignedUrl|getPublicUrl/i,'private records must not use persistent browser storage or public/signed URLs');
-    assert.match(serviceWorkerSource,/requestUrl\.origin\s*===\s*self\.location\.origin[\s\S]{0,120}if\s*\(!isOwnAsset\)\s*return/,'service worker must ignore cross-origin Storage downloads');
+    assert.match(serviceWorkerSource,/if\s*\(requestUrl\.origin\s*!==\s*self\.location\.origin\)\s*return/,'service worker must ignore cross-origin Storage downloads');
     const hasCleanup=/\bdelete\s+from\s+public\.client_record_entries/i.test(migrationSource)
       || /(?:cleanup|purge|expire)[a-z0-9_]*client_record/i.test(migrationSource);
     assert.equal(hasCleanup,true,'v112 has no cleanup/expiry for unready rows and uploaded objects abandoned by a stale upload');

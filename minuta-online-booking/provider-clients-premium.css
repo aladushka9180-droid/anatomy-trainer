@@ -7,6 +7,8 @@
   --client-reward-soft:color-mix(in srgb,var(--client-reward-tone) 9%,var(--theme-surface));
   --client-risk-tone:color-mix(in srgb,#b65b50 74%,var(--theme-ink));
   --client-risk-soft:color-mix(in srgb,var(--client-risk-tone) 9%,var(--theme-surface));
+  --client-notice-tone:color-mix(in srgb,#b98735 68%,var(--theme-ink));
+  --client-notice-soft:color-mix(in srgb,var(--client-notice-tone) 8%,var(--theme-surface));
   --client-card-soft:color-mix(in srgb,var(--theme-surface-alt) 82%,var(--theme-surface));
 }
 
@@ -52,6 +54,12 @@
   background:conic-gradient(from -.25turn,var(--client-level-tone) var(--client-level-progress),var(--client-ring-track) 0);
 }
 
+:is(.client-list-avatar-orbit,.client-profile-orbit)[data-client-level="0"] { --client-level-tone:color-mix(in srgb,var(--theme-muted) 58%,var(--theme-line)); }
+:is(.client-list-avatar-orbit,.client-profile-orbit)[data-client-level="1"] { --client-level-tone:color-mix(in srgb,#91a99b 64%,var(--theme-accent)); }
+:is(.client-list-avatar-orbit,.client-profile-orbit)[data-client-level="2"] { --client-level-tone:color-mix(in srgb,var(--theme-accent) 82%,#78906e); }
+:is(.client-list-avatar-orbit,.client-profile-orbit)[data-client-level="3"] { --client-level-tone:color-mix(in srgb,#b77d4b 76%,var(--theme-accent)); }
+:is(.client-list-avatar-orbit,.client-profile-orbit)[data-client-level="4"] { --client-level-tone:color-mix(in srgb,#d2a451 82%,var(--theme-ink)); }
+
 .client-list-avatar-orbit::after,
 .client-profile-orbit::after {
   position:absolute;
@@ -73,8 +81,8 @@
   background:var(--theme-accent-soft);
   color:var(--theme-accent);
 }
-.client-list-avatar-orbit.has-photo { background:conic-gradient(from -.25turn,var(--client-photo-tone) var(--client-level-progress),color-mix(in srgb,var(--client-photo-tone) 22%,var(--client-ring-track)) 0); }
-.client-list-avatar-orbit.has-photo .client-list-avatar { box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--client-photo-tone) 72%,transparent); }
+.client-list-avatar-orbit.has-photo { background:conic-gradient(from -.25turn,var(--client-level-tone) var(--client-level-progress),var(--client-ring-track) 0); }
+.client-list-avatar-orbit.has-photo .client-list-avatar { box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--client-photo-tone) 82%,transparent),0 3px 10px color-mix(in srgb,var(--client-photo-tone) 12%,transparent); }
 
 .client-orbit-jewel {
   position:absolute;
@@ -121,11 +129,11 @@
 }
 
 .client-profile-orbit { grid-row:1 / 4; width:112px; height:112px; padding:3px; }
-.client-profile-orbit.has-photo { width:122px; height:122px; background:conic-gradient(from -.25turn,var(--client-photo-tone) var(--client-level-progress),color-mix(in srgb,var(--client-photo-tone) 20%,var(--client-ring-track)) 0); }
+.client-profile-orbit.has-photo { width:112px; height:112px; background:conic-gradient(from -.25turn,var(--client-level-tone) var(--client-level-progress),var(--client-ring-track) 0); }
 .client-profile-orbit .client-profile-avatar-control,
 .client-profile-orbit .client-avatar { width:106px; height:106px; border-radius:50%; }
 .client-profile-orbit.has-photo .client-profile-avatar-control,
-.client-profile-orbit.has-photo .client-avatar { width:116px; height:116px; }
+.client-profile-orbit.has-photo .client-avatar { width:106px; height:106px; }
 .client-profile-orbit .client-profile-avatar-control { z-index:1; border:3px solid var(--theme-surface); background:var(--theme-surface); }
 .client-profile-orbit.has-photo .client-avatar { box-shadow:inset 0 0 0 1px var(--client-photo-tone),0 5px 18px color-mix(in srgb,var(--client-photo-tone) 18%,transparent); }
 .client-profile-orbit .client-profile-avatar-picker { right:2px; bottom:8px; }
@@ -240,6 +248,8 @@
 .client-reliability-card strong,.client-reliability-card small { display:block; }
 .client-reliability-card strong { color:var(--theme-ink); font-size:10px; }
 .client-reliability-card small { margin-top:3px; color:var(--theme-muted); font-size:9px; line-height:1.4; }
+.client-reliability-card[data-severity="notice"] { border-color:color-mix(in srgb,var(--client-notice-tone) 22%,var(--theme-line)); background:var(--client-notice-soft); }
+.client-reliability-card[data-severity="notice"]>span { color:var(--client-notice-tone); background:color-mix(in srgb,var(--client-notice-tone) 11%,var(--theme-surface)); }
 
 .client-profile-tabs {
   display:flex;
@@ -258,17 +268,16 @@
 .client-profile-tabs button:focus-visible { outline:2px solid var(--theme-accent); outline-offset:-2px; }
 
 .client-profile-tabpanels { min-width:0; }
-.client-profile-tabpanel { min-width:0; padding-top:10px; scroll-margin-top:14px; }
+.client-profile-tabpanel { min-width:0; padding-top:14px; scroll-margin-top:14px; }
 .client-profile-tabpanel[hidden] { display:none!important; }
 .client-profile-tab-empty { margin:0; padding:20px 2px; color:var(--theme-muted); font-size:10px; line-height:1.5; }
 #clientProfilePanelServices:has(#clientFavoriteServices:not([hidden]))>.client-profile-tab-empty,
 #clientProfilePanelFiles:has(#clientRecords:not([hidden]))>.client-profile-tab-empty { display:none; }
-#clientProfileContent[data-client-profile-section="history"] #clientRecords [data-cr-panel="files"],
-#clientProfileContent[data-client-profile-section="files"] #clientRecords [data-cr-panel="history"] { display:none; }
-#clientProfileContent[data-client-profile-section="history"] #clientRecords,
-#clientProfileContent[data-client-profile-section="files"] #clientRecords { margin-top:0; }
+#clientRecords { margin-top:0; }
 
-.provider-body[data-provider-theme][data-provider-layout] .client-disclosure { border-color:var(--theme-line); scroll-margin-top:14px; }
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-tabpanel>.client-disclosure { border:0; border-radius:14px; background:color-mix(in srgb,var(--theme-surface-alt) 56%,var(--theme-surface)); scroll-margin-top:14px; }
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-tabpanel>.client-disclosure>summary { padding:13px 36px 13px 14px; }
+.provider-body[data-provider-theme][data-provider-layout] .client-profile-tabpanel>.client-disclosure>.client-results-body { padding:0 14px 14px; }
 .client-favorite-services { scroll-margin-top:14px; }
 .client-favorite-services>strong,.client-favorite-services>div { min-width:0; }
 .client-favorite-services :is(button,.client-favorite-service) { flex:0 1 auto; max-width:min(100%,300px); min-width:0; min-height:32px; padding-inline:11px; font-size:9px; }
@@ -278,9 +287,9 @@
   .provider-body[data-provider-theme][data-provider-layout] [data-provider-panel="clients"] .clients-layout { grid-template-columns:minmax(250px,.64fr) minmax(440px,1.36fr); }
   .client-profile-head { grid-template-columns:112px minmax(0,1fr) minmax(120px,auto); gap-inline:15px; }
   .client-profile-orbit { width:104px; height:104px; }
-  .client-profile-orbit.has-photo { width:112px; height:112px; }
+  .client-profile-orbit.has-photo { width:104px; height:104px; }
   .client-profile-orbit .client-profile-avatar-control,.client-profile-orbit .client-avatar { width:98px; height:98px; }
-  .client-profile-orbit.has-photo .client-profile-avatar-control,.client-profile-orbit.has-photo .client-avatar { width:106px; height:106px; }
+  .client-profile-orbit.has-photo .client-profile-avatar-control,.client-profile-orbit.has-photo .client-avatar { width:98px; height:98px; }
   .client-profile-head h3 { font-size:25px; }
   .provider-body[data-provider-theme][data-provider-layout] .client-profile-primary-actions { min-width:120px; }
   .client-profile .client-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -309,9 +318,9 @@
   .provider-body[data-provider-theme][data-provider-layout] .client-profile { padding:12px; }
   .client-profile-head { grid-template-columns:1fr; grid-template-rows:auto; justify-items:center; gap:7px; padding-top:0; text-align:center; }
   .client-profile-orbit { grid-row:auto; width:100px; height:100px; }
-  .client-profile-orbit.has-photo { width:116px; height:116px; }
+  .client-profile-orbit.has-photo { width:100px; height:100px; }
   .client-profile-orbit .client-profile-avatar-control,.client-profile-orbit .client-avatar { width:94px; height:94px; }
-  .client-profile-orbit.has-photo .client-profile-avatar-control,.client-profile-orbit.has-photo .client-avatar { width:110px; height:110px; }
+  .client-profile-orbit.has-photo .client-profile-avatar-control,.client-profile-orbit.has-photo .client-avatar { width:94px; height:94px; }
   .client-profile-head h3 { font-size:26px; }
   .client-profile-head #clientProfileBadges,.client-profile-contact,.client-relationship-status { justify-content:center; }
   .client-profile-contact,.client-online-block-badge { grid-column:auto; }

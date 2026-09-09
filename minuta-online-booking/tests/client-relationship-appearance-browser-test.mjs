@@ -25,7 +25,7 @@ try {
   const tabFunctionStart = providerSource.indexOf('function activateClientProfileJump');
   const tabFunctionEnd = providerSource.indexOf('\nfunction renderClientDetail', tabFunctionStart);
   assert.ok(tabFunctionStart >= 0 && tabFunctionEnd > tabFunctionStart, 'Client profile tab controller can be isolated for browser checks');
-  await page.addScriptTag({ content:`const $ = selector => document.querySelector(selector); const $$ = selector => [...document.querySelectorAll(selector)];\n${providerSource.slice(tabFunctionStart, tabFunctionEnd)}` });
+  await page.addScriptTag({ content:`const $ = selector => document.querySelector(selector); const $$ = selector => [...document.querySelectorAll(selector)]; const clientRecordsController={setView(name){document.querySelectorAll('#clientRecords [data-cr-view]').forEach(view=>{view.hidden=view.dataset.crView!==name;});}};\n${providerSource.slice(tabFunctionStart, tabFunctionEnd)}` });
   await page.evaluate(() => {
     document.documentElement.classList.remove('provider-booting');
     document.documentElement.classList.add('top-level', 'provider-ready');
@@ -51,13 +51,14 @@ try {
       ['Сергей Никитин', '+7 903 333-17-88', 'С нами давно · 4 уровень', 18, '1turn', true]
     ].map(([name, phone, status, count, progress, photo], index) => `
       <button class="client-list-item${index === 0 ? ' active' : ''}" type="button">
-        <span class="client-list-avatar-orbit${photo ? ' has-photo' : ''}" style="--client-level-progress:${progress}" aria-hidden="true"><span class="client-list-avatar">${name[0]}</span></span>
+        <span class="client-list-avatar-orbit${photo ? ' has-photo' : ''}" data-client-level="${Math.min(4, Math.max(1, index + 1))}" style="--client-level-progress:${progress}" aria-hidden="true"><span class="client-list-avatar">${name[0]}</span></span>
         <span class="client-list-main"><strong>${name}</strong><small>${phone}</small><i>${index ? 'Нет будущих записей' : '12 сент., 10:00'}</i><em class="client-list-level">${status}</em></span>
         <b>${count}</b>
       </button>`).join('');
 
     const orbit = document.querySelector('#clientProfileOrbit');
     orbit.classList.add('has-photo');
+    orbit.dataset.clientLevel = '3';
     orbit.style.setProperty('--client-level-progress', '.76turn');
     document.querySelector('#clientAvatar').textContent = 'И';
     document.querySelector('#clientName').textContent = 'Ирина Орлова';
@@ -76,8 +77,7 @@ try {
     document.querySelector('#clientReliabilityText').textContent = '1 отмена клиентом и 1 неявка из последних 8 записей';
     const records = document.querySelector('#clientRecords');
     records.hidden = false;
-    records.innerHTML = '<details data-cr-panel="files"><summary>Файлы и фотографии</summary></details><details data-cr-panel="history"><summary>История клиента</summary></details>';
-    document.querySelector('#clientHistoryDisclosure').hidden = true;
+    records.innerHTML = '<section data-cr-view="history">Визиты</section><section data-cr-view="notes" hidden>Заметки</section><section data-cr-view="files" hidden>Файлы</section>';
   });
 
   const layouts = ['linear', 'soft', 'capsule', 'editorial', 'bento', 'split'];
@@ -154,8 +154,7 @@ try {
         visible:[...document.querySelectorAll('[data-client-profile-panel]')].filter(node => !node.hidden).map(node => node.dataset.clientProfilePanel),
         recordsParent:records.parentElement.dataset.clientProfilePanel,
         recordsCount:document.querySelectorAll('#clientRecords').length,
-        filesOpen:records.querySelector('[data-cr-panel="files"]').open,
-        historyOpen:records.querySelector('[data-cr-panel="history"]').open,
+        recordsView:[...records.querySelectorAll('[data-cr-view]')].filter(node=>!node.hidden).map(node=>node.dataset.crView),
         notesOpen:document.querySelector('#clientPreferencesDisclosure').open
       };
     }, name));
@@ -167,10 +166,18 @@ try {
     assert.equal(state.recordsCount, 1, `${state.section}: private records are never duplicated`);
   }
   assert.equal(tabStates[0].recordsParent, 'files', 'Files tab owns the private records host');
-  assert.equal(tabStates[0].filesOpen, true, 'Files tab opens the files panel');
+  assert.deepEqual(tabStates[0].recordsView, ['files'], 'Files tab exposes only file controls');
   assert.equal(tabStates[2].notesOpen, true, 'Notes tab opens preferences and notes');
+  assert.deepEqual(tabStates[2].recordsView, ['notes'], 'Notes tab exposes only note controls');
   assert.equal(tabStates[3].recordsParent, 'history', 'History tab regains the private records host');
-  assert.equal(tabStates[3].historyOpen, true, 'History tab opens the timeline');
+  assert.deepEqual(tabStates[3].recordsView, ['history'], 'History tab exposes only visit history');
+
+  const ringTones = await page.evaluate(() => [0,1,2,3,4].map(level => {
+    const orbit=document.querySelector('#clientProfileOrbit');
+    orbit.dataset.clientLevel=String(level);
+    return getComputedStyle(orbit).backgroundImage;
+  }));
+  assert.equal(new Set(ringTones).size,5,'All five relationship levels have distinct ring tones');
 
   await page.evaluate(() => document.querySelector('#clientMilestoneCard').classList.add('is-max-level'));
   const maximumMilestone = await page.locator('#clientMilestoneCard').boundingBox();
@@ -186,7 +193,7 @@ try {
       document.querySelector('#clientRelationshipTitle').textContent = 'С нами давно';
       document.querySelector('#clientRelationshipLevel').textContent = '4 уровень';
       document.querySelector('#clientMilestoneText').textContent = 'Максимальный уровень — спасибо, что вы с нами';
-      document.querySelector('#clientHistorySummary').textContent = 'Записей: 32';
+      document.querySelector('#clientRecords > [data-cr-view="history"]').innerHTML = '<div class="cr-timeline"><article class="cr-event"><span class="cr-event-dot"></span><div><time>12 сент. 2026 г., 10:00</time><strong>Уход для лица «Сияние»</strong><span class="cr-meta">Завершён</span></div></article></div>';
       const favorites = document.querySelector('#clientFavoriteServices');
       favorites.hidden = false;
       document.querySelector('#clientFavoriteServicesList').innerHTML = '<span class="client-favorite-service is-imported"><span>Массаж спины + ШВЗ — базовый</span><small>из импорта</small></span><span class="client-favorite-service is-imported"><span>Общий массаж с обеих сторон</span><small>из импорта</small></span>';

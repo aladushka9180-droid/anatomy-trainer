@@ -48,7 +48,29 @@ assert.equal(warning.clientCancellations, 1);
 assert.equal(warning.noShows, 1);
 assert.equal(warning.signals, 2);
 assert.equal(warning.needsAttention, true);
+assert.equal(warning.severity, 'risk');
+assert.equal(warning.title, 'Подтвердите запись заранее');
 assert.match(warning.label, /1 отмена клиентом и 1 неявка из последних 6 записей/);
+
+const unknownCancellationNotice = reliability([
+  { bookingDate:'2026-09-08', bookingTime:'10:00', status:'cancelled', cancellationReason:'', visitStatus:'scheduled' },
+  { bookingDate:'2026-09-07', bookingTime:'10:00', status:'cancelled', cancellationReason:'', visitStatus:'scheduled' },
+  { bookingDate:'2026-09-06', bookingTime:'10:00', status:'active', cancellationReason:'', visitStatus:'completed' }
+]);
+assert.equal(unknownCancellationNotice.signals, 0, 'Unknown cancellation reasons do not accuse the client');
+assert.equal(unknownCancellationNotice.totalCancellations, 2);
+assert.equal(unknownCancellationNotice.unknownCancellations, 2);
+assert.equal(unknownCancellationNotice.needsAttention, true);
+assert.equal(unknownCancellationNotice.severity, 'notice');
+assert.match(unknownCancellationNotice.label, /2 отмены из последних 3 записей — проверьте причины/);
+
+const providerCancellationNotice = reliability([
+  { bookingDate:'2026-09-08', bookingTime:'10:00', status:'cancelled', cancellationReason:'provider', visitStatus:'scheduled' },
+  { bookingDate:'2026-09-07', bookingTime:'10:00', status:'cancelled', cancellationReason:'provider', visitStatus:'scheduled' }
+]);
+assert.equal(providerCancellationNotice.clientCancellations, 0);
+assert.equal(providerCancellationNotice.severity, 'notice');
+assert.doesNotMatch(providerCancellationNotice.label, /клиентом/);
 
 const oldCancellation = { bookingDate:'2025-01-01', bookingTime:'10:00', status:'cancelled', cancellationReason:'client', visitStatus:'scheduled' };
 const recentCompleted = Array.from({ length:8 }, (_, index) => ({

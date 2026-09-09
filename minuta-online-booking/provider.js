@@ -2617,7 +2617,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=647#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=648#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4786,7 +4786,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=647');
+    worker = new Worker('./report-worker.js?v=648');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -9500,7 +9500,7 @@ function renderClients() {
     const nextText = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU', { day:'numeric', month:'short' })}, ${String(upcoming.booking_time).slice(0,5)}` : 'Нет будущих записей';
     const hasPhoto = Boolean(clientAvatar(client.phone)?.signed_url);
     const displayPhone = newBookingClientPhoneLabel(client.phone, client.displayPhone);
-    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}${facts.level === 4 ? ' is-max-level' : ''}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-orbit-jewel">${uiIcon('crown')}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
+    return `<button class="client-list-item ${client.phone === selectedClientPhone ? 'active' : ''}${clientHighlightClasses(client.phone)}" type="button" data-client-phone="${client.phone}"><span class="client-list-avatar-orbit${hasPhoto ? ' has-photo' : ''}${facts.level === 4 ? ' is-max-level' : ''}" data-client-level="${facts.level}" style="--client-level-progress:${facts.progress.toFixed(4)}turn" aria-hidden="true"><span class="client-list-avatar">${clientAvatarContent(client.phone, client.name)}</span><span class="client-orbit-jewel">${uiIcon('crown')}</span></span><span class="client-list-main"><span class="client-list-name-row"><strong>${escapeHtml(client.name)}</strong>${clientBadgeMarkup(client.phone)}</span><small>${escapeHtml(displayPhone)}</small><i>${escapeHtml(nextText)}</i><em class="client-list-level">${escapeHtml(facts.level ? `${facts.title} · ${facts.level} уровень` : facts.title)}</em></span><b aria-label="Завершённых визитов: ${knownCount}">${knownCount}</b></button>`;
   }).join('') + (filtered.length > visibleClients.length ? `<button class="secondary-button" type="button" data-load-more-clients>Показать ещё · осталось ${filtered.length - visibleClients.length}</button>` : '');
 }
 
@@ -9836,29 +9836,12 @@ function activateClientProfileJump(name, { scroll = true } = {}) {
   let target = $(`[data-client-profile-panel="${targetName}"]`);
   $$('[data-client-profile-panel]').forEach(panel => { panel.hidden = panel !== target; });
   const records = $('#clientRecords');
-  if (targetName === 'history') {
-    const historyPanel = $('#clientProfilePanelHistory');
-    const legacyHistory = $('#clientHistoryDisclosure');
-    if (records && historyPanel && records.parentElement !== historyPanel) historyPanel.insertBefore(records, legacyHistory || null);
-    const modernHistory = records?.querySelector('[data-cr-panel="history"]');
-    if (records && !records.hidden && modernHistory) {
-      modernHistory.open = true;
-      records.querySelector('[data-cr-panel="files"]')?.removeAttribute('open');
-    } else {
-      if (legacyHistory) legacyHistory.open = true;
-    }
-  } else if (targetName === 'services') {
-    target = $('#clientProfilePanelServices');
-  } else if (targetName === 'notes') {
+  if (targetName === 'notes') {
     $('#clientPreferencesDisclosure')?.setAttribute('open', '');
-  } else {
-    const filesPanel = $('#clientProfilePanelFiles');
-    if (records && filesPanel && records.parentElement !== filesPanel) filesPanel.prepend(records);
-    const files = records?.querySelector('[data-cr-panel="files"]');
-    if (files) {
-      files.open = true;
-      records.querySelector('[data-cr-panel="history"]')?.removeAttribute('open');
-    }
+  }
+  if (records && ['history','notes','files'].includes(targetName)) {
+    if (records.parentElement !== target) target.append(records);
+    clientRecordsController?.setView(targetName);
   }
   if (scroll) target?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -9902,7 +9885,6 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   updateClientPreferencesPreview(phone, noteValue);
   if (clientChanged) {
     $('#clientPreferencesDisclosure').open = false;
-    $('#clientHistoryDisclosure').open = false;
     activateClientProfileJump('history', { scroll:false });
   }
   clearFormError('#clientLabelsError');
@@ -9913,6 +9895,7 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   const upcoming = clientUpcoming(client);
   const profileOrbit = $('#clientProfileOrbit');
   profileOrbit.style.setProperty('--client-level-progress', `${facts.progress.toFixed(4)}turn`);
+  profileOrbit.dataset.clientLevel = String(facts.level);
   profileOrbit.classList.toggle('has-photo', Boolean(clientAvatar(client.phone)?.signed_url));
   profileOrbit.classList.toggle('is-max-level', facts.level === 4);
   profileOrbit.setAttribute('aria-label', facts.level ? `${facts.title}, ${facts.level} уровень` : facts.title);
@@ -9926,6 +9909,8 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   $('#clientMilestoneProgress').setAttribute('aria-valuenow', String(milestoneProgress));
   const reliabilityCard = $('#clientReliabilityCard');
   reliabilityCard.hidden = !facts.reliability?.needsAttention;
+  reliabilityCard.dataset.severity = facts.reliability?.severity || '';
+  $('#clientReliabilityTitle').textContent = facts.reliability?.title || 'Обратите внимание';
   $('#clientReliabilityText').textContent = facts.reliability?.needsAttention ? facts.reliability.label : '';
   $('#clientVisits').textContent = String(visits);
   $('#clientNext').textContent = upcoming ? `${new Date(`${upcoming.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'short'})} · ${String(upcoming.booking_time).slice(0,5)}` : 'Нет';
@@ -9939,11 +9924,6 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = noteValue;
   const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
-  $('#clientHistorySummary').textContent = history.length ? `Записей: ${history.length}` : 'История пока пуста';
-  $('#clientHistory').innerHTML = history.map(item => {
-    const status = bookingStatus(item);
-    return `<article class="client-history-item status-${bookingStatusClass(item)}"><div><strong>${escapeHtml(serviceName(item.services?.name || 'Услуга'))}</strong><small>${new Date(`${item.booking_date}T12:00:00`).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'})} · ${String(item.booking_time).slice(0,5)}</small></div><span>${status}</span></article>`;
-  }).join('') || '<p class="provider-empty compact-empty">История визитов появится после первой записи в PrimeTime Pro.</p>';
   const clientDebt = client.bookings.filter(item => item.status !== 'cancelled' && bookingOutcome(item).visit_status === 'completed')
     .reduce((sum,item) => sum + Math.max(0,bookingCalculatedValue(item)-Number(bookingOutcome(item).amount_rub || 0)),0);
   $('#clientDebt').textContent = money(clientDebt);

@@ -66,17 +66,29 @@
       .slice(0, Math.max(1, integer(limit) || 8));
     const clientCancellations = resolved.filter(item => item.status === 'cancelled' && item.cancellationReason === 'client').length;
     const noShows = resolved.filter(item => item.status !== 'cancelled' && item.visitStatus === 'no_show').length;
+    const totalCancellations = resolved.filter(item => item.status === 'cancelled').length;
+    const unknownCancellations = resolved.filter(item => item.status === 'cancelled' && !item.cancellationReason).length;
     const signals = clientCancellations + noShows;
     const parts = [];
     if (clientCancellations) parts.push(`${clientCancellations} ${clientCancellations === 1 ? 'отмена клиентом' : clientCancellations < 5 ? 'отмены клиентом' : 'отмен клиентом'}`);
     if (noShows) parts.push(`${noShows} ${noShows === 1 ? 'неявка' : noShows < 5 ? 'неявки' : 'неявок'}`);
+    const confirmedRisk = signals >= 2;
+    const cancellationNotice = totalCancellations >= 2;
     return Object.freeze({
       checked:resolved.length,
       clientCancellations,
       noShows,
+      totalCancellations,
+      unknownCancellations,
       signals,
-      needsAttention:signals >= 2,
-      label:parts.length ? `${parts.join(' и ')} из последних ${resolved.length} записей` : ''
+      needsAttention:confirmedRisk || cancellationNotice,
+      severity:confirmedRisk ? 'risk' : cancellationNotice ? 'notice' : '',
+      title:confirmedRisk ? 'Подтвердите запись заранее' : cancellationNotice ? 'В истории есть отмены' : '',
+      label:confirmedRisk
+        ? `${parts.join(' и ')} из последних ${resolved.length} записей`
+        : cancellationNotice
+          ? `${totalCancellations} ${totalCancellations < 5 ? 'отмены' : 'отмен'} из последних ${resolved.length} записей — проверьте причины перед новой записью`
+          : ''
     });
   }
 

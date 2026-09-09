@@ -42,6 +42,7 @@
     const {db,getContext,requireWrites} = options;
     let organization = null, client = null, rows = [], remote = null;
     let generation = 0, loading = false, busy = false, more = false, offset = 0, historyLimit = 8;
+    let currentView = 'history';
     let host = null, errorText = '', pending = null;
     const $ = selector => host?.querySelector(selector);
     function token() { return {generation, ...getContext(), organizationId:organization?.id, phone:client?.phone}; }
@@ -69,9 +70,10 @@
       return '<option value="">Без привязки к визиту</option>' + (client?.bookings || []).filter(b=>UUID.test(b.id)).map(b=>
         `<option value="${escape(b.id)}">${escape(date(b.at))} · ${escape(b.title)}</option>`).join('');
     }
-    function timeline() {
-      const entries = (client?.bookings || []).map(b=>({id:b.id,at:b.at,kind:'visit',title:b.title,subtitle:b.status,
-        body:b.payment,can_delete:false})).concat(rows.map(e=>({ ...e,at:e.created_at,title:e.kind==='file'?e.file_name:'Заметка',subtitle:e.visit_label,body:e.body})));
+    function timeline(kind) {
+      const entries = kind === 'history'
+        ? (client?.bookings || []).map(b=>({id:b.id,at:b.at,kind:'visit',title:b.title,subtitle:b.status,body:b.payment,can_delete:false}))
+        : rows.filter(e=>e.kind==='note').map(e=>({ ...e,at:e.created_at,title:'Заметка',subtitle:e.visit_label,body:e.body}));
       return entries.sort((a,b)=>String(b.at).localeCompare(String(a.at)) || String(b.id).localeCompare(String(a.id)));
     }
     function entryMarkup(e) {
@@ -84,19 +86,24 @@
       const uploadDraft = $('[data-cr-upload]');
       const noteDraft = $('[data-cr-note]');
       const files = rows.filter(e=>e.kind==='file');
-      const events = timeline();
+      const history = timeline('history');
+      const notes = timeline('notes');
       const enabled = remote?.enabled===true;
       const gate = !remote ? '' : enabled ? '' : `<div class="cr-gate"><p>Файлы и заметки к визитам хранятся в закрытом разделе организации.</p>${remote.can_enable?'<button type="button" class="cr-button" data-cr-enable>Включить файлы и заметки</button>':'<span class="cr-meta">Включить этот раздел может владелец или администратор.</span>'}</div>`;
-      host.innerHTML = `<div class="cr-status" role="status" aria-live="polite">${escape(errorText || (loading?'Загружаем материалы…':''))}${errorText?'<button type="button" class="cr-link" data-cr-reload>Повторить загрузку</button>':''}</div>${gate}
-        <details class="cr-panel" data-cr-panel="files"><summary><span>Файлы и фотографии</span><small>${files.length ? files.length+(more?' +':'') : 'Добавляйте по мере необходимости'}</small></summary><div class="cr-panel-body">
-        ${enabled?`<form data-cr-upload><label class="cr-file-picker">Добавить файл<input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label><span class="cr-meta">PDF или фото, до 10 МБ. Фотографии сохраняются без EXIF.</span><label>К какому визиту<select name="file_booking">${visitOptions()}</select></label><button class="cr-button" type="submit">Загрузить</button></form>`:''}
+      const status = `<div class="cr-status" role="status" aria-live="polite">${escape(errorText || (loading?'Загружаем материалы…':''))}${errorText?'<button type="button" class="cr-link" data-cr-reload>Повторить загрузку</button>':''}</div>`;
+      host.innerHTML = `<section class="cr-view" data-cr-view="history">
+        <div class="cr-timeline">${history.slice(0,historyLimit).map(entryMarkup).join('') || '<p class="cr-empty">История появится после первой записи.</p>'}</div>
+        ${history.length>historyLimit?'<button type="button" class="cr-link" data-cr-history-more>Показать ещё</button>':''}<p class="cr-meta cr-history-note">Оплаты показаны по текущему итогу каждого визита.</p></section>
+        <section class="cr-view" data-cr-view="notes" hidden>${status}${gate}
+        ${enabled?`<details class="cr-composer" data-cr-panel="note"><summary><span>Добавить заметку</span><small>При необходимости привяжите её к визиту</small></summary><form data-cr-note><label>К какому визиту<select name="note_booking">${visitOptions()}</select></label><label>Заметка<textarea name="note" rows="3" maxlength="2000" placeholder="Что важно помнить к следующему посещению" required></textarea></label><button class="cr-button" type="submit">Сохранить</button></form></details>`:''}
+        <div class="cr-timeline cr-notes-timeline">${notes.map(entryMarkup).join('') || '<p class="cr-empty">Заметок по визитам пока нет.</p>'}</div>
+        ${more?'<button type="button" class="cr-link" data-cr-more>Загрузить более ранние заметки</button>':''}</section>
+        <section class="cr-view" data-cr-view="files" hidden>${status}${gate}
+        ${enabled?`<details class="cr-composer" data-cr-panel="upload"><summary><span>Добавить файл</span><small>PDF или фото до 10 МБ</small></summary><form data-cr-upload><label class="cr-file-picker">Выбрать файл<input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required></label><span class="cr-meta">Фотографии сохраняются без EXIF.</span><label>К какому визиту<select name="file_booking">${visitOptions()}</select></label><button class="cr-button" type="submit">Загрузить</button></form></details>`:''}
         <div class="cr-files">${files.map(f=>`<article class="cr-file"><span class="cr-file-type" aria-hidden="true">${f.mime_type==='application/pdf'?'PDF':'Фото'}</span><div><strong>${escape(f.file_name)}</strong><span class="cr-meta">${escape(size(f.byte_size))} · ${escape(date(f.created_at))}</span>${f.visit_label?`<span class="cr-meta">${escape(f.visit_label)}</span>`:''}<div class="cr-actions"><button type="button" class="cr-link" data-cr-download="${escape(f.id)}">Скачать</button>${f.can_delete?`<button type="button" class="cr-link" data-cr-archive="${escape(f.id)}">Убрать из карточки</button>`:''}</div></div></article>`).join('') || '<p class="cr-empty">Здесь будут документы и фотографии клиента.</p>'}</div>
-        ${more?'<button type="button" class="cr-link" data-cr-more>Загрузить более ранние материалы</button>':''}</div></details>
-        <details class="cr-panel" data-cr-panel="history"><summary><span>История клиента</span><small>Визиты, оплаты и заметки</small></summary><div class="cr-panel-body">
-        ${enabled?`<details class="cr-composer" data-cr-panel="note"><summary>Добавить заметку</summary><form data-cr-note><label>К какому визиту<select name="note_booking">${visitOptions()}</select></label><label>Заметка<textarea name="note" rows="3" maxlength="2000" placeholder="Что важно помнить к следующему посещению" required></textarea></label><button class="cr-button" type="submit">Сохранить</button></form></details>`:''}
-        <div class="cr-timeline">${events.slice(0,historyLimit).map(entryMarkup).join('') || '<p class="cr-empty">История появится после первого визита или заметки.</p>'}</div>
-        ${events.length>historyLimit?'<button type="button" class="cr-link" data-cr-history-more>Показать ещё</button>':''}${more?'<button type="button" class="cr-link" data-cr-more>Загрузить более ранние материалы</button>':''}<p class="cr-meta">Оплаты показаны по текущему итогу каждого визита.</p></div></details>`;
+        ${more?'<button type="button" class="cr-link" data-cr-more>Загрузить более ранние материалы</button>':''}</section>`;
       host.querySelectorAll('details').forEach(el=>{ el.open=open.has(el.dataset.crPanel); });
+      setView(currentView);
       host.querySelectorAll('textarea,select').forEach(el=>{ if(drafts.has(el.name)) el.value=drafts.get(el.name); });
       // Keep selected files and unsaved text through refresh/pagination.
       if(enabled && uploadDraft)$('[data-cr-upload]')?.replaceWith(uploadDraft);
@@ -129,7 +136,7 @@
       if(busy || loading || !requireWrites() || !client || !organization?.id) return;
       const t=token(); setBusy(true); errorText='';
       try { await action(t); if(current(t)){pending=null;await load();} }
-      catch(error) { if(current(t)){if(/client_record_upload_expired/.test(String(error?.message)))pending=null;errorText=message(error); const status=$('.cr-status'); if(status)status.textContent=errorText;} }
+      catch(error) { if(current(t)){if(/client_record_upload_expired/.test(String(error?.message)))pending=null;errorText=message(error); host?.querySelectorAll('.cr-status').forEach(status=>{status.textContent=errorText;});} }
       finally { if(current(t))setBusy(false); }
     }
     async function saveNote(form) {
@@ -179,7 +186,7 @@
         const url=URL.createObjectURL(result.data),link=document.createElement('a');
         link.href=url;link.download=row.file_name;document.body.append(link);link.click();link.remove();
         setTimeout(()=>URL.revokeObjectURL(url),30000);
-      } catch(error){if(current(t)){$('.cr-status').textContent=message(error);}}
+      } catch(error){if(current(t)){host?.querySelectorAll('.cr-status').forEach(status=>{status.textContent=message(error);});}}
       finally {if(current(t))setBusy(false);}
     }
     function bind() {
@@ -203,8 +210,14 @@
         }
       });
     }
-    function reset(){generation++;client=null;rows=[];remote=null;pending=null;loading=false;busy=false;more=false;offset=0;historyLimit=8;errorText='';if(host){host.replaceChildren();host.hidden=true;}}
-    return {bind,reset,
+    function setView(value) {
+      currentView = ['history','notes','files'].includes(value) ? value : 'history';
+      if (!host) return;
+      host.dataset.crView = currentView;
+      host.querySelectorAll('[data-cr-view]').forEach(view=>{ view.hidden = view.dataset.crView !== currentView; });
+    }
+    function reset(){generation++;client=null;rows=[];remote=null;pending=null;loading=false;busy=false;more=false;offset=0;historyLimit=8;errorText='';currentView='history';if(host){host.replaceChildren();host.hidden=true;}}
+    return {bind,reset,setView,
       setOrganization(value){
         if(organization?.id===value?.id){organization=value;return;}
         reset();organization=value;
@@ -212,8 +225,8 @@
       setClient(value){
         if(!host)return;
         if(client?.phone===value.phone){client=value;render();return;}
-        reset();client=value;host.hidden=false;
-        const legacy=document.querySelector('#clientHistory')?.closest('details');if(legacy)legacy.hidden=true;
+        const requestedView=document.querySelector('#clientProfileContent')?.dataset.clientProfileSection;
+        reset();client=value;currentView=['history','notes','files'].includes(requestedView)?requestedView:'history';host.hidden=false;
         render();void load();
       }
     };
