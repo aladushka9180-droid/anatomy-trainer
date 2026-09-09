@@ -89,7 +89,7 @@ test('slot cutoff uses Samara clock, not browser timezone',()=>{
   assert.equal(box.bookingMoveTimeIsPast('2026-09-09','00:00'),false);
 });
 test('returned booking id is authoritative and never matches a different cancelled record',()=>{
-  const box=context(['findCreatedBooking'],{allBookings:[{id:'other',service_id:'service',booking_date:'2099-09-09',booking_time:'14:00:00',client_phone:'123',status:'cancelled'}],normalizePhone:x=>x});
+  const box=context(['createdBookingMatches','findCreatedBooking'],{allBookings:[{id:'other',service_id:'service',booking_date:'2099-09-09',booking_time:'14:00:00',client_phone:'123',status:'cancelled'}],normalizePhone:x=>x});
   const criteria={id:'returned-id',service:'service',date:'2099-09-09',time:'14:00',phone:'123'};
   assert.equal(box.findCreatedBooking(criteria),null);assert.equal(box.findCreatedBooking({...criteria,id:''}),null);
 });

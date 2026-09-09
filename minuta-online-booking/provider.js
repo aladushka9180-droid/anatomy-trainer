@@ -373,7 +373,6 @@ let clientProfileReturnContext = null;
 let activeClientOrganizationId = '';
 let clientProfileDetailsState = { phone:'', birthday:'', onlineBookingBlocked:false, canEdit:false, canManageBlock:false, available:false };
 let clientProfileDetailsLoadRevision = 0;
-let repeatTime = '';
 let bookingEditTime = '';
 let bookingEditSlots = [];
 let bookingEditHour = '';
@@ -418,6 +417,7 @@ let connectionWasOffline = false;
 let offlineBookingQueue = [];
 let offlineBookingFlushPromise = null;
 let offlineBookingSavePromise = Promise.resolve();
+let providerBookingWritePromise = null;
 let offlineBookingInputsReady = false;
 let editingOfflineBookingId = '';
 let lastConnectionLogSignature = '';
@@ -688,6 +688,166 @@ async function hydrateOfflineBookingInputs(userId, generation, cachedBookings) {
 }
 function connectionLogKey(userId = currentUser?.id) { return `minuta-provider-connection-log-v1:${userId || 'anonymous'}`; }
 function bookingDraftKey(userId = currentUser?.id) { return `minuta-provider-booking-draft-v1:${userId || 'anonymous'}`; }
+function providerBookingAttemptKey(userId = currentUser?.id) { return `minuta-provider-booking-attempt-v1:${userId || 'anonymous'}`; }
+function readProviderBookingAttempt(userId = currentUser?.id) {
+  if (!userId) return null;
+  try {
+    const attempt = JSON.parse(sessionStorage.getItem(providerBookingAttemptKey(userId)) || 'null');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(attempt?.requestId || ''))
+      || !/^[0-9a-f]{64}$/i.test(String(attempt?.fingerprint || ''))
+      || attempt?.surface !== 'new-booking') return null;
+    return {
+      requestId:attempt.requestId,
+      fingerprint:attempt.fingerprint,
+      surface:attempt.surface,
+      savedAt:Number(attempt.savedAt || 0),
+      legacyFallback:Boolean(attempt.legacyFallback),
+      legacyUncertain:Boolean(attempt.legacyUncertain),
+      legacyBookingCode:typeof attempt.legacyBookingCode === 'string' && attempt.legacyBookingCode.length <= 40
+        ? attempt.legacyBookingCode
+        : ''
+    };
+  } catch { return null; }
+}
+function saveProviderBookingAttempt(attempt, userId = currentUser?.id) {
+  if (!userId) return false;
+  const stored = JSON.stringify(attempt);
+  try {
+    sessionStorage.setItem(providerBookingAttemptKey(userId), stored);
+    return sessionStorage.getItem(providerBookingAttemptKey(userId)) === stored;
+  } catch { return false; }
+}
+function clearProviderBookingAttempt(requestId = '', userId = currentUser?.id) {
+  if (!userId) return false;
+  try {
+    const current = readProviderBookingAttempt(userId);
+    if (requestId && current?.requestId !== requestId) return false;
+    sessionStorage.removeItem(providerBookingAttemptKey(userId));
+    return sessionStorage.getItem(providerBookingAttemptKey(userId)) === null;
+  } catch { return false; }
+}
+async function providerBookingFingerprint(payload) {
+  const canonical = JSON.stringify([
+    payload.surface,
+    payload.service,
+    payload.date,
+    String(payload.time || '').slice(0, 5),
+    String(payload.name || '').trim(),
+    normalizePhone(payload.phone),
+    Number(payload.durationMinutes || 0),
+    String(payload.note || '').trim(),
+    String(payload.color || '')
+  ]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+function providerBookingDefiniteRejection(error) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
+  if (code === '23P01') return true;
+  if (code === '42501') return ['authentication_required', 'provider_service_access_denied'].includes(message);
+  if (code === '22023') return ['provider_request_id_required', 'request_id_required', 'invalid_booking_data', 'invalid_client_data'].includes(message);
+  return code === 'P0001' && [
+    'request_conflict', 'invalid_booking_data', 'invalid_client_data', 'service_unavailable',
+    'slot_unavailable', 'resource_unavailable', 'booking_buffer_conflict',
+    'booking_organization_required', 'booking_location_unavailable', 'booking_performer_unavailable'
+  ].includes(message);
+}
+function providerBookingReplyIsValid(data, requestId) {
+  return data && typeof data === 'object' && !Array.isArray(data)
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(data.booking_id || ''))
+    && data.request_id === requestId
+    && /^MIN-[0-9A-F]{8,12}$/.test(String(data.booking_code || ''));
+}
+function isMissingProviderBookingRequestRpc(error) {
+  const code = String(error?.code || '');
+  const message = String(error?.message || '');
+  if (code === 'PGRST202') {
+    return /could not find[^\n]*provider_book_appointment/i.test(message)
+      && /p_request_id/i.test(`${message} ${error?.details || ''} ${error?.hint || ''}`);
+  }
+  return code === '42883'
+    && /function\s+(?:public\.)?provider_book_appointment\s*\([^)]*(?:p_request_id|uuid\s*,\s*uuid\s*,\s*date)[^)]*\)\s+does not exist/i.test(message);
+}
+async function submitProviderBookingAttempt(payload) {
+  if (providerBookingWritePromise) return { ok:false, busy:true };
+  const userId = currentUser?.id;
+  const generation = sessionGeneration;
+  if (!userId) return { ok:false, error:{ code:'42501', message:'authentication_required' } };
+  const run = (async () => {
+    let fingerprint;
+    try { fingerprint = await providerBookingFingerprint(payload); }
+    catch { return { ok:false, storageUnavailable:true }; }
+    if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true };
+    let attempt = readProviderBookingAttempt(userId);
+    if (attempt && (attempt.fingerprint !== fingerprint || attempt.surface !== payload.surface)) {
+      return { ok:false, conflict:true, attempt };
+    }
+    if (!attempt) {
+      attempt = { requestId:createOfflineBookingId(), fingerprint, surface:payload.surface, savedAt:Date.now(), legacyFallback:false, legacyUncertain:false };
+      if (!saveProviderBookingAttempt(attempt, userId)) return { ok:false, storageUnavailable:true };
+    }
+    if (attempt.legacyBookingCode) {
+      return { ok:true, data:{ booking_code:attempt.legacyBookingCode }, attempt, legacy:true, recovered:true };
+    }
+    if (attempt.legacyUncertain || attempt.legacyFallback) return { ok:false, legacyUncertain:true, attempt };
+    const params = {
+      p_service:payload.service,
+      p_date:payload.date,
+      p_time:`${String(payload.time).slice(0, 5)}:00`,
+      p_client_name:String(payload.name || '').trim(),
+      p_client_phone:String(payload.phone || '').trim()
+    };
+    let reply;
+    try {
+      reply = await db.rpc('provider_book_appointment', { p_request_id:attempt.requestId, ...params });
+    } catch (error) {
+      reply = { data:null, error };
+    }
+    if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, attempt };
+    if (isMissingProviderBookingRequestRpc(reply?.error)) {
+      // The legacy function has no request identity. Persist the one-shot latch
+      // before the call so a lost response or tab crash can never auto-repeat it.
+      attempt = { ...attempt, legacyFallback:true, legacyUncertain:true };
+      if (!saveProviderBookingAttempt(attempt, userId)) return { ok:false, storageUnavailable:true, attempt };
+      try {
+        reply = await db.rpc('provider_book_appointment', params);
+      } catch (error) {
+        reply = { data:null, error };
+      }
+      if (!sessionIsCurrent(userId, generation)) return { ok:false, stale:true, attempt };
+      if (reply?.error) {
+        if (providerBookingDefiniteRejection(reply.error)) {
+          clearProviderBookingAttempt(attempt.requestId, userId);
+          return { ok:false, error:reply.error, definite:true, legacy:true };
+        }
+        return { ok:false, error:reply.error, uncertain:true, legacyUncertain:true, attempt };
+      }
+      if (!/^MIN-[0-9A-F]{8,12}$/.test(String(reply?.data || '').trim())) {
+        return { ok:false, uncertain:true, legacyUncertain:true, attempt };
+      }
+      attempt = { ...attempt, legacyUncertain:false, legacyBookingCode:reply.data.trim() };
+      if (!saveProviderBookingAttempt(attempt, userId)) {
+        return { ok:false, storageUnavailable:true, uncertain:true, legacyUncertain:true, attempt };
+      }
+      return { ok:true, data:{ booking_code:attempt.legacyBookingCode }, attempt, legacy:true };
+    }
+    if (reply?.error) {
+      if (providerBookingDefiniteRejection(reply.error)) {
+        clearProviderBookingAttempt(attempt.requestId, userId);
+        return { ok:false, error:reply.error, definite:true };
+      }
+      return { ok:false, error:reply.error, uncertain:true, attempt };
+    }
+    if (!providerBookingReplyIsValid(reply?.data, attempt.requestId)) {
+      return { ok:false, uncertain:true, invalidReply:true, attempt };
+    }
+    return { ok:true, data:reply.data, attempt, legacy:false };
+  })();
+  providerBookingWritePromise = run;
+  try { return await run; }
+  finally { if (providerBookingWritePromise === run) providerBookingWritePromise = null; }
+}
 function readConnectionLog(userId = currentUser?.id) {
   if (!userId) return [];
   try { const value = JSON.parse(localStorage.getItem(connectionLogKey(userId)) || '[]'); return Array.isArray(value) ? value.slice(0, 30) : []; } catch { return []; }
@@ -1032,12 +1192,12 @@ async function flushOfflineBookings({ retryConflicts = false } = {}) {
   finally { if (offlineBookingFlushPromise === run) offlineBookingFlushPromise = null; }
 }
 const offlineBookingCreateSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"]';
-const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], #repeatBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client], [data-client-favorite-service]';
+const bookingCreationWriteSelector = '#newBookingButton, #mobileNewBookingButton, [data-create-empty-booking], #newBookingForm button[type="submit"], [data-repeat-booking], [data-quick-repeat-client], [data-client-favorite-service]';
 const writeSelectors = [
   '#newBookingButton', '#mobileNewBookingButton', '[data-create-empty-booking]', '[data-quick-repeat-client]', '[data-client-favorite-service]', '#saveSchedule', '[data-slot-interval]', '#saveClientNote', '#clientLabelFavorite', '#clientLabelVip', '#clientLabelAttention', '#clientFavoriteNote', '#clientVipNote', '#clientAttentionReason',
   '[data-booking-label-favorite]', '[data-booking-label-vip]', '[data-booking-label-attention]', '[data-booking-favorite-note]', '[data-booking-vip-note]', '[data-booking-attention-reason]',
   '#serviceForm button[type="submit"]', '#dayOffForm button[type="submit"]',
-  '#repeatBookingForm button[type="submit"]', '#bookingOutcomeForm button[type="submit"]',
+  '#bookingOutcomeForm button[type="submit"]',
   '#bookingPolicyForm button[type="submit"]', '#bookingPrepaymentForm button[type="submit"]',
   '#bookingEditForm button[type="submit"]', '#newBookingForm button[type="submit"]', '#serviceEditForm button[type="submit"]',
   '#portfolioForm button[type="submit"]', '[data-open-portfolio-editor]', '[data-edit-portfolio]', '[data-delete-portfolio]', '[data-portfolio-move]',
@@ -8478,18 +8638,25 @@ function bookingIdFromRpcResult(value) {
   return /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(candidate) ? candidate : '';
 }
 
-function findCreatedBooking({ id = '', service, date, time, phone }) {
-  const normalizedPhone = normalizePhone(phone);
-  return [...allBookings].reverse().find(item => (
-    id ? item.id === id : (
-      item.status !== 'cancelled'
-      &&
-      item.service_id === service
-      && item.booking_date === date
-      && String(item.booking_time).slice(0, 5) === time
-      && normalizePhone(item.client_phone) === normalizedPhone
-    )
-  )) || null;
+function bookingCodeFromRpcResult(value) {
+  if (Array.isArray(value)) return bookingCodeFromRpcResult(value[0]);
+  if (value && typeof value === 'object') return String(value.booking_code || '');
+  return /^MIN-[0-9A-F]{8,12}$/i.test(String(value || '')) ? String(value) : '';
+}
+
+function createdBookingMatches(item, { id = '', bookingCode = '', service, date, time, phone }) {
+  return Boolean(item)
+    && item.status !== 'cancelled'
+    && (!id || item.id === id)
+    && (!bookingCode || item.booking_code === bookingCode)
+    && item.service_id === service
+    && item.booking_date === date
+    && String(item.booking_time).slice(0, 5) === time
+    && normalizePhone(item.client_phone) === normalizePhone(phone);
+}
+
+function findCreatedBooking(criteria) {
+  return [...allBookings].reverse().find(item => createdBookingMatches(item, criteria)) || null;
 }
 
 async function loadCreatedBookingDirect(criteria) {
@@ -8503,13 +8670,14 @@ async function loadCreatedBookingDirect(criteria) {
     .eq('booking_time', `${criteria.time}:00`)
     .order('created_at', { ascending:false })
     .limit(5);
-  query = criteria.id ? query.eq('id', criteria.id) : query.eq('service_id', criteria.service);
+  query = criteria.id
+    ? query.eq('id', criteria.id)
+    : criteria.bookingCode
+      ? query.eq('booking_code', criteria.bookingCode)
+      : query.eq('service_id', criteria.service);
   const { data, error } = await query;
   if (error || !sessionIsCurrent(userId, generation)) return null;
-  const item = (data || []).find(candidate => (
-    (criteria.id && candidate.id === criteria.id)
-    || normalizePhone(candidate.client_phone) === normalizePhone(criteria.phone)
-  ));
+  const item = (data || []).find(candidate => createdBookingMatches(candidate, criteria));
   if (!item) return null;
   const index = allBookings.findIndex(candidate => candidate.id === item.id);
   if (index >= 0) allBookings[index] = item;
@@ -8614,6 +8782,15 @@ async function createNewBooking(event) {
   button.disabled = true;
   button.textContent = editingOfflineBookingId ? 'Сохраняем…' : block ? 'Занимаем…' : 'Создаём…';
   const note = block ? ($('#newBookingBlockNote')?.value.trim() || '') : $('#newBookingNote').value.trim();
+  const unresolvedProviderAttempt = readProviderBookingAttempt(userId);
+  if (unresolvedProviderAttempt && (editingOfflineBookingId || !navigator.onLine || historical || occurrenceCount > 1 || block)) {
+    button.disabled = false;
+    updateNewBookingSubmitCaption();
+    showFormError('#newBookingError', unresolvedProviderAttempt.legacyUncertain
+      ? 'Предыдущий ответ сервера не подтверждён. Сначала подключитесь и проверьте журнал: автоматически повторять старый запрос небезопасно.'
+      : 'Сначала подключитесь и завершите восстановление предыдущей записи с теми же данными. После этого откройте новую форму.');
+    return;
+  }
   if (editingOfflineBookingId) {
     const queued = await queueOfflineBooking({ clientName:name, clientPhone:phone, serviceId:service, serviceName:serviceModel?.name, durationMinutes, date, time:newBookingTime, note, color });
     button.disabled = false;
@@ -8836,9 +9013,8 @@ async function createNewBooking(event) {
     notify(`Серия из ${occurrenceCount} записей создана`);
     return;
   }
-  const bookingParams = { p_service: service, p_date: date, p_time: `${newBookingTime}:00`, p_client_name: name, p_client_phone: phone };
-  const bookingIdsBeforeCreate = new Set(allBookings.map(item => item.id));
   let bookingRpcResult = null;
+  let providerAttempt = null;
   let error = null;
   if (block) {
     const context = activeProviderBlockContext($('#newBookingLocation')?.value || '');
@@ -8882,16 +9058,40 @@ async function createNewBooking(event) {
       return;
     }
   } else {
-    ({ data:bookingRpcResult, error } = await db.rpc('provider_book_appointment', bookingParams));
+    const write = await submitProviderBookingAttempt({
+      surface:'new-booking', service, date, time:newBookingTime, name, phone,
+      durationMinutes, note, color
+    });
     if (!sessionIsCurrent(userId, generation)) return;
-    const technicalProviderError = error && (
-      ['42501', '42883', 'PGRST202'].includes(String(error.code || ''))
-      || /permission denied|could not find the function|does not exist/i.test(String(error.message || ''))
-    );
-    if (technicalProviderError) {
-      ({ data:bookingRpcResult, error } = await db.rpc('book_appointment', bookingParams));
-      if (!sessionIsCurrent(userId, generation)) return;
+    const recoveredLegacyBooking = !write.ok && write.legacyUncertain
+      ? findCreatedBooking({ service, date, time:newBookingTime, phone })
+        || await ensureCreatedBookingVisible({ service, date, time:newBookingTime, phone })
+      : null;
+    if (!sessionIsCurrent(userId, generation)) return;
+    if (!write.ok && !write.definite && !recoveredLegacyBooking) {
+      button.disabled = false;
+      updateNewBookingSubmitCaption();
+      if (write.busy) {
+        showFormError('#newBookingError', 'Запрос уже отправляется. Дождитесь ответа сервера.');
+      } else if (write.storageUnavailable) {
+        showFormError('#newBookingError', 'Не удалось сохранить защитный номер запроса на устройстве. Запись не отправлена или её результат не подтверждён — обновите журнал перед повтором.');
+      } else if (write.conflict) {
+        showFormError('#newBookingError', 'Данные изменились после неподтверждённой попытки. Верните прежние данные и повторите для безопасного восстановления либо сначала проверьте журнал.');
+      } else if (write.legacyUncertain) {
+        showFormError('#newBookingError', 'Старая версия сервера могла создать запись, но ответ потерян. Автоматический повтор отключён: проверьте журнал перед новой записью.');
+      } else if (write.stale) {
+        showFormError('#newBookingError', 'Сессия изменилась во время запроса. Обновите журнал перед повтором.');
+      } else {
+        recordConnectionEvent('warning', 'Создание записи: ответ не подтверждён');
+        showFormError('#newBookingError', 'Ответ сервера не подтверждён. Данные сохранены: повторите без изменений — будет использован тот же защитный номер запроса.');
+      }
+      return;
     }
+    bookingRpcResult = recoveredLegacyBooking
+      ? { booking_id:recoveredLegacyBooking.id, booking_code:recoveredLegacyBooking.booking_code }
+      : write.data;
+    providerAttempt = write.attempt;
+    error = recoveredLegacyBooking ? null : write.error || null;
   }
   if (error) {
     button.disabled = false;
@@ -8899,7 +9099,6 @@ async function createNewBooking(event) {
     const reason = String(error.message || '');
     const connectionError = !navigator.onLine || /failed to fetch|network|load failed|timed? out|fetch/i.test(reason);
     if (connectionError) recordConnectionEvent('error', 'Создание записи: связь прервалась');
-    if (connectionError && !block) submittedForm.dataset.creationUncertain = 'true';
     if (!connectionError) delete submittedForm.dataset.blockRequestPayload;
     const message = connectionError
       ? (block ? 'Связь прервалась. Данные сохранены в форме: повторите попытку без изменений — сервер не создаст второй перерыв.' : 'Связь прервалась: создание не подтверждено. Данные остались в форме. Подключитесь и проверьте журнал перед повторным созданием.')
@@ -8922,25 +9121,34 @@ async function createNewBooking(event) {
     showFormError('#newBookingError', message);
     return;
   }
+  const createdCriteria = {
+    id:bookingIdFromRpcResult(bookingRpcResult),
+    bookingCode:bookingCodeFromRpcResult(bookingRpcResult),
+    service,
+    date,
+    time:newBookingTime,
+    phone
+  };
   let createdBooking = null;
-  if (!block && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
-    const refreshed = await loadBookings({ silent:true });
-    const createdId = bookingIdFromRpcResult(bookingRpcResult);
-    createdBooking = refreshed?.ok ? [...allBookings].reverse().find(item => (createdId ? item.id === createdId : !bookingIdsBeforeCreate.has(item.id)) && item.status !== 'cancelled' && item.service_id === service && item.booking_date === date && String(item.booking_time).slice(0, 5) === newBookingTime && normalizePhone(item.client_phone) === normalizePhone(phone)) : null;
+  if (!block) {
+    createdBooking = findCreatedBooking(createdCriteria) || await ensureCreatedBookingVisible(createdCriteria);
+    if (!sessionIsCurrent(userId, generation)) return;
     if (!createdBooking) {
-      submittedForm.dataset.creationUncertain = 'true';
       button.disabled = false;
-      button.textContent = 'Создать запись';
-      showFormError('#newBookingError', 'Запись создана, но точную длительность не удалось подтвердить. Обновите записи и проверьте её.');
+      updateNewBookingSubmitCaption();
+      showFormError('#newBookingError', 'Сервер подтвердил запись, но точную строку журнала получить не удалось. Данные сохранены: повторите без изменений для безопасного восстановления.');
       return;
     }
+  }
+  if (!block && Number(serviceModel?.duration_minutes) === 1 && durationMinutes > 1) {
     const adjusted = await applyPerMinuteBookingTerms([createdBooking.id], serviceModel, durationMinutes);
     if (!adjusted.ok) {
       const rollback = await rollbackCreatedBookings([createdBooking.id]);
       await loadBookings({ silent:true });
       button.disabled = false;
       button.textContent = 'Создать запись';
-      if (!rollback.ok) submittedForm.dataset.creationUncertain = 'true';
+      if (rollback.ok) clearProviderBookingAttempt(providerAttempt?.requestId || '', userId);
+      else submittedForm.dataset.creationUncertain = 'true';
       showFormError('#newBookingError', rollback.ok ? 'Окно не вмещает выбранную длительность. Созданная запись удалена — выберите другое время или длительность.' : 'Не удалось подтвердить удаление записи после ошибки длительности. Проверьте журнал перед повторным созданием.');
       await loadNewBookingSlots();
       return;
@@ -8951,16 +9159,25 @@ async function createNewBooking(event) {
     await saveClientNoteValue(normalizedPhone, note, { isCurrent:() => sessionIsCurrent(userId, generation) });
     if (!sessionIsCurrent(userId, generation)) return;
   }
+  if (createdBooking) {
+    await saveBookingColor(createdBooking.id, color, { rerender:false });
+    if (!sessionIsCurrent(userId, generation)) return;
+  }
+  if (!block && (!providerAttempt?.requestId || !clearProviderBookingAttempt(providerAttempt.requestId, userId))) {
+    button.disabled = false;
+    updateNewBookingSubmitCaption();
+    showFormError('#newBookingError', 'Запись создана, но локальную защиту повтора не удалось завершить. Не меняйте данные и повторите ещё раз.');
+    return;
+  }
   selectScheduleDate(date);
   clearNewBookingDraft(userId);
   closeBookingSheet();
   await refreshAfterWrite();
-  const createdCriteria = { id:bookingIdFromRpcResult(bookingRpcResult), service, date, time:newBookingTime, phone };
   createdBooking ||= findCreatedBooking(createdCriteria);
   createdBooking ||= await ensureCreatedBookingVisible(createdCriteria);
   let clientTelegramResult = null;
   if (createdBooking) {
-    await saveBookingColor(createdBooking.id, color, { rerender:false });
+    if (block) await saveBookingColor(createdBooking.id, color, { rerender:false });
     if (!block) {
       clientTelegramResult = await deliverTelegramClientNotification(createdBooking.id, 'confirmation');
     }
@@ -9721,11 +9938,6 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
   batchBookingsController?.setClient(client);
   clientFieldsController?.setClient(client.phone);
   $('#clientNote').value = noteValue;
-  $('#repeatDate').value = businessTodayIso();
-  $('#repeatDate').min = businessTodayIso();
-  repeatTime = '';
-  populateRepeatServices();
-  loadRepeatSlots();
   const history = [...client.bookings].sort((a,b) => `${b.booking_date}${b.booking_time}`.localeCompare(`${a.booking_date}${a.booking_time}`));
   $('#clientHistorySummary').textContent = history.length ? `Записей: ${history.length}` : 'История пока пуста';
   $('#clientHistory').innerHTML = history.map(item => {
@@ -9746,27 +9958,6 @@ function renderClientDetail(phone, { preserveReturn = false } = {}) {
       payment:`Получено ${money(received)}${debt ? ` · Долг ${money(debt)}` : ''}${item.is_imported_history ? ' · Из импортированной истории' : ''}`};
   })});
   if (clientChanged) activateClientProfileJump('history', { scroll:false });
-}
-
-function populateRepeatServices() {
-  const select = $('#repeatService');
-  const active = ownServices.filter(item => item.active);
-  const previous = select.value;
-  select.innerHTML = active.length ? active.map(item => `<option value="${item.id}">${escapeHtml(serviceName(item.name))} · ${item.duration_minutes} мин</option>`).join('') : '<option value="">Сначала добавьте услугу</option>';
-  if (active.some(item => item.id === previous)) select.value = previous;
-}
-
-async function loadRepeatSlots() {
-  if (!selectedClientPhone) return;
-  const service = $('#repeatService').value;
-  const date = $('#repeatDate').value;
-  repeatTime = '';
-  if (!service || !date) { $('#repeatTimes').innerHTML = '<span>Выберите услугу и дату</span>'; return; }
-  $('#repeatTimes').innerHTML = '<span>Ищем свободное время…</span>';
-  const { data, error } = await getProviderAvailableSlots({ p_service:service, p_start:date, p_end:date });
-  const times = (data || []).map(item => String(item.booking_time).slice(0,5)).filter(time => !bookingMoveTimeIsPast(date, time));
-  if (error || !times.length) { $('#repeatTimes').innerHTML = `<span>${error ? 'Не удалось загрузить время. Выберите дату ещё раз.' : 'На эту дату свободного времени нет'}</span>`; return; }
-  $('#repeatTimes').innerHTML = times.map(time => `<button type="button" data-repeat-time="${time}">${time}</button>`).join('');
 }
 
 async function loadClientNotes() {
@@ -10438,20 +10629,6 @@ async function saveClientNote() {
   }
 }
 
-async function createRepeatBooking(event) {
-  event.preventDefault();
-  if (!requireBookingWrites()) return;
-  clearFormError('#repeatBookingError');
-  const client = buildClients().find(item => item.phone === selectedClientPhone);
-  if (!client || !repeatTime) { showFormError('#repeatBookingError', 'Выберите свободное время.'); return; }
-  const button = event.submitter; button.disabled = true; button.textContent = 'Создаём…';
-  const { error } = await db.rpc('provider_book_appointment', { p_service: $('#repeatService').value, p_date: $('#repeatDate').value, p_time: `${repeatTime}:00`, p_client_name: client.name, p_client_phone: client.displayPhone });
-  button.disabled = false; button.textContent = 'Создать запись';
-  if (error) { showFormError('#repeatBookingError', /slot_unavailable|booking_buffer_conflict/.test(error.message || '') ? 'Это время занято записью или автоматическим перерывом. Выберите другое.' : 'Не удалось создать запись.'); await loadRepeatSlots(); return; }
-  notify('Повторная запись создана');
-  await refreshAfterWrite();
-}
-
 function stopLiveUpdates() {
   const previousChannel = bookingsChannel;
   bookingsChannel = null;
@@ -10737,8 +10914,9 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
   if (!preserveOfflineBookings) {
     await offlineBookingSavePromise.catch(() => {});
     try { await reliability?.remove?.(offlineBookingQueueKey(userId)); } catch {}
+    clearProviderBookingAttempt('', userId);
+    clearNewBookingDraft(userId);
   }
-  clearNewBookingDraft(userId);
   try {
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith(`massage-notifications-${userId}-`)
@@ -10760,7 +10938,10 @@ async function clearProviderDeviceData(userId, { preserveOfflineBookings = false
 
 async function logout() {
   const userId = currentUser?.id;
-  if (offlineBookingQueue.length && !confirm(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей. При выходе они будут удалены. Всё равно выйти?`)) return;
+  const logoutWarnings = [];
+  if (offlineBookingQueue.length) logoutWarnings.push(`На устройстве есть ${offlineBookingQueue.length} несинхронизированных записей.`);
+  if (readProviderBookingAttempt(userId)) logoutWarnings.push('Результат последнего создания записи ещё не подтверждён.');
+  if (logoutWarnings.length && !confirm(`${logoutWarnings.join('\n')} При выходе защитные данные будут удалены. Всё равно выйти?`)) return;
   ++sessionGeneration;
   clientResultsController.reset();
   clientRecordsController.reset();
@@ -12202,7 +12383,6 @@ async function movePortfolioItem(id, direction) {
 
 function renderOwnServices() {
   const list = $('#serviceManageList');
-  populateRepeatServices();
   const activeCount = ownServices.filter(item => item.active).length;
   refreshSettingsQuickStart();
   $('#servicesCount').textContent = String(ownServices.length);
@@ -12616,7 +12796,6 @@ document.addEventListener('click', async event => {
   const clientBlockConfirm = event.target.closest('#clientBlockConfirm');
   const closeClientDialog = event.target.closest('[data-close-client-dialog]');
   const slotIntervalButton = event.target.closest('[data-slot-interval]');
-  const repeat = event.target.closest('[data-repeat-time]');
   if (authTab) setAuthTab(authTab.dataset.authTab);
   if (view) {
     const transition = setProviderView(view.dataset.providerView);
@@ -12894,10 +13073,6 @@ document.addEventListener('click', async event => {
     const slotInterval = $('#slotInterval');
     slotInterval.value = slotIntervalButton.dataset.slotInterval;
     slotInterval.dispatchEvent(new Event('change', { bubbles:true }));
-  }
-  if (repeat) {
-    repeatTime = repeat.dataset.repeatTime;
-    $$('[data-repeat-time]').forEach(button => button.classList.toggle('active', button.dataset.repeatTime === repeatTime));
   }
   if ((toggle || remove || removeDayOff || booking || deleteBookingButton || waitlistStatus || reviewVisibility) && !requireWrites()) return;
   if (reviewVisibility) {
@@ -14040,7 +14215,6 @@ $('#desktopAppInstallButton').addEventListener('click', installProviderApp);
 $('#providerFullscreenButton').addEventListener('click', toggleProviderFullscreen);
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
-$('#repeatBookingForm').addEventListener('submit', createRepeatBooking);
 $('#clientBirthdayForm').addEventListener('submit', saveClientBirthday);
 $('#saveClientNote').addEventListener('click', saveClientNote);
 $('#clientLabelFavorite').addEventListener('change', event => {
@@ -14137,8 +14311,6 @@ $('#clientsList').addEventListener('click', event => {
   clientRenderLimit += CLIENT_RENDER_PAGE_SIZE;
   renderClients();
 });
-$('#repeatService').addEventListener('change', loadRepeatSlots);
-$('#repeatDate').addEventListener('change', loadRepeatSlots);
 $('#scheduleDatePicker').addEventListener('change', event => selectScheduleDate(event.target.value));
 $('#forgotPasswordButton').addEventListener('click', showRecoveryRequest);
 $('#retryPasswordRecovery').addEventListener('click', showRecoveryRequest);

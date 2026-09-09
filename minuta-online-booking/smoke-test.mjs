@@ -733,7 +733,7 @@ assert.match(provider, /const confirmed = await requestProviderConfirmation\([\s
 assert.match(styles, /\.provider-confirm-dialog \{[^}]*position:fixed;[^}]*inset:0;[^}]*margin:auto;/, 'Окно подтверждения удаления не закреплено по центру экрана');
 assert.match(provider, /#mobileNewBookingButton[\s\S]*openNewBookingSheet\('', \{ date:selectedDate, historical:selectedDate < businessTodayIso\(\) \}\)/, 'Мобильная быстрая кнопка не открывает форму для выбранной даты');
 assert.match(provider, /mobileCreate\.hidden = !\['bookings', 'clients'\]\.includes\(view\)/, 'Кнопка создания записи перекрывает разделы, где она не нужна');
-assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[\s\S]*Записать снова/, 'В карточке клиента нет быстрого повторения записи');
+assert.match(providerHtml, /id="clientQuickRepeat"[^>]*data-quick-repeat-client[^>]*>[\s\S]*?<span>Записать клиента<\/span><\/button>/, 'В карточке клиента нет быстрого повторения записи');
 assert.match(provider, /function openQuickRepeatForClient[\s\S]*serviceId:previousBooking\.service_id/, 'Быстрое повторение не подставляет последнюю доступную услугу клиента');
 assert.match(provider, /<details class="new-booking-advanced"[^>]*>[\s\S]*Заметка о клиенте[\s\S]*compactBookingColorPicker\('newBookingColor'[\s\S]*newBookingRecurrence/, 'Необязательные поля новой записи не собраны в компактный раскрывающийся блок');
 assert.doesNotMatch(provider, /<details class="new-booking-advanced"[^>]*\sopen(?:\s|>)/, 'Необязательные поля новой записи раскрыты по умолчанию');
