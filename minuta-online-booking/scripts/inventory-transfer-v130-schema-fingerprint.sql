@@ -9,14 +9,15 @@ with target_tables(name) as (values
   from target_tables t join pg_class c on c.oid=format('public.%I',t.name)::regclass
 ), columns_contract as (
   select jsonb_agg(jsonb_build_object(
-    'table',c.relname,'column',a.attname,'position',a.attnum,'type',format_type(a.atttypid,a.atttypmod),
+    'table',c.relname,'column',a.attname,'type',format_type(a.atttypid,a.atttypmod),
     'notNull',a.attnotnull,'identity',a.attidentity,'generated',a.attgenerated,
     'default',pg_get_expr(d.adbin,d.adrelid,true)
   ) order by c.relname,a.attnum) value
   from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace
   left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
   where n.nspname='public' and a.attnum>0 and not a.attisdropped and (
-    c.relname in(select name from target_tables) or c.relname='inventory_movements'
+    c.relname in(select name from target_tables)
+    or (c.relname='inventory_movements' and a.attname in('purchase_total_cost_kopecks','transfer_document_id'))
   )
 ), constraints_contract as (
   select jsonb_agg(jsonb_build_object(
@@ -25,7 +26,10 @@ with target_tables(name) as (values
   ) order by c.relname,con.conname) value
   from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and (
-    c.relname in(select name from target_tables) or c.relname='inventory_movements'
+    c.relname in(select name from target_tables)
+    or (c.relname='inventory_movements' and con.conname in(
+      'inventory_movements_transfer_document_fk_v130','inventory_movements_movement_type_check_v130',
+      'inventory_purchase_cost_receipt_only_v130','inventory_transfer_movement_shape_v130'))
   )
 ), indexes_contract as (
   select jsonb_agg(jsonb_build_object(
@@ -79,12 +83,20 @@ with target_tables(name) as (values
     'command',cmd,'using',qual,'check',with_check
   ) order by tablename,policyname) value
   from pg_policies where schemaname='public' and tablename in(select name from target_tables)
+), legacy_contract as (
+  select jsonb_build_object(
+    'inventoryMovementsMovementTypeConstraintAbsent',not exists(
+      select 1 from pg_constraint con
+      where con.conrelid='public.inventory_movements'::regclass
+        and con.conname='inventory_movements_movement_type_check'
+    )
+  ) value
 ), contract as (
   select jsonb_build_object(
     'relations',relations.value,'columns',columns_contract.value,'constraints',constraints_contract.value,
     'indexes',indexes_contract.value,'triggers',triggers_contract.value,'functions',functions_contract.value,
-    'policies',policies_contract.value
+    'policies',policies_contract.value,'legacy',legacy_contract.value
   ) value
-  from relations,columns_contract,constraints_contract,indexes_contract,triggers_contract,functions_contract,policies_contract
+  from relations,columns_contract,constraints_contract,indexes_contract,triggers_contract,functions_contract,policies_contract,legacy_contract
 )
 select encode(extensions.digest(convert_to(value::text,'UTF8'),'sha256'),'hex') schema_fingerprint from contract;

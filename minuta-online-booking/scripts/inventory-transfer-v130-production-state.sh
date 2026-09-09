@@ -74,7 +74,9 @@ legacy_movement_evidence="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select cou
 state="$(jq --argjson evidence "$legacy_movement_evidence" '. + {legacyMovementEvidence:$evidence}' <<<"$state")"
 
 if test "$mode" = full; then
-  details="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+  mapfile -t full_snapshot < <(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL' | sed -e '/^[[:space:]]*$/d' -e '/^t$/d'
+  select pg_advisory_lock(13000);
+  begin isolation level repeatable read read only;
   select json_build_object(
     'constraintsValidated',(select count(*)=4 from pg_constraint where convalidated and conname in(
       'inventory_movements_transfer_document_fk_v130','inventory_movements_movement_type_check_v130',
@@ -135,6 +137,8 @@ if test "$mode" = full; then
         'public.consume_minuta_inventory_for_booking(uuid)'::regprocedure)) body)
       select strpos(body,'13000')>0 and strpos(body,'13001')>strpos(body,'13000')
         and strpos(body,'8202')>strpos(body,'13001') and strpos(body,'8201')>strpos(body,'8202') from d),
+    'legacyMovementConstraintAbsent',not exists(select 1 from pg_constraint
+      where conrelid='public.inventory_movements'::regclass and conname='inventory_movements_movement_type_check'),
     'initialized',exists(select 1 from public.organization_inventory_transfer_settings where initialized_at is not null),
     'enabled',exists(select 1 from public.organization_inventory_transfer_settings where enabled),
     'suspended',exists(select 1 from public.organization_inventory_transfer_settings where suspended_at is not null),
@@ -144,16 +148,22 @@ if test "$mode" = full; then
     'snapshotsRows',(select count(*) from public.inventory_movement_cost_snapshots),
     'allocationsRows',(select count(*) from public.inventory_cost_allocations),
     'movementEvidence',(select count(*) from public.inventory_movements where transfer_document_id is not null
-      or purchase_total_cost_kopecks is not null or movement_type in('transfer_out','transfer_in'))
+      or purchase_total_cost_kopecks is not null or movement_type in('transfer_out','transfer_in')),
+    'legacyMovementEvidence',(select count(*) from public.inventory_movements where movement_type in('transfer_out','transfer_in'))
   );
+  \i minuta-online-booking/scripts/inventory-transfer-v130-schema-fingerprint.sql
+  commit;
+  select pg_advisory_unlock(13000);
 SQL
-)"
+)
+  test "${#full_snapshot[@]}" = 2
+  details="${full_snapshot[0]}"
+  schema_fingerprint="${full_snapshot[1]}"
   state="$(jq --argjson details "$details" '. + $details' <<<"$state")"
-  schema_fingerprint="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -f minuta-online-booking/scripts/inventory-transfer-v130-schema-fingerprint.sql | tr -d '[:space:]')"
   [[ "$schema_fingerprint" =~ ^[0-9a-f]{64}$ ]]
   state="$(jq --arg fingerprint "$schema_fingerprint" '. + {schemaFingerprint:$fingerprint}' <<<"$state")"
 else
-  state="$(jq '. + {initialized:false,enabled:false,suspended:false,settingsRows:0,documentsRows:0,costLayersRows:0,snapshotsRows:0,allocationsRows:0,movementEvidence:.legacyMovementEvidence,schemaFingerprint:null}' <<<"$state")"
+  state="$(jq '. + {initialized:false,enabled:false,suspended:false,settingsRows:0,documentsRows:0,costLayersRows:0,snapshotsRows:0,allocationsRows:0,movementEvidence:.legacyMovementEvidence,legacyMovementConstraintAbsent:false,schemaFingerprint:null}' <<<"$state")"
 fi
 
 jq -c . <<<"$state"

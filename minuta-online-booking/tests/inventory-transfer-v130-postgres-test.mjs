@@ -20,6 +20,7 @@ const rollbackInTransaction = rollback
   .replace(/^begin;\s*/m,'')
   .replace(/\s*notify pgrst,'reload schema';\s*commit;\s*$/m,'');
 const schemaRollback = executableSql(read('supabase-migration-v130-schema-rollback.sql'));
+const schemaFingerprint = executableSql(read('scripts/inventory-transfer-v130-schema-fingerprint.sql'));
 const clients = [];
 const tls = process.env.MINUTA_TEST_PG_TLS_NO_VERIFY === 'MIGRATION_TEST_ONLY' ? { rejectUnauthorized:false } : undefined;
 const connect = async () => {
@@ -139,6 +140,16 @@ try {
       and conname='inventory_movements_movement_type_check') movement_constraint`)).rows[0];
   await admin.query(migration);
   await admin.query(migration);
+  const canonicalFingerprint = String((await admin.query(schemaFingerprint)).rows[0]?.schema_fingerprint || '');
+  assert.match(canonicalFingerprint,/^[0-9a-f]{64}$/);
+  await admin.query('begin');
+  try {
+    await admin.query('alter table public.inventory_movements add constraint inventory_movements_movement_type_check check (true)');
+    const legacyConstraintDrift = String((await admin.query(schemaFingerprint)).rows[0]?.schema_fingerprint || '');
+    assert.notEqual(legacyConstraintDrift,canonicalFingerprint);
+  } finally {
+    await admin.query('rollback');
+  }
   assert.equal((await admin.query("select to_regprocedure('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)') is not null ok")).rows[0].ok,true);
 
   await admin.query('begin');
@@ -211,6 +222,7 @@ try {
 
   await admin.query(migration);
   await admin.query(migration);
+  assert.equal(String((await admin.query(schemaFingerprint)).rows[0]?.schema_fingerprint || ''),canonicalFingerprint);
   assert.equal((await admin.query("select to_regprocedure('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)') is not null ok")).rows[0].ok,true);
 
   const a = await connect(), b = await connect(), observer = await connect(); await asActor(a); await asActor(b);

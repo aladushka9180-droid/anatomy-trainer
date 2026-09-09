@@ -87,7 +87,7 @@ jobs:
             (.initialized|not) and (.enabled|not) and (.suspended|not) and
             .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
             .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0 and
-            (.v130Mode=="absent" or (.constraintsValidated and .triggersEnabled and .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and .legacyLockOrder and .consumeLockOrder))
+            (.v130Mode=="absent" or (.constraintsValidated and .triggersEnabled and .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent))
           ' <<<"$state" >/dev/null
           jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"audit-production-v130",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v130-audit.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -142,7 +142,23 @@ jobs:
           check_run "$AUDIT" .github/workflows/minuta-v130-safe-release.yml
           test "$(jq -r .display_title <<<"$run")" = "Minuta v130 - audit-production-v130 - $SHA"
           gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v130-audit-$AUDIT" -D "$RUNNER_TEMP/v130-evidence/audit"
-          jq -e --arg sha "$SHA" '.status=="success" and .phase=="audit-production-v130" and .commitSha==$sha and .productionWritten==false and .state.prerequisitesReady and .state.v130Mode=="absent"' "$RUNNER_TEMP/v130-evidence/audit/v130-audit.json" >/dev/null
+          expected_fingerprint="$(jq -r .schemaFingerprint "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          jq -e --arg sha "$SHA" --arg expected "$expected_fingerprint" '
+            .status=="success" and .phase=="audit-production-v130" and .commitSha==$sha and
+            .productionWritten==false and .state.prerequisitesReady and (
+              .state.v130Mode=="absent" or (
+                .state.v130Mode=="full" and .state.constraintsValidated and .state.triggersEnabled and
+                .state.functionSecurity and .state.rpcAcl and .state.legacyAcl and .state.internalAcl and
+                .state.tableAcl and .state.policiesExact and .state.legacyLockOrder and .state.consumeLockOrder and
+                .state.legacyMovementConstraintAbsent and
+                (.state.initialized|not) and (.state.enabled|not) and (.state.suspended|not) and
+                .state.settingsRows==0 and .state.documentsRows==0 and .state.costLayersRows==0 and
+                .state.snapshotsRows==0 and .state.allocationsRows==0 and
+                .state.movementEvidence==0 and .state.legacyMovementEvidence==0 and
+                .state.schemaFingerprint==$expected
+              )
+            )
+          ' "$RUNNER_TEMP/v130-evidence/audit/v130-audit.json" >/dev/null
           check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
           age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
           test "$age" -ge 0 && test "$age" -le 7200
@@ -191,7 +207,8 @@ jobs:
               .v130Mode=="absent" or (
                 .v130Mode=="full" and .constraintsValidated and .triggersEnabled and .functionSecurity and
                 .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and
-                .legacyLockOrder and .consumeLockOrder and (.initialized|not) and (.enabled|not) and
+                .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and
+                (.initialized|not) and (.enabled|not) and
                 (.suspended|not) and .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
                 .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
               )
@@ -210,7 +227,7 @@ jobs:
           jq -e '
             .prerequisitesReady and .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
             .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and
-            .policiesExact and .legacyLockOrder and .consumeLockOrder and
+            .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and
             (.initialized|not) and (.enabled|not) and (.suspended|not) and
             .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
             .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
@@ -268,7 +285,7 @@ jobs:
           jq -e '
             .prerequisitesReady and .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
             .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and
-            .policiesExact and .legacyLockOrder and .consumeLockOrder and
+            .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and
             (.initialized|not) and (.enabled|not) and (.suspended|not) and
             .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
             .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
