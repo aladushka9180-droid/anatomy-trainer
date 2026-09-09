@@ -1,0 +1,449 @@
+name: Minuta v134 safe release
+run-name: Minuta v134 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Safe release phase for v134
+        required: true
+        default: test-v134
+        type: choice
+        options:
+          - test-v134
+          - validate-production-v134
+          - apply-production-v134
+          - observe-production-v134
+      commit_sha:
+        description: Exact 40-character commit SHA selected for this run
+        required: true
+        type: string
+      backup_run_id:
+        description: Fresh successful Minuta encrypted production backup run ID
+        required: false
+        default: ""
+        type: string
+      test_run_id:
+        description: Successful test-v134 run ID for the exact commit
+        required: false
+        default: ""
+        type: string
+      validation_run_id:
+        description: Successful validate-production-v134 run ID for the exact commit
+        required: false
+        default: ""
+        type: string
+      apply_run_id:
+        description: Successful apply-production-v134 run ID for observation
+        required: false
+        default: ""
+        type: string
+      confirmation:
+        description: Enter APPLY_V134_TO_PRODUCTION only for the production apply phase
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ inputs.phase == 'test-v134' && 'minuta-test-database' || 'minuta-production-database' }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Pin the run to the selected commit and phase
+        env:
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+          INPUT_PHASE: ${{ inputs.phase }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$INPUT_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$INPUT_COMMIT_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$INPUT_COMMIT_SHA"
+          case "$INPUT_PHASE" in
+            test-v134) ;;
+            validate-production-v134|observe-production-v134)
+              test "$GITHUB_REF" = "refs/heads/main"
+              ;;
+            apply-production-v134)
+              test "$GITHUB_REF" = "refs/heads/main"
+              test "$INPUT_CONFIRMATION" = "APPLY_V134_TO_PRODUCTION"
+              ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Check the v134 release contract
+        run: node minuta-online-booking/scripts/v134-release-static-check.mjs
+
+  test-v134:
+    if: inputs.phase == 'test-v134'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Guard the isolated test database
+        shell: bash
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          database_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = "1"
+      - name: Apply, integrate, rollback and reapply v134 on test
+        env:
+          PGOPTIONS: -c statement_timeout=120000 -c lock_timeout=10000
+        shell: bash
+        run: |
+          set -euo pipefail
+          database_url="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          bundle="$RUNNER_TEMP/v134-test-cycle.sql"
+          printf 'begin;\n' > "$bundle"
+          sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v134.sql >> "$bundle"
+          cat minuta-online-booking/tests/client-profile-v134-integration.sql >> "$bundle"
+          sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v134-rollback.sql >> "$bundle"
+          cat >> "$bundle" <<'SQL'
+          select pg_temp.check_client_profile_v134_rollback();
+          SQL
+          sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v134.sql >> "$bundle"
+          cat >> "$bundle" <<'SQL'
+          select pg_temp.check_client_profile_v134_reapply();
+          select case
+            when to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is not null
+            then 'v134_test_cycle_ok'
+            else 'v134_test_cycle_failed'
+          end;
+          rollback;
+          SQL
+          result="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 -f "$bundle" | tail -n 1)"
+          test "$(tr -d '[:space:]' <<<"$result")" = "v134_test_cycle_ok"
+          rm -f "$bundle"
+      - name: Create test attestation
+        if: success()
+        env:
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          jq -n \
+            --arg sha "$INPUT_COMMIT_SHA" \
+            --arg run "$GITHUB_RUN_ID" \
+            --arg migration_sha "$(sha256sum minuta-online-booking/supabase-migration-v134.sql | awk '{print $1}')" \
+            --arg rollback_sha "$(sha256sum minuta-online-booking/supabase-migration-v134-rollback.sql | awk '{print $1}')" \
+            '{schemaVersion:1,status:"success",phase:"test-v134",commitSha:$sha,runId:$run,cycle:["apply","integration","rollback","reapply"],migrationSha256:$migration_sha,rollbackSha256:$rollback_sha,productionWritten:false}' \
+            > "$RUNNER_TEMP/v134-test-attestation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success()
+        with:
+          name: v134-test-${{ github.run_id }}
+          path: ${{ runner.temp }}/v134-test-attestation.json
+          if-no-files-found: error
+          retention-days: 35
+
+  validate-production-v134:
+    if: inputs.phase == 'validate-production-v134' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Validate rollback and production prerequisites read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          node minuta-online-booking/scripts/v134-release-static-check.mjs
+          database_url="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          select json_build_object(
+            'prerequisites',
+              to_regclass('public.organization_client_profiles') is not null
+              and to_regclass('public.organization_imported_booking_history') is not null
+              and to_regclass('public.client_field_values') is not null
+              and to_regclass('public.client_record_entries') is not null
+              and to_regclass('public.client_result_series') is not null
+              and to_regclass('public.client_notes') is not null
+              and to_regclass('public.client_labels') is not null
+              and to_regclass('public.client_avatars') is not null
+              and to_regprocedure('public.is_organization_member(uuid)') is not null,
+            'cleanPreapply',
+              to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is null
+          );
+          rollback;
+          SQL
+          )"
+          jq -e '.prerequisites == true and .cleanPreapply == true' <<<"$state" >/dev/null
+          printf '%s\n' "$state" > "$RUNNER_TEMP/v134-production-preflight.json"
+      - name: Create validation attestation
+        if: success()
+        env:
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+        shell: bash
+        run: |
+          jq -n \
+            --arg sha "$INPUT_COMMIT_SHA" \
+            --arg run "$GITHUB_RUN_ID" \
+            --slurpfile preflight "$RUNNER_TEMP/v134-production-preflight.json" \
+            '{schemaVersion:1,status:"success",phase:"validate-production-v134",commitSha:$sha,runId:$run,readOnly:true,productionWritten:false,preflight:$preflight[0]}' \
+            > "$RUNNER_TEMP/v134-validation-attestation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success()
+        with:
+          name: v134-validation-${{ github.run_id }}
+          path: ${{ runner.temp }}/v134-validation-attestation.json
+          if-no-files-found: error
+          retention-days: 35
+
+  apply-production-v134:
+    if: inputs.phase == 'apply-production-v134' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - name: Verify exact prerequisite runs and backup artifact
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+          BACKUP_RUN_ID: ${{ inputs.backup_run_id }}
+          TEST_RUN_ID: ${{ inputs.test_run_id }}
+          VALIDATION_RUN_ID: ${{ inputs.validation_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$TEST_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$VALIDATION_RUN_ID" =~ ^[0-9]+$ ]]
+          check_run() {
+            local run_id="$1" expected_path="$2" expected_job="$3" max_age="$4"
+            local run jobs created now
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            test "$(jq -r '.conclusion' <<<"$run")" = "success"
+            test "$(jq -r '.head_sha' <<<"$run")" = "$INPUT_COMMIT_SHA"
+            test "$(jq -r '.head_branch' <<<"$run")" = "main"
+            test "$(jq -r '.path' <<<"$run")" = "$expected_path"
+            jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+            jq -e --arg job "$expected_job" '[.jobs[] | select(.name==$job and .conclusion=="success")] | length==1' <<<"$jobs" >/dev/null
+            created="$(date -u -d "$(jq -r '.created_at' <<<"$run")" +%s)"
+            now="$(date -u +%s)"
+            test "$((now-created))" -ge 0
+            test "$((now-created))" -le "$max_age"
+          }
+          check_artifact() {
+            local run_id="$1" expected_name="$2"
+            local artifacts
+            artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/artifacts")"
+            jq -e --arg name "$expected_name" '[.artifacts[] | select(.name==$name and .expired==false)] | length==1' <<<"$artifacts" >/dev/null
+          }
+          check_run "$BACKUP_RUN_ID" ".github/workflows/minuta-supabase-backup.yml" "backup" 21600
+          check_run "$TEST_RUN_ID" ".github/workflows/minuta-v134-safe-release.yml" "test-v134" 86400
+          check_run "$VALIDATION_RUN_ID" ".github/workflows/minuta-v134-safe-release.yml" "validate-production-v134" 21600
+          check_artifact "$TEST_RUN_ID" "v134-test-$TEST_RUN_ID"
+          check_artifact "$VALIDATION_RUN_ID" "v134-validation-$VALIDATION_RUN_ID"
+          backup_artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP_RUN_ID/artifacts")"
+          test "$(jq '[.artifacts[] | select(.expired==false)] | length' <<<"$backup_artifacts")" = "1"
+          backup_name="$(jq -r '.artifacts[] | select(.expired==false) | .name' <<<"$backup_artifacts")"
+          [[ "$backup_name" == minuta-* ]]
+          echo "backup_name=$backup_name" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ steps.evidence.outputs.backup_name }}
+          path: ${{ runner.temp }}/v134-backup-evidence
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.backup_run_id }}
+      - name: Verify downloaded encrypted backup evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t encrypted < <(find "$RUNNER_TEMP/v134-backup-evidence" -type f -name '*.dump.gpg')
+          mapfile -t checksums < <(find "$RUNNER_TEMP/v134-backup-evidence" -type f -name '*.dump.gpg.sha256')
+          mapfile -t journals < <(find "$RUNNER_TEMP/v134-backup-evidence" -type f -name '*.json')
+          test "${#encrypted[@]}" = "1"
+          test "${#checksums[@]}" = "1"
+          test "${#journals[@]}" = "1"
+          expected="$(awk '{print $1}' "${checksums[0]}")"
+          actual="$(sha256sum "${encrypted[0]}" | awk '{print $1}')"
+          test "$actual" = "$expected"
+          jq -e '.' "${journals[0]}" >/dev/null
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Repeat the read-only preapply guard
+        env:
+          PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          database_url="${SUPABASE_DB_URL/:6543/:5432}"
+          clean="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select
+            to_regclass('public.organization_client_profiles') is not null
+            and to_regclass('public.organization_imported_booking_history') is not null
+            and to_regclass('public.client_field_values') is not null
+            and to_regclass('public.client_record_entries') is not null
+            and to_regclass('public.client_result_series') is not null
+            and to_regclass('public.client_notes') is not null
+            and to_regclass('public.client_labels') is not null
+            and to_regclass('public.client_avatars') is not null
+            and to_regprocedure('public.is_organization_member(uuid)') is not null
+            and to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is null;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$clean")" = "t"
+      - name: Apply only v134 to production
+        env:
+          PGOPTIONS: -c statement_timeout=120000 -c lock_timeout=10000
+        shell: bash
+        run: |
+          set -euo pipefail
+          database_url="${SUPABASE_DB_URL/:6543/:5432}"
+          psql "$database_url" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v134.sql
+      - name: Verify v134 postconditions read-only
+        env:
+          PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+        shell: bash
+        run: |
+          set -euo pipefail
+          database_url="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          select json_build_object(
+            'identityWriteReady',to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is not null,
+            'authenticatedExecute',has_function_privilege('authenticated','public.save_minuta_client_identity_v134(uuid,text,text,text)','execute'),
+            'anonExecute',has_function_privilege('anon','public.save_minuta_client_identity_v134(uuid,text,text,text)','execute'),
+            'avatarScopeSafe',position('/[0-9]{10,15}/avatar[.]webp$' in pg_get_constraintdef((select oid from pg_constraint where conrelid='public.client_avatars'::regclass and conname='client_avatars_storage_path_scope_check')))>0
+          );
+          SQL
+          )"
+          jq -e '.identityWriteReady and .authenticatedExecute and (.anonExecute | not) and .avatarScopeSafe' <<<"$state" >/dev/null
+          printf '%s\n' "$state" > "$RUNNER_TEMP/v134-production-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success()
+        with:
+          name: v134-production-apply-${{ github.run_id }}
+          path: ${{ runner.temp }}/v134-production-apply.json
+          if-no-files-found: error
+          retention-days: 90
+
+  observe-production-v134:
+    if: inputs.phase == 'observe-production-v134' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGOPTIONS: -c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Verify the exact successful apply run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_COMMIT_SHA: ${{ inputs.commit_sha }}
+          APPLY_RUN_ID: ${{ inputs.apply_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$APPLY_RUN_ID" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY_RUN_ID")"
+          test "$(jq -r '.conclusion' <<<"$run")" = "success"
+          test "$(jq -r '.head_sha' <<<"$run")" = "$INPUT_COMMIT_SHA"
+          test "$(jq -r '.head_branch' <<<"$run")" = "main"
+          test "$(jq -r '.path' <<<"$run")" = ".github/workflows/minuta-v134-safe-release.yml"
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY_RUN_ID/jobs?per_page=100")"
+          jq -e '[.jobs[] | select(.name=="apply-production-v134" and .conclusion=="success")] | length==1' <<<"$jobs" >/dev/null
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe v134 production state read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$MINUTA_PRODUCTION_PROJECT_REF" =~ ^[a-z0-9-]{6,64}$ ]]
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          database_url="${SUPABASE_DB_URL/:6543/:5432}"
+          state="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          begin transaction isolation level repeatable read read only;
+          select json_build_object(
+            'identityWriteReady',to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is not null,
+            'authenticatedExecute',has_function_privilege('authenticated','public.save_minuta_client_identity_v134(uuid,text,text,text)','execute'),
+            'anonExecute',has_function_privilege('anon','public.save_minuta_client_identity_v134(uuid,text,text,text)','execute'),
+            'avatarScopeSafe',position('/[0-9]{10,15}/avatar[.]webp$' in pg_get_constraintdef((select oid from pg_constraint where conrelid='public.client_avatars'::regclass and conname='client_avatars_storage_path_scope_check')))>0
+          );
+          rollback;
+          SQL
+          )"
+          jq -e '.identityWriteReady and .authenticatedExecute and (.anonExecute | not) and .avatarScopeSafe' <<<"$state" >/dev/null
+          printf '%s\n' "$state" > "$RUNNER_TEMP/v134-production-observation.json"
+      - name: Run public read-only health checks
+        run: node minuta-online-booking/production-health-check.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success()
+        with:
+          name: v134-production-observation-${{ github.run_id }}
+          path: ${{ runner.temp }}/v134-production-observation.json
+          if-no-files-found: error
+          retention-days: 90

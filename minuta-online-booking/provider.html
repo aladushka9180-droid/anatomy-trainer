@@ -400,9 +400,22 @@
                 <dialog class="client-profile-dialog client-more-dialog" id="clientMoreDialog" aria-labelledby="clientMoreTitle">
                   <div class="client-profile-dialog-head"><div><small>Карточка клиента</small><h3 id="clientMoreTitle">Ещё</h3></div><button type="button" data-close-client-dialog aria-label="Закрыть">×</button></div>
                   <div class="client-more-options">
+                    <button id="clientIdentityAction" type="button"><span>Имя и телефон</span><small>Изменить данные клиента</small></button>
                     <button id="clientBirthdayAction" type="button"><span>День рождения</span><small id="clientBirthdayActionHint">Указать дату</small></button>
                     <button class="client-block-action" id="clientBlockAction" type="button"><span>Заблокировать онлайн-запись</span><small>Только для этой организации</small></button>
                   </div>
+                </dialog>
+                <dialog class="client-profile-dialog client-identity-dialog" id="clientIdentityDialog" aria-labelledby="clientIdentityTitle">
+                  <form id="clientIdentityForm">
+                    <div class="client-profile-dialog-head"><div><small>Карточка клиента</small><h3 id="clientIdentityTitle">Имя и телефон</h3></div><button type="button" data-close-client-dialog aria-label="Закрыть">×</button></div>
+                    <div class="client-identity-fields">
+                      <label>Имя<input id="clientIdentityName" type="text" autocomplete="name" minlength="2" maxlength="80" required></label>
+                      <label>Телефон<input id="clientIdentityPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="24" placeholder="+7 (___) ___-__-__" required></label>
+                    </div>
+                    <p class="client-identity-note" id="clientIdentityNote">Изменения применятся к карточке и записям клиента.</p>
+                    <p class="form-error" id="clientIdentityError" hidden></p>
+                    <div class="client-profile-dialog-actions"><button class="secondary-button" type="button" data-close-client-dialog>Отмена</button><button class="primary" type="submit">Сохранить</button></div>
+                  </form>
                 </dialog>
                 <dialog class="client-profile-dialog client-birthday-dialog" id="clientBirthdayDialog" aria-labelledby="clientBirthdayTitle">
                   <form id="clientBirthdayForm">

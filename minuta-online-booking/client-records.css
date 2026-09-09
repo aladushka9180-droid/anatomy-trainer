@@ -111,8 +111,11 @@
 .client-more-options button small { color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:600; }
 .client-more-options .client-block-action { border-color:color-mix(in srgb,#b94b42 22%,var(--theme-line,var(--line))); background:transparent; color:#a7433d; }
 .client-more-options .client-block-action.is-unblock { border-color:var(--theme-line,var(--line)); color:var(--theme-accent,var(--green)); }
-.client-birthday-dialog label { display:grid; gap:7px; margin-top:18px; font-size:11px; font-weight:750; }
-.client-birthday-dialog input { width:100%; min-height:46px; padding:0 12px; border:1px solid var(--theme-line,var(--line)); border-radius:12px; background:var(--theme-surface,var(--white)); color:inherit; font:inherit; }
+.client-birthday-dialog label,.client-identity-dialog label { display:grid; gap:7px; margin-top:18px; font-size:11px; font-weight:750; }
+.client-birthday-dialog input,.client-identity-dialog input { box-sizing:border-box; width:100%; min-height:46px; padding:0 12px; border:1px solid var(--theme-line,var(--line)); border-radius:12px; background:var(--theme-surface,var(--white)); color:inherit; font:inherit; }
+.client-identity-fields { display:grid; gap:0; }
+.client-identity-note { margin:12px 0 0; color:var(--theme-muted,var(--muted)); font-size:10px; line-height:1.45; }
+.client-identity-dialog .form-error { margin:10px 0 0; }
 .client-block-dialog>p { margin:16px 0 0; color:var(--theme-muted,var(--muted)); font-size:12px; line-height:1.55; }
 .client-profile-dialog-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:20px; }
 .client-profile-dialog-actions button { width:100%; min-height:44px; margin:0; }

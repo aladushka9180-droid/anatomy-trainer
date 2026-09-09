@@ -9663,6 +9663,7 @@ function renderClientProfileDetails(client, state = clientProfileDetailsState) {
   $('#clientBirthdayDisplay').textContent = birthdayText;
   $('#clientBirthdayEdit').hidden = !state.canEdit;
   $('#clientBirthdayAction').hidden = !state.available || !state.canEdit;
+  $('#clientIdentityAction').hidden = !state.available || !state.canEdit;
   $('#clientBirthdayActionHint').textContent = birthdayText || 'Указать дату';
   $('#clientBirthdayInput').value = state.birthday;
   $('#clientBirthdayInput').max = businessTodayIso();
@@ -9724,6 +9725,104 @@ function openClientBirthdayDialog() {
   $('#clientMoreDialog')?.close();
   $('#clientBirthdayInput').value = clientProfileDetailsState.birthday;
   $('#clientBirthdayDialog').showModal();
+}
+
+function openClientIdentityDialog() {
+  const client = buildClients().find(item => item.phone === selectedClientPhone);
+  if (!client || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
+  $('#clientMoreDialog')?.close();
+  $('#clientIdentityName').value = client.name || '';
+  $('#clientIdentityPhone').value = newBookingClientPhoneLabel(client.phone, client.displayPhone);
+  clearFormError('#clientIdentityError');
+  updateClientIdentityNote();
+  $('#clientIdentityDialog').showModal();
+  requestAnimationFrame(() => $('#clientIdentityName')?.focus({ preventScroll:true }));
+}
+
+function updateClientIdentityNote() {
+  const nextPhone = normalizePhone($('#clientIdentityPhone')?.value);
+  const phoneChanged = Boolean(nextPhone && nextPhone !== selectedClientPhone);
+  $('#clientIdentityNote').textContent = phoneChanged
+    ? 'Карточка и история сохранятся. Вход клиента по номеру не переносится автоматически.'
+    : 'Изменения применятся к карточке и записям клиента.';
+}
+
+function moveClientMapEntry(map, oldPhone, newPhone) {
+  if (!(map instanceof Map) || oldPhone === newPhone || !map.has(oldPhone)) return;
+  const value = map.get(oldPhone);
+  map.delete(oldPhone);
+  map.set(newPhone, value && typeof value === 'object' ? { ...value, client_phone:newPhone } : value);
+}
+
+function applyClientIdentityLocally(oldPhone, newPhone, newName) {
+  allBookings.forEach(item => {
+    if (!isScheduleBlock(item) && String(item.organization_id || '') === String(activeClientOrganizationId || '') && normalizePhone(item.client_phone) === oldPhone) {
+      item.client_name = newName;
+      item.client_phone = newPhone;
+    }
+  });
+  importedBookingHistory.forEach(item => {
+    if (String(item.organization_id || '') === String(activeClientOrganizationId || '') && normalizePhone(item.client_phone) === oldPhone) {
+      item.client_name = newName;
+      item.client_phone = newPhone;
+    }
+  });
+  importedClients.forEach(item => {
+    if (normalizePhone(item.phone || item.display_phone) !== oldPhone) return;
+    item.phone = newPhone;
+    item.display_phone = newPhone;
+    item.name = newName;
+    if ('client_name' in item) item.client_name = newName;
+  });
+  [clientNotes,clientLabels,clientAvatars,pendingClientNotes,pendingClientLabels].forEach(map => moveClientMapEntry(map, oldPhone, newPhone));
+  selectedClientPhone = newPhone;
+  clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, client_phone:newPhone, available:true });
+  providerBookingViewRevisions.delete('bookings');
+  updateBookingStats();
+  renderBookings();
+  renderClients();
+  renderClientDetail(newPhone, { preserveReturn:true });
+}
+
+async function saveClientIdentity(event) {
+  event?.preventDefault?.();
+  if (!requireWrites() || !clientProfileDetailsState.available || !clientProfileDetailsState.canEdit) return;
+  const oldPhone = selectedClientPhone;
+  const newPhone = normalizePhone($('#clientIdentityPhone').value);
+  const newName = $('#clientIdentityName').value.trim().replace(/\s+/g, ' ');
+  clearFormError('#clientIdentityError');
+  if (newName.length < 2 || newName.length > 80) {
+    showFormError('#clientIdentityError', 'Укажите имя от 2 до 80 символов.');
+    $('#clientIdentityName').focus();
+    return;
+  }
+  if (!/^7\d{10}$/.test(newPhone)) {
+    showFormError('#clientIdentityError', 'Укажите российский номер телефона полностью.');
+    $('#clientIdentityPhone').focus();
+    return;
+  }
+  const button = $('#clientIdentityForm button[type="submit"]');
+  button.disabled = true;
+  const { data, error } = await db.rpc('save_minuta_client_identity_v134', {
+    p_organization:activeClientOrganizationId,
+    p_client_phone:oldPhone,
+    p_client_name:newName,
+    p_new_client_phone:newPhone
+  });
+  button.disabled = false;
+  if (error) {
+    const message = String(error.message || '');
+    if (message.includes('client_phone_conflict')) showFormError('#clientIdentityError', 'Этот номер уже принадлежит другому клиенту.');
+    else if (message.includes('client_metadata_conflict')) showFormError('#clientIdentityError', 'У нового номера уже есть личные данные. Проверьте карточку клиента.');
+    else if (isMissingRpc(error, 'save_minuta_client_identity_v134')) showFormError('#clientIdentityError', 'Редактирование пока недоступно. Обновите страницу и повторите.');
+    else showFormError('#clientIdentityError', 'Не удалось сохранить изменения. Повторите ещё раз.');
+    return;
+  }
+  const savedPhone = normalizePhone(data?.client_phone || newPhone);
+  const savedName = String(data?.client_name || newName).trim();
+  $('#clientIdentityDialog').close();
+  applyClientIdentityLocally(oldPhone, savedPhone, savedName);
+  notify('Данные клиента сохранены');
 }
 
 async function saveClientBirthday(event, clear = false) {
@@ -12778,6 +12877,7 @@ document.addEventListener('click', async event => {
   const clientMoreButton = event.target.closest('#clientMoreButton');
   const clientCopyPhoneButton = event.target.closest('#clientCopyPhone,#clientCopyPhoneMenu');
   const clientBirthdayButton = event.target.closest('#clientBirthdayAction,#clientBirthdayEdit');
+  const clientIdentityButton = event.target.closest('#clientIdentityAction');
   const clientBirthdayClear = event.target.closest('#clientBirthdayClear');
   const clientBlockAction = event.target.closest('#clientBlockAction');
   const clientBlockConfirm = event.target.closest('#clientBlockConfirm');
@@ -12959,6 +13059,7 @@ document.addEventListener('click', async event => {
   if (clientCopyPhoneButton) await copySelectedClientPhone();
   if (clientProfileJump) activateClientProfileJump(clientProfileJump.dataset.clientProfileJump);
   if (clientBirthdayButton) openClientBirthdayDialog();
+  if (clientIdentityButton) openClientIdentityDialog();
   if (clientBirthdayClear) await saveClientBirthday(event, true);
   if (clientBlockAction) openClientBlockConfirmation();
   if (clientBlockConfirm) await confirmClientOnlineBlock();
@@ -14203,6 +14304,8 @@ $('#providerFullscreenButton').addEventListener('click', toggleProviderFullscree
 $('#depositEnabled').addEventListener('change', event => { $('#depositSettings').hidden = !event.target.checked; });
 $('#notificationTemplatesForm').addEventListener('submit', saveNotificationTemplates);
 $('#clientBirthdayForm').addEventListener('submit', saveClientBirthday);
+$('#clientIdentityForm').addEventListener('submit', saveClientIdentity);
+$('#clientIdentityPhone').addEventListener('input', updateClientIdentityNote);
 $('#saveClientNote').addEventListener('click', saveClientNote);
 $('#clientLabelFavorite').addEventListener('change', event => {
   $('#clientFavoriteNoteField').hidden = !event.target.checked;
