@@ -9,6 +9,8 @@ begin
   select id into outsider from auth.users where id<>actor order by created_at,id limit 1;
   perform pg_temp.client_identity_assert(actor is not null,'client_identity_fixture_user_missing');
   perform pg_temp.client_identity_assert(outsider is not null,'client_identity_second_fixture_user_missing');
+  insert into public.performer_profiles(id,display_name)
+    values(actor,'Client identity v134 fixture') on conflict(id) do nothing;
   insert into public.organizations(name,public_booking_enabled,status)
     values('Client identity v134 test',true,'active') returning id into org;
   insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
