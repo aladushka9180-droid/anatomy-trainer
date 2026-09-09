@@ -2712,6 +2712,7 @@ html.provider-booting .provider-main {
 .provider-body .inventory-settings .settings-check { margin:0; padding:13px; border:1px solid var(--theme-line,#dfe7e1); border-radius:13px; background:var(--theme-surface-alt,#f8faf8); }
 .provider-body .organization-section .inventory-transfer-toggle { grid-column:1/-1; display:flex; grid-template-columns:none; align-items:center; justify-content:space-between; gap:12px; cursor:default; }
 .provider-body .inventory-transfer-toggle>label { display:flex; flex:1 1 auto; align-items:flex-start; min-width:0; gap:10px; cursor:pointer; }
+.provider-body .inventory-transfer-toggle>label>input { flex:0 0 20px; width:20px!important; min-width:20px!important; height:20px!important; min-height:20px!important; margin:2px 0 0!important; padding:0!important; accent-color:var(--theme-accent,#2f7654); }
 .provider-body .inventory-transfer-toggle>label span,.provider-body .inventory-transfer-toggle>label strong,.provider-body .inventory-transfer-toggle>label small { display:block; }
 .provider-body .inventory-transfer-toggle>label small { margin-top:3px; color:var(--theme-muted,#718078); }
 .provider-body .inventory-transfer-toggle>button { flex:0 0 auto; width:auto; margin:0; }
