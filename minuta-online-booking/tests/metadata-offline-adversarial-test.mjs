@@ -143,7 +143,7 @@ test('actual device cleanup removes actor A private note queue and preserves act
   const storage={[keyA]:JSON.stringify({'79990000000':'private A'}),[keyB]:'private B',[labelKey]:'{}'};
   Object.defineProperty(storage,'removeItem',{value:key => {delete storage[key];},enumerable:false});
   Object.assign(h.state,{localStorage:storage,reliability:{removePrefix:async () => {},remove:async () => {}},
-    offlineBookingSavePromise:Promise.resolve(),offlineBookingQueueKey:() => '',clearNewBookingDraft:() => {}});
+    offlineBookingSavePromise:Promise.resolve(),offlineBookingQueueKey:() => '',clearNewBookingDraft:() => {},clearProviderBookingAttempt:() => {}});
   for (const name of ['sessionItemsStorageKey','connectionLogKey','serviceDurationDefaultsStorageKey','serviceScheduleNamesStorageKey','autoCompleteStorageKey']) h.state[name]=() => name;
   vm.runInContext(section('async function clearProviderDeviceData(', 'async function logout('),h.context);
   await h.context.clearProviderDeviceData('actor-A');
