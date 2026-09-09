@@ -109,7 +109,20 @@ test('override activation is an isolated transition and requires explicit user a
   replaced.updatedAt = new Date(Date.parse(published.updatedAt) + 1000).toISOString();
   replaced.stageGateOverride.approvedAt = replaced.updatedAt;
   replaced.stageGateOverride.allowedItems = ['D06', 'D07', 'D09', 'D10', 'D11', 'D12', 'D13'];
-  assert.throws(() => verifyTransition(plan, published, replaced), /must be removed before replacement/);
+  assert.deepEqual(verifyTransition(plan, published, replaced), {
+    valid: true,
+    change: 'stage_gate_override',
+    from: 'active',
+    to: 'active',
+    allowedItems: replaced.stageGateOverride.allowedItems,
+    planVersion: plan.version
+  });
+
+  const narrowed = clone(replaced);
+  narrowed.updatedAt = new Date(Date.parse(replaced.updatedAt) + 1000).toISOString();
+  narrowed.stageGateOverride.approvedAt = narrowed.updatedAt;
+  narrowed.stageGateOverride.allowedItems = ['D06', 'D07', 'D10', 'D11', 'D12', 'D13'];
+  assert.throws(() => verifyTransition(plan, replaced, narrowed), /only expand monotonically/);
 
   const forged = clone(published);
   forged.stageGateOverride.approvedBy = 'automation';

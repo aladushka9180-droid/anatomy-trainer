@@ -370,7 +370,10 @@ export function verifyTransition(plan, before, after) {
   assert.equal(changed.length + Number(overrideChanged), 1, 'transition: exactly one roadmap item or stage-gate override must change');
   if (overrideChanged) {
     assert.equal(changed.length, 0, 'transition: stage-gate override and roadmap item cannot change together');
-    assert(beforeOverride === null || afterOverride === null, 'transition: stage-gate override must be removed before replacement');
+    if (beforeOverride && afterOverride) {
+      const nextAllowed = new Set(afterOverride.allowedItems);
+      assert(beforeOverride.allowedItems.every(id => nextAllowed.has(id)), 'transition: active stage-gate override can only expand monotonically');
+    }
     if (afterOverride) assert.equal(afterOverride.approvedAt, after.updatedAt, 'transition: activation approval must match updatedAt');
     return {
       valid: true,
