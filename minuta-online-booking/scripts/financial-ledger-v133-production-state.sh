@@ -25,7 +25,7 @@ with objects as (
     to_regprocedure('public.create_minuta_financial_supplier_v132(uuid,uuid,text)') supplier_v132,
     to_regprocedure('public.accrue_minuta_supplier_expense_v132(uuid,uuid,uuid,bigint,timestamp with time zone,uuid)') accrue_v132,
     to_regprocedure('public.pay_minuta_supplier_expense_v132(uuid,uuid,uuid,uuid)') pay_v132,
-    to_regprocedure('public.reverse_minuta_supplier_expense_v132(uuid,uuid,uuid,text)') reverse_supplier_v132,
+    to_regprocedure('public.reverse_minuta_supplier_expense_v132(uuid,uuid,uuid,text,text)') reverse_supplier_v132,
     to_regprocedure('public.reverse_minuta_supplier_expense_payment_v132(uuid,uuid,uuid,text)') reverse_payment_v132,
     to_regprocedure('public.reverse_minuta_supplier_expense_accrual_v132(uuid,uuid,uuid,text)') reverse_accrual_v132,
     to_regclass('public.financial_debt_settlement_sources') debt_sources_table,
@@ -85,12 +85,12 @@ with objects as (
     coalesce((select bool_and(has_function_privilege('authenticated',p.oid,'EXECUTE')
       and not has_function_privilege('anon',p.oid,'EXECUTE')
       and not has_function_privilege('service_role',p.oid,'EXECUTE'))
-      from pg_proc p where p.oid=any(array[set_v132,supplier_v132,accrue_v132,pay_v132,reverse_supplier_v132,
+      from pg_proc p where p.oid=any(array[set_v132,supplier_v132,accrue_v132,pay_v132,
         reverse_payment_v132,reverse_accrual_v132])),false) v132_acl,
     coalesce((select bool_and(not has_function_privilege('authenticated',p.oid,'EXECUTE')
       and not has_function_privilege('anon',p.oid,'EXECUTE')
       and not has_function_privilege('service_role',p.oid,'EXECUTE'))
-      from pg_proc p where p.oid=any(array[protect_v132,ensure_v132])),false) v132_helper_acl,
+      from pg_proc p where p.oid=any(array[protect_v132,ensure_v132,reverse_supplier_v132])),false) v132_helper_acl,
     coalesce(has_table_privilege('authenticated',suppliers_table,'SELECT')
       and has_table_privilege('authenticated',expense_sources_table,'SELECT')
       and not has_table_privilege('authenticated',suppliers_table,'INSERT')

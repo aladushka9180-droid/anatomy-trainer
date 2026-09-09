@@ -48,6 +48,8 @@ assert.match(state, /production-db-target-guard\.mjs >\/dev\/null/);
 assert.match(state, /baseReady/);
 assert.match(state, /v132Mode/);
 assert.match(state, /v133Mode/);
+assert.match(state, /reverse_minuta_supplier_expense_v132\(uuid,uuid,uuid,text,text\)/);
+assert.match(state, /array\[protect_v132,ensure_v132,reverse_supplier_v132\]/);
 assert.match(state, /cumulativeSchemaFingerprint/);
 assert.match(state, /extensions\.digest/);
 assert.match(state, /v132HardeningReady/);
