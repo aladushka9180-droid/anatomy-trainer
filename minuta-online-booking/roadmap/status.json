@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-09T11:56:34Z",
+  "updatedAt": "2026-09-09T13:00:13Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -183,13 +183,32 @@
       "blocker": null
     },
     "D10": {
-      "status": "awaiting_external",
-      "evidence": {},
-      "blocker": {
-        "type": "provider",
-        "reason": "Виджеты, deep links и защищённая атрибуция источника опубликованы и проверены в изолированном браузерном контуре, но код ещё не установлен и не проверен на реальном стороннем сайте.",
-        "requiredAction": "Выбрать реальный внешний сайт, где можно установить скопированный код виджета, и предоставить доступ или выполнить размещение для контрольной проверки."
-      }
+      "status": "verifying",
+      "evidence": {
+        "releaseSha": "2ad1b6a5f08799f58f564cbe379404399ae31553",
+        "releaseVersion": "v659",
+        "ciRuns": {
+          "smoke": 34353328436,
+          "pages": 34353326581,
+          "widget_browser": 34354219844
+        },
+        "productionHealthRunId": 34354223867,
+        "verifiedAt": "2026-09-09T13:00:13Z",
+        "liveChecks": {
+          "390": true,
+          "760": true,
+          "1440": true
+        },
+        "checks": {
+          "embeddable_widget": true,
+          "service_link": true,
+          "provider_link": true,
+          "branch_link": true,
+          "group_link": true,
+          "source_analytics": true
+        }
+      },
+      "blocker": null
     },
     "D11": { "status": "not_started", "evidence": {}, "blocker": null },
     "D12": { "status": "not_started", "evidence": {}, "blocker": null },
