@@ -58,6 +58,7 @@ assert.doesNotMatch(fingerprint,/pg_get_functiondef/);
 assert.match(dependencyFingerprint,/\('public\.get_minuta_inventory_role\(uuid\)'\)/);
 assert.match(dependencyFingerprint,/\('public\.write_minuta_inventory_audit\(uuid,text,uuid,jsonb\)'\)/);
 assert.match(stateScript,/inventory-transfer-v130-dependency-fingerprint\.sql/);
+assert.match(readFileSync(new URL('./tests/inventory-transfer-v130-postgres-test.mjs',import.meta.url),'utf8'),/grant execute on function public\.get_minuta_inventory_workspace\(uuid\) to authenticated/);
 assert.match(fingerprint,/ownerMatchesInventoryMovements/);
 assert.match(fingerprint,/ownerIsPostgres/);
 assert.match(fingerprint,/aclexplode/);

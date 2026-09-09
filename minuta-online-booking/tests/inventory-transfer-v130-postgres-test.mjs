@@ -142,6 +142,13 @@ try {
   await admin.query(migration);
   await admin.query(migration);
   await admin.query('set search_path to pg_catalog,public,extensions');
+  // Keep the isolated persistent test project on the v82 ACL contract. Older
+  // test-only rollback drills could leave this legacy read RPC owner-only.
+  await admin.query(`revoke all on function public.get_minuta_inventory_workspace(uuid)
+    from public,anon,authenticated,service_role;
+    grant execute on function public.get_minuta_inventory_workspace(uuid) to authenticated`);
+  assert.equal((await admin.query("select has_function_privilege('authenticated','public.get_minuta_inventory_workspace(uuid)','EXECUTE') allowed")).rows[0].allowed,true);
+  assert.equal((await admin.query("select has_function_privilege('anon','public.get_minuta_inventory_workspace(uuid)','EXECUTE') allowed")).rows[0].allowed,false);
   const canonicalDependencyAttestation = (await admin.query(dependencyFingerprint)).rows[0]?.dependency_attestation;
   const canonicalDependencyFingerprint = String(canonicalDependencyAttestation?.dependencyFingerprint || '');
   assert.match(canonicalDependencyFingerprint,/^[0-9a-f]{64}$/);
