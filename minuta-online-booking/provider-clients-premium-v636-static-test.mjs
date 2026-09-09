@@ -9,8 +9,8 @@ const [html, provider, css, worker] = await Promise.all([
   read('provider.html'), read('provider.js'), read('provider-clients-premium.css'), read('sw.js')
 ]);
 
-assert.match(html, /provider-schedule-minimal\.css\?v=659[\s\S]*provider-clients-premium\.css\?v=659/, 'Client layer must load after all provider appearance layers');
-assert.match(html, /client-results\.js\?v=659[\s\S]*client-relationship\.js\?v=659[\s\S]*provider\.js\?v=659/, 'Relationship rules must load before provider rendering');
+assert.match(html, /provider-schedule-minimal\.css\?v=660[\s\S]*provider-clients-premium\.css\?v=660/, 'Client layer must load after all provider appearance layers');
+assert.match(html, /client-results\.js\?v=660[\s\S]*client-relationship\.js\?v=660[\s\S]*provider\.js\?v=660/, 'Relationship rules must load before provider rendering');
 for (const id of [
   'clientProfileOrbit', 'clientRelationshipTitle', 'clientRelationshipLevel', 'clientMilestoneCard',
   'clientMilestoneProgress', 'clientReliabilityCard', 'clientReliabilityTitle', 'clientReliabilityText', 'clientVisits',

@@ -80,6 +80,8 @@ try {
 
   const search = page.locator('#cabinetSectionsSearchInput');
   await assert.doesNotReject(() => search.waitFor({ state:'visible' }));
+  assert.equal(await search.getAttribute('placeholder'), 'Найти раздел', 'Поиск по разделам должен использовать короткую мобильную подсказку');
+  assert.equal(await page.locator('.cabinet-sections-search .settings-search-status').innerText(), 'Поиск по названию или задаче.', 'Подсказка поиска должна оставаться короткой');
 
   const alignment = await page.locator('.cabinet-sections-search .settings-search-field').evaluate(field => {
     const center = element => { const box = element.getBoundingClientRect(); return box.top + box.height / 2; };

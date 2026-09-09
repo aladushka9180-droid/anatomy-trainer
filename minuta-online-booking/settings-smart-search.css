@@ -19,6 +19,17 @@
 .settings-search-results strong { min-width:0; overflow-wrap:anywhere; font-size:12px; line-height:1.3; }
 .settings-search-results span { display:-webkit-box; min-width:0; overflow:hidden; color:var(--theme-muted,#6e8077); font-size:9px; line-height:1.35; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
 .settings-search-status { min-height:16px; margin:6px 4px 0; color:var(--theme-muted,#6e8077); font-size:9px; font-weight:700; line-height:1.4; }
+.cabinet-sections-search { margin:12px 0 0; }
+.cabinet-sections-search .settings-search-field {
+  grid-template-columns:18px minmax(0,1fr) 44px;
+  min-height:50px;
+  padding-left:12px;
+  border-radius:14px;
+  box-shadow:none;
+}
+.cabinet-sections-search .settings-search-field:has(.settings-search-clear:not([hidden])) { grid-template-columns:18px minmax(0,1fr) 44px 44px; }
+.cabinet-sections-search .settings-search-field input { min-height:42px; padding-inline:6px; font-size:12px; }
+.cabinet-sections-search .settings-search-status { min-height:0; margin:5px 2px 0; font-size:9px; }
 .settings-search-highlight { outline:3px solid color-mix(in srgb,var(--theme-accent,#235b40) 46%,transparent)!important; outline-offset:4px; animation:settings-search-highlight 1.3s ease-out 2; }
 @keyframes settings-search-pulse { 50% { box-shadow:0 0 0 6px color-mix(in srgb,var(--theme-accent,#235b40) 18%,transparent); } }
 @keyframes settings-search-highlight { 50% { outline-color:color-mix(in srgb,var(--theme-accent,#235b40) 18%,transparent); } }
@@ -27,6 +38,10 @@
   .settings-search-field { grid-template-columns:18px minmax(0,1fr) 44px 44px; min-height:52px; padding-left:11px; border-radius:13px; }
   .settings-search-field input { font-size:12px; }
   .settings-search-results { max-height:min(390px,58dvh); border-radius:13px; }
+  .cabinet-sections-search { margin-top:10px; }
+  .cabinet-sections-search .settings-search-field { grid-template-columns:18px minmax(0,1fr) 42px; min-height:48px; }
+  .cabinet-sections-search .settings-search-field:has(.settings-search-clear:not([hidden])) { grid-template-columns:18px minmax(0,1fr) 42px 42px; }
+  .cabinet-sections-search .settings-search-field button { width:42px; min-width:42px; min-height:42px; }
 }
 .provider-body[data-provider-layout="linear"] :is(.settings-search-field,.settings-search-field button,.settings-search-results,.settings-search-results button),
 .provider-body[data-provider-layout="editorial"] :is(.settings-search-field,.settings-search-field button,.settings-search-results,.settings-search-results button) { border-radius:0; }

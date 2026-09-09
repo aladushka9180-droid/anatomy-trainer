@@ -58,7 +58,7 @@ assert.match(guard, /\[105, 2\]/, 'migration guard must require two v105 test ap
 assert.match(guard, /\[105, 1\]/, 'migration guard must require one v105 production application');
 
 assert.match(worker, /const CACHE = `\$\{CACHE_PREFIX\}v659`;/, 'service-worker cache must be bumped atomically');
-assert.match(worker, /'\.\/privacy\.js\?v=659'/, 'privacy opt-out code must be precached');
+assert.match(worker, /'\.\/privacy\.js\?v=660'/, 'privacy opt-out code must be precached');
 for (const name of ['index.html','provider.html','booking.html','my-bookings.html','waitlist.html','privacy.html','sw.js','site-update.js']) {
   assert.doesNotMatch(read(name), /v=(?:316|317)/, `${name} still references a stale mixed cache version`);
 }
