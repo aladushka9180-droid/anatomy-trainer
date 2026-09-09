@@ -1,0 +1,109 @@
+name: Minuta v136 payroll integration
+run-name: Minuta v136 payroll integration - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character main commit SHA to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  payroll_static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: node --check minuta-online-booking/payroll-ledger-v136-static-test.mjs
+      - run: node minuta-online-booking/payroll-ledger-v136-static-test.mjs
+
+  payroll_integration:
+    needs: payroll_static
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      PGSSLMODE: require
+      PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Guard isolated test database
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          test "$MINUTA_TEST_PROJECT_REF" != "$MINUTA_PRODUCTION_PROJECT_REF"
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*)
+          from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+      - name: Apply, integrate, rollback and reapply v136
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v136.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/payroll-ledger-v136-integration.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v136-rollback.sql
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select to_regprocedure('public.get_minuta_payroll_ledger_workspace_v136(uuid,date,date)') is null")" = t
+          test "$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select count(*)=0 from pg_class where oid=any(array[to_regclass('public.organization_payroll_ledger_settings'),to_regclass('public.financial_payroll_adjustment_sources'),to_regclass('public.financial_payroll_accrual_sources'),to_regclass('public.financial_payroll_payment_sources'),to_regclass('public.financial_payroll_advance_sources'),to_regclass('public.financial_payroll_advance_offsets')])")" = t
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v136.sql
+          psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/tests/payroll-ledger-v136-integration.sql
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" '{
+            status:"success",roadmapItem:"D07",phase:"v136-isolated-integration",
+            commitSha:$sha,runId:$run,currentMainVerified:true,isolatedDatabase:true,
+            productionWritten:false,rollbackReapplyPassed:true,
+            checks:["auto_accrual","advance","partial_payment","debt","bonus","deduction","history_preserved","idempotency","concurrency","tenant_acl","balanced_ledger"]
+          }' > "$RUNNER_TEMP/v136-payroll-attestation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: v136-payroll-attestation-${{ inputs.commit_sha }}
+          path: ${{ runner.temp }}/v136-payroll-attestation.json
+          if-no-files-found: error
+          retention-days: 35
