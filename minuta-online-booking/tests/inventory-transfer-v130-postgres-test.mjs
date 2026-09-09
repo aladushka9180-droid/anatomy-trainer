@@ -63,16 +63,69 @@ try {
     to_regclass('public.inventory_transfer_documents') is not null documents,
     to_regclass('public.inventory_movement_cost_snapshots') is not null snapshots,
     to_regclass('public.inventory_cost_allocations') is not null allocations`)).rows[0];
-  if (!orphanState.settings && orphanState.cost_layers) {
-    if (orphanState.documents || orphanState.snapshots || orphanState.allocations) {
-      throw Error('v130_orphan_cost_schema_not_isolated');
+  const orphanRelations = [
+    ['documents','inventory_transfer_documents'],
+    ['cost_layers','inventory_cost_layers'],
+    ['snapshots','inventory_movement_cost_snapshots'],
+    ['allocations','inventory_cost_allocations']
+  ].filter(([key]) => orphanState[key]);
+  if (!orphanState.settings && orphanRelations.length) {
+    for (const [,relation] of orphanRelations) {
+      const rows = Number((await admin.query(`select count(*)::bigint count from public.${relation}`)).rows[0].count);
+      if (rows !== 0) throw Error(`v130_orphan_schema_not_empty:${relation}`);
     }
-    const orphanRows = Number((await admin.query('select count(*)::bigint count from public.inventory_cost_layers')).rows[0].count);
-    if (orphanRows !== 0) throw Error('v130_orphan_cost_schema_not_empty');
-    // The guarded test database can contain an empty table left by an older,
-    // never-published D09 rehearsal. Drop only that exact empty orphan (never
-    // CASCADE); the canonical migration recreates it in the same test run.
-    await admin.query('drop table public.inventory_cost_layers');
+    const movementColumns = (await admin.query(`select attname from pg_attribute
+      where attrelid='public.inventory_movements'::regclass
+        and attname in('purchase_total_cost_kopecks','transfer_document_id') and not attisdropped`)).rows.map(row => row.attname);
+    const movementEvidence = ["movement_type in ('transfer_out','transfer_in')"];
+    if (movementColumns.includes('purchase_total_cost_kopecks')) movementEvidence.push('purchase_total_cost_kopecks is not null');
+    if (movementColumns.includes('transfer_document_id')) movementEvidence.push('transfer_document_id is not null');
+    const movementRows = Number((await admin.query(`select count(*)::bigint count from public.inventory_movements where ${movementEvidence.join(' or ')}`)).rows[0].count);
+    if (movementRows !== 0) throw Error('v130_orphan_schema_has_movement_evidence');
+
+    // Repair only an empty, incomplete schema in the explicitly guarded test
+    // database. No CASCADE is used. A canonical apply+rollback below then
+    // reconstructs and verifies the exact v82/v108 baseline before testing.
+    await admin.query('begin');
+    try {
+      await admin.query('select pg_advisory_xact_lock(13000)');
+      if (orphanState.documents) {
+        await admin.query('drop trigger if exists inventory_transfer_document_pair_v130 on public.inventory_transfer_documents');
+        await admin.query('drop trigger if exists inventory_transfer_documents_immutable_v130 on public.inventory_transfer_documents');
+      }
+      if (orphanState.snapshots) await admin.query('drop trigger if exists inventory_movement_cost_snapshots_immutable_v130 on public.inventory_movement_cost_snapshots');
+      if (orphanState.allocations) await admin.query('drop trigger if exists inventory_cost_allocations_immutable_v130 on public.inventory_cost_allocations');
+      await admin.query('drop trigger if exists inventory_transfer_movement_pair_v130 on public.inventory_movements');
+      await admin.query('drop trigger if exists inventory_movement_cost_v130 on public.inventory_movements');
+      await admin.query(`drop function if exists public.get_minuta_inventory_workspace_v130(uuid);
+        drop function if exists public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid);
+        drop function if exists public.apply_minuta_stock_movement_v130(uuid,uuid,uuid,text,numeric,numeric,text,uuid,bigint);
+        drop function if exists public.set_minuta_inventory_transfers_enabled_v130(uuid,boolean);
+        drop function if exists public.enable_minuta_inventory_transfers_v130(uuid);
+        drop function if exists public.verify_minuta_inventory_transfer_pair_v130();
+        drop function if exists public.record_minuta_inventory_cost_v130();
+        drop function if exists public.protect_minuta_inventory_transfer_ledger_v130()`);
+      await admin.query(`alter table public.inventory_movements
+        drop constraint if exists inventory_movements_transfer_document_fk_v130,
+        drop constraint if exists inventory_movements_movement_type_check_v130,
+        drop constraint if exists inventory_purchase_cost_receipt_only_v130,
+        drop constraint if exists inventory_transfer_movement_shape_v130`);
+      await admin.query('drop index if exists public.inventory_transfer_movement_side_v130');
+      await admin.query('drop table if exists public.inventory_cost_allocations');
+      await admin.query('drop table if exists public.inventory_movement_cost_snapshots');
+      await admin.query('drop table if exists public.inventory_cost_layers');
+      await admin.query('drop table if exists public.inventory_transfer_documents');
+      await admin.query('drop index if exists public.inventory_movements_id_organization_v130');
+      await admin.query(`alter table public.inventory_movements
+        drop column if exists purchase_total_cost_kopecks,
+        drop column if exists transfer_document_id`);
+      await admin.query('commit');
+    } catch (error) {
+      await admin.query('rollback');
+      throw error;
+    }
+    await admin.query(migration);
+    await admin.query(schemaRollback);
   }
   if ((await admin.query("select to_regclass('public.organization_inventory_transfer_settings') is not null present")).rows[0].present) {
     await admin.query(schemaRollback);

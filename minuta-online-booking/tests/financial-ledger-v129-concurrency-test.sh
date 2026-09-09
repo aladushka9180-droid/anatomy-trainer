@@ -161,6 +161,7 @@ set +e
 PGAPPNAME="minuta-v129-role-race" psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
   -v actor_id="$actor_id" -v organization_id="$organization_id" -v request_id="$role_request" \
   >"$role_output_file" 2>&1 <<'SQL' &
+select set_config('application_name','minuta-v129-role-race',false);
 select set_config('request.jwt.claim.sub',:'actor_id',false);
 set role authenticated;
 select public.create_minuta_financial_account_v129(
@@ -233,6 +234,7 @@ set +e
 PGAPPNAME="minuta-v129-organization-race" psql "$MINUTA_TEST_DATABASE_URL" -X -q -v ON_ERROR_STOP=1 \
   -v actor_id="$actor_id" -v organization_id="$organization_id" -v request_id="$organization_request" \
   >"$organization_output_file" 2>&1 <<'SQL' &
+select set_config('application_name','minuta-v129-organization-race',false);
 select set_config('request.jwt.claim.sub',:'actor_id',false);
 set role authenticated;
 select public.create_minuta_financial_account_v129(
