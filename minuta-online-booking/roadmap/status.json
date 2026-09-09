@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-09T08:09:33Z",
+  "updatedAt": "2026-09-09T09:56:21Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -125,7 +125,35 @@
       },
       "blocker": null
     },
-    "D07": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D07": {
+      "status": "implementing",
+      "evidence": {
+        "releaseSha": "de555ebe6fde2a25a436601d32e12ccc70751c33",
+        "releaseVersion": "v656",
+        "ciRuns": {
+          "smoke": 34336319030,
+          "pages": 34336317744,
+          "payroll_integration": 34336383116
+        },
+        "productionHealthRunId": 34336865463,
+        "verifiedAt": "2026-09-09T09:54:35Z",
+        "liveChecks": {
+          "390": true,
+          "760": true,
+          "1440": true
+        },
+        "checks": {
+          "auto_accrual": true,
+          "advance": true,
+          "partial_payment": true,
+          "debt": true,
+          "bonus": true,
+          "deduction": true,
+          "history_preserved": true
+        }
+      },
+      "blocker": null
+    },
     "D08": { "status": "implementing", "evidence": {}, "blocker": null },
     "D09": {
       "status": "done",
