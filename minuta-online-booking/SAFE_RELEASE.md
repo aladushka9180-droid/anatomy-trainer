@@ -100,3 +100,7 @@ Workflow `.github/workflows/minuta-v119-safe-release.yml` применяет т�
 ## Узкий выпуск автоучёта визитов v124
 
 Workflow `.github/workflows/minuta-v124-safe-release.yml` применяет только `supabase-migration-v124.sql`. Последовательность обязательна: `test-v124` (apply/integration/rollback/reapply на изолированной базе), `validate-production-v124` (read-only), свежий зашифрованный backup на том же SHA, `apply-production-v124` с подтверждением `APPLY_V124_TO_PRODUCTION` и точными run ID, затем `observe-production-v124` (read-only). Откат сохраняет пользовательские настройки и записи, возвращая только прежнее серверное поведение с оплатой наличными.
+
+## Узкий выпуск идемпотентной записи мастером v131
+
+Workflow `.github/workflows/minuta-v131-provider-booking.yml` выполняет apply/reapply, конкурентные сценарии и rollback только в изолированной test DB и сохраняет привязанный к SHA attestation. Затем `.github/workflows/minuta-v131-safe-release.yml` требует последовательность: read-only `audit-production-v131`, свежий зашифрованный backup, связанный ephemeral restore без сети, `apply-production-v131` с подтверждением `APPLY_V131_TO_PRODUCTION` и точными run ID, production health и read-only `observe-production-v131` продолжительностью 30 или 60 минут. Production-фаза добавляет только шестипараметрический RPC `provider_book_appointment`; старый RPC и существующие записи не изменяются.

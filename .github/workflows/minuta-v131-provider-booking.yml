@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: minuta-test-database
@@ -24,12 +25,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
       - name: Pin exact commit
-        env: { SHA: "${{ inputs.commit_sha }}" }
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
         run: |
           set -euo pipefail
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$GITHUB_SHA" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: { node-version: 22 }
       - run: node --check minuta-online-booking/provider.js
@@ -52,12 +55,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
       - name: Pin exact commit
-        env: { SHA: "${{ inputs.commit_sha }}" }
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
         run: |
           set -euo pipefail
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$SHA"
           test "$GITHUB_SHA" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with: { node-version: 22 }
       - name: Install isolated PostgreSQL client module
@@ -66,4 +71,31 @@ jobs:
           mkdir -p "$RUNNER_TEMP/v131-pg"
           npm install --prefix "$RUNNER_TEMP/v131-pg" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
           echo "MINUTA_PG_MODULE=$RUNNER_TEMP/v131-pg/node_modules/pg/lib/index.js" >> "$GITHUB_ENV"
-      - run: node minuta-online-booking/tests/provider-booking-v131-postgres-test.mjs
+      - name: Run isolated apply, replay, rollback and reapply suite
+        env:
+          MINUTA_V131_ATTESTATION_PATH: ${{ runner.temp }}/v131-test.json
+        run: node minuta-online-booking/tests/provider-booking-v131-postgres-test.mjs
+      - name: Bind test attestation to this exact main run
+        env:
+          SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          jq --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" \
+            '. + {commitSha:$sha,workflowRunId:$run,currentMainVerified:true}' \
+            "$RUNNER_TEMP/v131-test.json" > "$RUNNER_TEMP/v131-test.final.json"
+          mv "$RUNNER_TEMP/v131-test.final.json" "$RUNNER_TEMP/v131-test.json"
+          jq -e --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" '
+            .status=="success" and .phase=="test-v131" and .commitSha==$sha and .workflowRunId==$run and
+            .isolatedDatabase==true and .productionWritten==false and .currentMainVerified==true and
+            .applyReapplyPassed and .aclPassed and .exactReplayPassed and .conflictPassed and
+            .ownershipPassed and .inactiveServiceRecoveryPassed and .rollbackVerified and
+            (.v131Hash|test("^[0-9a-f]{32}$")) and .ownerInvariant and .v131SecurityDefiner and
+            .v131SearchPathFixed and .authenticatedExecute and (.anonExecute|not) and
+            (.serviceRoleExecute|not) and .requestIndexReady
+          ' "$RUNNER_TEMP/v131-test.json" >/dev/null
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: v131-test-${{ github.run_id }}
+          path: ${{ runner.temp }}/v131-test.json
+          if-no-files-found: error
+          retention-days: 35
