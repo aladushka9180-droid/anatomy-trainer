@@ -49,7 +49,7 @@ async function harness() {
   function workspace(org) {
     const currentPeriod = periodFor(org);
     return {
-      organization_id:org, current_role:'owner', can_manage:true, enabled:true,
+      organization_id:org, current_role:'owner', can_manage:true, ledger_enabled:true,
       members:[{ id:performer, display_name:'Специалист', role:'specialist', is_bookable:true }], locations:[], plans:[],
       periods:[{ id:currentPeriod, name:'Сентябрь', location_id:null, starts_on:'2026-09-01', ends_on:'2026-09-30',
         status:'draft', total_revenue_rub:25000, total_payroll_rub:total(currentPeriod), source_fingerprint:'fixture',
@@ -57,11 +57,14 @@ async function harness() {
       items:[{ id:id(6), period_id:currentPeriod, performer_id:performer, booking_id:booking, amount_rub:25000,
         rate_bps:4000, payroll_rub:basePayroll, service_name:'Услуга', booking_date:'2026-09-01' }],
       adjustments:ledger.filter(row => row.organization_id === org).map(({ organization_id, created_by, ...row }) => clone(row)),
+      typed_adjustments:ledger.filter(row => row.organization_id === org).map(row => ({ id:row.id, period_id:row.period_id,
+        performer_id:row.performer_id, kind:row.kind, amount_minor:row.amount_minor, reason:row.reason,
+        request_id:row.request_id, created_at:row.created_at })),
       audit:clone(audit.filter(entry => ledger.find(row => row.id === entry.subject_id)?.organization_id === org)),
     };
   }
   const db = { rpc(name, params) {
-    if (name === 'get_minuta_payroll_workspace') {
+    if (name === 'get_minuta_payroll_ledger_workspace_v136') {
       reads.push(clone(params));
       if (failNextRead) { failNextRead = false; return Promise.reject(Error('workspace transport failed')); }
       if (deferredRead) {
@@ -70,7 +73,7 @@ async function harness() {
       }
       return Promise.resolve({ data:workspace(params.p_organization), error:null });
     }
-    assert.equal(name, 'add_minuta_payroll_adjustment', 'No other mutating RPC belongs to this fixture');
+    assert.equal(name, 'record_minuta_payroll_adjustment_v136', 'No other mutating RPC belongs to this fixture');
     assert.equal(params.p_period, periodFor(params.p_organization)); assert.equal(params.p_performer, performer);
     assert.match(params.p_request_id, /^[0-9a-f-]{36}$/i);
     if (failBeforeCommit) {
@@ -84,19 +87,22 @@ async function harness() {
       nextRefusal = null; mutations.push(operation);
       return new Promise((resolve, reject) => { operation.resolve = resolve; operation.reject = reject; });
     }
-    assert.ok(Number.isInteger(params.p_amount_rub) && params.p_amount_rub !== 0 && Math.abs(params.p_amount_rub) <= 10000000);
+    assert.equal(params.p_kind, 'bonus');
+    assert.ok(Number.isSafeInteger(params.p_amount_minor) && params.p_amount_minor > 0 && params.p_amount_minor <= 100000000);
     assert.ok(params.p_reason.trim().length >= 3);
     // COMMIT before delivery. There is intentionally no synthetic payload/time
     // deduplication: v72 has no such constraint or replay key on this endpoint.
     const row = { id:id(100 + ledger.length), period_id:params.p_period, organization_id:params.p_organization,
-      performer_id:performer, amount_rub:params.p_amount_rub, reason:params.p_reason.trim(),
+      performer_id:performer, amount_rub:params.p_amount_minor / 100, amount_minor:params.p_amount_minor,
+      kind:params.p_kind, reason:params.p_reason.trim(),
       request_id:params.p_request_id, created_by:currentActor, created_at:'2026-09-06T12:00:00Z' };
     ledger.push(row);
     audit.push({ id:audit.length + 1, actor_id:currentActor, action:'payroll_adjustment_added', subject_id:row.id,
       details:{ period_id:row.period_id, performer_id:performer, amount_rub:row.amount_rub, reason:row.reason }, created_at:row.created_at });
     const operation = { name, params:clone(params), row:clone(row),
       response:{ data:{ id:row.id, organization_id:row.organization_id, period_id:row.period_id,
-        request_id:row.request_id, total_payroll_rub:total(row.period_id) }, error:null } };
+        performer_id:row.performer_id, kind:row.kind, request_id:row.request_id,
+        amount_minor:row.amount_minor, total_payroll_rub:total(row.period_id) }, error:null } };
     mutations.push(operation);
     return new Promise((resolve, reject) => { operation.resolve = resolve; operation.reject = reject; });
   } };
@@ -112,6 +118,7 @@ async function harness() {
   controller.bind(); assert.equal((await controller.setOrganization({ id:organization })).ok, true);
   function fill(amount = 500, reason = 'Премия за дополнительную смену') {
     $('#payrollAdjustmentPeriod').value = periodFor(activeOrg); $('#payrollAdjustmentPerformer').value = performer;
+    $('#payrollAdjustmentKind').value = 'bonus';
     $('#payrollAdjustmentAmount').value = amount; $('#payrollAdjustmentReason').value = reason;
   }
   function submit() {
@@ -147,7 +154,7 @@ test('positive acknowledged adjustment adds its exact row, audit and total', asy
   assert.equal(h.ledger.length, 1); assert.equal(h.audit.length, 1); assert.equal(h.total(), 10500);
   assert.deepEqual(h.ledger[0], h.mutations[0].row);
   assert.deepEqual(h.audit[0].details, { period_id:period, performer_id:performer, amount_rub:500, reason:'Премия за дополнительную смену' });
-  assert.deepEqual(h.notices, ['Корректировка добавлена']); assert.equal(h.$('#adjustmentSubmit').disabled, false);
+  assert.deepEqual(h.notices, ['Корректировка записана']); assert.equal(h.$('#adjustmentSubmit').disabled, false);
   t.diagnostic(`actual controller sha256=${createHash('sha256').update(source).digest('hex')}`);
 });
 
@@ -161,7 +168,7 @@ test('positive two explicitly requested identical adjustments after acknowledgem
   assert.deepEqual({ ...h.mutations[0].params, p_request_id:null }, { ...h.mutations[1].params, p_request_id:null });
   assert.notEqual(h.mutations[0].params.p_request_id, h.mutations[1].params.p_request_id);
   assert.equal(h.total(), 11000); assert.equal(h.audit.length, 2);
-  assert.deepEqual(h.notices, ['Корректировка добавлена', 'Корректировка добавлена']);
+  assert.deepEqual(h.notices, ['Корректировка записана', 'Корректировка записана']);
 });
 
 test('positive pending single-flight blocks a second submit before first response', async () => {
@@ -269,7 +276,7 @@ test('a failed post-write read followed by manual reload does not resolve unknow
 });
 
 test('exact current SQL refusal with no committed row allows corrected explicit submission', async () => {
-  const h = await harness(); h.fill(0); h.refuseNext({ code:'22023', message:'invalid_payroll_adjustment' });
+  const h = await harness(); h.fill(); h.refuseNext({ code:'22023', message:'invalid_payroll_adjustment_v136' });
   const pending = h.submit(); await h.deliver(0, 'success', pending);
   assert.equal(h.ledger.length, 0); assert.equal(h.$('#adjustmentSubmit').disabled, false);
   h.fill(); const corrected = h.submit(); await h.deliver(1, 'success', corrected);

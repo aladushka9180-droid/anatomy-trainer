@@ -40,26 +40,32 @@ async function fixture(){
     const scopes=new Map([[org,{performer,period}],[orgB,{performer:performerB,period:periodB}]]);
     const total=(scope=org)=>10000+ledger.filter(row=>row.organization_id===scope).reduce((sum,row)=>sum+row.amount_rub,0);
     window.fixtureTotal=total;
-    const workspace=scope=>{const selected=scopes.get(scope);return {organization_id:scope,current_role:'owner',can_manage:true,enabled:true,
+    const workspace=scope=>{const selected=scopes.get(scope);return {organization_id:scope,current_role:'owner',can_manage:true,ledger_enabled:true,
       members:[{id:selected.performer,display_name:scope===org?'Специалист A':'Специалист B',role:'specialist',is_bookable:true}],locations:[],plans:[],
       periods:[{id:selected.period,name:'Сентябрь',location_id:null,starts_on:'2026-09-01',ends_on:'2026-09-30',status:'draft',total_revenue_rub:25000,total_payroll_rub:total(scope)}],
       items:[{id:'item-1',period_id:selected.period,performer_id:selected.performer,booking_id:'booking-1',amount_rub:25000,rate_bps:4000,payroll_rub:10000,service_name:'Услуга',booking_date:'2026-09-01'}],
-      adjustments:clone(ledger.filter(row=>row.organization_id===scope)),audit:clone(audit.filter(row=>row.organization_id===scope))};};
+      adjustments:clone(ledger.filter(row=>row.organization_id===scope)),
+      typed_adjustments:clone(ledger.filter(row=>row.organization_id===scope).map(row=>({id:row.id,period_id:row.period_id,
+        performer_id:row.performer_id,kind:row.kind,amount_minor:row.amount_minor,reason:row.reason,
+        request_id:row.request_id,created_at:row.created_at}))),
+      audit:clone(audit.filter(row=>row.organization_id===scope))};};
     const db={rpc:async(name,args)=>{
       calls.push({name,args:clone(args)});
-      if(name==='get_minuta_payroll_workspace'){
+      if(name==='get_minuta_payroll_ledger_workspace_v136'){
         if(!scopes.has(args.p_organization))throw Error('Wrong fixture scope');
         if(failRecoveryLoad&&ledger.length){failRecoveryLoad=false;return {data:null,error:{code:'08006',message:'workspace connection lost'}};}
         return {data:workspace(args.p_organization),error:null};
       }
-      if(name!=='add_minuta_payroll_adjustment')throw Error('Unexpected mutating RPC '+name);
-      if(Object.keys(args).sort().join(',')!=='p_amount_rub,p_organization,p_performer,p_period,p_reason,p_request_id')throw Error('This adapter supports ONLY the actual v121 six-argument contract');
+      if(name!=='record_minuta_payroll_adjustment_v136')throw Error('Unexpected mutating RPC '+name);
+      if(Object.keys(args).sort().join(',')!=='p_amount_minor,p_kind,p_organization,p_performer,p_period,p_reason,p_request_id')throw Error('This adapter supports ONLY the actual v136 adjustment contract');
       const selected=scopes.get(args.p_organization);
-      if(!selected||args.p_period!==selected.period||args.p_performer!==selected.performer||!Number.isInteger(args.p_amount_rub)||!args.p_amount_rub||Math.abs(args.p_amount_rub)>10000000||args.p_reason.trim().length<3)throw Error('Invalid fixture adjustment, do not mask validation');
+      if(!selected||args.p_period!==selected.period||args.p_performer!==selected.performer||args.p_kind!=='bonus'||!Number.isSafeInteger(args.p_amount_minor)||args.p_amount_minor<=0||args.p_amount_minor>100000000||args.p_reason.trim().length<3)throw Error('Invalid fixture adjustment, do not mask validation');
       const adjustmentId=crypto.randomUUID();
-      ledger.push({id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,performer_id:selected.performer,amount_rub:args.p_amount_rub,reason:args.p_reason.trim(),request_id:args.p_request_id});
+      ledger.push({id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,performer_id:selected.performer,amount_rub:args.p_amount_minor/100,amount_minor:args.p_amount_minor,kind:args.p_kind,reason:args.p_reason.trim(),request_id:args.p_request_id});
       audit.push({id:crypto.randomUUID(),organization_id:args.p_organization,action:'payroll_adjustment_added',subject_id:adjustmentId,created_at:'2026-09-06T00:00:00Z'});
-      const ack={data:{id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,request_id:args.p_request_id,total_payroll_rub:total(args.p_organization)},error:null};
+      const ack={data:{id:adjustmentId,organization_id:args.p_organization,period_id:selected.period,
+        performer_id:selected.performer,kind:args.p_kind,amount_minor:args.p_amount_minor,
+        request_id:args.p_request_id,total_payroll_rub:total(args.p_organization)},error:null};
       if(deferMutation)return new Promise((resolve,reject)=>gates.push({resolve,reject,ack,organization:args.p_organization}));
       const mode=replyMode;replyMode='success';
       if(mode==='lost')return {data:null,error:{code:'08006',message:'connection lost after commit'}};
@@ -77,7 +83,7 @@ async function fixture(){
   return {context,page,errors,traffic};
 }
 const submitSelector='#payrollAdjustmentForm button[type="submit"]';
-async function fill(page){await page.locator('#payrollAdjustmentAmount').fill('500');await page.locator('#payrollAdjustmentReason').fill('Премия за дополнительную работу');}
+async function fill(page){await page.locator('#payrollAdjustmentPanel').evaluate(panel=>{panel.open=true;});await page.locator('#payrollAdjustmentAmount').fill('500');await page.locator('#payrollAdjustmentReason').fill('Премия за дополнительную работу');}
 async function settle(page){await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,0)));}
 async function submit(page){
   assert.equal(await page.locator('#payrollAdjustmentForm').evaluate(form=>form.checkValidity()),true,'Native constraint validation must not hide a retry defect');
@@ -95,7 +101,7 @@ async function committedReply(page,mode){
   await fill(page);await page.evaluate(mode=>{replyMode=mode;window.originalForm=document.querySelector('#payrollAdjustmentForm');},mode);
   await submit(page);const first=await state(page);
   assert.equal(first.ledger.length,1);assert.equal(first.audit.length,1);assert.equal(first.total,10500);
-  assert.equal(first.calls.filter(row=>row.name==='get_minuta_payroll_workspace').length,2,'Actual mutation recovery must load server state');
+  assert.equal(first.calls.filter(row=>row.name==='get_minuta_payroll_ledger_workspace_v136').length,2,'Actual mutation recovery must load server state');
   assert.match(first.summary,/10\s*500/,'Real render must display the already committed total');
   return first;
 }
@@ -118,7 +124,7 @@ const cases=[
   }],
   ['SAFETY organization-only ACK must not claim confirmed adjustment',async page=>{
     const first=await committedReply(page,'partial');
-    assert.ok(!first.notices.includes('Корректировка добавлена'),'v72 ACK requires id, period_id and total, not organization only');
+    assert.ok(!first.notices.includes('Корректировка записана'),'v136 ACK requires the exact adjustment identity and request id');
     await retryIfAvailable(page);assert.equal((await state(page)).ledger.length,1);
   }],
   ['SAFETY null ACK and successful workspace read do not authorize automatic retry',async page=>{
@@ -129,18 +135,19 @@ const cases=[
     await fill(page);await page.evaluate(()=>{replyMode='lost';failRecoveryLoad=true;});await submit(page);
     assert.equal(await page.locator('#payrollUnavailable').isVisible(),true);
     await page.locator('#reloadPayroll').click();await settle(page);const loaded=await state(page);
-    assert.equal(loaded.available,'ready');assert.equal(loaded.calls.filter(row=>row.name==='get_minuta_payroll_workspace').length,3);
+    assert.equal(loaded.available,'ready');assert.equal(loaded.calls.filter(row=>row.name==='get_minuta_payroll_ledger_workspace_v136').length,3);
     assert.match(loaded.summary,/10\s*500/);await retryIfAvailable(page);
     assert.equal((await state(page)).ledger.length,1,'Reload is not acknowledgement of a new adjustment');
   }],
   ['CONTROL confirmed ACK then explicit new equal adjustment remains a legitimate second operation',async page=>{
-    const first=await committedReply(page,'success');assert.ok(first.notices.includes('Корректировка добавлена'));
+    const first=await committedReply(page,'success');assert.ok(first.notices.includes('Корректировка записана'));
     // Re-entering values and clicking submit after known success is a new action.
     await fill(page);await submit(page);const after=await state(page);
     assert.equal(after.ledger.length,2);assert.equal(after.audit.length,2);assert.equal(after.total,11000);
     assert.notEqual(after.ledger[0].id,after.ledger[1].id,'Never dedupe independent adjustments by equal amount');
   }],
   ['CONTROL real native required field prevents empty adjustment without any RPC',async page=>{
+    await page.locator('#payrollAdjustmentPanel').evaluate(panel=>{panel.open=true;});
     await page.locator(submitSelector).click();await settle(page);const current=await state(page);
     assert.equal(await page.locator('#payrollAdjustmentForm').evaluate(form=>form.checkValidity()),false);
     assert.equal(current.ledger.length,0);assert.equal(current.calls.length,1);
@@ -195,7 +202,7 @@ for(const transition of ['organization','account','logout'])for(const outcome of
     await release(page,0,outcome);const current=await state(page);
     assert.deepEqual(current.notices,[],'A outcome is not feedback for B');
     assert.equal(current.error,'','Do not put A transport error into destination form');
-    const reads=current.calls.filter(call=>call.name==='get_minuta_payroll_workspace').map(call=>call.args.p_organization);
+    const reads=current.calls.filter(call=>call.name==='get_minuta_payroll_ledger_workspace_v136').map(call=>call.args.p_organization);
     assert.deepEqual(reads,transition==='logout'?[org]:[org,orgB],'Drain the final queued context once, including rejected promises');
     assert.equal(current.payloadOrg,transition==='logout'?null:orgB);
     if(transition==='logout')assert.equal(current.panelHidden,true);
@@ -217,7 +224,7 @@ for(const outcome of ['success','error','throw'])cases.push([
     assert.equal(after.disabled,true);assert.equal(after.buttonText,before.buttonText,'Late finally must not modify a different pending operation');
     assert.equal(after.payloadOrg,before.payloadOrg);assert.deepEqual(after.notices,before.notices);assert.equal(after.error,before.error);
     await inputChangeAndResubmit(page);assert.equal((await state(page)).ledger.length,2,'A completion cannot clear B single-flight');
-    await release(page,1,'success');assert.equal((await state(page)).notices.filter(message=>message==='Корректировка добавлена').length,1);
+    await release(page,1,'success');assert.equal((await state(page)).notices.filter(message=>message==='Корректировка записана').length,1);
   }
 ]);
 let failed=0;
@@ -225,5 +232,5 @@ try{
   browser=await chromium.launch({headless:true,...(process.env.BROWSER_CHANNEL?{channel:process.env.BROWSER_CHANNEL}:{})});
   for(const [name,run] of cases){const f=await fixture();try{await run(f.page);assert.deepEqual(f.errors,[]);assert.deepEqual(f.traffic,[]);console.log('PASS '+name);}catch(error){failed++;console.error('FAIL '+name+'\n'+error.stack);}finally{await f.context.close();}}
 }finally{await browser?.close();}
-console.log(`${cases.length-failed}/${cases.length} native payroll cases passed; full controller, synthetic v72 ledger, no SQL`);
+console.log(`${cases.length-failed}/${cases.length} native payroll cases passed; full controller, synthetic v136 ledger, no SQL`);
 process.exitCode=failed?1:0;
