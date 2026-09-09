@@ -6,6 +6,7 @@ const stateScript = readFileSync(new URL('./scripts/inventory-transfer-v130-prod
 const integrationWorkflow = readFileSync(new URL('../.github/workflows/minuta-v130-inventory-transfer.yml',import.meta.url),'utf8');
 const testAttestation = readFileSync(new URL('./scripts/inventory-transfer-v130-test-attestation.mjs',import.meta.url),'utf8');
 const fingerprint = readFileSync(new URL('./scripts/inventory-transfer-v130-schema-fingerprint.sql',import.meta.url),'utf8');
+const dependencyFingerprint = readFileSync(new URL('./scripts/inventory-transfer-v130-dependency-fingerprint.sql',import.meta.url),'utf8');
 
 assert.match(workflow,/options: \[audit-production-v130, apply-production-v130, observe-production-v130\]/);
 assert.match(workflow,/concurrency: \{ group: minuta-production-database, cancel-in-progress: false \}/);
@@ -46,12 +47,26 @@ assert.doesNotMatch(integrationWorkflow,/rlsAclVerified:true|functionDefinitions
 assert.match(testAttestation,/postgresSuitePassed:true/);
 assert.match(testAttestation,/currentMainVerified:true/);
 assert.match(testAttestation,/schemaFingerprint/);
+assert.match(testAttestation,/schemaComponents/);
+assert.match(testAttestation,/schemaServerMajor/);
+assert.match(testAttestation,/dependencyFingerprint/);
 assert.match(integrationWorkflow,/name: v130-test-\$\{\{ github\.run_id \}\}/);
 assert.match(fingerprint,/c\.relname='inventory_movements' and a\.attname in\('purchase_total_cost_kopecks','transfer_document_id'\)/);
 assert.match(fingerprint,/c\.relname='inventory_movements' and con\.conname in\(/);
 assert.doesNotMatch(fingerprint,/'position',a\.attnum/);
-assert.match(fingerprint,/\('public\.get_minuta_inventory_role\(uuid\)'\)/);
-assert.match(fingerprint,/\('public\.write_minuta_inventory_audit\(uuid,text,uuid,jsonb\)'\)/);
+assert.doesNotMatch(fingerprint,/pg_get_functiondef/);
+assert.match(dependencyFingerprint,/\('public\.get_minuta_inventory_role\(uuid\)'\)/);
+assert.match(dependencyFingerprint,/\('public\.write_minuta_inventory_audit\(uuid,text,uuid,jsonb\)'\)/);
+assert.match(stateScript,/inventory-transfer-v130-dependency-fingerprint\.sql/);
+assert.match(fingerprint,/ownerMatchesInventoryMovements/);
+assert.match(fingerprint,/ownerIsPostgres/);
+assert.match(fingerprint,/aclexplode/);
+assert.match(fingerprint,/x\.grantee=0 then 'public'/);
+assert.match(fingerprint,/'deferrable',t\.tgdeferrable/);
+assert.match(fingerprint,/'initiallyDeferred',t\.tginitdeferred/);
+assert.match(fingerprint,/'constraintTrigger',t\.tgconstraint<>0/);
+assert.match(fingerprint,/'source',p\.prosrc/);
+assert.match(fingerprint,/component_hashes/);
 assert.match(fingerprint,/inventoryMovementsMovementTypeConstraintAbsent/);
 
 console.log('inventory transfer v130 safe release contract: OK');

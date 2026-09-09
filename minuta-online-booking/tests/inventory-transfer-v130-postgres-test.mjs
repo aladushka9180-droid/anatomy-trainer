@@ -21,6 +21,7 @@ const rollbackInTransaction = rollback
   .replace(/\s*notify pgrst,'reload schema';\s*commit;\s*$/m,'');
 const schemaRollback = executableSql(read('supabase-migration-v130-schema-rollback.sql'));
 const schemaFingerprint = executableSql(read('scripts/inventory-transfer-v130-schema-fingerprint.sql'));
+const dependencyFingerprint = executableSql(read('scripts/inventory-transfer-v130-dependency-fingerprint.sql'));
 const clients = [];
 const tls = process.env.MINUTA_TEST_PG_TLS_NO_VERIFY === 'MIGRATION_TEST_ONLY' ? { rejectUnauthorized:false } : undefined;
 const connect = async () => {
@@ -140,13 +141,32 @@ try {
       and conname='inventory_movements_movement_type_check') movement_constraint`)).rows[0];
   await admin.query(migration);
   await admin.query(migration);
-  const canonicalFingerprint = String((await admin.query(schemaFingerprint)).rows[0]?.schema_fingerprint || '');
+  await admin.query('set search_path to pg_catalog,public,extensions');
+  const canonicalDependencyAttestation = (await admin.query(dependencyFingerprint)).rows[0]?.dependency_attestation;
+  const canonicalDependencyFingerprint = String(canonicalDependencyAttestation?.dependencyFingerprint || '');
+  assert.match(canonicalDependencyFingerprint,/^[0-9a-f]{64}$/);
+  assert.equal(canonicalDependencyAttestation?.ownerInvariant,true);
+  const canonicalSchemaAttestation = (await admin.query(schemaFingerprint)).rows[0]?.schema_attestation;
+  const canonicalFingerprint = String(canonicalSchemaAttestation?.schemaFingerprint || '');
   assert.match(canonicalFingerprint,/^[0-9a-f]{64}$/);
+  assert.equal(typeof canonicalSchemaAttestation?.components,'object');
+  assert.equal(canonicalSchemaAttestation?.ownerInvariant,true);
   await admin.query('begin');
   try {
     await admin.query('alter table public.inventory_movements add constraint inventory_movements_movement_type_check check (true)');
-    const legacyConstraintDrift = String((await admin.query(schemaFingerprint)).rows[0]?.schema_fingerprint || '');
+    const legacyConstraintDrift = String((await admin.query(schemaFingerprint)).rows[0]?.schema_attestation?.schemaFingerprint || '');
     assert.notEqual(legacyConstraintDrift,canonicalFingerprint);
+  } finally {
+    await admin.query('rollback');
+  }
+  await admin.query('begin');
+  try {
+    await admin.query('drop trigger inventory_transfer_document_pair_v130 on public.inventory_transfer_documents');
+    await admin.query(`create constraint trigger inventory_transfer_document_pair_v130
+      after insert on public.inventory_transfer_documents deferrable initially immediate
+      for each row execute function public.verify_minuta_inventory_transfer_pair_v130()`);
+    const triggerDeferralDrift = String((await admin.query(schemaFingerprint)).rows[0]?.schema_attestation?.schemaFingerprint || '');
+    assert.notEqual(triggerDeferralDrift,canonicalFingerprint);
   } finally {
     await admin.query('rollback');
   }
@@ -222,7 +242,8 @@ try {
 
   await admin.query(migration);
   await admin.query(migration);
-  assert.equal(String((await admin.query(schemaFingerprint)).rows[0]?.schema_fingerprint || ''),canonicalFingerprint);
+  assert.equal(String((await admin.query(dependencyFingerprint)).rows[0]?.dependency_attestation?.dependencyFingerprint || ''),canonicalDependencyFingerprint);
+  assert.equal(String((await admin.query(schemaFingerprint)).rows[0]?.schema_attestation?.schemaFingerprint || ''),canonicalFingerprint);
   assert.equal((await admin.query("select to_regprocedure('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)') is not null ok")).rows[0].ok,true);
 
   const a = await connect(), b = await connect(), observer = await connect(); await asActor(a); await asActor(b);

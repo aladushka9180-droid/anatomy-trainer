@@ -73,10 +73,31 @@ legacy_movement_evidence="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 -c "select cou
 [[ "$legacy_movement_evidence" =~ ^[0-9]+$ ]]
 state="$(jq --argjson evidence "$legacy_movement_evidence" '. + {legacyMovementEvidence:$evidence}' <<<"$state")"
 
+mapfile -t dependency_snapshot < <(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL' | sed -e '/^[[:space:]]*$/d' -e '/^t$/d'
+select pg_advisory_lock(13000);
+begin isolation level repeatable read read only;
+set local search_path to pg_catalog,public,extensions;
+\i minuta-online-booking/scripts/inventory-transfer-v130-dependency-fingerprint.sql
+commit;
+select pg_advisory_unlock(13000);
+SQL
+)
+test "${#dependency_snapshot[@]}" = 1
+dependency_attestation="${dependency_snapshot[0]}"
+dependency_fingerprint="$(jq -r '.dependencyFingerprint // empty' <<<"$dependency_attestation")"
+dependency_owner_invariant="$(jq -r '.ownerInvariant // false' <<<"$dependency_attestation")"
+schema_server_version="$(jq -r '.serverVersion // empty' <<<"$dependency_attestation")"
+schema_server_major="$(jq -r '.serverMajor // empty' <<<"$dependency_attestation")"
+[[ "$dependency_fingerprint" =~ ^[0-9a-f]{64}$ ]]
+test "$dependency_owner_invariant" = true
+[[ "$schema_server_major" =~ ^[0-9]+$ ]]
+state="$(jq --arg dependency "$dependency_fingerprint" --argjson owner "$dependency_owner_invariant" --arg version "$schema_server_version" --argjson major "$schema_server_major" '. + {dependencyFingerprint:$dependency,dependencyOwnerInvariant:$owner,schemaServerVersion:$version,schemaServerMajor:$major}' <<<"$state")"
+
 if test "$mode" = full; then
   mapfile -t full_snapshot < <(psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL' | sed -e '/^[[:space:]]*$/d' -e '/^t$/d'
   select pg_advisory_lock(13000);
   begin isolation level repeatable read read only;
+  set local search_path to pg_catalog,public,extensions;
   select json_build_object(
     'constraintsValidated',(select count(*)=4 from pg_constraint where convalidated and conname in(
       'inventory_movements_transfer_document_fk_v130','inventory_movements_movement_type_check_v130',
@@ -158,12 +179,21 @@ SQL
 )
   test "${#full_snapshot[@]}" = 2
   details="${full_snapshot[0]}"
-  schema_fingerprint="${full_snapshot[1]}"
+  schema_attestation="${full_snapshot[1]}"
+  schema_fingerprint="$(jq -r '.schemaFingerprint // empty' <<<"$schema_attestation")"
+  schema_components="$(jq -c '.components // empty' <<<"$schema_attestation")"
+  full_server_version="$(jq -r '.serverVersion // empty' <<<"$schema_attestation")"
+  full_server_major="$(jq -r '.serverMajor // empty' <<<"$schema_attestation")"
+  schema_owner_invariant="$(jq -r '.ownerInvariant // false' <<<"$schema_attestation")"
   state="$(jq --argjson details "$details" '. + $details' <<<"$state")"
   [[ "$schema_fingerprint" =~ ^[0-9a-f]{64}$ ]]
-  state="$(jq --arg fingerprint "$schema_fingerprint" '. + {schemaFingerprint:$fingerprint}' <<<"$state")"
+  jq -e 'type=="object" and length==8 and all(.[];test("^[0-9a-f]{64}$"))' <<<"$schema_components" >/dev/null
+  test "$schema_owner_invariant" = true
+  test "$full_server_version" = "$schema_server_version"
+  test "$full_server_major" = "$schema_server_major"
+  state="$(jq --arg fingerprint "$schema_fingerprint" --argjson components "$schema_components" --argjson owner "$schema_owner_invariant" '. + {schemaFingerprint:$fingerprint,schemaComponents:$components,schemaOwnerInvariant:$owner}' <<<"$state")"
 else
-  state="$(jq '. + {initialized:false,enabled:false,suspended:false,settingsRows:0,documentsRows:0,costLayersRows:0,snapshotsRows:0,allocationsRows:0,movementEvidence:.legacyMovementEvidence,legacyMovementConstraintAbsent:false,schemaFingerprint:null}' <<<"$state")"
+  state="$(jq '. + {initialized:false,enabled:false,suspended:false,settingsRows:0,documentsRows:0,costLayersRows:0,snapshotsRows:0,allocationsRows:0,movementEvidence:.legacyMovementEvidence,legacyMovementConstraintAbsent:false,schemaFingerprint:null,schemaComponents:null,schemaOwnerInvariant:null}' <<<"$state")"
 fi
 
 jq -c . <<<"$state"

@@ -3,16 +3,23 @@ with target_tables(name) as (values
   ('inventory_movement_cost_snapshots'),('inventory_cost_allocations')
 ), relations as (
   select jsonb_agg(jsonb_build_object(
-    'table',c.relname,'owner',pg_get_userbyid(c.relowner),'rls',c.relrowsecurity,'forceRls',c.relforcerowsecurity,
-    'acl',coalesce((select jsonb_agg(a::text order by a::text) from unnest(coalesce(c.relacl,acldefault('r',c.relowner))) a),'[]'::jsonb)
+    'table',c.relname,
+    'ownerIsPostgres',pg_get_userbyid(c.relowner)='postgres',
+    'ownerMatchesInventoryMovements',c.relowner=(select relowner from pg_class where oid='public.inventory_movements'::regclass),
+    'rls',c.relrowsecurity,'forceRls',c.relforcerowsecurity,
+    'acl',(select jsonb_agg(jsonb_build_object(
+      'grantee',case when x.grantee=0 then 'public' when x.grantee=c.relowner then 'owner' else coalesce(r.rolname,'oid:'||x.grantee::text) end,
+      'privilege',x.privilege_type,'grantable',x.is_grantable
+    ) order by case when x.grantee=0 then 'public' when x.grantee=c.relowner then 'owner' else coalesce(r.rolname,'oid:'||x.grantee::text) end,x.privilege_type,x.is_grantable)
+      from aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x left join pg_roles r on r.oid=x.grantee)
   ) order by c.relname) value
   from target_tables t join pg_class c on c.oid=format('public.%I',t.name)::regclass
 ), columns_contract as (
   select jsonb_agg(jsonb_build_object(
     'table',c.relname,'column',a.attname,'type',format_type(a.atttypid,a.atttypmod),
     'notNull',a.attnotnull,'identity',a.attidentity,'generated',a.attgenerated,
-    'default',pg_get_expr(d.adbin,d.adrelid,true)
-  ) order by c.relname,a.attnum) value
+    'default',regexp_replace(lower(coalesce(pg_get_expr(d.adbin,d.adrelid,false),'')),'[[:space:]]+','','g')
+  ) order by c.relname,a.attname) value
   from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace
   left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
   where n.nspname='public' and a.attnum>0 and not a.attisdropped and (
@@ -22,7 +29,8 @@ with target_tables(name) as (values
 ), constraints_contract as (
   select jsonb_agg(jsonb_build_object(
     'table',c.relname,'name',con.conname,'type',con.contype,'validated',con.convalidated,
-    'deferrable',con.condeferrable,'deferred',con.condeferred,'definition',pg_get_constraintdef(con.oid,true)
+    'deferrable',con.condeferrable,'deferred',con.condeferred,
+    'definition',regexp_replace(lower(pg_get_constraintdef(con.oid,false)),'[[:space:]]+','','g')
   ) order by c.relname,con.conname) value
   from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and (
@@ -34,7 +42,8 @@ with target_tables(name) as (values
 ), indexes_contract as (
   select jsonb_agg(jsonb_build_object(
     'table',c.relname,'name',i.relname,'valid',x.indisvalid,'ready',x.indisready,
-    'unique',x.indisunique,'definition',pg_get_indexdef(i.oid)
+    'unique',x.indisunique,
+    'definition',regexp_replace(lower(pg_get_indexdef(i.oid)),'[[:space:]]+','','g')
   ) order by c.relname,i.relname) value
   from pg_index x join pg_class i on i.oid=x.indexrelid join pg_class c on c.oid=x.indrelid
   join pg_namespace n on n.oid=c.relnamespace
@@ -44,8 +53,10 @@ with target_tables(name) as (values
   )
 ), triggers_contract as (
   select jsonb_agg(jsonb_build_object(
-    'table',c.relname,'name',t.tgname,'enabled',t.tgenabled,'function',t.tgfoid::regprocedure::text,
-    'definition',pg_get_triggerdef(t.oid,true)
+    'table',c.relname,'name',t.tgname,'enabled',t.tgenabled,'type',t.tgtype,
+    'deferrable',t.tgdeferrable,'initiallyDeferred',t.tginitdeferred,'constraintTrigger',t.tgconstraint<>0,
+    'function',t.tgfoid::regprocedure::text,'arguments',encode(t.tgargs,'hex'),
+    'when',regexp_replace(lower(coalesce(pg_get_expr(t.tgqual,t.tgrelid,false),'')),'[[:space:]]+','','g')
   ) order by c.relname,t.tgname) value
   from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and not t.tgisinternal and (
@@ -63,26 +74,41 @@ with target_tables(name) as (values
   ('public.transfer_minuta_inventory_stock_v130(uuid,uuid,uuid,uuid,numeric,text,uuid)'),
   ('public.get_minuta_inventory_workspace_v130(uuid)'),
   ('public.apply_minuta_stock_movement(uuid,uuid,uuid,text,numeric,numeric,text,uuid)'),
-  ('public.consume_minuta_inventory_for_booking(uuid)'),
-  ('public.get_minuta_inventory_role(uuid)'),
-  ('public.get_minuta_inventory_workspace(uuid)'),
-  ('public.write_minuta_inventory_audit(uuid,text,uuid,jsonb)'),
-  ('public.has_organization_role(uuid,text[])')
+  ('public.consume_minuta_inventory_for_booking(uuid)')
+), function_rows as (
+  select s.signature,jsonb_build_object(
+    'signature',s.signature,
+    'ownerIsPostgres',pg_get_userbyid(p.proowner)='postgres',
+    'ownerMatchesInventoryMovements',p.proowner=(select relowner from pg_class where oid='public.inventory_movements'::regclass),
+    'language',l.lanname,'kind',p.prokind,'securityDefiner',p.prosecdef,'strict',p.proisstrict,
+    'leakproof',p.proleakproof,'volatility',p.provolatile,'parallel',p.proparallel,
+    'returnType',p.prorettype::regtype::text,'argumentNames',coalesce(to_jsonb(p.proargnames),'[]'::jsonb),
+    'argumentModes',coalesce(to_jsonb(p.proargmodes),'[]'::jsonb),
+    'config',coalesce((select jsonb_agg(v order by v) from unnest(p.proconfig) v),'[]'::jsonb),
+    'acl',(select jsonb_agg(jsonb_build_object(
+      'grantee',case when x.grantee=0 then 'public' when x.grantee=p.proowner then 'owner' else coalesce(r.rolname,'oid:'||x.grantee::text) end,
+      'privilege',x.privilege_type,'grantable',x.is_grantable
+    ) order by case when x.grantee=0 then 'public' when x.grantee=p.proowner then 'owner' else coalesce(r.rolname,'oid:'||x.grantee::text) end,x.privilege_type,x.is_grantable)
+      from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x left join pg_roles r on r.oid=x.grantee),
+    'source',p.prosrc
+  ) value
+  from function_signatures s join pg_proc p on p.oid=to_regprocedure(s.signature)
+  join pg_language l on l.oid=p.prolang
 ), functions_contract as (
   select jsonb_agg(jsonb_build_object(
-    'signature',s.signature,'owner',pg_get_userbyid(p.proowner),'securityDefiner',p.prosecdef,
-    'volatility',p.provolatile,'parallel',p.proparallel,'returnType',pg_get_function_result(p.oid),
-    'config',coalesce(to_jsonb(p.proconfig),'[]'::jsonb),
-    'acl',coalesce((select jsonb_agg(a::text order by a::text) from unnest(coalesce(p.proacl,acldefault('f',p.proowner))) a),'[]'::jsonb),
-    'definition',pg_get_functiondef(p.oid)
-  ) order by s.signature) value
-  from function_signatures s join pg_proc p on p.oid=to_regprocedure(s.signature)
+    'signature',signature,'contract',value
+  ) order by signature) value from function_rows
 ), policies_contract as (
   select jsonb_agg(jsonb_build_object(
-    'table',tablename,'name',policyname,'permissive',permissive,'roles',to_jsonb(roles),
-    'command',cmd,'using',qual,'check',with_check
-  ) order by tablename,policyname) value
-  from pg_policies where schemaname='public' and tablename in(select name from target_tables)
+    'table',c.relname,'name',p.polname,'permissive',p.polpermissive,'command',p.polcmd,
+    'roles',(select jsonb_agg(case when role_oid.oid=0 then 'public' else coalesce(r.rolname,'oid:'||role_oid.oid::text) end
+      order by case when role_oid.oid=0 then 'public' else coalesce(r.rolname,'oid:'||role_oid.oid::text) end)
+      from unnest(p.polroles) role_oid(oid) left join pg_roles r on r.oid=role_oid.oid),
+    'using',regexp_replace(lower(coalesce(pg_get_expr(p.polqual,p.polrelid,false),'')),'[[:space:]]+','','g'),
+    'check',regexp_replace(lower(coalesce(pg_get_expr(p.polwithcheck,p.polrelid,false),'')),'[[:space:]]+','','g')
+  ) order by c.relname,p.polname) value
+  from pg_policy p join pg_class c on c.oid=p.polrelid join pg_namespace n on n.oid=c.relnamespace
+  where n.nspname='public' and c.relname in(select name from target_tables)
 ), legacy_contract as (
   select jsonb_build_object(
     'inventoryMovementsMovementTypeConstraintAbsent',not exists(
@@ -91,6 +117,13 @@ with target_tables(name) as (values
         and con.conname='inventory_movements_movement_type_check'
     )
   ) value
+), owner_invariant as (
+  select
+    (select bool_and(pg_get_userbyid(c.relowner)='postgres'
+      and c.relowner=(select relowner from pg_class where oid='public.inventory_movements'::regclass))
+      from target_tables t join pg_class c on c.oid=format('public.%I',t.name)::regclass)
+    and (select bool_and((value->>'ownerIsPostgres')::boolean and (value->>'ownerMatchesInventoryMovements')::boolean)
+      from function_rows) value
 ), contract as (
   select jsonb_build_object(
     'relations',relations.value,'columns',columns_contract.value,'constraints',constraints_contract.value,
@@ -98,5 +131,24 @@ with target_tables(name) as (values
     'policies',policies_contract.value,'legacy',legacy_contract.value
   ) value
   from relations,columns_contract,constraints_contract,indexes_contract,triggers_contract,functions_contract,policies_contract,legacy_contract
+), component_hashes as (
+  select jsonb_build_object(
+    'relations',encode(extensions.digest(convert_to(relations.value::text,'UTF8'),'sha256'),'hex'),
+    'columns',encode(extensions.digest(convert_to(columns_contract.value::text,'UTF8'),'sha256'),'hex'),
+    'constraints',encode(extensions.digest(convert_to(constraints_contract.value::text,'UTF8'),'sha256'),'hex'),
+    'indexes',encode(extensions.digest(convert_to(indexes_contract.value::text,'UTF8'),'sha256'),'hex'),
+    'triggers',encode(extensions.digest(convert_to(triggers_contract.value::text,'UTF8'),'sha256'),'hex'),
+    'functions',encode(extensions.digest(convert_to(functions_contract.value::text,'UTF8'),'sha256'),'hex'),
+    'policies',encode(extensions.digest(convert_to(policies_contract.value::text,'UTF8'),'sha256'),'hex'),
+    'legacy',encode(extensions.digest(convert_to(legacy_contract.value::text,'UTF8'),'sha256'),'hex')
+  ) value
+  from relations,columns_contract,constraints_contract,indexes_contract,triggers_contract,functions_contract,policies_contract,legacy_contract
 )
-select encode(extensions.digest(convert_to(value::text,'UTF8'),'sha256'),'hex') schema_fingerprint from contract;
+select jsonb_build_object(
+  'schemaFingerprint',encode(extensions.digest(convert_to(contract.value::text,'UTF8'),'sha256'),'hex'),
+  'components',component_hashes.value,
+  'ownerInvariant',owner_invariant.value,
+  'serverVersion',current_setting('server_version'),
+  'serverMajor',(current_setting('server_version_num')::integer/10000)
+) schema_attestation
+from contract,component_hashes,owner_invariant;

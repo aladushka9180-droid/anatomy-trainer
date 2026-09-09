@@ -83,11 +83,13 @@ jobs:
           bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
           state="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
           jq -e '
-            .prerequisitesReady and (.v130Mode=="absent" or .v130Mode=="full") and
+            .prerequisitesReady and .dependencyOwnerInvariant and
+            (.dependencyFingerprint|test("^[0-9a-f]{64}$")) and (.schemaServerMajor|type=="number" and .>=10) and
+            (.v130Mode=="absent" or .v130Mode=="full") and
             (.initialized|not) and (.enabled|not) and (.suspended|not) and
             .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
             .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0 and
-            (.v130Mode=="absent" or (.constraintsValidated and .triggersEnabled and .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent))
+            (.v130Mode=="absent" or (.constraintsValidated and .triggersEnabled and .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and .schemaOwnerInvariant))
           ' <<<"$state" >/dev/null
           jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"audit-production-v130",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v130-audit.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -137,25 +139,30 @@ jobs:
             .isolatedDatabase==true and .productionWritten==false and .currentMainVerified==true and
             .postgresIntegrationPassed==true and .postgresSuitePassed==true and
             .concurrencyPassed==true and .rollbackVerified==true and .reapplyVerified==true and
-            (.schemaFingerprint|test("^[0-9a-f]{64}$"))
+            (.schemaFingerprint|test("^[0-9a-f]{64}$")) and (.schemaComponents|type=="object" and length==8) and .schemaOwnerInvariant and
+            (.dependencyFingerprint|test("^[0-9a-f]{64}$")) and .dependencyOwnerInvariant and (.schemaServerMajor|type=="number" and .>=10)
           ' "$RUNNER_TEMP/v130-evidence/test/v130-test.json" >/dev/null
           check_run "$AUDIT" .github/workflows/minuta-v130-safe-release.yml
           test "$(jq -r .display_title <<<"$run")" = "Minuta v130 - audit-production-v130 - $SHA"
           gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v130-audit-$AUDIT" -D "$RUNNER_TEMP/v130-evidence/audit"
           expected_fingerprint="$(jq -r .schemaFingerprint "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
-          jq -e --arg sha "$SHA" --arg expected "$expected_fingerprint" '
+          expected_components="$(jq -c .schemaComponents "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          expected_dependency="$(jq -r .dependencyFingerprint "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          expected_server_major="$(jq -r .schemaServerMajor "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          jq -e --arg sha "$SHA" --arg expected "$expected_fingerprint" --argjson components "$expected_components" --arg dependency "$expected_dependency" --argjson major "$expected_server_major" '
             .status=="success" and .phase=="audit-production-v130" and .commitSha==$sha and
-            .productionWritten==false and .state.prerequisitesReady and (
+            .productionWritten==false and .state.prerequisitesReady and .state.dependencyOwnerInvariant and
+            .state.dependencyFingerprint==$dependency and .state.schemaServerMajor==$major and (
               .state.v130Mode=="absent" or (
                 .state.v130Mode=="full" and .state.constraintsValidated and .state.triggersEnabled and
                 .state.functionSecurity and .state.rpcAcl and .state.legacyAcl and .state.internalAcl and
                 .state.tableAcl and .state.policiesExact and .state.legacyLockOrder and .state.consumeLockOrder and
-                .state.legacyMovementConstraintAbsent and
+                .state.legacyMovementConstraintAbsent and .state.schemaOwnerInvariant and
                 (.state.initialized|not) and (.state.enabled|not) and (.state.suspended|not) and
                 .state.settingsRows==0 and .state.documentsRows==0 and .state.costLayersRows==0 and
                 .state.snapshotsRows==0 and .state.allocationsRows==0 and
                 .state.movementEvidence==0 and .state.legacyMovementEvidence==0 and
-                .state.schemaFingerprint==$expected
+                .state.schemaFingerprint==$expected and .state.schemaComponents==$components
               )
             )
           ' "$RUNNER_TEMP/v130-evidence/audit/v130-audit.json" >/dev/null
@@ -201,19 +208,26 @@ jobs:
           bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
           before="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
           expected_fingerprint="$(jq -r .schemaFingerprint "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          expected_dependency="$(jq -r .dependencyFingerprint "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
+          expected_server_major="$(jq -r .schemaServerMajor "$RUNNER_TEMP/v130-evidence/test/v130-test.json")"
           [[ "$expected_fingerprint" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$expected_dependency" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$expected_server_major" =~ ^[0-9]+$ ]]
           jq -e '
-            .prerequisitesReady and (
+            .prerequisitesReady and .dependencyOwnerInvariant and (.dependencyFingerprint|test("^[0-9a-f]{64}$")) and
+            (.schemaServerMajor|type=="number" and .>=10) and (
               .v130Mode=="absent" or (
                 .v130Mode=="full" and .constraintsValidated and .triggersEnabled and .functionSecurity and
                 .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and .policiesExact and
-                .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and
+                .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and .schemaOwnerInvariant and
                 (.initialized|not) and (.enabled|not) and
                 (.suspended|not) and .settingsRows==0 and .documentsRows==0 and .costLayersRows==0 and
                 .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
               )
             )
           ' <<<"$before" >/dev/null
+          test "$(jq -r .dependencyFingerprint <<<"$before")" = "$expected_dependency"
+          test "$(jq -r .schemaServerMajor <<<"$before")" = "$expected_server_major"
           if test "$(jq -r .v130Mode <<<"$before")" = full; then
             test "$(jq -r .schemaFingerprint <<<"$before")" = "$expected_fingerprint"
           fi
@@ -225,7 +239,8 @@ jobs:
           fi
           after="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
           jq -e '
-            .prerequisitesReady and .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
+            .prerequisitesReady and .dependencyOwnerInvariant and .schemaOwnerInvariant and
+            .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
             .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and
             .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and
             (.initialized|not) and (.enabled|not) and (.suspended|not) and
@@ -233,6 +248,8 @@ jobs:
             .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
           ' <<<"$after" >/dev/null
           test "$(jq -r .schemaFingerprint <<<"$after")" = "$expected_fingerprint"
+          test "$(jq -r .dependencyFingerprint <<<"$after")" = "$expected_dependency"
+          test "$(jq -r .schemaServerMajor <<<"$after")" = "$expected_server_major"
           jq -n --arg sha "$SHA" --argjson before "$before" --argjson after "$after" --argjson recovered "$recovered" '{status:"success",phase:"apply-production-v130",commitSha:$sha,before:$before,after:$after,recoveredFromCommittedFull:$recovered,inventoryTransfersActivated:false,inventoryRowsCreated:false}' > "$RUNNER_TEMP/v130-apply.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: "v130-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v130-apply.json", if-no-files-found: error, retention-days: 90 }
@@ -281,9 +298,12 @@ jobs:
           bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
           state="$(bash minuta-online-booking/scripts/inventory-transfer-v130-production-state.sh "$db")"
           expected_fingerprint="$(jq -r .after.schemaFingerprint "$RUNNER_TEMP/v130-observation/apply/v130-apply.json")"
+          expected_dependency="$(jq -r .after.dependencyFingerprint "$RUNNER_TEMP/v130-observation/apply/v130-apply.json")"
+          expected_server_major="$(jq -r .after.schemaServerMajor "$RUNNER_TEMP/v130-observation/apply/v130-apply.json")"
           [[ "$expected_fingerprint" =~ ^[0-9a-f]{64}$ ]]
           jq -e '
-            .prerequisitesReady and .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
+            .prerequisitesReady and .dependencyOwnerInvariant and .schemaOwnerInvariant and
+            .v130Mode=="full" and .constraintsValidated and .triggersEnabled and
             .functionSecurity and .rpcAcl and .legacyAcl and .internalAcl and .tableAcl and
             .policiesExact and .legacyLockOrder and .consumeLockOrder and .legacyMovementConstraintAbsent and
             (.initialized|not) and (.enabled|not) and (.suspended|not) and
@@ -291,6 +311,8 @@ jobs:
             .snapshotsRows==0 and .allocationsRows==0 and .movementEvidence==0 and .legacyMovementEvidence==0
           ' <<<"$state" >/dev/null
           test "$(jq -r .schemaFingerprint <<<"$state")" = "$expected_fingerprint"
+          test "$(jq -r .dependencyFingerprint <<<"$state")" = "$expected_dependency"
+          test "$(jq -r .schemaServerMajor <<<"$state")" = "$expected_server_major"
           jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"observe-production-v130",commitSha:$sha,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v130-observe.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: "v130-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v130-observe.json", if-no-files-found: error, retention-days: 90 }
