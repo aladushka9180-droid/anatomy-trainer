@@ -1,0 +1,326 @@
+name: Minuta v133 safe release
+run-name: Minuta v133 - ${{ inputs.phase }} - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Production-safe phase for v133
+        required: true
+        default: audit-production-v133
+        type: choice
+        options: [audit-production-v133, apply-production-v133, observe-production-v133]
+      commit_sha: { description: Exact 40-character main commit SHA, required: true, type: string }
+      backup_run_id: { description: Fresh encrypted backup run ID, required: false, default: "", type: string }
+      restore_run_id: { description: Linked successful offline restore run ID, required: false, default: "", type: string }
+      test_run_id: { description: Fresh successful isolated v133 integration run ID, required: false, default: "", type: string }
+      audit_run_id: { description: Successful read-only v133 audit run ID, required: false, default: "", type: string }
+      apply_run_id: { description: Successful v133 apply run ID, required: false, default: "", type: string }
+      confirmation: { description: Enter APPLY_V133_TO_PRODUCTION for apply, required: false, default: "", type: string }
+      observation_minutes:
+        description: Read-only observation duration
+        required: true
+        default: "30"
+        type: choice
+        options: ["30", "60"]
+
+permissions: { contents: read, actions: read }
+concurrency: { group: minuta-production-database, cancel-in-progress: false }
+defaults:
+  run: { shell: bash }
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit and phase
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          PHASE: ${{ inputs.phase }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          case "$PHASE" in
+            audit-production-v133|observe-production-v133) ;;
+            apply-production-v133) test "$CONFIRMATION" = APPLY_V133_TO_PRODUCTION ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 22 }
+      - name: Verify v133 migration and release contracts
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/financial-ledger-v133-static-test.mjs
+          node minuta-online-booking/financial-ledger-v133-release-static-test.mjs
+          node minuta-online-booking/scripts/production-db-target-guard-test.mjs
+          bash -n minuta-online-booking/scripts/production-db-schema-guard.sh
+          bash -n minuta-online-booking/scripts/financial-ledger-v133-production-state.sh
+
+  audit-production-v133:
+    if: inputs.phase == 'audit-production-v133'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Audit v133 read-only and fail closed on partial schema
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          state="$(bash minuta-online-booking/scripts/financial-ledger-v133-production-state.sh "$db")"
+          contract_hash="$(cat minuta-online-booking/supabase-migration-v132.sql minuta-online-booking/supabase-migration-v133.sql | sha256sum | cut -d' ' -f1)"
+          [[ "$contract_hash" =~ ^[0-9a-f]{64}$ ]]
+          jq -e '
+            .baseReady and (
+              (.v132Mode=="absent" and .v133Mode=="absent") or
+              (.v132Mode=="full" and .v133Mode=="absent") or
+              (.v132Mode=="full" and .v133Mode=="full")
+            ) and
+            .financialRowCounts.financeEnabled==0 and .financialRowCounts.debtSettlementSources==0 and
+            (.v132Mode=="absent" or .v132HardeningReady) and
+            (.v133Mode=="absent" or .v133HardeningReady) and
+            (.v132Mode=="absent" or (.cumulativeSchemaFingerprint|test("^[0-9a-f]{64}$")))
+          ' <<<"$state" >/dev/null
+          jq -n --arg sha "$SHA" --arg contract "$contract_hash" --argjson state "$state" \
+            '{status:"success",phase:"audit-production-v133",commitSha:$sha,productionWritten:false,
+              migrationContractHash:$contract,state:$state}' > "$RUNNER_TEMP/v133-audit.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v133-audit-${{ github.run_id }}", path: "${{ runner.temp }}/v133-audit.json", if-no-files-found: error, retention-days: 35 }
+
+  apply-production-v133:
+    if: inputs.phase == 'apply-production-v133'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Verify exact integration, audit, backup, linked restore and current main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.commit_sha }}
+          TEST: ${{ inputs.test_run_id }}
+          AUDIT: ${{ inputs.audit_run_id }}
+          BACKUP: ${{ inputs.backup_run_id }}
+          RESTORE: ${{ inputs.restore_run_id }}
+        run: |
+          set -euo pipefail
+          for id in "$TEST" "$AUDIT" "$BACKUP" "$RESTORE"; do [[ "$id" =~ ^[0-9]+$ ]]; done
+          check_run(){
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1")"
+            test "$(jq -r .conclusion <<<"$run")" = success
+            test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+            test "$(jq -r .head_branch <<<"$run")" = main
+            test "$(jq -r .event <<<"$run")" = workflow_dispatch
+            test "$(jq -r .path <<<"$run")" = "$2"
+          }
+          mkdir -p "$RUNNER_TEMP/v133-evidence"/{test,audit,backup,restore}
+
+          check_run "$TEST" .github/workflows/minuta-v133-financial-debt-reconciliation.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v133 financial debt reconciliation - $SHA"
+          test_age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$test_age" -ge 0 && test "$test_age" -le 7200
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TEST/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="financial_debt_static" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          jq -e '[.jobs[]|select(.name=="financial_debt_integration" and .conclusion=="success")]|length==1' <<<"$jobs" >/dev/null
+          gh run download "$TEST" -R "$GITHUB_REPOSITORY" -n "v133-financial-attestation-$SHA" -D "$RUNNER_TEMP/v133-evidence/test"
+          jq -e --arg sha "$SHA" --arg run "$TEST" '
+            .status=="success" and .roadmapItem=="D06" and .phase=="v133-isolated-integration" and
+            .commitSha==$sha and .runId==$run and .currentMainVerified==true and .isolatedDatabase==true and
+            .productionWritten==false and
+            .checks==["debt","commission","reconciliation","explainable_ledger","tenant_acl","rollback_guard"]
+          ' "$RUNNER_TEMP/v133-evidence/test/v133-financial-attestation.json" >/dev/null
+
+          check_run "$AUDIT" .github/workflows/minuta-v133-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v133 - audit-production-v133 - $SHA"
+          audit_age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$audit_age" -ge 0 && test "$audit_age" -le 7200
+          gh run download "$AUDIT" -R "$GITHUB_REPOSITORY" -n "v133-audit-$AUDIT" -D "$RUNNER_TEMP/v133-evidence/audit"
+          contract_hash="$(cat minuta-online-booking/supabase-migration-v132.sql minuta-online-booking/supabase-migration-v133.sql | sha256sum | cut -d' ' -f1)"
+          jq -e --arg sha "$SHA" --arg contract "$contract_hash" '
+            .status=="success" and .phase=="audit-production-v133" and .commitSha==$sha and
+            .productionWritten==false and .migrationContractHash==$contract and .state.baseReady and (
+              (.state.v132Mode=="absent" and .state.v133Mode=="absent") or
+              (.state.v132Mode=="full" and .state.v133Mode=="absent") or
+              (.state.v132Mode=="full" and .state.v133Mode=="full")
+            ) and
+            .state.financialRowCounts.financeEnabled==0 and .state.financialRowCounts.debtSettlementSources==0
+          ' "$RUNNER_TEMP/v133-evidence/audit/v133-audit.json" >/dev/null
+
+          check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
+          age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$age" -ge 0 && test "$age" -le 7200
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts")"
+          jq -e '[.artifacts[]|select(.expired==false and .size_in_bytes>0)]|length==1' <<<"$artifacts" >/dev/null
+          artifact="$(jq -r '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name' <<<"$artifacts")"
+          [[ "$artifact" == minuta-* ]]
+          gh run download "$BACKUP" -R "$GITHUB_REPOSITORY" -n "$artifact" -D "$RUNNER_TEMP/v133-evidence/backup"
+          shopt -s nullglob
+          journals=("$RUNNER_TEMP/v133-evidence/backup/"*.json)
+          encrypted=("$RUNNER_TEMP/v133-evidence/backup/"*.dump.gpg)
+          checksums=("$RUNNER_TEMP/v133-evidence/backup/"*.dump.gpg.sha256)
+          test "${#journals[@]}" = 1 && test "${#encrypted[@]}" = 1 && test "${#checksums[@]}" = 1
+          jq -e --arg run "$BACKUP" --arg repo "$GITHUB_REPOSITORY" '
+            .operation=="backup" and .status=="success" and .workflowRunId==$run and .repository==$repo and
+            .encryption=="OpenPGP symmetric AES-256" and .archiveFormat=="PostgreSQL custom" and .archiveEntries>0
+          ' "${journals[0]}" >/dev/null
+          expected="$(jq -r .encryptedSha256 "${journals[0]}")"
+          test "$(sha256sum "${encrypted[0]}" | cut -d' ' -f1)" = "$expected"
+          test "$(tr -d '[:space:]' < "${checksums[0]}")" = "$expected"
+          test "$(stat -c %s "${encrypted[0]}")" = "$(jq -r .encryptedBytes "${journals[0]}")"
+
+          check_run "$RESTORE" .github/workflows/minuta-supabase-restore-drill.yml
+          restore_age=$(( $(date +%s) - $(date -d "$(jq -r .created_at <<<"$run")" +%s) ))
+          test "$restore_age" -ge 0 && test "$restore_age" -le 7200
+          restore_jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RESTORE/jobs?per_page=100")"
+          jq -e '[.jobs[]|select(.name=="ephemeral-restore-drill" and .conclusion=="success")]|length==1' <<<"$restore_jobs" >/dev/null
+          gh run download "$RESTORE" -R "$GITHUB_REPOSITORY" -n "minuta-ephemeral-restore-$RESTORE" -D "$RUNNER_TEMP/v133-evidence/restore"
+          jq -e --arg backup "$BACKUP" --arg sha "$SHA" --arg run "$RESTORE" '
+            .status=="success" and .networkMode=="none" and .ephemeralContainerDestroyed==true and
+            .productionWritten==false and .testDatabaseWritten==false and .sourceBackupRunId==$backup and
+            .sourceBackupSha==$sha and .workflowRunId==$run
+          ' "$RUNNER_TEMP/v133-evidence/restore/minuta-ephemeral-restore.json" >/dev/null
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Apply cumulative v132 then v133 and verify no financial rows created
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          before="$(bash minuta-online-booking/scripts/financial-ledger-v133-production-state.sh "$db")"
+          jq -e '.baseReady and (
+              (.v132Mode=="absent" and .v133Mode=="absent") or
+              (.v132Mode=="full" and .v133Mode=="absent") or
+              (.v132Mode=="full" and .v133Mode=="full")
+            ) and .financialRowCounts.financeEnabled==0 and .financialRowCounts.debtSettlementSources==0' <<<"$before" >/dev/null
+          contract_hash="$(cat minuta-online-booking/supabase-migration-v132.sql minuta-online-booking/supabase-migration-v133.sql | sha256sum | cut -d' ' -f1)"
+          test "$(jq -r .migrationContractHash "$RUNNER_TEMP/v133-evidence/audit/v133-audit.json")" = "$contract_hash"
+          if test "$(jq -r .v132Mode <<<"$before")" = absent; then
+            PGOPTIONS='-c statement_timeout=120000 -c lock_timeout=10000' \
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v132.sql
+            v132_applied=true
+          else
+            v132_applied=false
+          fi
+          middle="$(bash minuta-online-booking/scripts/financial-ledger-v133-production-state.sh "$db")"
+          jq -e '.baseReady and .v132Mode=="full" and (.v133Mode=="absent" or .v133Mode=="full") and
+            .v132HardeningReady and .financialRowCounts.financeEnabled==0 and
+            .financialRowCounts.debtSettlementSources==0' <<<"$middle" >/dev/null
+          jq -e --argjson middle "$middle" '.financialRowCounts==$middle.financialRowCounts' <<<"$before" >/dev/null
+          if test "$(jq -r .v133Mode <<<"$middle")" = absent; then
+            PGOPTIONS='-c statement_timeout=120000 -c lock_timeout=10000' \
+              psql "$db" -X -q -v ON_ERROR_STOP=1 -f minuta-online-booking/supabase-migration-v133.sql
+            v133_applied=true
+          else
+            v133_applied=false
+          fi
+          after="$(bash minuta-online-booking/scripts/financial-ledger-v133-production-state.sh "$db")"
+          jq -e '
+            .baseReady and .v132Mode=="full" and .v133Mode=="full" and
+            .v132HardeningReady and .v133HardeningReady and
+            (.cumulativeSchemaFingerprint|test("^[0-9a-f]{64}$")) and
+            .financialRowCounts.financeEnabled==0 and .financialRowCounts.debtSettlementSources==0
+          ' <<<"$after" >/dev/null
+          jq -e --argjson after "$after" '.financialRowCounts==$after.financialRowCounts' <<<"$before" >/dev/null
+          jq -n --arg sha "$SHA" --arg contract "$contract_hash" --argjson before "$before" --argjson after "$after" \
+            --argjson middle "$middle" --argjson v132Applied "$v132_applied" --argjson v133Applied "$v133_applied" \
+            '{status:"success",phase:"apply-production-v133",commitSha:$sha,migrationContractHash:$contract,
+              before:$before,middle:$middle,after:$after,v132Applied:$v132Applied,v133Applied:$v133Applied,
+              recoveredFromCommittedFull:(($v132Applied|not) and ($v133Applied|not)),financeActivated:false,
+              financialRowsCreated:false,realFinancialTransactionCreated:false}' > "$RUNNER_TEMP/v133-apply.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v133-apply-${{ github.run_id }}", path: "${{ runner.temp }}/v133-apply.json", if-no-files-found: error, retention-days: 90 }
+
+  observe-production-v133:
+    if: inputs.phase == 'observe-production-v133'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    environment: minuta-production
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      PGSSLMODE: require
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: "${{ inputs.commit_sha }}", persist-credentials: false }
+      - name: Verify exact apply attestation and current main
+        env: { APPLY: "${{ inputs.apply_run_id }}", GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}" }
+        run: |
+          set -euo pipefail
+          [[ "$APPLY" =~ ^[0-9]+$ ]]
+          run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$APPLY")"
+          test "$(jq -r .conclusion <<<"$run")" = success
+          test "$(jq -r .head_sha <<<"$run")" = "$SHA"
+          test "$(jq -r .head_branch <<<"$run")" = main
+          test "$(jq -r .event <<<"$run")" = workflow_dispatch
+          test "$(jq -r .path <<<"$run")" = .github/workflows/minuta-v133-safe-release.yml
+          test "$(jq -r .display_title <<<"$run")" = "Minuta v133 - apply-production-v133 - $SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          mkdir -p "$RUNNER_TEMP/v133-observation/apply"
+          gh run download "$APPLY" -R "$GITHUB_REPOSITORY" -n "v133-apply-$APPLY" -D "$RUNNER_TEMP/v133-observation/apply"
+          jq -e --arg sha "$SHA" '
+            .status=="success" and .phase=="apply-production-v133" and .commitSha==$sha and
+            .financeActivated==false and .financialRowsCreated==false and .realFinancialTransactionCreated==false and
+            .after.v132Mode=="full" and .after.v133Mode=="full" and
+            (.after.cumulativeSchemaFingerprint|test("^[0-9a-f]{64}$"))
+          ' "$RUNNER_TEMP/v133-observation/apply/v133-apply.json" >/dev/null
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Observe v133 read-only for the requested interval
+        env: { GH_TOKEN: "${{ github.token }}", SHA: "${{ inputs.commit_sha }}", MINUTES: "${{ inputs.observation_minutes }}" }
+        run: |
+          set -euo pipefail
+          [[ "$MINUTES" = 30 || "$MINUTES" = 60 ]]
+          test "$MINUTA_PRODUCTION_PROJECT_REF" = cawexmmrqjvothcbgjxr
+          [[ "$SUPABASE_DB_URL" == *"$MINUTA_PRODUCTION_PROJECT_REF"* ]]
+          db="$(node minuta-online-booking/scripts/production-db-target-guard.mjs --session-url)"
+          bash minuta-online-booking/scripts/production-db-schema-guard.sh "$db"
+          expected="$(jq -r .after.cumulativeSchemaFingerprint "$RUNNER_TEMP/v133-observation/apply/v133-apply.json")"
+          baseline="$(jq -c .after.financialRowCounts "$RUNNER_TEMP/v133-observation/apply/v133-apply.json")"
+          iterations=$((MINUTES/5))
+          for sample in $(seq 0 "$iterations"); do
+            test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+            state="$(bash minuta-online-booking/scripts/financial-ledger-v133-production-state.sh "$db")"
+            jq -e '.baseReady and .v132Mode=="full" and .v133Mode=="full" and
+              .v132HardeningReady and .v133HardeningReady and
+              .financialRowCounts.financeEnabled==0 and .financialRowCounts.debtSettlementSources==0' <<<"$state" >/dev/null
+            test "$(jq -r .cumulativeSchemaFingerprint <<<"$state")" = "$expected"
+            test "$(jq -c .financialRowCounts <<<"$state")" = "$baseline"
+            if test "$sample" -lt "$iterations"; then sleep 300; fi
+          done
+          jq -n --arg sha "$SHA" --argjson minutes "$MINUTES" --argjson state "$state" \
+            '{status:"success",phase:"observe-production-v133",commitSha:$sha,productionWritten:false,
+              financialRowsCreated:false,realFinancialTransactionCreated:false,observationMinutes:$minutes,state:$state}' \
+            > "$RUNNER_TEMP/v133-observe.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with: { name: "v133-observe-${{ github.run_id }}", path: "${{ runner.temp }}/v133-observe.json", if-no-files-found: error, retention-days: 90 }
