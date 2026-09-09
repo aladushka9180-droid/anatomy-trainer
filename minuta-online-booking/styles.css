@@ -2710,7 +2710,7 @@ html.provider-booting .provider-main {
 .provider-body .inventory-workspace[hidden],.provider-body #inventoryControls[hidden] { display:none; }
 .provider-body .inventory-settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .provider-body .inventory-settings .settings-check { margin:0; padding:13px; border:1px solid var(--theme-line,#dfe7e1); border-radius:13px; background:var(--theme-surface-alt,#f8faf8); }
-.provider-body .inventory-transfer-toggle { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.provider-body .organization-section .inventory-transfer-toggle { grid-column:1/-1; display:flex; grid-template-columns:none; align-items:center; justify-content:space-between; gap:12px; cursor:default; }
 .provider-body .inventory-transfer-toggle>label { display:flex; flex:1 1 auto; align-items:flex-start; min-width:0; gap:10px; cursor:pointer; }
 .provider-body .inventory-transfer-toggle>label span,.provider-body .inventory-transfer-toggle>label strong,.provider-body .inventory-transfer-toggle>label small { display:block; }
 .provider-body .inventory-transfer-toggle>label small { margin-top:3px; color:var(--theme-muted,#718078); }
