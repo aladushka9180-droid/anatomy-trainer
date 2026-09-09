@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-09T13:32:25Z",
+  "updatedAt": "2026-09-09T14:52:00Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -210,7 +210,28 @@
       },
       "blocker": null
     },
-    "D11": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D11": {
+      "status": "awaiting_external",
+      "evidence": {
+        "releaseSha": "b6efbc8fb7cf1cf64744afe37b0584178833a7ef",
+        "releaseVersion": "v661",
+        "ciRuns": {
+          "smoke": 34359497590,
+          "pages": 34359496613,
+          "acquisition_integration": 34359497374
+        },
+        "productionHealthRunId": 34359604264,
+        "verifiedAt": "2026-09-09T14:52:00Z",
+        "checks": {
+          "conversion_attribution": true
+        }
+      },
+      "blocker": {
+        "type": "provider",
+        "reason": "Ссылки Яндекс и Google Карт с раздельной атрибуцией опубликованы и проверены, но реальные кнопки записи в карточках внешних платформ ещё не подключены и контрольными записями не подтверждены.",
+        "requiredAction": "Получить доступный партнёрский способ размещения в Яндекс и Google Картах, опубликовать точные production-ссылки и выполнить по одной контролируемой записи с проверкой конверсии."
+      }
+    },
     "D12": { "status": "not_started", "evidence": {}, "blocker": null },
     "D13": { "status": "implementing", "evidence": {}, "blocker": null },
     "D14": { "status": "not_started", "evidence": {}, "blocker": null },
