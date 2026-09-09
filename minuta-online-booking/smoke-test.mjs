@@ -667,7 +667,7 @@ assert.match(provider, /пересекаются со следующей зап�
 assert.match(provider, /function compactBookingColorPicker/, 'Большой выбор цвета не свёрнут в компактную строку');
 assert.match(provider, /bookingSessionTotal\(item\)/, 'Итоговая сумма состава не используется в карточке и оплате');
 assert.match(providerHtml, /id="reportCompletedValue"/, 'В статистике не показана стоимость состоявшихся визитов');
-assert.match(providerHtml, /class="mobile-settings-shortcut"[\s\S]*data-provider-view="settings"[\s\S]*Стиль, карточки записей, правила, предоплата и пароль/, 'Полные настройки кабинета не вынесены в мобильные разделы');
+assert.match(providerHtml, /class="mobile-settings-shortcut"[\s\S]*data-provider-view="settings"[\s\S]*Оформление, правила и безопасность/, 'Полные настройки кабинета не вынесены в мобильные разделы');
 for (const mobileView of ['bookings', 'clients', 'notifications', 'schedule', 'services', 'organization', 'portfolio', 'analytics', 'waitlist', 'settings']) assert.match(providerHtml, new RegExp(`class="mobile-more-grid"[\\s\\S]*data-provider-view="${mobileView}"`), `В мобильном меню нет раздела ${mobileView}`);
 for (const group of ['Работа', 'Управление', 'Развитие', 'Система']) assert.match(providerHtml, new RegExp(`provider-nav-group-label">${group}`), `В боковом меню нет группы «${group}»`);
 assert.match(providerHtml, /data-calendar-mode="team"[^>]*>Расписание команды</, 'Командный календарь не отличается по названию от управления сотрудниками');
