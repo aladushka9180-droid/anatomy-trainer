@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-09T03:12:30Z",
+  "updatedAt": "2026-09-09T06:49:00Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -96,17 +96,32 @@
       }
     },
     "D06": {
-      "status": "implementing",
+      "status": "done",
       "evidence": {
-        "releaseSha": "80d653ce2b1e2a6f64068006cce4f1a98855d43f",
-        "releaseVersion": "v129-foundation",
+        "releaseSha": "86a2375ce1041f2e3891815fd24789ffc680ac36",
+        "releaseVersion": "v133",
         "ciRuns": {
-          "smoke": 34305226942,
-          "pages": 34305226526,
-          "financial_integration": 34299732904
+          "smoke": 34317742222,
+          "pages": 34317741562,
+          "financial_integration": 34317750536
         },
-        "productionHealthRunId": 34306156752,
-        "verifiedAt": "2026-09-09T03:12:30Z"
+        "productionHealthRunId": 34318406263,
+        "verifiedAt": "2026-09-09T06:48:32Z",
+        "liveChecks": {
+          "390": true,
+          "760": true,
+          "1440": true
+        },
+        "checks": {
+          "cash_accounts": true,
+          "income": true,
+          "expense": true,
+          "debt": true,
+          "commission": true,
+          "suppliers": true,
+          "reconciliation": true,
+          "explainable_ledger": true
+        }
       },
       "blocker": null
     },
