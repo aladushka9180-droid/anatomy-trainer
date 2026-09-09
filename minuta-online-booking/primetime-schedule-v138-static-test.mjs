@@ -14,6 +14,7 @@ assert.match(migration, /x-primetime-upstream-key/);
 assert.match(migration, /primetime_server_credentials/);
 assert.match(migration, /octet_length\(p_requests::text\)>8192/);
 assert.match(migration, /v_count<1 or v_count>12/);
+assert.match(migration, /exception when others then\s+v_invalid:=true/);
 assert.match(migration, /limit 24/);
 assert.match(migration, /row_number\(\) over/);
 assert.match(migration, /when 'evening' then slot\.booking_time>='17:00'::time/);

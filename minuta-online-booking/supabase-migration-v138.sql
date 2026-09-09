@@ -114,23 +114,25 @@ begin
     or coalesce(item->>'location','')!~'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     or coalesce(item->>'service','')!~'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     or coalesce(item->>'period','') not in('any','morning','day','evening')
-    or case when coalesce(item->>'start','')~'^\d{4}-\d{2}-\d{2}$'
-      then to_char(to_date(item->>'start','YYYY-MM-DD'),'YYYY-MM-DD')<>item->>'start'
-      else true end
-    or case when coalesce(item->>'end','')~'^\d{4}-\d{2}-\d{2}$'
-      then to_char(to_date(item->>'end','YYYY-MM-DD'),'YYYY-MM-DD')<>item->>'end'
-      else true end
+    or coalesce(item->>'start','')!~'^\d{4}-\d{2}-\d{2}$'
+    or coalesce(item->>'end','')!~'^\d{4}-\d{2}-\d{2}$'
   ),false) into v_invalid from jsonb_array_elements(p_requests) item;
   if v_invalid then
     raise exception using errcode='22023',message='invalid_primetime_schedule_scope';
   end if;
 
-  select coalesce(bool_or(
-    (item->>'start')::date<current_date
-    or (item->>'end')::date<(item->>'start')::date
-    or (item->>'end')::date>current_date+8
-    or (item->>'end')::date-(item->>'start')::date>8
-  ),false) into v_invalid from jsonb_array_elements(p_requests) item;
+  begin
+    select coalesce(bool_or(
+      (item->>'start')::date::text<>item->>'start'
+      or (item->>'end')::date::text<>item->>'end'
+      or (item->>'start')::date<current_date
+      or (item->>'end')::date<(item->>'start')::date
+      or (item->>'end')::date>current_date+8
+      or (item->>'end')::date-(item->>'start')::date>8
+    ),false) into v_invalid from jsonb_array_elements(p_requests) item;
+  exception when others then
+    v_invalid:=true;
+  end;
   if v_invalid or (
     select count(distinct item->>'key')<>v_count
     from jsonb_array_elements(p_requests) item
