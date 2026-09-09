@@ -45,6 +45,8 @@ try {
     analytics.dataset.reportSource = 'own';
     document.querySelector('#reportDataSource').hidden = false;
     document.querySelector('#reportComparison').hidden = false;
+    document.querySelector('#reportUtmFunnelState').hidden = false;
+    document.querySelector('#reportUtmFunnelState').textContent = 'За этот период пока нет данных о переходах. Они появятся после посещений страницы записи.';
     const values = {
       reportFilterSummary:'30 дней · Вся команда', reportPeriodLabel:'10 августа — 8 сентября 2026 · Вся команда',
       reportCommandNarrative:'Поступления выросли. У трёх визитов нужно уточнить результат.', reportHeroRevenue:'191 100 ₽',
@@ -101,6 +103,12 @@ try {
         const detailsClosed = ![...document.querySelectorAll('.report-period-details,.report-analytics-details')].some(element => element.open);
         const analyticsDetails = document.querySelector('.report-analytics-details');
         analyticsDetails.open = true;
+        const utmCard = document.querySelector('#reportUtmFunnelCard');
+        const utmState = document.querySelector('#reportUtmFunnelState');
+        const comparison = document.querySelector('#reportComparison');
+        const comparisonList = comparison.querySelector('.report-comparison-list');
+        const comparisonCards = [...comparisonList.children];
+        const within = (child, parent) => child.getBoundingClientRect().right <= parent.getBoundingClientRect().right + 2;
         const heatmap = document.querySelector('#reportHeatmap');
         const heatColors = [...heatmap.querySelectorAll('.report-heatmap-cell')].map(element => getComputedStyle(element).backgroundColor);
         const visualGrid = document.querySelector('.report-visual-grid');
@@ -135,6 +143,9 @@ try {
           visibleKpis:[...document.querySelectorAll('.report-command-metrics > article')].filter(visible).length,
           visibleActions:[...document.querySelectorAll('#reportSmartActions > .report-smart-action')].filter(visible).length,
           detailsClosed,
+          utmOverflow:utmCard.scrollWidth > utmCard.clientWidth + 1 || utmState.scrollWidth > utmState.clientWidth + 1 || !within(utmState, utmCard),
+          comparisonOverflow:comparison.scrollWidth > comparison.clientWidth + 1 || comparisonList.scrollWidth > comparisonList.clientWidth + 1 || comparisonCards.some(card => !within(card, comparisonList)),
+          comparisonTracks:getComputedStyle(comparisonList).gridTemplateColumns.split(' ').length,
           visualGridOverflow,
           funnelOverflow,
           heatmapOverflow,
@@ -159,7 +170,8 @@ try {
       });
       const expectedChartHeight = width <= 760 ? 168 : 210;
       const expectedSummaryTracks = width <= 760 ? 2 : 3;
-      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || metrics.chartLabelOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
+      const expectedComparisonTracks = width <= 760 ? 2 : 4;
+      if (metrics.pageOverflow || metrics.panelOverflow || metrics.overflowing.length || !metrics.demoVisible || metrics.visibleKpis !== 3 || metrics.visibleActions !== 1 || !metrics.detailsClosed || metrics.utmOverflow || metrics.comparisonOverflow || metrics.comparisonTracks !== expectedComparisonTracks || metrics.visualGridOverflow || metrics.funnelOverflow || metrics.heatmapOverflow || !metrics.heatLegendVisible || metrics.heatColorSteps !== 4 || metrics.heatButtons !== 3 || !metrics.heatHint || metrics.trendOverflow || metrics.chartHeight !== expectedChartHeight || metrics.defaultChartOverflow || metrics.chartLabelOverflow || !metrics.chartTracksTransparent || metrics.trendDetailOverflow || metrics.trendActionTooWide || metrics.trendCopyTooNarrow || metrics.summaryOverflow || metrics.summaryLabels.join('|') !== 'Стоимость оказанных услуг|Оплата не указана|Подтверждённый долг' || metrics.summaryTracks !== expectedSummaryTracks) {
         failures.push({ width, theme, ...metrics });
       }
       if (output && theme === 'warm') await page.locator('.report-trend').screenshot({ path:path.join(output, `weekly-revenue-${width}.png`) });
