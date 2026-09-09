@@ -166,6 +166,7 @@ select set_config('minuta.v136.accrual_replay',public.accrue_minuta_payroll_peri
   current_setting('minuta.v136.accrual_request')::uuid
 )::text,true);
 
+reset role;
 do $auto_accrual_exactly_once$
 begin
   if (current_setting('minuta.v136.accrual')::jsonb-'replayed')
@@ -179,6 +180,7 @@ begin
 end
 $auto_accrual_exactly_once$;
 
+set local role authenticated;
 select set_config('minuta.v136.offset',public.offset_minuta_payroll_advance_v136(
   current_setting('minuta.v136.org')::uuid,
   (current_setting('minuta.v136.advance')::jsonb->>'source_id')::uuid,
