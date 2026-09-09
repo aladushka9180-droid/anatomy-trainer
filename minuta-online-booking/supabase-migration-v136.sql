@@ -493,10 +493,6 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(p_organization::text||':'||p_request_id::text,129));
   v_actor:=public.require_minuta_payroll_ledger_manager_v136(p_organization,false);
   perform public.assert_minuta_payroll_ledger_enabled_v136(p_organization);
-  select * into v_period from public.payroll_periods period
-    where period.id=p_period and period.organization_id=p_organization for update;
-  if v_period.id is null then raise exception using errcode='P0002',message='payroll_period_not_found'; end if;
-
   select * into v_existing from public.financial_payroll_accrual_sources source
     where source.organization_id=p_organization and source.request_id=p_request_id for update;
   if found then
@@ -516,6 +512,10 @@ begin
       'organization_id',p_organization,'period_id',p_period,'amount_minor',v_existing.amount_minor,
       'breakdown',v_existing.breakdown,'request_id',p_request_id,'replayed',true);
   end if;
+
+  select * into v_period from public.payroll_periods period
+    where period.id=p_period and period.organization_id=p_organization for update;
+  if v_period.id is null then raise exception using errcode='P0002',message='payroll_period_not_found'; end if;
 
   with performers as (
     select item.performer_id from public.payroll_items item where item.period_id=p_period
