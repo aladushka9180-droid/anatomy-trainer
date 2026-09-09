@@ -75,7 +75,7 @@ assert.match(read('theme-catalog.js'), /window\.MinutaThemeCatalog/, 'совме
 assert.match(read('app.js'), /book_minuta_appointment/, 'совместимый RPC должен сохраниться');
 
 const worker = read('sw.js');
-assert.match(worker, /CACHE_PREFIX\}v659/);
+assert.match(worker, /CACHE_PREFIX\}v660/);
 assert.match(worker, /provider\.webmanifest\?v=660/);
 assert.match(worker, /provider-icon\.svg/);
 assert.match(worker, /provider-og\.png/);
