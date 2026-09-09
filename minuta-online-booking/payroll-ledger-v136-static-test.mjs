@@ -24,7 +24,7 @@ for (const rpc of [
 
 assert.match(migration, /record_minuta_payroll_adjustment_v136[\s\S]*p_kind text[\s\S]*bonus[\s\S]*deduction/i);
 assert.match(migration, /grant execute on function public\.set_minuta_payroll_period_status\(uuid,uuid,text\) to authenticated/i);
-assert.match(migration, /grant select on public\.payroll_items to authenticated/i);
+assert.match(migration, /grant select on public\.organization_payroll_settings[\s\S]*public\.payroll_items[\s\S]*to authenticated/i);
 assert.match(migration, /pay_minuta_payroll_debt_v136\(\s*p_organization uuid,\s*p_accrual_source uuid,\s*p_performer uuid,\s*p_cash_or_bank_account uuid,\s*p_amount_minor bigint,\s*p_request_id uuid\s*\)/i);
 assert.match(migration, /p_request_id uuid/i);
 assert.match(migration, /pg_advisory_xact_lock/i);

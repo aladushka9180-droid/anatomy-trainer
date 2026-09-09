@@ -1327,7 +1327,9 @@ grant execute on function public.offset_minuta_payroll_advance_v136(uuid,uuid,uu
 grant execute on function public.reverse_minuta_payroll_transaction_v136(uuid,uuid,uuid,text) to authenticated;
 grant execute on function public.get_minuta_payroll_ledger_workspace_v136(uuid,date,date) to authenticated;
 grant execute on function public.set_minuta_payroll_period_status(uuid,uuid,text) to authenticated;
-grant select on public.payroll_items to authenticated;
+grant select on public.organization_payroll_settings,public.payroll_plans,
+  public.payroll_plan_tiers,public.payroll_periods,public.payroll_period_plan_snapshots,
+  public.payroll_items,public.payroll_adjustments,public.payroll_audit_log to authenticated;
 
 notify pgrst,'reload schema';
 commit;
