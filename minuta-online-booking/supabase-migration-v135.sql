@@ -7,10 +7,11 @@ set local search_path=public,extensions,pg_catalog;
 do $guard$
 begin
   if to_regclass('public.organization_client_profiles') is null
-     or to_regprocedure('public.get_minuta_client_profile_v119(uuid,text)') is null
-     or to_regprocedure('public.set_minuta_client_online_booking_block_v119(uuid,text,boolean)') is null
+     or to_regprocedure('public.normalize_client_phone(text)') is null
+     or to_regprocedure('public.is_organization_member(uuid)') is null
+     or to_regprocedure('public.has_organization_role(uuid,text[])') is null
      or to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is null then
-    raise exception using errcode='55000',message='v135_requires_v119_client_profiles_and_v134_identity';
+    raise exception using errcode='55000',message='v135_requires_client_profiles_and_v134_identity';
   end if;
 end
 $guard$;
