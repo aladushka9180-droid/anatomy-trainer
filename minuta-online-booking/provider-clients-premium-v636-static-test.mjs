@@ -33,10 +33,10 @@ assert.match(css, /\.client-list-avatar-orbit\.has-photo[\s\S]*--client-level-to
 assert.match(css, /@media \(max-width:760px\)/);
 assert.match(css, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 
-assert.match(worker, /CACHE_PREFIX}v654/);
+assert.match(worker, /CACHE_PREFIX}v655/);
 assert.match(worker, /assetResponse\(request\)[\s\S]*caches\.open\(CACHE\)\)\.put\(request, response\.clone\(\)\)/, 'Secondary client assets must enter the runtime cache after their first online load');
 
 const relationshipCard = html.slice(html.indexOf('id="clientMilestoneCard"'), html.indexOf('id="clientBirthdayInfo"'));
 assert.ok(!/Скидка\s*\d|бесплатн(?:ый|ая)\s+(?:сеанс|услуг)/i.test(relationshipCard), 'The relationship UI must not promise rewards that were not configured');
 
-console.log('Provider clients premium v654 static checks: PASS');
+console.log('Provider clients premium v655 static checks: PASS');

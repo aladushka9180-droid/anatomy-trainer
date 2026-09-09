@@ -371,7 +371,7 @@ const clientLabelSaveQueues = new Map();
 let selectedClientPhone = '';
 let clientProfileReturnContext = null;
 let activeClientOrganizationId = '';
-let clientProfileDetailsState = { phone:'', birthday:'', onlineBookingBlocked:false, canEdit:false, canManageBlock:false, available:false };
+let clientProfileDetailsState = { phone:'', birthday:'', onlineBookingBlocked:false, onlineBookingBlockReason:'', supportsBlockReason:false, canEdit:false, canManageBlock:false, available:false };
 let clientProfileDetailsLoadRevision = 0;
 let bookingEditTime = '';
 let bookingEditSlots = [];
@@ -9633,6 +9633,8 @@ function normalizedClientProfileDetails(value = {}, fallbackBirthday = '') {
     phone:normalizePhone(value?.client_phone || selectedClientPhone),
     birthday,
     onlineBookingBlocked:Boolean(value?.online_booking_blocked),
+    onlineBookingBlockReason:String(value?.online_booking_block_reason || '').trim(),
+    supportsBlockReason:Boolean(value?.supports_block_reason),
     canEdit:Boolean(value?.can_edit),
     canManageBlock:Boolean(value?.can_manage_block),
     available:Boolean(value?.available)
@@ -9653,18 +9655,17 @@ function renderClientProfileDetails(client, state = clientProfileDetailsState) {
   const contactButton = $('#clientContactButton');
   if (contactButton) contactButton.disabled = !digits;
   const moreButton = $('#clientMoreButton');
-  if (moreButton) moreButton.hidden = !state.available;
+  if (moreButton) moreButton.hidden = !state.available || (!state.canEdit && !state.canManageBlock);
   $('#clientContactPhone').textContent = displayPhone;
   $('#clientCallLink').href = digits ? `tel:${digits}` : '#';
   $('#clientWhatsappLink').href = digits ? `https://wa.me/${digits}` : '#';
   $('#clientTelegramLink').href = digits ? `tg://resolve?phone=${digits}` : '#';
   const birthdayText = clientBirthdayLabel(state.birthday);
-  $('#clientBirthdayInfo').hidden = !birthdayText;
-  $('#clientBirthdayDisplay').textContent = birthdayText;
+  $('#clientBirthdayInfo').hidden = !state.available || (!birthdayText && !state.canEdit);
+  $('#clientBirthdayDisplay').textContent = birthdayText || 'Не указано';
   $('#clientBirthdayEdit').hidden = !state.canEdit;
-  $('#clientBirthdayAction').hidden = !state.available || !state.canEdit;
+  $('#clientBirthdayEdit').textContent = birthdayText ? 'Изменить' : 'Указать';
   $('#clientIdentityAction').hidden = !state.available || !state.canEdit;
-  $('#clientBirthdayActionHint').textContent = birthdayText || 'Указать дату';
   $('#clientBirthdayInput').value = state.birthday;
   $('#clientBirthdayInput').max = businessTodayIso();
   const blocked = state.onlineBookingBlocked;
@@ -9673,7 +9674,11 @@ function renderClientProfileDetails(client, state = clientProfileDetailsState) {
   blockAction.hidden = !state.available || !state.canManageBlock;
   blockAction.classList.toggle('is-unblock', blocked);
   blockAction.querySelector('span').textContent = blocked ? 'Разблокировать онлайн-запись' : 'Заблокировать онлайн-запись';
-  blockAction.querySelector('small').textContent = blocked ? 'Клиент снова сможет записываться сам' : 'Только для этой организации';
+  $('#clientRestrictions').hidden = !state.available || !state.canManageBlock;
+  $('#clientBlockStatus').textContent = blocked ? 'Онлайн-запись заблокирована' : 'Онлайн-запись разрешена';
+  const reasonSummary = $('#clientBlockReasonSummary');
+  reasonSummary.hidden = !blocked || !state.onlineBookingBlockReason;
+  reasonSummary.textContent = state.onlineBookingBlockReason ? `Причина: ${state.onlineBookingBlockReason}` : '';
 }
 
 async function loadClientProfileDetails(client) {
@@ -9685,13 +9690,18 @@ async function loadClientProfileDetails(client) {
   const generation = sessionGeneration;
   const organizationId = activeClientOrganizationId;
   if (!userId || !organizationId || !client.phone) return;
-  const { data, error } = await db.rpc('get_minuta_client_profile_v119', { p_organization:organizationId, p_client_phone:client.phone });
+  let { data, error } = await db.rpc('get_minuta_client_profile_v135', { p_organization:organizationId, p_client_phone:client.phone });
+  let supportsBlockReason = !error;
+  if (error && isMissingRpc(error, 'get_minuta_client_profile_v135')) {
+    ({ data, error } = await db.rpc('get_minuta_client_profile_v119', { p_organization:organizationId, p_client_phone:client.phone }));
+    supportsBlockReason = false;
+  }
   if (revision !== clientProfileDetailsLoadRevision || !sessionIsCurrent(userId, generation) || selectedClientPhone !== client.phone || activeClientOrganizationId !== organizationId) return;
   if (error) {
     if (!isMissingRpc(error, 'get_minuta_client_profile_v119')) console.warn('Client profile details unavailable:', error.message);
     return;
   }
-  clientProfileDetailsState = normalizedClientProfileDetails({ ...data, available:true }, fallback.birthday);
+  clientProfileDetailsState = normalizedClientProfileDetails({ ...data, supports_block_reason:supportsBlockReason, available:true }, fallback.birthday);
   renderClientProfileDetails(client, clientProfileDetailsState);
 }
 
@@ -9859,6 +9869,15 @@ function openClientBlockConfirmation() {
   const confirmButton = $('#clientBlockConfirm');
   confirmButton.textContent = blocked ? 'Разблокировать' : 'Заблокировать';
   confirmButton.classList.toggle('is-unblock', blocked);
+  const reasonField = $('#clientBlockReasonField');
+  const reasonInput = $('#clientBlockReason');
+  const existingReason = $('#clientBlockExistingReason');
+  reasonField.hidden = blocked || !clientProfileDetailsState.supportsBlockReason;
+  reasonInput.value = '';
+  existingReason.hidden = !blocked || !clientProfileDetailsState.onlineBookingBlockReason;
+  existingReason.textContent = clientProfileDetailsState.onlineBookingBlockReason
+    ? `Причина блокировки: ${clientProfileDetailsState.onlineBookingBlockReason}`
+    : '';
   $('#clientBlockDialog').showModal();
 }
 
@@ -9869,9 +9888,18 @@ async function confirmClientOnlineBlock() {
   const blocked = !clientProfileDetailsState.onlineBookingBlocked;
   const button = $('#clientBlockConfirm');
   button.disabled = true;
-  const { data, error } = await db.rpc('set_minuta_client_online_booking_block_v119', {
-    p_organization:organizationId,p_client_phone:phone,p_blocked:blocked
-  });
+  const reason = blocked ? String($('#clientBlockReason')?.value || '').trim() : '';
+  let data;
+  let error;
+  if (clientProfileDetailsState.supportsBlockReason) {
+    ({ data, error } = await db.rpc('set_minuta_client_online_booking_block_v135', {
+      p_organization:organizationId,p_client_phone:phone,p_blocked:blocked,p_reason:reason || null
+    }));
+  } else {
+    ({ data, error } = await db.rpc('set_minuta_client_online_booking_block_v119', {
+      p_organization:organizationId,p_client_phone:phone,p_blocked:blocked
+    }));
+  }
   button.disabled = false;
   if (error) { notify('Не удалось изменить блокировку'); return; }
   clientProfileDetailsState = normalizedClientProfileDetails({ ...clientProfileDetailsState, ...data, available:true });

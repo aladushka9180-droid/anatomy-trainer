@@ -75,10 +75,10 @@ assert.match(read('theme-catalog.js'), /window\.MinutaThemeCatalog/, 'совме
 assert.match(read('app.js'), /book_minuta_appointment/, 'совместимый RPC должен сохраниться');
 
 const worker = read('sw.js');
-assert.match(worker, /CACHE_PREFIX\}v654/);
+assert.match(worker, /CACHE_PREFIX\}v655/);
 assert.match(worker, /provider\.webmanifest\?v=654/);
 assert.match(worker, /provider-icon\.svg/);
 assert.match(worker, /provider-og\.png/);
 assert.match(provider, /provider\.js\?v=654/);
 
-console.log(`PrimeTime Pro brand v654: PASS (${publicBrandFiles.length} public text surfaces)`);
+console.log(`PrimeTime Pro brand v655: PASS (${publicBrandFiles.length} public text surfaces)`);

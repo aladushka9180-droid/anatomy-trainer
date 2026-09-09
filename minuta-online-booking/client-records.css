@@ -93,35 +93,48 @@
 .client-profile-primary-actions:has(.client-more-action[hidden]) { grid-template-columns:minmax(0,1.35fr) minmax(108px,.65fr); }
 .client-profile-primary-actions .client-more-action { gap:5px; padding-inline:10px; }
 .client-profile-primary-actions .client-more-action .ui-icon { width:16px; height:16px; }
-.client-birthday-info { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:50px; padding:11px 2px; border-bottom:1px solid var(--theme-line,var(--line)); }
+.client-birthday-info { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:10px; min-height:54px; margin-top:10px; padding:8px 10px; border:1px solid var(--theme-line,var(--line)); border-radius:13px; background:color-mix(in srgb,var(--theme-surface-alt,var(--soft)) 58%,transparent); }
+.client-birthday-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:color-mix(in srgb,var(--theme-accent,var(--green)) 9%,transparent); color:var(--theme-accent,var(--green)); }
+.client-birthday-icon .ui-icon { width:17px; height:17px; }
 .client-birthday-info small,.client-birthday-info strong { display:block; }
 .client-birthday-info small { color:var(--theme-muted,var(--muted)); font-size:8px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .client-birthday-info strong { margin-top:3px; font-size:12px; }
-.client-birthday-info button { min-height:36px; padding:0 8px; border:0; background:transparent; color:var(--theme-accent,var(--green)); cursor:pointer; font:750 10px/1 inherit; }
-.client-profile-dialog { width:min(430px,calc(100% - 28px)); max-height:calc(100dvh - 28px); padding:20px; overflow:auto; border:1px solid var(--theme-line,var(--line)); border-radius:20px; background:var(--theme-surface,var(--white)); color:var(--theme-ink,var(--ink)); box-shadow:0 24px 70px color-mix(in srgb,var(--theme-shadow,rgba(25,55,40,.22)) 72%,transparent); }
+.client-birthday-info button { min-height:38px; padding:0 10px; border:0; border-radius:9px; background:transparent; color:var(--theme-accent,var(--green)); cursor:pointer; font:750 10px/1 inherit; }
+.client-profile-dialog { width:min(390px,calc(100% - 28px)); max-height:calc(100dvh - 28px); padding:18px; overflow:auto; border:1px solid var(--theme-line,var(--line)); border-radius:18px; background:var(--theme-surface,var(--white)); color:var(--theme-ink,var(--ink)); box-shadow:0 24px 70px color-mix(in srgb,var(--theme-shadow,rgba(25,55,40,.22)) 72%,transparent); }
 .client-profile-dialog::backdrop { background:rgba(10,22,16,.42); backdrop-filter:blur(4px); }
 .client-profile-dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
 .client-profile-dialog-head small { display:block; color:var(--theme-muted,var(--muted)); font-size:8px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .client-profile-dialog-head h3 { margin:4px 0 0; font-size:20px; line-height:1.2; }
-.client-profile-dialog-head>button { display:grid; place-items:center; flex:0 0 44px; width:44px; min-height:44px; margin:-8px -8px 0 0; padding:0; border:0; border-radius:50%; background:transparent; color:inherit; cursor:pointer; font:400 25px/1 inherit; }
+.client-profile-dialog-head>button { display:grid; place-items:center; flex:0 0 48px; width:48px; min-height:48px; margin:-9px -9px 0 0; padding:0; border:0; border-radius:50%; background:transparent; color:inherit; cursor:pointer; font:400 28px/1 inherit; }
 .client-profile-dialog-phone { margin:12px 0 0; color:var(--theme-muted,var(--muted)); font-size:13px; }
-.client-contact-options,.client-more-options { display:grid; gap:7px; margin-top:18px; }
+.client-contact-options,.client-more-options { display:grid; gap:7px; margin-top:16px; }
 .client-contact-options :is(a,button),.client-more-options button { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:48px; margin:0; padding:0 14px; border:1px solid var(--theme-line,var(--line)); border-radius:12px; background:var(--theme-surface-alt,var(--soft)); color:var(--theme-ink,var(--ink)); cursor:pointer; font:750 13px/1.25 inherit; text-align:left; text-decoration:none; }
 .client-more-options button { align-items:flex-start; flex-direction:column; justify-content:center; gap:3px; }
 .client-more-options button small { color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:600; }
-.client-more-options .client-block-action { border-color:color-mix(in srgb,#b94b42 22%,var(--theme-line,var(--line))); background:transparent; color:#a7433d; }
-.client-more-options .client-block-action.is-unblock { border-color:var(--theme-line,var(--line)); color:var(--theme-accent,var(--green)); }
+.client-restrictions { margin-top:14px; padding:13px; border:1px solid var(--theme-line,var(--line)); border-radius:13px; background:color-mix(in srgb,var(--theme-surface-alt,var(--soft)) 60%,transparent); }
+.client-restrictions-head { display:grid; grid-template-columns:34px minmax(0,1fr); align-items:center; gap:10px; }
+.client-restrictions-head strong,.client-restrictions-head small { display:block; }
+.client-restrictions-head strong { font-size:13px; }
+.client-restrictions-head small { margin-top:3px; color:var(--theme-muted,var(--muted)); font-size:9px; }
+.client-restrictions-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:color-mix(in srgb,var(--theme-muted,var(--muted)) 10%,transparent); color:var(--theme-muted,var(--muted)); }
+.client-restrictions-icon .ui-icon { width:16px; height:16px; }
+.client-restrictions .client-block-action { width:auto; min-height:40px; margin:12px 0 0; padding:0 12px; border:1px solid #a7433d; border-radius:10px; background:#a7433d; color:#fff; cursor:pointer; font:800 10px/1.2 inherit; }
+.client-restrictions .client-block-action.is-unblock { border-color:var(--theme-line,var(--line)); background:var(--theme-surface,var(--white)); color:var(--theme-accent,var(--green)); }
+.client-block-reason-summary,.client-block-existing-reason { margin:9px 0 0; color:var(--theme-muted,var(--muted)); font-size:10px; line-height:1.45; }
 .client-birthday-dialog label,.client-identity-dialog label { display:grid; gap:7px; margin-top:18px; font-size:11px; font-weight:750; }
 .client-birthday-dialog input,.client-identity-dialog input { box-sizing:border-box; width:100%; min-height:46px; padding:0 12px; border:1px solid var(--theme-line,var(--line)); border-radius:12px; background:var(--theme-surface,var(--white)); color:inherit; font:inherit; }
 .client-identity-fields { display:grid; gap:0; }
 .client-identity-note { margin:12px 0 0; color:var(--theme-muted,var(--muted)); font-size:10px; line-height:1.45; }
 .client-identity-dialog .form-error { margin:10px 0 0; }
 .client-block-dialog>p { margin:16px 0 0; color:var(--theme-muted,var(--muted)); font-size:12px; line-height:1.55; }
+.client-block-reason { display:grid; gap:7px; margin-top:14px; font-size:11px; font-weight:750; }
+.client-block-reason>span { color:var(--theme-muted,var(--muted)); font-size:9px; font-weight:600; }
+.client-block-reason textarea { box-sizing:border-box; width:100%; min-height:76px; resize:vertical; padding:10px 12px; border:1px solid var(--theme-line,var(--line)); border-radius:11px; background:var(--theme-surface,var(--white)); color:inherit; font:inherit; line-height:1.4; }
 .client-profile-dialog-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:20px; }
 .client-profile-dialog-actions button { width:100%; min-height:44px; margin:0; }
 .client-block-confirm { border:1px solid #a7433d; border-radius:11px; background:#a7433d; color:#fff; cursor:pointer; font:800 11px/1 inherit; }
 .client-block-confirm.is-unblock { border-color:var(--theme-accent,var(--green)); background:var(--theme-accent,var(--green)); color:var(--theme-accent-contrast,#fff); }
-.client-profile-dialog :is(button,a,input):focus-visible,.client-profile-contact button:focus-visible,.client-birthday-info button:focus-visible { outline:2px solid var(--theme-accent,var(--green)); outline-offset:2px; }
+.client-profile-dialog :is(button,a,input,textarea):focus-visible,.client-profile-contact button:focus-visible,.client-birthday-info button:focus-visible { outline:2px solid var(--theme-accent,var(--green)); outline-offset:2px; }
 
 @media (max-width:760px) {
   body.client-profile-detail-open [data-provider-panel="clients"]>.view-title,

@@ -303,7 +303,7 @@
                   <div class="client-profile-primary-actions" aria-label="Действия с клиентом">
                     <button class="primary client-quick-repeat" id="clientQuickRepeat" type="button" data-quick-repeat-client><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-plus"></use></svg><span>Записать клиента</span></button>
                     <button class="secondary-button" id="clientContactButton" type="button" aria-haspopup="dialog"><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-telegram"></use></svg><span>Связаться</span></button>
-                    <button class="secondary-button client-more-action" id="clientMoreButton" type="button" aria-haspopup="dialog" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Ещё</span></button>
+                    <button class="secondary-button client-more-action" id="clientMoreButton" type="button" aria-haspopup="dialog" aria-label="Дополнительно" hidden><svg class="ui-icon" aria-hidden="true"><use href="ui-icons.svg#icon-more"></use></svg><span>Дополнительно</span></button>
                   </div>
                 </div>
                 <div data-contextual-help data-help-label="Что есть в карточке?" data-help-slug="client-card-notes-and-labels" data-help-question="Объясни данные карточки клиента, метки, заметки, историю, приватные материалы и блокировку онлайн-записи."></div>
@@ -322,7 +322,7 @@
                   <span aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-alert"></use></svg></span>
                   <div><strong id="clientReliabilityTitle">Обратите внимание</strong><small id="clientReliabilityText"></small></div>
                 </section>
-                <section class="client-birthday-info" id="clientBirthdayInfo" hidden><div><small>День рождения</small><strong id="clientBirthdayDisplay"></strong></div><button id="clientBirthdayEdit" type="button">Изменить</button></section>
+                <section class="client-birthday-info" id="clientBirthdayInfo" hidden><span class="client-birthday-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-calendar"></use></svg></span><div><small>День рождения</small><strong id="clientBirthdayDisplay">Не указано</strong></div><button id="clientBirthdayEdit" type="button">Указать</button></section>
                 <p class="client-debt-status" id="clientDebtStatus" hidden>Подтверждённый долг по завершённым визитам <strong id="clientDebt">0 ₽</strong></p>
                 <nav class="client-profile-tabs" role="tablist" aria-label="Разделы карточки клиента">
                   <button id="clientProfileTabHistory" type="button" role="tab" class="is-active" data-client-profile-jump="history" aria-selected="true" aria-controls="clientProfilePanelHistory" tabindex="0">История</button>
@@ -398,12 +398,15 @@
                   </div>
                 </dialog>
                 <dialog class="client-profile-dialog client-more-dialog" id="clientMoreDialog" aria-labelledby="clientMoreTitle">
-                  <div class="client-profile-dialog-head"><div><small>Карточка клиента</small><h3 id="clientMoreTitle">Ещё</h3></div><button type="button" data-close-client-dialog aria-label="Закрыть">×</button></div>
+                  <div class="client-profile-dialog-head"><div><small>Карточка клиента</small><h3 id="clientMoreTitle">Дополнительно</h3></div><button type="button" data-close-client-dialog aria-label="Закрыть">×</button></div>
                   <div class="client-more-options">
                     <button id="clientIdentityAction" type="button"><span>Имя и телефон</span><small>Изменить данные клиента</small></button>
-                    <button id="clientBirthdayAction" type="button"><span>День рождения</span><small id="clientBirthdayActionHint">Указать дату</small></button>
-                    <button class="client-block-action" id="clientBlockAction" type="button"><span>Заблокировать онлайн-запись</span><small>Только для этой организации</small></button>
                   </div>
+                  <section class="client-restrictions" id="clientRestrictions" aria-labelledby="clientRestrictionsTitle" hidden>
+                    <div class="client-restrictions-head"><span class="client-restrictions-icon" aria-hidden="true"><svg class="ui-icon"><use href="ui-icons.svg#icon-lock"></use></svg></span><div><strong id="clientRestrictionsTitle">Ограничения</strong><small id="clientBlockStatus">Онлайн-запись разрешена</small></div></div>
+                    <button class="client-block-action" id="clientBlockAction" type="button"><span>Заблокировать онлайн-запись</span></button>
+                    <p class="client-block-reason-summary" id="clientBlockReasonSummary" hidden></p>
+                  </section>
                 </dialog>
                 <dialog class="client-profile-dialog client-identity-dialog" id="clientIdentityDialog" aria-labelledby="clientIdentityTitle">
                   <form id="clientIdentityForm">
@@ -427,6 +430,8 @@
                 <dialog class="client-profile-dialog client-block-dialog" id="clientBlockDialog" aria-labelledby="clientBlockTitle">
                   <div class="client-profile-dialog-head"><div><small>Онлайн-запись</small><h3 id="clientBlockTitle">Заблокировать клиента?</h3></div><button type="button" data-close-client-dialog aria-label="Закрыть">×</button></div>
                   <p id="clientBlockDescription">Клиент не сможет самостоятельно записаться в эту организацию. История и данные сохранятся, а сотрудник сможет создать запись вручную.</p>
+                  <label class="client-block-reason" id="clientBlockReasonField">Причина <span>необязательно</span><textarea id="clientBlockReason" maxlength="500" rows="3" placeholder="Например, несколько записей без посещения"></textarea></label>
+                  <p class="client-block-existing-reason" id="clientBlockExistingReason" hidden></p>
                   <div class="client-profile-dialog-actions"><button class="secondary-button" type="button" data-close-client-dialog>Отмена</button><button class="client-block-confirm" id="clientBlockConfirm" type="button">Заблокировать</button></div>
                 </dialog>
               </div>

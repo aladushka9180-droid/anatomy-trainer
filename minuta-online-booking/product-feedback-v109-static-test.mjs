@@ -41,7 +41,7 @@ assert.match(feedback, /db\.storage\.from\(BUCKET\)\.remove\(\[screenshotPath\]\
 assert.doesNotMatch(feedback, /navigator\.userAgent\b/);
 assert.doesNotMatch(feedback, /location\.(search|hash)/);
 
-assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v654`/);
+assert.match(worker, /CACHE = `\$\{CACHE_PREFIX\}v655`/);
 assert.match(worker, /'\.\/provider-feedback\.js\?v=654'/);
 
 for (const command of [
