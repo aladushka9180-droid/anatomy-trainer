@@ -14,7 +14,6 @@ begin
   if to_regclass('public.client_record_entries') is null then v_missing:=array_append(v_missing,'client_record_entries'); end if;
   if to_regclass('public.client_result_series') is null then v_missing:=array_append(v_missing,'client_result_series'); end if;
   if to_regclass('public.client_notes') is null then v_missing:=array_append(v_missing,'client_notes'); end if;
-  if to_regclass('public.client_labels') is null then v_missing:=array_append(v_missing,'client_labels'); end if;
   if to_regclass('public.client_avatars') is null then v_missing:=array_append(v_missing,'client_avatars'); end if;
   if to_regprocedure('public.normalize_client_phone(text)') is null then v_missing:=array_append(v_missing,'normalize_client_phone'); end if;
   if to_regprocedure('public.is_organization_member(uuid)') is null then v_missing:=array_append(v_missing,'is_organization_member'); end if;
@@ -82,10 +81,17 @@ begin
 
   if v_new_phone<>v_old_phone and (
     exists(select 1 from public.client_notes note where note.performer_id=v_actor and note.client_phone=v_new_phone)
-    or exists(select 1 from public.client_labels label_row where label_row.performer_id=v_actor and label_row.client_phone=v_new_phone)
     or exists(select 1 from public.client_avatars avatar where avatar.performer_id=v_actor and avatar.client_phone=v_new_phone)
   ) then
     raise exception using errcode='23505',message='client_metadata_conflict';
+  end if;
+  if v_new_phone<>v_old_phone and to_regclass('public.client_labels') is not null then
+    if exists(
+      select 1 from public.client_labels label_row
+      where label_row.performer_id=v_actor and label_row.client_phone=v_new_phone
+    ) then
+      raise exception using errcode='23505',message='client_metadata_conflict';
+    end if;
   end if;
 
   update public.bookings booking set
@@ -120,8 +126,10 @@ begin
     where result.organization_id=p_organization and result.client_phone=v_old_phone;
     update public.client_notes note set client_phone=v_new_phone
     where note.performer_id=v_actor and note.client_phone=v_old_phone;
-    update public.client_labels label_row set client_phone=v_new_phone,updated_at=clock_timestamp()
-    where label_row.performer_id=v_actor and label_row.client_phone=v_old_phone;
+    if to_regclass('public.client_labels') is not null then
+      update public.client_labels label_row set client_phone=v_new_phone,updated_at=clock_timestamp()
+      where label_row.performer_id=v_actor and label_row.client_phone=v_old_phone;
+    end if;
     update public.client_avatars avatar set client_phone=v_new_phone,updated_at=clock_timestamp()
     where avatar.performer_id=v_actor and avatar.client_phone=v_old_phone;
   end if;

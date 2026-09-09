@@ -213,7 +213,6 @@ jobs:
               and to_regclass('public.client_record_entries') is not null
               and to_regclass('public.client_result_series') is not null
               and to_regclass('public.client_notes') is not null
-              and to_regclass('public.client_labels') is not null
               and to_regclass('public.client_avatars') is not null
               and to_regprocedure('public.is_organization_member(uuid)') is not null,
             'cleanPreapply',
