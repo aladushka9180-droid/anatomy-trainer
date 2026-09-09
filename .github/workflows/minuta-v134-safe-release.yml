@@ -207,6 +207,7 @@ jobs:
           select json_build_object(
             'prerequisites',
               to_regclass('public.organization_client_profiles') is not null
+              and to_regclass('public.organization_imported_clients') is not null
               and to_regclass('public.organization_imported_booking_history') is not null
               and to_regclass('public.client_field_values') is not null
               and to_regclass('public.client_record_entries') is not null
@@ -216,11 +217,22 @@ jobs:
               and to_regclass('public.client_avatars') is not null
               and to_regprocedure('public.is_organization_member(uuid)') is not null,
             'cleanPreapply',
-              to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is null
+              to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is null,
+            'organizationClientProfiles',to_regclass('public.organization_client_profiles') is not null,
+            'organizationImportedClients',to_regclass('public.organization_imported_clients') is not null,
+            'organizationImportedHistory',to_regclass('public.organization_imported_booking_history') is not null,
+            'clientFieldValues',to_regclass('public.client_field_values') is not null,
+            'clientRecordEntries',to_regclass('public.client_record_entries') is not null,
+            'clientResultSeries',to_regclass('public.client_result_series') is not null,
+            'clientNotes',to_regclass('public.client_notes') is not null,
+            'clientLabels',to_regclass('public.client_labels') is not null,
+            'clientAvatars',to_regclass('public.client_avatars') is not null,
+            'organizationMembership',to_regprocedure('public.is_organization_member(uuid)') is not null
           );
           rollback;
           SQL
           )"
+          printf '%s\n' "$state"
           jq -e '.prerequisites == true and .cleanPreapply == true' <<<"$state" >/dev/null
           printf '%s\n' "$state" > "$RUNNER_TEMP/v134-production-preflight.json"
       - name: Create validation attestation
