@@ -56,7 +56,7 @@ with target_tables(name) as (values
     'table',c.relname,'name',t.tgname,'enabled',t.tgenabled,'type',t.tgtype,
     'deferrable',t.tgdeferrable,'initiallyDeferred',t.tginitdeferred,'constraintTrigger',t.tgconstraint<>0,
     'function',t.tgfoid::regprocedure::text,'arguments',encode(t.tgargs,'hex'),
-    'when',regexp_replace(lower(coalesce(pg_get_expr(t.tgqual,t.tgrelid,false),'')),'[[:space:]]+','','g')
+    'definition',regexp_replace(lower(pg_get_triggerdef(t.oid,false)),'[[:space:]]+','','g')
   ) order by c.relname,t.tgname) value
   from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
   where n.nspname='public' and not t.tgisinternal and (
