@@ -37,6 +37,7 @@ function fixture({duration=15,serviceDuration=60,organization=true,online=true,r
   newBookingMode:'block',newBookingHistoricalMode:false,newBookingOutsideSchedule:false,
   newBookingTime:'10:00',newBookingPreferredTime:'10:00',newBookingSlots:[],newBookingHour:'',newBookingSlotsRequestId:0,
   editingOfflineBookingId:'',SCHEDULE_BLOCK_PHONE:'0000000000',BOOKING_COLOR_DEFAULT:'default',
+  readProviderBookingAttempt:()=>null,
   ownServices:[{id:'service-60',name:'Technical service',active:true,duration_minutes:serviceDuration}],allBookings:[],
   testDuration:duration,newBookingDurationMinutes:()=>sandbox.testDuration,businessTodayIso:()=> '2098-12-01',
   requireBookingWrites:()=>true,bookingPlacementIssue:()=>'',bookingMoveTimeIsPast:()=>false,
