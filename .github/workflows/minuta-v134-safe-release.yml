@@ -348,12 +348,12 @@ jobs:
           clean="$(psql "$database_url" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
           select
             to_regclass('public.organization_client_profiles') is not null
+            and to_regclass('public.organization_imported_clients') is not null
             and to_regclass('public.organization_imported_booking_history') is not null
             and to_regclass('public.client_field_values') is not null
             and to_regclass('public.client_record_entries') is not null
             and to_regclass('public.client_result_series') is not null
             and to_regclass('public.client_notes') is not null
-            and to_regclass('public.client_labels') is not null
             and to_regclass('public.client_avatars') is not null
             and to_regprocedure('public.is_organization_member(uuid)') is not null
             and to_regprocedure('public.save_minuta_client_identity_v134(uuid,text,text,text)') is null;
