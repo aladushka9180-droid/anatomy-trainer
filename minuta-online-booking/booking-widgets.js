@@ -4,6 +4,10 @@
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const SLUG = /^[a-z0-9][a-z0-9-]{2,62}$/;
   const TARGETS = Object.freeze(['general', 'service', 'provider', 'branch', 'group']);
+  const MAP_SOURCES = Object.freeze({
+    yandex:Object.freeze({ label:'Яндекс Карты', medium:'maps', campaign:'maps_booking' }),
+    google:Object.freeze({ label:'Google Карты', medium:'maps', campaign:'maps_booking' })
+  });
 
   function cleanId(value) { return UUID.test(String(value || '')) ? String(value) : ''; }
   function cleanSlug(value) { const next = String(value || '').trim().toLowerCase(); return SLUG.test(next) ? next : ''; }
@@ -35,10 +39,12 @@
     const parameter = { service:'service', provider:'provider', branch:'location', group:'group' }[safeTarget];
     if (parameter && safeId) url.searchParams.set(parameter, safeId);
     const embed = mode === 'widget';
+    const safeSource = cleanSource(source);
+    const mapSource = MAP_SOURCES[safeSource];
     if (embed) url.searchParams.set('embed', '1');
-    url.searchParams.set('utm_source', cleanSource(source));
-    url.searchParams.set('utm_medium', embed ? 'embed' : 'shared_link');
-    url.searchParams.set('utm_campaign', `${embed ? 'booking_widget' : 'booking_link'}_${safeTarget}${safeId ? `_${safeId}` : ''}`);
+    url.searchParams.set('utm_source', safeSource);
+    url.searchParams.set('utm_medium', embed ? 'embed' : mapSource?.medium || 'shared_link');
+    url.searchParams.set('utm_campaign', `${embed ? 'booking_widget' : mapSource?.campaign || 'booking_link'}_${safeTarget}${safeId ? `_${safeId}` : ''}`);
     url.searchParams.set('utm_content', safeId ? `${safeTarget}:${safeId}` : safeTarget);
     return url;
   }
@@ -87,6 +93,7 @@
 
     function target() { return cleanTarget($('#bookingWidgetTarget')?.value); }
     function targetLabel(value) { return ({ general:'Общая запись', service:'Услуга', provider:'Специалист', branch:'Филиал', group:'Группа' })[value] || 'Общая запись'; }
+    function sourceLabel(value) { return MAP_SOURCES[value]?.label || ''; }
     function choices(value) {
       if (!context) return [];
       if (value === 'service') return context.services.map(item => ({ id:item.id, label:item.name }));
@@ -116,7 +123,12 @@
     function render() {
       const selector = $('#bookingWidgetItemField');
       const input = $('#bookingWidgetItem');
+      const sourceInput = $('#bookingWidgetSource');
       const value = target();
+      for (const option of sourceInput?.options || []) {
+        if (MAP_SOURCES[option.value]) option.disabled = mode === 'widget';
+      }
+      if (mode === 'widget' && MAP_SOURCES[sourceInput?.value]) sourceInput.value = 'website';
       const items = choices(value);
       const selectedId = input?.value || '';
       if (selector) selector.hidden = value === 'general';
@@ -143,7 +155,10 @@
       const ready = Boolean(context?.organizationSlug) && (value === 'general' || items.length > 0);
       document.querySelectorAll('[data-booking-widget-copy],#openBookingWidgetResult').forEach(control => { control.disabled = !ready; });
       const status = $('#bookingWidgetStatus');
-      if (status) status.textContent = ready ? 'Готово. Источник перехода будет виден в аналитике.' : value === 'general' ? 'Публичная запись для этой организации пока выключена.' : `Нет доступных вариантов: ${targetLabel(value).toLowerCase()}.`;
+      const mapLabel = mode === 'link' ? sourceLabel(sourceInput?.value) : '';
+      if (status) status.textContent = ready
+        ? mapLabel ? `Готово для ${mapLabel}. Добавьте эту ссылку как кнопку записи; конверсия будет видна в аналитике.` : 'Готово. Источник перехода будет виден в аналитике.'
+        : value === 'general' ? 'Публичная запись для этой организации пока выключена.' : `Нет доступных вариантов: ${targetLabel(value).toLowerCase()}.`;
     }
 
     async function copy(value, success) {

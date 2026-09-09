@@ -120,6 +120,17 @@ try {
   const serviceTrack = calls.find(call => call.name === 'track_public_booking_funnel_event' && call.args.p_event === 'page_opened');
   assert.equal(serviceTrack?.args.p_utm_source, 'primetime');
   assert.equal(serviceTrack?.args.p_utm_content, 'service');
+  for (const source of ['yandex','google']) {
+    const beforeCalls = calls.length;
+    await page.goto(`${appOrigin}/minuta-online-booking/index.html?org=studio-one&utm_source=${source}&utm_medium=maps&utm_campaign=maps_booking_general&utm_content=general`);
+    await page.locator('[data-service]').first().waitFor();
+    const mapTrack = calls.slice(beforeCalls).find(call => call.name === 'track_public_booking_funnel_event' && call.args.p_event === 'page_opened');
+    assert.equal(mapTrack?.args.p_source_kind, 'search');
+    assert.equal(mapTrack?.args.p_utm_source, source);
+    assert.equal(mapTrack?.args.p_utm_medium, 'maps');
+    assert.equal(mapTrack?.args.p_utm_campaign, 'maps_booking_general');
+    assert.equal(mapTrack?.args.p_utm_content, 'general');
+  }
   hostSnippet = await page.evaluate(({ appOrigin, service }) => {
     const url = window.MinutaBookingWidgets.buildUrl(`${appOrigin}/minuta-online-booking/index.html`, { slug:'studio-one', target:'service', id:service, mode:'widget', source:'website' });
     return window.MinutaBookingWidgets.embedCode(url, 'Онлайн-запись');
@@ -209,6 +220,14 @@ try {
   }, { catalog, groups });
   await page.locator('#openBookingWidgets').click();
   await page.locator('#bookingWidgetsDialog').waitFor({ state:'visible' });
+  for (const [source,label] of [['yandex','Яндекс Карты'],['google','Google Карты']]) {
+    await page.locator('#bookingWidgetSource').selectOption(source);
+    const generated = new URL(await page.locator('#bookingWidgetOutput').inputValue());
+    assert.equal(generated.searchParams.get('utm_source'), source);
+    assert.equal(generated.searchParams.get('utm_medium'), 'maps');
+    assert.equal(generated.searchParams.get('utm_campaign'), 'maps_booking_general');
+    assert.match(await page.locator('#bookingWidgetStatus').innerText(), new RegExp(label));
+  }
   for (const width of [390,760,1440]) {
     await page.setViewportSize({ width, height:900 });
     assert.equal(await page.locator('#bookingWidgetsDialog').evaluate(element => element.scrollWidth > element.clientWidth), false);
@@ -230,7 +249,11 @@ try {
   assert.equal(await page.locator(`#bookingWidgetItem option[value="${ids.fullGroup}"]`).count(), 0);
   await page.locator('#bookingWidgetTarget').selectOption('service');
   await page.locator('#bookingWidgetItem').selectOption(ids.otherService);
+  await page.locator('#bookingWidgetSource').selectOption('yandex');
   await page.locator('[data-booking-widget-mode="widget"]').click();
+  assert.equal(await page.locator('#bookingWidgetSource').inputValue(), 'website');
+  assert.equal(await page.locator('#bookingWidgetSource option[value="yandex"]').evaluate(option => option.disabled), true);
+  assert.equal(await page.locator('#bookingWidgetSource option[value="google"]').evaluate(option => option.disabled), true);
   assert.match(await page.locator('#bookingWidgetCode').inputValue(), /<iframe/);
   assert.match(await page.locator('#bookingWidgetCode').inputValue(), /primetime:resize/);
   assert.match(await page.locator('#bookingWidgetCode').inputValue(), /allow-same-origin/);

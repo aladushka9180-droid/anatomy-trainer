@@ -77,4 +77,13 @@ assert.match(providerHtml, /data-booking-widget-mode="widget"/);
 assert.match(clientHtml, /booking-widgets\.js\?v=/);
 assert.match(serviceWorker, /booking-widgets\.js\?v=/);
 
+for (const [source,label] of [['yandex','Яндекс Карты'], ['google','Google Карты']]) {
+  const mapLink = api.buildUrl('index.html', { slug:'studio-one', target:'general', mode:'link', source });
+  assert.equal(mapLink.searchParams.get('utm_source'), source);
+  assert.equal(mapLink.searchParams.get('utm_medium'), 'maps');
+  assert.equal(mapLink.searchParams.get('utm_campaign'), 'maps_booking_general');
+  assert.equal(mapLink.searchParams.get('utm_content'), 'general');
+  assert.match(providerHtml, new RegExp(`<option value="${source}">${label}</option>`));
+}
+
 console.log('booking widgets static checks passed');
