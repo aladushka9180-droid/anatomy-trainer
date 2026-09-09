@@ -79,8 +79,9 @@ select pg_temp.client_profile_v135_assert(
   'unblock_failed'
 );
 select pg_temp.client_profile_v135_assert(
-  (select online_booking_block_reason is null from public.organization_client_profiles
-    where organization_id=current_setting('client_profile_v135.org')::uuid and normalized_phone='79990003344'),
+  public.get_minuta_client_profile_v135(
+    current_setting('client_profile_v135.org')::uuid,'79990003344'
+  )->>'online_booking_block_reason' is null,
   'unblock_did_not_clear_reason'
 );
 reset role;
