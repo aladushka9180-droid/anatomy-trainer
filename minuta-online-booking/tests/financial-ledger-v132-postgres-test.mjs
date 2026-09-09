@@ -80,12 +80,57 @@ const assertBalanced = async (transactionId, expectedAmount = 100000n) => {
   assert.equal(row.postings, 2);
 };
 
+async function cleanupKnownStaleFixtures() {
+  const stale = (await admin.query(`select organization.id
+    from public.organizations organization
+    where organization.name in('D06 v132 expense test','D06 v132 foreign test')
+      and not exists(
+        select 1 from public.organization_memberships membership
+        join auth.users user_row on user_row.id=membership.user_id
+        where membership.organization_id=organization.id
+          and user_row.email not like '%@example.invalid'
+      )`)).rows.map(row => row.id);
+  if (!stale.length) return;
+  const actors = (await admin.query(`select distinct membership.user_id id
+    from public.organization_memberships membership
+    join auth.users user_row on user_row.id=membership.user_id
+    where membership.organization_id=any($1::uuid[])
+      and user_row.email like '%@example.invalid'`, [stale])).rows.map(row => row.id);
+  await admin.query('begin');
+  try {
+    await admin.query("set local session_replication_role='replica'");
+    if ((await admin.query("select to_regclass('public.financial_expense_sources') is not null present")).rows[0].present)
+      await admin.query('delete from public.financial_expense_sources where organization_id=any($1::uuid[])', [stale]);
+    await admin.query('delete from public.financial_postings where organization_id=any($1::uuid[])', [stale]);
+    await admin.query('delete from public.financial_transactions where organization_id=any($1::uuid[])', [stale]);
+    if ((await admin.query("select to_regclass('public.financial_suppliers') is not null present")).rows[0].present)
+      await admin.query('delete from public.financial_suppliers where organization_id=any($1::uuid[])', [stale]);
+    await admin.query('delete from public.financial_accounts where organization_id=any($1::uuid[])', [stale]);
+    await admin.query('delete from public.organization_finance_settings where organization_id=any($1::uuid[])', [stale]);
+    await admin.query('delete from public.organization_memberships where organization_id=any($1::uuid[])', [stale]);
+    await admin.query('delete from public.organizations where id=any($1::uuid[])', [stale]);
+    if (actors.length) {
+      await admin.query(`delete from public.performer_profiles profile where profile.id=any($1::uuid[])
+        and not exists(select 1 from public.organization_memberships membership where membership.user_id=profile.id)`, [actors]);
+      await admin.query(`delete from auth.users user_row where user_row.id=any($1::uuid[])
+        and user_row.email like '%@example.invalid'
+        and not exists(select 1 from public.organization_memberships membership where membership.user_id=user_row.id)`, [actors]);
+    }
+    await admin.query('commit');
+  } catch (error) {
+    await admin.query('rollback');
+    throw error;
+  }
+}
+
 try {
   const prerequisites = (await admin.query(`select
     to_regclass('public.financial_transactions') is not null transactions,
     to_regclass('public.financial_postings') is not null postings,
     to_regprocedure('public.set_minuta_finance_enabled_v129(uuid,boolean)') is not null enable_v129`)).rows[0];
   assert.deepEqual(prerequisites, { transactions: true, postings: true, enable_v129: true });
+
+  await cleanupKnownStaleFixtures();
 
   const existing = (await admin.query(`select
     to_regclass('public.financial_suppliers') is not null suppliers,
