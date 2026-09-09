@@ -63,7 +63,9 @@ try{
     assert.equal(await page.locator('#reportRevenueChart .report-chart-column').count(),5);
     assert.match(await page.locator('#reportRevenueChart .is-unknown').first().textContent(),/Нет данных/);
     assert.match(await page.locator('#reportRevenueChart .is-empty').first().textContent(),/Нет визитов/);
-    assert.match(await page.locator('#reportRevenueChart .report-chart-column').last().textContent(),/2 дня/);
+    const partialTrendBucket=page.locator('#reportRevenueChart .report-chart-column').last();
+    assert.match(await partialTrendBucket.getAttribute('data-report-label'),/2 дня/);
+    assert.match(await partialTrendBucket.locator('small').textContent(),/^\d+–\d+\s/);
     await page.locator('#reportRevenueChart .is-best').first().evaluate(button=>selectReportTrendBucket(button));
     assert.equal(await page.locator('#reportTrendDetail').isVisible(),true);
     assert.match(await page.locator('#reportTrendDetail').textContent(),/Оплата указана у 2 из 2|Данные об оплате заполнены полностью/);
