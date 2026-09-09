@@ -50,7 +50,7 @@ for (const required of [
   "when credentials and not batch and not ranges then 'ready'",
   '(.mode=="ready" or .mode=="full")',
   '(.state.mode=="ready" or .state.mode=="full")',
-  'rm -f /etc/apt/sources.list.d/google-chrome.list',
+  'rm -f /etc/apt/sources.list.d/google-chrome*.list /etc/apt/sources.list.d/google-chrome*.sources',
 ]) {
   if (!workflow.includes(required))
     throw new Error(`missing workflow state guard: ${required}`);
