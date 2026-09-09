@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-08T22:05:59Z",
+  "updatedAt": "2026-09-09T03:12:30Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -95,7 +95,21 @@
         "requiredAction": "Выбрать основной и резервный HTTPS-адресат, добавить URL и HMAC-секрет через GitHub Secrets, выполнить одну контролируемую тревогу и накопить 30 дней наблюдений."
       }
     },
-    "D06": { "status": "not_started", "evidence": {}, "blocker": null },
+    "D06": {
+      "status": "implementing",
+      "evidence": {
+        "releaseSha": "80d653ce2b1e2a6f64068006cce4f1a98855d43f",
+        "releaseVersion": "v129-foundation",
+        "ciRuns": {
+          "smoke": 34305226942,
+          "pages": 34305226526,
+          "financial_integration": 34299732904
+        },
+        "productionHealthRunId": 34306156752,
+        "verifiedAt": "2026-09-09T03:12:30Z"
+      },
+      "blocker": null
+    },
     "D07": { "status": "implementing", "evidence": {}, "blocker": null },
     "D08": { "status": "implementing", "evidence": {}, "blocker": null },
     "D09": { "status": "not_started", "evidence": {}, "blocker": null },

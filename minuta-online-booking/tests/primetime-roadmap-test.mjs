@@ -63,24 +63,26 @@ test('transition accepts one monotonic item update and rejects multiple updates'
   const before = readJson(STATUS_PATH);
   const after = clone(before);
   after.updatedAt = new Date(Date.parse(before.updatedAt) + 1000).toISOString();
-  after.items.D06.status = 'implementing';
+  after.items.D09.status = 'implementing';
   const result = verifyTransition(plan, before, after);
   assert.deepEqual(result, {
     valid: true,
-    itemId: 'D06',
+    itemId: 'D09',
     from: 'not_started',
     to: 'implementing',
     evidenceOnly: false,
     planVersion: plan.version
   });
 
-  after.items.D09.status = 'implementing';
+  after.items.D06.evidence.checks = { cash_accounts: true };
   assert.throws(() => verifyTransition(plan, before, after), /exactly one roadmap item or stage-gate override must change/);
 });
 
 test('override activation is an isolated transition and requires explicit user approval', () => {
   const plan = readJson(PLAN_PATH);
-  const after = readJson(STATUS_PATH);
+  const published = readJson(STATUS_PATH);
+  const after = clone(published);
+  after.updatedAt = after.stageGateOverride.approvedAt;
   const before = clone(after);
   before.schemaVersion = 1;
   before.updatedAt = new Date(Date.parse(after.updatedAt) - 1000).toISOString();
@@ -94,13 +96,13 @@ test('override activation is an isolated transition and requires explicit user a
     planVersion: plan.version
   });
 
-  const combined = clone(after);
-  combined.updatedAt = new Date(Date.parse(after.updatedAt) + 1000).toISOString();
-  combined.items.D06.status = 'implementing';
+  const combined = clone(published);
+  combined.updatedAt = new Date(Date.parse(published.updatedAt) + 1000).toISOString();
+  combined.items.D09.status = 'implementing';
   combined.stageGateOverride = null;
-  assert.throws(() => verifyTransition(plan, after, combined), /exactly one roadmap item or stage-gate override must change/);
+  assert.throws(() => verifyTransition(plan, published, combined), /exactly one roadmap item or stage-gate override must change/);
 
-  const forged = clone(after);
+  const forged = clone(published);
   forged.stageGateOverride.approvedBy = 'automation';
   assert.throws(() => validateRoadmap(plan, forged), /explicit user approval is required/);
 });
@@ -149,6 +151,7 @@ test('transition cannot mark an item ready without complete production evidence'
   const early = clone(before);
   early.updatedAt = new Date(Date.parse(before.updatedAt) + 1000).toISOString();
   early.items.D06.status = 'verifying';
+  early.items.D06.evidence = {};
   assert.throws(() => verifyTransition(plan, before, early), /completion requires releaseSha/);
 });
 
