@@ -82,6 +82,7 @@ jobs:
           test "$(tr -d '[:space:]' <<<"$marker")" = 1
           bundle="$RUNNER_TEMP/v135-test-cycle.sql"
           printf 'begin;\n' > "$bundle"
+          cat minuta-online-booking/tests/client-profile-v134-test-stack.sql >> "$bundle"
           sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v134.sql >> "$bundle"
           sed -E '/^[[:space:]]*(begin|commit);[[:space:]]*$/Id' minuta-online-booking/supabase-migration-v135.sql >> "$bundle"
           cat minuta-online-booking/tests/client-profile-v135-integration.sql >> "$bundle"

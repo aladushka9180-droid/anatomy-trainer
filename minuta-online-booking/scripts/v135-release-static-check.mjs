@@ -18,6 +18,7 @@ assert.match(integration,/specialist_block_allowed/);
 assert.match(integration,/unblock_did_not_clear_reason/);
 assert.match(workflow,/APPLY_V135_TO_PRODUCTION/);
 assert.match(workflow,/supabase-migration-v134\.sql/);
+assert.match(workflow,/client-profile-v134-test-stack\.sql/);
 assert.match(workflow,/minuta-supabase-backup\.yml/);
 assert.match(workflow,/minuta-supabase-restore-drill\.yml/);
 assert.match(workflow,/sourceBackupRunId==\$backup/);
