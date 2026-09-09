@@ -92,7 +92,7 @@ assert.match(app, /book_minuta_appointment_with_benefit_v115/);
 assert.match(app, /p_benefit_code:benefitCode/);
 assert.match(app, /Сертификат или абонемент не подходит/);
 assert.match(indexHtml, /id="bookingBenefitCode"[^>]+maxlength="40"/);
-assert.match(sw, /CACHE_PREFIX}v659/);
+assert.match(sw, /CACHE_PREFIX}v660/);
 
 // Industry expansion is explicitly gated; no accidental medical-product claim.
 assert.match(readiness, /Статус: проектирование/);

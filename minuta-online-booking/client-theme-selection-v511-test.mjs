@@ -76,9 +76,9 @@ assert.match(clientThemesCss, /\.availability-suggestion[\s\S]*var\(--client-sur
 assert.match(clientThemesCss, /\.waitlist-cta[\s\S]*var\(--client-surface-alt\)/);
 assert.match(clientThemesCss, /\.booking-faq details\[open\][\s\S]*var\(--client-surface\)/);
 assert.match(clientThemesCss, /\.booking-faq summary[\s\S]*var\(--client-ink\)/);
-assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v659`/);
+assert.match(sw, /const CACHE = `\$\{CACHE_PREFIX\}v660`/);
 assert.match(sw, /theme-catalog\.js\?v=660/);
 assert.match(providerJs, /loadProviderFeatureScript\('voice-assistant\.js'\)/);
 assert.doesNotMatch(providerHtml, /<script[^>]+voice-assistant\.js/);
 
-console.log('client theme selection v659 tests passed');
+console.log('client theme selection v660 tests passed');

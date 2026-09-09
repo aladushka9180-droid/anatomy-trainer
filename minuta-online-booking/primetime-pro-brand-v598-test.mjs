@@ -81,4 +81,4 @@ assert.match(worker, /provider-icon\.svg/);
 assert.match(worker, /provider-og\.png/);
 assert.match(provider, /provider\.js\?v=660/);
 
-console.log(`PrimeTime Pro brand v659: PASS (${publicBrandFiles.length} public text surfaces)`);
+console.log(`PrimeTime Pro brand v660: PASS (${publicBrandFiles.length} public text surfaces)`);
