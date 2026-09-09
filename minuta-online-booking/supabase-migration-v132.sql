@@ -252,8 +252,6 @@ begin
   returning * into v_supplier;
   return jsonb_build_object('id',v_supplier.id,'organization_id',p_organization,
     'name',v_supplier.name,'replayed',false);
-exception when unique_violation then
-  raise exception using errcode='23505',message='financial_supplier_idempotency_conflict';
 end
 $$;
 
@@ -365,8 +363,6 @@ begin
     (p_organization,v_transaction,v_payable,'credit',p_amount_minor);
   return jsonb_build_object('id',v_source.id,'transaction_id',v_transaction,
     'organization_id',p_organization,'amount_minor',p_amount_minor,'currency','RUB','replayed',false);
-exception when unique_violation then
-  raise exception using errcode='23505',message='supplier_expense_accrual_idempotency_conflict';
 end
 $$;
 
@@ -472,8 +468,6 @@ begin
   return jsonb_build_object('id',v_transaction,'source_id',p_source,
     'organization_id',p_organization,'amount_minor',v_source.amount_minor,
     'currency','RUB','replayed',false);
-exception when unique_violation then
-  raise exception using errcode='23505',message='supplier_expense_payment_idempotency_conflict';
 end
 $$;
 
@@ -564,8 +558,6 @@ begin
   order by posting.id;
   return jsonb_build_object('id',v_reversal,'organization_id',p_organization,
     'request_id',p_request_id,'reversal_of',p_transaction,'replayed',false);
-exception when unique_violation then
-  raise exception using errcode='23505',message='supplier_expense_reversal_idempotency_conflict';
 end
 $$;
 

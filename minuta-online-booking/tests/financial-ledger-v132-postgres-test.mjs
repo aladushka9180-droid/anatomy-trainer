@@ -281,16 +281,16 @@ try {
     if (fixtureCreated) {
       await admin.query('begin');
       await admin.query("set local session_replication_role='replica'");
-      await admin.query(`delete from public.financial_expense_sources where organization_id=$1;
-        delete from public.financial_postings where organization_id=$1;
-        delete from public.financial_transactions where organization_id=$1;
-        delete from public.financial_suppliers where organization_id=$1;
-        delete from public.financial_accounts where organization_id=$1;
-        delete from public.organization_finance_settings where organization_id=$1;
-        delete from public.organization_memberships where organization_id in($1,$2);
-        delete from public.organizations where id in($1,$2);
-        delete from public.performer_profiles where id in($3,$4,$5);
-        delete from auth.users where id in($3,$4,$5)`, [organization, foreignOrganization, owner, specialist, outsider]);
+      await admin.query('delete from public.financial_expense_sources where organization_id=$1', [organization]);
+      await admin.query('delete from public.financial_postings where organization_id=$1', [organization]);
+      await admin.query('delete from public.financial_transactions where organization_id=$1', [organization]);
+      await admin.query('delete from public.financial_suppliers where organization_id=$1', [organization]);
+      await admin.query('delete from public.financial_accounts where organization_id=$1', [organization]);
+      await admin.query('delete from public.organization_finance_settings where organization_id=$1', [organization]);
+      await admin.query('delete from public.organization_memberships where organization_id in($1,$2)', [organization, foreignOrganization]);
+      await admin.query('delete from public.organizations where id in($1,$2)', [organization, foreignOrganization]);
+      await admin.query('delete from public.performer_profiles where id in($1,$2,$3)', [owner, specialist, outsider]);
+      await admin.query('delete from auth.users where id in($1,$2,$3)', [owner, specialist, outsider]);
       await admin.query('commit');
     }
   } catch (cleanupError) {
