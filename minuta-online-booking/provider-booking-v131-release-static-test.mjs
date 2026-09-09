@@ -35,6 +35,7 @@ assert.match(integration, /v131-test-\$\{\{ github\.run_id \}\}/);
 assert.match(integration, /MINUTA_V131_ATTESTATION_PATH/);
 assert.match(integration, /currentMainVerified:true/);
 assert.match(state, /default_transaction_read_only=on/);
+assert.match(state, /production-db-target-guard\.mjs >\/dev\/null/);
 assert.match(state, /v131Mode/);
 assert.match(state, /653390c7c91458eef408e82593f38249/);
 assert.match(state, /abadc0c81de68738ba6382cd03dda62d/);

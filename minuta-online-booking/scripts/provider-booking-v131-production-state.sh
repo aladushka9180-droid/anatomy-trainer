@@ -2,7 +2,7 @@
 set -euo pipefail
 
 db="${1:?database URL is required}"
-node minuta-online-booking/scripts/production-db-target-guard.mjs
+node minuta-online-booking/scripts/production-db-target-guard.mjs >/dev/null
 
 state="$(PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=60000 -c lock_timeout=5000' \
   psql "$db" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
