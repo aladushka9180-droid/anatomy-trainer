@@ -2617,7 +2617,7 @@ function timelineServiceNameMarkup(value, serviceId = '') {
   const parts = name.split(/\s+—\s+/, 2);
   return `<span class="timeline-service-core">${escapeHtml(parts[0])}</span>${parts[1] ? `<span class="timeline-service-variant"> — ${escapeHtml(parts[1])}</span>` : ''}`;
 }
-function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=651#icon-${name}"></use></svg>`; }
+function uiIcon(name, className = '') { return `<svg class="ui-icon${className ? ` ${className}` : ''}" aria-hidden="true"><use href="ui-icons.svg?v=652#icon-${name}"></use></svg>`; }
 function notificationStorageKey(name) { return `massage-notifications-${currentUser?.id || 'guest'}-${name}`; }
 function readNotificationStorage(name, fallback) {
   try { return JSON.parse(localStorage.getItem(notificationStorageKey(name))) || fallback; }
@@ -4793,7 +4793,7 @@ async function exportBookingsXlsxInBackground(privacy='masked') {
   let worker;
   try {
     const data = reportExportData(privacy);
-    worker = new Worker('./report-worker.js?v=651');
+    worker = new Worker('./report-worker.js?v=652');
     const result = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('report_worker_timeout')), 20000);
       worker.onmessage = event => {
@@ -12909,7 +12909,7 @@ document.addEventListener('click', async event => {
     renderNotifications();
   }
   if (markAllNotificationsButton) await markAllDueNotificationsSent(markAllNotificationsButton);
-  if (inventorySectionButton) setInventorySection(inventorySectionButton.dataset.inventorySection);
+  if (inventorySectionButton) setInventorySection(inventorySectionButton.dataset.inventorySection, true);
   if (reportFilterToggle) setReportFiltersExpanded(reportFilterToggle.getAttribute('aria-expanded') !== 'true');
   if (reportSourceButton && reportSourceButton.dataset.reportSource !== reportDataSource) {
     if (reportDataSource === 'demo' && reportSourceButton.dataset.reportSource !== 'demo') restoreOwnBookingContext();
@@ -13861,13 +13861,15 @@ function clearProviderAssistantPreferences() {
   catch { return { ok:false }; }
 }
 
-function setInventorySection(nextSection = 'balances') {
+function setInventorySection(nextSection = 'balances', reveal = false) {
   const allowed = new Set(['balances', 'catalog', 'operations', 'history']);
   const section = allowed.has(nextSection) ? nextSection : 'balances';
   $$('[data-inventory-section]').forEach(button => {
     const active = button.dataset.inventorySection === section;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
+    if (active && reveal && typeof button.scrollIntoView === 'function')
+      button.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'nearest' });
   });
   $$('[data-inventory-pane]').forEach(pane => {
     pane.hidden = pane.dataset.inventoryPane !== section;

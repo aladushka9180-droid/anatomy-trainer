@@ -205,12 +205,13 @@
       $('#inventoryEnabled').checked = enabled; $('#inventoryEnabled').disabled = !isOwner;
       $('#inventoryAutoDeduct').checked = Boolean(payload.auto_deduct_completed_visits); $('#inventoryAutoDeduct').disabled = !isOwner || !enabled;
       $('#inventoryEnabledHint').textContent = isOwner ? 'По умолчанию выключено. Включение не списывает старые визиты.' : 'Включить или выключить склад может только владелец.';
-      $('#inventoryItemsCount').textContent = String(payload.items.length); $('#inventoryWarehousesCount').textContent = String(payload.warehouses.length); $('#inventoryMovementsCount').textContent = String(payload.movements.length);
+      $('#inventoryItemsCount').textContent = String(payload.items.length); $('#inventoryWarehousesCount').textContent = String(payload.warehouses.length);
       $('#inventoryItemsList').innerHTML = payload.items.length ? payload.items.map(itemCard).join('') : empty('Товаров и материалов пока нет', 'Добавьте первую складскую позицию.');
       $('#inventoryWarehousesList').innerHTML = payload.warehouses.length ? payload.warehouses.map(warehouseCard).join('') : empty('Склады не созданы', 'Создайте по одному складу для нужных филиалов.');
       $('#inventoryBalances').innerHTML = payload.warehouses.filter(row => row.active).length ? payload.warehouses.filter(row => row.active).map(balanceCard).join('') : empty('Нет активных складов', 'Создайте склад филиала, затем оформите приход.');
       $('#inventoryUsageList').innerHTML = payload.usage.length ? payload.usage.map(usageCard).join('') : empty('Нормы не настроены', 'Добавьте расход материала на одну завершённую услугу.');
       const ordinaryMovements = payload.movements.filter(row => !['transfer_out', 'transfer_in'].includes(row.movement_type));
+      $('#inventoryMovementsCount').textContent = String(ordinaryMovements.length + payload.transfer_documents.length);
       $('#inventoryMovementsList').innerHTML = ordinaryMovements.length ? ordinaryMovements.map(movementCard).join('') : empty('Движений пока нет', 'Приходы, списания, инвентаризации и перемещения появятся здесь.');
       $('#inventoryTransferDocumentsList').innerHTML = payload.transfer_documents.length ? payload.transfer_documents.map(transferCard).join('') : '';
       $('#inventoryControls').hidden = !enabled;
@@ -275,6 +276,12 @@
       if ($('#inventoryTransferBalance')) $('#inventoryTransferBalance').hidden = !transfer;
       if ($('#inventoryMovementReason')) $('#inventoryMovementReason').required = inventory || kind === 'write_off' || transfer;
       if ($('#inventoryTransfersState')) $('#inventoryTransfersState').hidden = !transfer;
+      if ($('#inventoryMovementWarehouseLabel')) $('#inventoryMovementWarehouseLabel').textContent = transfer ? 'Со склада' : 'Склад';
+      if ($('#inventoryMovementScan')) {
+        $('#inventoryMovementScan').textContent = transfer ? 'Сканировать позицию' : 'Сканировать продажу';
+        $('#inventoryMovementScan').dataset.codeScanMode = transfer ? 'inventory' : 'sale';
+        $('#inventoryMovementScan').dataset.codeScanTitle = transfer ? 'Позиция для перемещения' : 'Товар для продажи';
+      }
       if (transfer) updateTransferBalance();
     }
 
