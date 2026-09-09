@@ -75,13 +75,18 @@ assert.deepEqual(rollbackDeletes, [
   "public.financial_accounts where system_key in('payroll_expense','payroll_payable','employee_advance')"
 ]);
 
-assert.match(workflow, /name: Minuta v136 payroll integration/);
+assert.match(workflow, /name: Minuta v136 payroll safe release/);
 assert.match(workflow, /payroll_integration:/);
-assert.match(workflow, /group: minuta-test-database/);
+assert.match(workflow, /minuta-test-database[\s\S]*minuta-production-database/);
 assert.match(workflow, /migration-config-guard\.mjs/);
 assert.match(workflow, /MINUTA_TEST_PROJECT_REF[\s\S]*MINUTA_PRODUCTION_PROJECT_REF/);
 assert.match(workflow, /supabase-migration-v136\.sql[\s\S]*payroll-ledger-v136-integration\.sql[\s\S]*supabase-migration-v136-rollback\.sql[\s\S]*supabase-migration-v136\.sql/);
 assert.match(workflow, /currentMainVerified:true,isolatedDatabase:true/);
 assert.match(workflow, /productionWritten:false,rollbackReapplyPassed:true/);
+assert.match(workflow, /validate-production-v136[\s\S]*default_transaction_read_only=on/);
+assert.match(workflow, /APPLY_V136_TO_PRODUCTION/);
+assert.match(workflow, /minuta-supabase-backup\.yml[\s\S]*minuta-supabase-restore-drill\.yml/);
+assert.match(workflow, /apply-production-v136[\s\S]*featureDefaultOff:true/);
+assert.match(workflow, /observe-production-v136[\s\S]*production-health-check\.mjs/);
 
 console.log('D07 payroll ledger v136 static contract: OK');
