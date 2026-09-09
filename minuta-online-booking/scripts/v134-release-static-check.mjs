@@ -10,6 +10,7 @@ const workflow=read('.github','workflows','minuta-v134-safe-release.yml');
 const migration=read('minuta-online-booking','supabase-migration-v134.sql');
 const rollback=read('minuta-online-booking','supabase-migration-v134-rollback.sql');
 const integration=read('minuta-online-booking','tests','client-profile-v134-integration.sql');
+const testStack=read('minuta-online-booking','tests','client-profile-v134-test-stack.sql');
 const provider=read('minuta-online-booking','provider.js');
 const errors=[];
 const need=(text,token,message)=>{if(!text.includes(token))errors.push(message);};
@@ -25,6 +26,7 @@ for(const block of [job('validate-production-v134'),job('observe-production-v134
 for(const token of ['save_minuta_client_identity_v134','is_organization_member','client_phone_conflict','organization_imported_clients','organization_imported_booking_history','client_field_values','client_record_entries','client_result_series','client_notes','client_labels','client_avatars'])need(migration,token,`migration is missing ${token}`);
 forbid(rollback,/drop\s+table|delete\s+from|truncate/i,'rollback must retain client data');
 for(const token of ['client_name_update_failed','client_phone_update_failed','client_phone_conflict_not_rejected','outsider_identity_write_allowed','check_client_profile_v134_rollback','check_client_profile_v134_reapply'])need(integration,token,`integration is missing ${token}`);
+for(const table of ['organization_imported_clients','organization_imported_booking_history','organization_client_profiles','client_result_series'])need(testStack,table,`test stack is missing ${table}`);
 for(const token of ['openClientIdentityDialog','saveClientIdentity','applyClientIdentityLocally','save_minuta_client_identity_v134'])need(provider,token,`frontend is missing ${token}`);
 
 if(errors.length){console.error('v134 release contract failed:');errors.forEach(error=>console.error(`- ${error}`));process.exit(1);}
