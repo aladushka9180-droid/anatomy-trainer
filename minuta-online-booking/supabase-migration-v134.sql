@@ -3,19 +3,23 @@
 begin;
 set local search_path = pg_catalog, public, extensions;
 
-do $$ begin
-  if to_regclass('public.organization_client_profiles') is null
-     or to_regclass('public.organization_imported_clients') is null
-     or to_regclass('public.organization_imported_booking_history') is null
-     or to_regclass('public.client_field_values') is null
-     or to_regclass('public.client_record_entries') is null
-     or to_regclass('public.client_result_series') is null
-     or to_regclass('public.client_notes') is null
-     or to_regclass('public.client_labels') is null
-     or to_regclass('public.client_avatars') is null
-     or to_regprocedure('public.normalize_client_phone(text)') is null
-     or to_regprocedure('public.is_organization_member(uuid)') is null then
-    raise exception using errcode='P0001',message='v134_requires_client_profile_stack';
+do $$
+declare
+  v_missing text[]:=array[]::text[];
+begin
+  if to_regclass('public.organization_client_profiles') is null then v_missing:=array_append(v_missing,'organization_client_profiles'); end if;
+  if to_regclass('public.organization_imported_clients') is null then v_missing:=array_append(v_missing,'organization_imported_clients'); end if;
+  if to_regclass('public.organization_imported_booking_history') is null then v_missing:=array_append(v_missing,'organization_imported_booking_history'); end if;
+  if to_regclass('public.client_field_values') is null then v_missing:=array_append(v_missing,'client_field_values'); end if;
+  if to_regclass('public.client_record_entries') is null then v_missing:=array_append(v_missing,'client_record_entries'); end if;
+  if to_regclass('public.client_result_series') is null then v_missing:=array_append(v_missing,'client_result_series'); end if;
+  if to_regclass('public.client_notes') is null then v_missing:=array_append(v_missing,'client_notes'); end if;
+  if to_regclass('public.client_labels') is null then v_missing:=array_append(v_missing,'client_labels'); end if;
+  if to_regclass('public.client_avatars') is null then v_missing:=array_append(v_missing,'client_avatars'); end if;
+  if to_regprocedure('public.normalize_client_phone(text)') is null then v_missing:=array_append(v_missing,'normalize_client_phone'); end if;
+  if to_regprocedure('public.is_organization_member(uuid)') is null then v_missing:=array_append(v_missing,'is_organization_member'); end if;
+  if cardinality(v_missing)>0 then
+    raise exception using errcode='P0001',message='v134_requires_client_profile_stack:'||array_to_string(v_missing,',');
   end if;
 end $$;
 
