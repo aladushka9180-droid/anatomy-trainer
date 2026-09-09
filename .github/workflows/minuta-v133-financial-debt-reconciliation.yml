@@ -1,0 +1,111 @@
+name: Minuta v133 financial debt reconciliation
+run-name: Minuta v133 financial debt reconciliation - ${{ inputs.commit_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact 40-character commit SHA to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minuta-test-database
+  cancel-in-progress: false
+
+jobs:
+  financial_debt_static:
+    name: financial_debt_static
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - name: Check Node test sources
+        run: |
+          set -euo pipefail
+          node --check minuta-online-booking/financial-ledger-v133-static-test.mjs
+          node --check minuta-online-booking/tests/financial-ledger-v133-postgres-test.mjs
+      - name: Static contract
+        run: node minuta-online-booking/financial-ledger-v133-static-test.mjs
+
+  financial_debt_integration:
+    name: financial_debt_integration
+    needs: financial_debt_static
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: minuta-test
+    env:
+      MINUTA_TEST_DATABASE_URL: ${{ secrets.MINUTA_TEST_DATABASE_URL }}
+      MINUTA_TEST_PROJECT_REF: ${{ vars.MINUTA_TEST_PROJECT_REF }}
+      MINUTA_PRODUCTION_PROJECT_REF: ${{ vars.MINUTA_PRODUCTION_PROJECT_REF }}
+      MINUTA_TEST_MIGRATION_CONFIRM: ${{ vars.MINUTA_TEST_MIGRATION_CONFIRM }}
+      MINUTA_TEST_PG_TLS_NO_VERIFY: MIGRATION_TEST_ONLY
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with: { ref: "${{ inputs.commit_sha }}", fetch-depth: 0, persist-credentials: false }
+      - name: Pin exact current main commit
+        env: { SHA: "${{ inputs.commit_sha }}", GH_TOKEN: "${{ github.token }}" }
+        run: |
+          set -euo pipefail
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$GITHUB_SHA" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+      - name: Guard isolated test database
+        run: |
+          set -euo pipefail
+          node minuta-online-booking/scripts/migration-config-guard.mjs
+          db="${MINUTA_TEST_DATABASE_URL/:6543/:5432}"
+          marker="$(psql "$db" -X -qAt -v ON_ERROR_STOP=1 --set=expected_ref="$MINUTA_TEST_PROJECT_REF" <<'SQL'
+          select count(*) from minuta_migration_guard.target
+          where project_ref=:'expected_ref' and allow_migrations is true;
+          SQL
+          )"
+          test "$(tr -d '[:space:]' <<<"$marker")" = 1
+          echo "MINUTA_TEST_DATABASE_URL=$db" >> "$GITHUB_ENV"
+      - name: Install isolated PostgreSQL client module
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v133-pg"
+          npm install --prefix "$RUNNER_TEMP/v133-pg" --no-save --ignore-scripts --no-audit --no-fund pg@8.16.3
+          echo "MINUTA_PG_MODULE=$RUNNER_TEMP/v133-pg/node_modules/pg/lib/index.js" >> "$GITHUB_ENV"
+      - name: PostgreSQL apply, reapply, integration and rollback guard
+        env:
+          PGOPTIONS: "-c statement_timeout=120000 -c lock_timeout=10000"
+        run: node minuta-online-booking/tests/financial-ledger-v133-postgres-test.mjs
+      - name: Write exact-SHA D06 evidence
+        env:
+          SHA: ${{ inputs.commit_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$SHA"
+          jq -n --arg sha "$SHA" --arg run "$GITHUB_RUN_ID" \
+            '{status:"success",roadmapItem:"D06",phase:"v133-isolated-integration",commitSha:$sha,runId:$run,currentMainVerified:true,isolatedDatabase:true,checks:["debt","commission","reconciliation","explainable_ledger","tenant_acl","rollback_guard"],productionWritten:false}' \
+            > "$RUNNER_TEMP/v133-financial-attestation.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: v133-financial-attestation-${{ inputs.commit_sha }}
+          path: ${{ runner.temp }}/v133-financial-attestation.json
+          if-no-files-found: error
+          retention-days: 30
