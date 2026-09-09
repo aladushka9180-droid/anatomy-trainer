@@ -497,6 +497,26 @@ begin
     where period.id=p_period and period.organization_id=p_organization for update;
   if v_period.id is null then raise exception using errcode='P0002',message='payroll_period_not_found'; end if;
 
+  select * into v_existing from public.financial_payroll_accrual_sources source
+    where source.organization_id=p_organization and source.request_id=p_request_id for update;
+  if found then
+    v_request_fingerprint:=public.minuta_financial_sha256_v129(jsonb_build_array(
+      p_organization,p_request_id,'payroll_accrual',p_period,v_existing.source_fingerprint,v_actor
+    ));
+    if v_existing.period_id is distinct from p_period
+       or v_existing.occurred_at is distinct from p_occurred_at
+       or v_existing.request_fingerprint<>v_request_fingerprint then
+      raise exception using errcode='23505',message='payroll_accrual_request_conflict';
+    end if;
+    select id into v_transaction from public.financial_transactions transaction_row
+      where transaction_row.organization_id=p_organization and transaction_row.operation_type='payroll_accrual'
+        and transaction_row.source_type='financial_payroll_accrual_source' and transaction_row.source_id=v_existing.id;
+    if v_transaction is null then raise exception using errcode='55000',message='payroll_accrual_replay_incomplete'; end if;
+    return jsonb_build_object('id',v_existing.id,'transaction_id',v_transaction,
+      'organization_id',p_organization,'period_id',p_period,'amount_minor',v_existing.amount_minor,
+      'breakdown',v_existing.breakdown,'request_id',p_request_id,'replayed',true);
+  end if;
+
   with performers as (
     select item.performer_id from public.payroll_items item where item.period_id=p_period
     union
@@ -527,20 +547,6 @@ begin
   v_request_fingerprint:=public.minuta_financial_sha256_v129(jsonb_build_array(
     p_organization,p_request_id,'payroll_accrual',p_period,v_source_fingerprint,v_actor
   ));
-  select * into v_existing from public.financial_payroll_accrual_sources source
-    where source.organization_id=p_organization and source.request_id=p_request_id for update;
-  if found then
-    if v_existing.request_fingerprint<>v_request_fingerprint then
-      raise exception using errcode='23505',message='payroll_accrual_request_conflict';
-    end if;
-    select id into v_transaction from public.financial_transactions transaction_row
-      where transaction_row.organization_id=p_organization and transaction_row.operation_type='payroll_accrual'
-        and transaction_row.source_type='financial_payroll_accrual_source' and transaction_row.source_id=v_existing.id;
-    if v_transaction is null then raise exception using errcode='55000',message='payroll_accrual_replay_incomplete'; end if;
-    return jsonb_build_object('id',v_existing.id,'transaction_id',v_transaction,
-      'organization_id',p_organization,'period_id',p_period,'amount_minor',v_existing.amount_minor,
-      'breakdown',v_existing.breakdown,'request_id',p_request_id,'replayed',true);
-  end if;
   if v_period.status<>'approved' then raise exception using errcode='55000',message='payroll_period_not_approved'; end if;
   if exists(
     select 1 from public.financial_payroll_accrual_sources source
