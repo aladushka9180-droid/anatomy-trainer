@@ -202,7 +202,10 @@ try {
     [organization,sourceWarehouse,legacyItem,'receipt',1,null,'V108 rollback receipt',randomUUID()]
   )).rows[0].result;
   assert.equal(legacyReceipt.quantity_after,1);
-  await legacyClient.query('select public.consume_minuta_inventory_for_booking($1)',[randomUUID()]);
+  await assert.rejects(
+    legacyClient.query('select public.consume_minuta_inventory_for_booking($1)',[randomUUID()]),
+    error => error?.code === '42501' && /permission denied/i.test(error.message)
+  );
 
   await admin.query(migration);
   await admin.query(migration);
