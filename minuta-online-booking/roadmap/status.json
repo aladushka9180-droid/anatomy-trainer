@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "planVersion": "2026-09-08.1",
-  "updatedAt": "2026-09-09T07:46:24Z",
+  "updatedAt": "2026-09-09T08:08:01Z",
   "stageGateOverride": {
     "type": "allow_early_stage_work",
     "approvedBy": "user",
@@ -127,7 +127,33 @@
     },
     "D07": { "status": "implementing", "evidence": {}, "blocker": null },
     "D08": { "status": "implementing", "evidence": {}, "blocker": null },
-    "D09": { "status": "implementing", "evidence": {}, "blocker": null },
+    "D09": {
+      "status": "verifying",
+      "evidence": {
+        "releaseSha": "f60a96a1c4da4cf4a9c8eed875c05caa922145c9",
+        "releaseVersion": "v654",
+        "ciRuns": {
+          "smoke": 34327094486,
+          "pages": 34327093740,
+          "inventory_integration": 34327105535
+        },
+        "productionHealthRunId": 34327276173,
+        "verifiedAt": "2026-09-09T08:08:01Z",
+        "liveChecks": {
+          "390": true,
+          "760": true,
+          "1440": true
+        },
+        "checks": {
+          "atomic_document": true,
+          "paired_movements": true,
+          "fifo_preserved": true,
+          "cost_preserved": true,
+          "failure_is_atomic": true
+        }
+      },
+      "blocker": null
+    },
     "D10": { "status": "implementing", "evidence": {}, "blocker": null },
     "D11": { "status": "not_started", "evidence": {}, "blocker": null },
     "D12": { "status": "not_started", "evidence": {}, "blocker": null },
