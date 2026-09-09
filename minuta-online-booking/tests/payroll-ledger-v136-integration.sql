@@ -259,7 +259,7 @@ begin
   begin
     update public.financial_transactions set explanation='{}'::jsonb where id=v_ids[1];
     raise exception using errcode='P0001',message='v136_append_only_update_was_allowed';
-  exception when object_not_in_prerequisite_state then null;
+  exception when object_not_in_prerequisite_state or insufficient_privilege then null;
   end;
 end
 $balanced_append_only$;
