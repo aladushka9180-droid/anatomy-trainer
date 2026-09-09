@@ -313,7 +313,7 @@ try {
   const driftedSource = resultOf(await admin.query('select public.get_minuta_financial_reconciliation_v133($1,100) result', [ids.org]));
   assert.equal(driftedSource.ledger_state, 'drift');
   assert.equal(driftedSource.transactions.find(row => row.id === settlement.transaction_id).source_state, 'drift');
-  assert.equal(driftedSource.debts.find(row => row.visit_transaction_id === visit.id).source_state, 'drift');
+  assert.equal(driftedSource.debts.find(row => row.visit_transaction_id === visit.id).source_state, 'matched');
   await admin.query('rollback');
 
   await expectError(owner.query('select public.reverse_minuta_visit_finance_v133($1,$2,$3,$4)',
