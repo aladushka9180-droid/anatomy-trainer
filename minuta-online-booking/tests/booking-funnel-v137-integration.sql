@@ -1,15 +1,15 @@
 begin;
 do $prepare$
-declare v_org uuid; v_slug text; v_service uuid; v_other_slug text; v_session uuid:=gen_random_uuid();
+declare v_org uuid:=gen_random_uuid(); v_slug text; v_service uuid; v_performer uuid; v_other_slug text; v_session uuid:=gen_random_uuid();
 begin
-  select organization.id,organization.public_slug,service.id into v_org,v_slug,v_service
-  from public.organizations organization
-  join public.organization_memberships membership
-    on membership.organization_id=organization.id and membership.active and membership.is_bookable
-  join public.services service on service.performer_id=membership.user_id and service.active
-  where organization.status='active' and organization.public_booking_enabled
-  order by organization.id,service.id limit 1;
+  select service.id,service.performer_id into v_service,v_performer
+  from public.services service where service.active order by service.id limit 1;
   if v_service is null then raise exception 'v137_test_requires_bookable_service'; end if;
+  v_slug:='v137-source-'||replace(v_org::text,'-','');
+  insert into public.organizations(id,name,public_slug,status,public_booking_enabled)
+  values(v_org,'V137 isolated source',v_slug,'active',true);
+  insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
+  values(v_org,v_performer,'owner',true,true);
   v_other_slug:='v137-other-'||replace(gen_random_uuid()::text,'-','');
   insert into public.organizations(name,public_slug,status,public_booking_enabled)
   values('V137 isolated other',v_other_slug,'active',true);
