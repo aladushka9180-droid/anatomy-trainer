@@ -309,6 +309,7 @@ try {
     [organization,item,sourceWarehouse,destinationWarehouse])).rows[0].total;
   assert.equal(afterManualTotal,'12.000');
 
+  await a.query(receipt,[organization,sourceWarehouse,legacyItem,'receipt',2,null,'Запас для проверки порядка блокировок',randomUUID(),200]);
   await admin.query(`create function public.wait_d09_legacy_insert_test() returns trigger language plpgsql as $$
     begin
       if new.reason='D09 lock barrier' then perform pg_advisory_xact_lock(13009); end if;
@@ -319,9 +320,9 @@ try {
   await admin.query('begin');
   await admin.query('select pg_advisory_xact_lock(13009)');
   const legacyFirst = outcome(a.query('select public.apply_minuta_stock_movement($1,$2,$3,$4,$5,$6,$7,$8)',
-    [organization,sourceWarehouse,item,'write_off',1,null,'D09 lock barrier',randomUUID()]));
+    [organization,sourceWarehouse,legacyItem,'write_off',1,null,'D09 lock barrier',randomUUID()]));
   await awaitBlocked(observer,aPid);
-  const transferSecond = outcome(b.query(transfer,transferArgs(randomUUID(),1)));
+  const transferSecond = outcome(b.query(transfer,transferArgs(randomUUID(),1,sourceWarehouse,destinationWarehouse,legacyItem)));
   await awaitBlocked(observer,bPid);
   await admin.query('commit');
   assert.ok((await legacyFirst).value,'legacy writer must complete without a lock-order deadlock');
