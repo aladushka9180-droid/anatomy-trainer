@@ -132,7 +132,7 @@ jobs:
             to_regprocedure('public.get_primetime_schedule_v139(jsonb)') is not null batch,
             to_regprocedure('public.get_primetime_slot_ranges_v139(text,uuid,uuid,date,date,text)') is not null ranges)
           select json_build_object('v101Ready',v101,'mode',case
-            when not credentials and not batch then 'absent'
+            when credentials and not batch and not ranges then 'ready'
             when credentials and batch and ranges
               and not has_table_privilege('anon','public.primetime_server_credentials','SELECT')
               and has_function_privilege('anon','public.get_primetime_schedule_v139(jsonb)','EXECUTE')
@@ -143,7 +143,7 @@ jobs:
           SQL
           )"
           state="$(grep '^{' <<<"$state"|tail -n 1)"
-          jq -e '.v101Ready and (.mode=="absent" or .mode=="full")' <<<"$state" >/dev/null
+          jq -e '.v101Ready and (.mode=="ready" or .mode=="full")' <<<"$state" >/dev/null
           jq -n --arg sha "$SHA" --argjson state "$state" '{status:"success",phase:"validate-production-v139",commitSha:$sha,readOnly:true,productionWritten:false,state:$state}' > "$RUNNER_TEMP/v139-validation.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: "v139-validation-${{ github.run_id }}", path: "${{ runner.temp }}/v139-validation.json", if-no-files-found: error, retention-days: 35 }
@@ -179,7 +179,7 @@ jobs:
           jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .isolatedDatabase and (.productionWritten|not)' "$RUNNER_TEMP/v139-evidence/test/v139-test.json" >/dev/null
           check_run "$VALIDATION" .github/workflows/minuta-v139-safe-release.yml
           gh run download "$VALIDATION" -R "$GITHUB_REPOSITORY" -n "v139-validation-$VALIDATION" -D "$RUNNER_TEMP/v139-evidence/validation"
-          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly and (.state.mode=="absent" or .state.mode=="full")' "$RUNNER_TEMP/v139-evidence/validation/v139-validation.json" >/dev/null
+          jq -e --arg sha "$SHA" '.status=="success" and .commitSha==$sha and .readOnly and (.state.mode=="ready" or .state.mode=="full")' "$RUNNER_TEMP/v139-evidence/validation/v139-validation.json" >/dev/null
           check_run "$BACKUP" .github/workflows/minuta-supabase-backup.yml
           age=$(( $(date +%s)-$(date -d "$(jq -r .created_at <<<"$run")" +%s) )); test "$age" -ge 0 && test "$age" -le 7200
           artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BACKUP/artifacts" --jq '.artifacts[]|select(.expired==false and .size_in_bytes>0)|.name')"; [[ "$artifact" == minuta-* ]]

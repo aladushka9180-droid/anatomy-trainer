@@ -12,6 +12,10 @@ const integration = fs.readFileSync(
   new URL('./tests/primetime-schedule-v139-integration.sql', import.meta.url),
   'utf8',
 );
+const workflow = fs.readFileSync(
+  new URL('../.github/workflows/minuta-v139-safe-release.yml', import.meta.url),
+  'utf8',
+);
 
 for (const required of [
   "credential.credential_key='schedule_v138'",
@@ -41,6 +45,14 @@ for (const required of [
 ]) {
   if (!integration.includes(required))
     throw new Error(`missing integration assertion: ${required}`);
+}
+for (const required of [
+  "when credentials and not batch and not ranges then 'ready'",
+  '(.mode=="ready" or .mode=="full")',
+  '(.state.mode=="ready" or .state.mode=="full")',
+]) {
+  if (!workflow.includes(required))
+    throw new Error(`missing workflow state guard: ${required}`);
 }
 
 console.log('PrimeTime schedule v139 static checks passed.');
