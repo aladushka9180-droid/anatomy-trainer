@@ -33,7 +33,7 @@ const connect = async () => {
   return client;
 };
 const admin = await connect();
-const actor = randomUUID(), organization = randomUUID(), sourceLocation = randomUUID(), destinationLocation = randomUUID();
+const actor = randomUUID(), backupOwner = randomUUID(), organization = randomUUID(), sourceLocation = randomUUID(), destinationLocation = randomUUID();
 const sourceWarehouse = randomUUID(), destinationWarehouse = randomUUID();
 const item = randomUUID(), mixedItem = randomUUID(), fifoItem = randomUUID(), legacyItem = randomUUID();
 const receipt = 'select public.apply_minuta_stock_movement_v130($1,$2,$3,$4,$5,$6,$7,$8,$9) result';
@@ -144,15 +144,17 @@ try {
   await admin.query('begin');
   await admin.query("set local session_replication_role='replica'");
   await admin.query(`insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
-    values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$2,now(),'{}','{}',now(),now())`,[actor,`${actor}@example.invalid`]);
+    values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$3,now(),'{}','{}',now(),now()),
+      ($2,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$4,now(),'{}','{}',now(),now())`,
+    [actor,backupOwner,`${actor}@example.invalid`,`${backupOwner}@example.invalid`]);
   await admin.query("set local session_replication_role='origin'");
-  await admin.query("insert into public.performer_profiles(id,display_name) values($1,'D09 isolated fixture')",[actor]);
+  await admin.query("insert into public.performer_profiles(id,display_name) values($1,'D09 isolated fixture'),($2,'D09 backup owner')",[actor,backupOwner]);
   await admin.query("insert into public.organizations(id,name,created_by,status) values($1,'D09 isolated fixture',$2,'active')",[organization,actor]);
   await admin.query(`insert into public.locations(id,organization_id,name,timezone,is_primary,active)
     values($1,$3,'D09 source','Europe/Samara',true,true),($2,$3,'D09 destination','Europe/Samara',false,true)`,
     [sourceLocation,destinationLocation,organization]);
   await admin.query(`insert into public.organization_memberships(organization_id,user_id,role,is_bookable,active)
-    values($1,$2,'owner',true,true)`,[organization,actor]);
+    values($1,$2,'owner',true,true),($1,$3,'owner',false,true)`,[organization,actor,backupOwner]);
   await admin.query(`insert into public.organization_inventory_settings(organization_id,enabled,auto_deduct_completed_visits,enabled_at,enabled_by)
     values($1,true,false,now(),$2)`,[organization,actor]);
   await admin.query(`insert into public.inventory_items(id,organization_id,name,sku,unit,active,created_by)
@@ -194,7 +196,7 @@ try {
   assert.equal(canonicalSql(v108Restored.movement_constraint),canonicalSql(v108Baseline.movement_constraint));
   assert.equal((await admin.query('select count(*)::integer n from public.inventory_items where organization_id=$1',[organization])).rows[0].n,4);
   assert.equal((await admin.query('select count(*)::integer n from public.inventory_warehouses where organization_id=$1',[organization])).rows[0].n,2);
-  assert.equal((await admin.query('select count(*)::integer n from public.organization_memberships where organization_id=$1',[organization])).rows[0].n,1);
+  assert.equal((await admin.query('select count(*)::integer n from public.organization_memberships where organization_id=$1',[organization])).rows[0].n,2);
 
   const legacyClient = await connect(); await asActor(legacyClient);
   const legacyReceipt = (await legacyClient.query(
@@ -391,8 +393,8 @@ try {
     await admin.query('delete from public.organization_memberships where organization_id=$1',[organization]);
     await admin.query('delete from public.locations where organization_id=$1',[organization]);
     await admin.query('delete from public.organizations where id=$1',[organization]);
-    await admin.query('delete from public.performer_profiles where id=$1',[actor]);
-    await admin.query('delete from auth.users where id=$1',[actor]);
+    await admin.query('delete from public.performer_profiles where id in($1,$2)',[actor,backupOwner]);
+    await admin.query('delete from auth.users where id in($1,$2)',[actor,backupOwner]);
     await admin.query('commit');
   }
   for (const client of clients) await client.end();
