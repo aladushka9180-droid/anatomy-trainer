@@ -325,7 +325,9 @@ try {
   await awaitBlocked(observer,bPid);
   await admin.query('commit');
   assert.ok((await legacyFirst).value,'legacy writer must complete without a lock-order deadlock');
-  assert.ok((await transferSecond).value,'transfer must continue after the legacy writer releases the organization lock');
+  const transferAfterLegacy = await transferSecond;
+  assert.ok(transferAfterLegacy.value,
+    `transfer must continue after the legacy writer releases the organization lock: ${transferAfterLegacy.error?.code || 'unknown'} ${transferAfterLegacy.error?.message || 'unknown error'}`);
   await admin.query('drop trigger wait_d09_legacy_insert_test on public.inventory_movements');
   await admin.query('drop function public.wait_d09_legacy_insert_test()');
 
