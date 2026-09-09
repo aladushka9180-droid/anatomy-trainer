@@ -213,10 +213,18 @@ try {
   await replayOwner.query('begin');
   const replayPromise = outcome(replayOwner.query(settleSql,
     [ids.org, visit.id, bank.id, 'bank_transfer', referenceHash, 1200, occurredAt, ids.settleRequest]));
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const waiting = Number((await admin.query(`select count(*)::integer count from pg_stat_activity
-    where application_name='minuta-d06-v133-concurrent-replay'
-      and wait_event_type='Lock'`)).rows[0].count);
+  let waiting = 0;
+  for (let attempt = 0; attempt < 40 && waiting < 1; attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    waiting = Number((await admin.query(`select count(*)::integer count from pg_stat_activity
+      where application_name='minuta-d06-v133-concurrent-replay'
+        and wait_event_type='Lock'`)).rows[0].count);
+  }
+  if (waiting < 1) {
+    await owner.query('rollback');
+    await replayPromise;
+    await replayOwner.query('rollback');
+  }
   assert(waiting >= 1, 'concurrent settlement did not wait on the ledger lock');
   await owner.query('commit');
   const replayOutcome = await replayPromise;
