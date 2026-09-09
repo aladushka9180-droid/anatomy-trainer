@@ -139,6 +139,7 @@ select set_config('minuta.v136.advance',public.create_minuta_payroll_advance_v13
   current_setting('minuta.v136.cash')::uuid,30000,'1901-01-31 12:00:00+00',
   '00000000-0000-4000-8000-000000136013'
 )::text,true);
+reset role;
 select set_config('minuta.v136.accrual_request',(
   select md5('payroll-accrual-v136:'||period.id::text||':'||period.calculation_version::text)::uuid::text
   from public.payroll_periods period where period.id='00000000-0000-4000-8000-000000136010'
@@ -158,6 +159,7 @@ select set_config('minuta.v136.accrual',(
   where source.organization_id=current_setting('minuta.v136.org')::uuid
     and source.period_id='00000000-0000-4000-8000-000000136010'
 ),true);
+set local role authenticated;
 select set_config('minuta.v136.accrual_replay',public.accrue_minuta_payroll_period_v136(
   current_setting('minuta.v136.org')::uuid,'00000000-0000-4000-8000-000000136010',
   (select approved_at from public.payroll_periods where id='00000000-0000-4000-8000-000000136010'),
