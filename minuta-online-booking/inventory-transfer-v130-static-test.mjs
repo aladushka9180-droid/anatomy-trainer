@@ -6,6 +6,8 @@ const migration = await readFile(new URL('supabase-migration-v130.sql', root), '
 const rollback = await readFile(new URL('supabase-migration-v130-operational-rollback.sql', root), 'utf8');
 const schemaRollback = await readFile(new URL('supabase-migration-v130-schema-rollback.sql', root), 'utf8');
 const v82 = await readFile(new URL('supabase-migration-v82.sql', root), 'utf8');
+const controller = await readFile(new URL('inventory-management.js', root), 'utf8');
+const provider = await readFile(new URL('provider.html', root), 'utf8');
 
 for (const table of [
   'organization_inventory_transfer_settings',
@@ -99,5 +101,13 @@ for (const legacy of ['apply_minuta_stock_movement', 'consume_minuta_inventory_f
 assert.match(schemaRollback, /revoke all on function public\.apply_minuta_stock_movement[\s\S]*grant execute on function public\.apply_minuta_stock_movement[\s\S]*to authenticated/i);
 assert.match(schemaRollback, /revoke all on function public\.consume_minuta_inventory_for_booking\(uuid\)[\s\S]*from public,anon,authenticated,service_role/i);
 assert.match(schemaRollback, /v130_schema_rollback_postcondition_failed/i);
+
+for (const rpc of ['get_minuta_inventory_workspace_v130','enable_minuta_inventory_transfers_v130','set_minuta_inventory_transfers_enabled_v130','transfer_minuta_inventory_stock_v130','apply_minuta_stock_movement_v130'])
+  assert.match(controller, new RegExp(`['"]${rpc}['"]`));
+for (const id of ['inventoryTransfersSetting','enableInventoryTransfers','inventoryTransfersEnabled','inventoryTransferDestination','inventoryTransferBalance','inventoryTransferError','inventoryTransferDocumentsList'])
+  assert.match(provider, new RegExp(`id=["']${id}["']`));
+assert.match(provider, /option value="transfer">Перемещение между складами/);
+assert.match(controller, /const transferIntents = new Map\(\)/);
+assert.match(controller, /transfer_out[\s\S]*transfer_in/);
 
 console.log('inventory transfer v130 static contract: OK');

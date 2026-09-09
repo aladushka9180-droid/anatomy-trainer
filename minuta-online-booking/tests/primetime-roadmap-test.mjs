@@ -27,9 +27,10 @@ const completeEvidence = (item, marker = 'a') => ({
   checks: Object.fromEntries(item.completion.requiredChecks.map(name => [name, true]))
 });
 
-test('published override exposes only D06 and D09 while stage-0 remains blocked', () => {
+test('override exposes only D06 and D09 while stage-0 remains blocked', () => {
   const plan = readJson(PLAN_PATH);
   const status = readJson(STATUS_PATH);
+  for (const id of ['D06', 'D09']) status.items[id] = { status:'not_started', evidence:{}, blocker:null };
   const result = validateRoadmap(plan, status);
   assert.equal(result.valid, true);
   assert.equal(result.items, 22);
@@ -61,6 +62,7 @@ test('validator fails closed on undeclared evidence and dependency cycles', () =
 test('transition accepts one monotonic item update and rejects multiple updates', () => {
   const plan = readJson(PLAN_PATH);
   const before = readJson(STATUS_PATH);
+  before.items.D09 = { status:'not_started', evidence:{}, blocker:null };
   const after = clone(before);
   after.updatedAt = new Date(Date.parse(before.updatedAt) + 1000).toISOString();
   after.items.D09.status = 'implementing';
@@ -74,13 +76,14 @@ test('transition accepts one monotonic item update and rejects multiple updates'
     planVersion: plan.version
   });
 
-  after.items.D06.evidence.checks = { cash_accounts: true };
+  after.items.D06.evidence.verifiedAt = new Date(Date.parse(after.items.D06.evidence.verifiedAt) + 1000).toISOString();
   assert.throws(() => verifyTransition(plan, before, after), /exactly one roadmap item or stage-gate override must change/);
 });
 
 test('override activation is an isolated transition and requires explicit user approval', () => {
   const plan = readJson(PLAN_PATH);
   const published = readJson(STATUS_PATH);
+  for (const id of ['D06', 'D09']) published.items[id] = { status:'not_started', evidence:{}, blocker:null };
   const after = clone(published);
   after.updatedAt = after.stageGateOverride.approvedAt;
   const before = clone(after);

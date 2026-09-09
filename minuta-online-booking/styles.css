@@ -2710,6 +2710,11 @@ html.provider-booting .provider-main {
 .provider-body .inventory-workspace[hidden],.provider-body #inventoryControls[hidden] { display:none; }
 .provider-body .inventory-settings { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .provider-body .inventory-settings .settings-check { margin:0; padding:13px; border:1px solid var(--theme-line,#dfe7e1); border-radius:13px; background:var(--theme-surface-alt,#f8faf8); }
+.provider-body .inventory-transfer-toggle { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.provider-body .inventory-transfer-toggle>label { display:flex; align-items:flex-start; min-width:0; gap:10px; cursor:pointer; }
+.provider-body .inventory-transfer-toggle>label span,.provider-body .inventory-transfer-toggle>label strong,.provider-body .inventory-transfer-toggle>label small { display:block; }
+.provider-body .inventory-transfer-toggle>label small { margin-top:3px; color:var(--theme-muted,#718078); }
+.provider-body .inventory-transfer-toggle>button { flex:0 0 auto; width:auto; margin:0; }
 .provider-body .inventory-management-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
 .provider-body .inventory-management-grid>section,.provider-body .inventory-balances-section { min-width:0; padding:14px; border:1px solid var(--theme-line,#dfe7e1); border-radius:14px; background:var(--theme-surface-alt,#fafcfb); }
 .provider-body .inventory-balances { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:9px; }
@@ -2722,6 +2727,8 @@ html.provider-booting .provider-main {
 .provider-body .inventory-balance-card li b { color:var(--theme-ink,#345343); white-space:nowrap; }
 .provider-body .inventory-balance-card li.is-low,.provider-body .inventory-balance-card li.is-low b,.provider-body .inventory-low strong { color:#a45731; }
 .provider-body .inventory-operation form,.provider-body .inventory-usage form { display:grid; gap:10px; margin-top:11px; }
+.provider-body #inventoryTransferBalance { color:var(--theme-muted,#718078); font-size:9px; }
+.provider-body .inventory-transfer-document { border-color:var(--theme-accent-soft,#dcece2); }
 .provider-body .inventory-form-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .provider-body .inventory-form-actions button,.provider-body .inventory-operation form>button,.provider-body .inventory-usage form>button { width:100%; min-height:42px; margin:0; }
 .provider-body .inventory-usage .organization-list { max-height:260px; overflow:auto; }
@@ -2874,6 +2881,8 @@ html.provider-booting .provider-main {
   .provider-body .organization-audit-list>article.organization-audit-row { grid-template-columns:8px minmax(0,1fr); }
   .provider-body .organization-audit-list>article.organization-audit-row>time { grid-column:2; text-align:left; }
   .provider-body .inventory-settings,.provider-body .inventory-management-grid { grid-template-columns:1fr; }
+  .provider-body .inventory-transfer-toggle { align-items:stretch; flex-direction:column; }
+  .provider-body .inventory-transfer-toggle>button { width:100%; }
   .provider-body .inventory-management-grid>section,.provider-body .inventory-balances-section { padding:12px; }
   .provider-body .inventory-form-actions button,.provider-body .inventory-operation form>button,.provider-body .inventory-usage form>button { min-height:44px; }
   .provider-body .organization-state { align-items:flex-start; flex-direction:column; padding:16px; }

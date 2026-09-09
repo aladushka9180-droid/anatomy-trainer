@@ -2,7 +2,7 @@
   'use strict';
 
   const unitLabels = { piece:'шт.', ml:'мл', g:'г', kg:'кг', l:'л', pack:'упак.' };
-  const movementLabels = { receipt:'Приход', write_off:'Списание', inventory:'Инвентаризация', service_use:'Завершённый визит' };
+  const movementLabels = { receipt:'Приход', write_off:'Списание', inventory:'Инвентаризация', service_use:'Завершённый визит', transfer_out:'Перемещение: отправлено', transfer_in:'Перемещение: получено' };
 
   function createController(options) {
     const { db, escapeHtml, notify, requireWrites, getCurrentUser, getSessionGeneration, sessionIsCurrent, applyWriteAvailability } = options;
@@ -17,6 +17,7 @@
     // Private, controller-lifetime recovery only; not durable across page reload.
     // Keep unresolved scopes separate, including across reset/org round trips.
     const movementIntents = new Map();
+    const transferIntents = new Map();
     let movementOperation = null;
     let movementErrorScope = null;
     let movementReadRecovery = null;
@@ -33,7 +34,10 @@
       if (intent) intent.draft = movementDraft();
     }
 
-    function unsupported(error) { return /PGRST202|42883|get_minuta_inventory_workspace|function .* does not exist/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`); }
+    function unsupported(error, functionName = 'get_minuta_inventory_workspace') {
+      const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+      return /PGRST202|42883|function .* does not exist/i.test(text) && text.includes(functionName);
+    }
     function scopeMatches(data, id) { return Boolean(data && String(data.organization_id || '') === String(id)); }
     function empty(title, text) { return `<div class="provider-empty compact-empty"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(text)}</small></div>`; }
     function quantity(value) { return new Intl.NumberFormat('ru-RU', { maximumFractionDigits:3 }).format(Number(value || 0)); }
@@ -61,6 +65,7 @@
       rememberMovementDraft(); movementFormScope = null;
       revision += 1; organization = null; payload = null; availability = null; writing = false; pendingOrganization = undefined; movementOperation = null;
       movementErrorScope = null; $('#inventoryMovementError').hidden = true; $('#inventoryMovementError').textContent = '';
+      $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = '';
       movementReadRecovery = null;
       $('#inventoryPanel').hidden = true; $('#inventoryLoading').hidden = true; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
     }
@@ -100,7 +105,11 @@
       }
       availability = 'loading'; payload = null; $('#inventoryPanel').hidden = false; $('#inventoryLoading').hidden = false; $('#inventoryUnavailable').hidden = true; $('#inventoryWorkspace').hidden = true;
       let result;
-      try { result = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId }); }
+      try {
+        result = await db.rpc('get_minuta_inventory_workspace_v130', { p_organization:organizationId });
+        if (result?.error && unsupported(result.error, 'get_minuta_inventory_workspace_v130'))
+          result = await db.rpc('get_minuta_inventory_workspace', { p_organization:organizationId });
+      }
       catch (error) {
         if (!readIsCurrent()) return { ok:false, optional:true, stale:true };
         if (recovery) return readFailed();
@@ -118,7 +127,7 @@
       }
       if (!scopeMatches(data, organizationId)) { availability = 'error'; $('#inventoryUnavailable').hidden = false; $('#inventoryUnavailableText').textContent = 'Сервер вернул данные другой организации. Изменения заблокированы.'; return { ok:false, optional:true }; }
       payload = data;
-      for (const key of ['locations', 'services', 'items', 'warehouses', 'balances', 'usage', 'movements', 'audit']) if (!Array.isArray(payload[key])) payload[key] = [];
+      for (const key of ['locations', 'services', 'items', 'warehouses', 'balances', 'usage', 'movements', 'audit', 'transfer_documents']) if (!Array.isArray(payload[key])) payload[key] = [];
       // Read reconciliation must not change the pending intent or overwrite
       // edits made while this read was in flight. Capture immediately at render.
       const sameFormScope = movementFormScope === scope;
@@ -173,6 +182,22 @@
       return `<article class="organization-audit-row"><span></span><div><strong>${escapeHtml(movementLabels[row.movement_type] || row.movement_type)} · ${escapeHtml(inventoryItem?.name || 'Материал')}</strong><small>${escapeHtml(warehouse(row.warehouse_id)?.name || 'Склад')} · ${delta > 0 ? '+' : ''}${escapeHtml(quantity(delta))} ${escapeHtml(unitLabels[inventoryItem?.unit] || '')} · остаток ${escapeHtml(quantity(row.quantity_after))}${row.reason ? ` · ${escapeHtml(row.reason)}` : ''}</small></div><time>${escapeHtml(date)}</time></article>`;
     }
 
+    function transferCard(row) {
+      const inventoryItem = item(row.inventory_item_id);
+      const date = new Date(row.created_at).toLocaleString('ru-RU', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+      const cost = row.cost_complete === false ? ' · себестоимость требует сверки'
+        : Number.isFinite(Number(row.total_cost_kopecks)) ? ` · ${escapeHtml(quantity(Number(row.total_cost_kopecks) / 100))} ₽` : '';
+      return `<article class="organization-audit-row inventory-transfer-document"><span></span><div><strong>Перемещение · ${escapeHtml(inventoryItem?.name || 'Материал')}</strong><small>${escapeHtml(warehouse(row.source_warehouse_id)?.name || 'Склад')} → ${escapeHtml(warehouse(row.destination_warehouse_id)?.name || 'Склад')} · ${escapeHtml(quantity(row.quantity))} ${escapeHtml(unitLabels[inventoryItem?.unit] || '')}${cost} · ${escapeHtml(row.reason || '')}</small></div><time>${escapeHtml(date)}</time></article>`;
+    }
+
+    function updateTransferBalance() {
+      const source = $('#inventoryMovementWarehouse')?.value, itemId = $('#inventoryMovementItem')?.value;
+      if (!$('#inventoryTransferBalance')) return;
+      $('#inventoryTransferBalance').textContent = source && itemId
+        ? `Доступно на исходном складе: ${quantity(balanceFor(source, itemId))} ${unitLabels[item(itemId)?.unit] || ''}`
+        : 'Выберите исходный склад и позицию.';
+    }
+
     function render() {
       if (availability !== 'ready' || !payload) return;
       const enabled = Boolean(payload.enabled), isOwner = payload.current_role === 'owner';
@@ -185,7 +210,9 @@
       $('#inventoryWarehousesList').innerHTML = payload.warehouses.length ? payload.warehouses.map(warehouseCard).join('') : empty('Склады не созданы', 'Создайте по одному складу для нужных филиалов.');
       $('#inventoryBalances').innerHTML = payload.warehouses.filter(row => row.active).length ? payload.warehouses.filter(row => row.active).map(balanceCard).join('') : empty('Нет активных складов', 'Создайте склад филиала, затем оформите приход.');
       $('#inventoryUsageList').innerHTML = payload.usage.length ? payload.usage.map(usageCard).join('') : empty('Нормы не настроены', 'Добавьте расход материала на одну завершённую услугу.');
-      $('#inventoryMovementsList').innerHTML = payload.movements.length ? payload.movements.map(movementCard).join('') : empty('Движений пока нет', 'Приходы, списания и инвентаризации появятся здесь.');
+      const ordinaryMovements = payload.movements.filter(row => !['transfer_out', 'transfer_in'].includes(row.movement_type));
+      $('#inventoryMovementsList').innerHTML = ordinaryMovements.length ? ordinaryMovements.map(movementCard).join('') : empty('Движений пока нет', 'Приходы, списания, инвентаризации и перемещения появятся здесь.');
+      $('#inventoryTransferDocumentsList').innerHTML = payload.transfer_documents.length ? payload.transfer_documents.map(transferCard).join('') : '';
       $('#inventoryControls').hidden = !enabled;
       const activeItems = payload.items.filter(row => row.active), activeWarehouses = payload.warehouses.filter(row => row.active), activeServices = payload.services.filter(row => row.active !== false);
       $('#inventoryMovementWarehouse').innerHTML = optionRows(activeWarehouses, row => `${row.name} · ${location(row.location_id)?.name || 'Филиал'}`);
@@ -193,12 +220,34 @@
       $('#inventoryUsageService').innerHTML = optionRows(activeServices, row => row.name);
       $('#inventoryUsageItem').innerHTML = optionRows(activeItems, row => `${row.name} · ${unitLabels[row.unit] || row.unit}`);
       $('#inventoryWarehouseLocation').innerHTML = optionRows(payload.locations.filter(row => row.active), row => row.name);
+      const transferAvailable = Number(payload.transfer_version) === 130;
+      $('#inventoryTransfersSetting').hidden = !transferAvailable;
+      const movementKind = $('#inventoryMovementKind');
+      const transferOption = typeof movementKind?.querySelector === 'function' ? movementKind.querySelector('option[value="transfer"]') : null;
+      if (transferOption) { transferOption.hidden = !transferAvailable; transferOption.disabled = !transferAvailable; }
+      if (!transferAvailable && movementKind?.value === 'transfer') movementKind.value = 'receipt';
+      if (transferAvailable) {
+        const initialized = Boolean(payload.transfers_initialized_at), suspended = Boolean(payload.transfers_suspended_at);
+        $('#inventoryTransfersEnabled').checked = Boolean(payload.transfers_enabled);
+        $('#inventoryTransfersEnabled').hidden = !initialized;
+        $('#inventoryTransfersEnabled').disabled = !isOwner || suspended;
+        $('#enableInventoryTransfers').hidden = initialized || !isOwner || suspended;
+        $('#enableInventoryTransfers').disabled = !enabled;
+        $('#inventoryTransfersHint').textContent = suspended ? 'Перемещения остановлены автоматической сверкой. Проверьте журнал и себестоимость.'
+          : isOwner ? initialized ? 'Можно временно выключать без изменения истории и остатков.' : enabled ? 'Первое включение подготовит FIFO-слои текущих остатков.' : 'Сначала включите складской учёт.'
+            : 'Режим перемещений может менять только владелец.';
+        $('#inventoryTransfersState').textContent = suspended ? 'Перемещения заблокированы до сверки.'
+          : payload.transfers_enabled ? activeWarehouses.length < 2 ? 'Нужно не менее двух активных складов.' : 'Доступно администраторам и владельцу.'
+            : 'Функция выключена владельцем.';
+        $('#inventoryTransferDestination').innerHTML = optionRows(activeWarehouses, row => `${row.name} · ${location(row.location_id)?.name || 'Филиал'}`);
+        updateTransferBalance();
+      }
       updateMovementKind(); setBusy(false); applyWriteAvailability();
     }
 
     function messageFor(error) {
       const text = `${error?.message || ''} ${error?.details || ''}`;
-      const rows = [['inventory_disabled','Сначала включите складской учёт.'],['inventory_owner_required','Изменить режим склада может только владелец.'],['insufficient_inventory_stock','Недостаточно остатка для списания.'],['inventory_reason_required','Для списания или инвентаризации укажите причину.'],['inventory_target_inactive','Выберите активный склад и материал.'],['inventory_request_conflict','Операция была изменена после отправки. Обновите данные.'],['inventory_unit_locked_by_ledger','Нельзя менять единицу позиции после первого движения. Создайте новую позицию.'],['inventory_warehouse_location_locked_by_ledger','Нельзя переносить склад с историей в другой филиал. Создайте новый склад.'],['inventory_warehouse_missing_for_location','Для филиала записи не создан активный склад.'],['insufficient_inventory_stock_for_completed_visit','На складе недостаточно материалов для завершения визита.'],['duplicate key','Для филиала уже создан склад или артикул занят.']];
+      const rows = [['inventory_disabled','Сначала включите складской учёт.'],['inventory_transfer_owner_required','Изменить режим перемещений может только владелец.'],['inventory_owner_required','Изменить режим склада может только владелец.'],['inventory_transfer_not_initialized','Сначала подготовьте и включите перемещения.'],['inventory_transfer_reactivation_requires_reconciliation','Перемещения остановлены до сверки.'],['inventory_transfers_disabled','Перемещения выключены владельцем.'],['inventory_transfer_warehouses_invalid','Выберите два разных активных склада.'],['invalid_inventory_transfer_quantity','Укажите количество больше нуля, не более трёх знаков после запятой.'],['inventory_transfer_reason_required','Укажите основание перемещения.'],['inventory_transfer_request_conflict','Параметры перемещения отличаются от исходного запроса.'],['inventory_transfer_pair_incomplete','Сервер не подтвердил обе связанные проводки.'],['inventory_transfer_target_inactive','Выберите активные склады и материал.'],['inventory_transfer_destination_overflow','Остаток склада-получателя превысит допустимый предел.'],['inventory_transfer_cost_snapshot_missing','Не удалось подтвердить себестоимость перемещения.'],['inventory_transfer_cost_layers_incomplete','Себестоимость исходного остатка требует сверки.'],['insufficient_inventory_stock','Недостаточно остатка на исходном складе.'],['inventory_reason_required','Для списания или инвентаризации укажите причину.'],['inventory_target_inactive','Выберите активный склад и материал.'],['inventory_request_conflict','Операция была изменена после отправки. Обновите данные.'],['inventory_unit_locked_by_ledger','Нельзя менять единицу позиции после первого движения. Создайте новую позицию.'],['inventory_warehouse_location_locked_by_ledger','Нельзя переносить склад с историей в другой филиал. Создайте новый склад.'],['inventory_warehouse_missing_for_location','Для филиала записи не создан активный склад.'],['insufficient_inventory_stock_for_completed_visit','На складе недостаточно материалов для завершения визита.'],['duplicate key','Для филиала уже создан склад или артикул занят.']];
       return rows.find(([key]) => text.includes(key))?.[1] || 'Изменение не сохранено. Записи и остатки не изменены.';
     }
 
@@ -217,10 +266,16 @@
     }
 
     function updateMovementKind() {
-      const inventory = $('#inventoryMovementKind')?.value === 'inventory';
+      const kind = $('#inventoryMovementKind')?.value;
+      const inventory = kind === 'inventory', transfer = kind === 'transfer';
       if ($('#inventoryMovementQuantityField')) $('#inventoryMovementQuantityField').hidden = inventory;
       if ($('#inventoryCountedQuantityField')) $('#inventoryCountedQuantityField').hidden = !inventory;
-      if ($('#inventoryMovementReason')) $('#inventoryMovementReason').required = inventory || $('#inventoryMovementKind').value === 'write_off';
+      if ($('#inventoryTransferDestinationField')) $('#inventoryTransferDestinationField').hidden = !transfer;
+      if ($('#inventoryTransferDestination')) $('#inventoryTransferDestination').required = transfer;
+      if ($('#inventoryTransferBalance')) $('#inventoryTransferBalance').hidden = !transfer;
+      if ($('#inventoryMovementReason')) $('#inventoryMovementReason').required = inventory || kind === 'write_off' || transfer;
+      if ($('#inventoryTransfersState')) $('#inventoryTransfersState').hidden = !transfer;
+      if (transfer) updateTransferBalance();
     }
 
     function clearItemForm() { $('#inventoryItemId').value = ''; $('#inventoryItemForm').reset(); $('#inventoryItemActive').checked = true; $('#inventoryItemCreator').open = false; }
@@ -289,7 +344,9 @@
         && organization?.id === organizationId && revision === current && movementIntents.get(scope) === intent;
       let acknowledged = false;
       try {
-        const result = await db.rpc('apply_minuta_stock_movement', { ...intent.parameters });
+        const useCostLedger = Number(payload?.transfer_version) === 130 && Boolean(payload?.transfers_initialized_at);
+        const result = await db.rpc(useCostLedger ? 'apply_minuta_stock_movement_v130' : 'apply_minuta_stock_movement',
+          useCostLedger ? { ...intent.parameters, p_purchase_total_cost_kopecks:null } : { ...intent.parameters });
         if (!isCurrent()) { intent.ambiguous = true; return; }
         if (result?.error) {
           // A refusal of a replay cannot disprove an earlier unknown commit:
@@ -349,6 +406,110 @@
       }
     }
 
+    function transferScope() { return movementScope(); }
+    function transferParameters() {
+      return { p_organization:organization?.id, p_source_warehouse:$('#inventoryMovementWarehouse').value,
+        p_destination_warehouse:$('#inventoryTransferDestination').value, p_item:$('#inventoryMovementItem').value,
+        p_quantity:Number($('#inventoryMovementQuantity').value), p_reason:$('#inventoryMovementReason').value.trim() };
+    }
+    function sameTransfer(left, right) {
+      return Object.keys(left).every(key => key === 'p_request_id' || left[key] === right[key]);
+    }
+    function transferError(message, intent = transferIntents.get(transferScope()) || null) {
+      const holder = $('#inventoryTransferError'); holder.hidden = false;
+      if (!intent) { holder.textContent = message; return; }
+      const original = intent.parameters;
+      holder.innerHTML = `${escapeHtml(message)} ${escapeHtml(`${intent.itemName}: ${intent.sourceName} → ${intent.destinationName}, ${quantity(original.p_quantity)} · ${original.p_reason}`)} <button type="button" data-inventory-restore-transfer>Вернуть исходные поля</button>`;
+    }
+    function validTransferAcknowledgement(data, organizationId) {
+      return data && !Array.isArray(data) && typeof data === 'object' && data.organization_id === organizationId
+        && ['document_id','source_movement_id','destination_movement_id'].every(key => Number.isSafeInteger(data[key]) && data[key] > 0)
+        && ['source_quantity_after','destination_quantity_after'].every(key => typeof data[key] === 'number' && Number.isFinite(data[key]) && data[key] >= 0);
+    }
+    function definiteTransferRefusal(error) {
+      const codes = {
+        '42501':['authentication_required','inventory_management_denied','inventory_transfer_owner_required'],
+        '55000':['inventory_disabled','inventory_transfer_not_initialized','inventory_transfer_reactivation_requires_reconciliation','inventory_transfers_disabled','inventory_transfer_target_inactive','insufficient_inventory_stock','inventory_transfer_destination_overflow','inventory_transfer_cost_snapshot_missing','inventory_transfer_cost_layers_incomplete'],
+        '22023':['inventory_transfer_request_id_required','inventory_transfer_warehouses_invalid','invalid_inventory_transfer_quantity','inventory_transfer_reason_required'],
+        '23505':['inventory_transfer_request_conflict']
+      };
+      return Boolean(error && codes[error.code]?.includes(error.message));
+    }
+    function restoreTransfer(intent) {
+      const original = intent.parameters;
+      $('#inventoryMovementWarehouse').value = original.p_source_warehouse;
+      $('#inventoryTransferDestination').value = original.p_destination_warehouse;
+      $('#inventoryMovementItem').value = original.p_item;
+      $('#inventoryMovementKind').value = 'transfer';
+      $('#inventoryMovementQuantity').value = String(original.p_quantity);
+      $('#inventoryMovementReason').value = original.p_reason;
+      updateMovementKind();
+      updateTransferBalance();
+    }
+    async function submitTransfer(event) {
+      if (!requireWrites() || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id) || !payload.transfers_enabled) return;
+      const userId = getCurrentUser()?.id, generation = getSessionGeneration(), organizationId = organization.id;
+      if (!userId) return;
+      const scope = transferScope(), parameters = transferParameters();
+      const rawQuantity = $('#inventoryMovementQuantity').value.trim();
+      if (!parameters.p_source_warehouse || !parameters.p_destination_warehouse || parameters.p_source_warehouse === parameters.p_destination_warehouse) {
+        transferError('Выберите два разных активных склада.', null); return;
+      }
+      if (!parameters.p_item || !/^\d+(?:\.\d{1,3})?$/.test(rawQuantity) || parameters.p_quantity <= 0 || parameters.p_quantity > 99999999999.999) {
+        transferError('Укажите корректное количество: больше нуля и не более трёх знаков после запятой.', null); return;
+      }
+      if (parameters.p_reason.length < 2 || parameters.p_reason.length > 500) { transferError('Укажите основание перемещения от 2 до 500 символов.', null); return; }
+      if (parameters.p_quantity > balanceFor(parameters.p_source_warehouse, parameters.p_item)) { transferError('На исходном складе недостаточно остатка.', null); return; }
+      let intent = transferIntents.get(scope);
+      if (intent && !sameTransfer(intent.parameters, parameters)) {
+        transferError('Результат исходного перемещения ещё не подтверждён. Изменённые данные не отправлены.', intent); return;
+      }
+      if (!intent) {
+        intent = { parameters:Object.freeze({ ...parameters, p_request_id:requestId() }), ambiguous:false,
+          itemName:item(parameters.p_item)?.name || parameters.p_item,
+          sourceName:warehouse(parameters.p_source_warehouse)?.name || parameters.p_source_warehouse,
+          destinationName:warehouse(parameters.p_destination_warehouse)?.name || parameters.p_destination_warehouse };
+        transferIntents.set(scope, intent);
+      }
+      const current = ++revision;
+      writing = true; setBusy(true); $('#inventoryTransferError').hidden = true; $('#inventoryTransferError').textContent = '';
+      const button = event.submitter, oldText = button?.textContent;
+      if (button) { button.disabled = true; button.textContent = 'Перемещаем…'; }
+      const isCurrent = () => sessionIsCurrent(userId, generation) && organization?.id === organizationId
+        && revision === current && transferIntents.get(scope) === intent;
+      let acknowledged = false;
+      try {
+        const result = await db.rpc('transfer_minuta_inventory_stock_v130', { ...intent.parameters });
+        if (!isCurrent()) { intent.ambiguous = true; return; }
+        if (result?.error) {
+          if (!intent.ambiguous && definiteTransferRefusal(result.error)) {
+            transferIntents.delete(scope); transferError(messageFor(result.error), null);
+          } else {
+            intent.ambiguous = true; transferError('Не удалось подтвердить перемещение. Повтор исходных данных использует тот же запрос.', intent);
+          }
+          return;
+        }
+        if (!result || result.error !== null || !validTransferAcknowledgement(result.data, organizationId)) {
+          intent.ambiguous = true; transferError('Сервер не вернул подтверждение обеих проводок. Повтор исходных данных использует тот же запрос.', intent); return;
+        }
+        acknowledged = true; transferIntents.delete(scope); event.target.reset(); updateMovementKind();
+        notify(result.data.cost_complete === false ? 'Перемещение сохранено. Себестоимость требует сверки.' : 'Перемещение сохранено');
+      } catch {
+        if (isCurrent()) { intent.ambiguous = true; transferError('Не удалось подтвердить перемещение. Повтор исходных данных использует тот же запрос.', intent); }
+      } finally {
+        writing = false;
+        if (button) button.textContent = oldText;
+        const next = pendingOrganization; pendingOrganization = undefined;
+        if (next !== undefined) await setOrganization(next);
+        else if (sessionIsCurrent(userId, generation) && organization?.id === organizationId && revision === current) {
+          try { await load(); }
+          catch { $('#inventoryUnavailable').hidden = false; $('#inventoryUnavailableText').textContent = acknowledged ? 'Перемещение сохранено, но журнал не обновился. Нажмите «Повторить».' : 'Не удалось обновить журнал. Повторите только чтение склада.'; }
+          const pending = transferIntents.get(scope);
+          if (pending && organization?.id === organizationId) { restoreTransfer(pending); transferError('Результат исходного перемещения ещё не подтверждён. Проверьте журнал перед повтором.', pending); }
+        }
+      }
+    }
+
     async function submit(event) {
       if (!event.target.closest('#inventoryPanel')) return;
       if (event.target.id === 'inventoryItemForm') {
@@ -358,7 +519,14 @@
         event.preventDefault(); const ok = await mutate('upsert_minuta_inventory_warehouse', { p_organization:organization.id,p_warehouse:$('#inventoryWarehouseId').value || null,p_location:$('#inventoryWarehouseLocation').value,p_name:$('#inventoryWarehouseName').value.trim(),p_active:$('#inventoryWarehouseActive').checked }, event.submitter, 'Склад сохранён', '#inventoryWarehouseError'); if (ok) clearWarehouseForm(); return;
       }
       if (event.target.id === 'inventoryMovementForm') {
-        event.preventDefault(); await submitMovement(event); return;
+        event.preventDefault();
+        const transfer = $('#inventoryMovementKind').value === 'transfer', scope = movementScope();
+        if (transfer && movementIntents.has(scope)) {
+          movementError('Сначала подтвердите исходную складскую операцию. Новое перемещение не отправлено.', movementIntents.get(scope));
+        } else if (!transfer && transferIntents.has(scope)) {
+          transferError('Сначала подтвердите исходное перемещение. Новая операция не отправлена.', transferIntents.get(scope));
+        } else if (transfer) await submitTransfer(event); else await submitMovement(event);
+        return;
       }
       if (event.target.id === 'inventoryUsageForm') {
         event.preventDefault(); const ok = await mutate('set_minuta_inventory_service_usage', { p_organization:organization.id,p_service:$('#inventoryUsageService').value,p_item:$('#inventoryUsageItem').value,p_quantity:Number($('#inventoryUsageQuantity').value) }, event.submitter, 'Норма расхода сохранена', '#inventoryUsageError'); if (ok) event.target.reset();
@@ -366,6 +534,19 @@
     }
 
     async function click(event) {
+      if (event.target.closest('[data-inventory-restore-transfer]')) {
+        const intent = transferIntents.get(transferScope());
+        if (!intent || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;
+        restoreTransfer(intent);
+        transferError(sameTransfer(intent.parameters, transferParameters())
+          ? 'Исходные поля восстановлены. Повтор использует тот же запрос, без нового перемещения.'
+          : 'Исходный склад или материал недоступен. Проверьте журнал; данные не отправлены.', intent);
+        return;
+      }
+      if (event.target.closest('#enableInventoryTransfers')) {
+        await mutate('enable_minuta_inventory_transfers_v130', { p_organization:organization.id }, event.target.closest('#enableInventoryTransfers'), 'Перемещения подготовлены и включены');
+        return;
+      }
       if (event.target.closest('[data-inventory-restore-movement]')) {
         const intent = movementIntents.get(movementScope());
         if (!intent || writing || availability !== 'ready' || !scopeMatches(payload, organization?.id)) return;
@@ -396,7 +577,13 @@
         const ok = await mutate('set_minuta_inventory_settings', { p_organization:organization.id,p_enabled:enabled,p_auto_deduct:automatic }, event.target, enabled ? 'Складской учёт включён' : 'Складской учёт выключен');
         if (!ok && payload) { $('#inventoryEnabled').checked=Boolean(payload.enabled); $('#inventoryAutoDeduct').checked=Boolean(payload.auto_deduct_completed_visits); }
       }
+      if (event.target.id === 'inventoryTransfersEnabled') {
+        const next = event.target.checked;
+        const ok = await mutate('set_minuta_inventory_transfers_enabled_v130', { p_organization:organization.id,p_enabled:next }, event.target, next ? 'Перемещения включены' : 'Перемещения выключены');
+        if (!ok && payload) event.target.checked = Boolean(payload.transfers_enabled);
+      }
       if (event.target.id === 'inventoryMovementKind') updateMovementKind();
+      if (event.target.id === 'inventoryMovementWarehouse' || event.target.id === 'inventoryMovementItem') updateTransferBalance();
     }
 
     function bind() { document.addEventListener('submit', submit); document.addEventListener('click', click); document.addEventListener('change', change); }

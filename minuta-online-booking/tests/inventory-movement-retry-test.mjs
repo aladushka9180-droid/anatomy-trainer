@@ -131,6 +131,10 @@ async function harness({ deferFirstReply = true, deferAllReplies = false, firstR
     sessionIsCurrent:(actor, generation) => actor === auth.actor && generation === auth.generation,
     applyWriteAvailability() {},
     db:{ rpc:async (name, params) => {
+      if (name === 'get_minuta_inventory_workspace_v130') {
+        effects.push(['workspaceV130Unsupported']);
+        return { data:null, error:{ code:'PGRST202', message:'Could not find the function public.get_minuta_inventory_workspace_v130' } };
+      }
       if (name === 'get_minuta_inventory_workspace') {
         assert.ok([ids.org, otherIds.org, thirdIds.org].includes(params.p_organization)); effects.push(['workspaceRead']);
         if (readResponses.length) return readResponses.shift()();

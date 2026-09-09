@@ -53,6 +53,7 @@ async function fixture(){
       balances:[{warehouse_id:selected.warehouse,inventory_item_id:selected.item,quantity:scope===org?stock:stockB}],movements:clone(rows.filter(row=>row.organization_id===scope))};};
     const db={rpc:async(name,args)=>{
       calls.push({name,args:clone(args)});
+      if(name==='get_minuta_inventory_workspace_v130')return {data:null,error:{code:'PGRST202',message:'Could not find the function public.get_minuta_inventory_workspace_v130'}};
       if(name==='get_minuta_inventory_workspace'){
         if(readFailure){const mode=readFailure;readFailure=null;
           if(mode==='throw')throw Error('Synthetic workspace rejection');

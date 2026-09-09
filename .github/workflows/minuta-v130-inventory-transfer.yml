@@ -37,6 +37,7 @@ jobs:
           node-version: 22
       - run: node --check minuta-online-booking/inventory-transfer-v130-static-test.mjs
       - run: node --check minuta-online-booking/tests/inventory-transfer-v130-postgres-test.mjs
+      - run: node --test minuta-online-booking/tests/inventory-transfer-v130-ui-test.mjs
       - run: node --check minuta-online-booking/scripts/inventory-transfer-v130-test-attestation.mjs
       - run: node minuta-online-booking/inventory-transfer-v130-static-test.mjs
 
