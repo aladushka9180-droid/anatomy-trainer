@@ -49,11 +49,19 @@ end
 $fixture_guard$;
 
 select set_config('request.jwt.claim.sub',current_setting('minuta.v136.owner'),true);
+insert into public.organization_payroll_settings(organization_id,enabled,enabled_at,enabled_by)
+values(
+  current_setting('minuta.v136.org')::uuid,true,now(),
+  current_setting('minuta.v136.owner')::uuid
+)
+on conflict(organization_id) do update set
+  enabled=true,
+  enabled_at=coalesce(public.organization_payroll_settings.enabled_at,excluded.enabled_at),
+  enabled_by=coalesce(public.organization_payroll_settings.enabled_by,excluded.enabled_by);
 set local role authenticated;
 select set_config('minuta.v136.finance',public.set_minuta_finance_enabled_v133(
   current_setting('minuta.v136.org')::uuid,true
 )::text,true);
-select public.set_minuta_payroll_enabled(current_setting('minuta.v136.org')::uuid,true);
 select set_config('minuta.v136.cash',(public.create_minuta_financial_account_v129(
   current_setting('minuta.v136.org')::uuid,
   '00000000-0000-4000-8000-000000136001','D07 v136 test cash','cash'
